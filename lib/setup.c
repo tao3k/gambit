@@ -1477,15 +1477,15 @@ int n;)
 
 
 ___HIDDEN ___SCMOBJ make_global
-   ___P((___BOOL collect_undef_glo,
+   ___P((fem_context *ctx,
          ___UTF_8STRING str,
          int supply,
          ___glo_struct **glo),
-        (collect_undef_glo,
+        (ctx,
          str,
          supply,
          glo)
-___BOOL collect_undef_glo;
+fem_context *ctx;
 ___UTF_8STRING str;
 int supply;
 ___glo_struct **glo;)
@@ -1503,15 +1503,17 @@ ___glo_struct **glo;)
 
   g = ___GLOBALVARSTRUCT(sym);
 
-  if (collect_undef_glo)
+  if (ctx->collect_undef_glo)
     {
       /*
        * If the variable is supplied by the module, mark it specially
        * so that it won't be flagged as an undefined variable.
        */
 
-      if (supply && ___GLOCELL(g->val) == ___UNB1)
-        ___GLOCELL(g->val) = ___UNB2;
+      /* Module binding belongs to the loading VM, not an ambient TLS owner. */
+      if (supply &&
+          ___GLOCELL_IN_VM((___VMSTATE_FROM_PSTATE(ctx->ps)),g->val) == ___UNB1)
+        ___GLOCELL_IN_VM((___VMSTATE_FROM_PSTATE(ctx->ps)),g->val) = ___UNB2;
     }
 
   *glo = g;
@@ -1650,7 +1652,7 @@ ___module_struct *module;)
       while (i-- > 0)
         {
           ___glo_struct *glo = 0;
-          ___SCMOBJ e = make_global (ctx->collect_undef_glo,
+          ___SCMOBJ e = make_global (ctx,
                                      glo_names[i],
                                      i<supcount,
                                      &glo);

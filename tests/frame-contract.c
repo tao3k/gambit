@@ -73,7 +73,30 @@ int main (void)
           int expected = c->pattern == 2 ||
             (c->pattern == 1 && (j == 0 || j == actual-1));
           CHECK(bit == expected);
+          CHECK(___frame_slot_live (&frame, j+1) == expected);
         }
+      {
+        ___frame_root_cursor cursor = ___frame_root_begin (&frame);
+        int covered[256] = {0};
+        int first, past, previous = 0;
+        CHECK(actual < 256);
+        CHECK(!___frame_slot_live (&frame, -1));
+        CHECK(!___frame_slot_live (&frame, 0));
+        CHECK(!___frame_slot_live (&frame, actual+1));
+        while (___frame_root_next_run (&cursor, &first, &past))
+          {
+            CHECK(first > previous && first < past && past <= actual+1);
+            for (j=first; j<past; j++) covered[j]++;
+            previous = past;
+          }
+        CHECK(!___frame_root_next_run (&cursor, &first, &past));
+        for (j=1; j<=actual; j++)
+          {
+            int expected = c->pattern == 2 ||
+              (c->pattern == 1 && (j == 1 || j == actual));
+            CHECK(covered[j] == expected);
+          }
+      }
       /* Size-only consumers use the same decoded contract. */
       frame = ___decode_frame_descriptor(encoded,0);
       CHECK(frame.fs == c->stored);

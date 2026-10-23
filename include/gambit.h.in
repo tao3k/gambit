@@ -9316,6 +9316,84 @@ int internal;)
   return frame;
 }
 
+/* Physical root coordinates are one-based.  nextgcmap starts AFTER the first
+ * word, so slot WORD_WIDTH+1 uses nextgcmap[0].  Cast before shifting: a live
+ * root at the native sign bit is valid metadata, not a signed-int mask.
+ */
+___FRAME_INLINE int ___frame_slot_live
+   ___P((const ___frame_descriptor *frame, int slot),
+        (frame, slot)
+const ___frame_descriptor *frame;
+int slot;)
+{
+  int bit;
+  ___UWORD word;
+
+  if (slot <= 0 || slot > frame->fs)
+    return 0;
+  bit = slot - 1;
+  word = ___CAST(___UWORD,
+           bit < ___WORD_WIDTH
+           ? frame->gcmap
+           : frame->nextgcmap[(bit >> ___LOG_WORD_WIDTH) - 1]);
+  return ___CAST(int, (word >> (bit & (___WORD_WIDTH-1))) & 1);
+}
+
+/* Borrowed, nonallocating scan state.  It never outlives the descriptor's
+ * module or crosses a safepoint.  Runs preserve mark_array's bulk marking.
+ */
+typedef struct ___frame_root_cursor_struct
+  {
+    ___UWORD bits;
+    const ___WORD *next;
+    int slot;
+    int fs;
+  } ___frame_root_cursor;
+
+___FRAME_INLINE ___frame_root_cursor ___frame_root_begin
+   ___P((const ___frame_descriptor *frame),
+        (frame)
+const ___frame_descriptor *frame;)
+{
+  ___frame_root_cursor cursor;
+  cursor.bits = ___CAST(___UWORD, frame->gcmap);
+  cursor.next = frame->nextgcmap;
+  cursor.slot = 1;
+  cursor.fs = frame->fs;
+  return cursor;
+}
+
+___FRAME_INLINE void ___frame_root_advance
+   ___P((___frame_root_cursor *cursor),
+        (cursor)
+___frame_root_cursor *cursor;)
+{
+  cursor->bits >>= 1;
+  cursor->slot++;
+  if (cursor->slot <= cursor->fs &&
+      ((cursor->slot-1) & (___WORD_WIDTH-1)) == 0)
+    cursor->bits = ___CAST(___UWORD, *cursor->next++);
+}
+
+___FRAME_INLINE int ___frame_root_next_run
+   ___P((___frame_root_cursor *cursor, int *first, int *past),
+        (cursor, first, past)
+___frame_root_cursor *cursor;
+int *first;
+int *past;)
+{
+  while (cursor->slot <= cursor->fs && !(cursor->bits & 1))
+    ___frame_root_advance (cursor);
+  if (cursor->slot > cursor->fs)
+    return 0;
+  *first = cursor->slot;
+  do
+    ___frame_root_advance (cursor);
+  while (cursor->slot <= cursor->fs && (cursor->bits & 1));
+  *past = cursor->slot;
+  return 1;
+}
+
 #undef ___FRAME_INLINE
 
 /* Existing generated/native entry points are mechanical projections only. */

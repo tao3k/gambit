@@ -3345,20 +3345,14 @@ end-of-code
 
    int i = ___INT(___ARG2);
    ___SCMOBJ ra = ___FIELD(FRAME,___ARG1,0);
-   int fs;
-   int link;
-   ___WORD gcmap;
-   ___WORD *nextgcmap = 0;
+   ___frame_descriptor descriptor;
 
    if (ra == ___ps->internal_return)
-     ___RETI_GET_FS_LINK_GCMAP(___BODY_AS(___ARG1,___tFRAME)[___FRAME_RETI_RA],fs,link,gcmap,nextgcmap)
+     descriptor = ___decode_frame_descriptor (___LABEL_DESCR_GET(___BODY_AS(___ARG1,___tFRAME)[___FRAME_RETI_RA]), 1);
    else
-     ___RETN_GET_FS_LINK_GCMAP(ra,fs,link,gcmap,nextgcmap)
+     descriptor = ___decode_frame_descriptor (___LABEL_DESCR_GET(ra), 0);
 
-   if (i > ___WORD_WIDTH)
-     gcmap = nextgcmap[(i-1) >> ___LOG_WORD_WIDTH];
-
-   ___RESULT = ___BOOLEAN(gcmap & (1 << ((i-1) & (___WORD_WIDTH-1))));
+   ___RESULT = ___BOOLEAN(___frame_slot_live (&descriptor, i));
 
 end-of-code
 
@@ -3372,10 +3366,7 @@ end-of-code
    ___SCMOBJ frame = ___CONTINUATION_FRAME_FIELD(___ARG1);
    int i = ___INT(___ARG2);
    ___SCMOBJ ra;
-   int fs;
-   int link;
-   ___WORD gcmap;
-   ___WORD *nextgcmap = 0;
+   ___frame_descriptor descriptor;
 
    if (___TESTTYPE(frame, ___tFRAME))
      {
@@ -3384,9 +3375,9 @@ end-of-code
        ra = ___FIELD(FRAME,frame,0);
 
        if (ra == ___ps->internal_return)
-         ___RETI_GET_FS_LINK_GCMAP(___FIELD(FRAME,frame,___FRAME_RETI_RA),fs,link,gcmap,nextgcmap)
+         descriptor = ___decode_frame_descriptor (___LABEL_DESCR_GET(___FIELD(FRAME,frame,___FRAME_RETI_RA)), 1);
        else
-         ___RETN_GET_FS_LINK_GCMAP(ra,fs,link,gcmap,nextgcmap)
+         descriptor = ___decode_frame_descriptor (___LABEL_DESCR_GET(ra), 0);
      }
    else
      {
@@ -3397,15 +3388,12 @@ end-of-code
        ra = fp[___FRAME_STACK_RA];
 
        if (ra == ___ps->internal_return)
-         ___RETI_GET_FS_LINK_GCMAP(fp[-___RETI_RA],fs,link,gcmap,nextgcmap)
+         descriptor = ___decode_frame_descriptor (___LABEL_DESCR_GET(fp[-___RETI_RA]), 1);
        else
-         ___RETN_GET_FS_LINK_GCMAP(ra,fs,link,gcmap,nextgcmap)
+         descriptor = ___decode_frame_descriptor (___LABEL_DESCR_GET(ra), 0);
      }
 
-   if (i > ___WORD_WIDTH)
-     gcmap = nextgcmap[(i-1) >> ___LOG_WORD_WIDTH];
-
-   ___RESULT = ___BOOLEAN(gcmap & (1 << ((i-1) & (___WORD_WIDTH-1))));
+   ___RESULT = ___BOOLEAN(___frame_slot_live (&descriptor, i));
 
 end-of-code
 

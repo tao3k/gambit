@@ -3817,80 +3817,31 @@ ___WORD *orig_ptr;)
 ___HIDDEN void mark_frame
    ___P((___PSD
          ___WORD *fp,
-         int fs,
-         ___WORD gcmap,
-         ___WORD *nextgcmap),
+         const ___frame_descriptor *frame),
         (___PSV
          fp,
-         fs,
-         gcmap,
-         nextgcmap)
+         frame)
 ___PSDKR
 ___WORD *fp;
-int fs;
-___WORD gcmap;
-___WORD *nextgcmap;)
+const ___frame_descriptor *frame;)
 {
-  int i = 1;
+  ___frame_root_cursor cursor = ___frame_root_begin (frame);
+  int first, past;
 
-  for (;;)
+  while (___frame_root_next_run (&cursor, &first, &past))
     {
-      if (gcmap & 1)
+#ifdef SHOW_FRAMES
+      int k = first;
+      while (k < past)
         {
-          int j = i;
-          do
-            {
-              if (i == fs)
-                {
-#ifdef SHOW_FRAMES
-                  {
-                    int k = j;
-                    while (k <= i)
-                      {
-                        ___WORD obj = ___FP_STK(fp,k);
-                        ___printf ("  %2d: ", k);
-                        print_value (obj);
-                        ___printf ("\n");
-                        k++;
-                      }
-                  }
-#endif
-                  mark_array (___PSP &___FP_STK(fp,i), i-j+1);
-                  return;
-                }
-              if ((i & (___WORD_WIDTH-1)) == 0)
-                gcmap = *nextgcmap++;
-              else
-                gcmap >>= 1;
-              i++;
-            } while (gcmap & 1);
-#ifdef SHOW_FRAMES
-          {
-            int k = j;
-            while (k < i)
-              {
-                ___WORD obj = ___FP_STK(fp,k);
-                ___printf ("  %2d: ", k);
-                print_value (obj);
-                ___printf ("\n");
-                k++;
-              }
-          }
-#endif
-          mark_array (___PSP &___FP_STK(fp,i-1), i-j);
+          ___WORD obj = ___FP_STK(fp,k);
+          ___printf ("  %2d: ", k);
+          print_value (obj);
+          ___printf ("\n");
+          k++;
         }
-      if (i == fs)
-        return;
-      if ((i & (___WORD_WIDTH-1)) == 0)
-        {
-          gcmap = *nextgcmap++;
-#ifdef SHOW_FRAMES
-          ___printf ("gcmap = 0x%" ___PRIxWORD "\n", gcmap);
 #endif
-        }
-      else
-        gcmap >>= 1;
-      i++;
+      mark_array (___PSP &___FP_STK(fp,past-1), past-first);
     }
 }
 
@@ -3901,12 +3852,10 @@ ___HIDDEN void mark_continuation
 ___PSDKR)
 {
   ___PSGET
-  int fs, link;
+  ___frame_descriptor descriptor;
   ___WORD *fp;
   ___WORD ra1;
   ___WORD ra2;
-  ___WORD gcmap;
-  ___WORD *nextgcmap = 0;
 
 #ifdef ENABLE_CONSISTENCY_CHECKS
   reference_location = IN_CONTINUATION;
@@ -3930,31 +3879,31 @@ ___PSDKR)
         if (ra1 == ___GSTATE->internal_return)
           {
             ___WORD actual_ra = ___FP_STK(fp,___RETI_RA);
-            ___RETI_GET_FS_LINK_GCMAP(actual_ra,fs,link,gcmap,nextgcmap)
+            descriptor = ___decode_frame_descriptor (___LABEL_DESCR_GET(actual_ra), 1);
             ___COVER_MARK_CONTINUATION_RETI;
           }
         else
           {
-            ___RETN_GET_FS_LINK_GCMAP(ra1,fs,link,gcmap,nextgcmap)
+            descriptor = ___decode_frame_descriptor (___LABEL_DESCR_GET(ra1), 0);
             ___COVER_MARK_CONTINUATION_RETN;
           }
 
 #ifdef SHOW_FRAMES
-        ___printf ("fs=%d link=%d fp=%p ra=", fs, link, fp);
+        ___printf ("fs=%d link=%d fp=%p ra=", descriptor.fs, descriptor.link, fp);
         print_value (ra1);
         ___printf ("\n");
 #endif
 
-        ___FP_ADJFP(fp,-___FRAME_SPACE(fs)) /* get base of frame */
+        ___FP_ADJFP(fp,-___FRAME_SPACE(descriptor.fs)) /* get base of frame */
 
-        ra2 = ___FP_STK(fp,link+1);
+        ra2 = ___FP_STK(fp,descriptor.link+1);
 
 #ifdef SHOW_FRAMES
         if (fp == ___ps->stack_break)
           ___printf ("  (first frame above break frame)\n");
 #endif
 
-        mark_frame (___PSP fp, fs, gcmap, nextgcmap);
+        mark_frame (___PSP fp, &descriptor);
 
         if (fp == ___ps->stack_break)
           break;
@@ -4100,11 +4049,9 @@ ___WORD head;)
 
     case ___sFRAME:
       {
-        int fs, link;
+        ___frame_descriptor descriptor;
         ___WORD *fp = body + ___FRAME_EXTRA_SLOTS;
         ___WORD ra = body[0];
-        ___WORD gcmap;
-        ___WORD *nextgcmap = 0;
         ___WORD frame;
 
 #ifdef SHOW_FRAMES
@@ -4115,32 +4062,32 @@ ___WORD head;)
         if (ra == ___GSTATE->internal_return)
           {
             ___WORD actual_ra = body[___FRAME_RETI_RA];
-            ___RETI_GET_FS_LINK_GCMAP(actual_ra,fs,link,gcmap,nextgcmap)
+            descriptor = ___decode_frame_descriptor (___LABEL_DESCR_GET(actual_ra), 1);
             ___COVER_SCAN_FRAME_RETI;
           }
         else
           {
-            ___RETN_GET_FS_LINK_GCMAP(ra,fs,link,gcmap,nextgcmap)
+            descriptor = ___decode_frame_descriptor (___LABEL_DESCR_GET(ra), 0);
             ___COVER_SCAN_FRAME_RETN;
           }
 
 #ifdef SHOW_FRAMES
-        ___printf ("fs=%d link=%d fp=%p ra=", fs, link, fp);
+        ___printf ("fs=%d link=%d fp=%p ra=", descriptor.fs, descriptor.link, fp);
         print_value (ra);
         ___printf ("\n");
 #endif
 
-        fp += fs;
+        fp += descriptor.fs;
 
-        frame = ___FP_STK(fp,link+1);
-
-        if (___FIXNUMP(frame) && frame != ___END_OF_CONT_MARKER)
-          ___FP_SET_STK(fp,link+1,___FAL)
-
-        mark_frame (___PSP fp, fs, gcmap, nextgcmap);
+        frame = ___FP_STK(fp,descriptor.link+1);
 
         if (___FIXNUMP(frame) && frame != ___END_OF_CONT_MARKER)
-          ___FP_SET_STK(fp,link+1,___TAG(___UNTAG_AS(frame, ___tFIXNUM), ___tSUBTYPED))
+          ___FP_SET_STK(fp,descriptor.link+1,___FAL)
+
+        mark_frame (___PSP fp, &descriptor);
+
+        if (___FIXNUMP(frame) && frame != ___END_OF_CONT_MARKER)
+          ___FP_SET_STK(fp,descriptor.link+1,___TAG(___UNTAG_AS(frame, ___tFIXNUM), ___tSUBTYPED))
 
         mark_array (___PSP &body[0], 1);
       }
