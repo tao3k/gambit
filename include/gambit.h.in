@@ -11942,6 +11942,21 @@ typedef struct ___program_startup_info_struct
 #endif
   } ___program_startup_info_struct;
 
+/* One full-word CAS owns generation, admission and all registered permits.
+ * No Scheme payload is stored here; these records are not GC root cells.
+ * Fixed capacity is admission capacity, not a limit on Scheme continuations.
+ */
+#ifndef ___NATIVE_SCOPE_CAPACITY
+#define ___NATIVE_SCOPE_CAPACITY 64
+#endif
+#if ___NATIVE_SCOPE_CAPACITY < 1
+#error "___NATIVE_SCOPE_CAPACITY must be positive"
+#endif
+typedef struct ___native_scope_struct
+  {
+    ___VOLATILE ___WORD gate;
+  } ___native_scope;
+
 /* Virtual machine state structure */
 
 typedef struct ___virtual_machine_state_struct
@@ -11964,6 +11979,8 @@ typedef struct ___virtual_machine_state_struct
     ___vmstate_os os; /* OS specific state */
 
     ___vmstate_mem mem; /* memory management state */
+
+    ___native_scope native_scopes[___NATIVE_SCOPE_CAPACITY];
 
     ___SCMOBJ main_module_ref; /* symbol identifying the VM's main module */
 

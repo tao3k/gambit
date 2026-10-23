@@ -21,6 +21,7 @@
 #include "mem.h"
 #include "c_intf.h"
 #include "actlog.h"
+#include "native_scope.h"
 
 
 /*---------------------------------------------------------------------------*/
@@ -4786,6 +4787,9 @@ ___EXP_FUNC(___SCMOBJ,___setup_vmstate)
 ___virtual_machine_state ___vms;)
 {
   ___SCMOBJ err;
+
+  /* Exclusive setup, before any processor/thread can borrow these records. */
+  ___native_scope_init_vmstate (___vms);
 
   /*
    * Virtual machine starts off with a single processor.
