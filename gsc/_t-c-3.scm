@@ -486,7 +486,35 @@
 (define (targ-build-gc-map-all-live fs)
   (- (expt 2 fs) 1))
 
-(define (targ-gc-map-chunks gc-map kind fs)
+(define (targ-make-frame-spec kind fs link gc-map)
+  ;; Freeze the physical contract once, after semantic liveness is complete.
+  ;; The emitter must not reinterpret an unvalidated positional return vector.
+  (if (not (and (memq kind '(normal task internal))
+                (integer? fs) (exact? fs) (<= 0 fs) (< fs 16384)
+                (integer? link) (exact? link) (<= 0 link) (< link 16384)
+                (integer? gc-map) (exact? gc-map) (<= 0 gc-map)))
+      (compiler-internal-error "invalid frame specification"))
+  (let* ((actual-fs (if (eq? kind 'internal) (targ-internal-fs fs) fs))
+         (out-of-line? (> actual-fs targ-max-inline-fs)))
+    (if (not (and (< link actual-fs)
+                  (< gc-map (expt 2 actual-fs))))
+        (compiler-internal-error "frame link or root map outside frame"))
+    (vector 'frame-spec kind fs actual-fs link gc-map out-of-line?)))
+
+(define (targ-frame-spec-kind spec) (vector-ref spec 1))
+(define (targ-frame-spec-stored-fs spec) (vector-ref spec 2))
+(define (targ-frame-spec-actual-fs spec) (vector-ref spec 3))
+(define (targ-frame-spec-link spec) (vector-ref spec 4))
+(define (targ-frame-spec-gc-map spec) (vector-ref spec 5))
+(define (targ-frame-spec-out-of-line? spec) (vector-ref spec 6))
+(define (targ-frame-spec-chunks spec)
+  ;; Materialize at emission, not for every frame in the retained module plan.
+  (if (targ-frame-spec-out-of-line? spec)
+      (targ-gc-map-chunks (targ-frame-spec-gc-map spec)
+                          (targ-frame-spec-actual-fs spec))
+      '()))
+
+(define (targ-gc-map-chunks gc-map actual-fs)
 
   (define bits-per-chunk 32)
   (define two^32 4294967296)
@@ -497,15 +525,7 @@
       (cons (remainder gc-map two^32)
             (build-chunks (quotient gc-map two^32) (- fs bits-per-chunk)))))
 
-  (build-chunks gc-map (targ-actual-fs kind fs)))
-
-(define (targ-out-of-line-frame? kind fs)
-  (> (targ-actual-fs kind fs) targ-max-inline-fs))
-
-(define (targ-actual-fs kind fs)
-  (if (eq? kind 'internal)
-      (targ-internal-fs fs)
-      fs))
+  (build-chunks gc-map actual-fs))
 
 (define (targ-internal-fs fs)
   (+ (targ-align-frame fs)

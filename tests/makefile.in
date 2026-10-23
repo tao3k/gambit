@@ -74,7 +74,7 @@ RCFILES = makefile.in \
 debug.scm error.scm r4rstest.scm mix.scm mem.scm client.c server.scm server.h \
 test1.ok test2.ok test3.ok test4.ok test5.ok test6.ok test7.ok \
 test8.ok test9.ok test10.scm input run-unit-tests.scm stack-overflow-undo.c \
-inline-primitives.scm native-scope.c native_scope_gate.qnt NativeScopeGate.lean
+inline-primitives.scm native-scope.c frame-spec.scm frame-contract.c frame-continuation.scm
 
 GENDISTFILES =
 
@@ -115,7 +115,7 @@ core-post:
 
 .NOTPARALLEL:
 
-check: core test1 test2 test3 test4 test5 test6 test7 test8 test9 test10 test11 test12 test-inline-primitives test-native-scope
+check: core test1 test2 test3 test4 test5 test6 test7 test8 test9 test10 test11 test12 test-inline-primitives test-native-scope test-frame-contract
 	@echo "============ ALL TESTS SUCCESSFUL"
 	rm -f mem.c mem_.c mem@obj@ mem.o1 mem_@obj@ mem@exe@ \
 	  mix.c mix_.c mix@obj@ mix_@obj@ mix@exe@ \
@@ -261,6 +261,19 @@ test-native-scope:
 	rm -f native-scope@exe@ native-scope@obj@
 
 test-native-scope-build:
+	@BUILD_EXE@
+
+.PHONY: test-frame-contract test-frame-contract-build
+
+test-frame-contract:
+	@SETDLPATH@ FRAME_SPEC_FIXTURES=frame-spec-fixtures.h $(rootfromhere)/gsc/gsc@exe@ -:~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f -i $(srcdirpfx)frame-spec.scm
+	$(MAKE) test-frame-contract-build BUILD_EXE_OUTPUT_FILENAME_PARAM=frame-contract@exe@ BUILD_EXE_INPUT_FILENAMES_PARAM=$(srcdirpfx)frame-contract.c BUILD_EXE_CC_OPTIONS_PARAM=-I.
+	@SETDLPATH@ ./frame-contract@exe@
+	@SETDLPATH@ $(rootfromhere)/gsc/gsc@exe@ -:~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f -exe -o frame-continuation@exe@ $(srcdirpfx)frame-continuation.scm
+	@SETDLPATH@ ./frame-continuation@exe@
+	rm -f frame-spec-fixtures.h frame-contract@exe@ frame-contract@obj@ frame-continuation@exe@
+
+test-frame-contract-build:
 	@BUILD_EXE@
 
 test-inline-primitives:

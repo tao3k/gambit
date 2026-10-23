@@ -280,13 +280,13 @@
   (targ-emit-label lbl 'proc (vector nb-parms nb-closed)))
 
 (define (targ-emit-label-return lbl fs link gc-map label-descr)
-  (targ-emit-label lbl 'return (vector 'normal fs link gc-map)))
+  (targ-emit-label lbl 'return (targ-make-frame-spec 'normal fs link gc-map)))
 
 (define (targ-emit-label-return-task lbl fs link gc-map label-descr)
-  (targ-emit-label lbl 'return (vector 'task fs link gc-map)))
+  (targ-emit-label lbl 'return (targ-make-frame-spec 'task fs link gc-map)))
 
 (define (targ-emit-label-return-internal lbl fs link gc-map label-descr)
-  (targ-emit-label lbl 'return (vector 'internal fs link gc-map)))
+  (targ-emit-label lbl 'return (targ-make-frame-spec 'internal fs link gc-map)))
 
 ;; Add a label to the code stream
 

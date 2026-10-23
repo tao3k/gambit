@@ -9261,60 +9261,93 @@ ___LOCAL ___WORD ___ofdtbl[]={
 #define ___RETI_CFS_TO_FS(fs) \
 ___ROUND_TO_MULT(fs,___FRAME_ALIGN)+___FRAME_SPACE(___NB_GVM_REGS+1)-___FRAME_RESERVE
 
-#define ___RETI_GET_CFS(ra,fs) \
-{ ___WORD descr = ___LABEL_DESCR_GET(ra); \
-if (___IS_IFD(descr)) \
-fs = ___IFD_FS(descr); \
-else \
-fs = ___OFD_FS(*(___WORD*)descr); }
+/* One decoded frame contract for stack roots, heap frames and restoration.
+ * Input descriptors are trusted, live module metadata. This decoder neither
+ * validates an arbitrary pointer nor extends the lifetime of its module.
+ */
+typedef struct ___frame_descriptor_struct
+  {
+    int kind;
+    int stored_fs;
+    int fs;
+    int link;
+    ___WORD gcmap;
+    ___WORD *nextgcmap;
+  } ___frame_descriptor;
 
-#define ___RETI_GET_FS(ra,fs) \
-{ ___WORD descr = ___LABEL_DESCR_GET(ra); \
-if (___IS_IFD(descr)) \
-fs = ___RETI_CFS_TO_FS(___IFD_FS(descr)); \
-else \
-fs = ___RETI_CFS_TO_FS(___OFD_FS(*(___WORD*)descr)); }
+#if defined(__GNUC__) || defined(__clang__)
+#define ___FRAME_INLINE static __inline__
+#elif defined(_MSC_VER)
+#define ___FRAME_INLINE static __inline
+#elif defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L
+#define ___FRAME_INLINE static inline
+#else
+#define ___FRAME_INLINE static
+#endif
 
-#define ___RETN_GET_FS(ra,fs) \
-{ ___WORD descr = ___LABEL_DESCR_GET(ra); \
-if (___IS_IFD(descr)) \
-fs = ___IFD_FS(descr); \
-else \
-fs = ___OFD_FS(*(___WORD*)descr); }
+___FRAME_INLINE ___frame_descriptor ___decode_frame_descriptor
+   ___P((___WORD descr, int internal),
+        (descr, internal)
+___WORD descr;
+int internal;)
+{
+  ___frame_descriptor frame;
 
-#define ___RETI_GET_FS_LINK(ra,fs,link) \
-{ ___WORD descr = ___LABEL_DESCR_GET(ra); \
-if (___IS_IFD(descr)) \
-{ fs = ___RETI_CFS_TO_FS(___IFD_FS(descr)); link = ___IFD_LINK(descr); } \
-else \
-{ descr = *(___WORD*)descr; \
-fs = ___RETI_CFS_TO_FS(___OFD_FS(descr)); link = ___OFD_LINK(descr); } }
+  if (___IS_IFD(descr))
+    {
+      frame.kind = ___IFD_KIND(descr);
+      frame.stored_fs = ___IFD_FS(descr);
+      frame.link = ___IFD_LINK(descr);
+      frame.gcmap = ___IFD_GCMAP(descr);
+      frame.nextgcmap = 0;
+    }
+  else
+    {
+      ___WORD *table = ___CAST(___WORD*,descr);
+      ___WORD header = *table++;
+      frame.kind = ___OFD_KIND(header);
+      frame.stored_fs = ___OFD_FS(header);
+      frame.link = ___OFD_LINK(header);
+      frame.gcmap = *table++;
+      frame.nextgcmap = table;
+    }
 
-#define ___RETN_GET_FS_LINK(ra,fs,link) \
-{ ___WORD descr = ___LABEL_DESCR_GET(ra); \
-if (___IS_IFD(descr)) \
-{ fs = ___IFD_FS(descr); link = ___IFD_LINK(descr); } \
-else \
-{ descr = *(___WORD*)descr; \
-fs = ___OFD_FS(descr); link = ___OFD_LINK(descr); } }
+  frame.fs = internal ? ___RETI_CFS_TO_FS(frame.stored_fs) : frame.stored_fs;
+  return frame;
+}
 
-#define ___RETI_GET_FS_LINK_GCMAP(ra,fs,link,firstgcmap,nextgcmap) \
-{ ___WORD descr = ___LABEL_DESCR_GET(ra); \
-if (___IS_IFD(descr)) \
-{ fs = ___RETI_CFS_TO_FS(___IFD_FS(descr)); link = ___IFD_LINK(descr); \
-firstgcmap = ___IFD_GCMAP(descr); } \
-else \
-{ nextgcmap = (___WORD*)descr; descr = *nextgcmap++; firstgcmap = *nextgcmap++; \
-fs = ___RETI_CFS_TO_FS(___OFD_FS(descr)); link = ___OFD_LINK(descr); } }
+#undef ___FRAME_INLINE
 
-#define ___RETN_GET_FS_LINK_GCMAP(ra,fs,link,firstgcmap,nextgcmap) \
-{ ___WORD descr = ___LABEL_DESCR_GET(ra); \
-if (___IS_IFD(descr)) \
-{ firstgcmap = ___IFD_GCMAP(descr); \
-fs = ___IFD_FS(descr); link = ___IFD_LINK(descr); } \
-else \
-{ nextgcmap = (___WORD*)descr; descr = *nextgcmap++; firstgcmap = *nextgcmap++; \
-fs = ___OFD_FS(descr); link = ___OFD_LINK(descr); } }
+/* Existing generated/native entry points are mechanical projections only. */
+#define ___RETI_GET_CFS(ra,fs_arg) \
+{ ___frame_descriptor ___fd = ___decode_frame_descriptor(___LABEL_DESCR_GET(ra),0); \
+fs_arg = ___fd.stored_fs; }
+
+#define ___RETI_GET_FS(ra,fs_arg) \
+{ ___frame_descriptor ___fd = ___decode_frame_descriptor(___LABEL_DESCR_GET(ra),1); \
+fs_arg = ___fd.fs; }
+
+#define ___RETN_GET_FS(ra,fs_arg) \
+{ ___frame_descriptor ___fd = ___decode_frame_descriptor(___LABEL_DESCR_GET(ra),0); \
+fs_arg = ___fd.fs; }
+
+#define ___RETI_GET_FS_LINK(ra,fs_arg,link_arg) \
+{ ___frame_descriptor ___fd = ___decode_frame_descriptor(___LABEL_DESCR_GET(ra),1); \
+fs_arg = ___fd.fs; link_arg = ___fd.link; }
+
+#define ___RETN_GET_FS_LINK(ra,fs_arg,link_arg) \
+{ ___frame_descriptor ___fd = ___decode_frame_descriptor(___LABEL_DESCR_GET(ra),0); \
+fs_arg = ___fd.fs; link_arg = ___fd.link; }
+
+#define ___RETI_GET_FS_LINK_GCMAP(ra,fs_arg,link_arg,firstgcmap_arg,nextgcmap_arg) \
+{ ___frame_descriptor ___fd = ___decode_frame_descriptor(___LABEL_DESCR_GET(ra),1); \
+fs_arg = ___fd.fs; link_arg = ___fd.link; \
+firstgcmap_arg = ___fd.gcmap; nextgcmap_arg = ___fd.nextgcmap; }
+
+#define ___RETN_GET_FS_LINK_GCMAP(ra,fs_arg,link_arg,firstgcmap_arg,nextgcmap_arg) \
+{ ___frame_descriptor ___fd = ___decode_frame_descriptor(___LABEL_DESCR_GET(ra),0); \
+fs_arg = ___fd.fs; link_arg = ___fd.link; \
+firstgcmap_arg = ___fd.gcmap; nextgcmap_arg = ___fd.nextgcmap; }
 
 /* Procedure descriptor structures. */
 
