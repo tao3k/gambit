@@ -595,6 +595,12 @@ ___PSDKR)
             flags |= ___GCHASHTABLE_FLAG_KEY_MOVED; /* assume worst case */
         }
 
+      /* A Scheme hash is stable for an unchanged key across GC. Repairing
+       * references does not authorize C address-hash slot permutation.
+       * Preserve separate NEED_REHASH debt from reconstruction. */
+      if (flags & ___GCHASHTABLE_FLAG_SCHEME_INDEX)
+        flags &= ~___GCHASHTABLE_FLAG_KEY_MOVED;
+
       body[___GCHASHTABLE_FLAGS] = ___FIX(flags);
 
 #ifndef ___GC_HASH_TABLE_REHASH_LAZILY

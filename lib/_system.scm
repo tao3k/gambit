@@ -1959,12 +1959,9 @@ end-of-code
                  arg-num))
 
   (define (checks-done siz flags test-fn hash-fn loads arg-num)
-    (macro-make-table (if (and #f ;; don't make a special case for eq? tables
-                               (##not test-fn)
-                               (##eq? weak-keys (macro-absent-obj)))
-                          (##fxior
-                           flags
-                           (macro-gc-hash-table-flag-weak-keys))
+    ;; A true test-fn selects Scheme table-access, not C address hashing.
+    (macro-make-table (if test-fn
+                          (##fxior flags (macro-gc-hash-table-flag-scheme-index))
                           flags)
                       test-fn
                       hash-fn
