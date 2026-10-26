@@ -75,7 +75,14 @@ ___WORD head;)
               (flags & ___GCHASHTABLE_FLAG_MEM_ALLOC_KEYS))
             {
               for (i=words-2; i>=___GCHASHTABLE_KEY0; i-=2)
-                mark_array (___PSP body+i, 1); /* mark objects in key fields */
+                {
+                  ___SCMOBJ key = body[i];
+                  mark_array (___PSP body+i, 1); /* repair this key in place */
+                  if (body[i] != key)
+                    body[___GCHASHTABLE_FLAGS] =
+                      ___FIXIOR(body[___GCHASHTABLE_FLAGS],
+                                ___FIX(___GCHASHTABLE_FLAG_KEY_MOVED));
+                }
             }
 
           if ((flags & ___GCHASHTABLE_FLAG_WEAK_VALS) == 0)

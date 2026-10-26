@@ -591,8 +591,8 @@ ___PSDKR)
                 }
             }
 
-          if (flags & ___GCHASHTABLE_FLAG_MEM_ALLOC_KEYS)
-            flags |= ___GCHASHTABLE_FLAG_KEY_MOVED; /* assume worst case */
+          /* Strong-key scanning records actual address changes. A stable key
+           * does not invalidate native placement or require any rebuild. */
         }
 
       /* A Scheme hash is stable for an unchanged key across GC. Repairing
@@ -603,13 +603,9 @@ ___PSDKR)
 
       body[___GCHASHTABLE_FLAGS] = ___FIX(flags);
 
-#ifndef ___GC_HASH_TABLE_REHASH_LAZILY
-
-      if (!___FIXZEROP(___FIXAND(___FIX(flags),
-                                 ___FIX(___GCHASHTABLE_FLAG_KEY_MOVED))))
-        gc_hash_table_rehash_in_situ (___SUBTYPED_FROM_BODY(body));
-
-#endif
+      /* Reference repair and weak deletion preserve physical slot order.
+       * A suspended traversal owns its cursor; only a mutator may rebuild.
+       * Keep native address debt for pure lookup and writer settlement. */
     }
 }
 

@@ -12,14 +12,6 @@ ___SCMOBJ key;)
   int step2;
   ___SCMOBJ obj;
 
-#ifdef ___GC_HASH_TABLE_REHASH_LAZILY
-
-  if (!___FIXZEROP(___FIXAND(___GCHASHTABLE_FLAGS_FIELD(ht),
-                             ___FIX(___GCHASHTABLE_FLAG_KEY_MOVED))))
-    gc_hash_table_rehash_in_situ (ht);
-
-#endif
-
   size2 = ___INT(___GCHASHTABLELENGTH(ht)) - ___GCHASHTABLE_KEY0;
   ___GCHASHTABLE_HASH_STEP(probe2, step2, key, size2>>1);
   probe2 <<= 1;
@@ -44,6 +36,20 @@ ___SCMOBJ key;)
         }
     }
 
+  if (!___FIXZEROP(___FIXAND(___GCHASHTABLE_FLAGS_FIELD(ht),
+                             ___FIX(___GCHASHTABLE_FLAG_KEY_MOVED))))
+    {
+      /* An ordinary probe already missed. References are current, but their
+       * address-based placement may be stale. A read cannot acquire layout
+       * write authority: preserve the slots of a suspended for-each/search/
+       * fold cursor, even when its visitor performs a lookup after GC. */
+      int i;
+      for (i=0; i<size2; i+=2)
+        if (___EQP(___FIELD(WEAK, ht, i+___GCHASHTABLE_KEY0), key))
+          return ___FIELD(WEAK, ht, i+___GCHASHTABLE_VAL0);
+      return ___UNUSED;
+    }
+
   return ___UNUSED; /* key was not found */
 }
 
@@ -64,13 +70,11 @@ ___SCMOBJ val;)
   int step2;
   ___SCMOBJ obj;
 
-#ifdef ___GC_HASH_TABLE_REHASH_LAZILY
-
+  /* Mutation already requires exclusive mutator ownership. Settle address
+   * placement debt before either insert, replace or delete. */
   if (!___FIXZEROP(___FIXAND(___GCHASHTABLE_FLAGS_FIELD(ht),
                              ___FIX(___GCHASHTABLE_FLAG_KEY_MOVED))))
     gc_hash_table_rehash_in_situ (ht);
-
-#endif
 
   size2 = ___INT(___GCHASHTABLELENGTH(ht)) - ___GCHASHTABLE_KEY0;
   ___GCHASHTABLE_HASH_STEP(probe2, step2, key, size2>>1);
@@ -294,13 +298,11 @@ ___BOOL find;)
   ___SCMOBJ k2 = ___FIX(0);
   ___SCMOBJ k2_probe2 = ___FIX(0);
 
-#ifdef ___GC_HASH_TABLE_REHASH_LAZILY
-
+  /* Even find=true compresses parent paths: this is a writer, not a pure
+   * query. Rebuilding also repairs its position-encoded parent links. */
   if (!___FIXZEROP(___FIXAND(___GCHASHTABLE_FLAGS_FIELD(ht),
                              ___FIX(___GCHASHTABLE_FLAG_KEY_MOVED))))
     gc_hash_table_rehash_in_situ (ht);
-
-#endif
 
   size2 = ___INT(___GCHASHTABLELENGTH(ht)) - ___GCHASHTABLE_KEY0;
 

@@ -110,19 +110,7 @@ ___PSDKR)
 }
 
 
-#ifdef ___GC_HASH_TABLE_REHASH_EAGERLY
-#ifdef ___GC_HASH_TABLE_REHASH_LAZILY
-#error "Define either ___GC_HASH_TABLE_REHASH_EAGERLY or ___GC_HASH_TABLE_REHASH_LAZILY"
-#endif
-#else
-#ifndef ___GC_HASH_TABLE_REHASH_LAZILY
-#ifdef ___SINGLE_THREADED_VMS
-#define ___GC_HASH_TABLE_REHASH_LAZILY
-#else
-#define ___GC_HASH_TABLE_REHASH_EAGERLY
-#endif
-#endif
-#endif
-
+/* Hash-table layout ownership is independent of collector population.
+ * Reads preserve slots; native writes settle address-index debt. */
 
 /* End internal memory fragment. */
