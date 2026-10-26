@@ -83,12 +83,37 @@ GAMBIT_LIB_C = _$(GAMBITLIB).c
 GAMBIT_LIB_O = _$(GAMBITLIB)@obj@
 
 NORMAL_C = native_scope.c main.c setup.c mem.c os_setup.c os_base.c os_thread.c os_time.c os_shell.c os_files.c os_dyn.c os_tty.c os_io.c c_intf.c actlog.c
+MEMORY_SOURCES = _mem/configuration.inc \
+  _mem/aligned-allocation.inc \
+  _mem/rc-allocation.inc \
+  _mem/movable-sections.inc \
+  _mem/permanent-allocation.inc \
+  _mem/global-bindings.inc \
+  _mem/still-refcount.inc \
+  _mem/object-allocation.inc \
+  _mem/symbols.inc \
+  _mem/diagnostics.inc \
+  _mem/heap-sections.inc \
+  _mem/copy-reservations.inc \
+  _mem/continuation-roots.inc \
+  _mem/rc-roots.inc \
+  _mem/object-scanning.inc \
+  _mem/still-sweep.inc \
+  _mem/memory-lifecycle.inc \
+  _mem/wills.inc \
+  _mem/weak-tables.inc \
+  _mem/hash-table-api.inc \
+  _mem/capacity-resize.inc \
+  _mem/root-origins.inc \
+  _mem/collection-round.inc \
+  _mem/allocation-limits.inc \
+  _mem/allocation-statistics.inc
 NORMAL_CPP =
 NORMAL_H = native_scope.h setup.h mem.h os.h os_setup.h os_base.h os_thread.h os_time.h os_shell.h os_files.h os_dyn.h os_tty.h os_io.h c_intf.h actlog.h dead.h
 NORMAL_O = native_scope@obj@ main@obj@ setup@obj@ mem@obj@ c_intf@obj@ actlog@obj@ os_setup@obj@ os_base@obj@ os_thread@obj@ os_time@obj@ os_shell@obj@ os_files@obj@ os_dyn@obj@ os_tty@obj@ os_io@obj@
 NORMAL_O_PLUS = +native_scope@obj@ +main@obj@ +setup@obj@ +mem@obj@ +c_intf@obj@ +actlog@obj@ +os_setup@obj@ +os_base@obj@ +os_thread@obj@ +os_time@obj@ +os_shell@obj@ +os_files@obj@ +os_dyn@obj@ +os_tty@obj@ +os_io@obj@
 NORMAL_O_COMMA = native_scope@obj@,main@obj@,setup@obj@,mem@obj@,c_intf@obj@,actlog@obj@,os_setup@obj@,os_base@obj@,os_thread@obj@,os_time@obj@,os_shell@obj@,os_files@obj@,os_dyn@obj@,os_tty@obj@,os_io@obj@
-NORMAL_SOURCES = $(NORMAL_C) $(NORMAL_CPP) $(NORMAL_H)
+NORMAL_SOURCES = $(NORMAL_C) $(NORMAL_CPP) $(NORMAL_H) $(MEMORY_SOURCES)
 
 HEADERS_SCM = "_kernel\#.scm" "_system\#.scm" "_num\#.scm" "_std\#.scm" \
 "_eval\#.scm" "_module\#.scm" "_io\#.scm" "_nonstd\#.scm" "_thread\#.scm" \
@@ -332,7 +357,7 @@ native_scope@obj@: native_scope.c native_scope.h
 setup@obj@: setup.c os.h os_setup.h os_base.h os_files.h os_dyn.h os_thread.h setup.h mem.h c_intf.h native_scope.h
 	@BUILD_OBJ_RTS@ -D___LIBRARY
 
-mem@obj@: mem.c os.h os_setup.h os_base.h os_time.h setup.h mem.h c_intf.h actlog.h
+mem@obj@: mem.c $(MEMORY_SOURCES) os.h os_setup.h os_base.h os_time.h setup.h mem.h c_intf.h actlog.h
 	@BUILD_OBJ_RTS@ -D___LIBRARY
 
 c_intf@obj@: c_intf.c os.h os_base.h os_dyn.h setup.h mem.h c_intf.h
@@ -491,11 +516,12 @@ rc-setup-post:
 dist-pre dist-devel-pre:
 	mkdir $(rootfromhere)/$(PACKAGE_TARNAME)/$(herefromroot)
 	chmod 777 $(rootfromhere)/$(PACKAGE_TARNAME)/$(herefromroot)
+	mkdir $(rootfromhere)/$(PACKAGE_TARNAME)/$(herefromroot)/_mem
 	@echo "  Copying distribution files:"
 	@for file in $(DISTFILES); do \
 	  echo "    $(herefromroot)/$$file"; \
-	  ln $(srcdirpfx)$$file $(rootfromhere)/$(PACKAGE_TARNAME)/$(herefromroot) 2> /dev/null \
-	    || cp -p $(srcdirpfx)$$file $(rootfromhere)/$(PACKAGE_TARNAME)/$(herefromroot); \
+	  ln $(srcdirpfx)$$file $(rootfromhere)/$(PACKAGE_TARNAME)/$(herefromroot)/$$file 2> /dev/null \
+	    || cp -p $(srcdirpfx)$$file $(rootfromhere)/$(PACKAGE_TARNAME)/$(herefromroot)/$$file; \
 	done
 	@echo "    $(herefromroot)/guide"
 	(cd $(srcdir) ; COPYFILE_DISABLE=1 tar cf - guide) | (cd $(rootfromhere)/$(PACKAGE_TARNAME)/$(herefromroot) ; tar xf -)
