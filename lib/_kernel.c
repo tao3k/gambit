@@ -6449,6 +6449,8 @@ ___BEGIN_CFUN_BODY
 #undef ___AT_END
 #define ___return(___val) do { ___CFUN_ASSIGN(___result,___val) goto ___return___kernel_23_17; } while (0)
 
+     ___make_executable_mem_code (___arg1); /* mark the machine code block as executable */
+
      ___return(___CAST(___SCMOBJ (*)(___SCMOBJ, ___SCMOBJ, ___SCMOBJ),___arg1)(___arg2, ___arg3, ___arg4));
 
 ___return___kernel_23_17:;
@@ -20365,20 +20367,14 @@ ___DEF_GLBL(___L__23__23_frame_2d_slot_2d_live_3f_)
 
    int i = ___INT(___ARG2);
    ___SCMOBJ ra = ___FIELD(FRAME,___ARG1,0);
-   int fs;
-   int link;
-   ___WORD gcmap;
-   ___WORD *nextgcmap = 0;
+   ___frame_descriptor descriptor;
 
    if (ra == ___ps->internal_return)
-     ___RETI_GET_FS_LINK_GCMAP(___BODY_AS(___ARG1,___tFRAME)[___FRAME_RETI_RA],fs,link,gcmap,nextgcmap)
+     descriptor = ___decode_frame_descriptor (___LABEL_DESCR_GET(___BODY_AS(___ARG1,___tFRAME)[___FRAME_RETI_RA]), 1);
    else
-     ___RETN_GET_FS_LINK_GCMAP(ra,fs,link,gcmap,nextgcmap)
+     descriptor = ___decode_frame_descriptor (___LABEL_DESCR_GET(ra), 0);
 
-   if (i > ___WORD_WIDTH)
-     gcmap = nextgcmap[(i-1) >> ___LOG_WORD_WIDTH];
-
-   ___RESULT = ___BOOLEAN(gcmap & (1 << ((i-1) & (___WORD_WIDTH-1))));
+   ___RESULT = ___BOOLEAN(___frame_slot_live (&descriptor, i));
 
    ___SET_R1(___RESULT)
 }
@@ -20415,10 +20411,7 @@ ___DEF_GLBL(___L__23__23_continuation_2d_slot_2d_live_3f_)
    ___SCMOBJ frame = ___CONTINUATION_FRAME_FIELD(___ARG1);
    int i = ___INT(___ARG2);
    ___SCMOBJ ra;
-   int fs;
-   int link;
-   ___WORD gcmap;
-   ___WORD *nextgcmap = 0;
+   ___frame_descriptor descriptor;
 
    if (___TESTTYPE(frame, ___tFRAME))
      {
@@ -20427,9 +20420,9 @@ ___DEF_GLBL(___L__23__23_continuation_2d_slot_2d_live_3f_)
        ra = ___FIELD(FRAME,frame,0);
 
        if (ra == ___ps->internal_return)
-         ___RETI_GET_FS_LINK_GCMAP(___FIELD(FRAME,frame,___FRAME_RETI_RA),fs,link,gcmap,nextgcmap)
+         descriptor = ___decode_frame_descriptor (___LABEL_DESCR_GET(___FIELD(FRAME,frame,___FRAME_RETI_RA)), 1);
        else
-         ___RETN_GET_FS_LINK_GCMAP(ra,fs,link,gcmap,nextgcmap)
+         descriptor = ___decode_frame_descriptor (___LABEL_DESCR_GET(ra), 0);
      }
    else
      {
@@ -20440,15 +20433,12 @@ ___DEF_GLBL(___L__23__23_continuation_2d_slot_2d_live_3f_)
        ra = fp[___FRAME_STACK_RA];
 
        if (ra == ___ps->internal_return)
-         ___RETI_GET_FS_LINK_GCMAP(fp[-___RETI_RA],fs,link,gcmap,nextgcmap)
+         descriptor = ___decode_frame_descriptor (___LABEL_DESCR_GET(fp[-___RETI_RA]), 1);
        else
-         ___RETN_GET_FS_LINK_GCMAP(ra,fs,link,gcmap,nextgcmap)
+         descriptor = ___decode_frame_descriptor (___LABEL_DESCR_GET(ra), 0);
      }
 
-   if (i > ___WORD_WIDTH)
-     gcmap = nextgcmap[(i-1) >> ___LOG_WORD_WIDTH];
-
-   ___RESULT = ___BOOLEAN(gcmap & (1 << ((i-1) & (___WORD_WIDTH-1))));
+   ___RESULT = ___BOOLEAN(___frame_slot_live (&descriptor, i));
 
    ___SET_R1(___RESULT)
 }

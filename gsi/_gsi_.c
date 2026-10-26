@@ -1362,6 +1362,8 @@
 "##gc-hash-table-for-each"
 "##gc-hash-table-length"
 "##gc-hash-table-make"
+"##gc-hash-table-reconstruction-begin"
+"##gc-hash-table-reconstruction-commit!"
 "##gc-hash-table-ref"
 "##gc-hash-table-rehash!"
 "##gc-hash-table-resize!"
@@ -6874,6 +6876,8 @@
 "##gc-hash-table-foldl"
 "##gc-hash-table-for-each"
 "##gc-hash-table-make"
+"##gc-hash-table-reconstruction-begin"
+"##gc-hash-table-reconstruction-commit!"
 "##gc-hash-table-resize!"
 "##gc-hash-table-search"
 "##gc-interrupt-jobs"
@@ -12399,6 +12403,8 @@ ___DEF_OLD_SYM_GLO(___S__23__23_gc_2d_hash_2d_table_2d_foldl,___G__23__23_gc_2d_
 ___DEF_OLD_SYM_GLO(___S__23__23_gc_2d_hash_2d_table_2d_for_2d_each,___G__23__23_gc_2d_hash_2d_table_2d_for_2d_each)
 ___DEF_OLD_SYM_GLO(___S__23__23_gc_2d_hash_2d_table_2d_length,___G__23__23_gc_2d_hash_2d_table_2d_length)
 ___DEF_OLD_SYM_GLO(___S__23__23_gc_2d_hash_2d_table_2d_make,___G__23__23_gc_2d_hash_2d_table_2d_make)
+___DEF_OLD_SYM_GLO(___S__23__23_gc_2d_hash_2d_table_2d_reconstruction_2d_begin,___G__23__23_gc_2d_hash_2d_table_2d_reconstruction_2d_begin)
+___DEF_OLD_SYM_GLO(___S__23__23_gc_2d_hash_2d_table_2d_reconstruction_2d_commit_21_,___G__23__23_gc_2d_hash_2d_table_2d_reconstruction_2d_commit_21_)
 ___DEF_OLD_SYM_GLO(___S__23__23_gc_2d_hash_2d_table_2d_ref,___G__23__23_gc_2d_hash_2d_table_2d_ref)
 ___DEF_OLD_SYM_GLO(___S__23__23_gc_2d_hash_2d_table_2d_rehash_21_,___G__23__23_gc_2d_hash_2d_table_2d_rehash_21_)
 ___DEF_OLD_SYM_GLO(___S__23__23_gc_2d_hash_2d_table_2d_resize_21_,___G__23__23_gc_2d_hash_2d_table_2d_resize_21_)

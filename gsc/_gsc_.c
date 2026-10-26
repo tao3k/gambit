@@ -1378,6 +1378,8 @@
 "##gc-hash-table-for-each"
 "##gc-hash-table-length"
 "##gc-hash-table-make"
+"##gc-hash-table-reconstruction-begin"
+"##gc-hash-table-reconstruction-commit!"
 "##gc-hash-table-ref"
 "##gc-hash-table-rehash!"
 "##gc-hash-table-resize!"
@@ -5820,7 +5822,6 @@
 "c#table-get-or-set"
 "c#tagged-object?"
 "c#tagged-value"
-"c#targ-actual-fs"
 "c#targ-add-label"
 "c#targ-adjust-stack"
 "c#targ-align-frame"
@@ -5977,6 +5978,13 @@
 "c#targ-fp-cache-size"
 "c#targ-fp-cache-write"
 "c#targ-fp-cache-write-if-dirty"
+"c#targ-frame-spec-actual-fs"
+"c#targ-frame-spec-chunks"
+"c#targ-frame-spec-gc-map"
+"c#targ-frame-spec-kind"
+"c#targ-frame-spec-link"
+"c#targ-frame-spec-out-of-line?"
+"c#targ-frame-spec-stored-fs"
 "c#targ-gc-map-chunks"
 "c#targ-gen-apply"
 "c#targ-gen-close"
@@ -6042,6 +6050,7 @@
 "c#targ-loc-opnd"
 "c#targ-macro-definition"
 "c#targ-make-cell"
+"c#targ-make-frame-spec"
 "c#targ-make-glbl"
 "c#targ-make-mod"
 "c#targ-make-rsrc"
@@ -6076,9 +6085,9 @@
 "c#targ-op"
 "c#targ-opnd"
 "c#targ-opnd*"
-"c#targ-out-of-line-frame?"
 "c#targ-pop-pcontext"
 "c#targ-prim-info"
+"c#targ-primitive-safety-check"
 "c#targ-push-pcontext"
 "c#targ-rd-fp"
 "c#targ-rd-reg"
@@ -7753,6 +7762,7 @@
 "fourth"
 "frame"
 "frame-pointer"
+"frame-spec"
 "framep"
 "frm"
 "from"
@@ -11120,6 +11130,8 @@
 "##gc-hash-table-foldl"
 "##gc-hash-table-for-each"
 "##gc-hash-table-make"
+"##gc-hash-table-reconstruction-begin"
+"##gc-hash-table-reconstruction-commit!"
 "##gc-hash-table-resize!"
 "##gc-hash-table-search"
 "##gc-interrupt-jobs"
@@ -14608,7 +14620,6 @@
 "c#table-get-or-set"
 "c#tagged-object?"
 "c#tagged-value"
-"c#targ-actual-fs"
 "c#targ-add-label"
 "c#targ-adjust-stack"
 "c#targ-align-frame"
@@ -14756,6 +14767,12 @@
 "c#targ-fp-cache-write-if-dirty"
 "c#targ-frame-alignment"
 "c#targ-frame-reserve"
+"c#targ-frame-spec-chunks"
+"c#targ-frame-spec-gc-map"
+"c#targ-frame-spec-kind"
+"c#targ-frame-spec-link"
+"c#targ-frame-spec-out-of-line?"
+"c#targ-frame-spec-stored-fs"
 "c#targ-gc-map-chunks"
 "c#targ-gen-apply"
 "c#targ-gen-close"
@@ -14828,6 +14845,7 @@
 "c#targ-loc-opnd"
 "c#targ-macro-definition"
 "c#targ-make-cell"
+"c#targ-make-frame-spec"
 "c#targ-make-glbl"
 "c#targ-make-rsrc"
 "c#targ-make-target"
@@ -14868,7 +14886,6 @@
 "c#targ-object-type"
 "c#targ-opnd"
 "c#targ-opnd*"
-"c#targ-out-of-line-frame?"
 "c#targ-pair-space"
 "c#targ-pop-pcontext"
 "c#targ-port"
@@ -14877,6 +14894,7 @@
 "c#targ-prc-objs-to-scan"
 "c#targ-prim-info"
 "c#targ-prim-proc-table"
+"c#targ-primitive-safety-check"
 "c#targ-proc-code"
 "c#targ-proc-code-length"
 "c#targ-proc-entry-frame"
@@ -18008,6 +18026,7 @@
 "c#targ-default-nb-gvm-regs"
 "c#targ-emit-label-subproc"
 "c#targ-fr-cell"
+"c#targ-frame-spec-actual-fs"
 "c#targ-gen-label-return"
 "c#targ-gen-label-simple"
 "c#targ-glo-tag"
@@ -20567,6 +20586,8 @@ ___DEF_OLD_SYM_GLO(___S__23__23_gc_2d_hash_2d_table_2d_foldl,___G__23__23_gc_2d_
 ___DEF_OLD_SYM_GLO(___S__23__23_gc_2d_hash_2d_table_2d_for_2d_each,___G__23__23_gc_2d_hash_2d_table_2d_for_2d_each)
 ___DEF_OLD_SYM_GLO(___S__23__23_gc_2d_hash_2d_table_2d_length,___G__23__23_gc_2d_hash_2d_table_2d_length)
 ___DEF_OLD_SYM_GLO(___S__23__23_gc_2d_hash_2d_table_2d_make,___G__23__23_gc_2d_hash_2d_table_2d_make)
+___DEF_OLD_SYM_GLO(___S__23__23_gc_2d_hash_2d_table_2d_reconstruction_2d_begin,___G__23__23_gc_2d_hash_2d_table_2d_reconstruction_2d_begin)
+___DEF_OLD_SYM_GLO(___S__23__23_gc_2d_hash_2d_table_2d_reconstruction_2d_commit_21_,___G__23__23_gc_2d_hash_2d_table_2d_reconstruction_2d_commit_21_)
 ___DEF_OLD_SYM_GLO(___S__23__23_gc_2d_hash_2d_table_2d_ref,___G__23__23_gc_2d_hash_2d_table_2d_ref)
 ___DEF_OLD_SYM_GLO(___S__23__23_gc_2d_hash_2d_table_2d_rehash_21_,___G__23__23_gc_2d_hash_2d_table_2d_rehash_21_)
 ___DEF_OLD_SYM_GLO(___S__23__23_gc_2d_hash_2d_table_2d_resize_21_,___G__23__23_gc_2d_hash_2d_table_2d_resize_21_)
@@ -25682,7 +25703,6 @@ ___DEF_OLD_SYM_GLO(___S_c_23_table_2d_find_2d_label,___G_c_23_table_2d_find_2d_l
 ___DEF_OLD_SYM_GLO(___S_c_23_table_2d_get_2d_or_2d_set,___G_c_23_table_2d_get_2d_or_2d_set)
 ___DEF_OLD_SYM_GLO(___S_c_23_tagged_2d_object_3f_,___G_c_23_tagged_2d_object_3f_)
 ___DEF_OLD_SYM_GLO(___S_c_23_tagged_2d_value,___G_c_23_tagged_2d_value)
-___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_actual_2d_fs,___G_c_23_targ_2d_actual_2d_fs)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_add_2d_label,___G_c_23_targ_2d_add_2d_label)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_adjust_2d_stack,___G_c_23_targ_2d_adjust_2d_stack)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_align_2d_frame,___G_c_23_targ_2d_align_2d_frame)
@@ -25859,6 +25879,13 @@ ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_fp_2d_cache_2d_write_2d_if_2d_dirty,___G_c_
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_fr_2d_cell,___G_c_23_targ_2d_fr_2d_cell)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_frame_2d_alignment,___G_c_23_targ_2d_frame_2d_alignment)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_frame_2d_reserve,___G_c_23_targ_2d_frame_2d_reserve)
+___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_frame_2d_spec_2d_actual_2d_fs,___G_c_23_targ_2d_frame_2d_spec_2d_actual_2d_fs)
+___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_frame_2d_spec_2d_chunks,___G_c_23_targ_2d_frame_2d_spec_2d_chunks)
+___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_frame_2d_spec_2d_gc_2d_map,___G_c_23_targ_2d_frame_2d_spec_2d_gc_2d_map)
+___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_frame_2d_spec_2d_kind,___G_c_23_targ_2d_frame_2d_spec_2d_kind)
+___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_frame_2d_spec_2d_link,___G_c_23_targ_2d_frame_2d_spec_2d_link)
+___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_frame_2d_spec_2d_out_2d_of_2d_line_3f_,___G_c_23_targ_2d_frame_2d_spec_2d_out_2d_of_2d_line_3f_)
+___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_frame_2d_spec_2d_stored_2d_fs,___G_c_23_targ_2d_frame_2d_spec_2d_stored_2d_fs)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_gc_2d_map_2d_chunks,___G_c_23_targ_2d_gc_2d_map_2d_chunks)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_gen_2d_apply,___G_c_23_targ_2d_gen_2d_apply)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_gen_2d_close,___G_c_23_targ_2d_gen_2d_close)
@@ -25947,6 +25974,7 @@ ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_loc_2d_no_2d_invalidate,___G_c_23_targ_2d_l
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_loc_2d_opnd,___G_c_23_targ_2d_loc_2d_opnd)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_macro_2d_definition,___G_c_23_targ_2d_macro_2d_definition)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_make_2d_cell,___G_c_23_targ_2d_make_2d_cell)
+___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_make_2d_frame_2d_spec,___G_c_23_targ_2d_make_2d_frame_2d_spec)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_make_2d_glbl,___G_c_23_targ_2d_make_2d_glbl)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_make_2d_mod,___G_c_23_targ_2d_make_2d_mod)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_make_2d_rsrc,___G_c_23_targ_2d_make_2d_rsrc)
@@ -26003,7 +26031,6 @@ ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_object_2d_type,___G_c_23_targ_2d_object_2d_
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_op,___G_c_23_targ_2d_op)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_opnd,___G_c_23_targ_2d_opnd)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_opnd_2a_,___G_c_23_targ_2d_opnd_2a_)
-___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_out_2d_of_2d_line_2d_frame_3f_,___G_c_23_targ_2d_out_2d_of_2d_line_2d_frame_3f_)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_pair_2d_space,___G_c_23_targ_2d_pair_2d_space)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_pop_2d_pcontext,___G_c_23_targ_2d_pop_2d_pcontext)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_port,___G_c_23_targ_2d_port)
@@ -26012,6 +26039,7 @@ ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_prc_2d_objs_2d_seen,___G_c_23_targ_2d_prc_2
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_prc_2d_objs_2d_to_2d_scan,___G_c_23_targ_2d_prc_2d_objs_2d_to_2d_scan)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_prim_2d_info,___G_c_23_targ_2d_prim_2d_info)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_prim_2d_proc_2d_table,___G_c_23_targ_2d_prim_2d_proc_2d_table)
+___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_primitive_2d_safety_2d_check,___G_c_23_targ_2d_primitive_2d_safety_2d_check)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_prm2_2d_tag,___G_c_23_targ_2d_prm2_2d_tag)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_proc_2d_code,___G_c_23_targ_2d_proc_2d_code)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_proc_2d_code_2d_length,___G_c_23_targ_2d_proc_2d_code_2d_length)
@@ -27910,6 +27938,7 @@ ___DEF_OLD_SYM_GLO(___S_forw,___G_forw)
 ___DEF_OLD_SYM_GLO(___S_fourth,___G_fourth)
 ___DEF_OLD_SYM_GLO(___S_frame,___G_frame)
 ___DEF_OLD_SYM_GLO(___S_frame_2d_pointer,___G_frame_2d_pointer)
+___DEF_OLD_SYM_GLO(___S_frame_2d_spec,___G_frame_2d_spec)
 ___DEF_OLD_SYM_GLO(___S_framep,___G_framep)
 ___DEF_OLD_SYM_GLO(___S_frm,___G_frm)
 ___DEF_OLD_SYM_GLO(___S_from,___G_from)
