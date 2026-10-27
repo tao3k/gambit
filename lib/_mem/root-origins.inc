@@ -1,8 +1,9 @@
 #line 6503 ___MEM_SOURCE_FILE
 ___HIDDEN void mark_processor_scmobj
-   ___P((___PSDNC),
-        (___PSVNC)
-___PSDKR)
+   ___P((___PSD ___execution_context *source),
+        (___PSV source)
+___PSDKR
+___execution_context *source;)
 {
   ___PSGET
 
@@ -11,7 +12,7 @@ ___PSDKR)
 #endif
 
   mark_array (___PSP
-              ___BODY0_AS(___PROCESSOR_SCMOBJ(___ps),___tSUBTYPED),
+              ___BODY0_AS(___SUBTYPED_FROM_START(___ALIGNUP(source->processor_scmobj,___WS)),___tSUBTYPED),
               ___PROCESSOR_SIZE);
 }
 

@@ -177,24 +177,26 @@ ___PSDKR)
 
   traverse_weak_refs = 0; /* don't traverse weak references in this phase */
 
+  /* Select roots at the phase boundary; scanners retain ___ps only as the
+   * existing collector executor. Workset, order and eligibility are unchanged. */
   if (___PROCESSOR_ID(___ps,___vms) == 0)
     {
       mark_vm_scmobj (___PSPNC);
       mark_symkey_tables (___PSPNC);
-      mark_rc (___PSPNC);
+      mark_rc (___PSP &___ps->mem.rc_head_);
     }
 
   mark_global_variables (___PSPNC);
 
-  mark_continuation (___PSPNC);
+  mark_continuation (___PSP ___ps->context->fp, ___ps->context->stack_break);
 
-  mark_registers (___PSPNC);
+  mark_registers (___PSP ___ps->context);
 
-  mark_saved (___PSPNC);
+  mark_saved (___PSP ___ps->context);
 
-  mark_type_cache (___PSPNC);
+  mark_type_cache (___PSP ___ps->context);
 
-  mark_processor_scmobj (___PSPNC);
+  mark_processor_scmobj (___PSP ___ps->context);
 
   mark_reachable_from_marked (___PSPNC);
 

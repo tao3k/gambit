@@ -288,9 +288,10 @@ ___SIZE_TS requested_words_still;)
 
 
 ___HIDDEN void mark_registers
-   ___P((___PSDNC),
-        (___PSVNC)
-___PSDKR)
+   ___P((___PSD ___execution_context *source),
+        (___PSV source)
+___PSDKR
+___execution_context *source;)
 {
   ___PSGET
 
@@ -298,14 +299,15 @@ ___PSDKR)
   reference_location = IN_REGISTER;
 #endif
 
-  mark_array (___PSP ___ps->context->r, sizeof(___ps->context->r)/sizeof(*___ps->context->r));
+  mark_array (___PSP source->r, sizeof(source->r)/sizeof(*source->r));
 }
 
 
 ___HIDDEN void mark_saved
-   ___P((___PSDNC),
-        (___PSVNC)
-___PSDKR)
+   ___P((___PSD ___execution_context *source),
+        (___PSV source)
+___PSDKR
+___execution_context *source;)
 {
   ___PSGET
 
@@ -313,14 +315,15 @@ ___PSDKR)
   reference_location = IN_SAVED;
 #endif
 
-  mark_array (___PSP ___ps->context->saved, sizeof(___ps->context->saved)/sizeof(*___ps->context->saved));
+  mark_array (___PSP source->saved, sizeof(source->saved)/sizeof(*source->saved));
 }
 
 
 ___HIDDEN void mark_type_cache
-   ___P((___PSDNC),
-        (___PSVNC)
-___PSDKR)
+   ___P((___PSD ___execution_context *source),
+        (___PSV source)
+___PSDKR
+___execution_context *source;)
 {
   ___PSGET
 
@@ -328,7 +331,7 @@ ___PSDKR)
   reference_location = IN_TYPE_CACHE;
 #endif
 
-  mark_array (___PSP ___ps->context->type_cache, sizeof(___ps->context->type_cache)/sizeof(*___ps->context->type_cache));
+  mark_array (___PSP source->type_cache, sizeof(source->type_cache)/sizeof(*source->type_cache));
 }
 
 

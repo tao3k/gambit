@@ -1,17 +1,18 @@
 #line 3918 ___MEM_SOURCE_FILE
 ___HIDDEN void mark_rc
-   ___P((___PSDNC),
-        (___PSVNC)
-___PSDKR)
+   ___P((___PSD ___rc_header *source),
+        (___PSV source)
+___PSDKR
+___rc_header *source;)
 {
   ___PSGET
-  ___rc_header *h = rc_head.next;
+  ___rc_header *h = source->next;
 
 #ifdef ENABLE_CONSISTENCY_CHECKS
   reference_location = IN_RC;
 #endif
 
-  while (h != &rc_head)
+  while (h != source)
     {
       ___rc_header *next = h->next;
       mark_array (___PSP &h->data, 1);
