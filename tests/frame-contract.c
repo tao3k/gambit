@@ -3,6 +3,7 @@
  */
 #include <stdio.h>
 #include "gambit.h"
+#include "test-entry.h"
 
 struct frame_case {
   int regs, kind, stored, link, actual, pattern, ofd;
@@ -27,7 +28,7 @@ static ___WORD read_once (___WORD descriptor)
            __LINE__,(unsigned long)i,#x); return 1; \
 } } while (0)
 
-int main (void)
+GAMBIT_TEST_MAIN
 {
   unsigned long i;
   unsigned int checked = 0;

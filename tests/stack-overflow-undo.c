@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "gambit.h"
+#include "test-entry.h"
 
 /* Supply registers and arguments without entering the generated-code loop. */
 #undef ___R0
@@ -30,7 +31,7 @@ static ___SCMOBJ object (___WORD *storage, int size, int subtype)
   return ___SUBTYPED_FROM_START(storage);
 }
 
-int main (void)
+GAMBIT_TEST_MAIN
 {
   ___processor_state_struct state;
   ___processor_state ___ps = &state;

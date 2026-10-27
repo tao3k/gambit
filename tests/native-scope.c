@@ -3,13 +3,14 @@
  */
 #include <stdio.h>
 #include "gambit.h"
+#include "test-entry.h"
 #include "native_scope.h"
 
 #define CHECK(x) do { if (!(x)) { \
   fprintf (stderr,"native-scope:%d: %s\n",__LINE__,#x); return 1; \
 } } while (0)
 
-int main (void)
+GAMBIT_TEST_MAIN
 {
   ___native_scope scope;
   ___WORD a, b, c, other, exhausted, before;
