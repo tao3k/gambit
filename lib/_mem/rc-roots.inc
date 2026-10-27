@@ -1,15 +1,18 @@
 /* Frozen RC domain is the source; ___ps remains the existing copy executor. */
-___HIDDEN void mark_rc
-   ___P((___PSD ___rc_domain *source),
-        (___PSV source)
+___HIDDEN ___BOOL mark_rc
+   ___P((___PSD ___rc_domain *source, ___UWORD epoch),
+        (___PSV source, epoch)
 ___PSDKR
-___rc_domain *source;)
+___rc_domain *source;
+___UWORD epoch;)
 {
   ___PSGET
   ___rc_header *h;
   ___RC_LOCK(source);
-  if (source->phase != ___RC_FROZEN)
-    { ___RC_UNLOCK(source); rc_contract_error("RC scan requires a frozen source"); return; }
+  if (source->phase != ___RC_FROZEN || source->scan_leases != 1 ||
+      !root_task_matches(source,___ps,epoch) || source->task.state != ___ROOT_CLAIMED)
+    { ___RC_UNLOCK(source); return 0; }
+  source->task.state=___ROOT_SCANNING;
 #ifdef ENABLE_CONSISTENCY_CHECKS
   reference_location = IN_RC;
 #endif
@@ -20,7 +23,17 @@ ___rc_domain *source;)
       mark_array (___PSP &h->data, 1);
       h=next;
     }
+  source->task.state=___ROOT_SCANNED;
   ___RC_UNLOCK(source);
+  return 1;
+}
+
+___BOOL ___root_task_scan(___rc_domain *source, ___processor_state executor,
+                         ___UWORD epoch)
+{
+  ___processor_state ___ps=executor;
+  if (source == 0 || executor == 0 || executor != ___PSTATE) return 0;
+  return mark_rc (___PSP source,epoch);
 }
 
 #define UNMARKED_MOVABLE(obj) \

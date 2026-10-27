@@ -146,9 +146,10 @@ ___PSDKR)
 
 
 ___HIDDEN void garbage_collect_mark_strong_phase
-   ___P((___PSDNC),
-        (___PSVNC)
-___PSDKR)
+   ___P((___PSD ___UWORD rc_epoch),
+        (___PSV rc_epoch)
+___PSDKR
+___UWORD rc_epoch;)
 {
   ___PSGET
   ___virtual_machine_state ___vms = ___VMSTATE_FROM_PSTATE(___ps);
@@ -186,7 +187,10 @@ ___PSDKR)
     }
 
   /* Every active source is scanned exactly once by its existing executor. */
-  mark_rc (___PSP ___ps->mem.rc_domain_);
+  if (!___root_task_claim(___ps->mem.rc_domain_,___ps,rc_epoch) ||
+      !___root_task_scan(___ps->mem.rc_domain_,___ps,rc_epoch) ||
+      !___root_task_finish(___ps->mem.rc_domain_,___ps,rc_epoch))
+    rc_contract_error("RC root task did not complete");
 
   mark_global_variables (___PSPNC);
 
@@ -284,6 +288,7 @@ ___SIZE_TS requested_words_still;)
 {
   ___virtual_machine_state ___vms = ___VMSTATE_FROM_PSTATE(___ps);
   ___BOOL overflow = 0;
+  ___UWORD rc_previous, rc_epoch;
   ___F64 user_time_start, sys_time_start, real_time_start;
   ___F64 user_time_end, sys_time_end, real_time_end;
   ___F64 user_time, sys_time, real_time;
@@ -336,7 +341,11 @@ ___SIZE_TS requested_words_still;)
 
   /* Keep track of bytes allocated by this processor */
 
-  close_rc_roots (___ps);
+  ___RC_LOCK(___ps->mem.rc_domain_);
+  rc_previous=___ps->mem.rc_domain_->task.epoch;
+  ___RC_UNLOCK(___ps->mem.rc_domain_);
+  if (!___root_task_publish(___ps->mem.rc_domain_,___ps,rc_previous,&rc_epoch))
+    rc_contract_error("RC task publication refused");
 
   bytes_allocated_minus_occupied += bytes_occupied(___ps);
 
@@ -352,7 +361,7 @@ ___SIZE_TS requested_words_still;)
 
   /* Mark the objects that are reachable strongly */
 
-  garbage_collect_mark_strong_phase (___PSPNC);
+  garbage_collect_mark_strong_phase (___PSP rc_epoch);
 
   BARRIER();
 
@@ -420,7 +429,7 @@ ___SIZE_TS requested_words_still;)
 
   prepare_mem_pstate (___ps);
 
-  reopen_rc_roots (___ps);
+  reopen_rc_roots (___ps, rc_epoch);
 
 
   ___ACTLOG_END_PS();

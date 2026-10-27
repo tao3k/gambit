@@ -70,7 +70,7 @@ mandir = @mandir@
 
 .SUFFIXES:
 
-RCFILES = rc-root-origin.scm runtime-roles.c test-entry.h test-entry.c makefile.in \
+RCFILES = root-task.scm rc-root-origin.scm runtime-roles.c test-entry.h test-entry.c makefile.in \
 debug.scm error.scm r4rstest.scm mix.scm mem.scm client.c server.scm server.h \
 test1.ok test2.ok test3.ok test4.ok test5.ok test6.ok test7.ok \
 test8.ok test9.ok test10.scm input run-unit-tests.scm stack-overflow-undo.c \
@@ -115,7 +115,7 @@ core-post:
 
 .NOTPARALLEL:
 
-check: core test-runtime-roles test1 test2 test3 test4 test5 test6 test7 test8 test9 test10 test11 test12 test-entry test-inline-primitives test-native-scope test-frame-contract test-rc-roots
+check: core test-runtime-roles test1 test2 test3 test4 test5 test6 test7 test8 test9 test10 test11 test12 test-entry test-inline-primitives test-native-scope test-frame-contract test-rc-roots test-root-task
 	@echo "============ ALL TESTS SUCCESSFUL"
 	rm -f mem.c mem_.c mem@obj@ mem.o1 mem_@obj@ mem@exe@ \
 	  mix.c mix_.c mix@obj@ mix_@obj@ mix@exe@ \
@@ -475,3 +475,9 @@ test-rc-roots:
 	@SETDLPATH@ $(rootfromhere)/gsc/gsc@exe@ -:~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f -exe -cc-options "-DHAVE_CONFIG_H -I$(srcdirpfx)$(rootfromhere)/include -I$(srcdirpfx)$(rootfromhere)/lib" -o rc-root-origin@exe@ $(srcdirpfx)rc-root-origin.scm
 	@SETDLPATH@ ./rc-root-origin@exe@ -:p2
 	rm -f rc-root-origin@exe@
+
+.PHONY: test-root-task
+test-root-task:
+	@SETDLPATH@ $(rootfromhere)/gsc/gsc@exe@ -:~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f -exe -cc-options "-DHAVE_CONFIG_H -I$(srcdirpfx)$(rootfromhere)/include -I$(srcdirpfx)$(rootfromhere)/lib" -o root-task@exe@ $(srcdirpfx)root-task.scm
+	@SETDLPATH@ ./root-task@exe@ -:p1
+	rm -f root-task@exe@ root-task-input.dat

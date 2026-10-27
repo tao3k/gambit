@@ -231,7 +231,8 @@ c-end
   (c-lambda () bool #<<c-end
 ___rc_header *h=(___rc_header*)rc_departing-1;
 ___rc_domain *d=h->domain;
-___result=d && d->phase==___RC_DETACHED && d->owner==0 && d->nodes==1;
+___result=d && d->phase==___RC_DETACHED && d->owner==0 && d->task.executor==0 &&
+  d->scan_leases==0 && d->nodes==1;
 ___EXT(___release_rc)(rc_departing); rc_departing=0;
 c-end
 ))

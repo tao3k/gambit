@@ -2,7 +2,7 @@
 #ifndef ___RC_H
 #define ___RC_H
 
-#include "gambit.h"
+#include "root.h"
 
 #if defined(___USE_POSIX_THREAD_SYSTEM) || defined(___USE_WIN32_THREAD_SYSTEM)
 #define ___RC_LOCK(d) ___MUTEX_LOCK((d)->gate)
@@ -29,6 +29,8 @@ struct ___rc_domain_struct {
   ___processor_state owner;
   ___SIZE_T nodes, borrows;
   enum ___rc_phase phase;
+  ___root_task task;
+  ___SIZE_T scan_leases;
 };
 
 /* Cleanup is a transaction: close sources before any still/OS cleanup.
