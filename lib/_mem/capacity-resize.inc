@@ -11,14 +11,14 @@ ___PSDKR)
   ___WORD *p1;
   ___WORD *p2;
 
-  start = ___ps->fp;
-  length = (___ps->stack_break + ___FIRST_BREAK_FRAME_SPACE) - start;
+  start = ___ps->context->fp;
+  length = (___ps->context->stack_break + ___FIRST_BREAK_FRAME_SPACE) - start;
 
   p1 = start + length;
   p2 = alloc_stack_ptr;
 
-  ___ps->stack_start = alloc_stack_start;
-  ___ps->stack_break = p2 - ___FIRST_BREAK_FRAME_SPACE;
+  ___ps->context->stack_start = alloc_stack_start;
+  ___ps->context->stack_break = p2 - ___FIRST_BREAK_FRAME_SPACE;
 
   while (p1 != start)
     *--p2 = *--p1;
@@ -298,7 +298,7 @@ ___PSDKR)
   reference_location = IN_REGISTER;
 #endif
 
-  mark_array (___PSP ___ps->r, sizeof(___ps->r)/sizeof(*___ps->r));
+  mark_array (___PSP ___ps->context->r, sizeof(___ps->context->r)/sizeof(*___ps->context->r));
 }
 
 
@@ -313,7 +313,7 @@ ___PSDKR)
   reference_location = IN_SAVED;
 #endif
 
-  mark_array (___PSP ___ps->saved, sizeof(___ps->saved)/sizeof(*___ps->saved));
+  mark_array (___PSP ___ps->context->saved, sizeof(___ps->context->saved)/sizeof(*___ps->context->saved));
 }
 
 
@@ -328,7 +328,7 @@ ___PSDKR)
   reference_location = IN_TYPE_CACHE;
 #endif
 
-  mark_array (___PSP ___ps->type_cache, sizeof(___ps->type_cache)/sizeof(*___ps->type_cache));
+  mark_array (___PSP ___ps->context->type_cache, sizeof(___ps->context->type_cache)/sizeof(*___ps->context->type_cache));
 }
 
 

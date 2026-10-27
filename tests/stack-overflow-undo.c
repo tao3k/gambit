@@ -34,6 +34,7 @@ static ___SCMOBJ object (___WORD *storage, int size, int subtype)
 GAMBIT_TEST_MAIN
 {
   ___processor_state_struct state;
+  ___execution_context context;
   ___processor_state ___ps = &state;
   ___WORD stack[128], saved[64], before[64];
   ___WORD thread_storage[___SUBTYPED_BODY + 64];
@@ -45,13 +46,15 @@ GAMBIT_TEST_MAIN
   int operation, nested, eligible;
 
   memset (&state, 0, sizeof state);
+  memset (&context, 0, sizeof context);
+  state.context = &context;
   memset (saved, 0, sizeof saved);
   memcpy (before, saved, sizeof saved);
   owner = object (thread_storage, 64, ___sSTRUCTURE);
   input_cont = object (cont_storage, ___CONTINUATION_SIZE, ___sCONTINUATION);
   denv = object (denv_storage, 64, ___sVECTOR);
   env = object (env_storage, 8, ___sVECTOR);
-  object (___ALIGNUP(state.processor_scmobj,___WS),
+  object (___ALIGNUP(context.processor_scmobj,___WS),
           ___PROCESSOR_SIZE, ___sSTRUCTURE);
   ___THREAD_CONT_FIELD(owner) = input_cont;
   ___THREAD_DENV_FIELD(owner) = denv;
@@ -59,8 +62,8 @@ GAMBIT_TEST_MAIN
   ___DENV_INTERRUPT_MASK_FIELD(denv) = ___FIX(0);
   ___ENV_PARAM_VAL_FIELD(env) = ___FIX(9);
   state.handler_break = ___FIX(11);
-  state.stack_start = stack + 128;
-  first = state.stack_start - ___FIRST_BREAK_FRAME_SPACE;
+  context.stack_start = stack + 128;
+  first = context.stack_start - ___FIRST_BREAK_FRAME_SPACE;
 
   for (operation = 0; operation < 5; operation++)
     for (nested = 0; nested < 2; nested++)
@@ -69,7 +72,7 @@ GAMBIT_TEST_MAIN
           ___SCMOBJ thread = owner, frame = 0, cont = input_cont, temp = 0;
           memset (stack, 0, sizeof stack);
           active = nested ? first - 32 : first;
-          state.stack_break = active;
+          context.stack_break = active;
           ___fp = active;
           r0 = state.handler_break;
           r1 = 0;
@@ -95,7 +98,7 @@ GAMBIT_TEST_MAIN
             case 2:
               ___CONTINUATION_CAPTURE
               CHECK (frame == ___CAST(___SCMOBJ,saved + 24));
-              CHECK (___FP_STK(state.stack_break,-___BREAK_FRAME_NEXT) == frame);
+              CHECK (___FP_STK(context.stack_break,-___BREAK_FRAME_NEXT) == frame);
               break;
             case 3:
               ___CONTINUATION_GRAFT_NO_WINDING

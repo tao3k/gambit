@@ -11,8 +11,8 @@ ___PSDKR)
 
   /* Recover processor's stack and heap pointers */
 
-  alloc_stack_ptr = ___ps->fp;
-  alloc_heap_ptr  = ___ps->hp;
+  alloc_stack_ptr = ___ps->context->fp;
+  alloc_heap_ptr  = ___ps->context->hp;
 
   return bytes_allocated_minus_occupied + bytes_occupied(___ps) +
          ___CAST(___F64,occupied_words_still) * ___WS;

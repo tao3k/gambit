@@ -10,6 +10,7 @@
 #define ___INCLUDED_FROM_SETUP
 #define ___VERSION 409008
 #include "gambit.h"
+#include <stddef.h>
 
 #include "os_setup.h"
 #include "os_base.h"
@@ -1554,6 +1555,32 @@ ___module_struct *module;)
   int subcount;
   ___WORD ___temp;
 
+  /* Reject before cached completion or any fixup-state mutation. */
+  /*
+   * Check that the version of the compiler used to compile the module
+   * is compatible with the compiler used to compile the runtime
+   * system.
+   */
+
+  if (module->version < ___VERSION)
+    return ___FIX(___MODULE_VERSION_TOO_OLD_ERR);
+
+  if (module->version > ___VERSION)
+    return ___FIX(___MODULE_VERSION_TOO_NEW_ERR);
+
+  /*
+   * Check that the module was compiled with a C compiler and options that
+   * give the same size structures for ___GSTATE, ___VMSTATE and ___PSTATE.
+   * This is a simple check that catches most mismatches that would cause
+   * problems later.
+   */
+
+  if (module->sizeof_module_struct != sizeof(___module_struct) ||
+      module->sizeof_global_state_struct != sizeof(___global_state_struct) ||
+      module->sizeof_virtual_machine_state_struct != sizeof(___virtual_machine_state_struct) ||
+      module->sizeof_processor_state_struct != sizeof(___processor_state_struct))
+    return ___FIX(___MODULE_INCOMPATIBILITY_ERR);
+
   /* TODO: make this phase atomic for when there are multiple VMs? */
 
   lblcount = module->lblcount;
@@ -1585,31 +1612,6 @@ ___module_struct *module;)
   cnscount   = module->cnscount;
   subtbl     = ___CAST(___SCMOBJ*,module->subtbl);
   subcount   = module->subcount;
-
-  /*
-   * Check that the version of the compiler used to compile the module
-   * is compatible with the compiler used to compile the runtime
-   * system.
-   */
-
-  if (module->version < ___VERSION)
-    return ___FIX(___MODULE_VERSION_TOO_OLD_ERR);
-
-  if (module->version > ___VERSION)
-    return ___FIX(___MODULE_VERSION_TOO_NEW_ERR);
-
-  /*
-   * Check that the module was compiled with a C compiler and options that
-   * give the same size structures for ___GSTATE, ___VMSTATE and ___PSTATE.
-   * This is a simple check that catches most mismatches that would cause
-   * problems later.
-   */
-
-  if (module->sizeof_module_struct != sizeof(___module_struct) ||
-      module->sizeof_global_state_struct != sizeof(___global_state_struct) ||
-      module->sizeof_virtual_machine_state_struct != sizeof(___virtual_machine_state_struct) ||
-      module->sizeof_processor_state_struct != sizeof(___processor_state_struct))
-    return ___FIX(___MODULE_INCOMPATIBILITY_ERR);
 
   /* Align label table */
 
@@ -1798,12 +1800,12 @@ ___module_struct *module;)
 
                   if (___LABEL_HOST_GET(lbl) != current_host)
                     {
-                      ___ps->pc = ___FIX(0); /* special marker indicating that */
+                      ___ps->context->pc = ___FIX(0); /* special marker indicating that */
                                              /* we want the goto labels */
 
                       current_host = ___LABEL_HOST_GET(lbl);
                       current_host (___ps);
-                      hlbl_ptr = ___CAST(void**,___ps->pc);
+                      hlbl_ptr = ___CAST(void**,___ps->context->pc);
                       hlbl_ptr++; /* skip INTRO label */
                     }
 
@@ -3235,7 +3237,7 @@ ___processor_state ___ps;)
 
 #define CALL_STEP_DEBUG \
 do { \
-  ___SCMOBJ ___pc = ___ps->pc; \
+  ___SCMOBJ ___pc = ___ps->context->pc; \
   ___SCMOBJ sym = ___subprocedure_parent_name (___pc); \
   printf ("___pc = "); \
   if (sym == ___FAL) { \
@@ -3259,7 +3261,7 @@ do { \
 #define CALL_STEP \
 do { \
   CALL_STEP_DEBUG; \
-  ___CALL_LABEL_HOST(___ps->pc,___ps); \
+  ___CALL_LABEL_HOST(___ps->context->pc,___ps); \
 } while (0)
 
       CALL_STEP;
@@ -3350,16 +3352,16 @@ ___SCMOBJ stack_marker;)
 
   ___PSR0 = ___GSTATE->handler_return_to_c;
 
-  ___ps->fp = ___fp;
+  ___ps->context->fp = ___fp;
   ___ps->na = nargs;
-  ___ps->pc = ___LABEL_ENTRY_GET(proc);
+  ___ps->context->pc = ___LABEL_ENTRY_GET(proc);
   ___PSSELF = proc;
 
 #ifdef ___USE_PROPER_TAIL_CALL_EXCLUSIVELY_TO_EXIT_HOST
 
   ___BEGIN_TRY
 
-  ___CALL_LABEL_HOST(___ps->pc,___ps);
+  ___CALL_LABEL_HOST(___ps->context->pc,___ps);
 
   ___END_TRY
 
@@ -3384,11 +3386,11 @@ ___SCMOBJ stack_marker;)
 #endif
 
   if (___err != ___FIX(___UNWIND_C_STACK) ||
-      stack_marker != ___ps->fp[___FRAME_SPACE(2)-2]) /*need more unwinding?*/
+      stack_marker != ___ps->context->fp[___FRAME_SPACE(2)-2]) /*need more unwinding?*/
     ___throw_error (___PSP ___err);
 
-  ___ps->fp += ___FRAME_SPACE(2);
-  ___PSR0 = ___ps->fp[-1];
+  ___ps->context->fp += ___FRAME_SPACE(2);
+  ___PSR0 = ___ps->context->fp[-1];
 
   return ___FIX(___NO_ERR);
 }
@@ -3406,7 +3408,7 @@ ___SCMOBJ thunk;)
   ___SCMOBJ ___err;
   ___SCMOBJ marker;
 
-  ___ps->r[0] = ___GSTATE->handler_break;
+  ___ps->context->r[0] = ___GSTATE->handler_break;
 
   ___BEGIN_TRY
 
@@ -3452,11 +3454,41 @@ ___processor_state ___ps;)
 
 #ifdef __GNUC__
 
-#define PS_FP   PS_FIELD("2")
-#define PS_HP   PS_FIELD("6")
-#define PS_R(n) PS_FIELD("(" n "+7)")
-#define PS_PC   PS_FIELD("(0+5+7)")
-#define PS_NA   PS_FIELD("(1+5+7)")
+  /* Bridge scratch is not another root bank. No safepoint occurs between
+   * these assembly loads/stores and the context remains the sole root owner. */
+  ___lowlevel_processor_state_struct *bridge =
+    &((___aligned_processor_state_struct *)
+       ((char *)___ps - offsetof(___aligned_processor_state_struct, pstate)))
+       ->aligned_llpstate.llpstate;
+  bridge->entry_pc = ___ps->context->pc;
+
+#define BRIDGE_OFFSET(member) \
+  ((ptrdiff_t)offsetof(___aligned_processor_state_struct, aligned_llpstate.llpstate.member) - \
+   (ptrdiff_t)offsetof(___aligned_processor_state_struct, pstate))
+#define LAYOUT_INPUTS \
+  [ps_context] "i" (offsetof(___processor_state_struct, context)), \
+  [ps_entry_pc] "i" (BRIDGE_OFFSET(entry_pc)), \
+  [ps_saved_r1] "i" (BRIDGE_OFFSET(saved_r1)), \
+  [ps_return_sp] "i" (BRIDGE_OFFSET(return_sp)), \
+  [ps_return_handler] "i" (BRIDGE_OFFSET(return_handler)), \
+  [cx_fp] "i" (offsetof(___execution_context, fp)), \
+  [cx_hp] "i" (offsetof(___execution_context, hp)), \
+  [cx_pc] "i" (offsetof(___execution_context, pc)), \
+  [cx_r0] "i" (offsetof(___execution_context, r[0])), \
+  [cx_r1] "i" (offsetof(___execution_context, r[1])), \
+  [cx_r2] "i" (offsetof(___execution_context, r[2])), \
+  [cx_r3] "i" (offsetof(___execution_context, r[3])), \
+  [cx_r4] "i" (offsetof(___execution_context, r[4]))
+#define PS_CONTEXT PS_MEMBER("ps_context")
+#define PS_ENTRY_PC PS_MEMBER("ps_entry_pc")
+#define PS_SAVED_R1 PS_MEMBER("ps_saved_r1")
+#define PS_RETURN_SP PS_MEMBER("ps_return_sp")
+#define PS_RETURN_HANDLER PS_MEMBER("ps_return_handler")
+
+#define PS_FP   CX_FIELD("cx_fp")
+#define PS_HP   CX_FIELD("cx_hp")
+#define PS_R(n) CX_FIELD("cx_r" n)
+#define PS_PC   CX_FIELD("cx_pc")
 
 #if ___tSUBTYPED == 1
 #define CONTROL_POINT_TAG "1"
@@ -3478,7 +3510,8 @@ ___processor_state ___ps;)
 #define reg_HP "ebp"
 #define reg_TMP reg_R1
 #define reg_SP "esp"
-#define PS_FIELD(field) field "*4(%%" reg_PS ")"
+#define PS_MEMBER(member) "%c[" member "](%%" reg_PS ")"
+#define CX_FIELD(member) "%c[" member "](%%" reg_TMP ")"
 
   /*
     GVM       ___________________C_ABI___________________
@@ -3506,7 +3539,8 @@ ___processor_state ___ps;)
 #define reg_HP "rbp"
 #define reg_TMP reg_R1
 #define reg_SP "rsp"
-#define PS_FIELD(field) field "*8(%%" reg_PS ")"
+#define PS_MEMBER(member) "%c[" member "](%%" reg_PS ")"
+#define CX_FIELD(member) "%c[" member "](%%" reg_TMP ")"
 
   /*
     GVM       ___________________C_ABI___________________
@@ -3561,8 +3595,10 @@ ___processor_state ___ps;)
 #ifdef ___CPU_x86_64
     "lea  return_from_lowlevel(%%rip), %%" reg_TMP "\n\t"
 #endif
-    "mov  %%" reg_TMP ", " PS_FIELD("-1") "\n\t"
-    "mov  %%" reg_SP ", " PS_FIELD("-2") "\n\t"
+    "mov  %%" reg_TMP ", " PS_RETURN_HANDLER "\n\t"
+    "mov  %%" reg_SP ", " PS_RETURN_SP "\n\t"
+
+    "mov  " PS_CONTEXT ", %%" reg_TMP "\n\t"
 
     /* setup frame pointer and heap pointer registers */
 
@@ -3573,7 +3609,7 @@ ___processor_state ___ps;)
 
     "mov  " PS_R("4") ", %%" reg_R4 "\n\t"
 
-    "mov  " PS_PC ", %%" reg_TMP "\n\t"
+    "mov  " PS_ENTRY_PC ", %%" reg_TMP "\n\t"
 #ifdef ___CPU_x86_32
     "cmpl $0x100000,-" CONTROL_POINT_TAG "-2*4(%%" reg_TMP ")\n\t"
     "jl   setup_other_registers\n\t"
@@ -3591,20 +3627,21 @@ ___processor_state ___ps;)
 
     "\n"
     "setup_other_registers:\n\t"
+    "mov  " PS_CONTEXT ", %%" reg_TMP "\n\t"
 
-    /* setup lowlevel registers from ___ps->r[...] */
+    /* setup lowlevel registers from ___ps->context->r[...] */
 
     "mov  " PS_R("0") ", %%" reg_R0 "\n\t"
-    "mov  " PS_R("1") ", %%" reg_R1 "\n\t"
     "mov  " PS_R("2") ", %%" reg_R2 "\n\t"
     "mov  " PS_R("3") ", %%" reg_R3 "\n\t"
+    "mov  " PS_R("1") ", %%" reg_R1 "\n\t"
 
     /*
      * set flags according to ___ps->na and jump to lowlevel code at
-     * ___ps->pc
+     * ___ps->context->pc
      */
 
-    "jmp  *" PS_PC "\n\t"
+    "jmp  *" PS_ENTRY_PC "\n\t"
 
     // "cmpl $0, " PS_NA "\n\t"
     // "je   nargs_0\n\t"
@@ -3685,18 +3722,21 @@ ___processor_state ___ps;)
     // "\n"
     // "nargs_done:\n\t"
 
-    /* save lowlevel registers to ___ps->r[...] */
+    /* save lowlevel registers to ___ps->context->r[...] */
 
+    "mov  %%" reg_R1 ", " PS_SAVED_R1 "\n\t"
+    "mov  " PS_CONTEXT ", %%" reg_TMP "\n\t"
     "mov  %%" reg_R0 ", " PS_R("0") "\n\t"
-    "mov  %%" reg_R1 ", " PS_R("1") "\n\t"
     "mov  %%" reg_R2 ", " PS_R("2") "\n\t"
     "mov  %%" reg_R3 ", " PS_R("3") "\n\t"
+    "mov  " PS_SAVED_R1 ", %%" reg_R0 "\n\t"
+    "mov  %%" reg_R0 ", " PS_R("1") "\n\t"
 
-    /* recover the destination control point in ___ps->pc */
+    /* recover the destination control point in ___ps->context->pc */
 
     "pop  %%" reg_TMP "\n\t"
     "add  $-3, %%" reg_TMP "\n\t"
-    "mov  %%" reg_TMP ", " PS_PC "\n\t"
+    "mov  %%" reg_TMP ", " PS_ENTRY_PC "\n\t"
 
 #ifdef ___CPU_x86_32
     "cmpl $0x100000,-" CONTROL_POINT_TAG "-2*4(%%" reg_TMP ")\n\t"
@@ -3713,7 +3753,10 @@ ___processor_state ___ps;)
 
     "\n"
     "store_self_register:\n\t"
+    "mov  " PS_CONTEXT ", %%" reg_TMP "\n\t"
     "mov  %%" reg_R4 ", " PS_R("4") "\n\t"
+    "mov  " PS_ENTRY_PC ", %%" reg_R0 "\n\t"
+    "mov  %%" reg_R0 ", " PS_PC "\n\t"
 
     /* save frame pointer and heap pointer registers */
 
@@ -3722,7 +3765,7 @@ ___processor_state ___ps;)
 
     /* restore callee-save registers */
 
-    "mov  " PS_FIELD("-2") ", %%" reg_SP "\n\t"
+    "mov  " PS_RETURN_SP ", %%" reg_SP "\n\t"
     /* "pop  %%" reg_FP "\n\t" */
     /* "pop  %%" reg_PS "\n\t" */
     // "pop  %%" reg_HP "\n\t"
@@ -3742,8 +3785,10 @@ ___processor_state ___ps;)
 
     : /* no outputs */
     : /* inputs */
-      "m" (___ps)
+      "m" (___ps),
+      LAYOUT_INPUTS
     : /* clobbers */
+      "memory",
       "%" reg_PS,
       "%" reg_TMP,
       "%" reg_R0,
@@ -3769,7 +3814,8 @@ ___processor_state ___ps;)
 #define reg_TMP "r7"
 #define reg_SP "sp"
 #define reg_LR "lr"
-#define PS_FIELD(field) "[" reg_PS ",#" PS_OFFSET "+(" field "*4)]"
+#define PS_MEMBER(member) "[" reg_PS ",#" PS_OFFSET "+%c[" member "]]"
+#define CX_FIELD(member) "[" reg_TMP ",#%c[" member "]]"
 #define PS_OFFSET "4"
 
   /*
@@ -3800,8 +3846,10 @@ ___processor_state ___ps;)
     /* setup handler for returning from lowlevel code */
 
     "adr  " reg_TMP ", return_from_lowlevel\n\t"
-    "str  " reg_TMP ", " PS_FIELD("-1") "\n\t"
-    "str  " reg_SP ", " PS_FIELD("-2") "\n\t"
+    "str  " reg_TMP ", " PS_RETURN_HANDLER "\n\t"
+    "str  " reg_SP ", " PS_RETURN_SP "\n\t"
+
+    "ldr  " reg_TMP ", " PS_CONTEXT "\n\t"
 
     /* setup frame pointer and heap pointer registers */
 
@@ -3815,7 +3863,7 @@ ___processor_state ___ps;)
     "\n"
     "setup_other_registers:\n\t"
 
-    /* setup lowlevel registers from ___ps->r[...] */
+    /* setup lowlevel registers from ___ps->context->r[...] */
 
     "ldr  " reg_R0 ", " PS_R("0") "\n\t"
     "ldr  " reg_R1 ", " PS_R("1") "\n\t"
@@ -3824,7 +3872,7 @@ ___processor_state ___ps;)
 
     /*
      * set flags according to ___ps->na and jump to lowlevel code at
-     * ___ps->pc
+     * ___ps->context->pc
      */
 
     "ldr  pc, " PS_PC "\n\t"
@@ -3833,14 +3881,16 @@ ___processor_state ___ps;)
     "return_from_lowlevel:"
     "\n\t"
 
-    /* save lowlevel registers to ___ps->r[...] */
+    "ldr  " reg_TMP ", " PS_CONTEXT "\n\t"
+
+    /* save lowlevel registers to ___ps->context->r[...] */
 
     "str  " reg_R0 ", " PS_R("0") "\n\t"
     "str  " reg_R1 ", " PS_R("1") "\n\t"
     "str  " reg_R2 ", " PS_R("2") "\n\t"
     "str  " reg_R3 ", " PS_R("3") "\n\t"
 
-    /* recover the destination control point in ___ps->pc */
+    /* recover the destination control point in ___ps->context->pc */
 
     "sub  " reg_LR ", #4\n\t"
     "str  " reg_LR ", " PS_PC "\n\t"
@@ -3852,6 +3902,7 @@ ___processor_state ___ps;)
 
     "\n"
     "store_self_register:\n\t"
+    "ldr  " reg_TMP ", " PS_CONTEXT "\n\t"
     "str  " reg_R4 ", " PS_R("4") "\n\t"
 
     /* save frame pointer and heap pointer registers */
@@ -3861,12 +3912,14 @@ ___processor_state ___ps;)
 
     /* restore callee-save registers */
 
-    "ldr  " reg_SP ", " PS_FIELD("-2") "\n\t"
+    "ldr  " reg_SP ", " PS_RETURN_SP "\n\t"
 
     : /* no outputs */
     : /* inputs */
-      "r" (___ps)
+      "r" (___ps),
+      LAYOUT_INPUTS
     : /* clobbers */
+      "memory",
       reg_PS,
       reg_TMP,
       reg_R0,
@@ -3898,10 +3951,12 @@ ___processor_state ___ps;)
 /* XXX */
 #if __riscv_xlen == 64
 #define PS_OFFSET "8"
-#define PS_FIELD(field) PS_OFFSET "+(" field "*8)(" reg_PS ")"
+#define PS_MEMBER(member) PS_OFFSET "+%c[" member "](" reg_PS ")"
+#define CX_FIELD(member) "%c[" member "](" reg_TMP0 ")"
 #else
 #define PS_OFFSET "4"
-#define PS_FIELD(field) PS_OFFSET "+(" field "*4)(" reg_PS ")"
+#define PS_MEMBER(member) PS_OFFSET "+%c[" member "](" reg_PS ")"
+#define CX_FIELD(member) "%c[" member "](" reg_TMP0 ")"
 #endif
 
   /*
@@ -3917,11 +3972,17 @@ ___processor_state ___ps;)
 
     "la " reg_TMP0 ", return_from_lowlevel\n\t" // XXX
 #if __riscv_xlen == 64
-    "sd " reg_TMP0 ", " PS_FIELD("-1") "\n\t"
-    "sd " reg_SP ", " PS_FIELD("-2") "\n\t"
+    "sd " reg_TMP0 ", " PS_RETURN_HANDLER "\n\t"
+    "sd " reg_SP ", " PS_RETURN_SP "\n\t"
 #else
-    "sw " reg_TMP0 ", " PS_FIELD("-1") "\n\t"
-    "sw " reg_SP ", " PS_FIELD("-2") "\n\t"
+    "sw " reg_TMP0 ", " PS_RETURN_HANDLER "\n\t"
+    "sw " reg_SP ", " PS_RETURN_SP "\n\t"
+#endif
+
+#if __riscv_xlen == 64
+    "ld " reg_TMP0 ", " PS_CONTEXT "\n\t"
+#else
+    "lw " reg_TMP0 ", " PS_CONTEXT "\n\t"
 #endif
 
     /* setup frame pointer and heap pointer registers */
@@ -3945,7 +4006,7 @@ ___processor_state ___ps;)
     "\n"
     "setup_other_registers:\n\t"
 
-    /* setup lowlevel registers from ___ps->r[...] */
+    /* setup lowlevel registers from ___ps->context->r[...] */
 
 #if __riscv_xlen == 64
     "ld " reg_R0 ", " PS_R("0") "\n\t"
@@ -3961,7 +4022,7 @@ ___processor_state ___ps;)
 
     /*
      * set flags according to ___ps->na and jump to lowlevel code at
-     * ___ps->pc
+     * ___ps->context->pc
      */
 
 #if __riscv_xlen == 64
@@ -3975,7 +4036,13 @@ ___processor_state ___ps;)
     "return_from_lowlevel:"
     "\n\t"
 
-    /* save lowlevel registers to ___ps->r[...] */
+#if __riscv_xlen == 64
+    "ld " reg_TMP0 ", " PS_CONTEXT "\n\t"
+#else
+    "lw " reg_TMP0 ", " PS_CONTEXT "\n\t"
+#endif
+
+    /* save lowlevel registers to ___ps->context->r[...] */
 
 #if __riscv_xlen == 64
     "sd " reg_R0 ", " PS_R("0") "\n\t"
@@ -3989,7 +4056,7 @@ ___processor_state ___ps;)
     "sw " reg_R3 ", " PS_R("3") "\n\t"
 #endif
 
-    /* recover the destination control point in ___ps->pc */
+    /* recover the destination control point in ___ps->context->pc */
 
     "addi " reg_RA ", " reg_RA ", -" PS_OFFSET "+" CONTROL_POINT_TAG "\n\t" /* XXX */
 #if __riscv_xlen == 64
@@ -4011,6 +4078,12 @@ ___processor_state ___ps;)
     "\n"
     "store_self_register:\n\t"
 #if __riscv_xlen == 64
+    "ld " reg_TMP0 ", " PS_CONTEXT "\n\t"
+#else
+    "lw " reg_TMP0 ", " PS_CONTEXT "\n\t"
+#endif
+
+#if __riscv_xlen == 64
     "sd " reg_R4 ", " PS_R("4") "\n\t"
 #else
     "sw " reg_R4 ", " PS_R("4") "\n\t"
@@ -4029,15 +4102,17 @@ ___processor_state ___ps;)
     /* restore callee-save registers */
 
 #if __riscv_xlen == 64
-    "ld " reg_SP ", " PS_FIELD("-2") "\n\t"
+    "ld " reg_SP ", " PS_RETURN_SP "\n\t"
 #else
-    "lw " reg_SP ", " PS_FIELD("-2") "\n\t"
+    "lw " reg_SP ", " PS_RETURN_SP "\n\t"
 #endif
 
     : /* no outputs */
     : /* inputs */
-      "r" (___ps)
+      "r" (___ps),
+      LAYOUT_INPUTS
     : /* clobbers */
+      "memory",
       reg_PS,
       reg_TMP0,
       reg_TMP1,
@@ -4057,7 +4132,7 @@ ___processor_state ___ps;)
   }
 
   {
-    ___WORD ___pc = ___ps->pc;
+    ___WORD ___pc = ___ps->context->pc;
     ___EXIT_HOST();
   }
 }
@@ -4540,7 +4615,7 @@ int line;)
 
   ___printf (" ");
 
-  if ((sym = ___find_global_var_bound_to (___ps->pc)) != ___NUL ||
+  if ((sym = ___find_global_var_bound_to (___ps->context->pc)) != ___NUL ||
       (sym = ___find_global_var_bound_to (start)) != ___NUL)
     {
       ___SCMOBJ name = ___SYMKEY_NAME_FIELD(sym);
@@ -4553,11 +4628,11 @@ int line;)
       ___printf ("|%s| host=0x%08x", module_name, start);
     }
 
-  if (start == ___ps->pc)
+  if (start == ___ps->context->pc)
     ___printf ("\n");
   else
     ___printf (" (subprocedure %d)\n",
-               ___CAST(___label_struct*,___ps->pc) -
+               ___CAST(___label_struct*,___ps->context->pc) -
                ___CAST(___label_struct*,start));
 
 }
@@ -4686,6 +4761,10 @@ ___virtual_machine_state ___vms;)
   ___SCMOBJ err;
   int i;
 
+  /* Bind stable VM execution storage before any setup helper can use roots.
+   * Existing setup/cleanup and synchronous carrier lifetime are unchanged. */
+  ___ps->context = &___vms->execution_contexts[___PROCESSOR_ID(___ps, ___vms)];
+
   /*
    * Processors need to know in which VM they are.
    */
@@ -4720,14 +4799,14 @@ ___virtual_machine_state ___vms;)
    * Setup registers.
    */
 
-  for (i=0; i<sizeof(___ps->r)/sizeof(*___ps->r); i++)
-    ___ps->r[i] = ___VOID;
+  for (i=0; i<sizeof(___ps->context->r)/sizeof(*___ps->context->r); i++)
+    ___ps->context->r[i] = ___VOID;
 
-  for (i=0; i<sizeof(___ps->saved)/sizeof(*___ps->saved); i++)
-    ___ps->saved[i] = ___VOID;
+  for (i=0; i<sizeof(___ps->context->saved)/sizeof(*___ps->context->saved); i++)
+    ___ps->context->saved[i] = ___VOID;
 
-  for (i=0; i<sizeof(___ps->type_cache)/sizeof(*___ps->type_cache); i++)
-    ___ps->type_cache[i] = ___VOID;
+  for (i=0; i<sizeof(___ps->context->type_cache)/sizeof(*___ps->context->type_cache); i++)
+    ___ps->context->type_cache[i] = ___VOID;
 
   /*
    * Copy handlers from global state to processor state.
@@ -6318,7 +6397,9 @@ ___setup_params_struct *setup_params;)
 
   {
     ___virtual_machine_state ___vms = &___GSTATE->vmstate0;
-    setup_interrupts_pstate (___PSTATE_FROM_PROCESSOR_ID(0,___vms));
+    ___processor_state initial = ___PSTATE_FROM_PROCESSOR_ID(0,___vms);
+    initial->context = &___vms->execution_contexts[0];
+    setup_interrupts_pstate (initial);
   }
 
   /*

@@ -179,10 +179,10 @@ void print_stack
         (___ps)
 ___processor_state ___ps;)
 {
-  ___WORD *stack_limit = ___ps->stack_limit;
-  ___WORD *fp = ___ps->fp;
-  ___WORD *stack_break = ___ps->stack_break;
-  ___WORD *stack_start = ___ps->stack_start;
+  ___WORD *stack_limit = ___ps->context->stack_limit;
+  ___WORD *fp = ___ps->context->fp;
+  ___WORD *stack_break = ___ps->context->stack_break;
+  ___WORD *stack_start = ___ps->context->stack_start;
   ___msection *stack_ms = ___ps->mem.stack_msection_;
   ___WORD *probe;
 
@@ -811,13 +811,13 @@ ___PSDKR)
   int s;
   int h;
 
-  s = unzapped_words (___ps->stack_limit - ___MSECTION_FUDGE,
+  s = unzapped_words (___ps->context->stack_limit - ___MSECTION_FUDGE,
                       ___MSECTION_FUDGE);
 
   if (s > stack_fudge_used)
     stack_fudge_used = s;
 
-  h = ___ps->hp - ___ps->heap_limit;
+  h = ___ps->context->hp - ___ps->heap_limit;
 
   if (h > heap_fudge_used)
     heap_fudge_used = h;

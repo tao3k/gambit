@@ -31,8 +31,8 @@ ___PSDKR)
 
   /* Recover processor's stack and heap pointers */
 
-  alloc_stack_ptr = ___ps->fp;
-  alloc_heap_ptr  = ___ps->hp;
+  alloc_stack_ptr = ___ps->context->fp;
+  alloc_heap_ptr  = ___ps->context->hp;
 
 #ifdef ___DEBUG_STACK_LIMIT
   ___ps->stack_limit_line = line;
@@ -56,7 +56,7 @@ ___PSDKR)
       ___msection *prev_stack_msection = stack_msection;
       ___WORD *prev_alloc_stack_start = alloc_stack_start;
       ___WORD *prev_alloc_stack_ptr = alloc_stack_ptr;
-      ___WORD *prev_stack_break = ___ps->stack_break;
+      ___WORD *prev_stack_break = ___ps->context->stack_break;
       ___WORD *fp;
       int frame_count;
       int words;
@@ -105,8 +105,8 @@ ___PSDKR)
                * the GC to move all the frames to the heap.
                */
 
-              if ((___ps->stack_break - alloc_stack_ptr) >
-                  (___ps->stack_start - ___ps->stack_limit)*2/3)
+              if ((___ps->context->stack_break - alloc_stack_ptr) >
+                  (___ps->context->stack_start - ___ps->context->stack_limit)*2/3)
                 {
                   /*
                    * At the top of the current stack msection there are
@@ -122,7 +122,7 @@ ___PSDKR)
                   ___FP_SET_STK(alloc_stack_ptr,
                                 -___BREAK_FRAME_NEXT,
                                 ___CAST(___WORD,prev_alloc_stack_ptr))
-                  ___ps->stack_break = alloc_stack_ptr;
+                  ___ps->context->stack_break = alloc_stack_ptr;
                 }
 
               prepare_mem_pstate (___ps);
@@ -139,7 +139,7 @@ ___PSDKR)
        * Move to the new stack msection.
        */
 
-      ___ps->stack_start = alloc_stack_start;
+      ___ps->context->stack_start = alloc_stack_start;
       alloc_stack_ptr = alloc_stack_start;
 
       /*
@@ -215,7 +215,7 @@ ___PSDKR)
               ___FP_SET_STK(alloc_stack_ptr,
                             -___BREAK_FRAME_NEXT,
                             ___CAST(___WORD,prev_alloc_stack_ptr))
-              ___ps->stack_break = alloc_stack_ptr;
+              ___ps->context->stack_break = alloc_stack_ptr;
 
               fp = alloc_stack_ptr;
 
@@ -249,7 +249,7 @@ ___PSDKR)
                             -___BREAK_FRAME_NEXT,
                             ___CAST(___WORD,fp))
 
-              ___ps->stack_break = alloc_stack_ptr;
+              ___ps->context->stack_break = alloc_stack_ptr;
 
               memmove (alloc_stack_ptr - words,
                        prev_alloc_stack_ptr,
@@ -286,7 +286,7 @@ ___PSDKR)
   ___msection *ms;
 
   if (stack_msection != heap_msection &&
-      ___ps->stack_start == &___STK(-___FIRST_BREAK_FRAME_SPACE) &&
+      ___ps->context->stack_start == &___STK(-___FIRST_BREAK_FRAME_SPACE) &&
       (ms = ___CAST(___msection*,___STK(-___FIRST_BREAK_FRAME_STACK_MSECTION)))
       != NULL)
     {
@@ -302,13 +302,13 @@ ___PSDKR)
 
       set_stack_msection (___ps, ms);
 
-      ___ps->stack_break =
+      ___ps->context->stack_break =
         ___CAST(___WORD*,___STK(-___FIRST_BREAK_FRAME_STACK_BREAK));
 
       alloc_stack_ptr =
         ___CAST(___WORD*,___STK(-___BREAK_FRAME_NEXT));
 
-      ___ps->stack_start = alloc_stack_start;
+      ___ps->context->stack_start = alloc_stack_start;
 
       stack_msection_resume_using (___ps, alloc_stack_start, alloc_stack_ptr);
 
@@ -355,8 +355,8 @@ ___PSDKR)
 
   /* Recover processor's stack and heap pointers */
 
-  alloc_stack_ptr = ___ps->fp;
-  alloc_heap_ptr  = ___ps->hp;
+  alloc_stack_ptr = ___ps->context->fp;
+  alloc_heap_ptr  = ___ps->context->hp;
 
 #ifdef ___DEBUG_HEAP_LIMIT
   ___ps->heap_limit_line = line;

@@ -196,13 +196,13 @@ ___PSDKR)
   reference_location = IN_CONTINUATION;
 #endif
 
-  fp = ___ps->fp;
+  fp = ___ps->context->fp;
 
 #ifdef SHOW_FRAMES
   ___printf ("mark_continuation fp=%p\n", fp);
 #endif
 
-  if (fp != ___ps->stack_break)
+  if (fp != ___ps->context->stack_break)
     for (;;)
       {
         ra1 = ___FP_STK(fp,-___FRAME_STACK_RA);
@@ -234,13 +234,13 @@ ___PSDKR)
         ra2 = ___FP_STK(fp,descriptor.link+1);
 
 #ifdef SHOW_FRAMES
-        if (fp == ___ps->stack_break)
+        if (fp == ___ps->context->stack_break)
           ___printf ("  (first frame above break frame)\n");
 #endif
 
         mark_frame (___PSP fp, &descriptor);
 
-        if (fp == ___ps->stack_break)
+        if (fp == ___ps->context->stack_break)
           break;
 
         ___FP_SET_STK(fp,-___FRAME_STACK_RA,ra2)

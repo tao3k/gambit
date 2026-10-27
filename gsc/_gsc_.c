@@ -5106,6 +5106,7 @@
 "c#get-condition"
 "c#get-delayed-actions"
 "c#get-endianness"
+"c#get-execution-context-field"
 "c#get-frame-offset"
 "c#get-frame-pointer"
 "c#get-free-register"
@@ -7258,6 +7259,7 @@
 "cont"
 "container"
 "containsKey"
+"context"
 "context-nb-slots"
 "context1"
 "context2"
@@ -7467,6 +7469,7 @@
 "end2"
 "entry"
 "entry-hook"
+"entry-pc"
 "entrypt"
 "entrypt_init"
 "environment"
@@ -9025,6 +9028,7 @@
 "saved-obj0"
 "saved-obj1"
 "saved-obj2"
+"saved-r1"
 "scheduler-exception"
 "scheduler-exception-reason"
 "scheduler-exception?"
@@ -17853,6 +17857,7 @@
 "c#gen-call-maybe-dead-end"
 "c#get-bb"
 "c#get-endianness"
+"c#get-execution-context-field"
 "c#get-frame-offset"
 "c#get-gvm-arg-reg-count"
 "c#get-gvm-reg-count"
@@ -24805,6 +24810,7 @@ ___DEF_OLD_SYM_GLO(___S_c_23_get_2d_code_2d_list,___G_c_23_get_2d_code_2d_list)
 ___DEF_OLD_SYM_GLO(___S_c_23_get_2d_condition,___G_c_23_get_2d_condition)
 ___DEF_OLD_SYM_GLO(___S_c_23_get_2d_delayed_2d_actions,___G_c_23_get_2d_delayed_2d_actions)
 ___DEF_OLD_SYM_GLO(___S_c_23_get_2d_endianness,___G_c_23_get_2d_endianness)
+___DEF_OLD_SYM_GLO(___S_c_23_get_2d_execution_2d_context_2d_field,___G_c_23_get_2d_execution_2d_context_2d_field)
 ___DEF_OLD_SYM_GLO(___S_c_23_get_2d_frame_2d_offset,___G_c_23_get_2d_frame_2d_offset)
 ___DEF_OLD_SYM_GLO(___S_c_23_get_2d_frame_2d_pointer,___G_c_23_get_2d_frame_2d_pointer)
 ___DEF_OLD_SYM_GLO(___S_c_23_get_2d_free_2d_register,___G_c_23_get_2d_free_2d_register)
@@ -27426,6 +27432,7 @@ ___DEF_OLD_SYM_GLO(___S_const__to__string,___G_const__to__string)
 ___DEF_OLD_SYM_GLO(___S_cont,___G_cont)
 ___DEF_OLD_SYM_GLO(___S_container,___G_container)
 ___DEF_OLD_SYM_GLO(___S_containsKey,___G_containsKey)
+___DEF_OLD_SYM_GLO(___S_context,___G_context)
 ___DEF_OLD_SYM_GLO(___S_context_2d_nb_2d_slots,___G_context_2d_nb_2d_slots)
 ___DEF_OLD_SYM_GLO(___S_context1,___G_context1)
 ___DEF_OLD_SYM_GLO(___S_context2,___G_context2)
@@ -27642,6 +27649,7 @@ ___DEF_OLD_SYM_GLO(___S_end1,___G_end1)
 ___DEF_OLD_SYM_GLO(___S_end2,___G_end2)
 ___DEF_OLD_SYM_GLO(___S_entry,___G_entry)
 ___DEF_OLD_SYM_GLO(___S_entry_2d_hook,___G_entry_2d_hook)
+___DEF_OLD_SYM_GLO(___S_entry_2d_pc,___G_entry_2d_pc)
 ___DEF_OLD_SYM_GLO(___S_entrypt,___G_entrypt)
 ___DEF_OLD_SYM_GLO(___S_entrypt__init,___G_entrypt__init)
 ___DEF_OLD_SYM_GLO(___S_environment,___G_environment)
@@ -29212,6 +29220,7 @@ ___DEF_OLD_SYM_GLO(___S_safe,___G_safe)
 ___DEF_OLD_SYM_GLO(___S_saved_2d_obj0,___G_saved_2d_obj0)
 ___DEF_OLD_SYM_GLO(___S_saved_2d_obj1,___G_saved_2d_obj1)
 ___DEF_OLD_SYM_GLO(___S_saved_2d_obj2,___G_saved_2d_obj2)
+___DEF_OLD_SYM_GLO(___S_saved_2d_r1,___G_saved_2d_r1)
 ___DEF_OLD_SYM_GLO(___S_scheduler_2d_exception,___G_scheduler_2d_exception)
 ___DEF_OLD_SYM_GLO(___S_scheduler_2d_exception_2d_reason,___G_scheduler_2d_exception_2d_reason)
 ___DEF_OLD_SYM_GLO(___S_scheduler_2d_exception_3f_,___G_scheduler_2d_exception_3f_)

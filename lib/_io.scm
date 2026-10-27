@@ -5069,7 +5069,7 @@
   `(macro-case-target
     ((C)
      (##c-code
-      "___ps->type_cache[___CHAR_INPUT_PORT_TYPE_CACHE] = ___ARG1;"
+      "___ps->context->type_cache[___CHAR_INPUT_PORT_TYPE_CACHE] = ___ARG1;"
       (##structure-type ,port)))
     (else
      #f)))
@@ -5078,7 +5078,7 @@
   `(macro-case-target
     ((C)
      (##c-code
-      "___ps->type_cache[___CHAR_OUTPUT_PORT_TYPE_CACHE] = ___ARG1;"
+      "___ps->context->type_cache[___CHAR_OUTPUT_PORT_TYPE_CACHE] = ___ARG1;"
       (##structure-type ,port)))
     (else
      #f)))

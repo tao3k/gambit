@@ -93,8 +93,8 @@ ___processor_state ___ps;)
   stack_left_before_fudge = (alloc_stack_ptr - alloc_stack_limit)
                             - ___MSECTION_FUDGE;
 
-  ___ps->fp = alloc_stack_ptr;
-  ___ps->stack_limit = alloc_stack_ptr
+  ___ps->context->fp = alloc_stack_ptr;
+  ___ps->context->stack_limit = alloc_stack_ptr
                        - ((stack_avail < stack_left_before_fudge)
                           ? stack_avail
                           : stack_left_before_fudge);
@@ -103,7 +103,7 @@ ___processor_state ___ps;)
   heap_left_before_fudge = (alloc_heap_limit - alloc_heap_ptr)
                            - ___MSECTION_FUDGE;
 
-  ___ps->hp = alloc_heap_ptr;
+  ___ps->context->hp = alloc_heap_ptr;
   ___ps->heap_limit = alloc_heap_ptr
                       + ((heap_avail < heap_left_before_fudge)
                          ? heap_avail
@@ -116,7 +116,7 @@ ___processor_state ___ps;)
 #ifdef ENABLE_CONSISTENCY_CHECKS
   if (___DEBUG_SETTINGS_LEVEL(___GSTATE->setup_params.debug_settings) >= 1)
     {
-      ___WORD *end = ___ps->stack_limit;
+      ___WORD *end = ___ps->context->stack_limit;
       ___WORD *start = end - ___MSECTION_FUDGE;
       if (end > alloc_stack_ptr)
         end = alloc_stack_ptr;
@@ -129,15 +129,15 @@ ___processor_state ___ps;)
           ___printf ("heap_avail         = %d\n", heap_avail);
           ___printf ("stack_msection     = %p\n", stack_msection);
           ___printf ("heap_msection      = %p\n", heap_msection);
-          ___printf ("___ps->stack_start = %p\n", ___ps->stack_start);
-          ___printf ("___ps->stack_break = %p\n", ___ps->stack_break);
-          ___printf ("___ps->fp          = %p\n", ___ps->fp);
+          ___printf ("___ps->context->stack_start = %p\n", ___ps->context->stack_start);
+          ___printf ("___ps->context->stack_break = %p\n", ___ps->context->stack_break);
+          ___printf ("___ps->context->fp          = %p\n", ___ps->context->fp);
           ___printf ("alloc_stack_ptr    = %p\n", alloc_stack_ptr);
-          ___printf ("___ps->stack_limit = %p\n", ___ps->stack_limit);
+          ___printf ("___ps->context->stack_limit = %p\n", ___ps->context->stack_limit);
           ___printf ("alloc_stack_limit  = %p\n", alloc_stack_limit);
           ___printf ("alloc_heap_limit   = %p\n", alloc_heap_limit);
           ___printf ("___ps->heap_limit  = %p\n", ___ps->heap_limit);
-          ___printf ("___ps->hp          = %p\n", ___ps->hp);
+          ___printf ("___ps->context->hp          = %p\n", ___ps->context->hp);
           ___printf ("alloc_heap_ptr     = %p\n", alloc_heap_ptr);
           ___printf ("alloc_heap_start   = %p\n", alloc_heap_start);
         }
@@ -213,7 +213,7 @@ ___processor_state ___ps;)
    * ___stack_overflow_undo_if_possible).
    */
 
-  ___ps->stack_start = alloc_stack_start;
+  ___ps->context->stack_start = alloc_stack_start;
   alloc_stack_ptr = alloc_stack_start;
 
   ___FP_ADJFP(alloc_stack_ptr,___FIRST_BREAK_FRAME_SPACE)
@@ -227,7 +227,7 @@ ___processor_state ___ps;)
                 ___CAST(___WORD,
                         ___CAST(___msection*,NULL))) /* not a stack section overflow */
 
-  ___ps->stack_break = alloc_stack_ptr;
+  ___ps->context->stack_break = alloc_stack_ptr;
 
   /*
    * Setup will lists.

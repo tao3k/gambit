@@ -445,7 +445,7 @@
  *  +-----------------------------------------------------------+------+------+
  *  ^                     ^                                     ^             ^
  *  |                     |                                     |             |
- *  alloc_stack_limit     ___ps->stack_limit      alloc_stack_ptr             |
+ *  alloc_stack_limit     ___ps->context->stack_limit      alloc_stack_ptr             |
  *                                                            alloc_stack_start
  *
  * Msection used for allocating movable objects and allocating
@@ -458,7 +458,7 @@
  *  ^    ^        ^                     ^                     ^        ^      ^
  *  |    |        |                     |                     |        |      |
  *  |    |        |     alloc_heap_limit alloc_stack_limit    |        |      |
- *  |    |        ___ps->heap_limit          ___ps->stack_limit        |      |
+ *  |    |        ___ps->heap_limit          ___ps->context->stack_limit        |      |
  *  |    alloc_heap_ptr                                  alloc_stack_ptr      |
  *  alloc_heap_start                                          alloc_stack_start
  */

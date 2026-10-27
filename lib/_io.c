@@ -41909,7 +41909,7 @@ ___DEF_GLBL(___L6_char_2d_ready_3f_)
    ___SET_R2(___STRUCTURETYPE(___R1))
 #define ___ARG1 ___R2
 { ___SCMOBJ ___RESULT;
-___ps->type_cache[___CHAR_INPUT_PORT_TYPE_CACHE] = ___ARG1;
+___ps->context->type_cache[___CHAR_INPUT_PORT_TYPE_CACHE] = ___ARG1;
 }
 #undef ___ARG1
    ___POLL(1)
@@ -42363,7 +42363,7 @@ ___DEF_GLBL(___L6_peek_2d_char)
    ___SET_R2(___STRUCTURETYPE(___R1))
 #define ___ARG1 ___R2
 { ___SCMOBJ ___RESULT;
-___ps->type_cache[___CHAR_INPUT_PORT_TYPE_CACHE] = ___ARG1;
+___ps->context->type_cache[___CHAR_INPUT_PORT_TYPE_CACHE] = ___ARG1;
 }
 #undef ___ARG1
    ___PEEKCHAR1P(___R1)
@@ -42872,7 +42872,7 @@ ___DEF_GLBL(___L6_read_2d_char)
    ___SET_R2(___STRUCTURETYPE(___R1))
 #define ___ARG1 ___R2
 { ___SCMOBJ ___RESULT;
-___ps->type_cache[___CHAR_INPUT_PORT_TYPE_CACHE] = ___ARG1;
+___ps->context->type_cache[___CHAR_INPUT_PORT_TYPE_CACHE] = ___ARG1;
 }
 #undef ___ARG1
    ___READCHAR1P(___R1)
@@ -44954,7 +44954,7 @@ ___DEF_GLBL(___L7_write_2d_char)
    ___SET_R2(___STRUCTURETYPE(___R3))
 #define ___ARG1 ___R2
 { ___SCMOBJ ___RESULT;
-___ps->type_cache[___CHAR_OUTPUT_PORT_TYPE_CACHE] = ___ARG1;
+___ps->context->type_cache[___CHAR_OUTPUT_PORT_TYPE_CACHE] = ___ARG1;
 }
 #undef ___ARG1
    ___WRITECHAR2P(___R1,___R3)

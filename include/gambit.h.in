@@ -5131,8 +5131,8 @@ else \
       ___temp = ___FAL; \
   }
 
-#define ___CHARINPUTPORTPCACHED(x)(___STRUCTUREP(x)&&___STRUCTURETYPE(x)==___ps->type_cache[___CHAR_INPUT_PORT_TYPE_CACHE])
-#define ___CHAROUTPUTPORTPCACHED(x)(___STRUCTUREP(x)&&___STRUCTURETYPE(x)==___ps->type_cache[___CHAR_OUTPUT_PORT_TYPE_CACHE])
+#define ___CHARINPUTPORTPCACHED(x)(___STRUCTUREP(x)&&___STRUCTURETYPE(x)==___ps->context->type_cache[___CHAR_INPUT_PORT_TYPE_CACHE])
+#define ___CHAROUTPUTPORTPCACHED(x)(___STRUCTUREP(x)&&___STRUCTURETYPE(x)==___ps->context->type_cache[___CHAR_OUTPUT_PORT_TYPE_CACHE])
 
 /* IFJUMP-able operations */
 
@@ -6124,7 +6124,7 @@ ___GCHASHTABLE_HASH_STEP_MULT(hash,step,obj,size)
 #define ___CURRENTTHREADSET(thread)___CURRENTTHREAD = thread;
 
 #define ___PROCESSOR_SCMOBJ(ps) \
-___SUBTYPED_FROM_START(___ALIGNUP((ps)->processor_scmobj,___WS))
+___SUBTYPED_FROM_START(___ALIGNUP((ps)->context->processor_scmobj,___WS))
 
 #define ___CURRENTPROCESSOR ___PROCESSOR_SCMOBJ(___ps)
 #define ___CURRENTPROCESSORID ___FIX(___PROCESSOR_ID(___ps,___VMSTATE_FROM_PSTATE(___ps)))
@@ -6310,7 +6310,7 @@ ___TICKETLOCK_UNLOCK2(___FIELD(STRUCTURE,obj,___INT(next)),___FIELD(STRUCTURE,ob
    the normal break handler will copy frames when undo is no longer safe. */
 
 #define ___INVALIDATE_STACK_OVERFLOW_UNDO \
-___FP_SET_STK((___ps->stack_start - ___FIRST_BREAK_FRAME_SPACE), \
+___FP_SET_STK((___ps->context->stack_start - ___FIRST_BREAK_FRAME_SPACE), \
              -___FIRST_BREAK_FRAME_STACK_MSECTION,0)
 
 #define ___THREAD_SAVE \
@@ -6324,7 +6324,7 @@ else \
     frame = ___CAST(___SCMOBJ,___fp); \
     ___ADJFP(___BREAK_FRAME_SPACE) \
     ___SET_STK(-___BREAK_FRAME_NEXT,frame) \
-    ___ps->stack_break = ___fp; \
+    ___ps->context->stack_break = ___fp; \
   } \
 thread = ___CURRENTTHREAD; \
 ___CONTINUATION_FRAME_FIELD(___THREAD_CONT_FIELD(thread)) = frame;
@@ -6379,7 +6379,7 @@ ___CONTINUATION_FRAME_FIELD(___THREAD_CONT_FIELD(thread)) = frame;
 #define ___THREAD_RESTORE \
 { ___SCMOBJ cont = ___THREAD_CONT_FIELD(thread); \
   ___INVALIDATE_STACK_OVERFLOW_UNDO \
-  ___SET_FP(___ps->stack_break) \
+  ___SET_FP(___ps->context->stack_break) \
   ___SET_STK(-___BREAK_FRAME_NEXT,___CONTINUATION_FRAME_FIELD(cont)) \
   ___CONTINUATION_FRAME_FIELD(cont) = ___END_OF_CONT_MARKER; \
   ___INTERRUPT_MASK_SET(___DENV_INTERRUPT_MASK_FIELD(___THREAD_DENV_FIELD(thread))); \
@@ -6580,11 +6580,11 @@ ___FIELD(VECTOR,denv,___DENV_OUTPUT_PORT)
 #define ___FRAME_RA 0
 
 #define ___FRAME_STORE_RA(ra) \
-if (___fp != ___ps->stack_break) \
+if (___fp != ___ps->context->stack_break) \
   ___SET_STK(-___FRAME_STACK_RA,ra)
 
 #define ___FRAME_FETCH_RA \
-((___fp != ___ps->stack_break) \
+((___fp != ___ps->context->stack_break) \
 ? ___STK(-___FRAME_STACK_RA) \
 : ___ps->handler_break)
 
@@ -6605,7 +6605,7 @@ ___SET_STK(-2,___THREAD_DENV_FIELD(___CURRENTTHREAD)) \
 cont = ___SUBTYPED_FROM_START(&___STK(0)); \
 ___ADJFP(___BREAK_FRAME_SPACE) \
 ___SET_STK(-___BREAK_FRAME_NEXT,frame) \
-___ps->stack_break = ___fp;
+___ps->context->stack_break = ___fp;
 
 #define ___JUMP_CONTINUATION_CAPTURE1(jump) \
 { ___SCMOBJ proc; \
@@ -6655,7 +6655,7 @@ ___ps->stack_break = ___fp;
 
 #define ___CONTINUATION_GRAFT_NO_WINDING \
 ___INVALIDATE_STACK_OVERFLOW_UNDO \
-___SET_FP(___ps->stack_break) \
+___SET_FP(___ps->context->stack_break) \
 ___SET_STK(-___BREAK_FRAME_NEXT,___CONTINUATION_FRAME_FIELD(cont)) \
 temp = ___CONTINUATION_DENV_FIELD(cont); \
 thread = ___CURRENTTHREAD; \
@@ -6723,7 +6723,7 @@ ___SET_R0(___ps->handler_break)
   ___POP_ARGS2(cont,result) \
   ___SET_R1(result) \
   ___INVALIDATE_STACK_OVERFLOW_UNDO \
-  ___SET_FP(___ps->stack_break) \
+  ___SET_FP(___ps->context->stack_break) \
   ___SET_STK(-___BREAK_FRAME_NEXT,___CONTINUATION_FRAME_FIELD(cont)) \
   temp = ___CONTINUATION_DENV_FIELD(cont); \
   thread = ___CURRENTTHREAD; \
@@ -6815,7 +6815,7 @@ ___U64 ___u64_temp; /*******************/ \
 ___D_ALL
 
 #define ___END_COD \
-___ps->pc = ___pc; \
+___ps->context->pc = ___pc; \
 ___W_ALL } \
 ___EXIT_HOST(); \
 }
@@ -6908,9 +6908,9 @@ ___EXT(___register_host_entry) (___PSP ___start, ___MODULE_NAME, __FILE__, __LIN
 #define ___DEF_HLBL(id)&&id,
 #define ___END_HLBL \
 0}; \
-___pc=___ps->pc; ___R_ALL ___start=___MLBL(___HOST_LBL0); \
+___pc=___ps->context->pc; ___R_ALL ___start=___MLBL(___HOST_LBL0); \
 if (___EXPECT_FALSE(___pc == ___FIX(0))) { \
-  ___ps->pc = ___CAST(___WORD,___hlbltbl); \
+  ___ps->context->pc = ___CAST(___WORD,___hlbltbl); \
   return; \
 }
 
@@ -6955,7 +6955,7 @@ ___jumpext:
 #define ___BEGIN_HLBL
 #define ___DEF_HLBL_INTRO
 #define ___DEF_HLBL(id)
-#define ___END_HLBL ___pc=___ps->pc; ___R_ALL ___start=___MLBL(___HOST_LBL0);
+#define ___END_HLBL ___pc=___ps->context->pc; ___R_ALL ___start=___MLBL(___HOST_LBL0);
 
 #define ___BEGIN_SW \
 ___REGISTER_HOST_ENTRY \
@@ -6980,14 +6980,14 @@ switch((___pc-=___start)/(___LABEL_SIZE*___WS)) \
 
 #define ___REGISTER
 
-#define ___PSHEAP ___ps->hp
+#define ___PSHEAP ___ps->context->hp
 #define ___D_HEAP ___REGISTER ___WORD *___hp;
 #define ___R_HEAP ___R_HEAP_EXPR;
 #define ___W_HEAP ___W_HEAP_EXPR;
 #define ___R_HEAP_EXPR ___hp=___PSHEAP
 #define ___W_HEAP_EXPR ___PSHEAP=___hp
 
-#define ___PSFP ___ps->fp
+#define ___PSFP ___ps->context->fp
 #define ___D_FP ___REGISTER ___WORD *___fp;
 #define ___R_FP ___SET_FP(___PSFP)
 #define ___W_FP ___PSFP=___fp;
@@ -7056,7 +7056,7 @@ switch((___pc-=___start)/(___LABEL_SIZE*___WS)) \
 #endif
 #endif
 
-#define ___PSR0 ___ps->r[0]
+#define ___PSR0 ___ps->context->r[0]
 #if ___MAX_LOCAL_GVM_REGS > 0
 #define ___D_R0 ___REGISTER ___WORD ___r0;
 #define ___R_R0 ___r0=___PSR0;
@@ -7081,7 +7081,7 @@ switch((___pc-=___start)/(___LABEL_SIZE*___WS)) \
 #define ___ST_ARG_REGS
 #endif
 
-#define ___PSR1 ___ps->r[1]
+#define ___PSR1 ___ps->context->r[1]
 #if ___MAX_LOCAL_GVM_REGS > 1
 #define ___D_R1 ___REGISTER ___WORD ___r1;
 #define ___R_R1 ___r1=___PSR1;
@@ -7117,7 +7117,7 @@ if ((na)>0) ___POP_R1_TO_R1
 
 #else
 
-#define ___PSR2 ___ps->r[2]
+#define ___PSR2 ___ps->context->r[2]
 #if ___MAX_LOCAL_GVM_REGS > 2
 #define ___D_R2 ___REGISTER ___WORD ___r2;
 #define ___R_R2 ___r2=___PSR2;
@@ -7163,7 +7163,7 @@ switch (na) \
 
 #else
 
-#define ___PSR3 ___ps->r[3]
+#define ___PSR3 ___ps->context->r[3]
 #if ___MAX_LOCAL_GVM_REGS > 3
 #define ___D_R3 ___REGISTER ___WORD ___r3;
 #define ___R_R3 ___r3=___PSR3;
@@ -7211,7 +7211,7 @@ switch (na) \
 
 #else
 
-#define ___PSR4 ___ps->r[4]
+#define ___PSR4 ___ps->context->r[4]
 #if ___MAX_LOCAL_GVM_REGS > 4
 #define ___D_R4 ___REGISTER ___WORD ___r4;
 #define ___R_R4 ___r4=___PSR4;
@@ -7261,7 +7261,7 @@ switch (na) \
 
 #else
 
-#define ___PSR5 ___ps->r[5]
+#define ___PSR5 ___ps->context->r[5]
 #if ___MAX_LOCAL_GVM_REGS > 5
 #define ___D_R5 ___REGISTER ___WORD ___r5;
 #define ___R_R5 ___r5=___PSR5;
@@ -7313,7 +7313,7 @@ switch (na) \
 
 #else
 
-#define ___PSR6 ___ps->r[6]
+#define ___PSR6 ___ps->context->r[6]
 #if ___MAX_LOCAL_GVM_REGS > 6
 #define ___D_R6 ___REGISTER ___WORD ___r6;
 #define ___R_R6 ___r6=___PSR6;
@@ -7367,7 +7367,7 @@ switch (na) \
 
 #else
 
-#define ___PSR7 ___ps->r[7]
+#define ___PSR7 ___ps->context->r[7]
 #if ___MAX_LOCAL_GVM_REGS > 7
 #define ___D_R7 ___REGISTER ___WORD ___r7;
 #define ___R_R7 ___r7=___PSR7;
@@ -7423,7 +7423,7 @@ switch (na) \
 
 #else
 
-#define ___PSR8 ___ps->r[8]
+#define ___PSR8 ___ps->context->r[8]
 #if ___MAX_LOCAL_GVM_REGS > 8
 #define ___D_R8 ___REGISTER ___WORD ___r8;
 #define ___R_R8 ___r8=___PSR8;
@@ -7481,7 +7481,7 @@ switch (na) \
 
 #else
 
-#define ___PSR9 ___ps->r[9]
+#define ___PSR9 ___ps->context->r[9]
 #if ___MAX_LOCAL_GVM_REGS > 9
 #define ___D_R9 ___REGISTER ___WORD ___r9;
 #define ___R_R9 ___r9=___PSR9;
@@ -7541,7 +7541,7 @@ switch (na) \
 
 #else
 
-#define ___PSR10 ___ps->r[10]
+#define ___PSR10 ___ps->context->r[10]
 #if ___MAX_LOCAL_GVM_REGS > 10
 #define ___D_R10 ___REGISTER ___WORD ___r10;
 #define ___R_R10 ___r10=___PSR10;
@@ -7603,7 +7603,7 @@ switch (na) \
 
 #else
 
-#define ___PSR11 ___ps->r[11]
+#define ___PSR11 ___ps->context->r[11]
 #if ___MAX_LOCAL_GVM_REGS > 11
 #define ___D_R11 ___REGISTER ___WORD ___r11;
 #define ___R_R11 ___r11=___PSR11;
@@ -7667,7 +7667,7 @@ switch (na) \
 
 #else
 
-#define ___PSR12 ___ps->r[12]
+#define ___PSR12 ___ps->context->r[12]
 #if ___MAX_LOCAL_GVM_REGS > 12
 #define ___D_R12 ___REGISTER ___WORD ___r12;
 #define ___R_R12 ___r12=___PSR12;
@@ -7733,7 +7733,7 @@ switch (na) \
 
 #else
 
-#define ___PSR13 ___ps->r[13]
+#define ___PSR13 ___ps->context->r[13]
 #if ___MAX_LOCAL_GVM_REGS > 13
 #define ___D_R13 ___REGISTER ___WORD ___r13;
 #define ___R_R13 ___r13=___PSR13;
@@ -7758,7 +7758,7 @@ switch (na) \
 
 #else
 
-#define ___PSR14 ___ps->r[14]
+#define ___PSR14 ___ps->context->r[14]
 #if ___MAX_LOCAL_GVM_REGS > 14
 #define ___D_R14 ___REGISTER ___WORD ___r14;
 #define ___R_R14 ___r14=___PSR14;
@@ -7783,7 +7783,7 @@ switch (na) \
 
 #else
 
-#define ___PSR15 ___ps->r[15]
+#define ___PSR15 ___ps->context->r[15]
 #if ___MAX_LOCAL_GVM_REGS > 15
 #define ___D_R15 ___REGISTER ___WORD ___r15;
 #define ___R_R15 ___r15=___PSR15;
@@ -7808,7 +7808,7 @@ switch (na) \
 
 #else
 
-#define ___PSR16 ___ps->r[16]
+#define ___PSR16 ___ps->context->r[16]
 #if ___MAX_LOCAL_GVM_REGS > 16
 #define ___D_R16 ___REGISTER ___WORD ___r16;
 #define ___R_R16 ___r16=___PSR16;
@@ -7833,7 +7833,7 @@ switch (na) \
 
 #else
 
-#define ___PSR17 ___ps->r[17]
+#define ___PSR17 ___ps->context->r[17]
 #if ___MAX_LOCAL_GVM_REGS > 17
 #define ___D_R17 ___REGISTER ___WORD ___r17;
 #define ___R_R17 ___r17=___PSR17;
@@ -7858,7 +7858,7 @@ switch (na) \
 
 #else
 
-#define ___PSR18 ___ps->r[18]
+#define ___PSR18 ___ps->context->r[18]
 #if ___MAX_LOCAL_GVM_REGS > 18
 #define ___D_R18 ___REGISTER ___WORD ___r18;
 #define ___R_R18 ___r18=___PSR18;
@@ -7883,7 +7883,7 @@ switch (na) \
 
 #else
 
-#define ___PSR19 ___ps->r[19]
+#define ___PSR19 ___ps->context->r[19]
 #if ___MAX_LOCAL_GVM_REGS > 19
 #define ___D_R19 ___REGISTER ___WORD ___r19;
 #define ___R_R19 ___r19=___PSR19;
@@ -7908,7 +7908,7 @@ switch (na) \
 
 #else
 
-#define ___PSR20 ___ps->r[20]
+#define ___PSR20 ___ps->context->r[20]
 #if ___MAX_LOCAL_GVM_REGS > 20
 #define ___D_R20 ___REGISTER ___WORD ___r20;
 #define ___R_R20 ___r20=___PSR20;
@@ -7933,7 +7933,7 @@ switch (na) \
 
 #else
 
-#define ___PSR21 ___ps->r[21]
+#define ___PSR21 ___ps->context->r[21]
 #if ___MAX_LOCAL_GVM_REGS > 21
 #define ___D_R21 ___REGISTER ___WORD ___r21;
 #define ___R_R21 ___r21=___PSR21;
@@ -7958,7 +7958,7 @@ switch (na) \
 
 #else
 
-#define ___PSR22 ___ps->r[22]
+#define ___PSR22 ___ps->context->r[22]
 #if ___MAX_LOCAL_GVM_REGS > 22
 #define ___D_R22 ___REGISTER ___WORD ___r22;
 #define ___R_R22 ___r22=___PSR22;
@@ -7983,7 +7983,7 @@ switch (na) \
 
 #else
 
-#define ___PSR23 ___ps->r[23]
+#define ___PSR23 ___ps->context->r[23]
 #if ___MAX_LOCAL_GVM_REGS > 23
 #define ___D_R23 ___REGISTER ___WORD ___r23;
 #define ___R_R23 ___r23=___PSR23;
@@ -8008,7 +8008,7 @@ switch (na) \
 
 #else
 
-#define ___PSR24 ___ps->r[24]
+#define ___PSR24 ___ps->context->r[24]
 #if ___MAX_LOCAL_GVM_REGS > 24
 #define ___D_R24 ___REGISTER ___WORD ___r24;
 #define ___R_R24 ___r24=___PSR24;
@@ -8059,30 +8059,30 @@ switch (na) \
 /*---------------------------------------------------------------------------*/
 
 #define ___GC_SAVE1(ps,a) \
-((ps)->saved[0] = (a))
+((ps)->context->saved[0] = (a))
 
 #define ___GC_RESTORE1(ps,a) \
-(a = (ps)->saved[0], \
+(a = (ps)->context->saved[0], \
  ___GC_SAVE1(ps,___VOID))
 
 #define ___GC_SAVE2(ps,a,b) \
-((ps)->saved[0] = (a), \
- (ps)->saved[1] = (b))
+((ps)->context->saved[0] = (a), \
+ (ps)->context->saved[1] = (b))
 
 #define ___GC_RESTORE2(ps,a,b) \
-(a = (ps)->saved[0], \
- b = (ps)->saved[1], \
+(a = (ps)->context->saved[0], \
+ b = (ps)->context->saved[1], \
  ___GC_SAVE2(ps,___VOID,___VOID))
 
 #define ___GC_SAVE3(ps,a,b,c) \
-((ps)->saved[0] = (a), \
- (ps)->saved[1] = (b), \
- (ps)->saved[2] = (c))
+((ps)->context->saved[0] = (a), \
+ (ps)->context->saved[1] = (b), \
+ (ps)->context->saved[2] = (c))
 
 #define ___GC_RESTORE3(ps,a,b,c) \
-(a = (ps)->saved[0], \
- b = (ps)->saved[1], \
- c = (ps)->saved[2], \
+(a = (ps)->context->saved[0], \
+ b = (ps)->context->saved[1], \
+ c = (ps)->context->saved[2], \
  ___GC_SAVE3(ps,___VOID,___VOID,___VOID))
 
 /*---------------------------------------------------------------------------*/
@@ -8507,8 +8507,8 @@ do { \
   ___STACK_TRIP_ON_IF_INTERRUPT_REQ(); \
 } while (0)
 
-#define ___STACK_TRIP_ON()___ps->stack_trip = ___ps->stack_start
-#define ___STACK_TRIP_OFF()___ps->stack_trip = ___ps->stack_limit
+#define ___STACK_TRIP_ON()___ps->stack_trip = ___ps->context->stack_start
+#define ___STACK_TRIP_OFF()___ps->stack_trip = ___ps->context->stack_limit
 #define ___STACK_TRIPPED (___fp < ___ps->stack_trip)
 
 #ifdef ___HEARTBEAT_USING_POLL_COUNTDOWN
@@ -11717,27 +11717,37 @@ typedef struct ___sync_op_struct
 
 /* Processor structure */
 
-typedef struct ___processor_state_struct
+/* Scheme execution roots are owned by the VM, not the native carrier.
+ * This storage step keeps the existing synchronous binding and collector.
+ * It does not authorize live rebinding or independent context retirement. */
+typedef struct ___execution_context_struct
   {
-    ___WORD * ___VOLATILE stack_trip; /* place first for fast access */
     ___WORD *stack_limit;
     ___WORD *fp;
     ___WORD *stack_start;
     ___WORD *stack_break;
 
-    ___WORD *heap_limit;
     ___WORD *hp;
 
     ___WORD r[___NB_GVM_REGS]; /* GVM registers */
 
     ___WORD pc;
-    ___WORD na;
 
     ___WORD saved[3]; /* Scheme objects protected from GC */
 
     ___WORD type_cache[2];
 #define ___CHAR_INPUT_PORT_TYPE_CACHE  0
 #define ___CHAR_OUTPUT_PORT_TYPE_CACHE 1
+
+    ___WORD processor_scmobj[___SUBTYPED_BODY+___PROCESSOR_SIZE+___PADDING_SIZE]; /* Scheme processor object */
+  } ___execution_context;
+
+typedef struct ___processor_state_struct
+  {
+    ___WORD * ___VOLATILE stack_trip; /* place first for fast access */
+    ___execution_context *context; /* VM-owned execution roots */
+    ___WORD *heap_limit; /* existing allocator capacity guard */
+    ___WORD na; /* existing call-arity guard */
 
     /* these handlers are duplicated from the global state for quick access */
 
@@ -11774,7 +11784,6 @@ typedef struct ___processor_state_struct
     ___procedural_interrupt_header * ___VOLATILE procedural_interrupts_tail;
     ___MUTEX_DECL(procedural_interrupts_mut)
 
-    ___WORD processor_scmobj[___SUBTYPED_BODY+___PROCESSOR_SIZE+___PADDING_SIZE]; /* Scheme processor object */
 
 #ifdef ___USE_UNWIND_C_STACK_TO_TRAMPOLINE
     ___WORD *c_stack_trip;
@@ -11842,6 +11851,8 @@ typedef struct ___processor_state_struct
 
 typedef struct ___lowlevel_processor_state_struct
   {
+    ___WORD entry_pc; /* transient bridge target; context remains its root */
+    ___WORD saved_r1; /* x86 address scratch aliases the GVM r1 register */
     ___WORD *return_sp;
     ___WORD *return_handler;
   } ___lowlevel_processor_state_struct;
@@ -12075,6 +12086,7 @@ typedef struct ___native_scope_struct
 typedef struct ___virtual_machine_state_struct
   {
     ___aligned_processor_state_struct aligned_pstate[___MAX_PROCESSORS]; /* VM's processors */
+    ___execution_context execution_contexts[___MAX_PROCESSORS]; /* stable VM slots */
 
     ___VOLATILE int processor_count; /* number of processors in this VM */
 

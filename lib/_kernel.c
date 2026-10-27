@@ -10955,7 +10955,7 @@ ___DEF_SLBL(2,___L2__23__23_kernel_2d_handlers)
 
    /* check why the handler was called */
 
-   if (___FP_AFTER(___fp,___ps->stack_limit)
+   if (___FP_AFTER(___fp,___ps->context->stack_limit)
 #ifdef ___CALL_GC_FREQUENTLY
        || --___ps->mem.gc_calls_to_punt_ < 0
 #endif

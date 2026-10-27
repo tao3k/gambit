@@ -310,12 +310,12 @@ ___SIZE_TS requested_words_still;)
             ___printf ("processor #%d\n", p);
             ___printf ("heap_size          = %d\n", heap_size);
             ___printf ("tospace_offset     = %d\n", ___ps->mem.tospace_offset_);
-            ___printf ("___ps->stack_start = %p\n", ___ps->stack_start);
-            ___printf ("___ps->stack_break = %p\n", ___ps->stack_break);
-            ___printf ("___ps->fp          = %p\n", ___ps->fp);
-            ___printf ("___ps->stack_limit = %p\n", ___ps->stack_limit);
+            ___printf ("___ps->context->stack_start = %p\n", ___ps->context->stack_start);
+            ___printf ("___ps->context->stack_break = %p\n", ___ps->context->stack_break);
+            ___printf ("___ps->context->fp          = %p\n", ___ps->context->fp);
+            ___printf ("___ps->context->stack_limit = %p\n", ___ps->context->stack_limit);
             ___printf ("___ps->heap_limit  = %p\n", ___ps->heap_limit);
-            ___printf ("___ps->hp          = %p\n", ___ps->hp);
+            ___printf ("___ps->context->hp          = %p\n", ___ps->context->hp);
           }
         BARRIER();
       }
@@ -326,8 +326,8 @@ ___SIZE_TS requested_words_still;)
 
   /* Recover processor's stack and heap pointers */
 
-  alloc_stack_ptr = ___ps->fp;
-  alloc_heap_ptr  = ___ps->hp;
+  alloc_stack_ptr = ___ps->context->fp;
+  alloc_heap_ptr  = ___ps->context->hp;
 
 
   /* Keep track of bytes allocated by this processor */

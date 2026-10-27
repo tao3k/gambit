@@ -82837,9 +82837,9 @@ ___SIZE_TS i;
 ___SIZE_TS n;
 ___SCMOBJ result;
 ___POP_ARGS3(k,x,complement);
-___ps->saved[0] = k;
-___ps->saved[1] = x;
-___ps->saved[2] = complement;
+___ps->context->saved[0] = k;
+___ps->context->saved[1] = x;
+___ps->context->saved[2] = complement;
 n = ___INT(k);
 
 if (n > ___CAST(___WORD, ___LMASK>>___LF)/(___BIG_ABASE_WIDTH/8))
@@ -82898,12 +82898,12 @@ else
           }
       }
   }
-k = ___ps->saved[0];
-x = ___ps->saved[1];
-complement = ___ps->saved[2];
-___ps->saved[0] = ___VOID;
-___ps->saved[1] = ___VOID;
-___ps->saved[2] = ___VOID;
+k = ___ps->context->saved[0];
+x = ___ps->context->saved[1];
+complement = ___ps->context->saved[2];
+___ps->context->saved[0] = ___VOID;
+___ps->context->saved[1] = ___VOID;
+___ps->context->saved[2] = ___VOID;
 if (!___FIXNUMP(result))
   {
     ___SCMOBJ len;
