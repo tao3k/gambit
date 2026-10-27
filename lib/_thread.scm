@@ -3635,18 +3635,13 @@
 
                  timeout)))))
 
+    ;; Decide under the mutex lock before publishing a saved continuation.
+    ;; Only a committed wait owns a scheduler continuation; an immediate
+    ;; acquisition or expired timeout must leave the running root view intact.
     (let try-again ()
-
-      ;; Try to lock mutex.
-
-      (let ((result
-             (macro-thread-save!
-
-              (lambda (current-thread mutex timeout new-owner)
-
-                ;; check the state of the mutex
-                (let ((owner (macro-btq-owner mutex)))
-                  (cond ((or (##eq? owner (macro-mutex-state-not-abandoned))
+      (let ((current-thread (macro-current-thread))
+            (owner (macro-btq-owner mutex)))
+        (cond ((or (##eq? owner (macro-mutex-state-not-abandoned))
                              (##eq? owner (macro-mutex-state-abandoned)))
 
                          ;; Mutex is unlocked, so lock it.
@@ -3725,7 +3720,9 @@
                          #f) ;; signal failure
 
                         (else
-
+                         (let ((result
+                                (macro-thread-save!
+                                 (lambda (current-thread mutex timeout new-owner)
                          ;; Mutex is locked, so current thread needs
                          ;; to wait on the blocked thread queue of the
                          ;; mutex.
@@ -3791,30 +3788,16 @@
                          (macro-unlock-mutex! mutex)
 
                          ;; schedule next runnable thread
-                         (##thread-schedule-with-acquired-processor!)))))
-
-                        mutex
-                        timeout
-                        new-owner)))
-
-        ;; When result is void, it means the scheduler woke up the
-        ;; thread not because the lock was unlocked or the timeout
-        ;; was reached, but because the thread needed to be
-        ;; interrupted to perform some other work.  In this case
-        ;; the lock operation must be restarted.
-
-        (if (##eq? result (##void))
-
-            (begin
-
-              ;;(##c-code "printf(\"try-again\\n\");")
-
-              ;; acquire low-level lock of mutex
-              (macro-lock-mutex! mutex)
-
-              (try-again))
-
-            result)))))
+                         (##thread-schedule-with-acquired-processor!))
+                                 mutex timeout new-owner)))
+                           ;; An interrupt resumes service without granting
+                           ;; the mutex. Recheck under the same mutex lock;
+                           ;; the original absolute timeout remains in force.
+                           (if (##eq? result (##void))
+                               (begin
+                                 (macro-lock-mutex! mutex)
+                                 (try-again))
+                               result))))))))
 
 (define-prim (##mutex-unlock-out-of-line! mutex first-thread)
 

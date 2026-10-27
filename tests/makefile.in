@@ -70,7 +70,7 @@ mandir = @mandir@
 
 .SUFFIXES:
 
-RCFILES = root-task.scm rc-root-origin.scm runtime-roles.c test-entry.h test-entry.c makefile.in \
+RCFILES = mutex-suspension.scm root-task.scm rc-root-origin.scm runtime-roles.c test-entry.h test-entry.c makefile.in \
 debug.scm error.scm r4rstest.scm mix.scm mem.scm client.c server.scm server.h \
 test1.ok test2.ok test3.ok test4.ok test5.ok test6.ok test7.ok \
 test8.ok test9.ok test10.scm input run-unit-tests.scm stack-overflow-undo.c \
@@ -115,7 +115,7 @@ core-post:
 
 .NOTPARALLEL:
 
-check: core test-runtime-roles test1 test2 test3 test4 test5 test6 test7 test8 test9 test10 test11 test12 test-entry test-inline-primitives test-native-scope test-frame-contract test-rc-roots test-root-task
+check: core test-runtime-roles test1 test2 test3 test4 test5 test6 test7 test8 test9 test10 test11 test12 test-entry test-inline-primitives test-native-scope test-frame-contract test-rc-roots test-root-task test-mutex-suspension
 	@echo "============ ALL TESTS SUCCESSFUL"
 	rm -f mem.c mem_.c mem@obj@ mem.o1 mem_@obj@ mem@exe@ \
 	  mix.c mix_.c mix@obj@ mix_@obj@ mix@exe@ \
@@ -483,3 +483,10 @@ test-root-task:
 	@SETDLPATH@ ./root-task@exe@ -:p2 --moving-bank
 	@SETDLPATH@ ./root-task@exe@ -:p2 --moving-globals
 	rm -f root-task@exe@ root-task-input.dat
+
+.PHONY: test-mutex-suspension
+test-mutex-suspension:
+	@SETDLPATH@ $(rootfromhere)/gsc/gsc@exe@ -:~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f -exe -o mutex-suspension@exe@ $(srcdirpfx)mutex-suspension.scm
+	@SETDLPATH@ ./mutex-suspension@exe@ -:p1
+	@SETDLPATH@ ./mutex-suspension@exe@ -:p2
+	rm -f mutex-suspension@exe@
