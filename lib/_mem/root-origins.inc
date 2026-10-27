@@ -122,62 +122,50 @@ ___BOOL ___root_task_scan_vm(___root_task *task, ___processor_state executor,
 
 
 ___HIDDEN void mark_global_variables
-   ___P((___PSDNC),
-        (___PSVNC)
-___PSDKR)
+   ___P((___PSD const ___global_root_source *source),
+        (___PSV source)
+___PSDKR
+const ___global_root_source *source;)
 {
   ___PSGET
-  ___virtual_machine_state ___vms = ___VMSTATE_FROM_PSTATE(___ps);
-  int id = ___PROCESSOR_ID(___ps,___vms); /* id of this processor */
-
 #ifdef ENABLE_CONSISTENCY_CHECKS
   reference_location = IN_GLOBAL_VAR;
 #endif
-
-  /*
-   * Mark a portion of the global variables.
-   */
-
 #ifdef ___SINGLE_VM
-
   {
-    int np = ___vms->processor_count;
-    int lo = (id * ___GLO_SUBLIST_COUNT) / np;
-    int hi = ((id+1) * ___GLO_SUBLIST_COUNT) / np;
-
-    while (lo < hi)
+    int lo=source->lo;
+    while (lo < source->hi)
       {
-        ___glo_sublist_struct *sl = &___GSTATE->mem.glo_list.sublist[lo];
+        ___glo_sublist_struct *sl = &source->global->mem.glo_list.sublist[lo];
         ___glo_struct *glo = sl->head;
-
         while (glo != 0)
           {
 #ifdef ___DEBUG_GARBAGE_COLLECT_globals
             print_global_var_name (glo);
             ___printf ("\n");
 #endif
-            mark_array (___PSP &___GLOCELL(glo->val), 1);
+            mark_array (___PSP &glo->val, 1);
             glo = glo->next;
           }
-
         lo++;
       }
   }
-
 #else
-
-  {
-    int n = ___GSTATE->mem.glo_list.count;
-    int np = ___vms->processor_count;
-    int lo = (id * n) / np;
-    int hi = ((id+1) * n) / np;
-
-    mark_array (___PSP
-                ___VMSTATE_FROM_PSTATE(___ps)->glos+lo,
-                hi-lo);
-  }
-
+  mark_array (___PSP source->vm->glos+source->lo,source->hi-source->lo);
 #endif
+}
+
+___BOOL ___root_task_scan_globals(___root_task *task, ___processor_state executor,
+                                 ___UWORD epoch)
+{
+  ___processor_state ___ps=executor;
+  if (!root_globals_task(task,executor) ||
+      !root_task_matches(task,___ROOT_GLOBALS,executor,epoch) ||
+      task->state != ___ROOT_CLAIMED || task->scan_leases != 1) return 0;
+  task->state=___ROOT_SCANNING;
+  mark_global_variables (___PSP task->origin.source.globals);
+  task->state=___ROOT_SCANNED;
+  return 1;
 }
 
 

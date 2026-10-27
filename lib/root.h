@@ -7,7 +7,17 @@ enum ___root_task_state {
   ___ROOT_EMPTY, ___ROOT_READY, ___ROOT_CLAIMED,
   ___ROOT_SCANNING, ___ROOT_SCANNED, ___ROOT_DONE
 };
-enum ___root_origin_kind { ___ROOT_NONE, ___ROOT_RC, ___ROOT_VM, ___ROOT_BANK, ___ROOT_STACK, ___ROOT_SYMKEY };
+enum ___root_origin_kind { ___ROOT_NONE, ___ROOT_RC, ___ROOT_VM, ___ROOT_BANK, ___ROOT_STACK, ___ROOT_SYMKEY, ___ROOT_GLOBALS };
+/* This names the existing multi-VM glos allocation, not a new capacity limit.
+ * Keep the allocator and view admission on the same physical extent. */
+#define ___GLOBALS_CAPACITY 20000
+
+typedef struct ___global_root_source_struct {
+  ___global_state global;
+  ___virtual_machine_state vm;
+  int count, participants, participant, lo, hi;
+} ___global_root_source;
+
 typedef struct ___root_origin_struct {
   enum ___root_origin_kind kind;
   union {
@@ -16,6 +26,7 @@ typedef struct ___root_origin_struct {
     ___execution_context *bank;
     ___execution_context *stack;
     ___global_state symkey;
+    const ___global_root_source *globals;
   } source;
 } ___root_origin;
 typedef struct ___root_task_struct {
@@ -74,4 +85,15 @@ extern ___BOOL ___root_task_claim_symkey(___root_task*,___processor_state,___UWO
 extern ___BOOL ___root_task_scan_symkey(___root_task*,___processor_state,___UWORD);
 extern ___BOOL ___root_task_finish_symkey(___root_task*,___processor_state,___UWORD);
 extern ___BOOL ___root_task_completed_symkey(___root_task*,___processor_state,___UWORD);
+/* Source storage is fresh caller-owned C metadata, borrowed read-only until
+ * task/round completion. Valid metadata pointers and outer VM/registry holds
+ * preexist lookup. Snapshot checks are not a cross-VM writer freeze. */
+extern ___BOOL ___root_globals_partition(int,int,int,int*,int*);
+extern ___BOOL ___root_task_publish_globals(___root_task*,___global_root_source*,
+                                           ___virtual_machine_state,
+                                           ___processor_state,___UWORD,___UWORD*);
+extern ___BOOL ___root_task_claim_globals(___root_task*,___processor_state,___UWORD);
+extern ___BOOL ___root_task_scan_globals(___root_task*,___processor_state,___UWORD);
+extern ___BOOL ___root_task_finish_globals(___root_task*,___processor_state,___UWORD);
+extern ___BOOL ___root_task_completed_globals(___root_task*,___processor_state,___UWORD);
 #endif

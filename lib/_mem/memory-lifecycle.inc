@@ -327,7 +327,7 @@ ___virtual_machine_state ___vms;)
 
   /* TODO: implement expansion of glos array when number of globals grows beyond 20000 */
 
-  { int n = 20000;
+  { int n = ___GLOBALS_CAPACITY;
     ___vms->glos = ___CAST(___SCMOBJ*,___ALLOC_MEM(n * sizeof (___SCMOBJ)));
     while (--n>=0) { ___vms->glos[n] = ___UNB1; }
   }

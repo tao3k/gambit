@@ -481,4 +481,5 @@ test-root-task:
 	@SETDLPATH@ $(rootfromhere)/gsc/gsc@exe@ -:~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f -exe -cc-options "-DHAVE_CONFIG_H -I$(srcdirpfx)$(rootfromhere)/include -I$(srcdirpfx)$(rootfromhere)/lib" -o root-task@exe@ $(srcdirpfx)root-task.scm
 	@SETDLPATH@ ./root-task@exe@ -:p1
 	@SETDLPATH@ ./root-task@exe@ -:p2 --moving-bank
+	@SETDLPATH@ ./root-task@exe@ -:p2 --moving-globals
 	rm -f root-task@exe@ root-task-input.dat

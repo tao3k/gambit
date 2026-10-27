@@ -109,7 +109,16 @@ ___HIDDEN ___BOOL root_vm_executor(___processor_state executor)
          ___PROCESSOR_ID(executor,___VMSTATE_FROM_PSTATE(executor)) == 0;
 }
 
-/* VM, bank, stack and symkey publication share one confined state transition. The
+/* Shared fresh-record eligibility; descriptor initialization must not reset
+ * or overwrite an exposed/unknown task when publication is refused. */
+___HIDDEN ___BOOL root_task_fresh(___root_task *task, ___UWORD previous)
+{
+  return task->origin.kind == ___ROOT_NONE && task->state == ___ROOT_EMPTY &&
+         task->scan_leases == 0 && previous == task->epoch &&
+         previous != ~___CAST(___UWORD,0);
+}
+
+/* VM, bank, stack, symkey and globals publication share one confined state transition. The
  * wrapper checks source identity before reading any source payload. */
 ___HIDDEN ___BOOL root_task_publish_confined(___root_task *task,
                                             ___root_origin origin,
@@ -127,14 +136,14 @@ ___HIDDEN ___BOOL root_task_publish_confined(___root_task *task,
         same_source=task->origin.source.stack == origin.source.stack;
       else if (origin.kind == ___ROOT_SYMKEY)
         same_source=task->origin.source.symkey == origin.source.symkey;
+      else if (origin.kind == ___ROOT_GLOBALS)
+        same_source=task->origin.source.globals == origin.source.globals;
     }
   if (same_source && task->executor == executor && task->epoch != 0 &&
       previous == task->epoch-1 &&
       task->state >= ___ROOT_READY && task->state <= ___ROOT_DONE)
     { *epoch=task->epoch; return 1; }
-  if (task->origin.kind != ___ROOT_NONE || task->state != ___ROOT_EMPTY ||
-      task->scan_leases != 0 || previous != task->epoch ||
-      previous == ~___CAST(___UWORD,0)) return 0;
+  if (!root_task_fresh(task,previous)) return 0;
   task->origin=origin; task->executor=executor; task->epoch=previous+1;
   task->scan_leases=1; task->state=___ROOT_READY;
   *epoch=task->epoch;
@@ -308,5 +317,109 @@ ___BOOL ___root_task_completed_symkey(___root_task *task, ___processor_state exe
 {
   return root_symkey_task(task,executor) &&
          root_task_matches(task,___ROOT_SYMKEY,executor,epoch) &&
+         task->state == ___ROOT_DONE && task->scan_leases == 0;
+}
+
+/* Half-open floor partitions, including empty shards. Reject arithmetic that
+ * cannot represent the old mathematical product rather than wrap its bound. */
+___BOOL ___root_globals_partition(int extent, int participant, int participants,
+                                 int *lo, int *hi)
+{
+  ___UWORD n;
+  if (lo == 0 || hi == 0 || extent < 0 || participants <= 0 ||
+      participant < 0 || participant >= participants) return 0;
+  n=___CAST(___UWORD,extent);
+  if (n != 0 && ___CAST(___UWORD,participants) >
+      ~___CAST(___UWORD,0)/n) return 0;
+  *lo=___CAST(int,(___CAST(___UWORD,participant)*n)/participants);
+  *hi=___CAST(int,(___CAST(___UWORD,participant+1)*n)/participants);
+  return 1;
+}
+
+___HIDDEN ___BOOL root_globals_view(___global_root_source *view,
+                                   ___virtual_machine_state vm,
+                                   ___processor_state executor)
+{
+  int extent;
+  if (executor == 0 || executor != ___PSTATE ||
+      vm != ___VMSTATE_FROM_PSTATE(executor)) return 0;
+  view->global=___GSTATE; view->vm=vm;
+  view->count=___GSTATE->mem.glo_list.count;
+  view->participants=vm->processor_count;
+  view->participant=___PROCESSOR_ID(executor,vm);
+  if (view->count < 0 || view->participants <= 0 ||
+      view->participants > ___MAX_PROCESSORS) return 0;
+#ifdef ___SINGLE_VM
+  extent=___GLO_SUBLIST_COUNT;
+#else
+  if (view->count > ___GLOBALS_CAPACITY || vm->glos == 0) return 0;
+  extent=view->count;
+#endif
+  return ___root_globals_partition(extent,view->participant,view->participants,
+                                   &view->lo,&view->hi);
+}
+
+___HIDDEN ___BOOL root_globals_equal(const ___global_root_source *a,
+                                    const ___global_root_source *b)
+{
+  return a->global == b->global && a->vm == b->vm && a->count == b->count &&
+         a->participants == b->participants && a->participant == b->participant &&
+         a->lo == b->lo && a->hi == b->hi;
+}
+
+___BOOL ___root_task_publish_globals(___root_task *task,
+                                    ___global_root_source *storage,
+                                    ___virtual_machine_state vm,
+                                    ___processor_state executor,
+                                    ___UWORD previous, ___UWORD *epoch)
+{
+  ___global_root_source view;
+  ___root_origin origin;
+  if (task == 0 || storage == 0 || epoch == 0 ||
+      !root_globals_view(&view,vm,executor)) return 0;
+  if (task->origin.kind == ___ROOT_GLOBALS)
+    {
+      if (task->origin.source.globals != storage ||
+          !root_globals_equal(storage,&view)) return 0;
+    }
+  else
+    {
+      if (!root_task_fresh(task,previous)) return 0;
+      *storage=view; /* Initialize descriptor before READY, only once. */
+    }
+  origin.kind=___ROOT_GLOBALS; origin.source.globals=storage;
+  return root_task_publish_confined(task,origin,executor,previous,epoch);
+}
+
+___HIDDEN ___BOOL root_globals_task(___root_task *task,
+                                   ___processor_state executor)
+{
+  ___global_root_source expected;
+  return executor != 0 && executor == ___PSTATE && task != 0 &&
+         task->origin.kind == ___ROOT_GLOBALS &&
+         task->origin.source.globals != 0 &&
+         root_globals_view(&expected,___VMSTATE_FROM_PSTATE(executor),executor) &&
+         root_globals_equal(task->origin.source.globals,&expected);
+}
+
+___BOOL ___root_task_claim_globals(___root_task *task, ___processor_state executor,
+                                  ___UWORD epoch)
+{
+  return executor != 0 && executor == ___PSTATE && root_globals_task(task,executor) &&
+         root_task_claim_state(task,___ROOT_GLOBALS,executor,epoch);
+}
+
+___BOOL ___root_task_finish_globals(___root_task *task, ___processor_state executor,
+                                   ___UWORD epoch)
+{
+  return executor != 0 && executor == ___PSTATE && root_globals_task(task,executor) &&
+         root_task_finish_state(task,___ROOT_GLOBALS,executor,epoch);
+}
+
+___BOOL ___root_task_completed_globals(___root_task *task, ___processor_state executor,
+                                      ___UWORD epoch)
+{
+  return executor != 0 && executor == ___PSTATE && root_globals_task(task,executor) &&
+         root_task_matches(task,___ROOT_GLOBALS,executor,epoch) &&
          task->state == ___ROOT_DONE && task->scan_leases == 0;
 }

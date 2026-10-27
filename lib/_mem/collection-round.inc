@@ -214,7 +214,21 @@ ___UWORD rc_epoch;)
       !___root_task_finish(___ps->mem.rc_domain_,___ps,rc_epoch))
     rc_contract_error("RC root task did not complete");
 
-  mark_global_variables (___PSPNC);
+  {
+    ___root_task globals_task;
+    ___global_root_source globals_source;
+    ___UWORD globals_epoch;
+    /* Snapshot the actual roster/registry partition before publishing READY.
+     * Descriptor and VM/registry lifetime remain held outside local DONE. */
+    ___root_task_init(&globals_task,rc_epoch-1);
+    if (!___root_task_publish_globals(&globals_task,&globals_source,___vms,___ps,
+                                     rc_epoch-1,&globals_epoch) ||
+        globals_epoch != rc_epoch ||
+        !___root_task_claim_globals(&globals_task,___ps,globals_epoch) ||
+        !___root_task_scan_globals(&globals_task,___ps,globals_epoch) ||
+        !___root_task_finish_globals(&globals_task,___ps,globals_epoch))
+      rc_contract_error("Global variable root task did not complete");
+  }
 
   {
     ___root_task stack_task;

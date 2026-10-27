@@ -1,5 +1,5 @@
 ;;; gambit.smp.gc.root-task: native replay, independent oracle and shrinking.
-;;; RC, VM, bank, stack and symbol/keyword origins share this generator, oracle, replay and shrink driver.
+;;; RC, VM, bank, stack, symbol/keyword and global-variable origins share this generator, oracle, replay and shrink driver.
 ;;; Each replay is a fresh process. No Scheme allocation while a source is frozen.
 (c-declare #<<c-end
 #include "rc.h"
@@ -16,6 +16,7 @@ ___processor_state ps=___PSTATE;
 ___rc_domain *d=ps->mem.rc_domain_;
 ___UWORD base, receipt;
 ___root_task local_task, *task;
+___global_root_source globals_source;
 ___execution_context *bank=ps->context;
 ___SCMOBJ commands=___arg1, expected_rows=___arg2;
 int mutation=___arg3;
@@ -54,10 +55,22 @@ if(family) {
      * No Scheme allocation, callback or return may follow this reset. */
     bank->fp=bank->stack_break;
     ___FP_STK(bank->stack_break,-___BREAK_FRAME_NEXT)=___END_OF_CONT_MARKER;
-  } else {
+  } else if(family==4) {
     /* Immediate-only control replay. No Scheme allocation, symbol lookup,
      * callback or return follows before _Exit in this disposable p1 child. */
     ___GSTATE->symbol_table=___FAL; ___GSTATE->keyword_table=___FAL;
+  } else {
+    /* Snapshot all C commands first; no Scheme operation follows. Clear the
+     * actual globals payload, never the registry count or roster. */
+#ifdef ___SINGLE_VM
+    int bucket;
+    for(bucket=0;bucket<___GLO_SUBLIST_COUNT;bucket++) {
+      ___glo_struct *glo=___GSTATE->mem.glo_list.sublist[bucket].head;
+      for(;glo!=0;glo=glo->next) glo->val=___FAL;
+    }
+#else
+    for(i=0;i<___GSTATE->mem.glo_list.count;i++) vm->glos[i]=___FAL;
+#endif
   }
   ___root_task_init(&local_task,base);
 }
@@ -100,6 +113,30 @@ for(i=0;i<n;i++) {
   case 3: accepted=___root_task_finish_symkey(task,actor,key); break;
   case 4: accepted=___root_task_publish_symkey(task,___CAST(___global_state,&alien_source),actor,key,&receipt); break;
   case 5: accepted=___root_task_completed_symkey(task,actor,key); break;
+  } else if(family==5) switch(op) {
+  case 0: accepted=___root_task_publish_globals(task,&globals_source,vm,actor,key,&receipt); break;
+  case 1: accepted=___root_task_claim_globals(task,actor,key); break;
+  case 2: accepted=___root_task_scan_globals(task,actor,key); break;
+  case 3: accepted=___root_task_finish_globals(task,actor,key); break;
+  case 4: accepted=___root_task_publish_globals(task,&globals_source,___CAST(___virtual_machine_state,&alien_source),actor,key,&receipt); break;
+  case 5: accepted=___root_task_completed_globals(task,actor,key); break;
+  case 6: {
+    /* Adversarial metadata input, not a production mutation/recovery API.
+     * There is no running scan in this synchronous child. Restore only test
+     * metadata after checking that an altered view cannot acquire a claim. */
+    if(task->origin.kind==___ROOT_GLOBALS) {
+      ___global_root_source saved=globals_source;
+      switch(delta) {
+      case -1: globals_source.count++; break;
+      case 0: globals_source.lo++; break;
+      case 1: globals_source.participants++; break;
+      case 2: globals_source.vm=___CAST(___virtual_machine_state,&alien_source); break;
+      }
+      accepted=___root_task_claim_globals(task,actor,base+1);
+      globals_source=saved;
+    }
+    break;
+  }
   } else switch(op) {
   case 0: accepted=___root_task_publish(d,actor,key,&receipt); break;
   case 1: accepted=___root_task_claim(d,actor,key); break;
@@ -130,12 +167,12 @@ c-end
 ;;; refinement cut after the real scanner, before root_dispatch.finish.
 (define family 'rc)
 (define (trace-tag)
-  (case family ((vm) 'vm-root-task-trace) ((bank) 'bank-root-task-trace) ((stack) 'stack-root-task-trace) ((symkey) 'symkey-root-task-trace)
+  (case family ((vm) 'vm-root-task-trace) ((bank) 'bank-root-task-trace) ((stack) 'stack-root-task-trace) ((symkey) 'symkey-root-task-trace) ((globals) 'globals-root-task-trace)
     ((continuation) 'continuation-history)
     (else 'root-task-trace)))
 (define (trace-file suffix)
   (string-append (case family ((vm) "vm-root-task-")
-                  ((bank) "bank-root-task-") ((stack) "stack-root-task-") ((symkey) "symkey-root-task-")
+                  ((bank) "bank-root-task-") ((stack) "stack-root-task-") ((symkey) "symkey-root-task-") ((globals) "globals-root-task-")
                   ((continuation) "continuation-history-") (else "root-task-")) suffix ".trace"))
 (define (oracle commands)
   (let ((state (if (eq? family 'rc) 5 0)) (phase 0) (lease 0) (epoch 0))
@@ -164,20 +201,20 @@ c-end
       commands))))
 
 (define (trace? x)
-  (and (list? x) (= (length x) 4) (memq (car x) '(root-task-trace vm-root-task-trace bank-root-task-trace stack-root-task-trace symkey-root-task-trace continuation-history))
+  (and (list? x) (= (length x) 4) (memq (car x) '(root-task-trace vm-root-task-trace bank-root-task-trace stack-root-task-trace symkey-root-task-trace globals-root-task-trace continuation-history))
        (integer? (cadr x)) (<= 1 (cadr x) 3) (list? (caddr x))
        (<= (length (caddr x)) 96) (memv (cadddr x) '(0 1))
        (let loop ((xs (caddr x)))
          (or (null? xs)
              (let ((r (car xs)))
                (and (vector? r) (= (vector-length r) 3)
-                    (integer? (vector-ref r 0)) (<= 0 (vector-ref r 0) 5)
+                    (integer? (vector-ref r 0)) (<= 0 (vector-ref r 0) (if (eq? (car x) 'globals-root-task-trace) 6 5))
                     (memv (vector-ref r 1) '(-1 0 1 2))
                     (memv (vector-ref r 2) '(0 1)) (loop (cdr xs))))))))
 (define (replay trace)
   (if (not (trace? trace)) (error "invalid structured root-task trace"))
   (set! family (case (car trace) ((vm-root-task-trace) 'vm)
-                 ((bank-root-task-trace) 'bank) ((stack-root-task-trace) 'stack) ((symkey-root-task-trace) 'symkey)
+                 ((bank-root-task-trace) 'bank) ((stack-root-task-trace) 'stack) ((symkey-root-task-trace) 'symkey) ((globals-root-task-trace) 'globals)
                  ((continuation-history) 'continuation) (else 'rc)))
   (if (not (prepare-source)) (error "root-task source allocation failed"))
   (do ((i 0 (+ i 1))) ((= i (cadr trace))) (##gc))
@@ -185,7 +222,7 @@ c-end
     (if (eq? family 'continuation)
         (replay-continuation commands (cadddr trace))
         (replay-native (list->vector commands) (oracle commands) (cadddr trace)
-                       (case family ((vm) 1) ((bank) 2) ((stack) 3) ((symkey) 4) (else 0))))))
+                       (case family ((vm) 1) ((bank) 2) ((stack) 3) ((symkey) 4) ((globals) 5) (else 0))))))
 
 (define self (car (command-line)))
 (define input-file "root-task-input.dat")
@@ -237,9 +274,12 @@ c-end
       (set! state (modulo (+ (* state 48271) 17) 2147483647)) (modulo state n))
     (define (noise n)
       (if (= n 0) '()
-          (cons (vector (next 6) (list-ref '(-1 0 1 2) (next 4)) (next 2))
+          (cons (vector (next (if (eq? family 'globals) 7 6)) (list-ref '(-1 0 1 2) (next 4)) (next 2))
                 (noise (- n 1)))))
-    (define chain (list (vector 0 0 0) (vector 1 1 0) (vector 2 1 0) (vector 3 1 0)))
+    (define chain (append (list (vector 0 0 0))
+                          (if (eq? family 'globals)
+                              (map (lambda (field) (vector 6 field 0)) '(-1 0 1 2)) '())
+                          (list (vector 1 1 0) (vector 2 1 0) (vector 3 1 0))))
     (do ((sample 0 (+ sample 1))) ((= sample 24))
       (let* ((commands (append (noise 16) chain (noise 16)))
              (result (trial commands 0)))
@@ -378,6 +418,84 @@ c-end
     (display "CONTINUATION-HISTORY-REPLAY-PASS\n") (force-output)))
 
 
+
+;;; Finite arithmetic/adapter checks, not another temporal model.
+(define partition-check
+  (c-lambda () bool #<<c-end
+int n,np,id,lo,hi,prior,cases=0,empty=0;
+___result=1;
+for(n=0;n<=64;n++) for(np=1;np<=8;np++) {
+  prior=0;
+  for(id=0;id<np;id++) {
+    if(!___root_globals_partition(n,id,np,&lo,&hi) || lo!=prior ||
+       lo!=(id*n)/np || hi!=((id+1)*n)/np || lo>hi || hi>n) ___result=0;
+    if(lo==hi) empty++;
+    prior=hi;cases++;
+  }
+  if(prior!=n) ___result=0;
+}
+if(___root_globals_partition(-1,0,1,&lo,&hi) ||
+   ___root_globals_partition(1,-1,1,&lo,&hi) ||
+   ___root_globals_partition(1,1,1,&lo,&hi) ||
+   ___root_globals_partition(1,0,0,&lo,&hi) ||
+   ___root_globals_partition(1,0,1,0,&hi) ||
+   ___root_globals_partition(1,0,1,&lo,0)) ___result=0;
+if(___result) printf("GLOBALS-PARTITION-PASS cases=%d empty=%d invalid=6\n",cases,empty);
+c-end
+))
+(define (globals-partitions)
+  (if (not (partition-check)) (error "actual global partition arithmetic failed")))
+
+(define globals-owned #f)
+(define globals-relocate
+  (c-lambda (scheme-object scheme-object) bool #<<c-end
+___virtual_machine_state vm=___VMSTATE_FROM_PSTATE(___PSTATE);
+___SCMOBJ *cells[2]={0,0},before[2],saved[2];
+int owners=vm->processor_count,id,lo,hi,i,failed=0,moved=0;
+___result=0;
+/* This is the existing p1/p2 fixture topology, not a runtime capacity limit.
+ * Borrow only unbound cells; restore before Scheme allocation/lookup/return.
+ * No user foreign cleanup callback is installed in this one-VM image. */
+if((owners==1 || owners==2) && ___PROCESSOR_ID(___PSTATE,vm)==0) {
+  for(id=0;id<owners;id++) {
+#ifdef ___SINGLE_VM
+    ___root_globals_partition(___GLO_SUBLIST_COUNT,id,owners,&lo,&hi);
+    for(i=lo;i<hi && cells[id]==0;i++) {
+      ___glo_struct *g=___GSTATE->mem.glo_list.sublist[i].head;
+      for(;g!=0;g=g->next) if(g->val==___UNB1) {cells[id]=&g->val;break;}
+    }
+#else
+    ___root_globals_partition(___GSTATE->mem.glo_list.count,id,owners,&lo,&hi);
+    for(i=lo;i<hi;i++) if(vm->glos[i]==___UNB1) {cells[id]=&vm->glos[i];break;}
+#endif
+    if(cells[id]==0) break;
+    printf("GLOBALS-ROOT-SHARD owner=%d lo=%d hi=%d\n",id,lo,hi);
+  }
+  if(id==owners) {
+    for(id=0;id<owners;id++) {
+      saved[id]=*cells[id];before[id]=id?___arg2:___arg1;*cells[id]=before[id];
+    }
+    failed=___EXT(___garbage_collect)(___PSA(___PSTATE) 0);
+    for(id=0;id<owners;id++) {if(*cells[id]!=before[id]) moved++;*cells[id]=saved[id];}
+    ___result=!failed && moved==owners;
+  }
+}
+c-end
+))
+(define (globals-moving-roots)
+  (dynamic-wind
+   (lambda () #f)
+   (lambda ()
+     (set! globals-owned (cons 1103 (make-vector 7 751)))
+     (if (not (globals-relocate (cons 1109 757) (cons 1117 761)))
+         (error "actual global shard relocation or unbound-cell admission failed"))
+     (##gc)
+     (if (not (and (pair? globals-owned) (= (car globals-owned) 1103)
+                   (equal? (cdr globals-owned) (make-vector 7 751))))
+         (error "generated global setter/root value lost across moving GC"))
+     (write (list 'GLOBALS-ROOT-MOVING-PASS 'participants (##current-vm-processor-count))) (newline))
+   (lambda () (set! globals-owned #f))))
+
 ;;; Native-only relocation window: keep old tables in registered RC roots,
 ;;; install two small valid empty tables, collect, then restore old anchors
 ;;; before any Scheme lookup/allocation/callback/return. No user cleanup
@@ -505,6 +623,7 @@ c-end
   (cond ((and (= (length args) 2) (string=? (car args) "--replay"))
          (replay (call-with-input-file (cadr args) read)))
         ((and (= (length args) 1) (string=? (car args) "--moving-bank")) (bank-moving-roots))
-        ((null? args) (symkey-moving-roots) (vm-moving-roots) (for-each (lambda (kind) (set! family kind) (suite)) '(rc vm bank stack symkey))
+        ((and (= (length args) 1) (string=? (car args) "--moving-globals")) (globals-moving-roots))
+        ((null? args) (globals-partitions) (globals-moving-roots) (symkey-moving-roots) (vm-moving-roots) (for-each (lambda (kind) (set! family kind) (suite)) '(rc vm bank stack symkey globals))
          (continuation-suite))
-        (else (error "usage: root-task [--replay TRACE | --moving-bank]"))))
+        (else (error "usage: root-task [--replay TRACE | --moving-bank | --moving-globals]"))))
