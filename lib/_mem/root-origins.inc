@@ -1,3 +1,52 @@
+#line 4689 ___MEM_SOURCE_FILE
+___HIDDEN void mark_registers
+   ___P((___PSD ___execution_context *source),
+        (___PSV source)
+___PSDKR
+___execution_context *source;)
+{
+  ___PSGET
+
+#ifdef ENABLE_CONSISTENCY_CHECKS
+  reference_location = IN_REGISTER;
+#endif
+
+  mark_array (___PSP source->r, sizeof(source->r)/sizeof(*source->r));
+}
+
+
+___HIDDEN void mark_saved
+   ___P((___PSD ___execution_context *source),
+        (___PSV source)
+___PSDKR
+___execution_context *source;)
+{
+  ___PSGET
+
+#ifdef ENABLE_CONSISTENCY_CHECKS
+  reference_location = IN_SAVED;
+#endif
+
+  mark_array (___PSP source->saved, sizeof(source->saved)/sizeof(*source->saved));
+}
+
+
+___HIDDEN void mark_type_cache
+   ___P((___PSD ___execution_context *source),
+        (___PSV source)
+___PSDKR
+___execution_context *source;)
+{
+  ___PSGET
+
+#ifdef ENABLE_CONSISTENCY_CHECKS
+  reference_location = IN_TYPE_CACHE;
+#endif
+
+  mark_array (___PSP source->type_cache, sizeof(source->type_cache)/sizeof(*source->type_cache));
+}
+
+
 #line 6503 ___MEM_SOURCE_FILE
 ___HIDDEN void mark_processor_scmobj
    ___P((___PSD ___execution_context *source),
@@ -14,6 +63,27 @@ ___execution_context *source;)
   mark_array (___PSP
               ___BODY0_AS(___SUBTYPED_FROM_START(___ALIGNUP(source->processor_scmobj,___WS)),___tSUBTYPED),
               ___PROCESSOR_SIZE);
+}
+
+
+/* One bank task covers the existing disjoint register/saved/cache/processor
+ * ranges. Never treat pc, fp/hp or padding as Scheme root words. */
+___BOOL ___root_task_scan_bank(___root_task *task, ___processor_state executor,
+                              ___UWORD epoch)
+{
+  ___processor_state ___ps=executor;
+  ___execution_context *source;
+  if (!root_bank_task(task,executor) ||
+      !root_task_matches(task,___ROOT_BANK,executor,epoch) ||
+      task->state != ___ROOT_CLAIMED || task->scan_leases != 1) return 0;
+  source=task->origin.source.bank;
+  task->state=___ROOT_SCANNING;
+  mark_registers (___PSP source);
+  mark_saved (___PSP source);
+  mark_type_cache (___PSP source);
+  mark_processor_scmobj (___PSP source);
+  task->state=___ROOT_SCANNED;
+  return 1;
 }
 
 

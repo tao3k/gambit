@@ -94,9 +94,9 @@ ___BOOL ___root_task_completed(___rc_domain *d, ___processor_state executor,
   return done;
 }
 
-/* The VM source is immutable while the existing GC collective is stopped.
- * Task state is coordinator-confined; it is neither queued nor shared. */
-void ___root_task_init_vm(___root_task *task, ___UWORD previous)
+/* Fresh confined task state. Source-specific wrappers supply the stopped
+ * source/current executor; no record is queued, reinitialized or migrated. */
+void ___root_task_init(___root_task *task, ___UWORD previous)
 {
   task->origin.kind=___ROOT_NONE; task->origin.source.vm=0;
   task->executor=0; task->epoch=previous; task->scan_leases=0;
@@ -109,25 +109,43 @@ ___HIDDEN ___BOOL root_vm_executor(___processor_state executor)
          ___PROCESSOR_ID(executor,___VMSTATE_FROM_PSTATE(executor)) == 0;
 }
 
-___BOOL ___root_task_publish_vm(___root_task *task, ___virtual_machine_state source,
-                               ___processor_state executor, ___UWORD previous,
-                               ___UWORD *epoch)
+/* VM and bank publication use the same confined state transition. The
+ * wrapper checks source identity before reading any source payload. */
+___HIDDEN ___BOOL root_task_publish_confined(___root_task *task,
+                                            ___root_origin origin,
+                                            ___processor_state executor,
+                                            ___UWORD previous, ___UWORD *epoch)
 {
-  if (task == 0 || epoch == 0 || !root_vm_executor(executor) ||
-      source != ___VMSTATE_FROM_PSTATE(executor)) return 0;
-  if (task->origin.kind == ___ROOT_VM && task->origin.source.vm == source &&
-      task->executor == executor && task->epoch != 0 &&
+  ___BOOL same_source=0;
+  if (task->origin.kind == origin.kind)
+    {
+      if (origin.kind == ___ROOT_VM)
+        same_source=task->origin.source.vm == origin.source.vm;
+      else if (origin.kind == ___ROOT_BANK)
+        same_source=task->origin.source.bank == origin.source.bank;
+    }
+  if (same_source && task->executor == executor && task->epoch != 0 &&
       previous == task->epoch-1 &&
       task->state >= ___ROOT_READY && task->state <= ___ROOT_DONE)
     { *epoch=task->epoch; return 1; }
   if (task->origin.kind != ___ROOT_NONE || task->state != ___ROOT_EMPTY ||
       task->scan_leases != 0 || previous != task->epoch ||
       previous == ~___CAST(___UWORD,0)) return 0;
-  task->origin.kind=___ROOT_VM; task->origin.source.vm=source;
-  task->executor=executor; task->epoch=previous+1;
+  task->origin=origin; task->executor=executor; task->epoch=previous+1;
   task->scan_leases=1; task->state=___ROOT_READY;
   *epoch=task->epoch;
   return 1;
+}
+
+___BOOL ___root_task_publish_vm(___root_task *task, ___virtual_machine_state source,
+                               ___processor_state executor, ___UWORD previous,
+                               ___UWORD *epoch)
+{
+  ___root_origin origin;
+  if (task == 0 || epoch == 0 || !root_vm_executor(executor) ||
+      source != ___VMSTATE_FROM_PSTATE(executor)) return 0;
+  origin.kind=___ROOT_VM; origin.source.vm=source;
+  return root_task_publish_confined(task,origin,executor,previous,epoch);
 }
 
 ___HIDDEN ___BOOL root_vm_task(___root_task *task, ___processor_state executor)
@@ -156,5 +174,57 @@ ___BOOL ___root_task_completed_vm(___root_task *task, ___processor_state executo
 {
   return root_vm_task(task,executor) &&
          root_task_matches(task,___ROOT_VM,executor,epoch) &&
+         task->state == ___ROOT_DONE && task->scan_leases == 0;
+}
+
+/* The bank is a VM-owned slot, not arbitrary carrier storage. Keep the
+ * existing synchronous binding; no context migration is admitted here. */
+___HIDDEN ___BOOL root_bank_executor(___execution_context *source,
+                                   ___processor_state executor)
+{
+  ___virtual_machine_state vm;
+  int id;
+  if (executor == 0 || executor != ___PSTATE || source == 0) return 0;
+  vm=___VMSTATE_FROM_PSTATE(executor);
+  id=___PROCESSOR_ID(executor,vm);
+  return id >= 0 && id < vm->processor_count && id < ___MAX_PROCESSORS &&
+         source == executor->context && source == &vm->execution_contexts[id];
+}
+
+___BOOL ___root_task_publish_bank(___root_task *task, ___execution_context *source,
+                                 ___processor_state executor, ___UWORD previous,
+                                 ___UWORD *epoch)
+{
+  ___root_origin origin;
+  if (task == 0 || epoch == 0 || !root_bank_executor(source,executor)) return 0;
+  origin.kind=___ROOT_BANK; origin.source.bank=source;
+  return root_task_publish_confined(task,origin,executor,previous,epoch);
+}
+
+___HIDDEN ___BOOL root_bank_task(___root_task *task, ___processor_state executor)
+{
+  return task != 0 && task->origin.kind == ___ROOT_BANK &&
+         root_bank_executor(task->origin.source.bank,executor);
+}
+
+___BOOL ___root_task_claim_bank(___root_task *task, ___processor_state executor,
+                               ___UWORD epoch)
+{
+  return root_bank_task(task,executor) &&
+         root_task_claim_state(task,___ROOT_BANK,executor,epoch);
+}
+
+___BOOL ___root_task_finish_bank(___root_task *task, ___processor_state executor,
+                                ___UWORD epoch)
+{
+  return root_bank_task(task,executor) &&
+         root_task_finish_state(task,___ROOT_BANK,executor,epoch);
+}
+
+___BOOL ___root_task_completed_bank(___root_task *task, ___processor_state executor,
+                                   ___UWORD epoch)
+{
+  return root_bank_task(task,executor) &&
+         root_task_matches(task,___ROOT_BANK,executor,epoch) &&
          task->state == ___ROOT_DONE && task->scan_leases == 0;
 }

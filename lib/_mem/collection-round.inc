@@ -186,7 +186,7 @@ ___UWORD rc_epoch;)
       ___UWORD vm_epoch;
       /* Both setup barriers precede this view. The VM allocation and stopped
        * roster outlive the task, including weak/copy/cleanup after DONE. */
-      ___root_task_init_vm(&vm_task,rc_epoch-1);
+      ___root_task_init(&vm_task,rc_epoch-1);
       if (!___root_task_publish_vm(&vm_task,___vms,___ps,rc_epoch-1,&vm_epoch) ||
           vm_epoch != rc_epoch ||
           !___root_task_claim_vm(&vm_task,___ps,vm_epoch) ||
@@ -206,13 +206,19 @@ ___UWORD rc_epoch;)
 
   mark_continuation (___PSP ___ps->context->fp, ___ps->context->stack_break);
 
-  mark_registers (___PSP ___ps->context);
-
-  mark_saved (___PSP ___ps->context);
-
-  mark_type_cache (___PSP ___ps->context);
-
-  mark_processor_scmobj (___PSP ___ps->context);
+  {
+    ___root_task bank_task;
+    ___UWORD bank_epoch;
+    /* Stack handling stays before the bank, with the original visit order.
+     * Context storage/round lifetime remain held by the stopped roster. */
+    ___root_task_init(&bank_task,rc_epoch-1);
+    if (!___root_task_publish_bank(&bank_task,___ps->context,___ps,rc_epoch-1,&bank_epoch) ||
+        bank_epoch != rc_epoch ||
+        !___root_task_claim_bank(&bank_task,___ps,bank_epoch) ||
+        !___root_task_scan_bank(&bank_task,___ps,bank_epoch) ||
+        !___root_task_finish_bank(&bank_task,___ps,bank_epoch))
+      rc_contract_error("Bank root task did not complete");
+  }
 
   mark_reachable_from_marked (___PSPNC);
 

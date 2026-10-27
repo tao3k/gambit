@@ -7,10 +7,14 @@ enum ___root_task_state {
   ___ROOT_EMPTY, ___ROOT_READY, ___ROOT_CLAIMED,
   ___ROOT_SCANNING, ___ROOT_SCANNED, ___ROOT_DONE
 };
-enum ___root_origin_kind { ___ROOT_NONE, ___ROOT_RC, ___ROOT_VM };
+enum ___root_origin_kind { ___ROOT_NONE, ___ROOT_RC, ___ROOT_VM, ___ROOT_BANK };
 typedef struct ___root_origin_struct {
   enum ___root_origin_kind kind;
-  union { ___rc_domain *rc; ___virtual_machine_state vm; } source;
+  union {
+    ___rc_domain *rc;
+    ___virtual_machine_state vm;
+    ___execution_context *bank;
+  } source;
 } ___root_origin;
 typedef struct ___root_task_struct {
   ___root_origin origin;
@@ -32,11 +36,21 @@ extern ___BOOL ___root_task_completed(___rc_domain*,___processor_state,___UWORD)
 /* VM tasks are confined to the coordinator's live C invocation. The caller
  * supplies quiescence before publication and holds VM/round lifetime beyond
  * DONE. init is only for a fresh, unexposed record, never an unknown task. */
-extern void ___root_task_init_vm(___root_task*,___UWORD);
+extern void ___root_task_init(___root_task*,___UWORD);
 extern ___BOOL ___root_task_publish_vm(___root_task*,___virtual_machine_state,
                                       ___processor_state,___UWORD,___UWORD*);
 extern ___BOOL ___root_task_claim_vm(___root_task*,___processor_state,___UWORD);
 extern ___BOOL ___root_task_scan_vm(___root_task*,___processor_state,___UWORD);
 extern ___BOOL ___root_task_finish_vm(___root_task*,___processor_state,___UWORD);
 extern ___BOOL ___root_task_completed_vm(___root_task*,___processor_state,___UWORD);
+
+/* Bank tasks borrow the current participant's stable VM context. Existing
+ * safepoints/collective hold its writers and storage through the entire GC.
+ * Stack/frame pointers and pc are not part of this bank root domain. */
+extern ___BOOL ___root_task_publish_bank(___root_task*,___execution_context*,
+                                        ___processor_state,___UWORD,___UWORD*);
+extern ___BOOL ___root_task_claim_bank(___root_task*,___processor_state,___UWORD);
+extern ___BOOL ___root_task_scan_bank(___root_task*,___processor_state,___UWORD);
+extern ___BOOL ___root_task_finish_bank(___root_task*,___processor_state,___UWORD);
+extern ___BOOL ___root_task_completed_bank(___root_task*,___processor_state,___UWORD);
 #endif

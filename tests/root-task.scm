@@ -1,5 +1,5 @@
 ;;; gambit.smp.gc.root-task: native replay, independent oracle and shrinking.
-;;; RC and VM origins share this generator, oracle, replay and shrink driver.
+;;; RC, VM and bank origins share this generator, oracle, replay and shrink driver.
 ;;; Each replay is a fresh process. No Scheme allocation while a source is frozen.
 (c-declare #<<c-end
 #include "rc.h"
@@ -15,11 +15,14 @@ c-end
 ___processor_state ps=___PSTATE;
 ___rc_domain *d=ps->mem.rc_domain_;
 ___UWORD base, receipt;
-___root_task vm_task, *task;
+___root_task local_task, *task;
+___execution_context *bank=ps->context;
+___SCMOBJ commands=___arg1, expected_rows=___arg2;
+int mutation=___arg3;
 ___virtual_machine_state vm=___VMSTATE_FROM_PSTATE(ps);
 ___WORD alien_source=0;
 int family=___arg4;
-int i,n=___INT(___VECTORLENGTH(___arg1));
+int i,n=___INT(___VECTORLENGTH(commands));
 ___RC_LOCK(d);
 base=d->task.epoch;
 if(d->phase!=___RC_OPEN || d->task.state!=___ROOT_DONE || d->task.scan_leases!=0) {
@@ -33,17 +36,24 @@ if(d->phase!=___RC_OPEN || d->task.state!=___ROOT_DONE || d->task.scan_leases!=0
 }
 ___RC_UNLOCK(d);
 if(family) {
-  ___SCMOBJ *cells=___BODY0_AS(___VM_SCMOBJ(vm),___tSUBTYPED);
-  /* Fresh p1 child: replace this VM root body's payload with immediates only.
-   * No Scheme allocation/callback or return to Scheme follows this point.
-   * Actual moving payloads are checked separately by the ordinary GC caller. */
   if(vm->processor_count!=1) { printf("(root-task-result precondition 2)\n"); fflush(stdout); _Exit(72); }
-  for(i=0;i<___VM_SIZE;i++) cells[i]=___FAL;
-  ___root_task_init_vm(&vm_task,base);
+  /* Snapshot C arguments before touching the register bank. No Scheme
+   * allocation/callback/return follows; each trial destroys its child image. */
+  if(family==1) {
+    ___SCMOBJ *cells=___BODY0_AS(___VM_SCMOBJ(vm),___tSUBTYPED);
+    for(i=0;i<___VM_SIZE;i++) cells[i]=___FAL;
+  } else {
+    ___SCMOBJ *cells=___BODY0_AS(___SUBTYPED_FROM_START(___ALIGNUP(bank->processor_scmobj,___WS)),___tSUBTYPED);
+    for(i=0;i<sizeof(bank->r)/sizeof(*bank->r);i++) bank->r[i]=___FAL;
+    for(i=0;i<sizeof(bank->saved)/sizeof(*bank->saved);i++) bank->saved[i]=___FAL;
+    for(i=0;i<sizeof(bank->type_cache)/sizeof(*bank->type_cache);i++) bank->type_cache[i]=___FAL;
+    for(i=0;i<___PROCESSOR_SIZE;i++) cells[i]=___FAL;
+  }
+  ___root_task_init(&local_task,base);
 }
-task=family?&vm_task:&d->task;
+task=family?&local_task:&d->task;
 for(i=0;i<n;i++) {
-  ___SCMOBJ row=___VECTORELEM(___arg1,i), expected=___VECTORELEM(___arg2,i);
+  ___SCMOBJ row=___VECTORELEM(commands,i), expected=___VECTORELEM(expected_rows,i);
   int op=___INT(___VECTORELEM(row,0)), delta=___INT(___VECTORELEM(row,1));
   ___processor_state actor=___INT(___VECTORELEM(row,2))==0?ps:0;
   ___UWORD key=base+delta;
@@ -51,14 +61,21 @@ for(i=0;i<n;i++) {
   int accepted=0,j;
   /* Calibrated adapter mutation: production finish must reject the stale key.
    * The oracle remains unchanged; this is not a production runtime defect. */
-  if(___arg3==1 && op==3 && delta==1 && actor==ps) --key;
-  if(family) switch(op) {
+  if(mutation==1 && op==3 && delta==1 && actor==ps) --key;
+  if(family==1) switch(op) {
   case 0: accepted=___root_task_publish_vm(task,vm,actor,key,&receipt); break;
   case 1: accepted=___root_task_claim_vm(task,actor,key); break;
   case 2: accepted=___root_task_scan_vm(task,actor,key); break;
   case 3: accepted=___root_task_finish_vm(task,actor,key); break;
   case 4: accepted=___root_task_publish_vm(task,___CAST(___virtual_machine_state,&alien_source),actor,key,&receipt); break;
   case 5: accepted=___root_task_completed_vm(task,actor,key); break;
+  } else if(family==2) switch(op) {
+  case 0: accepted=___root_task_publish_bank(task,bank,actor,key,&receipt); break;
+  case 1: accepted=___root_task_claim_bank(task,actor,key); break;
+  case 2: accepted=___root_task_scan_bank(task,actor,key); break;
+  case 3: accepted=___root_task_finish_bank(task,actor,key); break;
+  case 4: accepted=___root_task_publish_bank(task,___CAST(___execution_context*,&alien_source),actor,key,&receipt); break;
+  case 5: accepted=___root_task_completed_bank(task,actor,key); break;
   } else switch(op) {
   case 0: accepted=___root_task_publish(d,actor,key,&receipt); break;
   case 1: accepted=___root_task_claim(d,actor,key); break;
@@ -69,7 +86,7 @@ for(i=0;i<n;i++) {
   }
   ___RC_LOCK(d);
   observed[0]=accepted; observed[1]=task->state;
-  observed[2]=family?(task->origin.kind==___ROOT_VM):d->phase;
+  observed[2]=family?(task->origin.kind!=___ROOT_NONE):d->phase;
   observed[3]=task->scan_leases; observed[4]=task->epoch-base;
   ___RC_UNLOCK(d);
   for(j=0;j<5;j++) if(observed[j]!=___INT(___VECTORELEM(expected,j))) {
@@ -88,9 +105,14 @@ c-end
 ;;; The oracle describes externally observable requests. SCANNED is the native
 ;;; refinement cut after the real scanner, before root_dispatch.finish.
 (define family 'rc)
-(define (trace-tag) (if (eq? family 'vm) 'vm-root-task-trace 'root-task-trace))
+(define (trace-tag)
+  (case family ((vm) 'vm-root-task-trace) ((bank) 'bank-root-task-trace)
+    (else 'root-task-trace)))
+(define (trace-file suffix)
+  (string-append (case family ((vm) "vm-root-task-")
+                  ((bank) "bank-root-task-") (else "root-task-")) suffix ".trace"))
 (define (oracle commands)
-  (let ((state (if (eq? family 'vm) 0 5)) (phase 0) (lease 0) (epoch 0))
+  (let ((state (if (eq? family 'rc) 5 0)) (phase 0) (lease 0) (epoch 0))
     (list->vector
      (map
       (lambda (row)
@@ -116,7 +138,7 @@ c-end
       commands))))
 
 (define (trace? x)
-  (and (list? x) (= (length x) 4) (memq (car x) '(root-task-trace vm-root-task-trace))
+  (and (list? x) (= (length x) 4) (memq (car x) '(root-task-trace vm-root-task-trace bank-root-task-trace))
        (integer? (cadr x)) (<= 1 (cadr x) 3) (list? (caddr x))
        (<= (length (caddr x)) 96) (memv (cadddr x) '(0 1))
        (let loop ((xs (caddr x)))
@@ -128,11 +150,12 @@ c-end
                     (memv (vector-ref r 2) '(0 1)) (loop (cdr xs))))))))
 (define (replay trace)
   (if (not (trace? trace)) (error "invalid structured root-task trace"))
-  (set! family (if (eq? (car trace) 'vm-root-task-trace) 'vm 'rc))
+  (set! family (case (car trace) ((vm-root-task-trace) 'vm)
+                 ((bank-root-task-trace) 'bank) (else 'rc)))
   (if (not (prepare-source)) (error "root-task source allocation failed"))
   (do ((i 0 (+ i 1))) ((= i (cadr trace))) (##gc))
   (let ((commands (caddr trace)))
-    (replay-native (list->vector commands) (oracle commands) (cadddr trace) (if (eq? family 'vm) 1 0))))
+    (replay-native (list->vector commands) (oracle commands) (cadddr trace) (case family ((vm) 1) ((bank) 2) (else 0)))))
 
 (define self (car (command-line)))
 (define input-file "root-task-input.dat")
@@ -193,7 +216,7 @@ c-end
         (set! actions (+ actions (length commands)))
         (if (signature result)
             (let ((minimal (shrink commands 0 (signature result))))
-              (with-output-to-file (if (eq? family 'vm) "vm-root-task-failure.trace" "root-task-failure.trace")
+              (with-output-to-file (trace-file "failure")
                 (lambda () (write (list (trace-tag) 1 minimal 0)) (newline)))
               (error "real root-task implementation property failed" result minimal)))))
     (write (list 'ROOT-TASK-PBT-PASS 'family family 'seed 173 'cases 24 'actions actions)) (newline)
@@ -210,7 +233,7 @@ c-end
                       (equal? (signature replayed) wanted)
                       (equal? (list-ref replayed 7) '(0 4 1 1 1))))
             (error "native shrink/replay certificate failed" minimal replayed))
-        (with-output-to-file (if (eq? family 'vm) "vm-root-task-minimal.trace" "root-task-minimal.trace")
+        (with-output-to-file (trace-file "minimal")
           (lambda () (write (list (trace-tag) 1 minimal 1)) (newline)))
         (write (list 'ROOT-TASK-SHRINK-PASS 'family family 'from (length noisy) 'to (length minimal)
                      'deletion-one-minimal minimal? 'replayed #t 'trials trials))
@@ -254,8 +277,50 @@ c-end
      (display "VM-ROOT-MOVING-PASS\n"))
    vm-clear))
 
+(c-declare "static ___SCMOBJ bank_root_before; static ___execution_context *bank_root_context; static int bank_root_owned;")
+(define bank-install
+  (c-lambda (scheme-object) bool #<<c-end
+___execution_context *source=___PSTATE->context;
+___SCMOBJ *cells=___BODY0_AS(___SUBTYPED_FROM_START(___ALIGNUP(source->processor_scmobj,___WS)),___tSUBTYPED);
+/* unused-field15 in the real processor definition, _thread#.scm. */
+___result=cells[15]==___FAL && !bank_root_owned;
+if(___result) { cells[15]=___arg1; bank_root_before=___arg1; bank_root_context=source; bank_root_owned=1; }
+c-end
+))
+(define bank-value
+  (c-lambda () scheme-object "___result=___BODY0_AS(___SUBTYPED_FROM_START(___ALIGNUP(___PSTATE->context->processor_scmobj,___WS)),___tSUBTYPED)[15];"))
+(define bank-moved?
+  (c-lambda () bool "___result=bank_root_owned && bank_root_context==___PSTATE->context && ___BODY0_AS(___SUBTYPED_FROM_START(___ALIGNUP(bank_root_context->processor_scmobj,___WS)),___tSUBTYPED)[15]!=bank_root_before;"))
+(define bank-clear
+  (c-lambda () void "if(bank_root_owned && bank_root_context==___PSTATE->context) { ___BODY0_AS(___SUBTYPED_FROM_START(___ALIGNUP(bank_root_context->processor_scmobj,___WS)),___tSUBTYPED)[15]=___FAL; bank_root_before=___FAL; bank_root_context=0; bank_root_owned=0; }"))
+(define (bank-moving-roots)
+  (for-each
+   (lambda (owner)
+     (let ((thread
+            (make-thread
+             (lambda ()
+               (dynamic-wind
+                (lambda () #f)
+                (lambda ()
+                  (if (not (= (##current-processor-id) owner)) (error "bank fixture wrong owner"))
+                  (if (not (bank-install (cons (+ 997 owner) (make-vector 7 739))))
+                      (error "processor fixture unused-field15 unavailable"))
+                  (##gc)
+                  (if (not (bank-moved?)) (error "bank root cell not updated" owner))
+                  (##gc)
+                  (let ((value (bank-value)))
+                    (if (not (and (pair? value) (= (car value) (+ 997 owner))
+                                  (equal? (cdr value) (make-vector 7 739))))
+                        (error "bank moving root lost" owner)))
+                  (write (list 'BANK-ROOT-MOVING-PASS 'owner owner)) (newline))
+                bank-clear)))))
+       (##thread-pin! thread (##processor owner))
+       (thread-start! thread) (thread-join! thread)))
+   (if (> (##current-vm-processor-count) 1) '(0 1) '(0))))
+
 (let ((args (cdr (command-line))))
   (cond ((and (= (length args) 2) (string=? (car args) "--replay"))
          (replay (call-with-input-file (cadr args) read)))
-        ((null? args) (vm-moving-roots) (for-each (lambda (kind) (set! family kind) (suite)) '(rc vm)))
-        (else (error "usage: root-task [--replay TRACE]"))))
+        ((and (= (length args) 1) (string=? (car args) "--moving-bank")) (bank-moving-roots))
+        ((null? args) (vm-moving-roots) (for-each (lambda (kind) (set! family kind) (suite)) '(rc vm bank)))
+        (else (error "usage: root-task [--replay TRACE | --moving-bank]"))))
