@@ -7,13 +7,14 @@ enum ___root_task_state {
   ___ROOT_EMPTY, ___ROOT_READY, ___ROOT_CLAIMED,
   ___ROOT_SCANNING, ___ROOT_SCANNED, ___ROOT_DONE
 };
-enum ___root_origin_kind { ___ROOT_NONE, ___ROOT_RC, ___ROOT_VM, ___ROOT_BANK };
+enum ___root_origin_kind { ___ROOT_NONE, ___ROOT_RC, ___ROOT_VM, ___ROOT_BANK, ___ROOT_STACK };
 typedef struct ___root_origin_struct {
   enum ___root_origin_kind kind;
   union {
     ___rc_domain *rc;
     ___virtual_machine_state vm;
     ___execution_context *bank;
+    ___execution_context *stack;
   } source;
 } ___root_origin;
 typedef struct ___root_task_struct {
@@ -53,4 +54,14 @@ extern ___BOOL ___root_task_claim_bank(___root_task*,___processor_state,___UWORD
 extern ___BOOL ___root_task_scan_bank(___root_task*,___processor_state,___UWORD);
 extern ___BOOL ___root_task_finish_bank(___root_task*,___processor_state,___UWORD);
 extern ___BOOL ___root_task_completed_bank(___root_task*,___processor_state,___UWORD);
+
+/* Stack roots include live active-frame slots and the break-frame anchor.
+ * The original scanner may rewrite frame links/copy captured tails in place.
+ * Normal return alone completes its borrow; unknown work must never requeue. */
+extern ___BOOL ___root_task_publish_stack(___root_task*,___execution_context*,
+                                         ___processor_state,___UWORD,___UWORD*);
+extern ___BOOL ___root_task_claim_stack(___root_task*,___processor_state,___UWORD);
+extern ___BOOL ___root_task_scan_stack(___root_task*,___processor_state,___UWORD);
+extern ___BOOL ___root_task_finish_stack(___root_task*,___processor_state,___UWORD);
+extern ___BOOL ___root_task_completed_stack(___root_task*,___processor_state,___UWORD);
 #endif

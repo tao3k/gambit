@@ -249,4 +249,22 @@ ___WORD *stack_break;)
 }
 
 
+/* Preserve the original active-frame/captured-tail algorithm. Source and
+ * frame storage are held by the enclosing stopped GC invocation. */
+___BOOL ___root_task_scan_stack(___root_task *task, ___processor_state executor,
+                               ___UWORD epoch)
+{
+  ___processor_state ___ps=executor;
+  ___execution_context *source;
+  if (!root_stack_task(task,executor) ||
+      !root_task_matches(task,___ROOT_STACK,executor,epoch) ||
+      task->state != ___ROOT_CLAIMED || task->scan_leases != 1) return 0;
+  source=task->origin.source.stack;
+  task->state=___ROOT_SCANNING;
+  mark_continuation (___PSP source->fp,source->stack_break);
+  task->state=___ROOT_SCANNED;
+  return 1;
+}
+
+
 /* End internal memory fragment. */

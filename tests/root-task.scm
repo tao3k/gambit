@@ -1,5 +1,5 @@
 ;;; gambit.smp.gc.root-task: native replay, independent oracle and shrinking.
-;;; RC, VM and bank origins share this generator, oracle, replay and shrink driver.
+;;; RC, VM, bank and stack origins share this generator, oracle, replay and shrink driver.
 ;;; Each replay is a fresh process. No Scheme allocation while a source is frozen.
 (c-declare #<<c-end
 #include "rc.h"
@@ -42,12 +42,18 @@ if(family) {
   if(family==1) {
     ___SCMOBJ *cells=___BODY0_AS(___VM_SCMOBJ(vm),___tSUBTYPED);
     for(i=0;i<___VM_SIZE;i++) cells[i]=___FAL;
-  } else {
+  } else if(family==2) {
     ___SCMOBJ *cells=___BODY0_AS(___SUBTYPED_FROM_START(___ALIGNUP(bank->processor_scmobj,___WS)),___tSUBTYPED);
     for(i=0;i<sizeof(bank->r)/sizeof(*bank->r);i++) bank->r[i]=___FAL;
     for(i=0;i<sizeof(bank->saved)/sizeof(*bank->saved);i++) bank->saved[i]=___FAL;
     for(i=0;i<sizeof(bank->type_cache)/sizeof(*bank->type_cache);i++) bank->type_cache[i]=___FAL;
     for(i=0;i<___PROCESSOR_SIZE;i++) cells[i]=___FAL;
+  } else {
+    /* Control replay uses an empty break anchor, not fabricated frame bodies.
+     * Full active/captured frames are exercised by the Scheme histories below.
+     * No Scheme allocation, callback or return may follow this reset. */
+    bank->fp=bank->stack_break;
+    ___FP_STK(bank->stack_break,-___BREAK_FRAME_NEXT)=___END_OF_CONT_MARKER;
   }
   ___root_task_init(&local_task,base);
 }
@@ -76,6 +82,13 @@ for(i=0;i<n;i++) {
   case 3: accepted=___root_task_finish_bank(task,actor,key); break;
   case 4: accepted=___root_task_publish_bank(task,___CAST(___execution_context*,&alien_source),actor,key,&receipt); break;
   case 5: accepted=___root_task_completed_bank(task,actor,key); break;
+  } else if(family==3) switch(op) {
+  case 0: accepted=___root_task_publish_stack(task,bank,actor,key,&receipt); break;
+  case 1: accepted=___root_task_claim_stack(task,actor,key); break;
+  case 2: accepted=___root_task_scan_stack(task,actor,key); break;
+  case 3: accepted=___root_task_finish_stack(task,actor,key); break;
+  case 4: accepted=___root_task_publish_stack(task,___CAST(___execution_context*,&alien_source),actor,key,&receipt); break;
+  case 5: accepted=___root_task_completed_stack(task,actor,key); break;
   } else switch(op) {
   case 0: accepted=___root_task_publish(d,actor,key,&receipt); break;
   case 1: accepted=___root_task_claim(d,actor,key); break;
@@ -106,11 +119,13 @@ c-end
 ;;; refinement cut after the real scanner, before root_dispatch.finish.
 (define family 'rc)
 (define (trace-tag)
-  (case family ((vm) 'vm-root-task-trace) ((bank) 'bank-root-task-trace)
+  (case family ((vm) 'vm-root-task-trace) ((bank) 'bank-root-task-trace) ((stack) 'stack-root-task-trace)
+    ((continuation) 'continuation-history)
     (else 'root-task-trace)))
 (define (trace-file suffix)
   (string-append (case family ((vm) "vm-root-task-")
-                  ((bank) "bank-root-task-") (else "root-task-")) suffix ".trace"))
+                  ((bank) "bank-root-task-") ((stack) "stack-root-task-")
+                  ((continuation) "continuation-history-") (else "root-task-")) suffix ".trace"))
 (define (oracle commands)
   (let ((state (if (eq? family 'rc) 5 0)) (phase 0) (lease 0) (epoch 0))
     (list->vector
@@ -138,7 +153,7 @@ c-end
       commands))))
 
 (define (trace? x)
-  (and (list? x) (= (length x) 4) (memq (car x) '(root-task-trace vm-root-task-trace bank-root-task-trace))
+  (and (list? x) (= (length x) 4) (memq (car x) '(root-task-trace vm-root-task-trace bank-root-task-trace stack-root-task-trace continuation-history))
        (integer? (cadr x)) (<= 1 (cadr x) 3) (list? (caddr x))
        (<= (length (caddr x)) 96) (memv (cadddr x) '(0 1))
        (let loop ((xs (caddr x)))
@@ -151,11 +166,15 @@ c-end
 (define (replay trace)
   (if (not (trace? trace)) (error "invalid structured root-task trace"))
   (set! family (case (car trace) ((vm-root-task-trace) 'vm)
-                 ((bank-root-task-trace) 'bank) (else 'rc)))
+                 ((bank-root-task-trace) 'bank) ((stack-root-task-trace) 'stack)
+                 ((continuation-history) 'continuation) (else 'rc)))
   (if (not (prepare-source)) (error "root-task source allocation failed"))
   (do ((i 0 (+ i 1))) ((= i (cadr trace))) (##gc))
   (let ((commands (caddr trace)))
-    (replay-native (list->vector commands) (oracle commands) (cadddr trace) (case family ((vm) 1) ((bank) 2) (else 0)))))
+    (if (eq? family 'continuation)
+        (replay-continuation commands (cadddr trace))
+        (replay-native (list->vector commands) (oracle commands) (cadddr trace)
+                       (case family ((vm) 1) ((bank) 2) ((stack) 3) (else 0))))))
 
 (define self (car (command-line)))
 (define input-file "root-task-input.dat")
@@ -241,6 +260,112 @@ c-end
     (delete-file input-file)
     (display "ROOT-TASK-REPLAY-PASS\n") (force-output)))
 
+;;; A semantic history uses the same typed trace, fresh-process replay and
+;;; deletion shrinker. Its oracle observes dynamic-wind entry/exit and result
+;;; graph identity, never a copy of the runtime's frame or GC algorithm.
+(define (replay-continuation commands fault)
+  (let ((saved #f) (deliver #f) (generation 0) (seed 0)
+        (before 0) (after 0) (last -3) (resumes 0) (gc-since-resume #f)
+        (eg 0) (eb 0) (ea 0) (el -3) (er 0) (have #f))
+    (define (capture value)
+      (set! generation (+ generation 1)) (set! seed value)
+      (set! last -3) (set! resumes 0) (set! gc-since-resume #f)
+      (call/cc
+       (lambda (exit)
+         (set! deliver exit)
+         (let* ((payload (vector generation seed))
+                (result
+                 (dynamic-wind
+                  (lambda () (set! before (+ before 1)))
+                  (lambda ()
+                    (map (lambda (x)
+                           (if (= x 1)
+                               (continuation-capture (lambda (k) (set! saved k) (deliver 'captured)))
+                               payload)) '(0 1 2)))
+                  (lambda () (set! after (+ after 1))))))
+           ;; Latest dispatcher is intentional: multi-shot restore must return
+           ;; to the current action, not restart the old history driver.
+           (deliver result)))))
+    (define (resume value)
+      (let* ((actual (if (and (= fault 1) (> resumes 0) gc-since-resume)
+                         (+ value 1) value))
+             (result (call/cc (lambda (exit) (set! deliver exit) (continuation-return saved actual)))))
+        (set! resumes (+ resumes 1)) (set! gc-since-resume #f)
+        (set! last (cadr result))
+        (and (= (length result) 3) (eq? (car result) (caddr result))
+             (vector? (car result))
+             (= (vector-ref (car result) 0) generation)
+             (= (vector-ref (car result) 1) seed))))
+    (let loop ((xs commands) (at 0))
+      (if (null? xs)
+          (begin (write (list 'root-task-result 'pass at)) (newline) (exit 0))
+          (let* ((row (car xs)) (op (vector-ref row 0))
+                 (value (vector-ref row 1)) (owner (= (vector-ref row 2) 0))
+                 (accepted 0) (expected-accepted 0) (graph #t))
+            (case op
+              ((0) (if owner
+                       (begin (set! eg (+ eg 1)) (set! eb (+ eb 1)) (set! ea (+ ea 1))
+                              (set! el -3) (set! er 0) (set! have #t)
+                              (set! expected-accepted 1)
+                              (capture value) (set! accepted 1))))
+              ((1) (if (and owner have)
+                       (begin (set! eb (+ eb 1)) (set! ea (+ ea 1))
+                              (set! er (+ er 1)) (set! el value)
+                              (set! expected-accepted 1)
+                              (set! graph (resume value)) (set! accepted 1))))
+              ((2) (##gc) (set! gc-since-resume #t)
+                   (set! expected-accepted 1) (set! accepted 1))
+              ((3) (if (and owner have)
+                       (begin (set! expected-accepted 1) (set! accepted 1)
+                              (set! graph (and (##continuation? saved)
+                                               (>= (##continuation-fs saved) 0))))))
+              ((5) (set! expected-accepted (if (and owner have) 1 0))
+                   (set! accepted (if (and owner saved) 1 0))))
+            (let ((expected (vector expected-accepted eg eb ea el er 1))
+                  (observed (vector accepted generation before after last resumes (if graph 1 0))))
+              (let compare ((j 0))
+                (if (< j 7)
+                    (if (= (vector-ref expected j) (vector-ref observed j))
+                        (compare (+ j 1))
+                        (begin
+                          (write (list 'root-task-result 'mismatch at op j
+                                       (vector-ref expected j) (vector-ref observed j)
+                                       (vector->list observed)))
+                          (newline) (exit 71))))))
+            (loop (cdr xs) (+ at 1)))))))
+
+(define (continuation-suite)
+  (set! family 'continuation) (set! trials 0)
+  (let ((state 173) (actions 0))
+    (define (next n)
+      (set! state (modulo (+ (* state 48271) 17) 2147483647)) (modulo state n))
+    (define (noise n)
+      (if (= n 0) '()
+          (cons (vector (next 6) (list-ref '(-1 0 1 2) (next 4)) (next 2)) (noise (- n 1)))))
+    (define chain (list (vector 0 0 0) (vector 1 1 0) (vector 2 0 0) (vector 1 2 0)))
+    (do ((sample 0 (+ sample 1))) ((= sample 24))
+      (let* ((commands (append (noise 16) chain (noise 16))) (result (trial commands 0)))
+        (set! actions (+ actions (length commands)))
+        (if (signature result)
+            (let ((minimal (shrink commands 0 (signature result))))
+              (with-output-to-file (trace-file "failure")
+                (lambda () (write (list (trace-tag) 1 minimal 0)) (newline)))
+              (error "real continuation history failed" result minimal)))))
+    (write (list 'CONTINUATION-HISTORY-PBT-PASS 'seed 173 'cases 24 'actions actions)) (newline)
+    (let* ((noisy (append (make-list 12 (vector 5 0 0)) chain (make-list 8 (vector 4 0 0))))
+           (failure (trial noisy 1)) (wanted (signature failure)))
+      (if (not (equal? wanted '(1 4))) (error "continuation invocation negative control missed" failure))
+      (let* ((minimal (shrink noisy 1 wanted)) (replayed (trial minimal 1))
+             (minimal? (one-minimal? minimal 1 wanted)))
+        (if (not (and (= (length minimal) 4) minimal? (equal? (signature replayed) wanted)))
+            (error "continuation shrink/replay certificate failed" minimal replayed))
+        (with-output-to-file (trace-file "minimal")
+          (lambda () (write (list (trace-tag) 1 minimal 1)) (newline)))
+        (write (list 'CONTINUATION-HISTORY-SHRINK-PASS 'from (length noisy) 'to (length minimal)
+                     'deletion-one-minimal minimal? 'replayed #t 'trials trials)) (newline)))
+    (delete-file input-file)
+    (display "CONTINUATION-HISTORY-REPLAY-PASS\n") (force-output)))
+
 (c-declare "static ___SCMOBJ vm_root_before; static int vm_root_owned;")
 (define vm-install
   (c-lambda (scheme-object) bool #<<c-end
@@ -322,5 +447,6 @@ c-end
   (cond ((and (= (length args) 2) (string=? (car args) "--replay"))
          (replay (call-with-input-file (cadr args) read)))
         ((and (= (length args) 1) (string=? (car args) "--moving-bank")) (bank-moving-roots))
-        ((null? args) (vm-moving-roots) (for-each (lambda (kind) (set! family kind) (suite)) '(rc vm bank)))
+        ((null? args) (vm-moving-roots) (for-each (lambda (kind) (set! family kind) (suite)) '(rc vm bank stack))
+         (continuation-suite))
         (else (error "usage: root-task [--replay TRACE | --moving-bank]"))))

@@ -204,7 +204,19 @@ ___UWORD rc_epoch;)
 
   mark_global_variables (___PSPNC);
 
-  mark_continuation (___PSP ___ps->context->fp, ___ps->context->stack_break);
+  {
+    ___root_task stack_task;
+    ___UWORD stack_epoch;
+    /* Do not snapshot/copy frame contents. The scanner updates the original
+     * chain and break anchor before the existing bank/heap/weak phases. */
+    ___root_task_init(&stack_task,rc_epoch-1);
+    if (!___root_task_publish_stack(&stack_task,___ps->context,___ps,rc_epoch-1,&stack_epoch) ||
+        stack_epoch != rc_epoch ||
+        !___root_task_claim_stack(&stack_task,___ps,stack_epoch) ||
+        !___root_task_scan_stack(&stack_task,___ps,stack_epoch) ||
+        !___root_task_finish_stack(&stack_task,___ps,stack_epoch))
+      rc_contract_error("Stack root task did not complete");
+  }
 
   {
     ___root_task bank_task;

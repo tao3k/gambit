@@ -109,7 +109,7 @@ ___HIDDEN ___BOOL root_vm_executor(___processor_state executor)
          ___PROCESSOR_ID(executor,___VMSTATE_FROM_PSTATE(executor)) == 0;
 }
 
-/* VM and bank publication use the same confined state transition. The
+/* VM, bank and stack publication share one confined state transition. The
  * wrapper checks source identity before reading any source payload. */
 ___HIDDEN ___BOOL root_task_publish_confined(___root_task *task,
                                             ___root_origin origin,
@@ -123,6 +123,8 @@ ___HIDDEN ___BOOL root_task_publish_confined(___root_task *task,
         same_source=task->origin.source.vm == origin.source.vm;
       else if (origin.kind == ___ROOT_BANK)
         same_source=task->origin.source.bank == origin.source.bank;
+      else if (origin.kind == ___ROOT_STACK)
+        same_source=task->origin.source.stack == origin.source.stack;
     }
   if (same_source && task->executor == executor && task->epoch != 0 &&
       previous == task->epoch-1 &&
@@ -177,9 +179,9 @@ ___BOOL ___root_task_completed_vm(___root_task *task, ___processor_state executo
          task->state == ___ROOT_DONE && task->scan_leases == 0;
 }
 
-/* The bank is a VM-owned slot, not arbitrary carrier storage. Keep the
+/* A context source is a VM-owned slot, not arbitrary carrier storage. Keep the
  * existing synchronous binding; no context migration is admitted here. */
-___HIDDEN ___BOOL root_bank_executor(___execution_context *source,
+___HIDDEN ___BOOL root_context_executor(___execution_context *source,
                                    ___processor_state executor)
 {
   ___virtual_machine_state vm;
@@ -196,7 +198,7 @@ ___BOOL ___root_task_publish_bank(___root_task *task, ___execution_context *sour
                                  ___UWORD *epoch)
 {
   ___root_origin origin;
-  if (task == 0 || epoch == 0 || !root_bank_executor(source,executor)) return 0;
+  if (task == 0 || epoch == 0 || !root_context_executor(source,executor)) return 0;
   origin.kind=___ROOT_BANK; origin.source.bank=source;
   return root_task_publish_confined(task,origin,executor,previous,epoch);
 }
@@ -204,7 +206,7 @@ ___BOOL ___root_task_publish_bank(___root_task *task, ___execution_context *sour
 ___HIDDEN ___BOOL root_bank_task(___root_task *task, ___processor_state executor)
 {
   return task != 0 && task->origin.kind == ___ROOT_BANK &&
-         root_bank_executor(task->origin.source.bank,executor);
+         root_context_executor(task->origin.source.bank,executor);
 }
 
 ___BOOL ___root_task_claim_bank(___root_task *task, ___processor_state executor,
@@ -226,5 +228,43 @@ ___BOOL ___root_task_completed_bank(___root_task *task, ___processor_state execu
 {
   return root_bank_task(task,executor) &&
          root_task_matches(task,___ROOT_BANK,executor,epoch) &&
+         task->state == ___ROOT_DONE && task->scan_leases == 0;
+}
+
+___BOOL ___root_task_publish_stack(___root_task *task, ___execution_context *source,
+                                  ___processor_state executor, ___UWORD previous,
+                                  ___UWORD *epoch)
+{
+  ___root_origin origin;
+  if (task == 0 || epoch == 0 || !root_context_executor(source,executor)) return 0;
+  origin.kind=___ROOT_STACK; origin.source.stack=source;
+  return root_task_publish_confined(task,origin,executor,previous,epoch);
+}
+
+___HIDDEN ___BOOL root_stack_task(___root_task *task, ___processor_state executor)
+{
+  return task != 0 && task->origin.kind == ___ROOT_STACK &&
+         root_context_executor(task->origin.source.stack,executor);
+}
+
+___BOOL ___root_task_claim_stack(___root_task *task, ___processor_state executor,
+                                ___UWORD epoch)
+{
+  return root_stack_task(task,executor) &&
+         root_task_claim_state(task,___ROOT_STACK,executor,epoch);
+}
+
+___BOOL ___root_task_finish_stack(___root_task *task, ___processor_state executor,
+                                 ___UWORD epoch)
+{
+  return root_stack_task(task,executor) &&
+         root_task_finish_state(task,___ROOT_STACK,executor,epoch);
+}
+
+___BOOL ___root_task_completed_stack(___root_task *task, ___processor_state executor,
+                                    ___UWORD epoch)
+{
+  return root_stack_task(task,executor) &&
+         root_task_matches(task,___ROOT_STACK,executor,epoch) &&
          task->state == ___ROOT_DONE && task->scan_leases == 0;
 }
