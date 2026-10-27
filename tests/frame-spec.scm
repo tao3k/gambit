@@ -94,11 +94,21 @@
 (if fixture-path
     (let ((out (open-output-file (list path: fixture-path append: #t)))
           (serial 0))
-      (define (offset-check type member expected)
+      (define (offset-check type member expected . element-index)
         (set! serial (+ serial 1))
         (display "typedef char execution_layout_" out) (write serial out)
         (display "[(offsetof(" out) (display type out) (display "," out)
-        (display member out) (display ")==" out) (write expected out)
+        (display member out) (display ")" out)
+        ;; MSVC C does not accept an array-element offsetof as an integer
+        ;; constant expression. Use the array member's offset and its actual
+        ;; element size; keep the independently computed expected coordinate.
+        (if (pair? element-index)
+            (begin
+              (display "+" out) (write (car element-index) out)
+              (display "*sizeof(((" out) (display type out)
+              (display "*)0)->" out) (display member out)
+              (display "[0])" out)))
+        (display "==" out) (write expected out)
         (display ")?1:-1];\n" out))
       (display "#include <stddef.h>\n" out)
       (for-each
@@ -123,19 +133,20 @@
                         (offset-check "___processor_state_struct" "context"
                                       (- (c#mem-opnd-offset
                                           (car (c#get-processor-state-field cgc 'context))) bias))
-                        (offset-check "___execution_context" (caddr field) opnd))
+                        (apply offset-check "___execution_context"
+                               (caddr field) opnd (cdddr field)))
                       (offset-check "___processor_state_struct" (caddr field)
                                     (- (c#mem-opnd-offset opnd) bias)))))
               '((stack-trip carrier "stack_trip")
                 (stack-limit context "stack_limit") (frame-pointer context "fp")
                 (stack-start context "stack_start") (stack-break context "stack_break")
                 (heap-limit carrier "heap_limit") (heap-pointer context "hp")
-                (gvm-reg0 context "r[0]") (gvm-reg1 context "r[1]")
-                (gvm-reg2 context "r[2]") (gvm-reg3 context "r[3]")
-                (gvm-reg4 context "r[4]") (program-counter context "pc")
-                (nargs carrier "na") (saved-obj0 context "saved[0]")
-                (saved-obj1 context "saved[1]") (saved-obj2 context "saved[2]")
-                (type-cache0 context "type_cache[0]") (type-cache1 context "type_cache[1]")
+                (gvm-reg0 context "r" 0) (gvm-reg1 context "r" 1)
+                (gvm-reg2 context "r" 2) (gvm-reg3 context "r" 3)
+                (gvm-reg4 context "r" 4) (program-counter context "pc")
+                (nargs carrier "na") (saved-obj0 context "saved" 0)
+                (saved-obj1 context "saved" 1) (saved-obj2 context "saved" 2)
+                (type-cache0 context "type_cache" 0) (type-cache1 context "type_cache" 1)
                 (handler_sfun_conv_error carrier "handler_sfun_conv_error")
                 (handler_cfun_conv_error carrier "handler_cfun_conv_error")
                 (handler_stack_limit carrier "handler_stack_limit")
