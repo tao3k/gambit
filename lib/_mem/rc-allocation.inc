@@ -15,8 +15,8 @@ ___HIDDEN ___BOOL setup_rc(___processor_state ps)
   d->head.refcount = 1; d->head.data = ___FAL;
   d->head.domain = d; d->head.root_borrows = 0;
   d->owner = ps; d->nodes = d->borrows = 0; d->phase = ___RC_OPEN;
-  d->task.source=d; d->task.executor=0; d->task.epoch=0;
-  d->task.state=___ROOT_EMPTY; d->scan_leases=0;
+  d->task.origin.kind=___ROOT_RC; d->task.origin.source.rc=d; d->task.executor=0; d->task.epoch=0;
+  d->task.state=___ROOT_EMPTY; d->task.scan_leases=0;
   ps->mem.rc_domain_ = d;
   return 1;
 }
@@ -24,7 +24,7 @@ ___HIDDEN ___BOOL setup_rc(___processor_state ps)
 ___HIDDEN ___BOOL rc_can_close(___rc_domain *d)
 {
   ___rc_header *h;
-  if (d->borrows != 0 || d->scan_leases != 0 || d->phase == ___RC_FROZEN) return 0;
+  if (d->borrows != 0 || d->task.scan_leases != 0 || d->phase == ___RC_FROZEN) return 0;
   for (h=d->head.next; h!=&d->head; h=h->next)
     if (h->data != ___FAL) return 0;
   return 1;
@@ -72,8 +72,9 @@ ___HIDDEN void reopen_rc_roots(___processor_state ps, ___UWORD epoch)
 {
   ___rc_domain *d = ps->mem.rc_domain_;
   ___RC_LOCK(d);
-  if (d->phase != ___RC_FROZEN || d->task.epoch != epoch ||
-      d->task.executor != ps || d->task.state != ___ROOT_DONE || d->scan_leases != 0)
+  if (d->phase != ___RC_FROZEN || d->task.origin.kind != ___ROOT_RC ||
+      d->task.origin.source.rc != d || d->task.epoch != epoch ||
+      d->task.executor != ps || d->task.state != ___ROOT_DONE || d->task.scan_leases != 0)
     { ___RC_UNLOCK(d); rc_contract_error("RC source cannot resume before task completion"); return; }
   d->phase = ___RC_OPEN;
   ___RC_UNLOCK(d);

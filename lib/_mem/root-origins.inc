@@ -18,20 +18,36 @@ ___execution_context *source;)
 
 
 ___HIDDEN void mark_vm_scmobj
-   ___P((___PSDNC),
-        (___PSVNC)
-___PSDKR)
+   ___P((___PSD ___virtual_machine_state source),
+        (___PSV source)
+___PSDKR
+___virtual_machine_state source;)
 {
   ___PSGET
-  ___virtual_machine_state ___vms = ___VMSTATE_FROM_PSTATE(___ps);
 
 #ifdef ENABLE_CONSISTENCY_CHECKS
   reference_location = IN_VM_SCMOBJ;
 #endif
 
   mark_array (___PSP
-              ___BODY0_AS(___VM_SCMOBJ(___vms),___tSUBTYPED),
+              ___BODY0_AS(___VM_SCMOBJ(source),___tSUBTYPED),
               ___VM_SIZE);
+}
+
+
+/* No callback or Scheme allocation is allowed between scan entry and return.
+ * A failed/unknown scan cannot be acknowledged or reset as unstarted. */
+___BOOL ___root_task_scan_vm(___root_task *task, ___processor_state executor,
+                            ___UWORD epoch)
+{
+  ___processor_state ___ps=executor;
+  if (!root_vm_task(task,executor) ||
+      !root_task_matches(task,___ROOT_VM,executor,epoch) ||
+      task->state != ___ROOT_CLAIMED || task->scan_leases != 1) return 0;
+  task->state=___ROOT_SCANNING;
+  mark_vm_scmobj (___PSP task->origin.source.vm);
+  task->state=___ROOT_SCANNED;
+  return 1;
 }
 
 

@@ -182,7 +182,17 @@ ___UWORD rc_epoch;)
    * existing collector executor. Workset, order and eligibility are unchanged. */
   if (___PROCESSOR_ID(___ps,___vms) == 0)
     {
-      mark_vm_scmobj (___PSPNC);
+      ___root_task vm_task;
+      ___UWORD vm_epoch;
+      /* Both setup barriers precede this view. The VM allocation and stopped
+       * roster outlive the task, including weak/copy/cleanup after DONE. */
+      ___root_task_init_vm(&vm_task,rc_epoch-1);
+      if (!___root_task_publish_vm(&vm_task,___vms,___ps,rc_epoch-1,&vm_epoch) ||
+          vm_epoch != rc_epoch ||
+          !___root_task_claim_vm(&vm_task,___ps,vm_epoch) ||
+          !___root_task_scan_vm(&vm_task,___ps,vm_epoch) ||
+          !___root_task_finish_vm(&vm_task,___ps,vm_epoch))
+        rc_contract_error("VM root task did not complete");
       mark_symkey_tables (___PSPNC);
     }
 

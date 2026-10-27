@@ -9,8 +9,9 @@ ___UWORD epoch;)
   ___PSGET
   ___rc_header *h;
   ___RC_LOCK(source);
-  if (source->phase != ___RC_FROZEN || source->scan_leases != 1 ||
-      !root_task_matches(source,___ps,epoch) || source->task.state != ___ROOT_CLAIMED)
+  if (source->phase != ___RC_FROZEN || source->task.scan_leases != 1 ||
+      source->task.origin.source.rc != source ||
+      !root_task_matches(&source->task,___ROOT_RC,___ps,epoch) || source->task.state != ___ROOT_CLAIMED)
     { ___RC_UNLOCK(source); return 0; }
   source->task.state=___ROOT_SCANNING;
 #ifdef ENABLE_CONSISTENCY_CHECKS

@@ -1,4 +1,4 @@
-/* Private root-task protocol. This cut dispatches RC sources only. */
+/* Private root origins and their single-executor scan obligations. */
 #ifndef ___ROOT_H
 #define ___ROOT_H
 #include "gambit.h"
@@ -7,10 +7,16 @@ enum ___root_task_state {
   ___ROOT_EMPTY, ___ROOT_READY, ___ROOT_CLAIMED,
   ___ROOT_SCANNING, ___ROOT_SCANNED, ___ROOT_DONE
 };
+enum ___root_origin_kind { ___ROOT_NONE, ___ROOT_RC, ___ROOT_VM };
+typedef struct ___root_origin_struct {
+  enum ___root_origin_kind kind;
+  union { ___rc_domain *rc; ___virtual_machine_state vm; } source;
+} ___root_origin;
 typedef struct ___root_task_struct {
-  ___rc_domain *source;
+  ___root_origin origin;
   ___processor_state executor;
   ___UWORD epoch;
+  ___SIZE_T scan_leases;
   enum ___root_task_state state;
 } ___root_task;
 
@@ -22,4 +28,15 @@ extern ___BOOL ___root_task_claim(___rc_domain*,___processor_state,___UWORD);
 extern ___BOOL ___root_task_scan(___rc_domain*,___processor_state,___UWORD);
 extern ___BOOL ___root_task_finish(___rc_domain*,___processor_state,___UWORD);
 extern ___BOOL ___root_task_completed(___rc_domain*,___processor_state,___UWORD);
+
+/* VM tasks are confined to the coordinator's live C invocation. The caller
+ * supplies quiescence before publication and holds VM/round lifetime beyond
+ * DONE. init is only for a fresh, unexposed record, never an unknown task. */
+extern void ___root_task_init_vm(___root_task*,___UWORD);
+extern ___BOOL ___root_task_publish_vm(___root_task*,___virtual_machine_state,
+                                      ___processor_state,___UWORD,___UWORD*);
+extern ___BOOL ___root_task_claim_vm(___root_task*,___processor_state,___UWORD);
+extern ___BOOL ___root_task_scan_vm(___root_task*,___processor_state,___UWORD);
+extern ___BOOL ___root_task_finish_vm(___root_task*,___processor_state,___UWORD);
+extern ___BOOL ___root_task_completed_vm(___root_task*,___processor_state,___UWORD);
 #endif

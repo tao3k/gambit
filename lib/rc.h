@@ -30,7 +30,6 @@ struct ___rc_domain_struct {
   ___SIZE_T nodes, borrows;
   enum ___rc_phase phase;
   ___root_task task;
-  ___SIZE_T scan_leases;
 };
 
 /* Cleanup is a transaction: close sources before any still/OS cleanup.

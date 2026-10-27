@@ -1,4 +1,5 @@
 ;;; gambit.smp.gc.root-task: native replay, independent oracle and shrinking.
+;;; RC and VM origins share this generator, oracle, replay and shrink driver.
 ;;; Each replay is a fresh process. No Scheme allocation while a source is frozen.
 (c-declare #<<c-end
 #include "rc.h"
@@ -10,14 +11,18 @@ c-end
 (define prepare-source
   (c-lambda () bool "root_task_bytes=___EXT(___alloc_rc)(___PSA(___PSTATE) 1); ___result=root_task_bytes!=0;"))
 (define replay-native
-  (c-lambda (scheme-object scheme-object int) void #<<c-end
+  (c-lambda (scheme-object scheme-object int int) void #<<c-end
 ___processor_state ps=___PSTATE;
 ___rc_domain *d=ps->mem.rc_domain_;
 ___UWORD base, receipt;
+___root_task vm_task, *task;
+___virtual_machine_state vm=___VMSTATE_FROM_PSTATE(ps);
+___WORD alien_source=0;
+int family=___arg4;
 int i,n=___INT(___VECTORLENGTH(___arg1));
 ___RC_LOCK(d);
 base=d->task.epoch;
-if(d->phase!=___RC_OPEN || d->task.state!=___ROOT_DONE || d->scan_leases!=0) {
+if(d->phase!=___RC_OPEN || d->task.state!=___ROOT_DONE || d->task.scan_leases!=0) {
   ___RC_UNLOCK(d); printf("(root-task-result precondition 0)\n"); fflush(stdout); _Exit(72);
 }
 {
@@ -27,6 +32,16 @@ if(d->phase!=___RC_OPEN || d->task.state!=___ROOT_DONE || d->scan_leases!=0) {
   }
 }
 ___RC_UNLOCK(d);
+if(family) {
+  ___SCMOBJ *cells=___BODY0_AS(___VM_SCMOBJ(vm),___tSUBTYPED);
+  /* Fresh p1 child: replace this VM root body's payload with immediates only.
+   * No Scheme allocation/callback or return to Scheme follows this point.
+   * Actual moving payloads are checked separately by the ordinary GC caller. */
+  if(vm->processor_count!=1) { printf("(root-task-result precondition 2)\n"); fflush(stdout); _Exit(72); }
+  for(i=0;i<___VM_SIZE;i++) cells[i]=___FAL;
+  ___root_task_init_vm(&vm_task,base);
+}
+task=family?&vm_task:&d->task;
 for(i=0;i<n;i++) {
   ___SCMOBJ row=___VECTORELEM(___arg1,i), expected=___VECTORELEM(___arg2,i);
   int op=___INT(___VECTORELEM(row,0)), delta=___INT(___VECTORELEM(row,1));
@@ -37,7 +52,14 @@ for(i=0;i<n;i++) {
   /* Calibrated adapter mutation: production finish must reject the stale key.
    * The oracle remains unchanged; this is not a production runtime defect. */
   if(___arg3==1 && op==3 && delta==1 && actor==ps) --key;
-  switch(op) {
+  if(family) switch(op) {
+  case 0: accepted=___root_task_publish_vm(task,vm,actor,key,&receipt); break;
+  case 1: accepted=___root_task_claim_vm(task,actor,key); break;
+  case 2: accepted=___root_task_scan_vm(task,actor,key); break;
+  case 3: accepted=___root_task_finish_vm(task,actor,key); break;
+  case 4: accepted=___root_task_publish_vm(task,___CAST(___virtual_machine_state,&alien_source),actor,key,&receipt); break;
+  case 5: accepted=___root_task_completed_vm(task,actor,key); break;
+  } else switch(op) {
   case 0: accepted=___root_task_publish(d,actor,key,&receipt); break;
   case 1: accepted=___root_task_claim(d,actor,key); break;
   case 2: accepted=___root_task_scan(d,actor,key); break;
@@ -46,8 +68,9 @@ for(i=0;i<n;i++) {
   case 5: accepted=___root_task_completed(d,actor,key); break;
   }
   ___RC_LOCK(d);
-  observed[0]=accepted; observed[1]=d->task.state; observed[2]=d->phase;
-  observed[3]=d->scan_leases; observed[4]=d->task.epoch-base;
+  observed[0]=accepted; observed[1]=task->state;
+  observed[2]=family?(task->origin.kind==___ROOT_VM):d->phase;
+  observed[3]=task->scan_leases; observed[4]=task->epoch-base;
   ___RC_UNLOCK(d);
   for(j=0;j<5;j++) if(observed[j]!=___INT(___VECTORELEM(expected,j))) {
     printf("(root-task-result mismatch %d %d %d %ld %ld (%ld %ld %ld %ld %ld))\n",i,op,j,
@@ -64,8 +87,10 @@ c-end
 
 ;;; The oracle describes externally observable requests. SCANNED is the native
 ;;; refinement cut after the real scanner, before root_dispatch.finish.
+(define family 'rc)
+(define (trace-tag) (if (eq? family 'vm) 'vm-root-task-trace 'root-task-trace))
 (define (oracle commands)
-  (let ((state 5) (phase 0) (lease 0) (epoch 0))
+  (let ((state (if (eq? family 'vm) 0 5)) (phase 0) (lease 0) (epoch 0))
     (list->vector
      (map
       (lambda (row)
@@ -85,13 +110,13 @@ c-end
                      (begin (set! state 4) (set! accepted #t))))
             ((3) (if (and current (= phase 1) (or (= state 4) (= state 5)))
                      (begin (set! state 5) (set! lease 0) (set! accepted #t))))
-            ((4) (set! accepted (= phase 0)))
+            ((4) (set! accepted (and (eq? family 'rc) (= phase 0))))
             ((5) (set! accepted (and current (= state 5) (= lease 0)))))
           (vector (if accepted 1 0) state phase lease epoch)))
       commands))))
 
 (define (trace? x)
-  (and (list? x) (= (length x) 4) (eq? (car x) 'root-task-trace)
+  (and (list? x) (= (length x) 4) (memq (car x) '(root-task-trace vm-root-task-trace))
        (integer? (cadr x)) (<= 1 (cadr x) 3) (list? (caddr x))
        (<= (length (caddr x)) 96) (memv (cadddr x) '(0 1))
        (let loop ((xs (caddr x)))
@@ -103,10 +128,11 @@ c-end
                     (memv (vector-ref r 2) '(0 1)) (loop (cdr xs))))))))
 (define (replay trace)
   (if (not (trace? trace)) (error "invalid structured root-task trace"))
+  (set! family (if (eq? (car trace) 'vm-root-task-trace) 'vm 'rc))
   (if (not (prepare-source)) (error "root-task source allocation failed"))
   (do ((i 0 (+ i 1))) ((= i (cadr trace))) (##gc))
   (let ((commands (caddr trace)))
-    (replay-native (list->vector commands) (oracle commands) (cadddr trace))))
+    (replay-native (list->vector commands) (oracle commands) (cadddr trace) (if (eq? family 'vm) 1 0))))
 
 (define self (car (command-line)))
 (define input-file "root-task-input.dat")
@@ -114,7 +140,7 @@ c-end
 (define (trial commands fault)
   (set! trials (+ trials 1))
   (with-output-to-file input-file
-    (lambda () (write (list 'root-task-trace 1 commands fault)) (newline)))
+    (lambda () (write (list (trace-tag) 1 commands fault)) (newline)))
   (let* ((port (open-input-process
                 (list path: self arguments: (list "-:p1" "--replay" input-file)
                       stderr-redirection: #t)))
@@ -152,6 +178,7 @@ c-end
              (loop (+ i 1))))))
 
 (define (suite)
+  (set! trials 0)
   (let ((state 173) (actions 0))
     (define (next n)
       (set! state (modulo (+ (* state 48271) 17) 2147483647)) (modulo state n))
@@ -166,10 +193,10 @@ c-end
         (set! actions (+ actions (length commands)))
         (if (signature result)
             (let ((minimal (shrink commands 0 (signature result))))
-              (with-output-to-file "root-task-failure.trace"
-                (lambda () (write (list 'root-task-trace 1 minimal 0)) (newline)))
+              (with-output-to-file (if (eq? family 'vm) "vm-root-task-failure.trace" "root-task-failure.trace")
+                (lambda () (write (list (trace-tag) 1 minimal 0)) (newline)))
               (error "real root-task implementation property failed" result minimal)))))
-    (write (list 'ROOT-TASK-PBT-PASS 'seed 173 'cases 24 'actions actions)) (newline)
+    (write (list 'ROOT-TASK-PBT-PASS 'family family 'seed 173 'cases 24 'actions actions)) (newline)
     ;; A known stale-finish invocation mutation must be detected and reduced
     ;; against the same real C implementation, never a copied simulator.
     (let* ((noisy (append (make-list 12 (vector 5 0 0)) chain
@@ -183,16 +210,52 @@ c-end
                       (equal? (signature replayed) wanted)
                       (equal? (list-ref replayed 7) '(0 4 1 1 1))))
             (error "native shrink/replay certificate failed" minimal replayed))
-        (with-output-to-file "root-task-minimal.trace"
-          (lambda () (write (list 'root-task-trace 1 minimal 1)) (newline)))
-        (write (list 'ROOT-TASK-SHRINK-PASS 'from (length noisy) 'to (length minimal)
+        (with-output-to-file (if (eq? family 'vm) "vm-root-task-minimal.trace" "root-task-minimal.trace")
+          (lambda () (write (list (trace-tag) 1 minimal 1)) (newline)))
+        (write (list 'ROOT-TASK-SHRINK-PASS 'family family 'from (length noisy) 'to (length minimal)
                      'deletion-one-minimal minimal? 'replayed #t 'trials trials))
         (newline)))
     (delete-file input-file)
     (display "ROOT-TASK-REPLAY-PASS\n") (force-output)))
 
+(c-declare "static ___SCMOBJ vm_root_before; static int vm_root_owned;")
+(define vm-install
+  (c-lambda (scheme-object) bool #<<c-end
+___SCMOBJ *cells=___BODY0_AS(___VM_SCMOBJ(___VMSTATE_FROM_PSTATE(___PSTATE)),___tSUBTYPED);
+/* Field2 is unused-field2 in both real _thread#.scm VM definitions. */
+___result=cells[2]==___FAL;
+if(___result) { cells[2]=___arg1; vm_root_before=___arg1; vm_root_owned=1; }
+c-end
+))
+(define vm-value
+  (c-lambda () scheme-object "___result=___BODY0_AS(___VM_SCMOBJ(___VMSTATE_FROM_PSTATE(___PSTATE)),___tSUBTYPED)[2];"))
+(define vm-moved?
+  (c-lambda () bool "___result=___BODY0_AS(___VM_SCMOBJ(___VMSTATE_FROM_PSTATE(___PSTATE)),___tSUBTYPED)[2]!=vm_root_before;"))
+(define vm-clear
+  (c-lambda () void "if(vm_root_owned) { ___BODY0_AS(___VM_SCMOBJ(___VMSTATE_FROM_PSTATE(___PSTATE)),___tSUBTYPED)[2]=___FAL; vm_root_before=___FAL; vm_root_owned=0; }"))
+(define (vm-moving-roots)
+  (dynamic-wind
+   (lambda () #f)
+   (lambda ()
+     (thread-join!
+      (thread-start!
+       (make-thread
+        (lambda ()
+          (if (not (vm-install (cons (+ 987 (##current-processor-id)) (make-vector 7 731))))
+              (error "VM fixture unused-field2 unavailable"))
+          #t))))
+     (##gc)
+     (if (not (vm-moved?)) (error "VM source payload did not move"))
+     (##gc)
+     (let ((value (vm-value)))
+       (if (not (and (pair? value) (= (car value) 987)
+                     (equal? (cdr value) (make-vector 7 731))))
+           (error "VM root payload lost after moving GC")))
+     (display "VM-ROOT-MOVING-PASS\n"))
+   vm-clear))
+
 (let ((args (cdr (command-line))))
   (cond ((and (= (length args) 2) (string=? (car args) "--replay"))
          (replay (call-with-input-file (cadr args) read)))
-        ((null? args) (suite))
+        ((null? args) (vm-moving-roots) (for-each (lambda (kind) (set! family kind) (suite)) '(rc vm)))
         (else (error "usage: root-task [--replay TRACE]"))))
