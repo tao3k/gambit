@@ -20,6 +20,7 @@
 #include "os_io.h"
 #include "setup.h"
 #include "mem.h"
+#include "rc.h"
 #include "c_intf.h"
 #include "actlog.h"
 #include "native_scope.h"
@@ -915,6 +916,25 @@ ___WORD target_processor_count;)
 
           return ___FIX(___HEAP_OVERFLOW_ERR);
         }
+    }
+
+  if (target_processor_count < initial)
+    {
+      if (id == 0)
+        {
+          int i;
+          for (i=target_processor_count; i<initial; ++i)
+            if (!___rc_prepare_cleanup (___PSTATE_FROM_PROCESSOR_ID(i,___vms)))
+              {
+                while (i>target_processor_count)
+                  ___rc_cancel_cleanup (___PSTATE_FROM_PROCESSOR_ID(--i,___vms));
+                ___vms->mem.target_processor_count_ = initial;
+                break;
+              }
+        }
+      BARRIER();
+      if (___vms->mem.target_processor_count_ != target_processor_count)
+        return ___FIX(___UNKNOWN_ERR);
     }
 
   if (id != 0)
@@ -4745,6 +4765,12 @@ ___EXP_FUNC(void,___cleanup_pstate)
         (___ps)
 ___processor_state ___ps;)
 {
+  if (!___rc_prepare_cleanup (___ps))
+    {
+      static char *messages[] = { "RC roots or borrows prevent processor cleanup", 0 };
+      ___fatal_error (messages);
+      return;
+    }
   cleanup_interrupts_pstate (___ps);
   cleanup_os_and_mem_pstate (___ps);
 }
@@ -4763,6 +4789,9 @@ ___virtual_machine_state ___vms;)
 
   /* Bind stable VM execution storage before any setup helper can use roots.
    * Existing setup/cleanup and synchronous carrier lifetime are unchanged. */
+  if (___ps->mem.rc_domain_ != 0)
+    return ___FIX(___UNKNOWN_ERR); /* Never overwrite an attached RC source. */
+
   ___ps->context = &___vms->execution_contexts[___PROCESSOR_ID(___ps, ___vms)];
 
   /*
@@ -4930,10 +4959,8 @@ ___EXP_FUNC(void,___cleanup) ___PVOID
 
   ___GSTATE->setup_state = 2;
 
-  ___cleanup_all_interrupt_handling ();
-
   if (___vms->processor_count == 0)
-    return;
+    { ___cleanup_all_interrupt_handling (); return; }
 
 #ifndef ___SINGLE_THREADED_VMS
 
@@ -4941,10 +4968,15 @@ ___EXP_FUNC(void,___cleanup) ___PVOID
    * Shutdown processors of this VM except for processor 0.
    */
 
-  ___current_vm_resize (___PSP ___FAL, 1);
+  if (___current_vm_resize (___PSP ___FAL, 1) != ___FIX(___NO_ERR))
+    { ___GSTATE->setup_state = 1; return; }
 
 #endif
 
+  if (!___rc_prepare_cleanup (___ps))
+    { ___GSTATE->setup_state = 1; return; }
+
+  ___cleanup_all_interrupt_handling ();
   ___cleanup_pstate (___ps);
 
 #ifdef ___SINGLE_VM

@@ -12,6 +12,7 @@
 #include "os_time.h"
 #include "setup.h"
 #include "mem.h"
+#include "rc.h"
 #include "c_intf.h"
 #include "actlog.h"
 

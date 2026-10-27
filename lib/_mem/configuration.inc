@@ -281,7 +281,6 @@
 #define words_still_objs        ___PSTATE_MEM(words_still_objs_)
 #define words_still_objs_deferred ___PSTATE_MEM(words_still_objs_deferred_)
 #define bytes_allocated_minus_occupied ___PSTATE_MEM(bytes_allocated_minus_occupied_)
-#define rc_head                 ___PSTATE_MEM(rc_head_)
 #define traverse_weak_refs      ___PSTATE_MEM(traverse_weak_refs_)
 #define nonexecutable_wills     ___PSTATE_MEM(nonexecutable_wills_)
 #define executable_wills        ___PSTATE_MEM(executable_wills_)

@@ -1,162 +1,249 @@
-#line 669 ___MEM_SOURCE_FILE
-/*---------------------------------------------------------------------------*/
-
-/* Allocation of reference counted blocks of memory. */
-
-___HIDDEN void setup_rc
-   ___P((___processor_state ___ps),
-        (___ps)
-___processor_state ___ps;)
+/* RC list membership, payload access, scan and retirement share one source gate.
+ * A domain outlives its carrier while byte-only native owners remain. */
+___HIDDEN void rc_contract_error(char *message)
 {
-  rc_head.prev = &rc_head;
-  rc_head.next = &rc_head;
-  rc_head.refcount = 1;
-  rc_head.data = ___FAL;
+  char *messages[] = {message, 0};
+  ___fatal_error(messages);
 }
 
-___HIDDEN void cleanup_rc
-   ___P((___processor_state ___ps),
-        (___ps)
-___processor_state ___ps;)
+___HIDDEN ___BOOL setup_rc(___processor_state ps)
 {
-  ___rc_header *h = rc_head.next;
-
-  rc_head.prev = &rc_head;
-  rc_head.next = &rc_head;
-
-  while (h != &rc_head)
-    {
-      ___rc_header *next = h->next;
-      ___FREE_MEM(h);
-      h = next;
-    }
+  ___rc_domain *d = ___CAST(___rc_domain*, ___ALLOC_MEM(sizeof(*d)));
+  if (d == 0) return 0;
+  if (!___RC_INIT(d)) { ___FREE_MEM(d); return 0; }
+  d->head.prev = d->head.next = &d->head;
+  d->head.refcount = 1; d->head.data = ___FAL;
+  d->head.domain = d; d->head.root_borrows = 0;
+  d->owner = ps; d->nodes = d->borrows = 0; d->phase = ___RC_OPEN;
+  ps->mem.rc_domain_ = d;
+  return 1;
 }
 
+___HIDDEN ___BOOL rc_can_close(___rc_domain *d)
+{
+  ___rc_header *h;
+  if (d->borrows != 0 || d->phase == ___RC_FROZEN) return 0;
+  for (h=d->head.next; h!=&d->head; h=h->next)
+    if (h->data != ___FAL) return 0;
+  return 1;
+}
+
+___BOOL ___rc_prepare_cleanup(___processor_state ps)
+{
+  ___rc_domain *d = ps->mem.rc_domain_;
+  ___BOOL ready;
+  if (d == 0) return 1;
+  ___RC_LOCK(d);
+  ready = (d->phase == ___RC_OPEN || d->phase == ___RC_CLOSING) && rc_can_close(d);
+  if (ready) d->phase = ___RC_CLOSING;
+  ___RC_UNLOCK(d);
+  return ready;
+}
+
+void ___rc_cancel_cleanup(___processor_state ps)
+{
+  ___rc_domain *d = ps->mem.rc_domain_;
+  if (d == 0) return;
+  ___RC_LOCK(d);
+  if (d->phase == ___RC_CLOSING) d->phase = ___RC_OPEN;
+  ___RC_UNLOCK(d);
+}
+
+___HIDDEN void cleanup_rc(___processor_state ps)
+{
+  ___rc_domain *d = ps->mem.rc_domain_;
+  ___BOOL destroy;
+  if (d == 0) return;
+  ___RC_LOCK(d);
+  if (d->phase != ___RC_CLOSING || !rc_can_close(d))
+    { ___RC_UNLOCK(d); rc_contract_error("RC cleanup without closed root ownership"); return; }
+  /* Native byte owners retain both their allocation and this gate. No PS/VM
+   * address remains in the detached domain; last native release reclaims it. */
+  d->owner = 0; d->phase = ___RC_DETACHED;
+  destroy = d->nodes == 0;
+  ps->mem.rc_domain_ = 0;
+  ___RC_UNLOCK(d);
+  if (destroy) { ___RC_DESTROY(d); ___FREE_MEM(d); }
+}
+
+___HIDDEN void close_rc_roots(___processor_state ps)
+{
+  ___rc_domain *d = ps->mem.rc_domain_;
+  ___RC_LOCK(d);
+  if (d->phase != ___RC_OPEN)
+    { ___RC_UNLOCK(d); rc_contract_error("RC source cannot freeze"); return; }
+  d->phase = ___RC_FROZEN;
+  ___RC_UNLOCK(d);
+}
+
+___HIDDEN void reopen_rc_roots(___processor_state ps)
+{
+  ___rc_domain *d = ps->mem.rc_domain_;
+  ___RC_LOCK(d);
+  if (d->phase != ___RC_FROZEN)
+    { ___RC_UNLOCK(d); rc_contract_error("RC source cannot resume"); return; }
+  d->phase = ___RC_OPEN;
+  ___RC_UNLOCK(d);
+}
 
 ___EXP_FUNC(void*,___alloc_rc_no_register)
-   ___P((___SIZE_T bytes),
-        (bytes)
-___SIZE_T bytes;)
+   ___P((___SIZE_T bytes),(bytes) ___SIZE_T bytes;)
 {
-  ___rc_header *h = ___CAST(___rc_header*,
-                            ___ALLOC_MEM(bytes + sizeof (___rc_header)));
-
-  if (h != 0)
-    {
-      h->refcount = 1;
-      h->data = ___FAL;
-
-      return ___CAST(void*,h+1);
-    }
-
-  return 0;
+  ___rc_header *h;
+  if (bytes > ~___CAST(___SIZE_T,0)-sizeof(*h)) return 0;
+  h=___CAST(___rc_header*,___ALLOC_MEM(bytes+sizeof(*h)));
+  if (h == 0) return 0;
+  h->prev=h->next=h; h->refcount=1; h->data=___FAL;
+  h->domain=0; h->root_borrows=0;
+  return ___CAST(void*,h+1);
 }
 
-
-___EXP_FUNC(void,___register_rc)
-   ___P((___PSD
-         void *ptr),
-        (___PSV
-         ptr)
-___PSDKR
-void *ptr;)
+___EXP_FUNC(void*,___register_rc)
+   ___P((___PSD void *ptr),(___PSV ptr) ___PSDKR void *ptr;)
 {
   ___PSGET
-  ___rc_header *h = ___CAST(___rc_header*, ptr) - 1;
-  ___rc_header *head = &rc_head;
-  ___rc_header *tail = head->prev;
-
-  h->prev = tail;
-  h->next = head;
-  head->prev = h;
-  tail->next = h;
-}
-
-
-___EXP_FUNC(void*,___alloc_rc)
-   ___P((___PSD
-         ___SIZE_T bytes),
-        (___PSV
-         bytes)
-___PSDKR
-___SIZE_T bytes;)
-{
-  ___PSGET
-  void *ptr = ___alloc_rc_no_register (bytes);
-
-  if (ptr != 0) ___register_rc (___PSP ptr);
-
+  ___rc_header *h;
+  ___rc_domain *d;
+  if (ptr == 0 || ___ps == 0 || ___ps != ___PSTATE) return 0;
+  h=___CAST(___rc_header*,ptr)-1; d=___ps->mem.rc_domain_;
+  /* First registration requires exclusive ownership of a private block.
+   * A registered block cannot be moved by re-registering it with another PS. */
+  if (h->domain != 0) return h->domain == d ? ptr : 0;
+  if (d == 0) return 0;
+  ___RC_LOCK(d);
+  if (d->phase != ___RC_OPEN || d->nodes == ~___CAST(___SIZE_T,0))
+    { ___RC_UNLOCK(d); return 0; }
+  h->prev=d->head.prev; h->next=&d->head;
+  d->head.prev->next=h; d->head.prev=h;
+  h->domain=d; ++d->nodes;
+  ___RC_UNLOCK(d);
   return ptr;
 }
 
+___EXP_FUNC(void*,___alloc_rc)
+   ___P((___PSD ___SIZE_T bytes),(___PSV bytes) ___PSDKR ___SIZE_T bytes;)
+{
+  ___PSGET
+  void *ptr=___alloc_rc_no_register(bytes);
+  if (ptr != 0 && ___register_rc(___PSP ptr) == 0)
+    { ___FREE_MEM(___CAST(___rc_header*,ptr)-1); return 0; }
+  return ptr;
+}
+
+___HIDDEN ___BOOL rc_unlink_if_dead(___rc_domain *d, ___rc_header *h)
+{
+  if (h->refcount != 0 || h->root_borrows != 0) return 0;
+  h->next->prev=h->prev; h->prev->next=h->next;
+  --d->nodes;
+  return 1;
+}
 
 ___EXP_FUNC(void,___release_rc)
-   ___P((void *ptr),
-        (ptr)
-void *ptr;)
+   ___P((void *ptr),(ptr) void *ptr;)
 {
-  if (ptr != 0)
-    {
-      ___rc_header *h = ___CAST(___rc_header*,ptr) - 1;
-
-      if (--h->refcount == 0)
-        {
-          ___rc_header *prev = h->prev;
-          ___rc_header *next = h->next;
-
-          next->prev = prev;
-          prev->next = next;
-
-          ___FREE_MEM(h);
-        }
-    }
+  ___rc_header *h;
+  ___rc_domain *d;
+  ___BOOL dead, destroy;
+  if (ptr == 0) return;
+  h=___CAST(___rc_header*,ptr)-1; d=h->domain;
+  if (d == 0) { if (--h->refcount == 0) ___FREE_MEM(h); return; }
+  ___RC_LOCK(d);
+  if (h->refcount <= 0)
+    { ___RC_UNLOCK(d); rc_contract_error("RC owner released twice"); return; }
+  --h->refcount;
+  dead=rc_unlink_if_dead(d,h);
+  destroy=d->phase == ___RC_DETACHED && d->nodes == 0;
+  ___RC_UNLOCK(d);
+  if (dead) ___FREE_MEM(h);
+  if (destroy) { ___RC_DESTROY(d); ___FREE_MEM(d); }
 }
-
 
 ___EXP_FUNC(void,___addref_rc)
-   ___P((void *ptr),
-        (ptr)
-void *ptr;)
+   ___P((void *ptr),(ptr) void *ptr;)
 {
-  if (ptr != 0)
-    {
-      ___rc_header *h = ___CAST(___rc_header*,ptr) - 1;
-      h->refcount++;
-    }
+  ___rc_header *h;
+  ___rc_domain *d;
+  if (ptr == 0) return;
+  h=___CAST(___rc_header*,ptr)-1; d=h->domain;
+  if (d != 0) ___RC_LOCK(d);
+  if (h->refcount <= 0 || h->refcount == ___MAX_FIX)
+    { if (d != 0) ___RC_UNLOCK(d); rc_contract_error("RC owner count exhausted or closed"); return; }
+  ++h->refcount;
+  if (d != 0) ___RC_UNLOCK(d);
 }
 
-
-___EXP_FUNC(int,___refcount_rc)
-   ___P((void *ptr),
-        (ptr)
-void *ptr;)
+___EXP_FUNC(___WORD,___refcount_rc)
+   ___P((void *ptr),(ptr) void *ptr;)
 {
-  ___rc_header *h = ___CAST(___rc_header*,ptr) - 1;
-  return h->refcount;
+  ___rc_header *h=___CAST(___rc_header*,ptr)-1;
+  ___rc_domain *d=h->domain;
+  ___WORD count;
+  if (d != 0) ___RC_LOCK(d);
+  count=h->refcount;
+  if (d != 0) ___RC_UNLOCK(d);
+  return count;
 }
-
 
 ___EXP_FUNC(___SCMOBJ,___data_rc)
-   ___P((void *ptr),
-        (ptr)
-void *ptr;)
+   ___P((void *ptr),(ptr) void *ptr;)
 {
-  ___rc_header *h = ___CAST(___rc_header*,ptr) - 1;
-  return h->data;
+  ___rc_header *h=___CAST(___rc_header*,ptr)-1;
+  ___rc_domain *d=h->domain;
+  ___SCMOBJ value;
+  if (d != 0) ___RC_LOCK(d);
+  value=h->data;
+  if (d != 0) ___RC_UNLOCK(d);
+  return value; /* Snapshot only: a stable root borrow must span allocating calls. */
 }
 
+___BOOL ___try_set_data_rc(___processor_state ps, void *ptr, ___SCMOBJ value)
+{
+  ___rc_header *h;
+  ___rc_domain *d;
+  if (ptr == 0 || ps == 0 || ps != ___PSTATE) return 0;
+  h=___CAST(___rc_header*,ptr)-1; d=h->domain;
+  if (d == 0 || d != ps->mem.rc_domain_) return 0;
+  ___RC_LOCK(d);
+  if (d->owner != ps || d->phase != ___RC_OPEN || h->refcount <= 0)
+    { ___RC_UNLOCK(d); return 0; }
+  h->data=value;
+  ___RC_UNLOCK(d);
+  return 1;
+}
 
 ___EXP_FUNC(void,___set_data_rc)
-   ___P((void *ptr,
-         ___SCMOBJ val),
-        (ptr,
-         val)
-void *ptr;
-___SCMOBJ val;)
+   ___P((void *ptr, ___SCMOBJ value),(ptr,value) void *ptr; ___SCMOBJ value;)
 {
-  ___rc_header *h = ___CAST(___rc_header*,ptr) - 1;
-  h->data = val;
+  if (!___try_set_data_rc(___PSTATE,ptr,value))
+    rc_contract_error("RC payload write outside source ownership");
 }
 
+const ___SCMOBJ *___borrow_rc_root(___processor_state ps, void *ptr)
+{
+  ___rc_header *h;
+  ___rc_domain *d;
+  if (ptr == 0 || ps == 0 || ps != ___PSTATE) return 0;
+  h=___CAST(___rc_header*,ptr)-1; d=h->domain;
+  if (d == 0 || d != ps->mem.rc_domain_) return 0;
+  ___RC_LOCK(d);
+  if (d->phase != ___RC_OPEN || h->refcount <= 0 ||
+      d->borrows == ~___CAST(___SIZE_T,0) || h->root_borrows == ___MAX_FIX)
+    { ___RC_UNLOCK(d); return 0; }
+  ++h->root_borrows; ++d->borrows;
+  ___RC_UNLOCK(d);
+  return &h->data;
+}
 
-/* End internal memory fragment. */
+void ___return_rc_root(void *ptr)
+{
+  ___rc_header *h=___CAST(___rc_header*,ptr)-1;
+  ___rc_domain *d=h->domain;
+  ___BOOL dead;
+  ___RC_LOCK(d);
+  if (h->root_borrows <= 0 || d->borrows == 0)
+    { ___RC_UNLOCK(d); rc_contract_error("RC borrow returned without custody"); return; }
+  --h->root_borrows; --d->borrows;
+  dead=rc_unlink_if_dead(d,h);
+  ___RC_UNLOCK(d);
+  if (dead) ___FREE_MEM(h);
+}

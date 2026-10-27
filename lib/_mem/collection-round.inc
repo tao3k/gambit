@@ -183,8 +183,10 @@ ___PSDKR)
     {
       mark_vm_scmobj (___PSPNC);
       mark_symkey_tables (___PSPNC);
-      mark_rc (___PSP &___ps->mem.rc_head_);
     }
+
+  /* Every active source is scanned exactly once by its existing executor. */
+  mark_rc (___PSP ___ps->mem.rc_domain_);
 
   mark_global_variables (___PSPNC);
 
@@ -334,6 +336,8 @@ ___SIZE_TS requested_words_still;)
 
   /* Keep track of bytes allocated by this processor */
 
+  close_rc_roots (___ps);
+
   bytes_allocated_minus_occupied += bytes_occupied(___ps);
 
   BARRIER();
@@ -415,6 +419,8 @@ ___SIZE_TS requested_words_still;)
   /* Prepare to continue executing program */
 
   prepare_mem_pstate (___ps);
+
+  reopen_rc_roots (___ps);
 
 
   ___ACTLOG_END_PS();

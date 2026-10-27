@@ -109,7 +109,7 @@ MEMORY_SOURCES = _mem/configuration.inc \
   _mem/allocation-limits.inc \
   _mem/allocation-statistics.inc
 NORMAL_CPP =
-NORMAL_H = native_scope.h setup.h mem.h os.h os_setup.h os_base.h os_thread.h os_time.h os_shell.h os_files.h os_dyn.h os_tty.h os_io.h c_intf.h actlog.h dead.h
+NORMAL_H = native_scope.h setup.h mem.h rc.h os.h os_setup.h os_base.h os_thread.h os_time.h os_shell.h os_files.h os_dyn.h os_tty.h os_io.h c_intf.h actlog.h dead.h
 NORMAL_O = native_scope@obj@ main@obj@ setup@obj@ mem@obj@ c_intf@obj@ actlog@obj@ os_setup@obj@ os_base@obj@ os_thread@obj@ os_time@obj@ os_shell@obj@ os_files@obj@ os_dyn@obj@ os_tty@obj@ os_io@obj@
 NORMAL_O_PLUS = +native_scope@obj@ +main@obj@ +setup@obj@ +mem@obj@ +c_intf@obj@ +actlog@obj@ +os_setup@obj@ +os_base@obj@ +os_thread@obj@ +os_time@obj@ +os_shell@obj@ +os_files@obj@ +os_dyn@obj@ +os_tty@obj@ +os_io@obj@
 NORMAL_O_COMMA = native_scope@obj@,main@obj@,setup@obj@,mem@obj@,c_intf@obj@,actlog@obj@,os_setup@obj@,os_base@obj@,os_thread@obj@,os_time@obj@,os_shell@obj@,os_files@obj@,os_dyn@obj@,os_tty@obj@,os_io@obj@
@@ -354,10 +354,10 @@ main@obj@: main.c os.h os_setup.h os_base.h os_shell.h setup.h
 native_scope@obj@: native_scope.c native_scope.h
 	@BUILD_OBJ_RTS@ -D___LIBRARY
 
-setup@obj@: setup.c os.h os_setup.h os_base.h os_files.h os_dyn.h os_thread.h setup.h mem.h c_intf.h native_scope.h
+setup@obj@: setup.c os.h os_setup.h os_base.h os_files.h os_dyn.h os_thread.h setup.h mem.h rc.h c_intf.h native_scope.h
 	@BUILD_OBJ_RTS@ -D___LIBRARY
 
-mem@obj@: mem.c $(MEMORY_SOURCES) os.h os_setup.h os_base.h os_time.h setup.h mem.h c_intf.h actlog.h
+mem@obj@: mem.c $(MEMORY_SOURCES) os.h os_setup.h os_base.h os_time.h setup.h mem.h rc.h c_intf.h actlog.h
 	@BUILD_OBJ_RTS@ -D___LIBRARY
 
 c_intf@obj@: c_intf.c os.h os_base.h os_dyn.h setup.h mem.h c_intf.h

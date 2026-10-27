@@ -171,6 +171,9 @@ ___processor_state ___ps;)
   ___SPINLOCK_INIT(heap_chunks_to_scan_lock);
 #endif
 
+  if (!setup_rc (___ps))
+    return ___FIX(___HEAP_OVERFLOW_ERR);
+
   /*
    * Allocate processor's stack and heap.
    */
@@ -204,7 +207,7 @@ ___processor_state ___ps;)
    * Setup reference counted memory management.
    */
 
-  setup_rc (___ps);
+
 
   /*
    * Create "first break frame" of initial top section.  This first
@@ -278,6 +281,11 @@ ___virtual_machine_state ___vms;)
 
   ___SIZE_TS init_heap_size;
   int init_nb_sections;
+  int source;
+
+  /* Fresh VM setup owns every fixed source slot before any PS publication. */
+  for (source=0; source<___MAX_PROCESSORS; ++source)
+    ___PSTATE_FROM_PROCESSOR_ID(source,___vms)->mem.rc_domain_ = 0;
 
 #ifndef ___SINGLE_THREADED_VMS
 
@@ -478,6 +486,8 @@ void ___cleanup_mem_pstate
         (___ps)
 ___processor_state ___ps;)
 {
+  if (!___rc_prepare_cleanup (___ps))
+    { rc_contract_error ("RC roots or borrows prevent memory cleanup"); return; }
   free_still_objs (___ps);
   cleanup_rc (___ps);
 }

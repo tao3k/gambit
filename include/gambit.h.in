@@ -11419,12 +11419,16 @@ typedef struct
  * Header structure of reference counted blocks of memory.
  */
 
+typedef struct ___rc_domain_struct ___rc_domain;
+
 typedef struct ___rc_header_struct
   {
     struct ___rc_header_struct *prev;
     struct ___rc_header_struct *next;
     ___WORD refcount; /* integer but declared ___WORD for alignment */
     ___SCMOBJ data; /* needed for C closures */
+    ___rc_domain *domain; /* source gate/lifetime, independent of native carrier */
+    ___WORD root_borrows; /* stable-cell owners, separate from public references */
   } ___rc_header;
 
 /* fdset state */
@@ -11523,7 +11527,7 @@ ___SIZE_TS words_still_objs_deferred_;
 ___F64 bytes_allocated_minus_occupied_;
 
 /* head of list of reference counted blocks of memory */
-___rc_header rc_head_;
+___rc_domain *rc_domain_;
 
 /* indicates if weak references must be traversed */
 ___BOOL traverse_weak_refs_;
