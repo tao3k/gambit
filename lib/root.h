@@ -7,7 +7,7 @@ enum ___root_task_state {
   ___ROOT_EMPTY, ___ROOT_READY, ___ROOT_CLAIMED,
   ___ROOT_SCANNING, ___ROOT_SCANNED, ___ROOT_DONE
 };
-enum ___root_origin_kind { ___ROOT_NONE, ___ROOT_RC, ___ROOT_VM, ___ROOT_BANK, ___ROOT_STACK };
+enum ___root_origin_kind { ___ROOT_NONE, ___ROOT_RC, ___ROOT_VM, ___ROOT_BANK, ___ROOT_STACK, ___ROOT_SYMKEY };
 typedef struct ___root_origin_struct {
   enum ___root_origin_kind kind;
   union {
@@ -15,6 +15,7 @@ typedef struct ___root_origin_struct {
     ___virtual_machine_state vm;
     ___execution_context *bank;
     ___execution_context *stack;
+    ___global_state symkey;
   } source;
 } ___root_origin;
 typedef struct ___root_task_struct {
@@ -64,4 +65,13 @@ extern ___BOOL ___root_task_claim_stack(___root_task*,___processor_state,___UWOR
 extern ___BOOL ___root_task_scan_stack(___root_task*,___processor_state,___UWORD);
 extern ___BOOL ___root_task_finish_stack(___root_task*,___processor_state,___UWORD);
 extern ___BOOL ___root_task_completed_stack(___root_task*,___processor_state,___UWORD);
+/* Two global symbol/keyword table anchor cells, scanned by the current VM
+ * coordinator. Caller holds the actual outer registry/VM lifetime and excludes
+ * admitted writers; a VM safepoint alone does not close cross-VM mutation. */
+extern ___BOOL ___root_task_publish_symkey(___root_task*,___global_state,
+                                          ___processor_state,___UWORD,___UWORD*);
+extern ___BOOL ___root_task_claim_symkey(___root_task*,___processor_state,___UWORD);
+extern ___BOOL ___root_task_scan_symkey(___root_task*,___processor_state,___UWORD);
+extern ___BOOL ___root_task_finish_symkey(___root_task*,___processor_state,___UWORD);
+extern ___BOOL ___root_task_completed_symkey(___root_task*,___processor_state,___UWORD);
 #endif

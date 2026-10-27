@@ -182,9 +182,10 @@ ___PSDKR)
 
 
 ___HIDDEN void mark_symkey_tables
-   ___P((___PSDNC),
-        (___PSVNC)
-___PSDKR)
+   ___P((___PSD ___global_state source),
+        (___PSV source)
+___PSDKR
+___global_state source;)
 {
   ___PSGET
 
@@ -192,8 +193,24 @@ ___PSDKR)
   reference_location = IN_SYMKEY_TABLE;
 #endif
 
-  mark_array (___PSP &___GSTATE->symbol_table, 1);
-  mark_array (___PSP &___GSTATE->keyword_table, 1);
+  mark_array (___PSP &source->symbol_table, 1);
+  mark_array (___PSP &source->keyword_table, 1);
+}
+
+
+/* Scan the two actual anchor cells in place. Bucket traversal/weak handling
+ * remains with the existing heap algorithm, not this root-entry lease. */
+___BOOL ___root_task_scan_symkey(___root_task *task, ___processor_state executor,
+                                ___UWORD epoch)
+{
+  ___processor_state ___ps=executor;
+  if (!root_symkey_task(task,executor) ||
+      !root_task_matches(task,___ROOT_SYMKEY,executor,epoch) ||
+      task->state != ___ROOT_CLAIMED || task->scan_leases != 1) return 0;
+  task->state=___ROOT_SCANNING;
+  mark_symkey_tables (___PSP task->origin.source.symkey);
+  task->state=___ROOT_SCANNED;
+  return 1;
 }
 
 

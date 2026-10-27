@@ -193,7 +193,19 @@ ___UWORD rc_epoch;)
           !___root_task_scan_vm(&vm_task,___ps,vm_epoch) ||
           !___root_task_finish_vm(&vm_task,___ps,vm_epoch))
         rc_contract_error("VM root task did not complete");
-      mark_symkey_tables (___PSPNC);
+      {
+        ___root_task symkey_task;
+        ___UWORD symkey_epoch;
+        /* Preserve coordinator/order; this does not close cross-VM writers.
+         * Global registry and round storage outlive the entry-scan borrow. */
+        ___root_task_init(&symkey_task,rc_epoch-1);
+        if (!___root_task_publish_symkey(&symkey_task,___GSTATE,___ps,rc_epoch-1,&symkey_epoch) ||
+            symkey_epoch != rc_epoch ||
+            !___root_task_claim_symkey(&symkey_task,___ps,symkey_epoch) ||
+            !___root_task_scan_symkey(&symkey_task,___ps,symkey_epoch) ||
+            !___root_task_finish_symkey(&symkey_task,___ps,symkey_epoch))
+          rc_contract_error("Symbol/keyword root task did not complete");
+      }
     }
 
   /* Every active source is scanned exactly once by its existing executor. */

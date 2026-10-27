@@ -1,5 +1,5 @@
 ;;; gambit.smp.gc.root-task: native replay, independent oracle and shrinking.
-;;; RC, VM, bank and stack origins share this generator, oracle, replay and shrink driver.
+;;; RC, VM, bank, stack and symbol/keyword origins share this generator, oracle, replay and shrink driver.
 ;;; Each replay is a fresh process. No Scheme allocation while a source is frozen.
 (c-declare #<<c-end
 #include "rc.h"
@@ -48,12 +48,16 @@ if(family) {
     for(i=0;i<sizeof(bank->saved)/sizeof(*bank->saved);i++) bank->saved[i]=___FAL;
     for(i=0;i<sizeof(bank->type_cache)/sizeof(*bank->type_cache);i++) bank->type_cache[i]=___FAL;
     for(i=0;i<___PROCESSOR_SIZE;i++) cells[i]=___FAL;
-  } else {
+  } else if(family==3) {
     /* Control replay uses an empty break anchor, not fabricated frame bodies.
      * Full active/captured frames are exercised by the Scheme histories below.
      * No Scheme allocation, callback or return may follow this reset. */
     bank->fp=bank->stack_break;
     ___FP_STK(bank->stack_break,-___BREAK_FRAME_NEXT)=___END_OF_CONT_MARKER;
+  } else {
+    /* Immediate-only control replay. No Scheme allocation, symbol lookup,
+     * callback or return follows before _Exit in this disposable p1 child. */
+    ___GSTATE->symbol_table=___FAL; ___GSTATE->keyword_table=___FAL;
   }
   ___root_task_init(&local_task,base);
 }
@@ -89,6 +93,13 @@ for(i=0;i<n;i++) {
   case 3: accepted=___root_task_finish_stack(task,actor,key); break;
   case 4: accepted=___root_task_publish_stack(task,___CAST(___execution_context*,&alien_source),actor,key,&receipt); break;
   case 5: accepted=___root_task_completed_stack(task,actor,key); break;
+  } else if(family==4) switch(op) {
+  case 0: accepted=___root_task_publish_symkey(task,___GSTATE,actor,key,&receipt); break;
+  case 1: accepted=___root_task_claim_symkey(task,actor,key); break;
+  case 2: accepted=___root_task_scan_symkey(task,actor,key); break;
+  case 3: accepted=___root_task_finish_symkey(task,actor,key); break;
+  case 4: accepted=___root_task_publish_symkey(task,___CAST(___global_state,&alien_source),actor,key,&receipt); break;
+  case 5: accepted=___root_task_completed_symkey(task,actor,key); break;
   } else switch(op) {
   case 0: accepted=___root_task_publish(d,actor,key,&receipt); break;
   case 1: accepted=___root_task_claim(d,actor,key); break;
@@ -119,12 +130,12 @@ c-end
 ;;; refinement cut after the real scanner, before root_dispatch.finish.
 (define family 'rc)
 (define (trace-tag)
-  (case family ((vm) 'vm-root-task-trace) ((bank) 'bank-root-task-trace) ((stack) 'stack-root-task-trace)
+  (case family ((vm) 'vm-root-task-trace) ((bank) 'bank-root-task-trace) ((stack) 'stack-root-task-trace) ((symkey) 'symkey-root-task-trace)
     ((continuation) 'continuation-history)
     (else 'root-task-trace)))
 (define (trace-file suffix)
   (string-append (case family ((vm) "vm-root-task-")
-                  ((bank) "bank-root-task-") ((stack) "stack-root-task-")
+                  ((bank) "bank-root-task-") ((stack) "stack-root-task-") ((symkey) "symkey-root-task-")
                   ((continuation) "continuation-history-") (else "root-task-")) suffix ".trace"))
 (define (oracle commands)
   (let ((state (if (eq? family 'rc) 5 0)) (phase 0) (lease 0) (epoch 0))
@@ -153,7 +164,7 @@ c-end
       commands))))
 
 (define (trace? x)
-  (and (list? x) (= (length x) 4) (memq (car x) '(root-task-trace vm-root-task-trace bank-root-task-trace stack-root-task-trace continuation-history))
+  (and (list? x) (= (length x) 4) (memq (car x) '(root-task-trace vm-root-task-trace bank-root-task-trace stack-root-task-trace symkey-root-task-trace continuation-history))
        (integer? (cadr x)) (<= 1 (cadr x) 3) (list? (caddr x))
        (<= (length (caddr x)) 96) (memv (cadddr x) '(0 1))
        (let loop ((xs (caddr x)))
@@ -166,7 +177,7 @@ c-end
 (define (replay trace)
   (if (not (trace? trace)) (error "invalid structured root-task trace"))
   (set! family (case (car trace) ((vm-root-task-trace) 'vm)
-                 ((bank-root-task-trace) 'bank) ((stack-root-task-trace) 'stack)
+                 ((bank-root-task-trace) 'bank) ((stack-root-task-trace) 'stack) ((symkey-root-task-trace) 'symkey)
                  ((continuation-history) 'continuation) (else 'rc)))
   (if (not (prepare-source)) (error "root-task source allocation failed"))
   (do ((i 0 (+ i 1))) ((= i (cadr trace))) (##gc))
@@ -174,7 +185,7 @@ c-end
     (if (eq? family 'continuation)
         (replay-continuation commands (cadddr trace))
         (replay-native (list->vector commands) (oracle commands) (cadddr trace)
-                       (case family ((vm) 1) ((bank) 2) ((stack) 3) (else 0))))))
+                       (case family ((vm) 1) ((bank) 2) ((stack) 3) ((symkey) 4) (else 0))))))
 
 (define self (car (command-line)))
 (define input-file "root-task-input.dat")
@@ -366,6 +377,53 @@ c-end
     (delete-file input-file)
     (display "CONTINUATION-HISTORY-REPLAY-PASS\n") (force-output)))
 
+
+;;; Native-only relocation window: keep old tables in registered RC roots,
+;;; install two small valid empty tables, collect, then restore old anchors
+;;; before any Scheme lookup/allocation/callback/return. No user cleanup
+;;; callback is installed in this exclusive one-VM/p1 fixture image.
+(define symkey-relocate
+  (c-lambda (scheme-object scheme-object) bool #<<c-end
+___virtual_machine_state vm=___VMSTATE_FROM_PSTATE(___PSTATE);
+void *symbols=0, *keywords=0;
+___SCMOBJ before_symbol=___arg1, before_keyword=___arg2;
+int failed, moved;
+___result=0;
+if(vm->processor_count==1 && ___PROCESSOR_ID(___PSTATE,vm)==0 &&
+   ___HD_TYP(___HEADER(before_symbol))==___MOVABLE0 &&
+   ___HD_TYP(___HEADER(before_keyword))==___MOVABLE0) {
+  symbols=___EXT(___alloc_rc)(___PSA(___PSTATE) 1);
+  keywords=___EXT(___alloc_rc)(___PSA(___PSTATE) 1);
+  if(symbols!=0 && keywords!=0 &&
+     ___try_set_data_rc(___PSTATE,symbols,___GSTATE->symbol_table) &&
+     ___try_set_data_rc(___PSTATE,keywords,___GSTATE->keyword_table)) {
+    /* The actual two anchor cells, not copied values, are the moving roots.
+     * Only native GC executes while valid empty tables are installed. */
+    ___GSTATE->symbol_table=before_symbol;
+    ___GSTATE->keyword_table=before_keyword;
+    failed=___EXT(___garbage_collect)(___PSA(___PSTATE) 0);
+    moved=___GSTATE->symbol_table!=before_symbol &&
+          ___GSTATE->keyword_table!=before_keyword;
+    ___GSTATE->symbol_table=___EXT(___data_rc)(symbols);
+    ___GSTATE->keyword_table=___EXT(___data_rc)(keywords);
+    ___result=!failed && moved;
+  }
+  if(keywords!=0) ___EXT(___release_rc)(keywords);
+  if(symbols!=0) ___EXT(___release_rc)(symbols);
+}
+c-end
+))
+(define (symkey-moving-roots)
+  (let ((symbol (string->symbol "gambit.smp.gc.root-task.symbol-anchor"))
+        (keyword (string->keyword "gambit.smp.gc.root-task.keyword-anchor")))
+    (if (not (symkey-relocate (vector 0 '()) (vector 0 '())))
+        (error "symbol/keyword native relocation or p1/RC/movable precondition failed"))
+    (##gc)
+    (if (not (and (eq? symbol (string->symbol "gambit.smp.gc.root-task.symbol-anchor"))
+                  (eq? keyword (string->keyword "gambit.smp.gc.root-task.keyword-anchor"))))
+        (error "interned identity lost after original table restoration"))
+    (display "SYMKEY-ROOT-MOVING-PASS\n")))
+
 (c-declare "static ___SCMOBJ vm_root_before; static int vm_root_owned;")
 (define vm-install
   (c-lambda (scheme-object) bool #<<c-end
@@ -447,6 +505,6 @@ c-end
   (cond ((and (= (length args) 2) (string=? (car args) "--replay"))
          (replay (call-with-input-file (cadr args) read)))
         ((and (= (length args) 1) (string=? (car args) "--moving-bank")) (bank-moving-roots))
-        ((null? args) (vm-moving-roots) (for-each (lambda (kind) (set! family kind) (suite)) '(rc vm bank stack))
+        ((null? args) (symkey-moving-roots) (vm-moving-roots) (for-each (lambda (kind) (set! family kind) (suite)) '(rc vm bank stack symkey))
          (continuation-suite))
         (else (error "usage: root-task [--replay TRACE | --moving-bank]"))))

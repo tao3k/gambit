@@ -109,7 +109,7 @@ ___HIDDEN ___BOOL root_vm_executor(___processor_state executor)
          ___PROCESSOR_ID(executor,___VMSTATE_FROM_PSTATE(executor)) == 0;
 }
 
-/* VM, bank and stack publication share one confined state transition. The
+/* VM, bank, stack and symkey publication share one confined state transition. The
  * wrapper checks source identity before reading any source payload. */
 ___HIDDEN ___BOOL root_task_publish_confined(___root_task *task,
                                             ___root_origin origin,
@@ -125,6 +125,8 @@ ___HIDDEN ___BOOL root_task_publish_confined(___root_task *task,
         same_source=task->origin.source.bank == origin.source.bank;
       else if (origin.kind == ___ROOT_STACK)
         same_source=task->origin.source.stack == origin.source.stack;
+      else if (origin.kind == ___ROOT_SYMKEY)
+        same_source=task->origin.source.symkey == origin.source.symkey;
     }
   if (same_source && task->executor == executor && task->epoch != 0 &&
       previous == task->epoch-1 &&
@@ -266,5 +268,45 @@ ___BOOL ___root_task_completed_stack(___root_task *task, ___processor_state exec
 {
   return root_stack_task(task,executor) &&
          root_task_matches(task,___ROOT_STACK,executor,epoch) &&
+         task->state == ___ROOT_DONE && task->scan_leases == 0;
+}
+
+___BOOL ___root_task_publish_symkey(___root_task *task, ___global_state source,
+                                   ___processor_state executor, ___UWORD previous,
+                                   ___UWORD *epoch)
+{
+  ___root_origin origin;
+  if (task == 0 || epoch == 0 || !root_vm_executor(executor) ||
+      source != ___GSTATE) return 0;
+  origin.kind=___ROOT_SYMKEY; origin.source.symkey=source;
+  return root_task_publish_confined(task,origin,executor,previous,epoch);
+}
+
+___HIDDEN ___BOOL root_symkey_task(___root_task *task, ___processor_state executor)
+{
+  return task != 0 && root_vm_executor(executor) &&
+         task->origin.kind == ___ROOT_SYMKEY &&
+         task->origin.source.symkey == ___GSTATE;
+}
+
+___BOOL ___root_task_claim_symkey(___root_task *task, ___processor_state executor,
+                                 ___UWORD epoch)
+{
+  return root_symkey_task(task,executor) &&
+         root_task_claim_state(task,___ROOT_SYMKEY,executor,epoch);
+}
+
+___BOOL ___root_task_finish_symkey(___root_task *task, ___processor_state executor,
+                                  ___UWORD epoch)
+{
+  return root_symkey_task(task,executor) &&
+         root_task_finish_state(task,___ROOT_SYMKEY,executor,epoch);
+}
+
+___BOOL ___root_task_completed_symkey(___root_task *task, ___processor_state executor,
+                                     ___UWORD epoch)
+{
+  return root_symkey_task(task,executor) &&
+         root_task_matches(task,___ROOT_SYMKEY,executor,epoch) &&
          task->state == ___ROOT_DONE && task->scan_leases == 0;
 }
