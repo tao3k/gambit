@@ -476,6 +476,13 @@ test-rc-roots:
 	@SETDLPATH@ ./rc-root-origin@exe@ -:p2
 	rm -f rc-root-origin@exe@
 
+.PHONY: test-symkey-publication
+test-symkey-publication:
+	@SETDLPATH@ $(rootfromhere)/gsc/gsc@exe@ -:~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f -exe -cc-options "-DHAVE_CONFIG_H -I$(srcdirpfx)$(rootfromhere)/include -I$(srcdirpfx)$(rootfromhere)/lib" -o root-task@exe@ $(srcdirpfx)root-task.scm
+	@SETDLPATH@ ./root-task@exe@ -:p1 --symkey-publication
+	@SETDLPATH@ ./root-task@exe@ -:p1 --intern-growth
+	rm -f root-task@exe@ root-task-input.dat
+
 .PHONY: test-globals-snapshot
 test-globals-snapshot:
 	@SETDLPATH@ $(rootfromhere)/gsc/gsc@exe@ -:~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f -exe -cc-options "-DHAVE_CONFIG_H -I$(srcdirpfx)$(rootfromhere)/include -I$(srcdirpfx)$(rootfromhere)/lib" -o root-task@exe@ $(srcdirpfx)root-task.scm

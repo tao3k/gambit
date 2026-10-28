@@ -181,8 +181,20 @@ ___global_state source;)
   reference_location = IN_SYMKEY_TABLE;
 #endif
 
-  mark_array (___PSP &source->symbol_table, 1);
-  mark_array (___PSP &source->keyword_table, 1);
+  {
+    ___SCMOBJ before[2], cells[2];
+    ___MUTEX_LOCK(source->mem.global_gate);
+    before[0]=cells[0]=source->symbol_table;
+    before[1]=cells[1]=source->keyword_table;
+    ___MUTEX_UNLOCK(source->mem.global_gate);
+    mark_array (___PSP cells, 2);
+    ___MUTEX_LOCK(source->mem.global_gate);
+    if (cells[0]!=before[0] && source->symbol_table==before[0])
+      source->symbol_table=cells[0];
+    if (cells[1]!=before[1] && source->keyword_table==before[1])
+      source->keyword_table=cells[1];
+    ___MUTEX_UNLOCK(source->mem.global_gate);
+  }
 }
 
 

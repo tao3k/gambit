@@ -7,7 +7,9 @@
 #include "os_thread.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 static void *root_task_bytes;
+static void replay_intern(___SCMOBJ,___SCMOBJ,int);
 static void replay_global_snapshot(___SCMOBJ,___SCMOBJ,int);
 c-end
 )
@@ -28,6 +30,7 @@ ___virtual_machine_state vm=___VMSTATE_FROM_PSTATE(ps);
 ___WORD alien_source=0;
 int family=___arg4;
 if(family==6) replay_global_snapshot(commands,expected_rows,mutation);
+if(family==7) replay_intern(commands,expected_rows,mutation);
 int i,n=___INT(___VECTORLENGTH(commands));
 ___RC_LOCK(d);
 base=d->task.epoch;
@@ -271,15 +274,157 @@ c-end
                          (begin (set! phase 2) (set! captured -1) (set! ok #t)))))
               (vector (if ok 1 0) added captured state lease))) commands))))
 
+(c-declare #<<c-end
+#ifdef ___USE_POSIX_THREAD_SYSTEM
+typedef struct intern_trial_gate {
+  pthread_mutex_t mutex;
+  pthread_cond_t cond;
+  const char *name;
+  unsigned int type;
+  int started,missed,done0,armed;
+  ___SCMOBJ values[2];
+} intern_trial_gate;
+static intern_trial_gate *intern_current_gate;
+static ___THREAD_LOCAL_STORAGE_CLASS int intern_actor_rank=-1;
+/* The predecessor-only mutation calls this after a real lookup miss. Both
+ * actors miss before rank0 constructs, then rank1 waits for rank0 to return.
+ * Thus the retained old failure needs no concurrent bucket writes or UB. */
+void test_symkey_split(const char *name)
+{
+  intern_trial_gate *g=intern_current_gate;
+  if(!g || !g->armed || strcmp(name,g->name)!=0 || intern_actor_rank<0) return;
+  pthread_mutex_lock(&g->mutex);++g->missed;pthread_cond_broadcast(&g->cond);
+  if(intern_actor_rank==0) { while(g->missed<2) pthread_cond_wait(&g->cond,&g->mutex); }
+  else { while(!g->done0) pthread_cond_wait(&g->cond,&g->mutex); }
+  pthread_mutex_unlock(&g->mutex);
+}
+static void *intern_actor(void *which)
+{
+  intern_trial_gate *g=intern_current_gate;
+  int i=(int)(size_t)which;intern_actor_rank=i;
+  pthread_mutex_lock(&g->mutex);++g->started;pthread_cond_broadcast(&g->cond);
+  while(g->started<2) pthread_cond_wait(&g->cond,&g->mutex);
+  pthread_mutex_unlock(&g->mutex);
+  g->values[i]=___make_symkey_from_UTF_8_string((char*)g->name,g->type);
+  pthread_mutex_lock(&g->mutex);if(i==0) g->done0=1;
+  pthread_cond_broadcast(&g->cond);pthread_mutex_unlock(&g->mutex);
+  return 0;
+}
+static ___SCMOBJ intern_concurrent(char *name,unsigned int type,int fresh,int *same)
+{
+  intern_trial_gate g;pthread_t threads[2];int i;
+  memset(&g,0,sizeof(g));g.name=name;g.type=type;g.armed=fresh;
+  if(pthread_mutex_init(&g.mutex,0) || pthread_cond_init(&g.cond,0)) _Exit(75);
+  intern_current_gate=&g;
+  for(i=0;i<2;i++) if(pthread_create(&threads[i],0,intern_actor,(void*)(size_t)i)) _Exit(75);
+  for(i=0;i<2;i++) if(pthread_join(threads[i],0)) _Exit(75);
+  *same=g.values[0]==g.values[1];intern_current_gate=0;
+  pthread_cond_destroy(&g.cond);pthread_mutex_destroy(&g.mutex);
+  return g.values[0];
+}
+#else
+void test_symkey_split(const char *name) { (void)name; }
+#endif
+typedef struct intern_visit_data { ___SCMOBJ *known;int seen[4],ok; } intern_visit_data;
+static void intern_visit(___SCMOBJ sym,void *data)
+{
+  intern_visit_data *d=(intern_visit_data*)data;int k;
+  for(k=0;k<4;k++) if(sym==d->known[k]) { if(d->seen[k]) d->ok=0;d->seen[k]=1; }
+}
+static void replay_intern(___SCMOBJ commands,___SCMOBJ expected,int mutation)
+{
+#ifndef ___USE_POSIX_THREAD_SYSTEM
+  printf("(root-task-result unsupported posix-required)\n");fflush(stdout);_Exit(72);
+#else
+  ___processor_state ps=___PSTATE;
+  int rows[96][3],wanted[96][5],n=___INT(___VECTORLENGTH(commands));
+  int initial[2],i,j,k;
+  char names[4][80];___SCMOBJ strings[4],known[2][4];
+  if(n>96 || ___VMSTATE_FROM_PSTATE(ps)->processor_count!=1) _Exit(72);
+  for(i=0;i<n;i++) {
+    for(j=0;j<3;j++) rows[i][j]=___INT(___VECTORELEM(___VECTORELEM(commands,i),j));
+    for(j=0;j<5;j++) wanted[i][j]=___INT(___VECTORELEM(___VECTORELEM(expected,i),j));
+  }
+  for(k=0;k<4;k++) {
+    snprintf(names[k],sizeof(names[k]),"gambit.smp.symkey-publication.%d",k);
+    if(___NONNULLUTF_8STRING_to_SCMOBJ(0,names[k],&strings[k],-1)!=___FIX(___NO_ERR)) _Exit(72);
+    for(j=0;j<2;j++) {
+      known[j][k]=___FAL;
+      if(___find_symkey_from_UTF_8_string(names[k],j?___sKEYWORD:___sSYMBOL)!=___FAL) _Exit(72);
+    }
+  }
+  ___MUTEX_LOCK(___GSTATE->mem.global_gate);
+  initial[0]=___INT(___VECTORELEM(___GSTATE->symbol_table,0));
+  initial[1]=___INT(___VECTORELEM(___GSTATE->keyword_table,0));
+  ___MUTEX_UNLOCK(___GSTATE->mem.global_gate);
+  for(i=0;i<n;i++) {
+    int op=rows[i][0],slot=rows[i][1]+1,t=rows[i][2],same=1,ok=1,found=0;
+    unsigned int type=t?___sKEYWORD:___sSYMBOL;
+    ___SCMOBJ result=___FAL;long seen[5];
+    switch(op) {
+    case 0: case 3: result=___find_symkey_from_UTF_8_string(names[slot],type);break;
+    case 1: result=___make_symkey_from_UTF_8_string(names[slot],type);break;
+    case 2: result=___make_symkey_from_scheme_string(strings[slot],type);break;
+    case 4: result=___new_symkey(strings[slot],type);break;
+    case 5: ok=!___EXT(___garbage_collect)(___PSA(ps) 0);break;
+    case 6: result=intern_concurrent(names[slot],type,known[t][slot]==___FAL,&same);break;
+    case 7: {
+      intern_visit_data d;memset(&d,0,sizeof(d));d.known=known[t];d.ok=1;
+      ___for_each_symkey(type,intern_visit,&d);
+      for(k=0;k<4;k++) if(d.seen[k]!=(known[t][k]!=___FAL)) d.ok=0;
+      ok=d.ok;break;
+    }
+    case 8: result=___make_symkey_from_UTF_8_string("\xc0",type);ok=0;
+      if(!___FIXNUMP(result)) _Exit(76);result=___FAL;break;
+    }
+    if(result!=___FAL) {
+      if(___FIXNUMP(result)) ok=0;
+      else {
+        found=1;
+        if(known[t][slot]==___FAL) known[t][slot]=result;
+        else if(result!=known[t][slot]) same=0;
+        if(___find_symkey_from_scheme_string(strings[slot],type)!=result) same=0;
+      }
+    }
+    seen[0]=ok;
+    ___MUTEX_LOCK(___GSTATE->mem.global_gate);
+    seen[1]=___INT(___VECTORELEM(___GSTATE->symbol_table,0))-initial[0];
+    seen[2]=___INT(___VECTORELEM(___GSTATE->keyword_table,0))-initial[1];
+    ___MUTEX_UNLOCK(___GSTATE->mem.global_gate);
+    seen[3]=found;seen[4]=same;
+    if(mutation && op==4) seen[4]=0;
+    for(j=0;j<5;j++) if(seen[j]!=wanted[i][j]) {
+      printf("(root-task-result mismatch %d %d %d %ld (%ld %ld %ld %ld %ld))\n",
+       i,op,j,seen[j],seen[0],seen[1],seen[2],seen[3],seen[4]);fflush(stdout);_Exit(71);
+    }
+  }
+  printf("(root-task-result pass %d)\n",n);fflush(stdout);_Exit(0);
+#endif
+}
+c-end
+)
+(define (intern-oracle commands)
+  (let ((have (vector (make-vector 4 #f) (make-vector 4 #f))) (counts (vector 0 0)))
+    (list->vector
+     (map (lambda (row)
+            (let* ((op (vector-ref row 0)) (slot (+ 1 (vector-ref row 1)))
+                   (t (vector-ref row 2)) (keys (vector-ref have t))
+                   (make? (memv op '(1 2 4 6))))
+              (if (and make? (not (vector-ref keys slot)))
+                  (begin (vector-set! keys slot #t)
+                         (vector-set! counts t (+ 1 (vector-ref counts t)))))
+              (vector (if (= op 8) 0 1) (vector-ref counts 0) (vector-ref counts 1)
+                      (if (and (memv op '(0 1 2 3 4 6)) (vector-ref keys slot)) 1 0) 1))) commands))))
+
 ;;; The oracle describes externally observable requests. SCANNED is the native
 ;;; refinement cut after the real scanner, before root_dispatch.finish.
 (define family 'rc)
 (define (trace-tag)
-  (case family ((snapshot) 'globals-snapshot-trace) ((vm) 'vm-root-task-trace) ((bank) 'bank-root-task-trace) ((stack) 'stack-root-task-trace) ((symkey) 'symkey-root-task-trace) ((globals) 'globals-root-task-trace)
+  (case family ((intern) 'symkey-publication-trace) ((snapshot) 'globals-snapshot-trace) ((vm) 'vm-root-task-trace) ((bank) 'bank-root-task-trace) ((stack) 'stack-root-task-trace) ((symkey) 'symkey-root-task-trace) ((globals) 'globals-root-task-trace)
     ((continuation) 'continuation-history)
     (else 'root-task-trace)))
 (define (trace-file suffix)
-  (string-append (case family ((snapshot) "globals-snapshot-") ((vm) "vm-root-task-")
+  (string-append (case family ((intern) "symkey-publication-") ((snapshot) "globals-snapshot-") ((vm) "vm-root-task-")
                   ((bank) "bank-root-task-") ((stack) "stack-root-task-") ((symkey) "symkey-root-task-") ((globals) "globals-root-task-")
                   ((continuation) "continuation-history-") (else "root-task-")) suffix ".trace"))
 (define (oracle commands)
@@ -309,19 +454,19 @@ c-end
       commands))))
 
 (define (trace? x)
-  (and (list? x) (= (length x) 4) (memq (car x) '(root-task-trace vm-root-task-trace bank-root-task-trace stack-root-task-trace symkey-root-task-trace globals-root-task-trace globals-snapshot-trace continuation-history))
+  (and (list? x) (= (length x) 4) (memq (car x) '(root-task-trace vm-root-task-trace bank-root-task-trace stack-root-task-trace symkey-root-task-trace globals-root-task-trace globals-snapshot-trace symkey-publication-trace continuation-history))
        (integer? (cadr x)) (<= 1 (cadr x) 3) (list? (caddr x))
        (<= (length (caddr x)) 96) (memv (cadddr x) '(0 1))
        (let loop ((xs (caddr x)))
          (or (null? xs)
              (let ((r (car xs)))
                (and (vector? r) (= (vector-length r) 3)
-                    (integer? (vector-ref r 0)) (<= 0 (vector-ref r 0) (case (car x) ((globals-snapshot-trace) 8) ((globals-root-task-trace) 6) (else 5)))
+                    (integer? (vector-ref r 0)) (<= 0 (vector-ref r 0) (case (car x) ((globals-snapshot-trace symkey-publication-trace) 8) ((globals-root-task-trace) 6) (else 5)))
                     (memv (vector-ref r 1) '(-1 0 1 2))
                     (memv (vector-ref r 2) '(0 1)) (loop (cdr xs))))))))
 (define (replay trace)
   (if (not (trace? trace)) (error "invalid structured root-task trace"))
-  (set! family (case (car trace) ((globals-snapshot-trace) 'snapshot) ((vm-root-task-trace) 'vm)
+  (set! family (case (car trace) ((symkey-publication-trace) 'intern) ((globals-snapshot-trace) 'snapshot) ((vm-root-task-trace) 'vm)
                  ((bank-root-task-trace) 'bank) ((stack-root-task-trace) 'stack) ((symkey-root-task-trace) 'symkey) ((globals-root-task-trace) 'globals)
                  ((continuation-history) 'continuation) (else 'rc)))
   (if (not (prepare-source)) (error "root-task source allocation failed"))
@@ -329,8 +474,8 @@ c-end
   (let ((commands (caddr trace)))
     (if (eq? family 'continuation)
         (replay-continuation commands (cadddr trace))
-        (replay-native (list->vector commands) (if (eq? family 'snapshot) (snapshot-oracle commands) (oracle commands)) (cadddr trace)
-                       (case family ((snapshot) 6) ((vm) 1) ((bank) 2) ((stack) 3) ((symkey) 4) ((globals) 5) (else 0))))))
+        (replay-native (list->vector commands) (case family ((snapshot) (snapshot-oracle commands)) ((intern) (intern-oracle commands)) (else (oracle commands))) (cadddr trace)
+                       (case family ((intern) 7) ((snapshot) 6) ((vm) 1) ((bank) 2) ((stack) 3) ((symkey) 4) ((globals) 5) (else 0))))))
 
 (define self (car (command-line)))
 (define input-file "root-task-input.dat")
@@ -727,6 +872,109 @@ c-end
        (thread-start! thread) (thread-join! thread)))
    (if (> (##current-vm-processor-count) 1) '(0 1) '(0))))
 
+(c-declare #<<c-end
+static int intern_fail_vector,intern_failed_vectors,intern_scan_publish,intern_scan_ran;
+static ___SCMOBJ intern_scan_expected[2];
+___SCMOBJ test_symkey_vector_allocate(___processor_state ps,___SIZE_TS len,___SCMOBJ init)
+{
+  if(intern_fail_vector && ps==0) { intern_fail_vector=0;++intern_failed_vectors;return ___FIX(___HEAP_OVERFLOW_ERR); }
+  return ___make_vector(ps,len,init);
+}
+static void intern_force_growth(unsigned int type,int fail)
+{
+  ___SCMOBJ before,*values,tbl,sym;int n,count,len,i;char name[100];
+  ___MUTEX_LOCK(___GSTATE->mem.global_gate);
+  before=type==___sKEYWORD?___GSTATE->keyword_table:___GSTATE->symbol_table;
+  len=___INT(___VECTORLENGTH(before));count=___INT(___VECTORELEM(before,0));
+  ___MUTEX_UNLOCK(___GSTATE->mem.global_gate);
+  if(len>(INT_MAX-1)/4) _Exit(75);
+  n=len*4-count+1;if(n<1) n=1;
+  values=malloc((size_t)n*sizeof(*values));if(!values) _Exit(75);
+  for(i=0;i<n;i++) {
+    snprintf(name,sizeof(name),"gambit.smp.symkey-growth.%u.%d.%d",type,count,i);
+    if(fail && i==n-1) intern_fail_vector=1;
+    values[i]=___make_symkey_from_UTF_8_string(name,type);
+    if(___FIXNUMP(values[i])) _Exit(77);
+  }
+  tbl=type==___sKEYWORD?___GSTATE->keyword_table:___GSTATE->symbol_table;
+  if(___INT(___VECTORELEM(tbl,0))!=count+n ||
+     (fail?(tbl!=before || intern_failed_vectors!=1 || intern_fail_vector):(___INT(___VECTORLENGTH(tbl))<=len))) _Exit(77);
+  for(i=0;i<n;i++) {
+    snprintf(name,sizeof(name),"gambit.smp.symkey-growth.%u.%d.%d",type,count,i);
+    if(___find_symkey_from_UTF_8_string(name,type)!=values[i]) _Exit(77);
+  }
+  free(values);
+  if(fail) {
+    snprintf(name,sizeof(name),"gambit.smp.symkey-growth.retry.%u.%d",type,count);
+    sym=___make_symkey_from_UTF_8_string(name,type);
+    tbl=type==___sKEYWORD?___GSTATE->keyword_table:___GSTATE->symbol_table;
+    if(___FIXNUMP(sym) || ___INT(___VECTORLENGTH(tbl))<=len || ___INT(___VECTORELEM(tbl,0))!=count+n+1) _Exit(77);
+  }
+  printf("(SYMKEY-GROWTH-PASS type %u count %d added %d buckets-before %d buckets-after %d failed-vector %d)\n",
+    type,count,n,len-1,___INT(___VECTORLENGTH(tbl))-1,fail);fflush(stdout);
+}
+/* A source mutation artifact invokes this strictly outside the registry
+ * gate, after actual GC anchor capture. Normal production has no hook. */
+void test_symkey_scan_publish(void)
+{
+  if(intern_scan_publish) {
+    intern_scan_publish=0;++intern_scan_ran;
+    intern_force_growth(___sSYMBOL,0);intern_force_growth(___sKEYWORD,0);
+    intern_scan_expected[0]=___GSTATE->symbol_table;
+    intern_scan_expected[1]=___GSTATE->keyword_table;
+  }
+}
+c-end
+)
+(define intern-growth
+ (c-lambda (int) void #<<c-end
+int mode=___arg1,failed;
+if(mode==2) {
+  intern_scan_publish=1;intern_scan_ran=0;
+  failed=___EXT(___garbage_collect)(___PSA(___PSTATE) 0);
+  if(failed || intern_scan_ran!=1) _Exit(77);
+  /* In the positive adapter the two newly published permanent anchors survive
+   * the collector's local view. A stale write-back loses this longer table. */
+  if(___GSTATE->symbol_table!=intern_scan_expected[0] ||
+     ___GSTATE->keyword_table!=intern_scan_expected[1]) _Exit(77);
+  printf("SYMKEY-GC-PUBLICATION-PASS\n");fflush(stdout);
+} else {
+  intern_failed_vectors=0;intern_force_growth(___sSYMBOL,mode==1);
+  intern_failed_vectors=0;intern_force_growth(___sKEYWORD,mode==1);
+  if(___EXT(___garbage_collect)(___PSA(___PSTATE) 0)) _Exit(77);
+  printf("SYMKEY-GROWTH-GC-PASS\n");fflush(stdout);
+}
+c-end
+))
+
+(define (intern-suite)
+ (set! family 'intern) (set! trials 0)
+ (let ((seed 941) (actions 0))
+  (define (next n) (set! seed (modulo (+ (* seed 48271) 17) 2147483647)) (modulo seed n))
+  (define (noise n) (if (= n 0) '() (cons (vector (next 9) (- (next 4) 1) (next 2)) (noise (- n 1)))))
+  (define chain (list (vector 3 0 0) (vector 3 0 0) (vector 4 0 0) (vector 4 0 0)
+                      (vector 6 1 0) (vector 6 1 1) (vector 5 0 0) (vector 7 0 0) (vector 7 0 1)))
+  (if (signature (trial chain 0)) (error "canonical native publication control failed"))
+  (set! actions (length chain))
+  (do ((sample 0 (+ sample 1))) ((= sample 12))
+   (let* ((commands (append (noise 12) chain (noise 12))) (result (trial commands 0)))
+    (set! actions (+ actions (length commands)))
+    (if (signature result)
+     (let ((minimal (shrink commands 0 (signature result))))
+      (with-output-to-file (trace-file "failure") (lambda () (write (list (trace-tag) 1 minimal 0)) (newline)))
+      (error "actual interner property failed" result minimal)))))
+  (write (list 'SYMKEY-PUBLICATION-PBT-PASS 'seed 941 'cases 12 'actions actions)) (newline)
+  (let* ((noisy (append (make-list 6 (vector 0 0 0)) chain (make-list 6 (vector 7 0 0))))
+         (wanted (signature (trial noisy 1))))
+   (if (not (equal? wanted '(4 4))) (error "interner observer calibration missed" wanted))
+   (let* ((minimal (shrink noisy 1 wanted)) (again (trial minimal 1)) (one? (one-minimal? minimal 1 wanted)))
+    (if (not (and (= (length minimal) 1) one? (equal? wanted (signature again)) (not (signature (trial minimal 0)))))
+        (error "interner shrink/replay failed" minimal again))
+    (with-output-to-file (trace-file "minimal") (lambda () (write (list (trace-tag) 1 minimal 1)) (newline)))
+    (write (list 'SYMKEY-PUBLICATION-SHRINK-PASS 'from (length noisy) 'to (length minimal)
+                 'replayed #t 'deletion-one-minimal one? 'production-pass #t 'trials trials)) (newline)))
+  (delete-file input-file)))
+
 (define (snapshot-suite)
   ((c-lambda () void #<<c-end
 printf("(GLOBALS-SNAPSHOT-LAYOUT global-added %lu vm-pointer %lu snapshot %lu source %lu task %lu participants-capacity %d)\n",
@@ -805,7 +1053,11 @@ c-end
       (display "GLOBALS-CAPACITY-SCHEME-PASS\n"))))
 
 (let ((args (cdr (command-line))))
-  (cond ((and (= (length args) 1) (string=? (car args) "--globals-snapshot")) (snapshot-suite))
+  (cond ((and (= (length args) 1) (string=? (car args) "--intern-growth")) (intern-growth 0))
+        ((and (= (length args) 1) (string=? (car args) "--intern-growth-fault")) (intern-growth 1))
+        ((and (= (length args) 1) (string=? (car args) "--intern-gc-publish")) (intern-growth 2))
+        ((and (= (length args) 1) (string=? (car args) "--symkey-publication")) (intern-suite))
+        ((and (= (length args) 1) (string=? (car args) "--globals-snapshot")) (snapshot-suite))
         ((and (= (length args) 1) (string=? (car args) "--globals-capacity")) (globals-capacity))
         ((and (= (length args) 2) (string=? (car args) "--replay"))
          (replay (call-with-input-file (cadr args) read)))

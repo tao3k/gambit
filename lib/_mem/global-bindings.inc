@@ -141,6 +141,7 @@ ___glo_struct *glo;)
 {
   ___SCMOBJ result = ___FAL;
 
+  ___MUTEX_LOCK(___GSTATE->mem.global_gate);
   if (glo != 0)
     {
       int len = ___INT(___VECTORLENGTH(___GSTATE->symbol_table));
@@ -163,6 +164,7 @@ ___glo_struct *glo;)
     end_search:;
     }
 
+  ___MUTEX_UNLOCK(___GSTATE->mem.global_gate);
   return result;
 }
 
@@ -237,6 +239,7 @@ ___SCMOBJ val;)
 {
   ___SCMOBJ sym = ___NUL;
   int i;
+  ___MUTEX_LOCK(___GSTATE->mem.global_gate);
 
   for (i = ___INT(___VECTORLENGTH(___GSTATE->symbol_table)) - 1; i>0; i--)
     {
@@ -257,6 +260,7 @@ ___SCMOBJ val;)
         }
     }
 
+  ___MUTEX_UNLOCK(___GSTATE->mem.global_gate);
   return sym;
 }
 

@@ -26,6 +26,9 @@
 
 #define HASH_STEP(h,c) (((h)^(c)) * FN1a_prime) & ___MAX_FIX32
 
+/* Both the Scheme count cell and the existing C index operations must fit. */
+#define SYMKEY_COUNT_LIMIT ((___MAX_FIX < INT_MAX) ? ___MAX_FIX : INT_MAX)
+
 ___SCMOBJ ___hash_UTF_8_string
    ___P((___UTF_8STRING str),
         (str)
@@ -80,6 +83,13 @@ unsigned int subtype;)
 }
 
 
+___HIDDEN ___BOOL symkey_table_permanent(___SCMOBJ tbl)
+{
+  return ___MEM_ALLOCATED(tbl) && ___HD_TYP(___HEADER(tbl))==___PERM &&
+         ___HD_SUBTYPE(___HEADER(tbl))==___sVECTOR &&
+         ___INT(___VECTORLENGTH(tbl))>1;
+}
+
 ___HIDDEN void symkey_table_set
    ___P((unsigned int subtype,
          ___SCMOBJ new_table),
@@ -108,7 +118,9 @@ ___HIDDEN ___SCMOBJ alloc_symkey_table
 unsigned int subtype;
 ___SIZE_TS length;)
 {
-  ___SCMOBJ tbl = ___make_vector (NULL, length+1, ___NUL);
+  ___SCMOBJ tbl;
+  if (length<1 || length>=SYMKEY_COUNT_LIMIT) return ___FIX(___HEAP_OVERFLOW_ERR);
+  tbl=___make_vector (NULL, length+1, ___NUL);
 
   if (!___FIXNUMP(tbl))
     ___VECTORELEM(tbl, 0) = ___FIX(0);
@@ -117,13 +129,17 @@ ___SIZE_TS length;)
 }
 
 
-void ___intern_symkey
+___HIDDEN void symkey_intern
    ___P((___SCMOBJ symkey),
         (symkey)
 ___SCMOBJ symkey;)
 {
   unsigned int subtype = ___INT(___SUBTYPE(symkey));
   ___SCMOBJ tbl = symkey_table (subtype);
+  if (!symkey_table_permanent(tbl) || !___FIXNUMP(___VECTORELEM(tbl,0)) ||
+      ___INT(___VECTORELEM(tbl,0))<0 ||
+      ___VECTORELEM(tbl,0)>=___FIX(SYMKEY_COUNT_LIMIT))
+    rc_contract_error("symkey insertion outside native permanent table bound");
   int i = ___INT(___SYMKEY_HASH_FIELD(symkey))
           % (___INT(___VECTORLENGTH(tbl)) - 1)
           + 1;
@@ -142,7 +158,8 @@ ___SCMOBJ symkey;)
    * list length of 4).
    */
 
-  if (___INT(___VECTORELEM(tbl, 0)) > ___INT(___VECTORLENGTH(tbl)) * 4)
+  if ((___INT(___VECTORELEM(tbl,0))-1)/4 >= ___INT(___VECTORLENGTH(tbl)) &&
+      ___INT(___VECTORLENGTH(tbl))-1 <= (INT_MAX-1)/2)
     {
       int new_len = (___INT(___VECTORLENGTH(tbl))-1) * 2;
       ___SCMOBJ newtbl = alloc_symkey_table (subtype, new_len);
@@ -172,7 +189,7 @@ ___SCMOBJ symkey;)
 }
 
 
-___SCMOBJ ___new_symkey
+___HIDDEN ___SCMOBJ symkey_new
    ___P((___SCMOBJ name, /* name must be a permanent object */
          unsigned int subtype),
         (name,
@@ -182,6 +199,12 @@ unsigned int subtype;)
 {
   ___SCMOBJ obj;
   ___SCMOBJ tbl;
+
+  tbl=symkey_table(subtype);
+  if (!symkey_table_permanent(tbl) ||
+      !___MEM_ALLOCATED(name) || ___HD_TYP(___HEADER(name))!=___PERM ||
+      ___VECTORELEM(tbl,0)>=___FIX(SYMKEY_COUNT_LIMIT))
+    return ___FIX(___HEAP_OVERFLOW_ERR);
 
   switch (subtype)
     {
@@ -206,13 +229,13 @@ unsigned int subtype;)
   if (subtype == ___sSYMBOL)
     ___SYMBOL_GLOBAL_FIELD(obj) = ___CAST(___SCMOBJ,___CAST(___glo_struct*,0));
 
-  ___intern_symkey (obj);
+  symkey_intern (obj);
 
   return obj;
 }
 
 
-___SCMOBJ ___find_symkey_from_UTF_8_string
+___HIDDEN ___SCMOBJ symkey_find_utf8
    ___P((char *str,
          unsigned int subtype),
         (str,
@@ -228,6 +251,7 @@ unsigned int subtype;)
     return h;
 
   tbl = symkey_table (subtype);
+  if (!symkey_table_permanent(tbl)) return ___FIX(___HEAP_OVERFLOW_ERR);
   probe = ___VECTORELEM(tbl, ___INT(h) % (___INT(___VECTORLENGTH(tbl))-1) + 1);
 
   while (probe != ___NUL)
@@ -251,7 +275,7 @@ unsigned int subtype;)
 }
 
 
-___SCMOBJ ___find_symkey_from_scheme_string
+___HIDDEN ___SCMOBJ symkey_find_string
    ___P((___SCMOBJ str,
          unsigned int subtype),
         (str,
@@ -264,6 +288,7 @@ unsigned int subtype;)
   ___SCMOBJ h = ___hash_scheme_string (str);
 
   tbl = symkey_table (subtype);
+  if (!symkey_table_permanent(tbl)) return ___FIX(___HEAP_OVERFLOW_ERR);
   probe = ___VECTORELEM(tbl, ___INT(h) % (___INT(___VECTORLENGTH(tbl))-1) + 1);
 
   while (probe != ___NUL)
@@ -286,7 +311,7 @@ unsigned int subtype;)
 }
 
 
-___SCMOBJ ___make_symkey_from_UTF_8_string
+___HIDDEN ___SCMOBJ symkey_make_utf8
    ___P((___UTF_8STRING str,
          unsigned int subtype),
         (str,
@@ -294,7 +319,7 @@ ___SCMOBJ ___make_symkey_from_UTF_8_string
 ___UTF_8STRING str;
 unsigned int subtype;)
 {
-  ___SCMOBJ obj = ___find_symkey_from_UTF_8_string (str, subtype);
+  ___SCMOBJ obj = symkey_find_utf8 (str, subtype);
 
   if (obj == ___FAL)
     {
@@ -309,14 +334,14 @@ unsigned int subtype;)
           != ___FIX(___NO_ERR))
         return err;
 
-      obj = ___new_symkey (name, subtype);
+      obj = symkey_new (name, subtype);
     }
 
   return obj;
 }
 
 
-___SCMOBJ ___make_symkey_from_scheme_string
+___HIDDEN ___SCMOBJ symkey_make_string
    ___P((___SCMOBJ str,
          unsigned int subtype),
         (str,
@@ -324,7 +349,7 @@ ___SCMOBJ ___make_symkey_from_scheme_string
 ___SCMOBJ str;
 unsigned int subtype;)
 {
-  ___SCMOBJ obj = ___find_symkey_from_scheme_string (str, subtype);
+  ___SCMOBJ obj = symkey_find_string (str, subtype);
 
   if (obj == ___FAL)
     {
@@ -338,12 +363,71 @@ unsigned int subtype;)
                ___BODY_AS(str,___tSUBTYPED),
                n<<___LCS);
 
-      obj = ___new_symkey (name, subtype);
+      obj = symkey_new (name, subtype);
     }
 
   return obj;
 }
 
+
+/* Registry -> permanent allocator; no Scheme allocation, GC, callback or
+ * safepoint in a lookup/create transaction. Names/objects/tables are permanent.
+ * Caller owns the source string against concurrent character mutation. */
+___SCMOBJ ___find_symkey_from_UTF_8_string(char *str,unsigned int subtype)
+{
+  ___SCMOBJ result;
+  ___MUTEX_LOCK(___GSTATE->mem.global_gate);
+  result=symkey_find_utf8(str,subtype);
+  ___MUTEX_UNLOCK(___GSTATE->mem.global_gate);
+  return result;
+}
+
+___SCMOBJ ___find_symkey_from_scheme_string(___SCMOBJ str,unsigned int subtype)
+{
+  ___SCMOBJ result;
+  ___MUTEX_LOCK(___GSTATE->mem.global_gate);
+  result=symkey_find_string(str,subtype);
+  ___MUTEX_UNLOCK(___GSTATE->mem.global_gate);
+  return result;
+}
+
+___SCMOBJ ___make_symkey_from_UTF_8_string(___UTF_8STRING str,unsigned int subtype)
+{
+  ___SCMOBJ result;
+  ___MUTEX_LOCK(___GSTATE->mem.global_gate);
+  result=symkey_make_utf8(str,subtype);
+  ___MUTEX_UNLOCK(___GSTATE->mem.global_gate);
+  return result;
+}
+
+___SCMOBJ ___make_symkey_from_scheme_string(___SCMOBJ str,unsigned int subtype)
+{
+  ___SCMOBJ result;
+  ___MUTEX_LOCK(___GSTATE->mem.global_gate);
+  result=symkey_make_string(str,subtype);
+  ___MUTEX_UNLOCK(___GSTATE->mem.global_gate);
+  return result;
+}
+
+___SCMOBJ ___new_symkey(___SCMOBJ name,unsigned int subtype)
+{
+  ___SCMOBJ result;
+  ___MUTEX_LOCK(___GSTATE->mem.global_gate);
+  result=symkey_find_string(name,subtype);
+  if (result==___FAL) result=symkey_new(name,subtype);
+  ___MUTEX_UNLOCK(___GSTATE->mem.global_gate);
+  return result;
+}
+
+void ___intern_symkey(___SCMOBJ symkey)
+{
+  ___MUTEX_LOCK(___GSTATE->mem.global_gate);
+  if (!___GSTATE->mem.global_bootstrap || !global_bootstrap_owner())
+    { ___MUTEX_UNLOCK(___GSTATE->mem.global_gate);
+      rc_contract_error("direct symkey insertion requires exclusive bootstrap"); }
+  symkey_intern(symkey);
+  ___MUTEX_UNLOCK(___GSTATE->mem.global_gate);
+}
 
 void ___for_each_symkey
    ___P((unsigned int subtype,
@@ -356,8 +440,14 @@ unsigned int subtype;
 void (*visit) ();
 void *data;)
 {
-  ___SCMOBJ tbl = symkey_table (subtype);
+  ___SCMOBJ tbl;
   int i;
+  /* Internal caller census: os_tty visit_symbol reads permanent names only.
+   * This private callback must not reenter registry/GC/Scheme. */
+  ___MUTEX_LOCK(___GSTATE->mem.global_gate);
+  tbl=symkey_table(subtype);
+  if (!symkey_table_permanent(tbl))
+    { ___MUTEX_UNLOCK(___GSTATE->mem.global_gate); return; }
 
   for (i=___INT(___VECTORLENGTH(tbl))-1; i>0; i--)
     {
@@ -369,6 +459,7 @@ void *data;)
           probe = ___SYMKEY_NEXT_FIELD(probe);
         }
     }
+  ___MUTEX_UNLOCK(___GSTATE->mem.global_gate);
 }
 
 
