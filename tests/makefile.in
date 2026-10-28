@@ -70,7 +70,7 @@ mandir = @mandir@
 
 .SUFFIXES:
 
-RCFILES = mutex-suspension.scm root-task.scm rc-root-origin.scm runtime-roles.c test-entry.h test-entry.c makefile.in \
+RCFILES = startup-publication.scm mutex-suspension.scm root-task.scm rc-root-origin.scm runtime-roles.c test-entry.h test-entry.c makefile.in \
 debug.scm error.scm r4rstest.scm mix.scm mem.scm client.c server.scm server.h \
 test1.ok test2.ok test3.ok test4.ok test5.ok test6.ok test7.ok \
 test8.ok test9.ok test10.scm input run-unit-tests.scm stack-overflow-undo.c \
@@ -490,3 +490,18 @@ test-mutex-suspension:
 	@SETDLPATH@ ./mutex-suspension@exe@ -:p1
 	@SETDLPATH@ ./mutex-suspension@exe@ -:p2
 	rm -f mutex-suspension@exe@
+
+# SMP startup transaction. Reuse the configured compiler, official GSC and Make.
+# The fault adapter renames only this test setup consumer; production has no hook.
+.PHONY: test-startup-publication
+test-startup-publication:
+	@SETDLPATH@ $(rootfromhere)/gsc/gsc@exe@ -:p1,~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f -exe -cc-options "-I$(srcdirpfx)$(rootfromhere)/lib" -o startup-publication@exe@ $(srcdirpfx)startup-publication.scm
+	@SETDLPATH@ ./startup-publication@exe@ -:p1 --nonzero
+	$(C_COMPILER) $(FLAGS_OPT_RTS) $(FLAGS_OBJ) $(DEFS) -I$(srcdirpfx)$(rootfromhere)/include -I$(srcdirpfx)$(rootfromhere)/lib -D___LIBRARY -D___thread_create=test_startup_create -D___thread_join=test_startup_join -D___reserve_resize=test_startup_reserve -D___alloc_rc=test_startup_alloc -D___refund_resize=test_startup_refund -D___make_sfun_stack_marker_root=test_startup_marker -c -o startup-setup@obj@ $(srcdirpfx)$(rootfromhere)/lib/setup.c
+	@SETDLPATH@ $(rootfromhere)/gsc/gsc@exe@ -:p1,~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f -exe -cc-options "-I$(srcdirpfx)$(rootfromhere)/lib" -ld-options-prelude startup-setup@obj@ -o startup-faults@exe@ $(srcdirpfx)startup-publication.scm
+	@SETDLPATH@ ./startup-faults@exe@ -:p1
+	@SETDLPATH@ ./startup-faults@exe@ -:p1 --marker-gc
+	@SETDLPATH@ ./startup-faults@exe@ -:p1 --calibration
+	@SETDLPATH@ ./startup-faults@exe@ -:p1 --early-retire
+	@SETDLPATH@ ./startup-faults@exe@ -:p1 --unknown
+	rm -f startup-publication@exe@ startup-faults@exe@ startup-setup@obj@

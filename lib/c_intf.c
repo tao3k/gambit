@@ -6508,16 +6508,19 @@ int char_encoding;)
 
 /* Create a stack marker for a C to Scheme function call. */
 
-___EXP_FUNC(___SCMOBJ,___make_sfun_stack_marker)
+___HIDDEN ___SCMOBJ make_sfun_stack_marker
    ___P((___processor_state ___ps,
          ___SCMOBJ *marker,
-         ___SCMOBJ proc_or_false),
+         ___SCMOBJ proc_or_false,
+         const ___SCMOBJ *root),
         (___ps,
          marker,
-         proc_or_false)
+         proc_or_false,
+         root)
 ___processor_state ___ps;
 ___SCMOBJ *marker;
-___SCMOBJ proc_or_false;)
+___SCMOBJ proc_or_false;
+const ___SCMOBJ *root;)
 {
   ___SCMOBJ stack_marker;
 
@@ -6527,7 +6530,9 @@ ___SCMOBJ proc_or_false;)
   stack_marker = ___make_vector (___ps, 2, ___FAL);
 #endif
 
-  /*TODO: proc_or_false may have been GC'd at this point! protect it some way*/
+  /* Legacy callers retain their existing contract. Startup supplies a borrowed
+   * stable root cell and reloads only after the allocating constructor. */
+  if (root != 0) proc_or_false=*root;
 
   if (___FIXNUMP(stack_marker))
     return ___FIX(___SFUN_HEAP_OVERFLOW_ERR);
@@ -6545,6 +6550,20 @@ ___SCMOBJ proc_or_false;)
 
   return ___FIX(___NO_ERR);
 }
+
+___EXP_FUNC(___SCMOBJ,___make_sfun_stack_marker)
+   ___P((___processor_state ps, ___SCMOBJ *marker, ___SCMOBJ proc),
+        (ps,marker,proc)
+___processor_state ps;
+___SCMOBJ *marker;
+___SCMOBJ proc;)
+{ return make_sfun_stack_marker(ps,marker,proc,0); }
+
+___SCMOBJ ___make_sfun_stack_marker_root(___processor_state ps,
+                                       ___SCMOBJ *marker,
+                                       const ___SCMOBJ *root)
+{ return make_sfun_stack_marker(ps,marker,___TRU,root); }
+
 
 
 /*

@@ -172,7 +172,7 @@ ___processor_state ___ps;)
 #endif
 
   if (!setup_rc (___ps))
-    return ___FIX(___HEAP_OVERFLOW_ERR);
+    { ___cleanup_actlog_pstate(___ps); return ___FIX(___HEAP_OVERFLOW_ERR); }
 
   /*
    * Allocate processor's stack and heap.
@@ -190,8 +190,22 @@ ___processor_state ___ps;)
   alloc_heap_start = 0;
   alloc_heap_ptr = 0;
 
-  next_stack_msection (___ps); /* allocate one msection for stack */
-  next_heap_msection (___ps);  /* allocate one msection for local heap */
+#ifndef ___SINGLE_THREADED_VMS
+  if (___PROCESSOR_ID(___ps,___vms)>0 && ___vms->resize_state != 0 &&
+      ___vms->resize_state->phase==___RESIZE_PREPARING)
+    {
+      ___resize_slot *slot=&___vms->resize_state->slots[___PROCESSOR_ID(___ps,___vms)];
+      if (slot->phase!=___RESIZE_RESERVED || slot->stack==0 || slot->heap==0 || slot->stack==slot->heap)
+        { ___rc_prepare_cleanup(___ps); cleanup_rc(___ps); ___cleanup_actlog_pstate(___ps); return ___FIX(___UNKNOWN_ERR); }
+      set_stack_msection(___ps,slot->stack);
+      set_heap_msection(___ps,slot->heap);
+    }
+  else
+#endif
+    {
+      next_stack_msection (___ps); /* primary context only */
+      next_heap_msection (___ps);
+    }
 
   /* Setup list of still objects. */
 
@@ -507,6 +521,9 @@ ___virtual_machine_state ___vms;)
    * Destroy spinlock for VM level memory allocation.
    */
 
+  if (resize_retained(___vms))
+    { rc_contract_error("Unresolved startup prevents VM reclamation"); return; }
+
   ___SPINLOCK_DESTROY(misc_mem_lock);
   ___SPINLOCK_DESTROY(alloc_mem_lock);
 
@@ -521,6 +538,16 @@ ___virtual_machine_state ___vms;)
 
   ___cleanup_mem_pstate (___PSTATE_FROM_PROCESSOR_ID(0,___vms));/*TODO: other processors?*/
 
+#ifndef ___SINGLE_THREADED_VMS
+  if (___vms->resize_state != 0)
+    {
+      ___resize_state *r=___vms->resize_state;
+      if (resize_retained(___vms))
+        { rc_contract_error("Unresolved startup prevents VM reclamation"); return; }
+      ___CONDVAR_DESTROY(r->changed); ___MUTEX_DESTROY(r->gate);
+      ___FREE_MEM(r); ___vms->resize_state=0;
+    }
+#endif
   free_msections (&the_msections);
 
 #ifndef ___SINGLE_VM

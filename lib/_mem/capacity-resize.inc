@@ -111,7 +111,13 @@ ___SIZE_TS requested_words_still;)
    * case the GC was called as part of the resizing of the VM.
    */
 
-  lower_bound_nb_sections = compute_nb_msections_min(target_processor_count);
+  lower_bound_nb_sections = compute_nb_msections_min(___vms->processor_count);
+#ifndef ___SINGLE_THREADED_VMS
+  /* GC owns its current closed cohort; future startup pairs are reserved
+   * independently. Never contract away assigned or imminent restore ranges. */
+  SET_MAX(lower_bound_nb_sections, nb_msections_assigned+
+          ___restore_msections(___vms)+___resume_msections(___vms));
+#endif
 
   SET_MAX(lower_bound_nb_sections,
           (compute_nb_msections_needed(occupied_words_movable) +
@@ -169,6 +175,7 @@ ___SIZE_TS requested_words_still;)
       target_nb_sections = compute_nb_msections_needed(target_movable_space) +
                            nb_msections_stacks;
 
+      SET_MAX(target_nb_sections, lower_bound_nb_sections);
       upper_bound_nb_sections = target_nb_sections;
 
       if (___GSTATE->setup_params.max_heap > 0)
@@ -179,6 +186,9 @@ ___SIZE_TS requested_words_still;)
 
           SET_MAX(target_nb_sections, lower_bound_nb_sections);
           SET_MIN(target_nb_sections, upper_bound_nb_sections);
+#ifndef ___SINGLE_THREADED_VMS
+          SET_MAX(target_nb_sections, nb_msections_assigned+___restore_msections(___vms));
+#endif
         }
 
       /*
@@ -189,7 +199,7 @@ ___SIZE_TS requested_words_still;)
 
       free_space = compute_free_heap_space_in_msections(target_nb_sections);
 
-      if (free_space <  overflow_reserve)
+      if (target_nb_sections > upper_bound_nb_sections || free_space < overflow_reserve)
         {
           /*
            * Trigger a recoverable heap overflow.

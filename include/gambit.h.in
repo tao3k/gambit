@@ -11024,6 +11024,7 @@ typedef struct ___full_duplex_pipe
 #define ___CONDVAR_DESTROY(cv) (pthread_cond_destroy (&cv) == 0)
 #define ___CONDVAR_WAIT(cv,mut) (pthread_cond_wait (&cv, &mut) == 0)
 #define ___CONDVAR_SIGNAL(cv) (pthread_cond_signal (&cv) == 0)
+#define ___CONDVAR_BROADCAST(cv) (pthread_cond_broadcast (&cv) == 0)
 
 #define ___THREAD_ID (pthread_self())
 
@@ -12122,6 +12123,9 @@ typedef struct ___virtual_machine_state_struct
 
 #endif
 
+#ifndef ___SINGLE_THREADED_VMS
+    struct ___resize_state_struct *resize_state; /* private startup transaction */
+#endif
   } ___virtual_machine_state_struct;
 
 #define ___PROCESSOR_ID(ps,vms) \

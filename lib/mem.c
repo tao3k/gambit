@@ -13,6 +13,7 @@
 #include "setup.h"
 #include "mem.h"
 #include "rc.h"
+#include "vm-resize.h"
 #include "c_intf.h"
 #include "actlog.h"
 
@@ -42,6 +43,7 @@
 #include "_mem/symbols.inc"
 #include "_mem/diagnostics.inc"
 #include "_mem/heap-sections.inc"
+#include "_mem/startup-reservation.inc"
 #include "_mem/copy-reservations.inc"
 #include "_mem/continuation-roots.inc"
 #include "_mem/rc-roots.inc"
