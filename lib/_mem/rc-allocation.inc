@@ -198,9 +198,12 @@ ___BOOL ___try_set_data_rc(___processor_state ps, void *ptr, ___SCMOBJ value)
   h=___CAST(___rc_header*,ptr)-1; d=h->domain;
   if (d == 0 || d != ps->mem.rc_domain_) return 0;
   ___RC_LOCK(d);
-  if (d->owner != ps || d->phase != ___RC_OPEN || h->refcount <= 0)
+  if (d->owner != ps || d->phase != ___RC_OPEN || h->refcount <= 0 ||
+      (h->root_borrows != 0 && h->data != value))
     { ___RC_UNLOCK(d); return 0; }
-  h->data=value;
+  /* A borrowed cell may be relocated by the collector, not rebound by a
+   * mutator. An idempotent admission performs no racing same-value store. */
+  if (h->data != value) h->data=value;
   ___RC_UNLOCK(d);
   return 1;
 }

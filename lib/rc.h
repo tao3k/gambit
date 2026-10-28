@@ -36,6 +36,11 @@ struct ___rc_domain_struct {
  * Refusal changes nothing. A successful close admits only reference release. */
 extern ___BOOL ___rc_prepare_cleanup(___processor_state);
 extern void ___rc_cancel_cleanup(___processor_state);
+/* Borrowing fixes the logical payload identity until all borrows return.
+ * It does not pin an address or forbid GC: the stopped collector may relocate
+ * the cell. Callers reload through it after allocation. Object contents retain
+ * ordinary Scheme mutability. The owner may admit an identical no-op value,
+ * but may not replace/clear a borrowed root, including with live native refs. */
 extern const ___SCMOBJ *___borrow_rc_root(___processor_state, void*);
 extern void ___return_rc_root(void*);
 extern ___BOOL ___try_set_data_rc(___processor_state, void*, ___SCMOBJ);

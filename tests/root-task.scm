@@ -418,13 +418,189 @@ c-end
 
 ;;; The oracle describes externally observable requests. SCANNED is the native
 ;;; refinement cut after the real scanner, before root_dispatch.finish.
+(c-declare #<<c-end
+/* The predecessor function body is copied from the selected86fdffcc source;
+ * only its function name changes. Production has no old-writer fallback. */
+___BOOL test_rc_write_predecessor(___processor_state ps, void *ptr, ___SCMOBJ value)
+{
+  ___rc_header *h;
+  ___rc_domain *d;
+  if (ptr == 0 || ps == 0 || ps != ___PSTATE) return 0;
+  h=___CAST(___rc_header*,ptr)-1; d=h->domain;
+  if (d == 0 || d != ps->mem.rc_domain_) return 0;
+  ___RC_LOCK(d);
+  if (d->owner != ps || d->phase != ___RC_OPEN || h->refcount <= 0)
+    { ___RC_UNLOCK(d); return 0; }
+  h->data=value;
+  ___RC_UNLOCK(d);
+  return 1;
+}
+
+
+static void *test_rc_write_slots[4];
+static const ___SCMOBJ *test_rc_write_cells[4][2];
+c-end
+)
+(define rc-write-act
+ (c-lambda (int int bool scheme-object scheme-object) int #<<c-end
+int op=___arg1,i=___arg2,b=0,refs=0;
+void *p=test_rc_write_slots[i];
+___rc_header *h=p?(___rc_header*)p-1:0;
+___SCMOBJ value=___arg4;
+___result=0;
+if(p) { b=h->root_borrows; refs=___EXT(___refcount_rc)(p); }
+switch(op) {
+case 0:
+  if(!p) {
+    p=___EXT(___alloc_rc)(___PSA(___PSTATE) 0);
+    if(p && ___try_set_data_rc(___PSTATE,p,value)) { test_rc_write_slots[i]=p; ___result=1; }
+    else if(p) ___EXT(___release_rc)(p);
+  } break;
+case 1:
+  if(p && b<2) {
+    test_rc_write_cells[i][b]=___borrow_rc_root(___PSTATE,p);
+    ___result=test_rc_write_cells[i][b]!=0;
+  } break;
+case 2: case 7:
+  if(p) ___result=___arg3?test_rc_write_predecessor(___PSTATE,p,value):___try_set_data_rc(___PSTATE,p,value);
+  break;
+case 3:
+  if(p && b>0) {
+    ___return_rc_root(p); test_rc_write_cells[i][b-1]=0;
+    if(refs==0 && b==1) test_rc_write_slots[i]=0;
+    ___result=1;
+  } break;
+case 4:
+  if(p && refs>0) {
+    ___EXT(___release_rc)(p);
+    if(refs==1 && b==0) test_rc_write_slots[i]=0;
+    ___result=1;
+  } break;
+case 5:
+  if(p && refs>0 && refs<3) { ___EXT(___addref_rc)(p); ___result=1; } break;
+case 6: ___result=1; break; /* Scheme performs the real GC before inspection. */
+case 8: {
+  const ___SCMOBJ *a,*z; int accepted,unchanged;
+  p=___EXT(___alloc_rc)(___PSA(___PSTATE) 0);
+  if(!p || !___try_set_data_rc(___PSTATE,p,___arg4)) _Exit(74);
+  a=___borrow_rc_root(___PSTATE,p); z=___borrow_rc_root(___PSTATE,p);
+  if(!a || !z) _Exit(74);
+  accepted=___arg3?test_rc_write_predecessor(___PSTATE,p,___arg5):___try_set_data_rc(___PSTATE,p,___arg5);
+  unchanged=*a==___arg4 && *z==___arg4;
+  ___return_rc_root(p); ___return_rc_root(p); ___EXT(___release_rc)(p);
+  ___result=!accepted && unchanged;
+} break;
+}
+c-end
+))
+(define rc-write-inspect
+ (c-lambda (int int int scheme-object) bool #<<c-end
+void *p=test_rc_write_slots[___arg1];
+int j;
+___result=p?(___EXT(___refcount_rc)(p)==___arg2 &&
+  ((___rc_header*)p-1)->root_borrows==___arg3 && ___EXT(___data_rc)(p)==___arg4):(___arg2==0 && ___arg3==0);
+if(p) for(j=0;j<___arg3;j++)
+  if(!test_rc_write_cells[___arg1][j] || *test_rc_write_cells[___arg1][j]!=___arg4) ___result=0;
+c-end
+))
+(define rc-write-exit
+  (c-lambda (int) void "fflush(stdout);fflush(stderr);_Exit(___arg1);"))
+(define (replay-rc-write commands fault)
+  (let ((refs (make-vector 4 0)) (loans (make-vector 4 0))
+        (tags (make-vector 4 -1)) (objects (make-vector 8 #f)) (gcs 0))
+    (do ((i 0 (+ i 1))) ((= i 8)) (vector-set! objects i (vector i 0)))
+    (let loop ((xs commands) (at 0))
+      (if (null? xs)
+          (begin
+            (do ((i 0 (+ i 1))) ((= i 4))
+              (do ((b (vector-ref loans i) (- b 1))) ((= b 0))
+                (rc-write-act 3 i #f #f #f))
+              (do ((n (vector-ref refs i) (- n 1))) ((= n 0))
+                (rc-write-act 4 i #f #f #f)))
+            (write (list 'root-task-result 'pass at 'gc gcs)) (newline) (exit))
+          (let* ((row (car xs)) (op (vector-ref row 0))
+                 (slot (modulo (+ 1 (vector-ref row 1)) 4)) (tag (vector-ref row 2))
+                 (n (vector-ref refs slot)) (b (vector-ref loans slot))
+                 (live (or (> n 0) (> b 0)))
+                 (chosen (if (= op 7) (max 0 (vector-ref tags slot)) tag))
+                 (value (vector-ref objects (+ (* slot 2) chosen)))
+                 (other (vector-ref objects (+ (* slot 2) (- 1 chosen))))
+                 (wanted (case op
+                           ((0) (if live 0 1))
+                           ((1) (if (and (> n 0) (< b 2)) 1 0))
+                           ((2) (if (and (> n 0) (or (= b 0) (= chosen (vector-ref tags slot)))) 1 0))
+                           ((3) (if (> b 0) 1 0))
+                           ((4) (if (> n 0) 1 0))
+                           ((5) (if (and (> n 0) (< n 3)) 1 0))
+                           ((6 8) 1)
+                           ((7) (if (> n 0) 1 0))))
+                 (actual
+                  (begin
+                    ;; Mutable contents remain legal: only slot rebinding is closed.
+                    (if (and (= op 7) live) (vector-set! value 1 (+ 1 (vector-ref value 1))))
+                    (rc-write-act op slot (= fault 1) value other))))
+            (if (not (= actual wanted))
+                (begin (write (list 'root-task-result 'mismatch at op 0 actual wanted))
+                       (newline) (force-output) (rc-write-exit 71)))
+            (if (= actual 1)
+                (case op
+                  ((0) (vector-set! refs slot 1) (vector-set! tags slot chosen))
+                  ((1) (vector-set! loans slot (+ b 1)))
+                  ((2) (vector-set! tags slot chosen))
+                  ((3) (vector-set! loans slot (- b 1)))
+                  ((4) (vector-set! refs slot (- n 1)))
+                  ((5) (vector-set! refs slot (+ n 1)))))
+            (if (= op 6) (begin (set! gcs (+ gcs 1)) (##gc)))
+            (do ((i 0 (+ i 1))) ((= i 4))
+              (let* ((rn (vector-ref refs i)) (bn (vector-ref loans i))
+                     (tag (max 0 (vector-ref tags i)))
+                     (expected (vector-ref objects (+ (* i 2) tag))))
+                (if (not (rc-write-inspect i rn bn expected))
+                    (begin (write (list 'root-task-result 'mismatch at op 1 i rn bn))
+                           (newline) (force-output) (rc-write-exit 71)))))
+            (loop (cdr xs) (+ at 1)))))))
+(define (rc-write-suite)
+  (set! family 'rc-write) (set! trials 0)
+  (let ((seed 1729) (actions 0))
+    (define (next n) (set! seed (modulo (+ (* seed 48271) 17) 2147483647)) (modulo seed n))
+    (define (noise n)
+      (if (= n 0) '() (cons (vector (next 8) (- (next 4) 1) (next 2)) (noise (- n 1)))))
+    (define chain
+      '(#(0 0 0) #(1 0 0) #(1 0 0) #(2 0 1) #(6 0 0) #(7 0 0)
+        #(3 0 0) #(2 0 1) #(4 0 0) #(6 0 0) #(2 0 1) #(3 0 0)
+        #(6 0 0) #(0 0 1) #(2 0 0) #(8 0 0)))
+    (let ((result (trial chain 0)))
+      (if (signature result) (error "RC writer mandatory history failed" result))
+      (write (list 'RC-WRITE-MOVING-BORROW-PASS result)) (newline))
+    (set! actions (length chain))
+    (do ((i 0 (+ i 1))) ((= i 12))
+      (let* ((commands (append (noise 8) chain (noise 8))) (result (trial commands 0)))
+        (set! actions (+ actions (length commands)))
+        (if (signature result)
+            (error "RC writer stateful property failed" result (shrink commands 0 (signature result))))))
+    (write (list 'RC-WRITE-PBT-PASS 'seed 1729 'cases 12 'actions actions)) (newline)
+    (let* ((commands (append (make-list 6 '#(6 0 0)) (list '#(8 0 0)) (make-list 6 '#(6 0 0))))
+           (failure (trial commands 1)) (wanted (signature failure)))
+      (if (not (equal? wanted '(8 0))) (error "actual predecessor writer control missed" failure))
+      (let* ((minimal (shrink commands 1 wanted)) (again (trial minimal 1))
+             (one? (one-minimal? minimal 1 wanted)) (positive (trial minimal 0)))
+        (if (not (and (= (length minimal) 1) one? (equal? (signature again) wanted) (not (signature positive))))
+            (error "actual RC writer shrink/replay failed" minimal again positive))
+        (for-each
+         (lambda (pair) (with-output-to-file (trace-file (car pair))
+                          (lambda () (write (list (trace-tag) 1 minimal (cdr pair))) (newline))))
+         '(("legacy-minimal" . 1) ("current-minimal" . 0)))
+        (write (list 'RC-WRITE-IMPLEMENTATION-SHRINK-PASS 'from 13 'to (length minimal)
+                     'deletion-one-minimal one? 'replayed #t 'production-pass #t)) (newline)))
+    (delete-file input-file)))
+
 (define family 'rc)
 (define (trace-tag)
-  (case family ((view) 'symkey-view-trace) ((intern) 'symkey-publication-trace) ((snapshot) 'globals-snapshot-trace) ((vm) 'vm-root-task-trace) ((bank) 'bank-root-task-trace) ((stack) 'stack-root-task-trace) ((symkey) 'symkey-root-task-trace) ((globals) 'globals-root-task-trace)
+  (case family ((rc-write) 'rc-write-trace) ((view) 'symkey-view-trace) ((intern) 'symkey-publication-trace) ((snapshot) 'globals-snapshot-trace) ((vm) 'vm-root-task-trace) ((bank) 'bank-root-task-trace) ((stack) 'stack-root-task-trace) ((symkey) 'symkey-root-task-trace) ((globals) 'globals-root-task-trace)
     ((continuation) 'continuation-history)
     (else 'root-task-trace)))
 (define (trace-file suffix)
-  (string-append (case family ((view) "symkey-view-") ((intern) "symkey-publication-") ((snapshot) "globals-snapshot-") ((vm) "vm-root-task-")
+  (string-append (case family ((rc-write) "rc-write-") ((view) "symkey-view-") ((intern) "symkey-publication-") ((snapshot) "globals-snapshot-") ((vm) "vm-root-task-")
                   ((bank) "bank-root-task-") ((stack) "stack-root-task-") ((symkey) "symkey-root-task-") ((globals) "globals-root-task-")
                   ((continuation) "continuation-history-") (else "root-task-")) suffix ".trace"))
 (define (oracle commands)
@@ -454,7 +630,7 @@ c-end
       commands))))
 
 (define (trace? x)
-  (and (list? x) (= (length x) 4) (memq (car x) '(root-task-trace vm-root-task-trace bank-root-task-trace stack-root-task-trace symkey-root-task-trace globals-root-task-trace globals-snapshot-trace symkey-publication-trace symkey-view-trace continuation-history))
+  (and (list? x) (= (length x) 4) (memq (car x) '(rc-write-trace root-task-trace vm-root-task-trace bank-root-task-trace stack-root-task-trace symkey-root-task-trace globals-root-task-trace globals-snapshot-trace symkey-publication-trace symkey-view-trace continuation-history))
        (integer? (cadr x)) (<= 1 (cadr x) 3) (list? (caddr x))
        (<= (length (caddr x)) 96)
        (if (eq? (car x) 'symkey-view-trace)
@@ -464,18 +640,19 @@ c-end
          (or (null? xs)
              (let ((r (car xs)))
                (and (vector? r) (= (vector-length r) 3)
-                    (integer? (vector-ref r 0)) (<= 0 (vector-ref r 0) (case (car x) ((symkey-view-trace) 9) ((globals-snapshot-trace symkey-publication-trace) 8) ((globals-root-task-trace) 6) (else 5)))
+                    (integer? (vector-ref r 0)) (<= 0 (vector-ref r 0) (case (car x) ((symkey-view-trace) 9) ((rc-write-trace) 8) ((globals-snapshot-trace symkey-publication-trace) 8) ((globals-root-task-trace) 6) (else 5)))
                     (memv (vector-ref r 1) '(-1 0 1 2))
                     (memv (vector-ref r 2) '(0 1)) (loop (cdr xs))))))))
 (define (replay trace)
   (if (not (trace? trace)) (error "invalid structured root-task trace"))
-  (set! family (case (car trace) ((symkey-view-trace) 'view) ((symkey-publication-trace) 'intern) ((globals-snapshot-trace) 'snapshot) ((vm-root-task-trace) 'vm)
+  (set! family (case (car trace) ((rc-write-trace) 'rc-write) ((symkey-view-trace) 'view) ((symkey-publication-trace) 'intern) ((globals-snapshot-trace) 'snapshot) ((vm-root-task-trace) 'vm)
                  ((bank-root-task-trace) 'bank) ((stack-root-task-trace) 'stack) ((symkey-root-task-trace) 'symkey) ((globals-root-task-trace) 'globals)
                  ((continuation-history) 'continuation) (else 'rc)))
   (if (not (prepare-source)) (error "root-task source allocation failed"))
   (do ((i 0 (+ i 1))) ((= i (cadr trace))) (##gc))
   (let ((commands (caddr trace)))
-    (cond ((eq? family 'view) (replay-view commands (cadddr trace)))
+    (cond ((eq? family 'rc-write) (replay-rc-write commands (cadddr trace)))
+          ((eq? family 'view) (replay-view commands (cadddr trace)))
           ((eq? family 'continuation) (replay-continuation commands (cadddr trace)))
           (else (replay-native (list->vector commands) (case family ((snapshot) (snapshot-oracle commands)) ((intern) (intern-oracle commands)) (else (oracle commands))) (cadddr trace)
                        (case family ((intern) 7) ((snapshot) 6) ((vm) 1) ((bank) 2) ((stack) 3) ((symkey) 4) ((globals) 5) (else 0)))))))
@@ -1347,6 +1524,7 @@ c-end
   (cond ((and (= (length args) 1) (string=? (car args) "--intern-growth")) (intern-growth 0))
         ((and (= (length args) 1) (string=? (car args) "--intern-growth-fault")) (intern-growth 1))
         ((and (= (length args) 1) (string=? (car args) "--intern-gc-publish")) (intern-growth 2))
+        ((and (= (length args) 1) (string=? (car args) "--rc-writes")) (rc-write-suite))
         ((and (= (length args) 1) (string=? (car args) "--symkey-views")) (view-suite))
         ((and (= (length args) 1) (string=? (car args) "--symkey-publication")) (intern-suite))
         ((and (= (length args) 1) (string=? (car args) "--globals-snapshot")) (snapshot-suite))
