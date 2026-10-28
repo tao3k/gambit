@@ -11,10 +11,22 @@
 
 (define (slow-lock mutex timeout owner)
   (##declare (not interrupts-enabled))
-  (##check-heap-limit)
-  (##primitive-lock! mutex 1 9)
-  (if owner (##primitive-lock! owner 1 9))
-  (##mutex-lock-out-of-line! mutex timeout owner))
+  ;; Only the SMP implementation has this three-argument private protocol.
+  ;; The single-context build checks the same decisions through its public
+  ;; interface; it does not qualify the SMP slow-path ownership change.
+  (if (##c-code "
+#ifdef ___SINGLE_THREADED_VMS
+___RESULT = ___TRU;
+#else
+___RESULT = ___FAL;
+#endif
+")
+      (mutex-lock! mutex timeout owner)
+      (begin
+        (##check-heap-limit)
+        (##primitive-lock! mutex 1 9)
+        (if owner (##primitive-lock! owner 1 9))
+        (##mutex-lock-out-of-line! mutex timeout owner))))
 
 (define (await-mutex thread mutex)
   (let loop ()

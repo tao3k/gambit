@@ -127,9 +127,12 @@ c-end
 
 (define (on-owner owner thunk)
   (let ((thread (make-thread thunk)))
-    (##thread-pin! thread (##processor owner))
+    (if (> (##current-vm-processor-count) 1)
+        (##thread-pin! thread (##processor owner)))
     (thread-start! thread) (thread-join! thread)))
-(##thread-pin! (current-thread) (##processor 0))
+;; A single execution context has no affinity choice or SMP pin primitive.
+(if (> (##current-vm-processor-count) 1)
+    (##thread-pin! (current-thread) (##processor 0)))
 (thread-yield!)
 (define rc-initial-members (##current-vm-processor-count))
 (for-each

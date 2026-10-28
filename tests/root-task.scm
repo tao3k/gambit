@@ -1405,7 +1405,8 @@ c-end
                         (error "bank moving root lost" owner)))
                   (write (list 'BANK-ROOT-MOVING-PASS 'owner owner)) (newline))
                 bank-clear)))))
-       (##thread-pin! thread (##processor owner))
+       (if (> (##current-vm-processor-count) 1)
+           (##thread-pin! thread (##processor owner)))
        (thread-start! thread) (thread-join! thread)))
    (if (> (##current-vm-processor-count) 1) '(0 1) '(0))))
 
@@ -1877,8 +1878,112 @@ c-end
       (if (not caught) (error "capacity refusal did not reach Scheme"))
       (display "GLOBALS-CAPACITY-SCHEME-PASS\n"))))
 
+;;; Child descriptor closure keeps the same forked PID and exact byte stream.
+(c-declare #<<c-end
+#ifdef USE_POSIX
+static int process_initial_stdin = -1;
+#endif
+#if defined(USE_POSIX) && defined(__GNUC__)
+static void __attribute__((constructor)) process_stdio_snapshot (void)
+{
+  process_initial_stdin = fcntl (0, F_GETFD);
+  if (getenv("GAMBIT_TEST_PROCESS_STDIO") != NULL)
+    {
+      char text[96];
+      int n = snprintf(text,sizeof(text),"(%ld %s)\n",(long)getpid(),
+                       process_initial_stdin < 0 ? "#t" : "#f");
+      _Exit(write(STDOUT_FILENO,text,n)==n ? 0 : 73);
+    }
+}
+#endif
+c-end
+)
+(define process-fd
+ (c-lambda (int int) int #<<c-end
+#ifdef USE_POSIX
+int fd=___arg2;
+switch(___arg1) {
+case 0:
+#ifdef __GNUC__
+  fd=open("/dev/null",O_RDONLY); if(fd>=0) { int high=fcntl(fd,F_DUPFD,FD_SETSIZE+1); close(fd); fd=high; }
+#else
+  fd=-1;
+#endif
+  break;
+case 1: fd=fcntl(fd,F_GETFD); break;
+case 2: fd=close(fd); break;
+case 3: fd=getpid(); break;
+case 4: fd=fcntl(0,F_SETFD,FD_CLOEXEC); break;
+case 5: fd=process_initial_stdin; break;
+case 6:
+#ifdef __GNUC__
+  fd=1;
+#else
+  fd=0;
+#endif
+  break;
+}
+___result=fd;
+#else
+___result=-1;
+#endif
+c-end
+))
+(define (process-contract)
+  (define (check x label) (if (not x) (error "process descriptor contract" label)))
+  (define (observe args . settings)
+    (let* ((port (open-input-process (append (list path: (path-expand self)
+                         arguments: (cons "-:p1" args) stderr-redirection: #t) settings)))
+           (pid (process-pid port)) (answer (read port)) (status (process-status port)))
+      (close-input-port port)
+      (check (= status 0) 'exit)
+      (check (and (pair? answer) (= pid (car answer))) 'same-pid)
+      (cdr answer)))
+  (let ((fd (process-fd 0 0)))
+    (if (and (= (process-fd 6 0) 1) (< fd 0)) (error "descriptor probe allocation failed"))
+    (if (< fd 0) (display "PROCESS-POSIX-DESCRIPTORS-UNAVAILABLE\n"))
+    (if (>= fd 0)
+      (begin
+        (check (equal? (observe (list "--process-probe" (number->string fd))) '(#f #t)) 'high-fd-closed)
+        (check (>= (process-fd 1 fd) 0) 'parent-retains-fd)
+        (check (equal? (observe (list "--process-probe" (number->string fd)) directory: (current-directory)) '(#f #t)) 'cwd-preserved)
+        (check (equal? (observe '("--process-env") environment: '("GAMBIT_PROCESS_CONTRACT=owned")) '("owned")) 'env-preserved)
+        (check (= (process-fd 2 fd) 0) 'parent-release)
+  (check (equal? (observe '("--process-stdin" "closed")) '(#t)) 'closed-stdin-fallback)
+  (check (equal? (observe '("--process-stdin" "cloexec")) '(#t)) 'cloexec-stdin-fallback)
+        (display "PROCESS-POSIX-DESCRIPTORS-PASS\n"))))
+  (let* ((port (open-input-process (list path: (path-expand self)
+                   arguments: '("-:p1" "--process-bytes") stderr-redirection: #t char-encoding: 'ISO-8859-1)))
+         (bytes (let loop ((xs '())) (let ((b (read-u8 port)))
+                   (if (eof-object? b) (reverse xs) (loop (cons b xs)))))))
+    (check (= (process-status port) 0) 'bytes-exit) (close-input-port port)
+    (check (= (length bytes) 512) 'all-byte-length)
+    (let loop ((i 0) (xs bytes))
+      (if (< i 512)
+          (begin (check (= (car xs) (modulo i 256)) 'all-bytes)
+                 (loop (+ i 1) (cdr xs))))))
+  (let ((caught #f))
+    (with-exception-catcher (lambda (e) (set! caught #t))
+      (lambda () (open-input-process (list path: (string-append (path-expand self) ".absent-process")))))
+    (check caught 'exec-failure))
+  (display "PROCESS-DESCRIPTOR-CONTRACT-PASS\n"))
+
 (let ((args (cdr (command-line))))
-  (cond ((and (= (length args) 1) (string=? (car args) "--intern-growth")) (intern-growth 0))
+  (cond ((equal? args '("--process-contract")) (process-contract))
+        ((equal? args '("--process-env")) (write (list (process-fd 3 0) (getenv "GAMBIT_PROCESS_CONTRACT"))) (newline))
+        ((equal? args '("--process-bytes"))
+         (do ((i 0 (+ i 1))) ((= i 256)) (write-u8 i)) (force-output)
+         (do ((i 0 (+ i 1))) ((= i 256)) (write-u8 i (current-error-port))) (force-output (current-error-port)))
+        ((and (= (length args) 2) (string=? (car args) "--process-probe"))
+         (write (list (process-fd 3 0) (>= (process-fd 1 (string->number (cadr args))) 0) (>= (process-fd 5 0) 0))) (newline))
+        ((and (= (length args) 2) (string=? (car args) "--process-stdin"))
+         (if (string=? (cadr args) "closed") (process-fd 2 0) (process-fd 4 0))
+         (let* ((port (open-input-process (list path: (path-expand self) arguments: '("-:p1" "--process-probe" "-1") stdin-redirection: #f
+                            environment: '("GAMBIT_TEST_PROCESS_STDIO=1"))))
+                (answer (read port)) (status (process-status port)))
+           (close-input-port port) (if (not (= status 0)) (error "stdin child failed"))
+           (write (list (process-fd 3 0) (cadr answer))) (newline)))
+        ((and (= (length args) 1) (string=? (car args) "--intern-growth")) (intern-growth 0))
         ((and (= (length args) 1) (string=? (car args) "--intern-growth-fault")) (intern-growth 1))
         ((and (= (length args) 1) (string=? (car args) "--intern-gc-publish")) (intern-growth 2))
         ((and (= (length args) 1) (string=? (car args) "--marker-input"))
