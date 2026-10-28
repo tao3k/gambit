@@ -456,12 +456,15 @@ c-end
 (define (trace? x)
   (and (list? x) (= (length x) 4) (memq (car x) '(root-task-trace vm-root-task-trace bank-root-task-trace stack-root-task-trace symkey-root-task-trace globals-root-task-trace globals-snapshot-trace symkey-publication-trace symkey-view-trace continuation-history))
        (integer? (cadr x)) (<= 1 (cadr x) 3) (list? (caddr x))
-       (<= (length (caddr x)) 96) (memv (cadddr x) '(0 1))
+       (<= (length (caddr x)) 96)
+       (if (eq? (car x) 'symkey-view-trace)
+           (memv (cadddr x) '(0 1 2))
+           (memv (cadddr x) '(0 1)))
        (let loop ((xs (caddr x)))
          (or (null? xs)
              (let ((r (car xs)))
                (and (vector? r) (= (vector-length r) 3)
-                    (integer? (vector-ref r 0)) (<= 0 (vector-ref r 0) (case (car x) ((globals-snapshot-trace symkey-publication-trace symkey-view-trace) 8) ((globals-root-task-trace) 6) (else 5)))
+                    (integer? (vector-ref r 0)) (<= 0 (vector-ref r 0) (case (car x) ((symkey-view-trace) 9) ((globals-snapshot-trace symkey-publication-trace) 8) ((globals-root-task-trace) 6) (else 5)))
                     (memv (vector-ref r 1) '(-1 0 1 2))
                     (memv (vector-ref r 2) '(0 1)) (loop (cdr xs))))))))
 (define (replay trace)
@@ -1050,12 +1053,20 @@ c-end
               (loop1 (##fx- i 1) result)))
         result)))
 
+;; The raw predecessor getter is confined to a negative control. It does not
+;; reintroduce a production bucket interface or change the observation oracle.
+(define view-predecessor-getter
+  (c-lambda (bool) scheme-object
+    "___result=___arg1?___GSTATE->symbol_table:___GSTATE->keyword_table;"))
+(define (view-getter symbol?)
+  ((if symbol? ##symbol-table ##keyword-table)))
+
 (define (view-fold symbol? f base predecessor?)
   (if predecessor?
-      (view-predecessor-fold f base (if symbol? (##symbol-table) (##keyword-table)))
+      (view-predecessor-fold f base (view-predecessor-getter symbol?))
       (if symbol?
           (##symbol-table-foldl f base)
-          (##symkey-table-foldl f base (##symkey-table-view #f)))))
+          (##symkey-table-foldl f base (##keyword-table)))))
 
 (define (view-oracle commands)
   (let ((have (vector #f #f)))
@@ -1108,7 +1119,7 @@ c-end
             (case op
               ((0)
                (let* ((reference (view-reference symbol?))
-                      (v (##symkey-table-view symbol?)))
+                      (v (view-getter symbol?)))
                  (set! ok (view-bijection? (vector->list v) reference))
                  (vector-set! views t v)
                  (vector-set! copies t (vector-copy v))))
@@ -1162,7 +1173,26 @@ c-end
                  (collect)
                  (set! ok (and caught (= entered 1) (= left 1)
                                (= (length (view-fold symbol? (lambda (lst sym) (cons sym lst)) '() #f))
-                                  (view-count symbol?)))))))
+                                  (view-count symbol?))))))
+              ((9)
+               (let* ((get (if (= fault 2) view-predecessor-getter view-getter))
+                      (first (get symbol?)) (second (get symbol?)))
+                 ;; Refuse the old shared alias before mutating it: a negative
+                 ;; control must not corrupt the registry and invent failures.
+                 (set! ok (not (eq? first second)))
+                 (if ok
+                     (let* ((reference (view-reference symbol?))
+                            (saved (vector-copy first)))
+                       (set! ok (and (view-bijection? (vector->list first) reference)
+                                     (equal? first second)))
+                       (grow symbol?) (collect)
+                       (set! ok (and ok (equal? first saved) (equal? second saved)))
+                       (if (> (vector-length first) 0) (vector-set! first 0 #f))
+                       (collect)
+                       (set! source-ok
+                             (and (equal? second saved)
+                                  (not (memq #f (vector->list (view-reference symbol?)))))))))))
+
             (let* ((stable
                     (and (or (not (vector-ref views 0))
                              (equal? (vector-ref views 0) (vector-ref copies 0)))
@@ -1183,10 +1213,10 @@ c-end
   (let ((seed 997) (actions 0))
     (define (next n) (set! seed (modulo (+ (* seed 48271) 17) 2147483647)) (modulo seed n))
     (define (noise n)
-      (if (= n 0) '() (cons (vector (next 9) (- (next 4) 1) (next 2)) (noise (- n 1)))))
+      (if (= n 0) '() (cons (vector (next 10) (- (next 4) 1) (next 2)) (noise (- n 1)))))
     (define chain (list (vector 0 0 0) (vector 0 0 1) (vector 5 0 0)
                         (vector 6 0 0) (vector 1 1 0) (vector 2 0 0)
-                        (vector 7 0 1) (vector 8 0 1)))
+                        (vector 7 0 1) (vector 8 0 1) (vector 9 0 0) (vector 9 0 1)))
     (let ((control (trial chain 0)))
       (if (signature control) (error "actual view mandatory control failed" control))
       (write (list 'SYMKEY-VIEW-CONTINUATION-PASS 'mandatory-result control)) (newline))
@@ -1217,6 +1247,23 @@ c-end
                      'to (length minimal) 'trials trials 'deletion-one-minimal one?
                      'replayed #t 'production-pass #t 'predecessor failure 'minimal-result again))
         (newline)))
+    (let* ((commands (append (make-list 6 (vector 2 0 0)) (list (vector 9 0 0))
+                             (make-list 6 (vector 0 0 0))))
+           (failure (trial commands 2)) (wanted (signature failure)) (before trials))
+      (if (not (equal? wanted '(9 1))) (error "raw getter alias counterexample missed" failure))
+      (let* ((minimal (shrink commands 2 wanted)) (again (trial minimal 2))
+             (one? (one-minimal? minimal 2 wanted)) (positive (trial minimal 0)))
+        (if (not (and (= (length minimal) 1) one? (equal? (signature again) wanted)
+                      (not (signature positive))))
+            (error "actual getter alias shrink/replay failed" minimal again positive))
+        (for-each
+         (lambda (pair)
+           (with-output-to-file (trace-file (car pair))
+             (lambda () (write (list (trace-tag) 1 minimal (cdr pair))) (newline))))
+         '(("getter-legacy-minimal" . 2) ("getter-current-minimal" . 0)))
+        (write (list 'SYMKEY-GETTER-IMPLEMENTATION-SHRINK-PASS 'from (length commands)
+                     'to (length minimal) 'trials (- trials before) 'deletion-one-minimal one?
+                     'replayed #t 'production-pass #t)) (newline)))
     (delete-file input-file)))
 
 (define (snapshot-suite)

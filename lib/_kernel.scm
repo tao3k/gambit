@@ -3725,13 +3725,13 @@ end-of-code
 
 ;;; Symbols and keywords.
 
+;; These private getters return owned identity vectors, never registry buckets.
+;; Allocation and GC are permitted before the nonallocating capture operation.
 (define-prim (##symbol-table)
-  (##declare (not interrupts-enabled))
-  (##c-code "___RESULT = ___GSTATE->symbol_table;"))
+  (##symkey-table-view #t))
 
 (define-prim (##keyword-table)
-  (##declare (not interrupts-enabled))
-  (##c-code "___RESULT = ___GSTATE->keyword_table;"))
+  (##symkey-table-view #f))
 
 (define-prim (##make-interned-symbol name)
   (##make-interned-symkey name #t))
@@ -3811,7 +3811,7 @@ end-of-code
           result))))
 
 (define-prim (##symbol-table-foldl f base)
-  (##symkey-table-foldl f base (##symkey-table-view #t)))
+  (##symkey-table-foldl f base (##symbol-table)))
 
 ;;;----------------------------------------------------------------------------
 
