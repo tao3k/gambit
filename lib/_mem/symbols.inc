@@ -429,6 +429,43 @@ void ___intern_symkey(___SCMOBJ symkey)
   ___MUTEX_UNLOCK(___GSTATE->mem.global_gate);
 }
 
+/* Query/copy one Scheme-owned flat view. The caller allocates outside this
+ * gate and retries a changed count; this fragment allocates nothing and cannot
+ * enter Scheme/GC. No destination cell is written on a size mismatch. */
+___SCMOBJ ___symkey_table_view(___SCMOBJ view,unsigned int subtype)
+{
+  ___SCMOBJ table,result,probe;
+  int count,used=0,i;
+  ___MUTEX_LOCK(___GSTATE->mem.global_gate);
+  table=symkey_table(subtype);
+  if (!symkey_table_permanent(table) ||
+      !___FIXNUMP(___VECTORELEM(table,0)) ||
+      ___INT(___VECTORELEM(table,0))<0 ||
+      ___VECTORELEM(table,0)>___FIX(SYMKEY_COUNT_LIMIT))
+    { result=___FIX(___HEAP_OVERFLOW_ERR); goto done; }
+  result=___VECTORELEM(table,0);
+  count=___INT(result);
+  if (view==___FAL) goto done;
+  if (!___MEM_ALLOCATED(view) ||
+      ___HD_SUBTYPE(___HEADER(view))!=___sVECTOR)
+    { result=___FIX(___HEAP_OVERFLOW_ERR); goto done; }
+  if (___INT(___VECTORLENGTH(view))!=count) goto done;
+  for (i=___INT(___VECTORLENGTH(table))-1;i>0;i--)
+    for (probe=___VECTORELEM(table,i);probe!=___NUL;
+         probe=___SYMKEY_NEXT_FIELD(probe))
+      {
+        if (used>=count || !___MEM_ALLOCATED(probe) ||
+            ___HD_TYP(___HEADER(probe))!=___PERM ||
+            ___INT(___SUBTYPE(probe))!=subtype)
+          { result=___FIX(___HEAP_OVERFLOW_ERR); goto done; }
+        ___VECTORELEM(view,used++)=probe;
+      }
+  if (used!=count) result=___FIX(___HEAP_OVERFLOW_ERR);
+done:
+  ___MUTEX_UNLOCK(___GSTATE->mem.global_gate);
+  return result;
+}
+
 void ___for_each_symkey
    ___P((unsigned int subtype,
          void (*visit) (___SCMOBJ symkey, void *data),

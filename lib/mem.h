@@ -194,6 +194,8 @@ extern ___SCMOBJ ___make_symkey_from_scheme_string
          unsigned int subtype),
         ());
 
+extern ___SCMOBJ ___symkey_table_view(___SCMOBJ view, unsigned int subtype);
+
 extern void ___for_each_symkey
    ___P((unsigned int subtype,
          void (*visit) (___SCMOBJ symkey, void *data),

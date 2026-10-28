@@ -420,11 +420,11 @@ c-end
 ;;; refinement cut after the real scanner, before root_dispatch.finish.
 (define family 'rc)
 (define (trace-tag)
-  (case family ((intern) 'symkey-publication-trace) ((snapshot) 'globals-snapshot-trace) ((vm) 'vm-root-task-trace) ((bank) 'bank-root-task-trace) ((stack) 'stack-root-task-trace) ((symkey) 'symkey-root-task-trace) ((globals) 'globals-root-task-trace)
+  (case family ((view) 'symkey-view-trace) ((intern) 'symkey-publication-trace) ((snapshot) 'globals-snapshot-trace) ((vm) 'vm-root-task-trace) ((bank) 'bank-root-task-trace) ((stack) 'stack-root-task-trace) ((symkey) 'symkey-root-task-trace) ((globals) 'globals-root-task-trace)
     ((continuation) 'continuation-history)
     (else 'root-task-trace)))
 (define (trace-file suffix)
-  (string-append (case family ((intern) "symkey-publication-") ((snapshot) "globals-snapshot-") ((vm) "vm-root-task-")
+  (string-append (case family ((view) "symkey-view-") ((intern) "symkey-publication-") ((snapshot) "globals-snapshot-") ((vm) "vm-root-task-")
                   ((bank) "bank-root-task-") ((stack) "stack-root-task-") ((symkey) "symkey-root-task-") ((globals) "globals-root-task-")
                   ((continuation) "continuation-history-") (else "root-task-")) suffix ".trace"))
 (define (oracle commands)
@@ -454,28 +454,28 @@ c-end
       commands))))
 
 (define (trace? x)
-  (and (list? x) (= (length x) 4) (memq (car x) '(root-task-trace vm-root-task-trace bank-root-task-trace stack-root-task-trace symkey-root-task-trace globals-root-task-trace globals-snapshot-trace symkey-publication-trace continuation-history))
+  (and (list? x) (= (length x) 4) (memq (car x) '(root-task-trace vm-root-task-trace bank-root-task-trace stack-root-task-trace symkey-root-task-trace globals-root-task-trace globals-snapshot-trace symkey-publication-trace symkey-view-trace continuation-history))
        (integer? (cadr x)) (<= 1 (cadr x) 3) (list? (caddr x))
        (<= (length (caddr x)) 96) (memv (cadddr x) '(0 1))
        (let loop ((xs (caddr x)))
          (or (null? xs)
              (let ((r (car xs)))
                (and (vector? r) (= (vector-length r) 3)
-                    (integer? (vector-ref r 0)) (<= 0 (vector-ref r 0) (case (car x) ((globals-snapshot-trace symkey-publication-trace) 8) ((globals-root-task-trace) 6) (else 5)))
+                    (integer? (vector-ref r 0)) (<= 0 (vector-ref r 0) (case (car x) ((globals-snapshot-trace symkey-publication-trace symkey-view-trace) 8) ((globals-root-task-trace) 6) (else 5)))
                     (memv (vector-ref r 1) '(-1 0 1 2))
                     (memv (vector-ref r 2) '(0 1)) (loop (cdr xs))))))))
 (define (replay trace)
   (if (not (trace? trace)) (error "invalid structured root-task trace"))
-  (set! family (case (car trace) ((symkey-publication-trace) 'intern) ((globals-snapshot-trace) 'snapshot) ((vm-root-task-trace) 'vm)
+  (set! family (case (car trace) ((symkey-view-trace) 'view) ((symkey-publication-trace) 'intern) ((globals-snapshot-trace) 'snapshot) ((vm-root-task-trace) 'vm)
                  ((bank-root-task-trace) 'bank) ((stack-root-task-trace) 'stack) ((symkey-root-task-trace) 'symkey) ((globals-root-task-trace) 'globals)
                  ((continuation-history) 'continuation) (else 'rc)))
   (if (not (prepare-source)) (error "root-task source allocation failed"))
   (do ((i 0 (+ i 1))) ((= i (cadr trace))) (##gc))
   (let ((commands (caddr trace)))
-    (if (eq? family 'continuation)
-        (replay-continuation commands (cadddr trace))
-        (replay-native (list->vector commands) (case family ((snapshot) (snapshot-oracle commands)) ((intern) (intern-oracle commands)) (else (oracle commands))) (cadddr trace)
-                       (case family ((intern) 7) ((snapshot) 6) ((vm) 1) ((bank) 2) ((stack) 3) ((symkey) 4) ((globals) 5) (else 0))))))
+    (cond ((eq? family 'view) (replay-view commands (cadddr trace)))
+          ((eq? family 'continuation) (replay-continuation commands (cadddr trace)))
+          (else (replay-native (list->vector commands) (case family ((snapshot) (snapshot-oracle commands)) ((intern) (intern-oracle commands)) (else (oracle commands))) (cadddr trace)
+                       (case family ((intern) 7) ((snapshot) 6) ((vm) 1) ((bank) 2) ((stack) 3) ((symkey) 4) ((globals) 5) (else 0)))))))
 
 (define self (car (command-line)))
 (define input-file "root-task-input.dat")
@@ -874,6 +874,7 @@ c-end
 
 (c-declare #<<c-end
 static int intern_fail_vector,intern_failed_vectors,intern_scan_publish,intern_scan_ran;
+static int intern_silent;
 static ___SCMOBJ intern_scan_expected[2];
 ___SCMOBJ test_symkey_vector_allocate(___processor_state ps,___SIZE_TS len,___SCMOBJ init)
 {
@@ -910,7 +911,7 @@ static void intern_force_growth(unsigned int type,int fail)
     tbl=type==___sKEYWORD?___GSTATE->keyword_table:___GSTATE->symbol_table;
     if(___FIXNUMP(sym) || ___INT(___VECTORLENGTH(tbl))<=len || ___INT(___VECTORELEM(tbl,0))!=count+n+1) _Exit(77);
   }
-  printf("(SYMKEY-GROWTH-PASS type %u count %d added %d buckets-before %d buckets-after %d failed-vector %d)\n",
+  if(!intern_silent) printf("(SYMKEY-GROWTH-PASS type %u count %d added %d buckets-before %d buckets-after %d failed-vector %d)\n",
     type,count,n,len-1,___INT(___VECTORLENGTH(tbl))-1,fail);fflush(stdout);
 }
 /* A source mutation artifact invokes this strictly outside the registry
@@ -974,6 +975,249 @@ c-end
     (write (list 'SYMKEY-PUBLICATION-SHRINK-PASS 'from (length noisy) 'to (length minimal)
                  'replayed #t 'deletion-one-minimal one? 'production-pass #t 'trials trials)) (newline)))
   (delete-file input-file)))
+
+;;; Managed fold views: protocol histories through actual Scheme/C consumers.
+(c-declare #<<c-end
+typedef struct test_view_reference_data {
+  ___SCMOBJ vector; int used,size,ok;
+} test_view_reference_data;
+static void test_view_visit(___SCMOBJ sym,void *data)
+{
+  test_view_reference_data *d=(test_view_reference_data*)data;
+  if(d->used>=d->size) d->ok=0;
+  else ___VECTORELEM(d->vector,d->used++)=sym;
+}
+c-end
+)
+(define view-count
+ (c-lambda (bool) int #<<c-end
+___SCMOBJ table;
+___MUTEX_LOCK(___GSTATE->mem.global_gate);
+table=___arg1?___GSTATE->symbol_table:___GSTATE->keyword_table;
+___result=___INT(___VECTORELEM(table,0));
+___MUTEX_UNLOCK(___GSTATE->mem.global_gate);
+c-end
+))
+(define view-reference-fill
+ (c-lambda (scheme-object bool) bool #<<c-end
+test_view_reference_data d;
+d.vector=___arg1;d.used=0;d.size=___INT(___VECTORLENGTH(d.vector));d.ok=1;
+___for_each_symkey(___arg2?___sSYMBOL:___sKEYWORD,test_view_visit,&d);
+___result=d.ok && d.used==d.size;
+c-end
+))
+(define view-grow
+ (c-lambda (bool) void
+  "intern_silent=1;intern_force_growth(___arg1?___sSYMBOL:___sKEYWORD,0);intern_silent=0;"))
+(define view-gap-copy
+ (c-lambda (scheme-object bool int) scheme-object #<<c-end
+char name[100];int same;
+unsigned int type=___arg2?___sSYMBOL:___sKEYWORD;
+snprintf(name,sizeof(name),"gambit.smp.view-gap.%d.%u",___arg3,type);
+#ifdef ___USE_POSIX_THREAD_SYSTEM
+if(___find_symkey_from_UTF_8_string(name,type)!=___FAL) _Exit(75);
+if(___FIXNUMP(intern_concurrent(name,type,1,&same)) || !same) _Exit(75);
+#else
+if(___FIXNUMP(___make_symkey_from_UTF_8_string(name,type))) _Exit(75);
+#endif
+___result=___symkey_table_view(___arg1,type);
+c-end
+))
+
+(define (view-reference symbol?)
+  (let ((v (make-vector (view-count symbol?) #f)))
+    (if (not (view-reference-fill v symbol?)) (error "reference reader changed during exclusive fixture cut"))
+    v))
+(define (view-bijection? items reference)
+  (let ((set (make-table test: eq?)) (ok #t) (count 0))
+    (vector-for-each (lambda (sym) (table-set! set sym 1)) reference)
+    (for-each (lambda (sym)
+                (if (not (= (table-ref set sym 0) 1)) (set! ok #f))
+                (table-set! set sym 0) (set! count (+ count 1))) items)
+    (and ok (= count (vector-length reference)))))
+
+;; Exact92d predecessor traversal, compiled as an implementation control.
+;; Production keeps only the new fold; this is not an observation mutation.
+(define (view-predecessor-fold f base symkey-table)
+  (declare (standard-bindings) (extended-bindings))
+  (let loop1 ((i (##fx- (##vector-length symkey-table) 1))
+              (result base))
+    (if (##fx> i 0)
+        (let loop2 ((symkey (##vector-ref symkey-table i)) (result result))
+          (if (##mem-allocated? symkey)
+              (loop2 (##c-code "___RESULT = ___SYMKEY_NEXT_FIELD(___ARG1);" symkey)
+                     (f result symkey))
+              (loop1 (##fx- i 1) result)))
+        result)))
+
+(define (view-fold symbol? f base predecessor?)
+  (if predecessor?
+      (view-predecessor-fold f base (if symbol? (##symbol-table) (##keyword-table)))
+      (if symbol?
+          (##symbol-table-foldl f base)
+          (##symkey-table-foldl f base (##symkey-table-view #f)))))
+
+(define (view-oracle commands)
+  (let ((have (vector #f #f)))
+    (list->vector
+     (map (lambda (row)
+            (let ((op (vector-ref row 0)) (t (vector-ref row 2)))
+              (if (= op 0) (vector-set! have t #t))
+              (vector (if (and (= op 1) (not (vector-ref have t))) 0 1) 1 1 1)))
+          commands))))
+
+(define (replay-view commands fault)
+  (let ((expected (view-oracle commands))
+        (views (vector #f #f)) (copies (vector #f #f))
+        (grown (vector #f #f)) (gc-count 0) (resumes 0)
+        (fold-counts '()) (known (vector (make-vector 4 #f) (make-vector 4 #f))))
+    (define (collect) (set! gc-count (+ gc-count 1)) (##gc))
+    (define (grow symbol?)
+      (let ((t (if symbol? 0 1)))
+        (if (not (vector-ref grown t))
+            (begin (view-grow symbol?) (vector-set! grown t #t)))))
+    (define (continuation-check symbol?)
+      (let ((reference (view-reference symbol?)) (saved #f)
+            (generation 0) (enters 0) (leaves 0))
+        (let ((items
+               (dynamic-wind
+                (lambda () (set! enters (+ enters 1)))
+                (lambda ()
+                  (view-fold symbol?
+                   (lambda (lst sym)
+                     (if (not saved)
+                         (call/cc (lambda (k) (set! saved k) #f)))
+                     (cons sym lst))
+                   '() #f))
+                (lambda () (set! leaves (+ leaves 1))))))
+          (if (< generation 2)
+              (begin (grow symbol?) (collect)
+                     (set! generation (+ generation 1))
+                     (set! resumes (+ resumes 1)) (saved #f))
+              (and (= enters 3) (= leaves 3)
+                   (view-bijection? items reference))))))
+    (let loop ((xs commands) (at 0))
+      (if (null? xs)
+          (begin
+            (write (list 'root-task-result 'pass (length commands)
+                         'gc gc-count 'resumes resumes))
+            (newline) (exit 0))
+          (let* ((row (car xs)) (op (vector-ref row 0))
+                 (slot (+ 1 (vector-ref row 1))) (t (vector-ref row 2))
+                 (symbol? (= t 0)) (accepted 1) (ok #t) (source-ok #t))
+            (case op
+              ((0)
+               (let* ((reference (view-reference symbol?))
+                      (v (##symkey-table-view symbol?)))
+                 (set! ok (view-bijection? (vector->list v) reference))
+                 (vector-set! views t v)
+                 (vector-set! copies t (vector-copy v))))
+              ((1)
+               (let ((v (vector-ref views t)))
+                 (if (not v) (set! accepted 0)
+                     (let* ((i (modulo slot (vector-length v)))
+                            (old (vector-ref v i)) (reference (view-reference symbol?)))
+                       (vector-set! v i #f)
+                       (vector-set! (vector-ref copies t) i #f)
+                       (set! source-ok
+                             (and (= (vector-length reference) (view-count symbol?))
+                                  (or (not old) (memq old (vector->list reference)))
+                                  (not (memq #f (vector->list reference)))))))))
+              ((2) (collect))
+              ((3)
+               (let* ((name (string-append "gambit.smp.view-name." (number->string slot)))
+                      (value ((if symbol? string->symbol string->keyword) name))
+                      (keys (vector-ref known t)))
+                 (set! ok (or (not (vector-ref keys slot)) (eq? value (vector-ref keys slot))))
+                 (vector-set! keys slot value)))
+              ((4) (grow symbol?))
+              ((5)
+               (let* ((reference (view-reference symbol?)) (first #t)
+                      (items
+                       (view-fold symbol?
+                        (lambda (lst sym)
+                          (if first (begin (set! first #f) (grow symbol?) (collect)))
+                          (cons sym lst))
+                        '() (= fault 1))))
+                 (set! fold-counts (list 'captured (vector-length reference) 'visited (length items)))
+                 (set! ok (view-bijection? items reference))))
+              ((6) (set! ok (continuation-check symbol?)))
+              ((7)
+               (let* ((n (view-count symbol?)) (v (make-vector n #f))
+                      (actual (view-gap-copy v symbol? at)))
+                 (set! ok (and (= actual (+ n 1))
+                               (equal? v (make-vector n #f))))))
+              ((8)
+               (let ((entered 0) (left 0) (caught #f))
+                 (with-exception-catcher
+                  (lambda (e) (set! caught #t))
+                  (lambda ()
+                    (dynamic-wind
+                     (lambda () (set! entered (+ entered 1)))
+                     (lambda ()
+                       (view-fold symbol?
+                        (lambda (lst sym) (collect) (error "view callback escape control"))
+                        '() #f))
+                     (lambda () (set! left (+ left 1))))))
+                 (collect)
+                 (set! ok (and caught (= entered 1) (= left 1)
+                               (= (length (view-fold symbol? (lambda (lst sym) (cons sym lst)) '() #f))
+                                  (view-count symbol?)))))))
+            (let* ((stable
+                    (and (or (not (vector-ref views 0))
+                             (equal? (vector-ref views 0) (vector-ref copies 0)))
+                         (or (not (vector-ref views 1))
+                             (equal? (vector-ref views 1) (vector-ref copies 1)))))
+                   (observed (vector accepted (if ok 1 0) (if stable 1 0) (if source-ok 1 0)))
+                   (wanted (vector-ref expected at)))
+              (do ((j 0 (+ j 1))) ((= j 4))
+                (if (not (= (vector-ref observed j) (vector-ref wanted j)))
+                    (begin
+                      (write (list 'root-task-result 'mismatch at op j
+                                   (vector-ref observed j) (vector->list observed) fold-counts))
+                      (newline) (exit 71)))))
+            (loop (cdr xs) (+ at 1)))))))
+
+(define (view-suite)
+  (set! family 'view) (set! trials 0)
+  (let ((seed 997) (actions 0))
+    (define (next n) (set! seed (modulo (+ (* seed 48271) 17) 2147483647)) (modulo seed n))
+    (define (noise n)
+      (if (= n 0) '() (cons (vector (next 9) (- (next 4) 1) (next 2)) (noise (- n 1)))))
+    (define chain (list (vector 0 0 0) (vector 0 0 1) (vector 5 0 0)
+                        (vector 6 0 0) (vector 1 1 0) (vector 2 0 0)
+                        (vector 7 0 1) (vector 8 0 1)))
+    (let ((control (trial chain 0)))
+      (if (signature control) (error "actual view mandatory control failed" control))
+      (write (list 'SYMKEY-VIEW-CONTINUATION-PASS 'mandatory-result control)) (newline))
+    (set! actions (length chain))
+    (do ((sample 0 (+ sample 1))) ((= sample 12))
+      (let* ((commands (append (noise 8) chain (noise 8))) (result (trial commands 0)))
+        (set! actions (+ actions (length commands)))
+        (if (signature result)
+            (let ((minimal (shrink commands 0 (signature result))))
+              (with-output-to-file (trace-file "failure")
+                (lambda () (write (list (trace-tag) 1 minimal 0)) (newline)))
+              (error "actual managed view property failed" result minimal)))))
+    (write (list 'SYMKEY-VIEW-PBT-PASS 'seed 997 'cases 12 'actions actions)) (newline)
+    (let* ((commands (append (make-list 6 (vector 2 0 0)) (list (vector 5 0 0))
+                             (make-list 6 (vector 0 0 0))))
+           (failure (trial commands 1)) (wanted (signature failure)))
+      (if (not (equal? wanted '(5 1))) (error "compiled predecessor fold counterexample missed" failure))
+      (let* ((minimal (shrink commands 1 wanted)) (again (trial minimal 1))
+             (one? (one-minimal? minimal 1 wanted)) (positive (trial minimal 0)))
+        (if (not (and (= (length minimal) 1) one? (equal? (signature again) wanted)
+                      (not (signature positive))))
+            (error "actual predecessor view shrink/replay failed" minimal again positive))
+        (with-output-to-file (trace-file "legacy-minimal")
+          (lambda () (write (list (trace-tag) 1 minimal 1)) (newline)))
+        (with-output-to-file (trace-file "current-minimal")
+          (lambda () (write (list (trace-tag) 1 minimal 0)) (newline)))
+        (write (list 'SYMKEY-VIEW-IMPLEMENTATION-SHRINK-PASS 'from (length commands)
+                     'to (length minimal) 'trials trials 'deletion-one-minimal one?
+                     'replayed #t 'production-pass #t 'predecessor failure 'minimal-result again))
+        (newline)))
+    (delete-file input-file)))
 
 (define (snapshot-suite)
   ((c-lambda () void #<<c-end
@@ -1056,6 +1300,7 @@ c-end
   (cond ((and (= (length args) 1) (string=? (car args) "--intern-growth")) (intern-growth 0))
         ((and (= (length args) 1) (string=? (car args) "--intern-growth-fault")) (intern-growth 1))
         ((and (= (length args) 1) (string=? (car args) "--intern-gc-publish")) (intern-growth 2))
+        ((and (= (length args) 1) (string=? (car args) "--symkey-views")) (view-suite))
         ((and (= (length args) 1) (string=? (car args) "--symkey-publication")) (intern-suite))
         ((and (= (length args) 1) (string=? (car args) "--globals-snapshot")) (snapshot-suite))
         ((and (= (length args) 1) (string=? (car args) "--globals-capacity")) (globals-capacity))

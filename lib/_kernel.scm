@@ -3779,21 +3779,39 @@ end-of-code
    name
    symbol?))
 
-(define-prim (##symkey-table-foldl f base symkey-table)
-  (let loop1 ((i (##fx- (##vector-length symkey-table) 1)) ;; skip element 0 = count
-              (result base))
-    (if (##fx> i 0)
-        (let loop2 ((symkey (##vector-ref symkey-table i))
-                    (result result))
-          (if (##mem-allocated? symkey)
-              (loop2 (##c-code "___RESULT = ___SYMKEY_NEXT_FIELD(___ARG1);" symkey) ;; next in bucket
-                     (f result symkey))
-              (loop1 (##fx- i 1)
-                     result)))
-        result)))
+(define-prim (##symkey-table-view symbol?)
+  ;; Allocate/root the destination in Scheme. Registry growth between query
+  ;; and copy only retries; no native buffer or lock survives a collecting call.
+  (let loop ((length
+              (##c-code
+               "___RESULT = ___symkey_table_view (___FAL, ___FALSEP(___ARG1) ? ___sKEYWORD : ___sSYMBOL);"
+               symbol?)))
+    (if (##fx< length 0)
+        (begin
+          (##raise-heap-overflow-exception)
+          (##symkey-table-view symbol?))
+        (let* ((view (##make-vector length #f))
+               (actual
+                (##c-code
+                 "___RESULT = ___symkey_table_view (___ARG1, ___FALSEP(___ARG2) ? ___sKEYWORD : ___sSYMBOL);"
+                 view symbol?)))
+          (cond ((##fx< actual 0)
+                 (##raise-heap-overflow-exception)
+                 (##symkey-table-view symbol?))
+                ((##fx= actual length) view)
+                (else (loop actual)))))))
+
+(define-prim (##symkey-table-foldl f base view)
+  ;; VIEW is a private flat identity snapshot, not a live bucket/NEXT alias.
+  ;; Scheme frames own it across GC, callback escape and multi-shot resumption.
+  (let ((length (##vector-length view)))
+    (let loop ((i 0) (result base))
+      (if (##fx< i length)
+          (loop (##fx+ i 1) (f result (##vector-ref view i)))
+          result))))
 
 (define-prim (##symbol-table-foldl f base)
-  (##symkey-table-foldl f base (##symbol-table)))
+  (##symkey-table-foldl f base (##symkey-table-view #t)))
 
 ;;;----------------------------------------------------------------------------
 
