@@ -2714,6 +2714,7 @@
 "##symbol=?"
 "##symbol?"
 "##symkey-table-foldl"
+"##symkey-table-view"
 "##sync-op-interrupt!"
 "##syntax-error"
 "##system-stamp"
@@ -7965,6 +7966,7 @@
 "##symbol-table"
 "##symbol-table-foldl"
 "##symkey-table-foldl"
+"##symkey-table-view"
 "##sync-op-interrupt!"
 "##system-stamp"
 "##system-stamp-saved"
@@ -13929,6 +13931,7 @@ ___DEF_OLD_SYM_GLO(___S__23__23_symbol_2d_table_2d_foldl,___G__23__23_symbol_2d_
 ___DEF_OLD_SYM_GLO(___S__23__23_symbol_3d__3f_,___G__23__23_symbol_3d__3f_)
 ___DEF_OLD_SYM_GLO(___S__23__23_symbol_3f_,___G__23__23_symbol_3f_)
 ___DEF_OLD_SYM_GLO(___S__23__23_symkey_2d_table_2d_foldl,___G__23__23_symkey_2d_table_2d_foldl)
+___DEF_OLD_SYM_GLO(___S__23__23_symkey_2d_table_2d_view,___G__23__23_symkey_2d_table_2d_view)
 ___DEF_OLD_SYM_GLO(___S__23__23_sync_2d_op_2d_interrupt_21_,___G__23__23_sync_2d_op_2d_interrupt_21_)
 ___DEF_OLD_SYM_GLO(___S__23__23_syntax_2d_error,___G__23__23_syntax_2d_error)
 ___DEF_OLD_SYM_GLO(___S__23__23_system_2d_stamp,___G__23__23_system_2d_stamp)
