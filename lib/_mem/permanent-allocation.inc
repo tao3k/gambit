@@ -62,7 +62,7 @@ unsigned int modulus;)
  * some 'i'.
  */
 
-___HIDDEN void *alloc_mem_aligned_perm
+___HIDDEN void *alloc_mem_aligned_perm_locked
    ___P((___SIZE_TS words,
          int multiplier,
          int modulus),
@@ -125,6 +125,15 @@ int modulus;)
   return base;
 }
 
+
+___HIDDEN void *alloc_mem_aligned_perm(___SIZE_TS words, int multiplier, int modulus)
+{
+  void *result;
+  ___MUTEX_LOCK(___GSTATE->mem.permanent_gate);
+  result=alloc_mem_aligned_perm_locked(words,multiplier,modulus);
+  ___MUTEX_UNLOCK(___GSTATE->mem.permanent_gate);
+  return result;
+}
 
 ___HIDDEN void free_psections ___PVOID
 {

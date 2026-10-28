@@ -216,9 +216,10 @@ extern ___SCMOBJ ___find_global_var_bound_to
 
 #endif
 
-extern void ___glo_list_setup ___PVOID;
+extern ___SCMOBJ ___glo_list_setup ___PVOID;
+extern void ___glo_list_open ___PVOID;
 
-extern void ___glo_list_add
+extern ___SCMOBJ ___glo_list_add
    ___P((___glo_struct *glo),
         ());
 

@@ -297,6 +297,8 @@ ___virtual_machine_state ___vms;)
   int init_nb_sections;
   int source;
 
+  ___vms->mem.globals_snapshot_=0;
+
   /* Fresh VM setup owns every fixed source slot before any PS publication. */
   for (source=0; source<___MAX_PROCESSORS; ++source)
     ___PSTATE_FROM_PROCESSOR_ID(source,___vms)->mem.rc_domain_ = 0;
@@ -471,13 +473,16 @@ ___SCMOBJ ___setup_mem ___PVOID
    * table.
    */
 
-  ___glo_list_setup ();
+  {
+    ___SCMOBJ result=___glo_list_setup();
+    if (result!=___FIX(___NO_ERR)) return result;
+  }
 
   {
     ___SCMOBJ t = alloc_symkey_table (___sSYMBOL, INIT_SYMBOL_TABLE_LENGTH);
 
     if (___FIXNUMP(t))
-      return t;
+      { ___cleanup_mem(); return t; }
 
     ___GSTATE->symbol_table = t;
   }
@@ -486,7 +491,7 @@ ___SCMOBJ ___setup_mem ___PVOID
     ___SCMOBJ t = alloc_symkey_table (___sKEYWORD, INIT_KEYWORD_TABLE_LENGTH);
 
     if (___FIXNUMP(t))
-      return t;
+      { ___cleanup_mem(); return t; }
 
     ___GSTATE->keyword_table = t;
   }
@@ -575,7 +580,11 @@ ___virtual_machine_state ___vms;)
 
 void ___cleanup_mem ___PVOID
 {
+  if (___GSTATE->mem.global_snapshots!=0)
+    rc_contract_error("global snapshot retained at runtime cleanup");
   free_psections ();
+  ___MUTEX_DESTROY(___GSTATE->mem.permanent_gate);
+  ___MUTEX_DESTROY(___GSTATE->mem.global_gate);
 }
 
 

@@ -336,16 +336,83 @@ ___BOOL ___root_globals_partition(int extent, int participant, int participants,
   return 1;
 }
 
+___BOOL ___root_globals_begin(___global_root_snapshot *snapshot,
+                                ___processor_state coordinator, ___UWORD epoch)
+{
+  ___virtual_machine_state vm;
+  int i, ok=1;
+  if (snapshot==0 || coordinator==0 || coordinator!=___PSTATE || epoch==0)
+    return 0;
+  vm=___VMSTATE_FROM_PSTATE(coordinator);
+  if (___PROCESSOR_ID(coordinator,vm)!=0 || vm->processor_count<1 ||
+      vm->processor_count>___MAX_PROCESSORS) return 0;
+  /* The caller owns the closed roster, after all root sources froze at the
+   * existing collective. Do not turn a mere count read into writer exclusion. */
+  for (i=0;i<vm->processor_count;i++) {
+    ___rc_domain *domain=___PSTATE_FROM_PROCESSOR_ID(i,vm)->mem.rc_domain_;
+    if (domain==0) return 0;
+    ___RC_LOCK(domain);
+    ok=domain->phase==___RC_FROZEN &&
+       (i!=0 || domain->task.epoch==epoch);
+    ___RC_UNLOCK(domain);
+    if (!ok) return 0;
+  }
+  ___MUTEX_LOCK(___GSTATE->mem.global_gate);
+  if (vm->mem.globals_snapshot_!=0 || ___GSTATE->mem.global_bootstrap ||
+      ___GSTATE->mem.glo_list.count>___CAST(___UWORD,INT_MAX) ||
+      ___GSTATE->mem.global_snapshots==~___CAST(___SIZE_T,0)) ok=0;
+#ifndef ___SINGLE_VM
+  if (vm->glos==0 || ___GSTATE->mem.glo_list.count>___GLOBALS_CAPACITY) ok=0;
+#endif
+  if (ok) {
+    snapshot->vm=vm; snapshot->epoch=epoch;
+    snapshot->count=___CAST(int,___GSTATE->mem.glo_list.count);
+    snapshot->participants=vm->processor_count;
+    for (i=0;i<snapshot->participants;i++) snapshot->shards[i]=0;
+    ++___GSTATE->mem.global_snapshots;
+    vm->mem.globals_snapshot_=snapshot;
+  }
+  ___MUTEX_UNLOCK(___GSTATE->mem.global_gate);
+  return ok;
+}
+
+___BOOL ___root_globals_end(___global_root_snapshot *snapshot,
+                              ___processor_state coordinator)
+{
+  int i,ok=1;
+  ___virtual_machine_state vm;
+  if (snapshot==0 || coordinator==0 || coordinator!=___PSTATE) return 0;
+  vm=___VMSTATE_FROM_PSTATE(coordinator);
+  if (___PROCESSOR_ID(coordinator,vm)!=0) return 0;
+  ___MUTEX_LOCK(___GSTATE->mem.global_gate);
+  if (vm->mem.globals_snapshot_!=snapshot || snapshot->vm!=vm ||
+      snapshot->participants!=vm->processor_count ||
+      ___GSTATE->mem.global_snapshots==0) ok=0;
+  if (ok) for (i=0;i<snapshot->participants;i++)
+    if (snapshot->shards[i]!=2) { ok=0; break; }
+  if (ok) {
+    vm->mem.globals_snapshot_=0;
+    --___GSTATE->mem.global_snapshots;
+  }
+  ___MUTEX_UNLOCK(___GSTATE->mem.global_gate);
+  return ok;
+}
+
 ___HIDDEN ___BOOL root_globals_view(___global_root_source *view,
                                    ___virtual_machine_state vm,
                                    ___processor_state executor)
 {
   int extent;
+  const ___global_root_snapshot *snapshot;
   if (executor == 0 || executor != ___PSTATE ||
       vm != ___VMSTATE_FROM_PSTATE(executor)) return 0;
+  snapshot=vm->mem.globals_snapshot_;
+  if (snapshot==0 || snapshot->vm!=vm || snapshot->epoch==0 ||
+      snapshot->participants!=vm->processor_count) return 0;
   view->global=___GSTATE; view->vm=vm;
-  view->count=___GSTATE->mem.glo_list.count;
-  view->participants=vm->processor_count;
+  view->snapshot=snapshot; view->snapshot_epoch=snapshot->epoch;
+  view->count=snapshot->count;
+  view->participants=snapshot->participants;
   view->participant=___PROCESSOR_ID(executor,vm);
   if (view->count < 0 || view->participants <= 0 ||
       view->participants > ___MAX_PROCESSORS) return 0;
@@ -364,7 +431,8 @@ ___HIDDEN ___BOOL root_globals_equal(const ___global_root_source *a,
 {
   return a->global == b->global && a->vm == b->vm && a->count == b->count &&
          a->participants == b->participants && a->participant == b->participant &&
-         a->lo == b->lo && a->hi == b->hi;
+         a->lo == b->lo && a->hi == b->hi &&
+         a->snapshot == b->snapshot && a->snapshot_epoch == b->snapshot_epoch;
 }
 
 ___BOOL ___root_task_publish_globals(___root_task *task,
@@ -388,7 +456,16 @@ ___BOOL ___root_task_publish_globals(___root_task *task,
       *storage=view; /* Initialize descriptor before READY, only once. */
     }
   origin.kind=___ROOT_GLOBALS; origin.source.globals=storage;
-  return root_task_publish_confined(task,origin,executor,previous,epoch);
+  {
+    ___global_root_snapshot *snapshot=vm->mem.globals_snapshot_;
+    ___BOOL fresh=task->origin.kind!=___ROOT_GLOBALS, ok;
+    ___MUTEX_LOCK(___GSTATE->mem.global_gate);
+    ok=(!fresh || snapshot->shards[view.participant]==0) &&
+       root_task_publish_confined(task,origin,executor,previous,epoch);
+    if (ok && fresh) snapshot->shards[view.participant]=1;
+    ___MUTEX_UNLOCK(___GSTATE->mem.global_gate);
+    return ok;
+  }
 }
 
 ___HIDDEN ___BOOL root_globals_task(___root_task *task,
@@ -412,8 +489,15 @@ ___BOOL ___root_task_claim_globals(___root_task *task, ___processor_state execut
 ___BOOL ___root_task_finish_globals(___root_task *task, ___processor_state executor,
                                    ___UWORD epoch)
 {
-  return executor != 0 && executor == ___PSTATE && root_globals_task(task,executor) &&
-         root_task_finish_state(task,___ROOT_GLOBALS,executor,epoch);
+  ___BOOL ok;
+  const ___global_root_source *source;
+  if (!root_globals_task(task,executor)) return 0;
+  source=task->origin.source.globals;
+  ___MUTEX_LOCK(___GSTATE->mem.global_gate);
+  ok=root_task_finish_state(task,___ROOT_GLOBALS,executor,epoch);
+  if (ok) source->vm->mem.globals_snapshot_->shards[source->participant]=2;
+  ___MUTEX_UNLOCK(___GSTATE->mem.global_gate);
+  return ok;
 }
 
 ___BOOL ___root_task_completed_globals(___root_task *task, ___processor_state executor,

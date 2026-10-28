@@ -5950,7 +5950,7 @@ ___FIELD(SYMBOL,symkey,___SYMKEY_NEXT)
 #define ___SYMBOL_GLOBAL_FIELD(sym) \
 ___FIELD(SYMBOL,sym,___SYMBOL_GLOBAL)
 
-#define ___GLOBALVARSTRUCT(gv)___CAST(___glo_struct*,___SYMBOL_GLOBAL_FIELD(gv))
+#define ___GLOBALVARSTRUCT(gv)___CAST(___glo_struct*,___LOAD_GLOBAL_WORD(&___SYMBOL_GLOBAL_FIELD(gv)))
 
 #define ___GLOBALVARREF(gv)___GLOCELL(___GLOBALVARSTRUCT(gv)->val)
 #define ___GLOBALVARPRIMREF(gv)___PRMCELL(___GLOBALVARSTRUCT(gv)->prm)
@@ -11127,6 +11127,9 @@ typedef struct ___full_duplex_pipe
 
 #ifdef ___USE_sync_builtins
 
+#define ___LOAD_GLOBAL_WORD(p) __atomic_load_n(p,__ATOMIC_ACQUIRE)
+#define ___PUBLISH_GLOBAL_WORD(p,v) __atomic_store_n(p,v,__ATOMIC_RELEASE)
+
 #define ___COMPARE_AND_SWAP_WORD(p,oldval,newval) \
 __sync_val_compare_and_swap(p,oldval,newval)
 
@@ -11143,6 +11146,9 @@ __sync_synchronize()
 
 
 #ifdef ___USE_WIN32_sync
+
+#define ___LOAD_GLOBAL_WORD(p) ___COMPARE_AND_SWAP_WORD(p,0,0)
+#define ___PUBLISH_GLOBAL_WORD(p,v) ((void)___COMPARE_AND_SWAP_WORD(p,0,v))
 
 #define ___COMPARE_AND_SWAP_WORD(p,oldval,newval) \
 ___CAST(___WORD,InterlockedCompareExchangePointer(___CAST(void**,p),___CAST(void*,newval),___CAST(void*,oldval)))
@@ -11167,6 +11173,9 @@ MemoryBarrier()
 
 #ifdef ___USE_emulated_sync
 
+#define ___LOAD_GLOBAL_WORD(p) ___COMPARE_AND_SWAP_WORD(p,0,0)
+#define ___PUBLISH_GLOBAL_WORD(p,v) ((void)___COMPARE_AND_SWAP_WORD(p,0,v))
+
 #define ___COMPARE_AND_SWAP_WORD(p,oldval,newval) \
 ___EXT(___emulated_compare_and_swap_word)(p,oldval,newval)
 
@@ -11183,6 +11192,9 @@ ___EXT(___emulated_shared_memory_barrier)()
 
 
 #ifdef ___USE_sequential_sync
+
+#define ___LOAD_GLOBAL_WORD(p) (*(p))
+#define ___PUBLISH_GLOBAL_WORD(p,v) ((void)(*(p)=(v)))
 
 #define ___COMPARE_AND_SWAP_WORD(p,oldval,newval) \
 ((___ps->temp1 = *(p)) == (oldval) && (*(p) = (newval)), ___ps->temp1)
@@ -11582,6 +11594,8 @@ typedef struct ___vmstate_os_struct {
 
 typedef struct ___vmstate_mem_struct {
 
+struct ___global_root_snapshot_struct *globals_snapshot_;
+
 /* size of heap in words (number of words that can be occupied) */
 ___SIZE_TS heap_size_;
 
@@ -11693,6 +11707,11 @@ typedef struct ___gstate_mem_struct {
    */
 
   ___glo_list_struct glo_list;
+  ___MUTEX_DECL(global_gate)
+  ___MUTEX_DECL(permanent_gate)
+  ___thread global_bootstrap_owner;
+  int global_bootstrap;
+  ___SIZE_T global_snapshots;
 
 } ___gstate_mem;
 

@@ -2,6 +2,7 @@
 #ifndef ___ROOT_H
 #define ___ROOT_H
 #include "gambit.h"
+#include <limits.h>
 
 enum ___root_task_state {
   ___ROOT_EMPTY, ___ROOT_READY, ___ROOT_CLAIMED,
@@ -12,10 +13,22 @@ enum ___root_origin_kind { ___ROOT_NONE, ___ROOT_RC, ___ROOT_VM, ___ROOT_BANK, _
  * Keep the allocator and view admission on the same physical extent. */
 #define ___GLOBALS_CAPACITY 20000
 
+/* One immutable extent per VM round. Storage remains on the coordinator's
+ * C stack until every shard and the collective complete. Unknown work retains
+ * this invocation; neither a local DONE nor count equality releases it. */
+typedef struct ___global_root_snapshot_struct {
+  ___virtual_machine_state vm;
+  ___UWORD epoch;
+  int count, participants;
+  unsigned char shards[___MAX_PROCESSORS]; /* 0 absent, 1 leased, 2 complete */
+} ___global_root_snapshot;
+
 typedef struct ___global_root_source_struct {
   ___global_state global;
   ___virtual_machine_state vm;
   int count, participants, participant, lo, hi;
+  const ___global_root_snapshot *snapshot;
+  ___UWORD snapshot_epoch;
 } ___global_root_source;
 
 typedef struct ___root_origin_struct {
@@ -88,6 +101,8 @@ extern ___BOOL ___root_task_completed_symkey(___root_task*,___processor_state,__
 /* Source storage is fresh caller-owned C metadata, borrowed read-only until
  * task/round completion. Valid metadata pointers and outer VM/registry holds
  * preexist lookup. Snapshot checks are not a cross-VM writer freeze. */
+extern ___BOOL ___root_globals_begin(___global_root_snapshot*,___processor_state,___UWORD);
+extern ___BOOL ___root_globals_end(___global_root_snapshot*,___processor_state);
 extern ___BOOL ___root_globals_partition(int,int,int,int*,int*);
 extern ___BOOL ___root_task_publish_globals(___root_task*,___global_root_source*,
                                            ___virtual_machine_state,

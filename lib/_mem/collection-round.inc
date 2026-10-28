@@ -342,6 +342,7 @@ ___SIZE_TS requested_words_still;)
 {
   ___virtual_machine_state ___vms = ___VMSTATE_FROM_PSTATE(___ps);
   ___BOOL overflow = 0;
+  ___global_root_snapshot globals_snapshot;
   ___UWORD rc_previous, rc_epoch;
   ___F64 user_time_start, sys_time_start, real_time_start;
   ___F64 user_time_end, sys_time_end, real_time_end;
@@ -409,6 +410,12 @@ ___SIZE_TS requested_words_still;)
   BARRIER();
 
 
+  /* Publish one immutable registry prefix for every root shard before flip.
+   * Other VMs may append: their new indices remain UNB1 in this stopped VM. */
+  if (___PROCESSOR_ID(___ps,___vms)==0 &&
+      !___root_globals_begin(&globals_snapshot,___ps,rc_epoch))
+    rc_contract_error("global round snapshot publication refused");
+
   /* Setup the stacks and heaps of all the processors */
 
   garbage_collect_setup_phase (___PSPNC);
@@ -422,6 +429,10 @@ ___SIZE_TS requested_words_still;)
 
   BARRIER();
 
+
+  if (___PROCESSOR_ID(___ps,___vms)==0 &&
+      !___root_globals_end(&globals_snapshot,___ps))
+    rc_contract_error("global round snapshot still owns unfinished shards");
 
   /* Mark the objects that are reachable weakly */
 

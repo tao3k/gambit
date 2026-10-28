@@ -3,9 +3,12 @@
 ;;; Each replay is a fresh process. No Scheme allocation while a source is frozen.
 (c-declare #<<c-end
 #include "rc.h"
+#include "mem.h"
+#include "os_thread.h"
 #include <stdio.h>
 #include <stdlib.h>
 static void *root_task_bytes;
+static void replay_global_snapshot(___SCMOBJ,___SCMOBJ,int);
 c-end
 )
 (define prepare-source
@@ -17,12 +20,14 @@ ___rc_domain *d=ps->mem.rc_domain_;
 ___UWORD base, receipt;
 ___root_task local_task, *task;
 ___global_root_source globals_source;
+___global_root_snapshot globals_snapshot;
 ___execution_context *bank=ps->context;
 ___SCMOBJ commands=___arg1, expected_rows=___arg2;
 int mutation=___arg3;
 ___virtual_machine_state vm=___VMSTATE_FROM_PSTATE(ps);
 ___WORD alien_source=0;
 int family=___arg4;
+if(family==6) replay_global_snapshot(commands,expected_rows,mutation);
 int i,n=___INT(___VECTORLENGTH(commands));
 ___RC_LOCK(d);
 base=d->task.epoch;
@@ -71,6 +76,11 @@ if(family) {
 #else
     for(i=0;i<___GSTATE->mem.glo_list.count;i++) vm->glos[i]=___FAL;
 #endif
+  }
+  if(family==5 &&
+     (!___root_task_publish(d,ps,base,&receipt) ||
+      !___root_globals_begin(&globals_snapshot,ps,receipt))) {
+    printf("(root-task-result precondition 3)\n"); fflush(stdout); _Exit(72);
   }
   ___root_task_init(&local_task,base);
 }
@@ -163,15 +173,113 @@ _Exit(0);
 c-end
 ))
 
+;;; The existing replay/shrinker drives a second actual C source contract.
+;;; Four pre-created permanent symbols avoid pretending to qualify concurrent
+;;; interning. A real second VM supplies an OPEN registration source while the
+;;; first VM is frozen. No Scheme operation follows the destructive control cut.
+(c-declare #<<c-end
+static void replay_global_snapshot(___SCMOBJ commands,___SCMOBJ expected,int mutation)
+{
+#ifdef ___SINGLE_VM
+  printf("(root-task-result unsupported multiple-vms-required)\n");fflush(stdout);_Exit(72);
+#else
+  ___processor_state ps=___PSTATE, writer;
+  ___virtual_machine_state vm=___VMSTATE_FROM_PSTATE(ps), other;
+  ___SCMOBJ symbols[4], err;
+  ___global_root_snapshot snapshot;
+  ___global_root_source source;
+  ___root_task task;
+  ___UWORD base,epoch,receipt;
+  int i,j,n=___INT(___VECTORLENGTH(commands)),initial,active=0;
+  char name[80];
+  if(vm->processor_count!=1) _Exit(72);
+  for(i=0;i<4;i++) {
+    snprintf(name,sizeof(name),"___globals_snapshot_identity_%d",i);
+    symbols[i]=___make_symkey_from_UTF_8_string(name,___sSYMBOL);
+    if(___FIXNUMP(symbols[i]) || ___GLOBALVARSTRUCT(symbols[i])!=0) _Exit(72);
+  }
+  other=calloc(1,sizeof(*other));
+  if(other==0 || ___setup_vmstate(other)!=___FIX(___NO_ERR)) _Exit(72);
+  writer=___PSTATE_FROM_PROCESSOR_ID(0,other);
+  if(writer->mem.rc_domain_==0 || other->glos==0) _Exit(72);
+  initial=___CAST(int,___GSTATE->mem.glo_list.count);
+  for(i=0;i<initial;i++) vm->glos[i]=___FAL;
+  base=ps->mem.rc_domain_->task.epoch;
+  ___root_task_init(&task,base);
+  for(i=0;i<n;i++) {
+    ___SCMOBJ row=___VECTORELEM(commands,i),want=___VECTORELEM(expected,i);
+    int op=___INT(___VECTORELEM(row,0)),slot=___INT(___VECTORELEM(row,1))+1;
+    int accepted=0,old=___CAST(int,___GSTATE->mem.glo_list.count);
+    long seen[5];
+    if(op==0 || op==2 || op==8) {
+      if(op==8) ___SET_REAL_PSTATE(0);
+      else ___thread_set_pstate(op==0?ps:writer);
+      err=___make_global_var(symbols[slot]);
+      ___thread_set_pstate(ps);
+      accepted=err==symbols[slot];
+      if(___GSTATE->mem.glo_list.count>old && op==2 && vm->glos[old]!=___UNB1) _Exit(73);
+    } else if(op==1 && !active && vm->mem.globals_snapshot_==0 &&
+              ps->mem.rc_domain_->phase==___RC_OPEN) {
+      accepted=___root_task_publish(ps->mem.rc_domain_,ps,base,&epoch) &&
+               ___root_globals_begin(&snapshot,ps,epoch);
+      if(accepted) active=1;
+    } else if(op==3) accepted=___root_task_publish_globals(&task,&source,vm,ps,base,&receipt);
+    else if(op==4) accepted=___root_task_claim_globals(&task,ps,base+1);
+    else if(op==5) accepted=___root_task_scan_globals(&task,ps,base+1);
+    else if(op==6) accepted=___root_task_finish_globals(&task,ps,base+1);
+    else if(op==7 && active) {
+      accepted=___root_globals_end(&snapshot,ps);
+      if(accepted) active=0;
+    }
+    seen[0]=accepted;seen[1]=___GSTATE->mem.glo_list.count-initial;
+    seen[2]=active?(task.origin.kind==___ROOT_GLOBALS?source.count:snapshot.count)-initial:-1;
+    /* A labeled live-count observer mutation calibrates this same C replay;
+     * it does not replace the production implementation or oracle. */
+    if(mutation && active) seen[2]=___GSTATE->mem.glo_list.count-initial;
+    seen[3]=task.state;seen[4]=task.scan_leases;
+    for(j=0;j<5;j++) if(seen[j]!=___INT(___VECTORELEM(want,j))) {
+      printf("(root-task-result mismatch %d %d %ld %ld (%ld %ld %ld %ld %ld))\n",
+        i,op,(long)j,seen[j],seen[0],seen[1],seen[2],seen[3],seen[4]);
+      fflush(stdout);_Exit(71);
+    }
+  }
+  printf("(root-task-result pass %d)\n",n);fflush(stdout);_Exit(0);
+#endif
+}
+c-end
+)
+(define (snapshot-oracle commands)
+  (let ((registered (make-vector 4 #f)) (added 0) (captured -1)
+        (phase 0) (state 0) (lease 0))
+    (list->vector
+     (map (lambda (row)
+            (let ((op (vector-ref row 0)) (slot (+ 1 (vector-ref row 1))) (ok #f))
+              (case op
+                ((0 2 8)
+                 (set! ok (or (vector-ref registered slot) (= op 2)
+                              (and (= op 0) (= phase 0))))
+                 (if (and ok (not (vector-ref registered slot)))
+                     (begin (vector-set! registered slot #t) (set! added (+ added 1)))))
+                ((1) (if (= phase 0) (begin (set! phase 1) (set! captured added) (set! ok #t))))
+                ((3) (if (= phase 1) (begin
+                         (if (= state 0) (begin (set! state 1) (set! lease 1))) (set! ok #t))))
+                ((4) (if (and (= phase 1) (= state 1)) (begin (set! state 2) (set! ok #t))))
+                ((5) (if (and (= phase 1) (= state 2)) (begin (set! state 4) (set! ok #t))))
+                ((6) (if (and (= phase 1) (memv state '(4 5)))
+                         (begin (set! state 5) (set! lease 0) (set! ok #t))))
+                ((7) (if (and (= phase 1) (= state 5))
+                         (begin (set! phase 2) (set! captured -1) (set! ok #t)))))
+              (vector (if ok 1 0) added captured state lease))) commands))))
+
 ;;; The oracle describes externally observable requests. SCANNED is the native
 ;;; refinement cut after the real scanner, before root_dispatch.finish.
 (define family 'rc)
 (define (trace-tag)
-  (case family ((vm) 'vm-root-task-trace) ((bank) 'bank-root-task-trace) ((stack) 'stack-root-task-trace) ((symkey) 'symkey-root-task-trace) ((globals) 'globals-root-task-trace)
+  (case family ((snapshot) 'globals-snapshot-trace) ((vm) 'vm-root-task-trace) ((bank) 'bank-root-task-trace) ((stack) 'stack-root-task-trace) ((symkey) 'symkey-root-task-trace) ((globals) 'globals-root-task-trace)
     ((continuation) 'continuation-history)
     (else 'root-task-trace)))
 (define (trace-file suffix)
-  (string-append (case family ((vm) "vm-root-task-")
+  (string-append (case family ((snapshot) "globals-snapshot-") ((vm) "vm-root-task-")
                   ((bank) "bank-root-task-") ((stack) "stack-root-task-") ((symkey) "symkey-root-task-") ((globals) "globals-root-task-")
                   ((continuation) "continuation-history-") (else "root-task-")) suffix ".trace"))
 (define (oracle commands)
@@ -201,19 +309,19 @@ c-end
       commands))))
 
 (define (trace? x)
-  (and (list? x) (= (length x) 4) (memq (car x) '(root-task-trace vm-root-task-trace bank-root-task-trace stack-root-task-trace symkey-root-task-trace globals-root-task-trace continuation-history))
+  (and (list? x) (= (length x) 4) (memq (car x) '(root-task-trace vm-root-task-trace bank-root-task-trace stack-root-task-trace symkey-root-task-trace globals-root-task-trace globals-snapshot-trace continuation-history))
        (integer? (cadr x)) (<= 1 (cadr x) 3) (list? (caddr x))
        (<= (length (caddr x)) 96) (memv (cadddr x) '(0 1))
        (let loop ((xs (caddr x)))
          (or (null? xs)
              (let ((r (car xs)))
                (and (vector? r) (= (vector-length r) 3)
-                    (integer? (vector-ref r 0)) (<= 0 (vector-ref r 0) (if (eq? (car x) 'globals-root-task-trace) 6 5))
+                    (integer? (vector-ref r 0)) (<= 0 (vector-ref r 0) (case (car x) ((globals-snapshot-trace) 8) ((globals-root-task-trace) 6) (else 5)))
                     (memv (vector-ref r 1) '(-1 0 1 2))
                     (memv (vector-ref r 2) '(0 1)) (loop (cdr xs))))))))
 (define (replay trace)
   (if (not (trace? trace)) (error "invalid structured root-task trace"))
-  (set! family (case (car trace) ((vm-root-task-trace) 'vm)
+  (set! family (case (car trace) ((globals-snapshot-trace) 'snapshot) ((vm-root-task-trace) 'vm)
                  ((bank-root-task-trace) 'bank) ((stack-root-task-trace) 'stack) ((symkey-root-task-trace) 'symkey) ((globals-root-task-trace) 'globals)
                  ((continuation-history) 'continuation) (else 'rc)))
   (if (not (prepare-source)) (error "root-task source allocation failed"))
@@ -221,8 +329,8 @@ c-end
   (let ((commands (caddr trace)))
     (if (eq? family 'continuation)
         (replay-continuation commands (cadddr trace))
-        (replay-native (list->vector commands) (oracle commands) (cadddr trace)
-                       (case family ((vm) 1) ((bank) 2) ((stack) 3) ((symkey) 4) ((globals) 5) (else 0))))))
+        (replay-native (list->vector commands) (if (eq? family 'snapshot) (snapshot-oracle commands) (oracle commands)) (cadddr trace)
+                       (case family ((snapshot) 6) ((vm) 1) ((bank) 2) ((stack) 3) ((symkey) 4) ((globals) 5) (else 0))))))
 
 (define self (car (command-line)))
 (define input-file "root-task-input.dat")
@@ -619,8 +727,87 @@ c-end
        (thread-start! thread) (thread-join! thread)))
    (if (> (##current-vm-processor-count) 1) '(0 1) '(0))))
 
+(define (snapshot-suite)
+  ((c-lambda () void #<<c-end
+printf("(GLOBALS-SNAPSHOT-LAYOUT global-added %lu vm-pointer %lu snapshot %lu source %lu task %lu participants-capacity %d)\n",
+  (unsigned long)(sizeof(___gstate_mem)-3*sizeof(void*)-sizeof(___glo_list_struct)),
+  (unsigned long)sizeof(void*),(unsigned long)sizeof(___global_root_snapshot),
+  (unsigned long)sizeof(___global_root_source),(unsigned long)sizeof(___root_task),___MAX_PROCESSORS);
+fflush(stdout);
+c-end
+))
+  (set! family 'snapshot) (set! trials 0)
+  (let ((seed 881) (actions 0))
+    (define (next n) (set! seed (modulo (+ (* seed 48271) 17) 2147483647)) (modulo seed n))
+    (define (noise n) (if (= n 0) '() (cons (vector (next 9) (- (next 4) 1) 0) (noise (- n 1)))))
+    (define chain (map (lambda (op) (vector op 0 0)) '(1 3 2 4 7 5 6 7)))
+    (let ((result (trial chain 0)))
+      (if (signature result) (error "actual cross-VM prefix control failed" result)))
+    (set! actions (length chain))
+    (display "GLOBALS-SNAPSHOT-PREFIX-PASS\n")
+    (do ((sample 0 (+ sample 1))) ((= sample 12))
+      (let* ((commands (append (noise 12) chain (noise 12))) (result (trial commands 0)))
+        (set! actions (+ actions (length commands)))
+        (if (signature result)
+            (let ((minimal (shrink commands 0 (signature result))))
+              (with-output-to-file (trace-file "failure")
+                (lambda () (write (list (trace-tag) 1 minimal 0)) (newline)))
+              (error "actual snapshot property failed" result minimal)))))
+    (write (list 'GLOBALS-SNAPSHOT-PBT-PASS 'seed 881 'cases 12 'actions actions)) (newline)
+    (let* ((noisy (append (make-list 6 (vector 7 0 0)) chain (make-list 6 (vector 8 2 0))))
+           (failure (trial noisy 1)) (wanted (signature failure)))
+      (if (not (equal? wanted '(2 2))) (error "live-count calibration missed" failure))
+      (let* ((minimal (shrink noisy 1 wanted)) (replayed (trial minimal 1))
+             (minimal? (one-minimal? minimal 1 wanted)))
+        (if (not (and (= (length minimal) 2) minimal?
+                      (equal? (signature replayed) wanted) (not (signature (trial minimal 0)))))
+            (error "snapshot replay/shrink failed" minimal replayed))
+        (with-output-to-file (trace-file "minimal")
+          (lambda () (write (list (trace-tag) 1 minimal 1)) (newline)))
+        (write (list 'GLOBALS-SNAPSHOT-SHRINK-PASS 'from (length noisy) 'to (length minimal)
+                     'deletion-one-minimal minimal? 'replayed #t 'production-pass #t 'trials trials))
+        (newline)))
+    (delete-file input-file)))
+
+(define (globals-capacity)
+  (let ((refused
+         ((c-lambda () scheme-object #<<c-end
+#ifdef ___SINGLE_VM
+___result=___FAL;
+#else
+___virtual_machine_state vm=___VMSTATE_FROM_PSTATE(___PSTATE);
+___SCMOBJ sym=___FAL,first=___FAL,err;
+char name[80];
+int initial=___CAST(int,___GSTATE->mem.glo_list.count),i;
+for(i=initial;i<___GLOBALS_CAPACITY;i++) {
+  snprintf(name,sizeof(name),"___globals_capacity_identity_%d",i);
+  sym=___make_symkey_from_UTF_8_string(name,___sSYMBOL);
+  if(___FIXNUMP(sym) || ___GLOBALVARSTRUCT(sym)!=0 || ___make_global_var(sym)!=sym ||
+     ___GLOBALVARSTRUCT(sym)->val!=i || vm->glos[i]!=___UNB1) _Exit(74);
+  if(first==___FAL) first=sym;
+}
+sym=___make_symkey_from_UTF_8_string("___globals_capacity_refused",___sSYMBOL);
+err=___make_global_var(sym);
+if(err!=___FIX(___IMPL_LIMIT_ERR) || ___GLOBALVARSTRUCT(sym)!=0 ||
+   ___GSTATE->mem.glo_list.count!=___GLOBALS_CAPACITY ||
+   (first!=___FAL && ___make_global_var(first)!=first)) _Exit(74);
+printf("(GLOBALS-CAPACITY-NATIVE-PASS initial %d actual %d added %d)\n",initial,___GLOBALS_CAPACITY,___GLOBALS_CAPACITY-initial);
+fflush(stdout);___result=sym;
+#endif
+c-end
+))))
+    (if (not refused) (error "capacity control requires multiple VMs"))
+    (let ((caught #f))
+      (with-exception-catcher
+       (lambda (e) (if (not (heap-overflow-exception? e)) (raise e)) (set! caught #t))
+       (lambda () (##make-global-var refused)))
+      (if (not caught) (error "capacity refusal did not reach Scheme"))
+      (display "GLOBALS-CAPACITY-SCHEME-PASS\n"))))
+
 (let ((args (cdr (command-line))))
-  (cond ((and (= (length args) 2) (string=? (car args) "--replay"))
+  (cond ((and (= (length args) 1) (string=? (car args) "--globals-snapshot")) (snapshot-suite))
+        ((and (= (length args) 1) (string=? (car args) "--globals-capacity")) (globals-capacity))
+        ((and (= (length args) 2) (string=? (car args) "--replay"))
          (replay (call-with-input-file (cadr args) read)))
         ((and (= (length args) 1) (string=? (car args) "--moving-bank")) (bank-moving-roots))
         ((and (= (length args) 1) (string=? (car args) "--moving-globals")) (globals-moving-roots))

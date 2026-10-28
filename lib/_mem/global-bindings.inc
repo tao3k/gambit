@@ -1,35 +1,80 @@
 #line 1228 ___MEM_SOURCE_FILE
-void ___glo_list_setup ___PVOID
+/* Lock order: current RC source -> global_gate -> permanent_gate.
+ * No Scheme allocation, callback, collector barrier or native join under them. */
+___HIDDEN ___BOOL global_bootstrap_owner(void)
 {
-  int i;
-
-  ___GSTATE->mem.glo_list.count = 0;
-
-  for (i=___GLO_SUBLIST_COUNT-1; i>=0; i--)
-    {
-      ___glo_sublist_struct *sl = &___GSTATE->mem.glo_list.sublist[i];
-      sl->head = 0;
-      sl->tail = 0;
-    }
+#ifdef ___USE_POSIX_THREAD_SYSTEM
+  return pthread_equal(___GSTATE->mem.global_bootstrap_owner.thread_id,pthread_self());
+#else
+#ifdef ___USE_WIN32_THREAD_SYSTEM
+  return ___GSTATE->mem.global_bootstrap_owner.thread_id==GetCurrentThreadId();
+#else
+  return 1;
+#endif
+#endif
 }
 
-
-void ___glo_list_add
-   ___P((___glo_struct *glo),
-        (glo)
-___glo_struct *glo;)
+___SCMOBJ ___glo_list_setup ___PVOID
 {
-  int i = ___GSTATE->mem.glo_list.count++ % ___GLO_SUBLIST_COUNT;
-  ___glo_sublist_struct *sl = &___GSTATE->mem.glo_list.sublist[i];
+  int i;
+#ifdef ___USE_POSIX_THREAD_SYSTEM
+  if (!___MUTEX_INIT(___GSTATE->mem.global_gate)) return ___FIX(___UNKNOWN_ERR);
+  if (!___MUTEX_INIT(___GSTATE->mem.permanent_gate)) {
+    ___MUTEX_DESTROY(___GSTATE->mem.global_gate); return ___FIX(___UNKNOWN_ERR);
+  }
+#else
+  ___MUTEX_INIT(___GSTATE->mem.global_gate);
+  ___MUTEX_INIT(___GSTATE->mem.permanent_gate);
+#endif
+  ___GSTATE->mem.global_bootstrap=1;
+  ___GSTATE->mem.global_snapshots=0;
+  ___thread_init_from_self(&___GSTATE->mem.global_bootstrap_owner);
+  ___GSTATE->mem.glo_list.count=0;
+  for (i=0;i<___GLO_SUBLIST_COUNT;i++) {
+    ___GSTATE->mem.glo_list.sublist[i].head=0;
+    ___GSTATE->mem.glo_list.sublist[i].tail=0;
+  }
+  return ___FIX(___NO_ERR);
+}
 
-  glo->next = 0;
+void ___glo_list_open ___PVOID
+{
+  ___MUTEX_LOCK(___GSTATE->mem.global_gate);
+  ___GSTATE->mem.global_bootstrap=0;
+  ___MUTEX_UNLOCK(___GSTATE->mem.global_gate);
+}
 
-  if (sl->head == 0)
-    sl->head = glo;
-  else
-    sl->tail->next = glo;
+___HIDDEN ___BOOL global_room(void)
+{
+#ifdef ___SINGLE_VM
+  return ___GSTATE->mem.glo_list.count < INT_MAX;
+#else
+  return ___GSTATE->mem.glo_list.count < ___GLOBALS_CAPACITY;
+#endif
+}
 
-  sl->tail = glo;
+___HIDDEN void global_append(___glo_struct *glo)
+{
+  ___SIZE_T index=___GSTATE->mem.glo_list.count;
+  ___glo_sublist_struct *sl=&___GSTATE->mem.glo_list.sublist[index%___GLO_SUBLIST_COUNT];
+#ifndef ___SINGLE_VM
+  glo->val=index;
+#endif
+  glo->next=0;
+  if (sl->head==0) sl->head=glo; else sl->tail->next=glo;
+  sl->tail=glo;
+  ___GSTATE->mem.glo_list.count=index+1;
+}
+
+___SCMOBJ ___glo_list_add(___glo_struct *glo)
+{
+  ___SCMOBJ result=___FIX(___IMPL_LIMIT_ERR);
+  ___MUTEX_LOCK(___GSTATE->mem.global_gate);
+  if (___GSTATE->mem.global_bootstrap && global_bootstrap_owner() && global_room()) {
+    global_append(glo); result=___FIX(___NO_ERR);
+  }
+  ___MUTEX_UNLOCK(___GSTATE->mem.global_gate);
+  return result;
 }
 
 
@@ -50,6 +95,7 @@ ___BOOL prm;)
   int glo_depth = 999999999;
   int i;
 
+  ___MUTEX_LOCK(___GSTATE->mem.global_gate);
   for (i=___GLO_SUBLIST_COUNT-1; i>=0; i--)
     {
       ___glo_sublist_struct *sl = &___GSTATE->mem.glo_list.sublist[i];
@@ -83,6 +129,7 @@ ___BOOL prm;)
         }
     }
 
+  ___MUTEX_UNLOCK(___GSTATE->mem.global_gate);
   return glo;
 }
 
@@ -148,31 +195,36 @@ ___SCMOBJ ___make_global_var
         (sym)
 ___SCMOBJ sym;)
 {
-  if (___GLOBALVARSTRUCT(sym) == 0)
-    {
-      ___glo_struct *glo = ___CAST(___glo_struct*,
-                                   alloc_mem_aligned_perm
-                                     (___WORDS(sizeof (___glo_struct)),
-                                      1,
-                                      0));
-
-      if (glo == 0)
-        return ___FIX(___HEAP_OVERFLOW_ERR);
-
-#ifdef ___SINGLE_VM
-      glo->val = ___UNB1;
-#else
-      glo->val = ___GSTATE->mem.glo_list.count;
+  ___processor_state ps=___GET_REAL_PSTATE();
+  ___rc_domain *domain;
+  ___SCMOBJ result=sym;
+#ifdef ___SUPPORT_PSTATE_BIND
+  if (ps!=0) ps=ps->pstate_binding;
 #endif
-
-      ___glo_list_add (glo);
-
-      ___PRMCELL(glo->prm) = ___FAL;
-
-      ___SYMBOL_GLOBAL_FIELD(sym) = ___CAST(___SCMOBJ,glo);
+  domain=ps==0?0:ps->mem.rc_domain_;
+  if (domain!=0) ___RC_LOCK(domain);
+  ___MUTEX_LOCK(___GSTATE->mem.global_gate);
+  if (___GLOBALVARSTRUCT(sym)==0) {
+    if (!(domain!=0 ? domain->owner==ps && domain->phase==___RC_OPEN :
+          ___GSTATE->mem.global_bootstrap && global_bootstrap_owner()) ||
+        !global_room()) result=___FIX(___IMPL_LIMIT_ERR);
+    else {
+      ___glo_struct *glo=___CAST(___glo_struct*,alloc_mem_aligned_perm(
+        ___WORDS(sizeof(___glo_struct)),1,0));
+      if (glo==0) result=___FIX(___HEAP_OVERFLOW_ERR);
+      else {
+#ifdef ___SINGLE_VM
+        glo->val=___UNB1;
+#endif
+        ___PRMCELL(glo->prm)=___FAL;
+        global_append(glo);
+        ___PUBLISH_GLOBAL_WORD(&___SYMBOL_GLOBAL_FIELD(sym),___CAST(___SCMOBJ,glo));
+      }
     }
-
-  return sym;
+  }
+  ___MUTEX_UNLOCK(___GSTATE->mem.global_gate);
+  if (domain!=0) ___RC_UNLOCK(domain);
+  return result;
 }
 
 

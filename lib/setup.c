@@ -3217,7 +3217,7 @@ ___mod_or_lnk mol;)
 }
 
 
-___HIDDEN void init_symkey_glo2
+___HIDDEN ___SCMOBJ init_symkey_glo2
    ___P((___mod_or_lnk mol),
         (mol)
 ___mod_or_lnk mol;)
@@ -3230,7 +3230,8 @@ ___mod_or_lnk mol;)
 
       while (p1->mol != 0)
         {
-          init_symkey_glo2 (p1->mol);
+          ___SCMOBJ err=init_symkey_glo2(p1->mol);
+          if (err!=___FIX(___NO_ERR)) return err;
           p1++;
         }
 
@@ -3247,13 +3248,10 @@ ___mod_or_lnk mol;)
           str = align_subtyped (___CAST(___SCMOBJ*,sym_ptr[___SUBTYPED_BODY+___SYMKEY_NAME]));
           glo = ___CAST(___glo_struct*,sym_ptr[___SUBTYPED_BODY+___SYMBOL_GLOBAL]);
 
-#ifndef ___SINGLE_VM
-
-          glo->val = ___GSTATE->mem.glo_list.count;
-
-#endif
-
-          ___glo_list_add (glo);
+          {
+            ___SCMOBJ err=___glo_list_add(glo);
+            if (err!=___FIX(___NO_ERR)) return err;
+          }
 
           sym_ptr[0] = ___MAKE_HD((___SYMBOL_SIZE<<___LWS),___sSYMBOL,___PERM);
 
@@ -3285,6 +3283,7 @@ ___mod_or_lnk mol;)
           ___intern_symkey (key);
         }
     }
+  return ___FIX(___NO_ERR);
 }
 
 
@@ -6568,10 +6567,10 @@ ___setup_params_struct *setup_params;)
    */
 
   init_symkey_glo1 (mol);
-  init_symkey_glo2 (mol);
-
   do
     {
+      err=init_symkey_glo2(mol);
+      if (err!=___FIX(___NO_ERR)) break;
 
       /*
        * Setup each module.
@@ -6625,6 +6624,7 @@ ___setup_params_struct *setup_params;)
        */
 
       ___thread_set_pstate (___ps);
+      ___glo_list_open();
 
       /*
        * By convention, the main module is the last one in the module
