@@ -594,6 +594,163 @@ c-end
                      'deletion-one-minimal one? 'replayed #t 'production-pass #t)) (newline)))
     (delete-file input-file)))
 
+(cond-expand
+ (marker-input-test
+;;; Explicit scalar marker inputs reuse the existing replay and shrink driver.
+;;; The optional allocator adapter compiles the actual c_intf.c, not a model.
+(c-declare #<<c-end
+#ifdef ___TEST_MARKER_INPUT
+#include "c_intf.h"
+static int test_marker_mode, test_marker_collections;
+static ___SIZE_T test_marker_base_nodes,test_marker_base_borrows;
+static int test_marker_custody;
+void *test_marker_alloc(___PSD ___SIZE_T bytes)
+{
+  ___PSGET
+  if (test_marker_mode==3) return 0;
+  return ___EXT(___alloc_rc)(___PSP bytes);
+}
+const ___SCMOBJ *test_marker_borrow(___processor_state ps,void *ptr)
+{
+  if (test_marker_mode==4) return 0;
+  return ___borrow_rc_root(ps,ptr);
+}
+___SCMOBJ test_marker_vector(___processor_state ps,___SIZE_TS n,___SCMOBJ init)
+{
+  ___rc_domain *d=ps->mem.rc_domain_;
+  ___SIZE_T extra=test_marker_mode==6?0:1;
+  ___RC_LOCK(d);
+  test_marker_custody=d->nodes==test_marker_base_nodes+extra &&
+    d->borrows==test_marker_base_borrows+extra;
+  ___RC_UNLOCK(d);
+  if (test_marker_mode==2) return ___FIX(___HEAP_OVERFLOW_ERR);
+  if (test_marker_mode==1 || test_marker_mode==5 || test_marker_mode==6) {
+    if (___garbage_collect(___PSA(ps) 0)) return ___FIX(___HEAP_OVERFLOW_ERR);
+    ++test_marker_collections;
+  }
+  return ___EXT(___make_vector)(ps,n,init);
+}
+/* Selected920cf0c7 explicit-value constructor sequence. The false selector is
+ * outside this test: no closure trampoline/provider is substituted here. */
+static ___SCMOBJ test_marker_predecessor(___processor_state ps,
+                                       ___SCMOBJ *marker,___SCMOBJ proc)
+{
+  ___SCMOBJ x=test_marker_vector(ps,
+#ifdef ___SINGLE_THREADED_VMS
+                                1,
+#else
+                                2,
+#endif
+                                ___FAL);
+  if (___FIXNUMP(x)) return ___FIX(___SFUN_HEAP_OVERFLOW_ERR);
+  ___VECTORELEM(x,0)=proc;
+#ifndef ___SINGLE_THREADED_VMS
+  ___VECTORELEM(x,1)=___FIX(___PROCESSOR_ID(ps,___VMSTATE_FROM_PSTATE(ps)));
+#endif
+  *marker=x;
+  return ___FIX(___NO_ERR);
+}
+#endif
+c-end
+)
+(define marker-input-act
+ (c-lambda (scheme-object int bool) bool #<<c-end
+#ifndef ___TEST_MARKER_INPUT
+___result=0;
+#else
+___processor_state ps=___PSTATE;
+___rc_domain *d=ps->mem.rc_domain_;
+___SIZE_T nodes,borrows;
+___SCMOBJ before=___arg1,marker=___FAL,err;
+const ___SCMOBJ *cell=0;
+void *held=0;
+int op=___arg2,ok=1;
+___RC_LOCK(d);nodes=d->nodes;borrows=d->borrows;___RC_UNLOCK(d);
+test_marker_mode=op;test_marker_collections=0;test_marker_custody=1;
+test_marker_base_nodes=nodes;test_marker_base_borrows=borrows;
+if(op==6 && (!___TESTTYPE(before,___tSUBTYPED) ||
+   ___HD_TYP(___SUBTYPED_HEADER(before))!=___PERM)) _Exit(76);
+if(op==5) {
+  held=___EXT(___alloc_rc)(___PSA(ps) 0);
+  if(!held || !___try_set_data_rc(ps,held,___arg1)) _Exit(74);
+  cell=___borrow_rc_root(ps,held);
+  if(!cell) _Exit(74);
+  err=___make_sfun_stack_marker_root(ps,&marker,cell);
+} else if(___arg3 && op==1) {
+  err=test_marker_predecessor(ps,&marker,before);
+} else {
+  err=___EXT(___make_sfun_stack_marker)(ps,&marker,before);
+}
+test_marker_mode=0;
+if(op>=2 && op<=4)
+  ok=err==___FIX(___SFUN_HEAP_OVERFLOW_ERR) && marker==___FAL;
+else {
+  ok=err==___FIX(___NO_ERR) && marker!=___FAL;
+  if(ok) {
+    /* Compare to the caller's GC-updated CFUN_ARG; never dereference stale
+     * predecessor memory. Clear the marker before any subsequent collection. */
+    ok=___VECTORELEM(marker,0)==___arg1;
+#ifndef ___SINGLE_THREADED_VMS
+    ok=ok && ___VECTORELEM(marker,1)==___FIX(___PROCESSOR_ID(ps,___VMSTATE_FROM_PSTATE(ps)));
+#endif
+    ___EXT(___kill_sfun_stack_marker)(marker);
+  }
+  if(op==1 || op==5 || op==6) {
+    if(test_marker_collections!=1 || ((op!=6) && before==___arg1)) _Exit(75);
+  } else if(test_marker_collections!=0) _Exit(75);
+}
+if(held) { ___return_rc_root(held);___EXT(___release_rc)(held); }
+___RC_LOCK(d);ok=ok && d->nodes==nodes && d->borrows==borrows;___RC_UNLOCK(d);
+___result=ok && test_marker_custody;
+#endif
+c-end
+))
+(define (marker-input-permanent x) x)
+(define (replay-marker-input commands fault)
+  (let loop ((xs commands) (at 0))
+    (if (null? xs)
+        (begin (write (list 'root-task-result 'pass at)) (newline) (exit))
+        (let* ((row (car xs)) (op (vector-ref row 0))
+               (payload (if (= op 6) marker-input-permanent
+                            (let ((value (vector at (vector-ref row 1) (vector-ref row 2))))
+                              (lambda () value)))))
+          (if (not (marker-input-act payload op (= fault 1)))
+              (begin (write (list 'root-task-result 'mismatch at op 0))
+                     (newline) (force-output) (rc-write-exit 71)))
+          (loop (cdr xs) (+ at 1))))))
+(define (marker-input-suite)
+  (set! family 'marker-input) (set! trials 0)
+  (let ((seed 1951) (actions 7))
+    (define (next n) (set! seed (modulo (+ (* seed 48271) 17) 2147483647)) (modulo seed n))
+    (define (noise n)
+      (if (= n 0) '() (cons (vector (next 7) (- (next 4) 1) (next 2)) (noise (- n 1)))))
+    (let ((result (trial '(#(0 0 0) #(1 0 0) #(2 0 0) #(3 0 0) #(4 0 0) #(5 0 0) #(6 0 0)) 0)))
+      (if (signature result) (error "marker input mandatory requests failed" result))
+      (write (list 'MARKER-INPUT-GC-REFUSAL-PASS result)) (newline))
+    (do ((i 0 (+ i 1))) ((= i 12))
+      (let* ((commands (noise 24)) (result (trial commands 0)))
+        (set! actions (+ actions (length commands)))
+        (if (signature result)
+            (error "marker input property failed" result (shrink commands 0 (signature result))))))
+    (write (list 'MARKER-INPUT-PBT-PASS 'seed 1951 'cases 12 'actions actions)) (newline)
+    (let* ((commands (append (make-list 6 '#(0 0 0)) (list '#(1 0 0)) (make-list 6 '#(0 0 0))))
+           (failure (trial commands 1)) (wanted (signature failure)))
+      (if (not (equal? wanted '(1 0))) (error "actual predecessor marker control missed" failure))
+      (let* ((minimal (shrink commands 1 wanted)) (again (trial minimal 1))
+             (one? (one-minimal? minimal 1 wanted)) (positive (trial minimal 0)))
+        (if (not (and (= (length minimal) 1) one? (equal? (signature again) wanted) (not (signature positive))))
+            (error "marker input shrink/replay failed" minimal again positive))
+        (for-each
+         (lambda (pair) (with-output-to-file (trace-file (car pair))
+                          (lambda () (write (list (trace-tag) 1 minimal (cdr pair))) (newline))))
+         '(("legacy-minimal" . 1) ("current-minimal" . 0)))
+        (write (list 'MARKER-INPUT-IMPLEMENTATION-SHRINK-PASS 'from 13 'to 1
+                     'deletion-one-minimal one? 'replayed #t 'production-pass #t)) (newline)))
+    (delete-file input-file)))
+
+)
+ (else (begin)))
+
 ;;; Tcl construction uses this same replay/shrink driver, with an optional
 ;;; real Tcl provider. The ordinary root target has no Tcl link dependency.
 (c-declare #<<c-end
@@ -792,11 +949,11 @@ c-end
 
 (define family 'rc)
 (define (trace-tag)
-  (case family ((tcl-command) 'tcl-command-trace) ((rc-write) 'rc-write-trace) ((view) 'symkey-view-trace) ((intern) 'symkey-publication-trace) ((snapshot) 'globals-snapshot-trace) ((vm) 'vm-root-task-trace) ((bank) 'bank-root-task-trace) ((stack) 'stack-root-task-trace) ((symkey) 'symkey-root-task-trace) ((globals) 'globals-root-task-trace)
+  (case family ((marker-input) 'marker-input-trace) ((tcl-command) 'tcl-command-trace) ((rc-write) 'rc-write-trace) ((view) 'symkey-view-trace) ((intern) 'symkey-publication-trace) ((snapshot) 'globals-snapshot-trace) ((vm) 'vm-root-task-trace) ((bank) 'bank-root-task-trace) ((stack) 'stack-root-task-trace) ((symkey) 'symkey-root-task-trace) ((globals) 'globals-root-task-trace)
     ((continuation) 'continuation-history)
     (else 'root-task-trace)))
 (define (trace-file suffix)
-  (string-append (case family ((tcl-command) "tcl-command-") ((rc-write) "rc-write-") ((view) "symkey-view-") ((intern) "symkey-publication-") ((snapshot) "globals-snapshot-") ((vm) "vm-root-task-")
+  (string-append (case family ((marker-input) "marker-input-") ((tcl-command) "tcl-command-") ((rc-write) "rc-write-") ((view) "symkey-view-") ((intern) "symkey-publication-") ((snapshot) "globals-snapshot-") ((vm) "vm-root-task-")
                   ((bank) "bank-root-task-") ((stack) "stack-root-task-") ((symkey) "symkey-root-task-") ((globals) "globals-root-task-")
                   ((continuation) "continuation-history-") (else "root-task-")) suffix ".trace"))
 (define (oracle commands)
@@ -826,7 +983,7 @@ c-end
       commands))))
 
 (define (trace? x)
-  (and (list? x) (= (length x) 4) (memq (car x) '(tcl-command-trace rc-write-trace root-task-trace vm-root-task-trace bank-root-task-trace stack-root-task-trace symkey-root-task-trace globals-root-task-trace globals-snapshot-trace symkey-publication-trace symkey-view-trace continuation-history))
+  (and (list? x) (= (length x) 4) (memq (car x) '(marker-input-trace tcl-command-trace rc-write-trace root-task-trace vm-root-task-trace bank-root-task-trace stack-root-task-trace symkey-root-task-trace globals-root-task-trace globals-snapshot-trace symkey-publication-trace symkey-view-trace continuation-history))
        (integer? (cadr x)) (<= 1 (cadr x) 3) (list? (caddr x))
        (<= (length (caddr x)) 96)
        (if (eq? (car x) 'symkey-view-trace)
@@ -836,18 +993,21 @@ c-end
          (or (null? xs)
              (let ((r (car xs)))
                (and (vector? r) (= (vector-length r) 3)
-                    (integer? (vector-ref r 0)) (<= 0 (vector-ref r 0) (case (car x) ((symkey-view-trace) 9) ((rc-write-trace) 8) ((tcl-command-trace) 7) ((globals-snapshot-trace symkey-publication-trace) 8) ((globals-root-task-trace) 6) (else 5)))
+                    (integer? (vector-ref r 0)) (<= 0 (vector-ref r 0) (case (car x) ((symkey-view-trace) 9) ((rc-write-trace) 8) ((marker-input-trace) 6) ((tcl-command-trace) 7) ((globals-snapshot-trace symkey-publication-trace) 8) ((globals-root-task-trace) 6) (else 5)))
                     (memv (vector-ref r 1) '(-1 0 1 2))
                     (memv (vector-ref r 2) '(0 1)) (loop (cdr xs))))))))
 (define (replay trace)
   (if (not (trace? trace)) (error "invalid structured root-task trace"))
-  (set! family (case (car trace) ((tcl-command-trace) 'tcl-command) ((rc-write-trace) 'rc-write) ((symkey-view-trace) 'view) ((symkey-publication-trace) 'intern) ((globals-snapshot-trace) 'snapshot) ((vm-root-task-trace) 'vm)
+  (set! family (case (car trace) ((marker-input-trace) 'marker-input) ((tcl-command-trace) 'tcl-command) ((rc-write-trace) 'rc-write) ((symkey-view-trace) 'view) ((symkey-publication-trace) 'intern) ((globals-snapshot-trace) 'snapshot) ((vm-root-task-trace) 'vm)
                  ((bank-root-task-trace) 'bank) ((stack-root-task-trace) 'stack) ((symkey-root-task-trace) 'symkey) ((globals-root-task-trace) 'globals)
                  ((continuation-history) 'continuation) (else 'rc)))
   (if (not (prepare-source)) (error "root-task source allocation failed"))
   (do ((i 0 (+ i 1))) ((= i (cadr trace))) (##gc))
   (let ((commands (caddr trace)))
-    (cond ((eq? family 'tcl-command) (replay-tcl-command commands (cadddr trace)))
+    (cond ((eq? family 'marker-input)
+           (cond-expand (marker-input-test (replay-marker-input commands (cadddr trace)))
+                        (else (error "marker-input test feature not selected"))))
+          ((eq? family 'tcl-command) (replay-tcl-command commands (cadddr trace)))
           ((eq? family 'rc-write) (replay-rc-write commands (cadddr trace)))
           ((eq? family 'view) (replay-view commands (cadddr trace)))
           ((eq? family 'continuation) (replay-continuation commands (cadddr trace)))
@@ -1721,6 +1881,9 @@ c-end
   (cond ((and (= (length args) 1) (string=? (car args) "--intern-growth")) (intern-growth 0))
         ((and (= (length args) 1) (string=? (car args) "--intern-growth-fault")) (intern-growth 1))
         ((and (= (length args) 1) (string=? (car args) "--intern-gc-publish")) (intern-growth 2))
+        ((and (= (length args) 1) (string=? (car args) "--marker-input"))
+         (cond-expand (marker-input-test (marker-input-suite))
+                      (else (error "marker-input test feature not selected"))))
         ((and (= (length args) 1) (string=? (car args) "--tcl-command")) (tcl-command-suite))
         ((and (= (length args) 1) (string=? (car args) "--rc-writes")) (rc-write-suite))
         ((and (= (length args) 1) (string=? (car args) "--symkey-views")) (view-suite))

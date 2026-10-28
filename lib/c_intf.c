@@ -16,6 +16,7 @@
 #include "setup.h"
 #include "mem.h"
 #include "c_intf.h"
+#include "rc.h"
 
 
 /*---------------------------------------------------------------------------*/
@@ -6557,7 +6558,30 @@ ___EXP_FUNC(___SCMOBJ,___make_sfun_stack_marker)
 ___processor_state ps;
 ___SCMOBJ *marker;
 ___SCMOBJ proc;)
-{ return make_sfun_stack_marker(ps,marker,proc,0); }
+{
+  void *held;
+  const ___SCMOBJ *root;
+  ___SCMOBJ result;
+  /* False is the existing dynamic-closure selector, not an explicit value.
+   * Already-rooted startup callers use the separate root entry below. */
+  /* Permanent inputs already have VM-lifetime identity and cannot move.
+   * A still object is not permanent: it still needs lifetime protection. */
+  if (proc == ___FAL ||
+      (___TESTTYPE(proc,___tSUBTYPED) &&
+       ___HD_TYP(___SUBTYPED_HEADER(proc)) == ___PERM))
+    return make_sfun_stack_marker(ps,marker,proc,0);
+  held=___alloc_rc(___PSA(ps) 0);
+  if (held == 0) return ___FIX(___SFUN_HEAP_OVERFLOW_ERR);
+  if (!___try_set_data_rc(ps,held,proc))
+    { ___release_rc(held); return ___FIX(___SFUN_HEAP_OVERFLOW_ERR); }
+  root=___borrow_rc_root(ps,held);
+  if (root == 0)
+    { ___release_rc(held); return ___FIX(___SFUN_HEAP_OVERFLOW_ERR); }
+  result=make_sfun_stack_marker(ps,marker,___TRU,root);
+  ___return_rc_root(held);
+  ___release_rc(held);
+  return result;
+}
 
 ___SCMOBJ ___make_sfun_stack_marker_root(___processor_state ps,
                                        ___SCMOBJ *marker,

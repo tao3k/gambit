@@ -533,3 +533,12 @@ test-tcl-command: $(srcdirpfx)$(rootfromhere)/examples/tcltk/command.h
 	@SETDLPATH@ $(rootfromhere)/gsc/gsc@exe@ -:~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f -exe -cc-options "-DHAVE_CONFIG_H -D___TEST_TCL_COMMAND -I$(srcdirpfx)$(rootfromhere)/include -I$(srcdirpfx)$(rootfromhere)/lib -I$(srcdirpfx)$(rootfromhere)/examples/tcltk $(TCL_CFLAGS)" -ld-options "$(TCL_LIBS)" -o root-task-tcl@exe@ $(srcdirpfx)root-task.scm
 	@SETDLPATH@ ./root-task-tcl@exe@ -:p1 --tcl-command
 	rm -f root-task-tcl@exe@ root-task-input.dat
+
+# The existing root-task driver exercises the actual C marker constructor.
+# Interpose only allocation/borrow refusal and the collecting allocator boundary.
+.PHONY: test-marker-input
+test-marker-input:
+	$(C_COMPILER) $(FLAGS_OPT_RTS) $(FLAGS_OBJ) $(DEFS) -I$(srcdirpfx)$(rootfromhere)/include -I$(srcdirpfx)$(rootfromhere)/lib -D___LIBRARY -D___make_vector=test_marker_vector -D___alloc_rc=test_marker_alloc -D___borrow_rc_root=test_marker_borrow -c -o marker-input-c-intf@obj@ $(srcdirpfx)$(rootfromhere)/lib/c_intf.c
+	@SETDLPATH@ $(rootfromhere)/gsc/gsc@exe@ -:~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f -prelude "(define-cond-expand-feature marker-input-test)" -exe -cc-options "-DHAVE_CONFIG_H -D___TEST_MARKER_INPUT -I$(srcdirpfx)$(rootfromhere)/include -I$(srcdirpfx)$(rootfromhere)/lib" -ld-options-prelude "marker-input-c-intf@obj@" -o root-task-marker@exe@ $(srcdirpfx)root-task.scm
+	@SETDLPATH@ ./root-task-marker@exe@ -:p1 --marker-input
+	rm -f root-task-marker@exe@ marker-input-c-intf@obj@

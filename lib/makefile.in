@@ -361,7 +361,7 @@ setup@obj@: setup.c os.h os_setup.h os_base.h os_files.h os_dyn.h os_thread.h se
 mem@obj@: mem.c $(MEMORY_SOURCES) os.h os_setup.h os_base.h os_time.h setup.h mem.h rc.h root.h vm-resize.h c_intf.h actlog.h
 	@BUILD_OBJ_RTS@ -D___LIBRARY
 
-c_intf@obj@: c_intf.c os.h os_base.h os_dyn.h setup.h mem.h c_intf.h
+c_intf@obj@: c_intf.c os.h os_base.h os_dyn.h setup.h mem.h c_intf.h rc.h root.h
 	@BUILD_OBJ_RTS@ -D___LIBRARY
 
 actlog@obj@: actlog.c os.h os_base.h os_time.h actlog.h
