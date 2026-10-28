@@ -526,3 +526,10 @@ test-symkey-views:
 	@SETDLPATH@ $(rootfromhere)/gsc/gsc@exe@ -:~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f -exe -cc-options "-DHAVE_CONFIG_H -I$(srcdirpfx)$(rootfromhere)/include -I$(srcdirpfx)$(rootfromhere)/lib" -o root-task@exe@ $(srcdirpfx)root-task.scm
 	@SETDLPATH@ ./root-task@exe@ -:p1 --symkey-views
 	rm -f root-task@exe@ root-task-input.dat
+
+# Optional real Tcl provider for the existing root-task replay/shrink fixture.
+.PHONY: test-tcl-command
+test-tcl-command: $(srcdirpfx)$(rootfromhere)/examples/tcltk/command.h
+	@SETDLPATH@ $(rootfromhere)/gsc/gsc@exe@ -:~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f -exe -cc-options "-DHAVE_CONFIG_H -D___TEST_TCL_COMMAND -I$(srcdirpfx)$(rootfromhere)/include -I$(srcdirpfx)$(rootfromhere)/lib -I$(srcdirpfx)$(rootfromhere)/examples/tcltk $(TCL_CFLAGS)" -ld-options "$(TCL_LIBS)" -o root-task-tcl@exe@ $(srcdirpfx)root-task.scm
+	@SETDLPATH@ ./root-task-tcl@exe@ -:p1 --tcl-command
+	rm -f root-task-tcl@exe@ root-task-input.dat
