@@ -5952,10 +5952,10 @@ ___FIELD(SYMBOL,sym,___SYMBOL_GLOBAL)
 
 #define ___GLOBALVARSTRUCT(gv)___CAST(___glo_struct*,___LOAD_GLOBAL_WORD(&___SYMBOL_GLOBAL_FIELD(gv)))
 
-#define ___GLOBALVARREF(gv)___GLOCELL(___GLOBALVARSTRUCT(gv)->val)
-#define ___GLOBALVARPRIMREF(gv)___PRMCELL(___GLOBALVARSTRUCT(gv)->prm)
-#define ___GLOBALVARSET(gv,x)___GLOCELL(___GLOBALVARSTRUCT(gv)->val) = x;
-#define ___GLOBALVARPRIMSET(gv,x)___PRMCELL(___GLOBALVARSTRUCT(gv)->prm) = x;
+#define ___GLOBALVARREF(gv)___LOAD_GLOBAL_WORD(&___GLOCELL(___GLOBALVARSTRUCT(gv)->val))
+#define ___GLOBALVARPRIMREF(gv)___EXT(___primitive_ref)(___ps,___GLOBALVARSTRUCT(gv))
+#define ___GLOBALVARSET(gv,x)___EXT(___store_global)(___ps,___GLOBALVARSTRUCT(gv),x);
+#define ___GLOBALVARPRIMSET(gv,x)___EXT(___store_primitive)(___ps,___GLOBALVARSTRUCT(gv),x);
 
 #define ___MAKESYMBOL(name,hash) \
 (___BEGIN_ALLOC_SUBTYPED(___MAKE_HD_WORDS(___SYMBOL_SIZE,___sSYMBOL)), \
@@ -6764,11 +6764,11 @@ ___SET_R0(___ps->handler_break)
 #define ___GLOCELL(x)___GLOCELL_IN_VM(___VMSTATE_FROM_PSTATE(___ps),x)
 #endif
 
-#define ___PRMCELL(x)x
+#define ___PRMCELL(x)___LOAD_GLOBAL_WORD(&(x))
 
-#define ___PRM(i,glo)___PRMCELL(___GLOSTRUCT(i,glo).prm)
-#define ___GLO(i,glo)___GLOCELL(___GLOSTRUCT(i,glo).val)
-#define ___SET_GLO(i,glo,x)___GLO(i,glo)=x;
+#define ___PRM(i,glo)___EXT(___primitive_ref)(___ps,&___GLOSTRUCT(i,glo))
+#define ___GLO(i,glo)___LOAD_GLOBAL_WORD(&___GLOCELL(___GLOSTRUCT(i,glo).val))
+#define ___SET_GLO(i,glo,x)___EXT(___store_global)(___ps,&___GLOSTRUCT(i,glo),x);
 #ifdef ___BIND_LATE
 #define ___GLOSTRUCT(i,glo)(*___CAST(___glo_struct*,___glotbl[i]))
 #else
@@ -9501,8 +9501,8 @@ ___MAKE_HD(((nbclosed+1)<<___NBPARMS_WIDTH)+nbparms,___sPROCEDURE,___PERM)
 #define ___SUBTBL 0,0
 #endif
 
-#define ___BEGIN_MOD_PRM ___LOCAL ___WORD ___setup_mod ___PVOID {
-#define ___DEF_MOD_PRM(i,glo,n)___PRM(i,glo)=___MLBL(n);
+#define ___BEGIN_MOD_PRM ___LOCAL ___WORD ___setup_mod ___P((___processor_state ___ps),(___ps) ___processor_state ___ps;) {
+#define ___DEF_MOD_PRM(i,glo,n)___EXT(___bind_primitive)(___ps,&___GLOSTRUCT(i,glo),___MLBL(n));
 #define ___END_MOD_PRM return ___FIX(___NO_ERR); }
 
 #define ___BEGIN_MOD_C_INIT ___LOCAL ___WORD ___init_mod \
@@ -9512,7 +9512,7 @@ ___PSDKR) { ___PSGET
 #define ___END_MOD_C_INIT
 
 #define ___BEGIN_MOD_GLO
-#define ___DEF_MOD_GLO(i,glo,n)___GLO(i,glo)=___MLBL(n);
+#define ___DEF_MOD_GLO(i,glo,n)___SET_GLO(i,glo,___MLBL(n))
 #define ___END_MOD_GLO return ___FIX(___NO_ERR); }
 
 #define ___MODULE_DESCR_SUPPLY_MODS   0
@@ -10150,32 +10150,35 @@ void *___x;) \
 #define ___IF_CTOS3(f,c,s,i)if ((___CTOS3(f,c,s,i))==___FIX(___NO_ERR))
 #define ___IF_CTOS5(f,c,t,r,s,i)if ((___CTOS5(f,c,t,r,s,i))==___FIX(___NO_ERR))
 
+/* Root metadata allocation is noncollecting. Every installed root remains
+ * registered across all conversions, nested calls and catcher recovery. */
+#define ___SFUN_ROOT_ARG(i,arg) if (___err==___FIX(___NO_ERR)) {___sfun_roots[(i)-1]=___EXT(___alloc_rc)(___PSP 0);if (___sfun_roots[(i)-1]==0) ___err=___FIX(___SFUN_HEAP_OVERFLOW_ERR);else ___EXT(___set_data_rc)(___sfun_roots[(i)-1],arg);}
 #define ___BEGIN_SFUN_BODY
 #define ___END_SFUN_BODY
 
-#define ___BEGIN_SFUN_VOID(proc) ___processor_state ___ps=___PSTATE;___SCMOBJ ___marker;___SCMOBJ ___err;___SCMOBJ ___errdata=___FAL;___SCMOBJ ___errhandler=___FAL;if ((___err=___EXT(___make_sfun_stack_marker) (___ps,&___marker,proc))==___FIX(___NO_ERR)) {
+#define ___BEGIN_SFUN_VOID(proc,roots) ___processor_state ___ps=___PSTATE;volatile ___SCMOBJ ___marker=___FAL;void *volatile ___sfun_roots[___NARGS+1];int ___sfun_i;___SCMOBJ ___err;___SCMOBJ ___errdata=___FAL;___SCMOBJ ___errhandler=___FAL;for (___sfun_i=0;___sfun_i<___NARGS+1;___sfun_i++) ___sfun_roots[___sfun_i]=0;___BEGIN_TRY roots if (___err==___FIX(___NO_ERR)) {___SCMOBJ ___new_marker;___err=___EXT(___make_sfun_stack_marker)(___ps,&___new_marker,proc);if (___err==___FIX(___NO_ERR)) {___marker=___new_marker;
 #define ___SFUN_CALL_VOID ___err=___EXT(___call) (___PSP ___NARGS,___VECTORELEM(___marker,0),___marker);
 #define ___SFUN_SET_RESULT_VOID /* no result to set */
 #define ___SFUN_ERROR_VOID while ((___err!=___FIX(___NO_ERR))&&(___err!=___FIX(___UNWIND_C_STACK))) {___ps->temp1=___err;___ps->temp2=___errdata;___ps->temp3=___marker;___ps->temp4=___errhandler;___err=___EXT(___call) (___PSP 0,___ps->handler_sfun_conv_error,___marker);
-#define ___END_SFUN_VOID } ___EXT(___kill_sfun_stack_marker) (___marker); } ___EXT(___propagate_error) (___PSP ___err);
+#define ___END_SFUN_VOID } } } ___END_TRY if (___marker!=___FAL) ___EXT(___kill_sfun_stack_marker)(___marker);for (___sfun_i=0;___sfun_i<___NARGS;___sfun_i++) if (___sfun_roots[___sfun_i]!=0) ___EXT(___release_rc)(___sfun_roots[___sfun_i]);___EXT(___propagate_error) (___PSP ___err);
 
-#define ___BEGIN_SFUN_SCMOBJ(proc) ___processor_state ___ps=___PSTATE;___SCMOBJ ___marker;___SCMOBJ ___result;___SCMOBJ ___err;___SCMOBJ ___errdata=___FAL;___SCMOBJ ___errhandler=___FAL;if ((___err=___EXT(___make_sfun_stack_marker) (___ps,&___marker,proc))==___FIX(___NO_ERR)) {
+#define ___BEGIN_SFUN_SCMOBJ(proc,roots) ___processor_state ___ps=___PSTATE;volatile ___SCMOBJ ___marker=___FAL;void *volatile ___sfun_roots[___NARGS+1];int ___sfun_i;___SCMOBJ ___result;___SCMOBJ ___err;___SCMOBJ ___errdata=___FAL;___SCMOBJ ___errhandler=___FAL;for (___sfun_i=0;___sfun_i<___NARGS+1;___sfun_i++) ___sfun_roots[___sfun_i]=0;___BEGIN_TRY roots if (___err==___FIX(___NO_ERR)) {___SCMOBJ ___new_marker;___err=___EXT(___make_sfun_stack_marker)(___ps,&___new_marker,proc);if (___err==___FIX(___NO_ERR)) {___marker=___new_marker;
 #define ___SFUN_CALL_SCMOBJ ___err=___EXT(___call) (___PSP ___NARGS,___VECTORELEM(___marker,0),___marker);
 #define ___SFUN_SET_RESULT_SCMOBJ ___result = ___SFUN_RESULT;
 #define ___SFUN_ERROR_SCMOBJ while ((___err!=___FIX(___NO_ERR))&&(___err!=___FIX(___UNWIND_C_STACK))) {___ps->temp1=___err;___ps->temp2=___errdata;___ps->temp3=___marker;___ps->temp4=___errhandler;___err=___EXT(___call) (___PSP 0,___ps->handler_sfun_conv_error,___marker);
-#define ___END_SFUN_SCMOBJ } ___EXT(___kill_sfun_stack_marker) (___marker); } ___EXT(___propagate_error) (___PSP ___err);
+#define ___END_SFUN_SCMOBJ } } } ___END_TRY if (___marker!=___FAL) ___EXT(___kill_sfun_stack_marker)(___marker);for (___sfun_i=0;___sfun_i<___NARGS;___sfun_i++) if (___sfun_roots[___sfun_i]!=0) ___EXT(___release_rc)(___sfun_roots[___sfun_i]);___EXT(___propagate_error) (___PSP ___err);
 
-#define ___BEGIN_SFUN(proc,decl)___processor_state ___ps=___PSTATE;___SCMOBJ ___marker;decl;___SCMOBJ ___err;___SCMOBJ ___errdata=___FAL;___SCMOBJ ___errhandler=___FAL;if ((___err=___EXT(___make_sfun_stack_marker) (___ps,&___marker,proc))==___FIX(___NO_ERR)) {
+#define ___BEGIN_SFUN(proc,roots,decl)___processor_state ___ps=___PSTATE;volatile ___SCMOBJ ___marker=___FAL;void *volatile ___sfun_roots[___NARGS+1];int ___sfun_i;decl;___SCMOBJ ___err;___SCMOBJ ___errdata=___FAL;___SCMOBJ ___errhandler=___FAL;for (___sfun_i=0;___sfun_i<___NARGS+1;___sfun_i++) ___sfun_roots[___sfun_i]=0;___BEGIN_TRY roots if (___err==___FIX(___NO_ERR)) {___SCMOBJ ___new_marker;___err=___EXT(___make_sfun_stack_marker)(___ps,&___new_marker,proc);if (___err==___FIX(___NO_ERR)) {___marker=___new_marker;
 #define ___SFUN_CALL if ((___err=___EXT(___call) (___PSP ___NARGS,___VECTORELEM(___marker,0),___marker))==___FIX(___NO_ERR))
 #define ___SFUN_SET_RESULT /* done in conversion function */
 #define ___SFUN_ERROR while ((___err!=___FIX(___NO_ERR))&&(___err!=___FIX(___UNWIND_C_STACK))) {___ps->temp1=___err;___ps->temp2=___errdata;___ps->temp3=___marker;___ps->temp4=___errhandler;if ((___err=___EXT(___call) (___PSP 0,___ps->handler_sfun_conv_error,___marker))==___FIX(___NO_ERR))
-#define ___END_SFUN } ___EXT(___kill_sfun_stack_marker) (___marker); } ___EXT(___propagate_error) (___PSP ___err);
+#define ___END_SFUN } } } ___END_TRY if (___marker!=___FAL) ___EXT(___kill_sfun_stack_marker)(___marker);for (___sfun_i=0;___sfun_i<___NARGS;___sfun_i++) if (___sfun_roots[___sfun_i]!=0) ___EXT(___release_rc)(___sfun_roots[___sfun_i]);___EXT(___propagate_error) (___PSP ___err);
 
 #define ___BEGIN_SFUN_ARG(i,arg)___SCMOBJ arg;
 #define ___END_SFUN_ARG(i)
 #define ___BEGIN_SFUN_ARG_SCMOBJ(i)
 #define ___END_SFUN_ARG_SCMOBJ(i)
-#define ___SFUN_ARG(i,arg)___PSSTK(___FRAME_SPACE(2)+i)=arg;
+#define ___SFUN_ARG(i,arg)___PSSTK(___FRAME_SPACE(2)+i)=(___sfun_roots[(i)-1]!=0?___EXT(___data_rc)(___sfun_roots[(i)-1]):arg);
 #define ___SFUN_RESULT ___PSR1
 
 #define ___BEGIN_SFUN_SCMOBJ_TO_S8(s,c)___STOC3(___SCMOBJ_to_S8,s,&c,___RETURN_POS);
@@ -10965,7 +10968,18 @@ typedef struct ___glo_struct
     ___WORD val;
     ___WORD prm;
     struct ___glo_struct* next;
+#ifdef ___SINGLE_VM
+    ___SCMOBJ primitive_value; /* VM-owned override, not shared image code */
+    ___WORD primitive_set;
+#endif
   } ___glo_struct;
+
+/* The existing multiple-VM global capacity also bounds primitive overrides.
+ * One allocation contains ordinary slots, primitive slots, then nonroot bits.
+ * SINGLE_VM retains its unbounded registry and stores overrides in each glo. */
+#define ___GLOBALS_CAPACITY 20000
+#define ___GLOBALS_PRIMITIVE_FLAGS ((___GLOBALS_CAPACITY+___WORD_WIDTH-1)/___WORD_WIDTH)
+#define ___GLOBALS_STORAGE_WORDS (2*___GLOBALS_CAPACITY+___GLOBALS_PRIMITIVE_FLAGS)
 
 typedef struct ___glo_sublist_struct
   {
@@ -11148,7 +11162,7 @@ __sync_synchronize()
 #ifdef ___USE_WIN32_sync
 
 #define ___LOAD_GLOBAL_WORD(p) ___COMPARE_AND_SWAP_WORD(p,0,0)
-#define ___PUBLISH_GLOBAL_WORD(p,v) ((void)___COMPARE_AND_SWAP_WORD(p,0,v))
+#define ___PUBLISH_GLOBAL_WORD(p,v) ((void)InterlockedExchangePointer(___CAST(void**,p),___CAST(void*,v)))
 
 #define ___COMPARE_AND_SWAP_WORD(p,oldval,newval) \
 ___CAST(___WORD,InterlockedCompareExchangePointer(___CAST(void**,p),___CAST(void*,newval),___CAST(void*,oldval)))
@@ -11174,7 +11188,14 @@ MemoryBarrier()
 #ifdef ___USE_emulated_sync
 
 #define ___LOAD_GLOBAL_WORD(p) ___COMPARE_AND_SWAP_WORD(p,0,0)
-#define ___PUBLISH_GLOBAL_WORD(p,v) ((void)___COMPARE_AND_SWAP_WORD(p,0,v))
+#define ___PUBLISH_GLOBAL_WORD(p,v) \
+  do { \
+    ___WORD *___global_slot=(p); \
+    ___WORD ___global_value=(v); \
+    ___WORD ___global_old=___LOAD_GLOBAL_WORD(___global_slot); \
+    while (___COMPARE_AND_SWAP_WORD(___global_slot,___global_old,___global_value) != ___global_old) \
+      ___global_old=___LOAD_GLOBAL_WORD(___global_slot); \
+  } while (0)
 
 #define ___COMPARE_AND_SWAP_WORD(p,oldval,newval) \
 ___EXT(___emulated_compare_and_swap_word)(p,oldval,newval)
@@ -12040,7 +12061,7 @@ typedef struct ___module_struct
     ___WORD *ofdtbl; int ofd_length;
     ___WORD *cnstbl; int cnscount;
     ___FAKEWORD *subtbl; int subcount;
-    ___WORD (*setup_mod) ___PVOID;
+    ___WORD (*setup_mod) ___P((___processor_state ps), ());
     ___WORD (*init_mod) ___P((___PSDNC),());
     ___UTF_8STRING script_line;
     struct ___module_struct *next;
@@ -13425,6 +13446,17 @@ typedef struct ___global_state_struct
        ___P((void *ptr,
              ___SCMOBJ val),
             ());
+    void (*___store_global)
+       ___P((___processor_state ps,
+             ___glo_struct *global,
+             ___SCMOBJ val),
+            ());
+    ___SCMOBJ (*___primitive_ref)
+       ___P((___processor_state ps, ___glo_struct *global), ());
+    void (*___store_primitive)
+       ___P((___processor_state ps, ___glo_struct *global, ___SCMOBJ val), ());
+    void (*___bind_primitive)
+       ___P((___processor_state ps, ___glo_struct *global, ___SCMOBJ code), ());
     ___SCMOBJ (*___alloc_scmobj)
        ___P((___processor_state ___ps,
              int subtype,
@@ -14738,6 +14770,17 @@ ___IMP_FUNC(___SCMOBJ,___make_sfun_stack_marker)
 ___IMP_FUNC(void,___kill_sfun_stack_marker)
    ___P((___SCMOBJ marker),
         ());
+___IMP_FUNC(void,___store_global)
+   ___P((___processor_state ps,
+         ___glo_struct *global,
+         ___SCMOBJ val),
+        ());
+___IMP_FUNC(___SCMOBJ,___primitive_ref)
+   ___P((___processor_state ps, ___glo_struct *global), ());
+___IMP_FUNC(void,___store_primitive)
+   ___P((___processor_state ps, ___glo_struct *global, ___SCMOBJ val), ());
+___IMP_FUNC(void,___bind_primitive)
+   ___P((___processor_state ps, ___glo_struct *global, ___SCMOBJ code), ());
 #endif
 
 #ifndef ___INCLUDED_FROM_MEM

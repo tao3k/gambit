@@ -1,3 +1,193 @@
+;;; The shared-primitive admission counterexample is a small domain variant
+;;; of this same fixture. The default/marker/Tcl populations remain complete.
+(cond-expand
+ (primitive-root-probe-test
+  (begin
+   (c-declare "#include \"mem.h\"\n#include \"rc.h\"\n#include \"os_thread.h\"\n#include <stdlib.h>\n#include <stdio.h>")
+;;; Admission counterexample: a real shared primitive cell is distinct from
+;;; the per-VM ordinary global cell. Compare addresses only; never invoke a
+;;; stale closure. Restore the previous primitive before returning to Scheme.
+(define primitive-root-probe
+ (c-lambda (scheme-object scheme-object) int #<<c-end
+___glo_struct *global=___GLOBALVARSTRUCT(___arg1);
+___SCMOBJ saved=___GLOBALVARPRIMREF(___arg1), before=___arg2;
+int flags=0;
+if(___TESTTYPE(before,___tSUBTYPED) &&
+   ___HD_TYP(___SUBTYPED_HEADER(before))==___MOVABLE0) flags|=1;
+___GLOBALVARPRIMSET(___arg1,before)
+if(___EXT(___garbage_collect)(___PSA(___PSTATE) 0)) _Exit(74);
+if(before!=___arg2) flags|=2;
+if(___GLOBALVARPRIMREF(___arg1)==___arg2) flags|=4;
+___GLOBALVARPRIMSET(___arg1,saved)
+___result=flags;
+c-end
+))
+(define primitive-vm-lifecycle
+ (c-lambda (scheme-object scheme-object) bool #<<c-end
+#ifndef ___SINGLE_VM
+___processor_state source=___PSTATE, writer;
+___virtual_machine_state other=calloc(1,sizeof(*other));
+___glo_struct *global=___GLOBALVARSTRUCT(___arg1);
+___SCMOBJ saved=___GLOBALVARPRIMREF(___arg1);
+int i,ok=other!=0;
+if(!ok) _Exit(72);
+/* Only immediate values enter the shared image slot. The captured closure
+ * remains in its owning VM even while another VM resets its own override. */
+___EXT(___bind_primitive)(source,global,___FIX(17));
+___GLOBALVARPRIMSET(___arg1,___arg2)
+for(i=0;i<3;i++) {
+ if(___setup_vmstate(other)!=___FIX(___NO_ERR)) _Exit(72);
+ writer=___PSTATE_FROM_PROCESSOR_ID(0,other);
+ ___thread_set_pstate(writer);
+ ok=ok && ___EXT(___primitive_ref)(writer,global)==___FIX(i==0?17:31);
+ ___EXT(___store_primitive)(writer,global,___FIX(23));
+ ok=ok && ___EXT(___primitive_ref)(writer,global)==___FIX(23);
+ ___EXT(___bind_primitive)(writer,global,___FIX(31));
+ ok=ok && ___EXT(___primitive_ref)(writer,global)==___FIX(31);
+ ___thread_set_pstate(source);
+ ok=ok && ___GLOBALVARPRIMREF(___arg1)==___arg2;
+ if(___EXT(___garbage_collect)(___PSA(source) 0)) _Exit(74);
+ ok=ok && ___GLOBALVARPRIMREF(___arg1)==___arg2;
+ ___thread_set_pstate(writer);
+ ___cleanup_pstate(writer);
+ ___thread_set_pstate(source);
+ ___MUTEX_LOCK(___GSTATE->vm_list_mut);
+ ___cleanup_vmstate(other);
+ ___MUTEX_UNLOCK(___GSTATE->vm_list_mut);
+ ok=ok && other->glos==0 && writer->mem.rc_domain_==0;
+}
+___EXT(___bind_primitive)(source,global,___FIX(41));
+ok=ok && ___GLOBALVARPRIMREF(___arg1)==___FIX(41);
+___GLOBALVARPRIMSET(___arg1,saved)
+free(other);
+printf("(VM-PRIMITIVE-LIFECYCLE cycles 3 storage-bytes %lu extra-bytes %lu)\n",
+ (unsigned long)(___GLOBALS_STORAGE_WORDS*sizeof(___SCMOBJ)),
+ (unsigned long)((___GLOBALS_STORAGE_WORDS-___GLOBALS_CAPACITY)*sizeof(___SCMOBJ)));
+___result=ok;
+#else
+___result=1; /* The single-VM representation has no cross-VM histories. */
+#endif
+c-end
+))
+;;; This control copies rc_can_close/rc_prepare_cleanup from043a9341. It
+;;; executes the real old admission body against the same current domain;
+;;; the closed union is deliberately retained until child process exit.
+(c-declare #<<c-end
+static int union_predecessor_cleanup(___processor_state ps)
+{
+  ___rc_domain *d=ps->mem.rc_domain_;
+  ___rc_header *h;
+  int ready;
+  if(d==0) return 1;
+  ___RC_LOCK(d);
+  ready=(d->phase==___RC_OPEN || d->phase==___RC_CLOSING);
+  if(d->borrows!=0 || d->task.scan_leases!=0 || d->phase==___RC_FROZEN) ready=0;
+  for(h=d->head.next;h!=&d->head;h=h->next) if(h->data!=___FAL) ready=0;
+  if(ready) d->phase=___RC_CLOSING;
+  ___RC_UNLOCK(d);
+  return ready;
+}
+c-end
+)
+(define primitive-union-retirement
+ (c-lambda () void #<<c-end
+#ifndef ___SINGLE_VM
+___virtual_machine_state other=calloc(1,sizeof(*other));
+___processor_state source=___PSTATE,writer;
+int positive,old,current;
+if(other==0 || ___setup_vmstate(other)!=___FIX(___NO_ERR)) _Exit(72);
+writer=___PSTATE_FROM_PROCESSOR_ID(0,other);
+___thread_set_pstate(writer);
+positive=___rc_prepare_cleanup(writer);
+___rc_cancel_cleanup(writer);
+if(!positive || !___root_round_begin(writer)) _Exit(73);
+old=union_predecessor_cleanup(writer);
+___rc_cancel_cleanup(writer);
+current=___rc_prepare_cleanup(writer);
+___thread_set_pstate(source);
+printf("(UNION-RETIREMENT-CONTROL open %d predecessor %d production %d retained-round 1)\n",positive,old,current);
+fflush(stdout);
+/* Neither implementation destroys a retained source in this control. A
+ * partial round is not reset/requeued just to continue another trial. */
+_Exit(positive && old && !current ? 0 : 71);
+#endif
+c-end
+))
+(define (primitive-root-gap)
+ (let* ((global (##make-global-var 'gambit.smp.gc.root-task.primitive-probe))
+        (payload (vector 2011 2017))
+        (flags (primitive-root-probe global (lambda () payload))))
+  (write (list 'SHARED-PRIMITIVE-ROOT 'expected 7 'observed flags)) (newline)
+  (if (not (= flags 7)) (exit 71)))
+ (let* ((global (##make-global-var 'gambit.smp.gc.root-task.primitive-isolation))
+        (payload (vector 2027 2029)))
+  (if (not (primitive-vm-lifecycle global (lambda () payload)))
+      (error "VM primitive isolation or lifecycle failed")))
+ (display "VM-PRIMITIVE-LIFECYCLE-PASS\n")
+ (force-output)
+ (primitive-union-retirement)
+ (exit 0))
+
+(primitive-root-gap)))
+ (sfun-root-bank-test
+  (begin
+   (c-declare #<<c-end
+#include "rc.h"
+static int bank_test_fault,bank_test_calls,bank_test_entered;
+static void *bank_test_allocate(___PSD ___SIZE_T bytes)
+{
+  ___PSGET
+  ++bank_test_calls;
+  if(bank_test_calls==bank_test_fault) return 0;
+  return ___EXT(___alloc_rc)(___PSP bytes);
+}
+int bank_test_entry(___SCMOBJ,___SCMOBJ);
+/* Narrow allocator fault adapter around the actual emitted SFUN body. The
+ * positive control delegates every allocation to the real runtime. */
+#pragma push_macro("___EXT")
+#pragma push_macro("___alloc_rc")
+#undef ___EXT
+#define ___EXT(f) f
+#define ___alloc_rc bank_test_allocate
+c-end
+)
+   (c-define (bank-test-entry first second)
+             (scheme-object scheme-object) int "bank_test_entry" ""
+     ((c-lambda () void "++bank_test_entered;"))
+     (if (and (pair? first) (pair? second)) 1 0))
+   (c-declare "#pragma pop_macro(\"___alloc_rc\")\n#pragma pop_macro(\"___EXT\")")
+   (define bank-test-action
+    (c-lambda (scheme-object scheme-object int) bool #<<c-end
+{
+  ___SCMOBJ ___err;
+  ___rc_domain *domain=___PSTATE->mem.rc_domain_;
+  ___SIZE_T nodes,borrows;
+  int returned=0,result=0;
+  if(___VMSTATE_FROM_PSTATE(___PSTATE)->processor_count!=1) _Exit(73);
+  ___RC_LOCK(domain);nodes=domain->nodes;borrows=domain->borrows;___RC_UNLOCK(domain);
+  bank_test_fault=___arg3;bank_test_calls=0;bank_test_entered=0;
+  ___BEGIN_TRY
+    result=bank_test_entry(___arg1,___arg2);returned=1;
+  ___END_TRY
+  ___RC_LOCK(domain);
+  ___result=domain->nodes==nodes && domain->borrows==borrows &&
+    (bank_test_fault==0 ?
+     (returned && result==1 && ___err==___FIX(___NO_ERR) &&
+      bank_test_calls==2 && bank_test_entered==1) :
+     (!returned && ___err==___FIX(___SFUN_HEAP_OVERFLOW_ERR) &&
+      bank_test_calls==bank_test_fault && bank_test_entered==0));
+  ___RC_UNLOCK(domain);
+}
+c-end
+))
+   (for-each
+    (lambda (fault)
+      (if (not (bank-test-action (cons 2027 2029) (cons 2039 2053) fault))
+          (error "SFUN root bank did not drain at allocation boundary" fault)))
+    '(0 1 2))
+   (display "SFUN-ROOT-BANK-PARTIAL-FAILURE-PASS cases=3\n")))
+
+ (else
 ;;; gambit.smp.gc.root-task: native replay, independent oracle and shrinking.
 ;;; RC, VM, bank, stack, symbol/keyword and global-variable origins share this generator, oracle, replay and shrink driver.
 ;;; Each replay is a fresh process. No Scheme allocation while a source is frozen.
@@ -621,10 +811,10 @@ ___SCMOBJ test_marker_vector(___processor_state ps,___SIZE_TS n,___SCMOBJ init)
   ___SIZE_T extra=test_marker_mode==6?0:1;
   ___RC_LOCK(d);
   test_marker_custody=d->nodes==test_marker_base_nodes+extra &&
-    d->borrows==test_marker_base_borrows+extra;
+    d->borrows==test_marker_base_borrows+(test_marker_mode==7?0:extra);
   ___RC_UNLOCK(d);
   if (test_marker_mode==2) return ___FIX(___HEAP_OVERFLOW_ERR);
-  if (test_marker_mode==1 || test_marker_mode==5 || test_marker_mode==6) {
+  if (test_marker_mode==1 || test_marker_mode==5 || test_marker_mode==6 || test_marker_mode==7) {
     if (___garbage_collect(___PSA(ps) 0)) return ___FIX(___HEAP_OVERFLOW_ERR);
     ++test_marker_collections;
   }
@@ -669,7 +859,11 @@ ___RC_LOCK(d);nodes=d->nodes;borrows=d->borrows;___RC_UNLOCK(d);
 test_marker_mode=op;test_marker_collections=0;test_marker_custody=1;
 test_marker_base_nodes=nodes;test_marker_base_borrows=borrows;
 if(op==6 && (!___TESTTYPE(before,___tSUBTYPED) ||
-   ___HD_TYP(___SUBTYPED_HEADER(before))!=___PERM)) _Exit(76);
+   ___HD_TYP(___SUBTYPED_HEADER(before))!=___PERM)) {
+ printf("(root-task-result invalid-permanent %d %d)\n",op,
+        ___TESTTYPE(before,___tSUBTYPED)?___HD_TYP(___SUBTYPED_HEADER(before)):-1);
+ fflush(stdout);_Exit(76);
+}
 if(op==5) {
   held=___EXT(___alloc_rc)(___PSA(ps) 0);
   if(!held || !___try_set_data_rc(ps,held,___arg1)) _Exit(74);
@@ -705,6 +899,76 @@ ___result=ok && test_marker_custody;
 #endif
 c-end
 ))
+;;; Actual generated callback: the raw Scheme argument is copied into a C
+;;; parameter before the interposed marker allocator forces a moving GC.
+;;; Normal and continuation-escape exits must release the entry root bank.
+(c-declare #<<c-end
+int test_sfun_raw_entry(___SCMOBJ,int);
+int test_sfun_escape_driver(___SCMOBJ);
+static ___SIZE_T test_sfun_nodes;
+static int test_sfun_returned;
+c-end
+)
+(define sfun-owned #f)
+(define sfun-escape #f)
+(c-define (sfun-raw-entry value mode) (scheme-object int) int "test_sfun_raw_entry" ""
+  (if (not (eq? value sfun-owned)) 0
+      (if (= mode 1) (sfun-escape 'escaped)
+          (begin (##gc) (if (eq? value sfun-owned) 1 0)))))
+(define sfun-raw-invoke
+ (c-lambda (scheme-object int) int #<<c-end
+___rc_domain *d=___PSTATE->mem.rc_domain_;
+___RC_LOCK(d);
+test_sfun_nodes=d->nodes;
+test_marker_base_nodes=d->nodes;test_marker_base_borrows=d->borrows;
+___RC_UNLOCK(d);
+test_marker_mode=7;test_marker_collections=0;test_marker_custody=1;test_sfun_returned=0;
+___result=test_sfun_raw_entry(___arg1,___arg2);
+test_sfun_returned=1;test_marker_mode=0;
+c-end
+))
+(define sfun-raw-state
+ (c-lambda () int #<<c-end
+___rc_domain *d=___PSTATE->mem.rc_domain_;
+test_marker_mode=0;
+___RC_LOCK(d);
+___result=(d->nodes==test_sfun_nodes?1:0) |
+          (d->borrows==test_marker_base_borrows?2:0) |
+          (test_marker_custody?4:0) | (test_marker_collections==1?8:0);
+___RC_UNLOCK(d);
+c-end
+))
+(define sfun-raw-node-delta (c-lambda () int
+ "___result=___CAST(int,___PSTATE->mem.rc_domain_->nodes)-___CAST(int,test_sfun_nodes);"))
+(define sfun-raw-returned (c-lambda () int "___result=test_sfun_returned;"))
+(c-define (sfun-escape-driver value) (scheme-object) int "test_sfun_escape_driver" ""
+ (let ((result
+   (call/cc (lambda (exit) (set! sfun-escape exit)
+              (sfun-raw-invoke value 1) 'unexpected-return))))
+  ;; A Scheme continuation may resume inside the still-running C trampoline.
+  ;; The inner C frame has not returned: its root must remain live through GC.
+  (##gc)
+  (if (and (eq? result 'escaped) (= (sfun-raw-state) 14)
+           (= (sfun-raw-node-delta) 1) (= (sfun-raw-returned) 0)) 1 0)))
+(define sfun-physical-exit
+ (c-lambda (scheme-object) bool #<<c-end
+___rc_domain *d=___PSTATE->mem.rc_domain_;
+___SIZE_T nodes,borrows;
+int result;
+___RC_LOCK(d);nodes=d->nodes;borrows=d->borrows;___RC_UNLOCK(d);
+result=test_sfun_escape_driver(___arg1);
+test_marker_mode=0;
+/* Returning to this actual outer host marker forces the intervening C frames
+ * to unwind. Only here must both entry root banks have drained completely. */
+___RC_LOCK(d);
+___result=result==1 && d->nodes==nodes && d->borrows==borrows;
+___RC_UNLOCK(d);
+c-end
+))
+(define (sfun-raw-input-case)
+ (set! sfun-owned (vector 1997 (cons 1999 2003)))
+ (and (= (sfun-raw-invoke sfun-owned 0) 1) (= (sfun-raw-state) 15)
+      (sfun-physical-exit sfun-owned)))
 (define (marker-input-permanent x) x)
 (define (replay-marker-input commands fault)
   (let loop ((xs commands) (at 0))
@@ -714,17 +978,19 @@ c-end
                (payload (if (= op 6) marker-input-permanent
                             (let ((value (vector at (vector-ref row 1) (vector-ref row 2))))
                               (lambda () value)))))
-          (if (not (marker-input-act payload op (= fault 1)))
-              (begin (write (list 'root-task-result 'mismatch at op 0))
+          (if (not (if (= op 7) (sfun-raw-input-case)
+                       (marker-input-act payload op (= fault 1))))
+              (begin (write (list 'root-task-result 'mismatch at op 0
+                                 (if (= op 7) (list (sfun-raw-state) (sfun-raw-node-delta) (sfun-raw-returned)) -1)))
                      (newline) (force-output) (rc-write-exit 71)))
           (loop (cdr xs) (+ at 1))))))
 (define (marker-input-suite)
   (set! family 'marker-input) (set! trials 0)
-  (let ((seed 1951) (actions 7))
+  (let ((seed 1951) (actions 8))
     (define (next n) (set! seed (modulo (+ (* seed 48271) 17) 2147483647)) (modulo seed n))
     (define (noise n)
-      (if (= n 0) '() (cons (vector (next 7) (- (next 4) 1) (next 2)) (noise (- n 1)))))
-    (let ((result (trial '(#(0 0 0) #(1 0 0) #(2 0 0) #(3 0 0) #(4 0 0) #(5 0 0) #(6 0 0)) 0)))
+      (if (= n 0) '() (cons (vector (next 8) (- (next 4) 1) (next 2)) (noise (- n 1)))))
+    (let ((result (trial '(#(0 0 0) #(1 0 0) #(2 0 0) #(3 0 0) #(4 0 0) #(5 0 0) #(6 0 0) #(7 0 0)) 0)))
       (if (signature result) (error "marker input mandatory requests failed" result))
       (write (list 'MARKER-INPUT-GC-REFUSAL-PASS result)) (newline))
     (do ((i 0 (+ i 1))) ((= i 12))
@@ -1493,11 +1759,11 @@ c-end
 
 (define family 'rc)
 (define (trace-tag)
-  (case family ((tcl-callback) 'tcl-callback-trace) ((symkey-callback) 'symkey-callback-trace) ((marker-input) 'marker-input-trace) ((tcl-command) 'tcl-command-trace) ((rc-write) 'rc-write-trace) ((view) 'symkey-view-trace) ((intern) 'symkey-publication-trace) ((snapshot) 'globals-snapshot-trace) ((vm) 'vm-root-task-trace) ((bank) 'bank-root-task-trace) ((stack) 'stack-root-task-trace) ((symkey) 'symkey-root-task-trace) ((globals) 'globals-root-task-trace)
+  (case family ((union) 'frozen-root-union-trace) ((tcl-callback) 'tcl-callback-trace) ((symkey-callback) 'symkey-callback-trace) ((marker-input) 'marker-input-trace) ((tcl-command) 'tcl-command-trace) ((rc-write) 'rc-write-trace) ((view) 'symkey-view-trace) ((intern) 'symkey-publication-trace) ((snapshot) 'globals-snapshot-trace) ((vm) 'vm-root-task-trace) ((bank) 'bank-root-task-trace) ((stack) 'stack-root-task-trace) ((symkey) 'symkey-root-task-trace) ((globals) 'globals-root-task-trace)
     ((continuation) 'continuation-history)
     (else 'root-task-trace)))
 (define (trace-file suffix)
-  (string-append (case family ((tcl-callback) "tcl-callback-") ((symkey-callback) "symkey-callback-") ((marker-input) "marker-input-") ((tcl-command) "tcl-command-") ((rc-write) "rc-write-") ((view) "symkey-view-") ((intern) "symkey-publication-") ((snapshot) "globals-snapshot-") ((vm) "vm-root-task-")
+  (string-append (case family ((union) "frozen-root-union-") ((tcl-callback) "tcl-callback-") ((symkey-callback) "symkey-callback-") ((marker-input) "marker-input-") ((tcl-command) "tcl-command-") ((rc-write) "rc-write-") ((view) "symkey-view-") ((intern) "symkey-publication-") ((snapshot) "globals-snapshot-") ((vm) "vm-root-task-")
                   ((bank) "bank-root-task-") ((stack) "stack-root-task-") ((symkey) "symkey-root-task-") ((globals) "globals-root-task-")
                   ((continuation) "continuation-history-") (else "root-task-")) suffix ".trace"))
 (define (oracle commands)
@@ -1527,7 +1793,7 @@ c-end
       commands))))
 
 (define (trace? x)
-  (and (list? x) (= (length x) 4) (memq (car x) '(tcl-callback-trace symkey-callback-trace marker-input-trace tcl-command-trace rc-write-trace root-task-trace vm-root-task-trace bank-root-task-trace stack-root-task-trace symkey-root-task-trace globals-root-task-trace globals-snapshot-trace symkey-publication-trace symkey-view-trace continuation-history))
+  (and (list? x) (= (length x) 4) (memq (car x) '(frozen-root-union-trace tcl-callback-trace symkey-callback-trace marker-input-trace tcl-command-trace rc-write-trace root-task-trace vm-root-task-trace bank-root-task-trace stack-root-task-trace symkey-root-task-trace globals-root-task-trace globals-snapshot-trace symkey-publication-trace symkey-view-trace continuation-history))
        (integer? (cadr x)) (<= 1 (cadr x) 3) (list? (caddr x))
        (<= (length (caddr x)) 96)
        (if (eq? (car x) 'symkey-view-trace)
@@ -1537,18 +1803,19 @@ c-end
          (or (null? xs)
              (let ((r (car xs)))
                (and (vector? r) (= (vector-length r) 3)
-                    (integer? (vector-ref r 0)) (<= 0 (vector-ref r 0) (case (car x) ((tcl-callback-trace) 5) ((symkey-callback-trace) 7) ((symkey-view-trace) 9) ((rc-write-trace) 8) ((marker-input-trace) 6) ((tcl-command-trace) 7) ((globals-snapshot-trace symkey-publication-trace) 8) ((globals-root-task-trace) 6) (else 5)))
+                    (integer? (vector-ref r 0)) (<= 0 (vector-ref r 0) (case (car x) ((tcl-callback-trace) 5) ((symkey-callback-trace) 7) ((symkey-view-trace) 9) ((rc-write-trace) 8) ((marker-input-trace) 7) ((tcl-command-trace) 7) ((globals-snapshot-trace symkey-publication-trace) 8) ((globals-root-task-trace) 6) (else 5)))
                     (memv (vector-ref r 1) '(-1 0 1 2))
                     (memv (vector-ref r 2) '(0 1)) (loop (cdr xs))))))))
 (define (replay trace)
   (if (not (trace? trace)) (error "invalid structured root-task trace"))
-  (set! family (case (car trace) ((tcl-callback-trace) 'tcl-callback) ((symkey-callback-trace) 'symkey-callback) ((marker-input-trace) 'marker-input) ((tcl-command-trace) 'tcl-command) ((rc-write-trace) 'rc-write) ((symkey-view-trace) 'view) ((symkey-publication-trace) 'intern) ((globals-snapshot-trace) 'snapshot) ((vm-root-task-trace) 'vm)
+  (set! family (case (car trace) ((frozen-root-union-trace) 'union) ((tcl-callback-trace) 'tcl-callback) ((symkey-callback-trace) 'symkey-callback) ((marker-input-trace) 'marker-input) ((tcl-command-trace) 'tcl-command) ((rc-write-trace) 'rc-write) ((symkey-view-trace) 'view) ((symkey-publication-trace) 'intern) ((globals-snapshot-trace) 'snapshot) ((vm-root-task-trace) 'vm)
                  ((bank-root-task-trace) 'bank) ((stack-root-task-trace) 'stack) ((symkey-root-task-trace) 'symkey) ((globals-root-task-trace) 'globals)
                  ((continuation-history) 'continuation) (else 'rc)))
   (if (not (prepare-source)) (error "root-task source allocation failed"))
   (do ((i 0 (+ i 1))) ((= i (cadr trace))) (##gc))
   (let ((commands (caddr trace)))
-    (cond ((eq? family 'symkey-callback)
+    (cond ((eq? family 'union) (replay-union commands (cadddr trace)))
+          ((eq? family 'symkey-callback)
            (cond-expand (symkey-callback-test (replay-symkey-callback commands (cadddr trace)))
                         (else (error "symkey callback test feature not selected"))))
           ((eq? family 'marker-input)
@@ -2520,10 +2787,127 @@ c-end
     (check caught 'exec-failure))
   (display "PROCESS-DESCRIPTOR-CONTRACT-PASS\n"))
 
+;;; Composed real-domain histories reuse the existing process/replay/shrink
+;;; driver. The observer mutation is an oracle-sensitivity control, not claimed
+;;; evidence that a predecessor implementation executed the same protocol.
+(c-declare #<<c-end
+static const ___SCMOBJ *union_cell;
+static unsigned int union_loans;
+c-end
+)
+(define union-action
+ (c-lambda (int scheme-object) bool #<<c-end
+int op=___arg1;
+___processor_state ps=___PSTATE;
+___result=0;
+switch(op) {
+case 0: ___result=___try_set_data_rc(ps,root_task_bytes,___arg2); break;
+case 2:
+  union_cell=___borrow_rc_root(ps,root_task_bytes);
+  if(union_cell) { ++union_loans; ___result=1; }
+  break;
+case 3:
+  if(union_loans) { ___return_rc_root(root_task_bytes); --union_loans; ___result=1; }
+  break;
+case 4: ___result=___try_set_data_rc(ps,root_task_bytes,___FAL); break;
+case 5: ___result=___EXT(___data_rc)(root_task_bytes)==___arg2 &&
+                    (!union_loans || *union_cell==___arg2); break;
+}
+c-end
+))
+(define union-observe
+ (c-lambda (int) bool #<<c-end
+___processor_state ps=___PSTATE;
+___virtual_machine_state vm=___VMSTATE_FROM_PSTATE(ps);
+___rc_domain *coordinator=___PSTATE_FROM_PROCESSOR_ID(0,vm)->mem.rc_domain_;
+___root_round *round=coordinator->round;
+int i,ok=round!=0;
+if(ok) ok=round->state==___ROOT_ROUND_IDLE && round->epoch!=0 &&
+          round->participants==vm->processor_count && vm->mem.globals_snapshot_==0 &&
+          round->vm_task.state==___ROOT_DONE && round->vm_task.scan_leases==0 &&
+          round->vm_task.origin.kind==___ROOT_VM && round->vm_task.origin.source.vm==vm &&
+          round->symkey_task.state==___ROOT_DONE && round->symkey_task.scan_leases==0 &&
+          round->symkey_task.origin.kind==___ROOT_SYMKEY && round->symkey_task.origin.source.symkey==___GSTATE;
+for(i=0;ok && i<round->participants;i++) {
+  ___root_member *m=&round->members[i];
+  ___RC_LOCK(m->rc);
+  ok=m->owner==___PSTATE_FROM_PROCESSOR_ID(i,vm) && m->rc==m->owner->mem.rc_domain_ &&
+     m->context==m->owner->context && m->rc->phase==___RC_OPEN && m->rc->joined_round==0 &&
+     m->rc->task.state==___ROOT_DONE && m->rc->task.scan_leases==0 &&
+     m->rc->task.epoch==round->epoch && m->rc->task.origin.source.rc==m->rc;
+  ___RC_UNLOCK(m->rc);
+  ok=ok && m->global_task.origin.kind==___ROOT_GLOBALS &&
+     m->global_task.origin.source.globals==&m->globals && m->globals.snapshot==&round->globals &&
+     m->globals.snapshot_epoch==round->epoch && round->globals.shards[i]==2 &&
+     m->global_task.state==___ROOT_DONE && m->global_task.scan_leases==0 &&
+     m->stack_task.origin.kind==___ROOT_STACK && m->stack_task.origin.source.stack==m->context &&
+     m->stack_task.state==___ROOT_DONE && m->stack_task.scan_leases==0 &&
+     m->bank_task.origin.kind==___ROOT_BANK && m->bank_task.origin.source.bank==m->context &&
+     m->bank_task.state==___ROOT_DONE && m->bank_task.scan_leases==0;
+}
+/* Mutating the observation exercises the independent history oracle only. */
+___result=ok && !___arg1;
+c-end
+))
+(define (replay-union commands fault)
+ (let ((loans 0) (owned #f))
+  (let loop ((xs commands) (at 0))
+   (if (null? xs)
+    (begin
+     (do ((i 0 (+ i 1))) ((= i loans)) (union-action 3 #f))
+     (union-action 4 #f)
+     (write (list 'root-task-result 'pass at)) (newline) (exit 0))
+    (let* ((row (car xs)) (op (vector-ref row 0))
+           (value (vector at (vector-ref row 1) (vector-ref row 2)))
+           (wanted #t) (actual #t))
+     (case op
+      ((0) (set! wanted (= loans 0)) (set! actual (union-action op value))
+           (if wanted (set! owned value)))
+      ((1) (##gc) (set! actual (union-observe fault)))
+      ((2) (set! actual (union-action op #f)) (if actual (set! loans (+ loans 1))))
+      ((3) (set! wanted (> loans 0)) (set! actual (union-action op #f))
+           (if wanted (set! loans (- loans 1))))
+      ((4) (set! wanted (or (= loans 0) (not owned)))
+           (set! actual (union-action op #f)) (if wanted (set! owned #f)))
+      ((5) (set! actual (union-action op owned))))
+     (if (not (and (eq? wanted actual) (union-action 5 owned)))
+       (begin (write (list 'root-task-result 'mismatch at op 0))
+              (newline) (exit 71)))
+     (loop (cdr xs) (+ at 1)))))))
+(define (union-suite)
+ (set! family 'union) (set! trials 0)
+ (let ((seed 1993) (actions 0))
+  (define (next n) (set! seed (modulo (+ (* seed 48271) 17) 2147483647)) (modulo seed n))
+  (define (noise n) (if (= n 0) '() (cons (vector (next 6) (- (next 4) 1) (next 2)) (noise (- n 1)))))
+  (define chain '(#(0 0 0) #(2 0 0) #(1 0 0) #(0 1 0) #(4 0 0) #(5 0 0) #(3 0 0) #(4 0 0) #(1 0 0)))
+  (do ((i 0 (+ i 1))) ((= i 12))
+   (let* ((commands (append (noise 6) chain (noise 6))) (result (trial commands 0)))
+    (set! actions (+ actions (length commands)))
+    (if (signature result) (error "composed frozen-root history failed" result (shrink commands 0 (signature result))))))
+  (let* ((commands (append (make-list 6 '#(5 0 0)) '(#(1 0 0)) (make-list 6 '#(5 0 0))))
+         (failure (trial commands 1)) (wanted (signature failure))
+         (minimal (shrink commands 1 wanted)))
+   (if (not (and (equal? wanted '(1 0)) (= (length minimal) 1)
+                 (one-minimal? minimal 1 wanted) (not (signature (trial minimal 0)))))
+    (error "union oracle control did not shrink" failure minimal))
+   (for-each (lambda (pair)
+    (with-output-to-file (trace-file (car pair))
+     (lambda () (write (list (trace-tag) 1 minimal (cdr pair))) (newline))))
+    '(("observation-control" . 1) ("production" . 0)))
+   (if (not (and (equal? (signature (trial-file (trace-file "observation-control"))) wanted)
+                 (not (signature (trial-file (trace-file "production"))))))
+    (error "union serialized replay failed"))
+   (write (list 'FROZEN-ROOT-UNION-PBT-PASS 'cases 12 'actions actions 'shrink-from 13 'shrink-to 1
+                'control 'observation-mutation 'native-round-bytes (union-round-bytes))) (newline))
+  (delete-file input-file)))
+(define union-round-bytes (c-lambda () unsigned-long "___result=sizeof(___root_round);"))
+
+
 (let ((args (cdr (command-line))))
   (cond ((equal? args '("--symkey-callback"))
          (cond-expand (symkey-callback-test (symkey-callback-suite))
                       (else (error "symkey callback test feature not selected"))))
+        ((equal? args '("--frozen-union")) (union-suite))
         ((equal? args '("--process-contract")) (process-contract))
         ((equal? args '("--process-env")) (write (list (process-fd 3 0) (getenv "GAMBIT_PROCESS_CONTRACT"))) (newline))
         ((equal? args '("--process-bytes"))
@@ -2560,3 +2944,5 @@ c-end
         ((null? args) (globals-partitions) (globals-moving-roots) (symkey-moving-roots) (vm-moving-roots) (for-each (lambda (kind) (set! family kind) (suite)) '(rc vm bank stack symkey globals))
          (continuation-suite))
         (else (error "usage: root-task [--replay TRACE | --moving-bank | --moving-globals]"))))
+
+))

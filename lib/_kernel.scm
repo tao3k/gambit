@@ -409,7 +409,7 @@ end-of-code
    for (i=0; i<na; i++)
      ___SET_STK(-i,___STK(-(i+1))) /* shift arguments up by one */
 
-   result = ___GLOCELL(___CAST(___glo_struct*,___ps->temp4)->val);
+   result = ___LOAD_GLOBAL_WORD(&___GLOCELL(___CAST(___glo_struct*,___ps->temp4)->val));
    handler = ___PRMCELL(___G__23__23_apply_2d_with_2d_procedure_2d_check_2d_nary.prm);
 
 #if 0

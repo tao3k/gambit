@@ -1597,8 +1597,8 @@ ___glo_struct **glo;)
 
       /* Module binding belongs to the loading VM, not an ambient TLS owner. */
       if (supply &&
-          ___GLOCELL_IN_VM((___VMSTATE_FROM_PSTATE(ctx->ps)),g->val) == ___UNB1)
-        ___GLOCELL_IN_VM((___VMSTATE_FROM_PSTATE(ctx->ps)),g->val) = ___UNB2;
+          ___LOAD_GLOBAL_WORD(&___GLOCELL_IN_VM((___VMSTATE_FROM_PSTATE(ctx->ps)),g->val)) == ___UNB1)
+        ___store_global(ctx->ps,g,___UNB2);
     }
 
   *glo = g;
@@ -1964,7 +1964,7 @@ ___module_struct *module;)
 
           ___glo_struct *glo = ___CAST(___glo_struct*,glotbl[i]);
 
-          if (___GLOCELL_IN_VM(___vms,glo->val) == ___UNB1)
+          if (___LOAD_GLOBAL_WORD(&___GLOCELL_IN_VM(___vms,glo->val)) == ___UNB1)
             {
               ___SCMOBJ err;
               ___SCMOBJ glo_name;
@@ -2044,7 +2044,7 @@ ___module_struct *module;)
       ctx->module_count++;
     }
 
-  return module->setup_mod ();
+  return module->setup_mod (ctx->ps);
 }
 
 
@@ -3523,20 +3523,23 @@ ___SCMOBJ thunk;)
 {
   ___PSGET
   ___SCMOBJ ___err;
-  ___SCMOBJ marker;
+  volatile ___SCMOBJ marker=___FAL;
+  ___SCMOBJ temporary;
 
   ___ps->context->r[0] = ___GSTATE->handler_break;
 
   ___BEGIN_TRY
 
-  if ((___err = ___make_sfun_stack_marker (___ps, &marker, thunk))
+  if ((___err = ___make_sfun_stack_marker (___ps, &temporary, thunk))
       == ___FIX(___NO_ERR))
     {
+      marker=temporary;
       ___err = ___call (___PSP 0, ___VECTORELEM(marker, 0), marker);
-      ___kill_sfun_stack_marker (marker);
     }
 
   ___END_TRY
+
+  if (marker!=___FAL) ___kill_sfun_stack_marker(marker);
 
   return ___err;
 }
@@ -4320,16 +4323,13 @@ ___SCMOBJ fixup_objs;)
               break;
 
             case 3:
-              val = ___VECTORREF(fixup_objs, ___FIX(arg));
-              val = ___make_global_var (val);
-              val = ___CAST(___WORD, &___GLOBALVARREF(val));
-              break;
-
             case 4:
-              val = ___VECTORREF(fixup_objs, ___FIX(arg));
-              val = ___make_global_var (val);
-              val = ___CAST(___WORD, &___GLOBALVARPRIMREF(val));
-              break;
+              /* An unbounded writable cell alias cannot carry a VM/source
+               * lease or the primitive override selection. Reject this old
+               * CPU fixup before executing any partially patched code. The
+               * C backend uses the guarded value interfaces instead. */
+              ___propagate_error(___PSP ___FIX(___UNIMPL_ERR));
+              return ___FAL;
 
             case 5:
               switch (arg)
@@ -4811,7 +4811,16 @@ ___virtual_machine_state ___vms;)
   if ((err = ___setup_os_vmstate (___vms)) == ___FIX(___NO_ERR))
     {
       if ((err = ___setup_mem_vmstate (___vms)) != ___FIX(___NO_ERR))
-        ___cleanup_os_vmstate (___vms);
+        {
+#ifndef ___SINGLE_VM
+          ___MUTEX_LOCK(___GSTATE->vm_list_mut);
+#endif
+          ___cleanup_mem_vmstate(___vms);
+#ifndef ___SINGLE_VM
+          ___MUTEX_UNLOCK(___GSTATE->vm_list_mut);
+#endif
+          ___cleanup_os_vmstate (___vms);
+        }
     }
 
   return err;
@@ -5037,13 +5046,26 @@ ___virtual_machine_state ___vms;)
    * Setup virtual machine's OS specific structures and memory management.
    */
 
-  setup_os_and_mem_vmstate (___vms);
+  if ((err=setup_os_and_mem_vmstate(___vms)) != ___FIX(___NO_ERR))
+    { ___cleanup_actlog_vmstate(___vms); return err; }
 
   /*
-   * Setup the main processor of the virtual machine.
+   * Setup the main processor before publishing an executable VM. A failed
+   * processor setup cannot leave the VM root-storage block or list attached.
    */
-
-  return ___setup_pstate (___PSTATE_FROM_PROCESSOR_ID(0,___vms), ___vms);
+  err=___setup_pstate(___PSTATE_FROM_PROCESSOR_ID(0,___vms),___vms);
+  if (err != ___FIX(___NO_ERR))
+    {
+#ifndef ___SINGLE_VM
+      ___MUTEX_LOCK(___GSTATE->vm_list_mut);
+#endif
+      cleanup_os_and_mem_vmstate(___vms);
+#ifndef ___SINGLE_VM
+      ___MUTEX_UNLOCK(___GSTATE->vm_list_mut);
+#endif
+      ___cleanup_actlog_vmstate(___vms);
+    }
+  return err;
 }
 
 
@@ -6139,6 +6161,13 @@ ___HIDDEN void setup_dynamic_linking ___PVOID
 
   ___GSTATE->___set_data_rc
     = ___set_data_rc;
+
+  ___GSTATE->___store_global
+    = ___store_global;
+  ___GSTATE->___primitive_ref = ___primitive_ref;
+  ___GSTATE->___store_primitive = ___store_primitive;
+  ___GSTATE->___bind_primitive = ___bind_primitive;
+
 
   ___GSTATE->___alloc_scmobj
     = ___alloc_scmobj;

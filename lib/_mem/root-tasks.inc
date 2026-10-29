@@ -42,7 +42,7 @@ ___BOOL ___root_task_publish(___rc_domain *d, ___processor_state executor,
       previous == d->task.epoch-1 && d->task.executor == executor &&
       d->task.state >= ___ROOT_READY && d->task.state <= ___ROOT_DONE)
     accepted=1;
-  else if (d->phase == ___RC_OPEN && d->owner == executor &&
+  else if (d->phase == ___RC_OPEN && d->joined_round == 0 && d->owner == executor &&
            d->task.scan_leases == 0 && previous == d->task.epoch &&
            previous != ~___CAST(___UWORD,0) &&
            (d->task.state == ___ROOT_EMPTY || d->task.state == ___ROOT_DONE))
@@ -352,8 +352,7 @@ ___BOOL ___root_globals_begin(___global_root_snapshot *snapshot,
     ___rc_domain *domain=___PSTATE_FROM_PROCESSOR_ID(i,vm)->mem.rc_domain_;
     if (domain==0) return 0;
     ___RC_LOCK(domain);
-    ok=domain->phase==___RC_FROZEN &&
-       (i!=0 || domain->task.epoch==epoch);
+    ok=domain->phase==___RC_FROZEN && domain->task.epoch==epoch;
     ___RC_UNLOCK(domain);
     if (!ok) return 0;
   }
@@ -506,4 +505,212 @@ ___BOOL ___root_task_completed_globals(___root_task *task, ___processor_state ex
   return executor != 0 && executor == ___PSTATE && root_globals_task(task,executor) &&
          root_task_matches(task,___ROOT_GLOBALS,executor,epoch) &&
          task->state == ___ROOT_DONE && task->scan_leases == 0;
+}
+
+___HIDDEN ___root_round *root_round_for(___processor_state ps)
+{
+  ___rc_domain *coordinator;
+  if (ps == 0 || ps != ___PSTATE) return 0;
+  coordinator=___PSTATE_FROM_PROCESSOR_ID(0,___VMSTATE_FROM_PSTATE(ps))->mem.rc_domain_;
+  return coordinator == 0 ? 0 : coordinator->round;
+}
+
+/* All participants have saved their full root views and reached the first
+ * collective. A changing roster or retained scan refuses the entire union.
+ * In particular a newly started RC domain must not invent its own GC epoch. */
+___BOOL ___root_round_begin(___processor_state ps)
+{
+  ___root_round *round=root_round_for(ps);
+  ___UWORD previous;
+  int i;
+  if (!root_vm_executor(ps) || round == 0 ||
+      round->state != ___ROOT_ROUND_IDLE || round->vm->processor_count < 1 ||
+      round->vm->processor_count > ___MAX_PROCESSORS) return 0;
+  previous=round->epoch;
+  for (i=0;i<round->vm->processor_count;i++)
+    {
+      ___processor_state owner=___PSTATE_FROM_PROCESSOR_ID(i,round->vm);
+      ___rc_domain *domain=owner->mem.rc_domain_;
+      ___BOOL ok;
+      if (domain == 0 || owner->context == 0) return 0;
+      ___RC_LOCK(domain);
+      ok=domain->owner == owner && domain->joined_round == 0 && domain->phase == ___RC_OPEN &&
+         domain->task.scan_leases == 0 &&
+         (domain->task.state == ___ROOT_EMPTY || domain->task.state == ___ROOT_DONE);
+      if (previous < domain->task.epoch) previous=domain->task.epoch;
+      ___RC_UNLOCK(domain);
+      if (!ok) return 0;
+    }
+  if (previous == ~___CAST(___UWORD,0)) return 0;
+  round->participants=round->vm->processor_count;
+  round->epoch=previous+1;
+  for (i=0;i<round->participants;i++)
+    {
+      ___root_member *member=&round->members[i];
+      member->owner=___PSTATE_FROM_PROCESSOR_ID(i,round->vm);
+      member->rc=member->owner->mem.rc_domain_;
+      member->context=member->owner->context;
+      ___RC_LOCK(member->rc);
+      member->rc->joined_round=round;
+      ___RC_UNLOCK(member->rc);
+      ___root_task_init(&member->global_task,previous);
+      ___root_task_init(&member->stack_task,previous);
+      ___root_task_init(&member->bank_task,previous);
+    }
+  ___root_task_init(&round->vm_task,previous);
+  ___root_task_init(&round->symkey_task,previous);
+  ___RC_LOCK(ps->mem.rc_domain_);
+  round->state=___ROOT_ROUND_CLOSING;
+  ___RC_UNLOCK(ps->mem.rc_domain_);
+  return 1;
+}
+
+___BOOL ___root_round_freeze(___processor_state ps, ___UWORD *epoch)
+{
+  ___root_round *round=root_round_for(ps);
+  ___root_member *member;
+  ___rc_domain *domain;
+  ___BOOL ok;
+  int id;
+  if (round == 0 || epoch == 0 || round->state != ___ROOT_ROUND_CLOSING ||
+      round->participants != round->vm->processor_count) return 0;
+  id=___PROCESSOR_ID(ps,round->vm);
+  if (id < 0 || id >= round->participants) return 0;
+  member=&round->members[id]; domain=ps->mem.rc_domain_;
+  if (member->owner != ps || member->rc != domain || member->context != ps->context)
+    return 0;
+  ___RC_LOCK(domain);
+  ok=domain->owner == ps && domain->joined_round == round && domain->phase == ___RC_OPEN &&
+     domain->task.scan_leases == 0 && domain->task.epoch < round->epoch &&
+     (domain->task.state == ___ROOT_EMPTY || domain->task.state == ___ROOT_DONE);
+  if (ok)
+    {
+      domain->task.origin.kind=___ROOT_RC; domain->task.origin.source.rc=domain;
+      domain->task.executor=ps; domain->task.epoch=round->epoch;
+      domain->task.state=___ROOT_READY; domain->task.scan_leases=1;
+      domain->phase=___RC_FROZEN; *epoch=round->epoch;
+    }
+  ___RC_UNLOCK(domain);
+  return ok;
+}
+
+___BOOL ___root_round_publish(___processor_state ps)
+{
+  ___root_round *round=root_round_for(ps);
+  if (!root_vm_executor(ps) || round == 0 ||
+      round->state != ___ROOT_ROUND_CLOSING ||
+      !___root_globals_begin(&round->globals,ps,round->epoch)) return 0;
+  ___RC_LOCK(ps->mem.rc_domain_);
+  round->state=___ROOT_ROUND_FROZEN;
+  ___RC_UNLOCK(ps->mem.rc_domain_);
+  return 1;
+}
+
+/* Each record already belongs to the union before it becomes READY. The
+ * source-specific adapter enforces canonical source identity and writes only
+ * its own member slot. A partial/unknown scan cannot be reinitialized/requeued.
+ * Preserve VM/symkey, RC, globals, stack, bank order and in-place frame repair. */
+___BOOL ___root_round_scan(___processor_state ps, ___UWORD epoch)
+{
+  ___root_round *round=root_round_for(ps);
+  ___root_member *member;
+  ___UWORD receipt;
+  int id;
+  if (round == 0 || round->state != ___ROOT_ROUND_FROZEN || round->epoch != epoch)
+    return 0;
+  id=___PROCESSOR_ID(ps,round->vm);
+  if (id < 0 || id >= round->participants) return 0;
+  member=&round->members[id];
+  if (member->owner != ps || member->context != ps->context ||
+      member->rc != ps->mem.rc_domain_) return 0;
+  if (id == 0)
+    {
+      if (!___root_task_publish_vm(&round->vm_task,round->vm,ps,epoch-1,&receipt) ||
+          receipt != epoch || !___root_task_claim_vm(&round->vm_task,ps,epoch) ||
+          !___root_task_scan_vm(&round->vm_task,ps,epoch) ||
+          !___root_task_finish_vm(&round->vm_task,ps,epoch)) return 0;
+      if (!___root_task_publish_symkey(&round->symkey_task,___GSTATE,ps,epoch-1,&receipt) ||
+          receipt != epoch || !___root_task_claim_symkey(&round->symkey_task,ps,epoch) ||
+          !___root_task_scan_symkey(&round->symkey_task,ps,epoch) ||
+          !___root_task_finish_symkey(&round->symkey_task,ps,epoch)) return 0;
+    }
+  if (!___root_task_claim(member->rc,ps,epoch) ||
+      !___root_task_scan(member->rc,ps,epoch) ||
+      !___root_task_finish(member->rc,ps,epoch)) return 0;
+  if (!___root_task_publish_globals(&member->global_task,&member->globals,round->vm,ps,epoch-1,&receipt) ||
+      receipt != epoch || !___root_task_claim_globals(&member->global_task,ps,epoch) ||
+      !___root_task_scan_globals(&member->global_task,ps,epoch) ||
+      !___root_task_finish_globals(&member->global_task,ps,epoch)) return 0;
+  if (!___root_task_publish_stack(&member->stack_task,member->context,ps,epoch-1,&receipt) ||
+      receipt != epoch || !___root_task_claim_stack(&member->stack_task,ps,epoch) ||
+      !___root_task_scan_stack(&member->stack_task,ps,epoch) ||
+      !___root_task_finish_stack(&member->stack_task,ps,epoch)) return 0;
+  if (!___root_task_publish_bank(&member->bank_task,member->context,ps,epoch-1,&receipt) ||
+      receipt != epoch || !___root_task_claim_bank(&member->bank_task,ps,epoch) ||
+      !___root_task_scan_bank(&member->bank_task,ps,epoch) ||
+      !___root_task_finish_bank(&member->bank_task,ps,epoch)) return 0;
+  return 1;
+}
+
+/* The strong-phase collective joins every task, including empty global
+ * shards. Local DONE never grants source/domain/VM retirement permission. */
+___BOOL ___root_round_finish_scan(___processor_state ps)
+{
+  ___root_round *round=root_round_for(ps);
+  int i;
+  if (!root_vm_executor(ps) || round == 0 || round->state != ___ROOT_ROUND_FROZEN ||
+      round->participants != round->vm->processor_count ||
+      round->vm_task.state != ___ROOT_DONE || round->vm_task.scan_leases != 0 ||
+      round->symkey_task.state != ___ROOT_DONE || round->symkey_task.scan_leases != 0)
+    return 0;
+  for (i=0;i<round->participants;i++)
+    {
+      ___root_member *member=&round->members[i];
+      ___BOOL done;
+      ___RC_LOCK(member->rc);
+      done=member->rc->owner == member->owner && member->rc->phase == ___RC_FROZEN &&
+           member->rc->task.epoch == round->epoch &&
+           member->rc->task.state == ___ROOT_DONE && member->rc->task.scan_leases == 0;
+      ___RC_UNLOCK(member->rc);
+      if (!done || member->global_task.state != ___ROOT_DONE || member->global_task.scan_leases != 0 ||
+          member->stack_task.state != ___ROOT_DONE || member->stack_task.scan_leases != 0 ||
+          member->bank_task.state != ___ROOT_DONE || member->bank_task.scan_leases != 0) return 0;
+    }
+  if (!___root_globals_end(&round->globals,ps)) return 0;
+  ___RC_LOCK(ps->mem.rc_domain_);
+  round->state=___ROOT_ROUND_DRAINING;
+  ___RC_UNLOCK(ps->mem.rc_domain_);
+  return 1;
+}
+
+___BOOL ___root_round_end(___processor_state ps)
+{
+  ___root_round *round=root_round_for(ps);
+  int i;
+  if (!root_vm_executor(ps) || round == 0 || round->state != ___ROOT_ROUND_DRAINING ||
+      round->participants != round->vm->processor_count) return 0;
+  for (i=0;i<round->participants;i++)
+    {
+      ___root_member *member=&round->members[i];
+      ___BOOL restored;
+      ___RC_LOCK(member->rc);
+      restored=member->owner->mem.rc_domain_ == member->rc &&
+               member->owner->context == member->context &&
+               member->rc->phase == ___RC_OPEN && member->rc->task.epoch == round->epoch &&
+               member->rc->joined_round == round;
+      ___RC_UNLOCK(member->rc);
+      if (!restored) return 0;
+    }
+  /* Only the restored collective can drop source/exit leases. Retained audit
+   * descriptors cease to be dereference/retirement authority after this cut. */
+  for (i=0;i<round->participants;i++)
+    {
+      ___RC_LOCK(round->members[i].rc);
+      round->members[i].rc->joined_round=0;
+      ___RC_UNLOCK(round->members[i].rc);
+    }
+  ___RC_LOCK(ps->mem.rc_domain_);
+  round->state=___ROOT_ROUND_IDLE;
+  ___RC_UNLOCK(ps->mem.rc_domain_);
+  return 1;
 }

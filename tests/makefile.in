@@ -495,10 +495,17 @@ test-root-task:
 	@SETDLPATH@ $(rootfromhere)/gsc/gsc@exe@ -:~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f -exe -cc-options "-DHAVE_CONFIG_H -I$(srcdirpfx)$(rootfromhere)/include -I$(srcdirpfx)$(rootfromhere)/lib" -o root-task@exe@ $(srcdirpfx)root-task.scm
 	@SETDLPATH@ ./root-task@exe@ -:p1
 	@SETDLPATH@ ./root-task@exe@ -:p1 --rc-writes
+	@SETDLPATH@ ./root-task@exe@ -:p1 --frozen-union
 	@SETDLPATH@ ./root-task@exe@ -:p1 --process-contract
 	@SETDLPATH@ ./root-task@exe@ -:p2 --moving-bank
 	@SETDLPATH@ ./root-task@exe@ -:p2 --moving-globals
 	rm -f root-task@exe@ root-task-input.dat
+	@SETDLPATH@ $(rootfromhere)/gsc/gsc@exe@ -:~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f -prelude "(define-cond-expand-feature sfun-root-bank-test)" -exe -cc-options "-DHAVE_CONFIG_H -I$(srcdirpfx)$(rootfromhere)/include -I$(srcdirpfx)$(rootfromhere)/lib" -o root-task-bank@exe@ $(srcdirpfx)root-task.scm
+	@SETDLPATH@ ./root-task-bank@exe@ -:p1
+	rm -f root-task-bank@exe@
+	@SETDLPATH@ $(rootfromhere)/gsc/gsc@exe@ -:~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f -prelude "(define-cond-expand-feature primitive-root-probe-test)" -exe -cc-options "-DHAVE_CONFIG_H -I$(srcdirpfx)$(rootfromhere)/include -I$(srcdirpfx)$(rootfromhere)/lib" -o root-task-primitive@exe@ $(srcdirpfx)root-task.scm
+	@SETDLPATH@ ./root-task-primitive@exe@ -:p1
+	rm -f root-task-primitive@exe@
 
 .PHONY: test-mutex-suspension
 test-mutex-suspension:

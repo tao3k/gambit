@@ -6,11 +6,30 @@ ___HIDDEN void rc_contract_error(char *message)
   ___fatal_error(messages);
 }
 
+/* One cooperative owner predicate for all managed mutable root stores.
+ * RC list/payload callers additionally hold their source mutex. No caller may
+ * allocate, poll or reenter between this predicate and its final root store. */
+___HIDDEN ___BOOL root_writer_open(___processor_state ps)
+{
+  ___rc_domain *d;
+  if (ps == 0 || ps != ___PSTATE || (d=ps->mem.rc_domain_) == 0) return 0;
+  return d->owner == ps && d->phase == ___RC_OPEN && d->joined_round == 0;
+}
+
 ___HIDDEN ___BOOL setup_rc(___processor_state ps)
 {
   ___rc_domain *d = ___CAST(___rc_domain*, ___ALLOC_MEM(sizeof(*d)));
   if (d == 0) return 0;
   if (!___RC_INIT(d)) { ___FREE_MEM(d); return 0; }
+  d->round=0; d->joined_round=0;
+  if (___PROCESSOR_ID(ps,___VMSTATE_FROM_PSTATE(ps)) == 0)
+    {
+      d->round=___CAST(___root_round*,___ALLOC_MEM(sizeof(*d->round)));
+      if (d->round == 0) { ___RC_DESTROY(d); ___FREE_MEM(d); return 0; }
+      d->round->vm=___VMSTATE_FROM_PSTATE(ps);
+      d->round->epoch=0; d->round->participants=0;
+      d->round->state=___ROOT_ROUND_IDLE;
+    }
   d->head.prev = d->head.next = &d->head;
   d->head.refcount = 1; d->head.data = ___FAL;
   d->head.domain = d; d->head.root_borrows = 0;
@@ -24,6 +43,8 @@ ___HIDDEN ___BOOL setup_rc(___processor_state ps)
 ___HIDDEN ___BOOL rc_can_close(___rc_domain *d)
 {
   ___rc_header *h;
+  if (d->joined_round != 0) return 0;
+  if (d->round != 0 && d->round->state != ___ROOT_ROUND_IDLE) return 0;
   if (d->borrows != 0 || d->task.scan_leases != 0 || d->phase == ___RC_FROZEN) return 0;
   for (h=d->head.next; h!=&d->head; h=h->next)
     if (h->data != ___FAL) return 0;
@@ -61,6 +82,7 @@ ___HIDDEN void cleanup_rc(___processor_state ps)
     { ___RC_UNLOCK(d); rc_contract_error("RC cleanup without closed root ownership"); return; }
   /* Native byte owners retain both their allocation and this gate. No PS/VM
    * address remains in the detached domain; last native release reclaims it. */
+  if (d->round != 0) { ___FREE_MEM(d->round); d->round=0; }
   d->owner = 0; d->task.executor = 0; d->phase = ___RC_DETACHED;
   destroy = d->nodes == 0;
   ps->mem.rc_domain_ = 0;
@@ -105,7 +127,7 @@ ___EXP_FUNC(void*,___register_rc)
   if (h->domain != 0) return h->domain == d ? ptr : 0;
   if (d == 0) return 0;
   ___RC_LOCK(d);
-  if (d->phase != ___RC_OPEN || d->nodes == ~___CAST(___SIZE_T,0))
+  if (d->joined_round != 0 || d->phase != ___RC_OPEN || d->nodes == ~___CAST(___SIZE_T,0))
     { ___RC_UNLOCK(d); return 0; }
   h->prev=d->head.prev; h->next=&d->head;
   d->head.prev->next=h; d->head.prev=h;
@@ -198,7 +220,7 @@ ___BOOL ___try_set_data_rc(___processor_state ps, void *ptr, ___SCMOBJ value)
   h=___CAST(___rc_header*,ptr)-1; d=h->domain;
   if (d == 0 || d != ps->mem.rc_domain_) return 0;
   ___RC_LOCK(d);
-  if (d->owner != ps || d->phase != ___RC_OPEN || h->refcount <= 0 ||
+  if (d->owner != ps || d->joined_round != 0 || d->phase != ___RC_OPEN || h->refcount <= 0 ||
       (h->root_borrows != 0 && h->data != value))
     { ___RC_UNLOCK(d); return 0; }
   /* A borrowed cell may be relocated by the collector, not rebound by a
@@ -223,7 +245,7 @@ const ___SCMOBJ *___borrow_rc_root(___processor_state ps, void *ptr)
   h=___CAST(___rc_header*,ptr)-1; d=h->domain;
   if (d == 0 || d != ps->mem.rc_domain_) return 0;
   ___RC_LOCK(d);
-  if (d->phase != ___RC_OPEN || h->refcount <= 0 ||
+  if (d->joined_round != 0 || d->phase != ___RC_OPEN || h->refcount <= 0 ||
       d->borrows == ~___CAST(___SIZE_T,0) || h->root_borrows == ___MAX_FIX)
     { ___RC_UNLOCK(d); return 0; }
   ++h->root_borrows; ++d->borrows;

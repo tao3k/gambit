@@ -9,13 +9,10 @@ enum ___root_task_state {
   ___ROOT_SCANNING, ___ROOT_SCANNED, ___ROOT_DONE
 };
 enum ___root_origin_kind { ___ROOT_NONE, ___ROOT_RC, ___ROOT_VM, ___ROOT_BANK, ___ROOT_STACK, ___ROOT_SYMKEY, ___ROOT_GLOBALS };
-/* This names the existing multi-VM glos allocation, not a new capacity limit.
- * Keep the allocator and view admission on the same physical extent. */
-#define ___GLOBALS_CAPACITY 20000
-
-/* One immutable extent per VM round. Storage remains on the coordinator's
- * C stack until every shard and the collective complete. Unknown work retains
- * this invocation; neither a local DONE nor count equality releases it. */
+/* One immutable extent per VM round, embedded in its persistent union.
+ * Standalone adapters may keep a descriptor on their enclosing C stack.
+ * Every shard and the collective must complete before either lifetime ends;
+ * local DONE and count equality grant no retirement permission. */
 typedef struct ___global_root_snapshot_struct {
   ___virtual_machine_state vm;
   ___UWORD epoch;
@@ -49,6 +46,47 @@ typedef struct ___root_task_struct {
   ___SIZE_T scan_leases;
   enum ___root_task_state state;
 } ___root_task;
+
+/* One union owns every admitted source from the stopped-roster cut through
+ * restoration. The four participant sources are RC, globals, stack and bank;
+ * VM and symbol/keyword anchors belong to the coordinator. RC task storage
+ * stays in its domain so that native borrowers and the scanner share a gate.
+ * The union stores the other tasks and their descriptors, not copied roots.
+ * Storage is obtained during coordinator setup, never while freezing roots. */
+enum ___root_round_state {
+  ___ROOT_ROUND_IDLE, ___ROOT_ROUND_CLOSING,
+  ___ROOT_ROUND_FROZEN, ___ROOT_ROUND_DRAINING
+};
+typedef struct ___root_member_struct {
+  ___processor_state owner;
+  ___rc_domain *rc;
+  ___execution_context *context;
+  ___global_root_source globals;
+  ___root_task global_task, stack_task, bank_task;
+} ___root_member;
+typedef struct ___root_round_struct {
+  ___virtual_machine_state vm;
+  ___UWORD epoch;
+  int participants;
+  enum ___root_round_state state;
+  ___global_root_snapshot globals;
+  ___root_task vm_task, symkey_task;
+  ___root_member members[___MAX_PROCESSORS];
+} ___root_round;
+
+/* The existing collective publishes these confined records. No lock is held
+ * across a scanner, callback or collective. Unknown work retains the union;
+ * only all completed source leases plus restored members permit IDLE. */
+extern ___BOOL ___root_round_begin(___processor_state);
+extern ___BOOL ___root_round_freeze(___processor_state,___UWORD*);
+extern ___BOOL ___root_round_publish(___processor_state);
+extern ___BOOL ___root_round_scan(___processor_state,___UWORD);
+extern ___BOOL ___root_round_finish_scan(___processor_state);
+extern ___BOOL ___root_round_end(___processor_state);
+/* Noncollecting ordinary-global writer. Generated, reflective and module
+ * initialization paths address the same canonical cell. Refusal is no store.
+ * Shared primitive cells have a different owner and are not ordinary globals. */
+extern ___BOOL ___try_store_global(___processor_state,___glo_struct*,___SCMOBJ);
 
 /* Source attachment/roster lifetime must cover lookup before these calls.
  * A stale raw domain pointer is not a task handle. No requeue/recovery API. */

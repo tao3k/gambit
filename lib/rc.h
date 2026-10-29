@@ -30,6 +30,8 @@ struct ___rc_domain_struct {
   ___SIZE_T nodes, borrows;
   enum ___rc_phase phase;
   ___root_task task;
+  ___root_round *round; /* coordinator-owned; null for other sources */
+  ___root_round *joined_round; /* nonowning live-union lease, cleared last */
 };
 
 /* Cleanup is a transaction: close sources before any still/OS cleanup.

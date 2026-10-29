@@ -121,6 +121,17 @@ ___BOOL ___root_task_scan_vm(___root_task *task, ___processor_state executor,
 }
 
 
+/* Publish relocation to the actual canonical slot. The source is stopped,
+ * but metadata readers use atomic words too; do not mix atomic reads with
+ * racing plain collector writes. The local word never becomes a second task. */
+___HIDDEN void mark_global_cell(___PSD ___SCMOBJ *cell)
+{
+  ___PSGET
+  ___SCMOBJ value=___LOAD_GLOBAL_WORD(cell);
+  mark_array(___PSP &value,1);
+  ___PUBLISH_GLOBAL_WORD(cell,value);
+}
+
 ___HIDDEN void mark_global_variables
    ___P((___PSD const ___global_root_source *source),
         (___PSV source)
@@ -144,14 +155,30 @@ const ___global_root_source *source;)
             print_global_var_name (glo);
             ___printf ("\n");
 #endif
-            mark_array (___PSP &glo->val, 1);
+            mark_global_cell(___PSP &glo->val);
+            if (___LOAD_GLOBAL_WORD(&glo->primitive_set))
+              mark_global_cell(___PSP &glo->primitive_value);
+            else
+              ___PUBLISH_GLOBAL_WORD(&glo->primitive_value,___FAL);
             glo = glo->next;
           }
         lo++;
       }
   }
 #else
-  mark_array (___PSP source->vm->glos+source->lo,source->hi-source->lo);
+  {
+    int i;
+    for (i=source->lo;i<source->hi;i++)
+      {
+        ___SCMOBJ *values=source->vm->glos;
+        ___WORD flags=___LOAD_GLOBAL_WORD(values+2*___GLOBALS_CAPACITY+i/___WORD_WIDTH);
+        mark_global_cell(___PSP values+i);
+        if (flags & (___CAST(___UWORD,1) << (i % ___WORD_WIDTH)))
+          mark_global_cell(___PSP values+___GLOBALS_CAPACITY+i);
+        else
+          ___PUBLISH_GLOBAL_WORD(values+___GLOBALS_CAPACITY+i,___FAL);
+      }
+  }
 #endif
 }
 

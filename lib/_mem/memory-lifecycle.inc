@@ -298,6 +298,10 @@ ___virtual_machine_state ___vms;)
   int source;
 
   ___vms->mem.globals_snapshot_=0;
+  the_msections=0;
+#ifndef ___SINGLE_VM
+  ___vms->glos=0;
+#endif
 
   /* Fresh VM setup owns every fixed source slot before any PS publication. */
   for (source=0; source<___MAX_PROCESSORS; ++source)
@@ -343,9 +347,13 @@ ___virtual_machine_state ___vms;)
 
   /* TODO: implement expansion of glos array when number of globals grows beyond 20000 */
 
-  { int n = ___GLOBALS_CAPACITY;
-    ___vms->glos = ___CAST(___SCMOBJ*,___ALLOC_MEM(n * sizeof (___SCMOBJ)));
-    while (--n>=0) { ___vms->glos[n] = ___UNB1; }
+  {
+    int n;
+    ___vms->glos=___CAST(___SCMOBJ*,___ALLOC_MEM(
+      ___CAST(___SIZE_T,___GLOBALS_STORAGE_WORDS)*sizeof(___SCMOBJ)));
+    if (___vms->glos == 0) return ___FIX(___HEAP_OVERFLOW_ERR);
+    for (n=0;n<2*___GLOBALS_CAPACITY;n++) ___vms->glos[n]=___UNB1;
+    for (;n<___GLOBALS_STORAGE_WORDS;n++) ___vms->glos[n]=0;
   }
 
 #endif
@@ -541,7 +549,10 @@ ___virtual_machine_state ___vms;)
 
 #endif
 
-  ___cleanup_mem_pstate (___PSTATE_FROM_PROCESSOR_ID(0,___vms));/*TODO: other processors?*/
+  /* An already cleaned or unconstructed processor owns no still/RC state.
+   * Failure rollback must not run its cleanup twice or inspect stale fields. */
+  if (___PSTATE_FROM_PROCESSOR_ID(0,___vms)->mem.rc_domain_ != 0)
+    ___cleanup_mem_pstate (___PSTATE_FROM_PROCESSOR_ID(0,___vms));
 
 #ifndef ___SINGLE_THREADED_VMS
   if (___vms->resize_state != 0)
@@ -556,6 +567,10 @@ ___virtual_machine_state ___vms;)
   free_msections (&the_msections);
 
 #ifndef ___SINGLE_VM
+  /* One VM-owned block covers ordinary/primitive slots and presence bits.
+   * All source leases and native borrowers have drained before this cut. */
+  ___FREE_MEM(___vms->glos); ___vms->glos=0;
+
 
   /*
    * Remove from virtual machine circular list.

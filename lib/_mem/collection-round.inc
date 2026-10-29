@@ -178,85 +178,10 @@ ___UWORD rc_epoch;)
 
   traverse_weak_refs = 0; /* don't traverse weak references in this phase */
 
-  /* Select roots at the phase boundary; scanners retain ___ps only as the
-   * existing collector executor. Workset, order and eligibility are unchanged. */
-  if (___PROCESSOR_ID(___ps,___vms) == 0)
-    {
-      ___root_task vm_task;
-      ___UWORD vm_epoch;
-      /* Both setup barriers precede this view. The VM allocation and stopped
-       * roster outlive the task, including weak/copy/cleanup after DONE. */
-      ___root_task_init(&vm_task,rc_epoch-1);
-      if (!___root_task_publish_vm(&vm_task,___vms,___ps,rc_epoch-1,&vm_epoch) ||
-          vm_epoch != rc_epoch ||
-          !___root_task_claim_vm(&vm_task,___ps,vm_epoch) ||
-          !___root_task_scan_vm(&vm_task,___ps,vm_epoch) ||
-          !___root_task_finish_vm(&vm_task,___ps,vm_epoch))
-        rc_contract_error("VM root task did not complete");
-      {
-        ___root_task symkey_task;
-        ___UWORD symkey_epoch;
-        /* Preserve coordinator/order; this does not close cross-VM writers.
-         * Global registry and round storage outlive the entry-scan borrow. */
-        ___root_task_init(&symkey_task,rc_epoch-1);
-        if (!___root_task_publish_symkey(&symkey_task,___GSTATE,___ps,rc_epoch-1,&symkey_epoch) ||
-            symkey_epoch != rc_epoch ||
-            !___root_task_claim_symkey(&symkey_task,___ps,symkey_epoch) ||
-            !___root_task_scan_symkey(&symkey_task,___ps,symkey_epoch) ||
-            !___root_task_finish_symkey(&symkey_task,___ps,symkey_epoch))
-          rc_contract_error("Symbol/keyword root task did not complete");
-      }
-    }
-
-  /* Every active source is scanned exactly once by its existing executor. */
-  if (!___root_task_claim(___ps->mem.rc_domain_,___ps,rc_epoch) ||
-      !___root_task_scan(___ps->mem.rc_domain_,___ps,rc_epoch) ||
-      !___root_task_finish(___ps->mem.rc_domain_,___ps,rc_epoch))
-    rc_contract_error("RC root task did not complete");
-
-  {
-    ___root_task globals_task;
-    ___global_root_source globals_source;
-    ___UWORD globals_epoch;
-    /* Snapshot the actual roster/registry partition before publishing READY.
-     * Descriptor and VM/registry lifetime remain held outside local DONE. */
-    ___root_task_init(&globals_task,rc_epoch-1);
-    if (!___root_task_publish_globals(&globals_task,&globals_source,___vms,___ps,
-                                     rc_epoch-1,&globals_epoch) ||
-        globals_epoch != rc_epoch ||
-        !___root_task_claim_globals(&globals_task,___ps,globals_epoch) ||
-        !___root_task_scan_globals(&globals_task,___ps,globals_epoch) ||
-        !___root_task_finish_globals(&globals_task,___ps,globals_epoch))
-      rc_contract_error("Global variable root task did not complete");
-  }
-
-  {
-    ___root_task stack_task;
-    ___UWORD stack_epoch;
-    /* Do not snapshot/copy frame contents. The scanner updates the original
-     * chain and break anchor before the existing bank/heap/weak phases. */
-    ___root_task_init(&stack_task,rc_epoch-1);
-    if (!___root_task_publish_stack(&stack_task,___ps->context,___ps,rc_epoch-1,&stack_epoch) ||
-        stack_epoch != rc_epoch ||
-        !___root_task_claim_stack(&stack_task,___ps,stack_epoch) ||
-        !___root_task_scan_stack(&stack_task,___ps,stack_epoch) ||
-        !___root_task_finish_stack(&stack_task,___ps,stack_epoch))
-      rc_contract_error("Stack root task did not complete");
-  }
-
-  {
-    ___root_task bank_task;
-    ___UWORD bank_epoch;
-    /* Stack handling stays before the bank, with the original visit order.
-     * Context storage/round lifetime remain held by the stopped roster. */
-    ___root_task_init(&bank_task,rc_epoch-1);
-    if (!___root_task_publish_bank(&bank_task,___ps->context,___ps,rc_epoch-1,&bank_epoch) ||
-        bank_epoch != rc_epoch ||
-        !___root_task_claim_bank(&bank_task,___ps,bank_epoch) ||
-        !___root_task_scan_bank(&bank_task,___ps,bank_epoch) ||
-        !___root_task_finish_bank(&bank_task,___ps,bank_epoch))
-      rc_contract_error("Bank root task did not complete");
-  }
+  /* The VM round owns all six source kinds and their complete lifetimes.
+   * Source adapters preserve the established scan order and frame rewrites. */
+  if (!___root_round_scan(___ps,rc_epoch))
+    rc_contract_error("Frozen root union did not complete");
 
   mark_reachable_from_marked (___PSPNC);
 
@@ -342,8 +267,7 @@ ___SIZE_TS requested_words_still;)
 {
   ___virtual_machine_state ___vms = ___VMSTATE_FROM_PSTATE(___ps);
   ___BOOL overflow = 0;
-  ___global_root_snapshot globals_snapshot;
-  ___UWORD rc_previous, rc_epoch;
+  ___UWORD rc_epoch;
   ___F64 user_time_start, sys_time_start, real_time_start;
   ___F64 user_time_end, sys_time_end, real_time_end;
   ___F64 user_time, sys_time, real_time;
@@ -399,22 +323,19 @@ ___SIZE_TS requested_words_still;)
 
   /* Keep track of bytes allocated by this processor */
 
-  ___RC_LOCK(___ps->mem.rc_domain_);
-  rc_previous=___ps->mem.rc_domain_->task.epoch;
-  ___RC_UNLOCK(___ps->mem.rc_domain_);
-  if (!___root_task_publish(___ps->mem.rc_domain_,___ps,rc_previous,&rc_epoch))
-    rc_contract_error("RC task publication refused");
-
   bytes_allocated_minus_occupied += bytes_occupied(___ps);
 
+  /* Every source view is complete before the coordinator captures the roster.
+   * This collective is also the publication edge for context/frame writes. */
   BARRIER();
-
-
-  /* Publish one immutable registry prefix for every root shard before flip.
-   * Other VMs may append: their new indices remain UNB1 in this stopped VM. */
-  if (___PROCESSOR_ID(___ps,___vms)==0 &&
-      !___root_globals_begin(&globals_snapshot,___ps,rc_epoch))
-    rc_contract_error("global round snapshot publication refused");
+  if (___PROCESSOR_ID(___ps,___vms)==0 && !___root_round_begin(___ps))
+    rc_contract_error("Frozen root union admission refused");
+  BARRIER();
+  if (!___root_round_freeze(___ps,&rc_epoch))
+    rc_contract_error("Frozen root member admission refused");
+  BARRIER();
+  if (___PROCESSOR_ID(___ps,___vms)==0 && !___root_round_publish(___ps))
+    rc_contract_error("Frozen root union publication refused");
 
   /* Setup the stacks and heaps of all the processors */
 
@@ -431,8 +352,8 @@ ___SIZE_TS requested_words_still;)
 
 
   if (___PROCESSOR_ID(___ps,___vms)==0 &&
-      !___root_globals_end(&globals_snapshot,___ps))
-    rc_contract_error("global round snapshot still owns unfinished shards");
+      !___root_round_finish_scan(___ps))
+    rc_contract_error("Frozen root union still owns unfinished sources");
 
   /* Mark the objects that are reachable weakly */
 
@@ -498,6 +419,10 @@ ___SIZE_TS requested_words_still;)
   prepare_mem_pstate (___ps);
 
   reopen_rc_roots (___ps, rc_epoch);
+  BARRIER();
+  if (___PROCESSOR_ID(___ps,___vms)==0 && !___root_round_end(___ps))
+    rc_contract_error("Frozen root union cannot retire before member restoration");
+  BARRIER();
 
 
   ___ACTLOG_END_PS();
