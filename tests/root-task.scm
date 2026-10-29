@@ -760,7 +760,8 @@ static int test_tcl_force;
 static ___SCMOBJ test_tcl_last;
 static Tcl_Interp *test_tcl_interp[4];
 static ___SIZE_T test_tcl_base;
-char *tcltk_call(___SCMOBJ vect,char **args) { return NULL; }
+char *tcltk_call(void *root,char **args);
+static char *test_tcl_entry(void *root,char **args);
 static ___SCMOBJ test_tcl_vector(___processor_state ps,___SIZE_TS n,___SCMOBJ init)
 {
   if (test_tcl_force==2) return ___FIX(___HEAP_OVERFLOW_ERR);
@@ -774,7 +775,9 @@ static ___SCMOBJ test_tcl_vector(___processor_state ps,___SIZE_TS n,___SCMOBJ in
 #undef ___EXT
 #define ___EXT(f) f
 #define ___make_vector test_tcl_vector
+#define tcltk_call test_tcl_entry
 #include "command.h"
+#undef tcltk_call
 #undef ___make_vector
 #pragma pop_macro("___EXT")
 
@@ -1277,13 +1280,224 @@ c-end
 ))
  (else (begin)))
 
+
+;;; Same replay driver, actual Tcl dispatcher/header and production Scheme entry.
+(cond-expand
+ (tcl-command-test
+  (begin
+(c-declare #<<c-end
+
+#ifdef ___TEST_TCL_COMMAND
+static Tcl_Interp *test_callback_interp;
+static void *test_callback_roots[4];
+static int test_callback_mode,test_callback_depth,test_callback_bad;
+static int test_callback_gc,test_callback_moves,test_callback_calls;
+static void *test_callback_probe_root;
+static char *test_tcl_old_entry(___SCMOBJ value,char **args)
+{
+  /* Probe only. Do not collect/delete through the unsafe old ABI. */
+  (void)args;
+  if(___EXT(___refcount_rc)(test_callback_probe_root)!=2 ||
+     value!=___EXT(___data_rc)(test_callback_probe_root)) test_callback_bad=1;
+  return NULL;
+}
+___HIDDEN int test_tcl_old_call
+   ___P((ClientData client_data,
+         Tcl_Interp *interp,
+         int argc,
+         const char **argv),
+        (client_data,
+         interp,
+         argc,
+         argv)
+ClientData client_data;
+Tcl_Interp *interp;
+int argc;
+const char **argv;)
+{
+  char *result = test_tcl_old_entry (___EXT(___data_rc) (___CAST(void*,client_data)),
+                             ___CAST(char**,argv+1));
+
+  /*
+   * Propagate result to Tcl.
+   */
+
+  if (result == NULL)
+    {
+      Tcl_SetResult (interp,
+                     "",
+                     TCL_STATIC);
+    }
+  else
+    {
+      /*
+       * The resulting C string was dynamically allocated by
+       * Gambit's C interface.  We have to ensure it is
+       * deallocated by a call to ___release_string by Tcl
+       * when it no longer needs the string.
+       */
+
+      Tcl_SetResult (interp,
+                     result,
+                     ___CAST(Tcl_FreeProc*,___EXT(___release_string)));
+    }
+
+  return TCL_OK;
+}
+
+static char *test_tcl_entry(void *root,char **args)
+{
+  ___processor_state ps=___PSTATE;
+  ___SCMOBJ before,after;
+  char *result;
+  int level=test_callback_depth++;
+  if(level>=4 || ___EXT(___refcount_rc)(root)!=level+2) _Exit(76);
+  test_callback_roots[level]=root;
+  before=___VECTORELEM(___EXT(___data_rc)(root),0);
+  if(test_callback_mode==1 || test_callback_mode==3) {
+    if(___garbage_collect(___PSA(ps) 0)) _Exit(74);
+    ++test_callback_gc;
+    after=___VECTORELEM(___EXT(___data_rc)(root),0);
+    if(before!=after) ++test_callback_moves;else _Exit(75);
+  }
+  ++test_callback_calls;
+  result=tcltk_call(root,args); /* actual generated SFUN conversion and Scheme body */
+  test_callback_roots[level]=NULL;
+  --test_callback_depth;
+  return result;
+}
+#endif
+c-end
+)
+; The RC identity stays pinned by scheme_call_cmd through every allocating
+; argument conversion and nested callback. Read its GC-updated payload only
+; after entering Scheme; no unrooted Scheme value crosses that C boundary.
+(define ##tcltk-command-payload
+  (c-lambda ((pointer void)) scheme-object
+    "___result=___EXT(___data_rc)(___arg1);"))
+
+(c-define (##tcltk-call root args)
+          ((pointer void) nonnull-char-string-list) char-string "tcltk_call" ""
+  (let* ((vect (##tcltk-command-payload root))
+         (proc (##vector-ref vect 0)))
+    (let ((result (##apply proc args)))
+      (if (##string? result)
+          result
+          #f))))
+
+(define tcl-callback-step
+ (c-lambda () bool #<<c-end
+___processor_state ps=___PSTATE;
+void *root=test_callback_roots[test_callback_depth-1];
+int ok=root!=NULL;
+if(ok && test_callback_depth==1 && (test_callback_mode==2 || test_callback_mode==3)) {
+  ok=Tcl_Eval(test_callback_interp,"owned inner")==TCL_OK;
+}
+if(ok && ((test_callback_mode==4 && test_callback_depth==1) ||
+          (test_callback_mode==3 && test_callback_depth==2))) {
+  ok=Tcl_DeleteCommand(test_callback_interp,"owned")==TCL_OK;
+  if(ok && ___EXT(___refcount_rc)(root)!=test_callback_depth) ok=0;
+}
+if(ok) {
+  ___SCMOBJ before=___VECTORELEM(___EXT(___data_rc)(root),0);
+  if(___garbage_collect(___PSA(ps) 0)) _Exit(74);
+  ++test_callback_gc;
+  if(before!=___VECTORELEM(___EXT(___data_rc)(root),0)) ++test_callback_moves;
+  else _Exit(75);
+}
+___result=ok;
+c-end
+))
+(define tcl-callback-action
+ (c-lambda (scheme-object int bool) bool #<<c-end
+___processor_state ps=___PSTATE;
+___rc_domain *d=ps->mem.rc_domain_;
+___SIZE_T nodes=d->nodes;
+int ok,mode=___arg2;
+void *root;
+Tcl_CmdInfo info;
+test_callback_mode=mode;test_callback_depth=0;test_callback_bad=0;
+test_callback_gc=0;test_callback_moves=0;test_callback_calls=0;
+test_callback_interp=Tcl_CreateInterp();
+if(!test_callback_interp || !scheme_create_cmd(ps,test_callback_interp,"owned",___arg1)) _Exit(74);
+if(!Tcl_GetCommandInfo(test_callback_interp,"owned",&info)) _Exit(74);
+root=info.clientData;test_callback_probe_root=root;
+if(___arg3) {
+  info.proc=test_tcl_old_call;
+  if(!Tcl_SetCommandInfo(test_callback_interp,"owned",&info)) _Exit(74);
+  /* Calibrate the same legacy probe: externally supplying the missing owner
+   * must pass before removing it exposes the real count mismatch. */
+  ___EXT(___addref_rc)(root);
+  if(Tcl_Eval(test_callback_interp,"owned calibration")!=TCL_OK || test_callback_bad) _Exit(76);
+  ___EXT(___release_rc)(root);
+  test_callback_bad=0;
+}
+ok=Tcl_Eval(test_callback_interp,"owned outer")==TCL_OK;
+if(!___arg3) {
+  ok=ok && strcmp(Tcl_GetStringResult(test_callback_interp),mode==5?"":"owned-result")==0;
+  ok=ok && test_callback_calls==((mode==2 || mode==3)?2:1);
+  ok=ok && test_callback_gc==test_callback_moves && test_callback_gc>0;
+  ok=ok && d->nodes==nodes+((mode==3 || mode==4)?0:1);
+  if(mode!=3 && mode!=4) ok=ok && ___EXT(___refcount_rc)(root)==1;
+}
+Tcl_DeleteInterp(test_callback_interp);test_callback_interp=NULL;
+ok=ok && d->nodes==nodes && d->borrows==0 && test_callback_depth==0;
+___result=ok && !test_callback_bad;
+c-end
+))
+(define (replay-tcl-callback commands fault)
+ (if (not (tcl-command-init)) (error "Tcl provider unavailable"))
+ (let loop ((xs commands) (at 0))
+  (if (null? xs)
+   (begin (write (list 'root-task-result 'pass at)) (newline) (exit))
+   (let* ((row (car xs)) (mode (vector-ref row 0))
+          (tag (vector at (vector-ref row 1) (vector-ref row 2)))
+          (proc (lambda args
+                 (if (not (tcl-callback-step)) (error "callback ownership failed"))
+                 (if (= (vector-ref tag 0) -1) (error "captured tag corrupted"))
+                 (if (= mode 5) #f "owned-result"))))
+    (if (not (tcl-callback-action proc mode (= fault 1)))
+     (begin (write (list 'root-task-result 'mismatch at mode 0))
+            (newline) (force-output) (rc-write-exit 71)))
+    (loop (cdr xs) (+ at 1))))))
+(define (tcl-callback-suite)
+ (set! family 'tcl-callback) (set! trials 0)
+ (let ((seed 1993) (actions 6))
+  (define (next n) (set! seed (modulo (+ (* seed 48271) 17) 2147483647)) (modulo seed n))
+  (define (noise n) (if (= n 0) '() (cons (vector (next 6) (- (next 4) 1) (next 2)) (noise (- n 1)))))
+  (let ((result (trial '(#(0 0 0) #(1 0 0) #(2 0 0) #(3 0 0) #(4 0 0) #(5 0 0)) 0)))
+   (if (signature result) (error "callback mandatory cases failed" result))
+   (write (list 'TCL-CALLBACK-NESTED-DELETE-GC-PASS result)) (newline))
+  (do ((i 0 (+ i 1))) ((= i 12))
+   (let* ((commands (noise 24)) (result (trial commands 0)))
+    (set! actions (+ actions (length commands)))
+    (if (signature result) (error "callback property failed" result (shrink commands 0 (signature result))))))
+  (write (list 'TCL-CALLBACK-PBT-PASS 'seed 1993 'cases 12 'actions actions)) (newline)
+  (let* ((commands (make-list 13 '#(0 0 0))) (failure (trial commands 1)) (wanted (signature failure)))
+   (if (not (equal? wanted '(0 0))) (error "old callback control missed" failure))
+   (let* ((minimal (shrink commands 1 wanted)) (one? (one-minimal? minimal 1 wanted))
+          (again (trial minimal 1)) (positive (trial minimal 0)))
+    (if (not (and (= (length minimal) 1) one? (equal? (signature again) wanted) (not (signature positive))))
+     (error "callback shrink/replay failed" minimal again positive))
+    (for-each (lambda (pair) (with-output-to-file (trace-file (car pair))
+     (lambda () (write (list (trace-tag) 1 minimal (cdr pair))) (newline))))
+     '(("legacy-minimal" . 1) ("current-minimal" . 0)))
+    (if (not (and (equal? (signature (trial-file (trace-file "legacy-minimal"))) wanted)
+                  (not (signature (trial-file (trace-file "current-minimal"))))))
+     (error "callback serialized replay failed"))
+    (display "TCL-CALLBACK-SERIALIZED-REPLAY-PASS\n")
+    (write (list 'TCL-CALLBACK-IMPLEMENTATION-SHRINK-PASS 'from 13 'to 1 'deletion-one-minimal one?)) (newline)))
+  (delete-file input-file)))
+ ))
+ (else (begin)))
+
 (define family 'rc)
 (define (trace-tag)
-  (case family ((symkey-callback) 'symkey-callback-trace) ((marker-input) 'marker-input-trace) ((tcl-command) 'tcl-command-trace) ((rc-write) 'rc-write-trace) ((view) 'symkey-view-trace) ((intern) 'symkey-publication-trace) ((snapshot) 'globals-snapshot-trace) ((vm) 'vm-root-task-trace) ((bank) 'bank-root-task-trace) ((stack) 'stack-root-task-trace) ((symkey) 'symkey-root-task-trace) ((globals) 'globals-root-task-trace)
+  (case family ((tcl-callback) 'tcl-callback-trace) ((symkey-callback) 'symkey-callback-trace) ((marker-input) 'marker-input-trace) ((tcl-command) 'tcl-command-trace) ((rc-write) 'rc-write-trace) ((view) 'symkey-view-trace) ((intern) 'symkey-publication-trace) ((snapshot) 'globals-snapshot-trace) ((vm) 'vm-root-task-trace) ((bank) 'bank-root-task-trace) ((stack) 'stack-root-task-trace) ((symkey) 'symkey-root-task-trace) ((globals) 'globals-root-task-trace)
     ((continuation) 'continuation-history)
     (else 'root-task-trace)))
 (define (trace-file suffix)
-  (string-append (case family ((symkey-callback) "symkey-callback-") ((marker-input) "marker-input-") ((tcl-command) "tcl-command-") ((rc-write) "rc-write-") ((view) "symkey-view-") ((intern) "symkey-publication-") ((snapshot) "globals-snapshot-") ((vm) "vm-root-task-")
+  (string-append (case family ((tcl-callback) "tcl-callback-") ((symkey-callback) "symkey-callback-") ((marker-input) "marker-input-") ((tcl-command) "tcl-command-") ((rc-write) "rc-write-") ((view) "symkey-view-") ((intern) "symkey-publication-") ((snapshot) "globals-snapshot-") ((vm) "vm-root-task-")
                   ((bank) "bank-root-task-") ((stack) "stack-root-task-") ((symkey) "symkey-root-task-") ((globals) "globals-root-task-")
                   ((continuation) "continuation-history-") (else "root-task-")) suffix ".trace"))
 (define (oracle commands)
@@ -1313,7 +1527,7 @@ c-end
       commands))))
 
 (define (trace? x)
-  (and (list? x) (= (length x) 4) (memq (car x) '(symkey-callback-trace marker-input-trace tcl-command-trace rc-write-trace root-task-trace vm-root-task-trace bank-root-task-trace stack-root-task-trace symkey-root-task-trace globals-root-task-trace globals-snapshot-trace symkey-publication-trace symkey-view-trace continuation-history))
+  (and (list? x) (= (length x) 4) (memq (car x) '(tcl-callback-trace symkey-callback-trace marker-input-trace tcl-command-trace rc-write-trace root-task-trace vm-root-task-trace bank-root-task-trace stack-root-task-trace symkey-root-task-trace globals-root-task-trace globals-snapshot-trace symkey-publication-trace symkey-view-trace continuation-history))
        (integer? (cadr x)) (<= 1 (cadr x) 3) (list? (caddr x))
        (<= (length (caddr x)) 96)
        (if (eq? (car x) 'symkey-view-trace)
@@ -1323,12 +1537,12 @@ c-end
          (or (null? xs)
              (let ((r (car xs)))
                (and (vector? r) (= (vector-length r) 3)
-                    (integer? (vector-ref r 0)) (<= 0 (vector-ref r 0) (case (car x) ((symkey-callback-trace) 7) ((symkey-view-trace) 9) ((rc-write-trace) 8) ((marker-input-trace) 6) ((tcl-command-trace) 7) ((globals-snapshot-trace symkey-publication-trace) 8) ((globals-root-task-trace) 6) (else 5)))
+                    (integer? (vector-ref r 0)) (<= 0 (vector-ref r 0) (case (car x) ((tcl-callback-trace) 5) ((symkey-callback-trace) 7) ((symkey-view-trace) 9) ((rc-write-trace) 8) ((marker-input-trace) 6) ((tcl-command-trace) 7) ((globals-snapshot-trace symkey-publication-trace) 8) ((globals-root-task-trace) 6) (else 5)))
                     (memv (vector-ref r 1) '(-1 0 1 2))
                     (memv (vector-ref r 2) '(0 1)) (loop (cdr xs))))))))
 (define (replay trace)
   (if (not (trace? trace)) (error "invalid structured root-task trace"))
-  (set! family (case (car trace) ((symkey-callback-trace) 'symkey-callback) ((marker-input-trace) 'marker-input) ((tcl-command-trace) 'tcl-command) ((rc-write-trace) 'rc-write) ((symkey-view-trace) 'view) ((symkey-publication-trace) 'intern) ((globals-snapshot-trace) 'snapshot) ((vm-root-task-trace) 'vm)
+  (set! family (case (car trace) ((tcl-callback-trace) 'tcl-callback) ((symkey-callback-trace) 'symkey-callback) ((marker-input-trace) 'marker-input) ((tcl-command-trace) 'tcl-command) ((rc-write-trace) 'rc-write) ((symkey-view-trace) 'view) ((symkey-publication-trace) 'intern) ((globals-snapshot-trace) 'snapshot) ((vm-root-task-trace) 'vm)
                  ((bank-root-task-trace) 'bank) ((stack-root-task-trace) 'stack) ((symkey-root-task-trace) 'symkey) ((globals-root-task-trace) 'globals)
                  ((continuation-history) 'continuation) (else 'rc)))
   (if (not (prepare-source)) (error "root-task source allocation failed"))
@@ -1340,6 +1554,9 @@ c-end
           ((eq? family 'marker-input)
            (cond-expand (marker-input-test (replay-marker-input commands (cadddr trace)))
                         (else (error "marker-input test feature not selected"))))
+          ((eq? family 'tcl-callback)
+           (cond-expand (tcl-command-test (replay-tcl-callback commands (cadddr trace)))
+                        (else (error "Tcl callback feature not selected"))))
           ((eq? family 'tcl-command) (replay-tcl-command commands (cadddr trace)))
           ((eq? family 'rc-write) (replay-rc-write commands (cadddr trace)))
           ((eq? family 'view) (replay-view commands (cadddr trace)))
@@ -2327,6 +2544,9 @@ c-end
         ((and (= (length args) 1) (string=? (car args) "--marker-input"))
          (cond-expand (marker-input-test (marker-input-suite))
                       (else (error "marker-input test feature not selected"))))
+        ((and (= (length args) 1) (string=? (car args) "--tcl-callback"))
+         (cond-expand (tcl-command-test (tcl-callback-suite))
+                      (else (error "Tcl callback feature not selected"))))
         ((and (= (length args) 1) (string=? (car args) "--tcl-command")) (tcl-command-suite))
         ((and (= (length args) 1) (string=? (car args) "--rc-writes")) (rc-write-suite))
         ((and (= (length args) 1) (string=? (car args) "--symkey-views")) (view-suite))

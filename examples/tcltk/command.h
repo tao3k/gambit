@@ -15,7 +15,7 @@
  * return a string result or the value #f.
  */
 
-char *tcltk_call ___P((___SCMOBJ vect, char **args),());
+char *tcltk_call ___P((void *root, char **args),());
 
 ___HIDDEN int scheme_call_cmd
    ___P((ClientData client_data,
@@ -31,8 +31,15 @@ Tcl_Interp *interp;
 int argc;
 const char **argv;)
 {
-  char *result = tcltk_call (___EXT(___data_rc) (___CAST(void*,client_data)),
-                             ___CAST(char**,argv+1));
+  void *root = ___CAST(void*,client_data);
+  char *result;
+
+  /* Tcl owns the command on entry. Pin its RC identity before reading any
+   * Scheme payload; nested command deletion may release Tcl's ownership.
+   * Only this stable native identity crosses allocating SFUN conversions. */
+  ___EXT(___addref_rc)(root);
+  result = tcltk_call (root, ___CAST(char**,argv+1));
+  ___EXT(___release_rc)(root);
 
   /*
    * Propagate result to Tcl.

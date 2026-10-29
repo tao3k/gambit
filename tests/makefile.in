@@ -531,8 +531,9 @@ test-symkey-views:
 # Optional real Tcl provider for the existing root-task replay/shrink fixture.
 .PHONY: test-tcl-command
 test-tcl-command: $(srcdirpfx)$(rootfromhere)/examples/tcltk/command.h
-	@SETDLPATH@ $(rootfromhere)/gsc/gsc@exe@ -:~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f -exe -cc-options "-DHAVE_CONFIG_H -D___TEST_TCL_COMMAND -I$(srcdirpfx)$(rootfromhere)/include -I$(srcdirpfx)$(rootfromhere)/lib -I$(srcdirpfx)$(rootfromhere)/examples/tcltk $(TCL_CFLAGS)" -ld-options "$(TCL_LIBS)" -o root-task-tcl@exe@ $(srcdirpfx)root-task.scm
+	@SETDLPATH@ $(rootfromhere)/gsc/gsc@exe@ -:~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f -prelude "(define-cond-expand-feature tcl-command-test)" -exe -cc-options "-DHAVE_CONFIG_H -D___TEST_TCL_COMMAND -I$(srcdirpfx)$(rootfromhere)/include -I$(srcdirpfx)$(rootfromhere)/lib -I$(srcdirpfx)$(rootfromhere)/examples/tcltk $(TCL_CFLAGS)" -ld-options "$(TCL_LIBS)" -o root-task-tcl@exe@ $(srcdirpfx)root-task.scm
 	@SETDLPATH@ ./root-task-tcl@exe@ -:p1 --tcl-command
+	@SETDLPATH@ ./root-task-tcl@exe@ -:p1 --tcl-callback
 	rm -f root-task-tcl@exe@ root-task-input.dat
 
 # The existing root-task driver exercises the actual C marker constructor.

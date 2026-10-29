@@ -146,9 +146,17 @@ c-declare-end
 ; Scheme procedure contained in "vect" is being called by Tcl with
 ; the list of arguments "args", which is a list of strings.
 
-(c-define (##tcltk-call vect args)
-          (scheme-object nonnull-char-string-list) char-string "tcltk_call" ""
-  (let ((proc (##vector-ref vect 0)))
+; The RC identity stays pinned by scheme_call_cmd through every allocating
+; argument conversion and nested callback. Read its GC-updated payload only
+; after entering Scheme; no unrooted Scheme value crosses that C boundary.
+(define ##tcltk-command-payload
+  (c-lambda ((pointer void)) scheme-object
+    "___result=___EXT(___data_rc)(___arg1);"))
+
+(c-define (##tcltk-call root args)
+          ((pointer void) nonnull-char-string-list) char-string "tcltk_call" ""
+  (let* ((vect (##tcltk-command-payload root))
+         (proc (##vector-ref vect 0)))
     (let ((result (##apply proc args)))
       (if (##string? result)
           result
