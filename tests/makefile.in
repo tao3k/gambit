@@ -543,3 +543,10 @@ test-marker-input:
 	@SETDLPATH@ $(rootfromhere)/gsc/gsc@exe@ -:~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f -prelude "(define-cond-expand-feature marker-input-test)" -exe -cc-options "-DHAVE_CONFIG_H -D___TEST_MARKER_INPUT -I$(srcdirpfx)$(rootfromhere)/include -I$(srcdirpfx)$(rootfromhere)/lib" -ld-options-prelude "marker-input-c-intf@obj@" -o root-task-marker@exe@ $(srcdirpfx)root-task.scm
 	@SETDLPATH@ ./root-task-marker@exe@ -:p1 --marker-input
 	rm -f root-task-marker@exe@ marker-input-c-intf@obj@
+
+# Permanent identity callbacks share the existing native replay/shrink fixture.
+.PHONY: test-symkey-callback
+test-symkey-callback:
+	@SETDLPATH@ $(rootfromhere)/gsc/gsc@exe@ -:~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f -prelude "(define-cond-expand-feature symkey-callback-test)" -exe -cc-options "-DHAVE_CONFIG_H -I$(srcdirpfx)$(rootfromhere)/include -I$(srcdirpfx)$(rootfromhere)/lib" -o root-task-callback@exe@ $(srcdirpfx)root-task.scm
+	@SETDLPATH@ ./root-task-callback@exe@ -:p1 --symkey-callback
+	rm -f root-task-callback@exe@ root-task-input.dat

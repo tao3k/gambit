@@ -429,27 +429,22 @@ void ___intern_symkey(___SCMOBJ symkey)
   ___MUTEX_UNLOCK(___GSTATE->mem.global_gate);
 }
 
-/* Query/copy one Scheme-owned flat view. The caller allocates outside this
- * gate and retries a changed count; this fragment allocates nothing and cannot
- * enter Scheme/GC. No destination cell is written on a size mismatch. */
-___SCMOBJ ___symkey_table_view(___SCMOBJ view,unsigned int subtype)
+/* One checked identity-copy contract serves Scheme views and native callbacks.
+ * Caller holds global_gate. No allocation, callback or Scheme/GC occurs here.
+ * A size mismatch writes no destination cells; copied identities are permanent. */
+___HIDDEN ___SCMOBJ symkey_table_copy(___SCMOBJ *items,
+                                    ___SIZE_TS length,unsigned int subtype)
 {
-  ___SCMOBJ table,result,probe;
+  ___SCMOBJ table=symkey_table(subtype),result,probe;
   int count,used=0,i;
-  ___MUTEX_LOCK(___GSTATE->mem.global_gate);
-  table=symkey_table(subtype);
   if (!symkey_table_permanent(table) ||
       !___FIXNUMP(___VECTORELEM(table,0)) ||
       ___INT(___VECTORELEM(table,0))<0 ||
       ___VECTORELEM(table,0)>___FIX(SYMKEY_COUNT_LIMIT))
-    { result=___FIX(___HEAP_OVERFLOW_ERR); goto done; }
+    return ___FIX(___HEAP_OVERFLOW_ERR);
   result=___VECTORELEM(table,0);
   count=___INT(result);
-  if (view==___FAL) goto done;
-  if (!___MEM_ALLOCATED(view) ||
-      ___HD_SUBTYPE(___HEADER(view))!=___sVECTOR)
-    { result=___FIX(___HEAP_OVERFLOW_ERR); goto done; }
-  if (___INT(___VECTORLENGTH(view))!=count) goto done;
+  if (items==0 || length!=count) return result;
   for (i=___INT(___VECTORLENGTH(table))-1;i>0;i--)
     for (probe=___VECTORELEM(table,i);probe!=___NUL;
          probe=___SYMKEY_NEXT_FIELD(probe))
@@ -457,48 +452,67 @@ ___SCMOBJ ___symkey_table_view(___SCMOBJ view,unsigned int subtype)
         if (used>=count || !___MEM_ALLOCATED(probe) ||
             ___HD_TYP(___HEADER(probe))!=___PERM ||
             ___INT(___SUBTYPE(probe))!=subtype)
-          { result=___FIX(___HEAP_OVERFLOW_ERR); goto done; }
-        ___VECTORELEM(view,used++)=probe;
+          return ___FIX(___HEAP_OVERFLOW_ERR);
+        items[used++]=probe;
       }
-  if (used!=count) result=___FIX(___HEAP_OVERFLOW_ERR);
-done:
+  return used==count ? result : ___FIX(___HEAP_OVERFLOW_ERR);
+}
+
+/* The Scheme caller allocates/roots its vector outside the registry gate. */
+___SCMOBJ ___symkey_table_view(___SCMOBJ view,unsigned int subtype)
+{
+  ___SCMOBJ result;
+  ___MUTEX_LOCK(___GSTATE->mem.global_gate);
+  if (view==___FAL)
+    result=symkey_table_copy(0,0,subtype);
+  else if (!___MEM_ALLOCATED(view) ||
+           ___HD_SUBTYPE(___HEADER(view))!=___sVECTOR)
+    result=___FIX(___HEAP_OVERFLOW_ERR);
+  else
+    result=symkey_table_copy(___BODY_AS(view,___tVECTOR),
+                            ___INT(___VECTORLENGTH(view)),subtype);
   ___MUTEX_UNLOCK(___GSTATE->mem.global_gate);
   return result;
 }
 
-void ___for_each_symkey
+/* Native callbacks borrow a private identity array, never buckets or NEXT.
+ * A live global-state owner and normally returning callbacks are required.
+ * The native allocator cannot enter Scheme/GC. Keeping query/allocation/copy
+ * in one gate avoids treating ordinary concurrent growth as caller failure.
+ * No registry lock or movable address survives the callback boundary.
+ * Permanent identities need no extra RC roots and do not extend VM lifetime. */
+___BOOL ___for_each_symkey
    ___P((unsigned int subtype,
          void (*visit) (___SCMOBJ symkey, void *data),
          void *data),
-        (subtype,
-         visit,
-         data)
+        (subtype,visit,data)
 unsigned int subtype;
 void (*visit) ();
 void *data;)
 {
-  ___SCMOBJ tbl;
-  int i;
-  /* Internal caller census: os_tty visit_symbol reads permanent names only.
-   * This private callback must not reenter registry/GC/Scheme. */
+  ___SCMOBJ count,result,*items=0;
+  ___SIZE_T length,i;
+  if (visit==0) return 0;
   ___MUTEX_LOCK(___GSTATE->mem.global_gate);
-  tbl=symkey_table(subtype);
-  if (!symkey_table_permanent(tbl))
-    { ___MUTEX_UNLOCK(___GSTATE->mem.global_gate); return; }
-
-  for (i=___INT(___VECTORLENGTH(tbl))-1; i>0; i--)
-    {
-      ___SCMOBJ probe = ___VECTORELEM(tbl, i);
-
-      while (probe != ___NUL)
-        {
-          visit (probe, data);
-          probe = ___SYMKEY_NEXT_FIELD(probe);
-        }
-    }
+  count=symkey_table_copy(0,0,subtype);
+  if (count<___FIX(0))
+    { ___MUTEX_UNLOCK(___GSTATE->mem.global_gate); return 0; }
+  length=___INT(count);
+  if (length==0)
+    { ___MUTEX_UNLOCK(___GSTATE->mem.global_gate); return 1; }
+  if (length>~___CAST(___SIZE_T,0)/sizeof(*items))
+    { ___MUTEX_UNLOCK(___GSTATE->mem.global_gate); return 0; }
+  items=___CAST(___SCMOBJ*,___ALLOC_MEM(length*sizeof(*items)));
+  if (items==0)
+    { ___MUTEX_UNLOCK(___GSTATE->mem.global_gate); return 0; }
+  result=symkey_table_copy(items,length,subtype);
   ___MUTEX_UNLOCK(___GSTATE->mem.global_gate);
+  if (result!=count)
+    { ___FREE_MEM(items); return 0; }
+  for (i=0;i<length;i++) visit(items[i],data);
+  ___FREE_MEM(items);
+  return 1;
 }
-
 
 /*---------------------------------------------------------------------------*/
 

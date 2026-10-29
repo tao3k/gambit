@@ -947,13 +947,343 @@ c-end
                      'deletion-one-minimal one? 'replayed #t 'production-pass #t)) (newline)))
     (delete-file input-file)))
 
+(cond-expand
+ (symkey-callback-test
+  (begin
+   (c-declare #<<c-end
+#define SYMKEY_COUNT_LIMIT ((___MAX_FIX < INT_MAX) ? ___MAX_FIX : INT_MAX)
+static int test_callback_fault,test_callback_live;
+static void *test_callback_allocate(___SIZE_T bytes)
+{
+  void *p;
+  if (test_callback_fault==1) return 0;
+  p=___ALLOC_MEM(bytes);if(p) ++test_callback_live;return p;
+}
+static void test_callback_free(void *p)
+{ --test_callback_live;___FREE_MEM(p); }
+___HIDDEN ___SCMOBJ test_old_table
+   ___P((unsigned int subtype),
+        (subtype)
+unsigned int subtype;)
+{
+  switch (subtype)
+    {
+    case ___sKEYWORD:
+      return ___GSTATE->keyword_table;
+    default: /* assume ___sSYMBOL */
+      return ___GSTATE->symbol_table;
+    }
+}
+
+
+___HIDDEN ___BOOL test_old_table_permanent(___SCMOBJ tbl)
+{
+  return ___MEM_ALLOCATED(tbl) && ___HD_TYP(___HEADER(tbl))==___PERM &&
+         ___HD_SUBTYPE(___HEADER(tbl))==___sVECTOR &&
+         ___INT(___VECTORLENGTH(tbl))>1;
+}
+
+static void test_old_for_each_symkey
+   ___P((unsigned int subtype,
+         void (*visit) (___SCMOBJ symkey, void *data),
+         void *data),
+        (subtype,
+         visit,
+         data)
+unsigned int subtype;
+void (*visit) ();
+void *data;)
+{
+  ___SCMOBJ tbl;
+  int i;
+  /* Internal caller census: os_tty visit_symbol reads permanent names only.
+   * This private callback must not reenter registry/GC/Scheme. */
+  ___MUTEX_LOCK(___GSTATE->mem.global_gate);
+  tbl=test_old_table(subtype);
+  if (!test_old_table_permanent(tbl))
+    { ___MUTEX_UNLOCK(___GSTATE->mem.global_gate); return; }
+
+  for (i=___INT(___VECTORLENGTH(tbl))-1; i>0; i--)
+    {
+      ___SCMOBJ probe = ___VECTORELEM(tbl, i);
+
+      while (probe != ___NUL)
+        {
+          visit (probe, data);
+          probe = ___SYMKEY_NEXT_FIELD(probe);
+        }
+    }
+  ___MUTEX_UNLOCK(___GSTATE->mem.global_gate);
+}
+
+#pragma push_macro("___ALLOC_MEM")
+#pragma push_macro("___FREE_MEM")
+#undef ___ALLOC_MEM
+#undef ___FREE_MEM
+#define ___ALLOC_MEM(bytes) test_callback_allocate(bytes)
+#define ___FREE_MEM(ptr) test_callback_free(ptr)
+___HIDDEN ___SCMOBJ test_adapter_table
+   ___P((unsigned int subtype),
+        (subtype)
+unsigned int subtype;)
+{
+  switch (subtype)
+    {
+    case ___sKEYWORD:
+      return ___GSTATE->keyword_table;
+    default: /* assume ___sSYMBOL */
+      return ___GSTATE->symbol_table;
+    }
+}
+
+
+___HIDDEN ___BOOL test_adapter_table_permanent(___SCMOBJ tbl)
+{
+  return ___MEM_ALLOCATED(tbl) && ___HD_TYP(___HEADER(tbl))==___PERM &&
+         ___HD_SUBTYPE(___HEADER(tbl))==___sVECTOR &&
+         ___INT(___VECTORLENGTH(tbl))>1;
+}
+
+/* One checked identity-copy contract serves Scheme views and native callbacks.
+ * Caller holds global_gate. No allocation, callback or Scheme/GC occurs here.
+ * A size mismatch writes no destination cells; copied identities are permanent. */
+___HIDDEN ___SCMOBJ test_adapter_copy_real(___SCMOBJ *items,
+                                    ___SIZE_TS length,unsigned int subtype)
+{
+  ___SCMOBJ table=test_adapter_table(subtype),result,probe;
+  int count,used=0,i;
+  if (!test_adapter_table_permanent(table) ||
+      !___FIXNUMP(___VECTORELEM(table,0)) ||
+      ___INT(___VECTORELEM(table,0))<0 ||
+      ___VECTORELEM(table,0)>___FIX(SYMKEY_COUNT_LIMIT))
+    return ___FIX(___HEAP_OVERFLOW_ERR);
+  result=___VECTORELEM(table,0);
+  count=___INT(result);
+  if (items==0 || length!=count) return result;
+  for (i=___INT(___VECTORLENGTH(table))-1;i>0;i--)
+    for (probe=___VECTORELEM(table,i);probe!=___NUL;
+         probe=___SYMKEY_NEXT_FIELD(probe))
+      {
+        if (used>=count || !___MEM_ALLOCATED(probe) ||
+            ___HD_TYP(___HEADER(probe))!=___PERM ||
+            ___INT(___SUBTYPE(probe))!=subtype)
+          return ___FIX(___HEAP_OVERFLOW_ERR);
+        items[used++]=probe;
+      }
+  return used==count ? result : ___FIX(___HEAP_OVERFLOW_ERR);
+}
+
+static ___SCMOBJ test_adapter_copy(___SCMOBJ *items,___SIZE_TS n,unsigned int kind) {
+ if(test_callback_fault==2 && items!=0) return ___FIX(___HEAP_OVERFLOW_ERR);
+ return test_adapter_copy_real(items,n,kind);
+}
+/* The Scheme caller allocates/roots its vector outside the registry gate. */
+___SCMOBJ test_adapter_view(___SCMOBJ view,unsigned int subtype)
+{
+  ___SCMOBJ result;
+  ___MUTEX_LOCK(___GSTATE->mem.global_gate);
+  if (view==___FAL)
+    result=test_adapter_copy(0,0,subtype);
+  else if (!___MEM_ALLOCATED(view) ||
+           ___HD_SUBTYPE(___HEADER(view))!=___sVECTOR)
+    result=___FIX(___HEAP_OVERFLOW_ERR);
+  else
+    result=test_adapter_copy(___BODY_AS(view,___tVECTOR),
+                            ___INT(___VECTORLENGTH(view)),subtype);
+  ___MUTEX_UNLOCK(___GSTATE->mem.global_gate);
+  return result;
+}
+
+/* Native callbacks borrow a private identity array, never buckets or NEXT.
+ * A live global-state owner and normally returning callbacks are required.
+ * The native allocator cannot enter Scheme/GC. Keeping query/allocation/copy
+ * in one gate avoids treating ordinary concurrent growth as caller failure.
+ * No registry lock or movable address survives the callback boundary.
+ * Permanent identities need no extra RC roots and do not extend VM lifetime. */
+___BOOL test_adapter_for_each
+   ___P((unsigned int subtype,
+         void (*visit) (___SCMOBJ symkey, void *data),
+         void *data),
+        (subtype,visit,data)
+unsigned int subtype;
+void (*visit) ();
+void *data;)
+{
+  ___SCMOBJ count,result,*items=0;
+  ___SIZE_T length,i;
+  if (visit==0) return 0;
+  ___MUTEX_LOCK(___GSTATE->mem.global_gate);
+  count=test_adapter_copy(0,0,subtype);
+  if (count<___FIX(0))
+    { ___MUTEX_UNLOCK(___GSTATE->mem.global_gate); return 0; }
+  length=___INT(count);
+  if (length==0)
+    { ___MUTEX_UNLOCK(___GSTATE->mem.global_gate); return 1; }
+  if (length>~___CAST(___SIZE_T,0)/sizeof(*items))
+    { ___MUTEX_UNLOCK(___GSTATE->mem.global_gate); return 0; }
+  items=___CAST(___SCMOBJ*,___ALLOC_MEM(length*sizeof(*items)));
+  if (items==0)
+    { ___MUTEX_UNLOCK(___GSTATE->mem.global_gate); return 0; }
+  result=test_adapter_copy(items,length,subtype);
+  ___MUTEX_UNLOCK(___GSTATE->mem.global_gate);
+  if (result!=count)
+    { ___FREE_MEM(items); return 0; }
+  for (i=0;i<length;i++) visit(items[i],data);
+  ___FREE_MEM(items);
+  return 1;
+}
+#pragma pop_macro("___FREE_MEM")
+#pragma pop_macro("___ALLOC_MEM")
+
+typedef struct test_callback_data {
+  unsigned int subtype;int op,slot,seen,once,held,bad,nested;
+  long visited;
+} test_callback_data;
+static ___SCMOBJ test_callback_ids[2][4];
+static const ___SCMOBJ *test_callback_input_root;
+static int test_callback_gc_count,test_callback_moved_count;
+static ___SCMOBJ test_callback_create(int kind,int slot)
+{
+  char name[80];___SCMOBJ value;
+  snprintf(name,sizeof(name),"___symkey_callback_slot_%d",slot);
+  value=___make_symkey_from_UTF_8_string(name,kind?___sKEYWORD:___sSYMBOL);
+  if (!___FIXNUMP(value)) test_callback_ids[kind][slot]=value;
+  return value;
+}
+static void test_callback_visit(___SCMOBJ sym,void *data)
+{
+  test_callback_data *d=___CAST(test_callback_data*,data);int k,i,available;
+#ifdef ___USE_POSIX_THREAD_SYSTEM
+  available=pthread_mutex_trylock(&___GSTATE->mem.global_gate)==0;
+  if(available) pthread_mutex_unlock(&___GSTATE->mem.global_gate);
+#else
+  available=0;
+#endif
+  ++d->visited;
+  if(!available) {d->held=1;return;} /* Observe the real old lock; never deadlock. */
+  k=d->subtype==___sKEYWORD;
+  for(i=0;i<4;i++) if(sym==test_callback_ids[k][i]) d->seen|=1<<i;
+  if(d->once++) return;
+  if(d->op==2 && ___FIXNUMP(test_callback_create(k,d->slot))) d->bad=1;
+  if(d->op==3) {
+    test_callback_data child={0};child.subtype=d->subtype;
+    if(!___for_each_symkey(d->subtype,test_callback_visit,&child)||child.held||child.bad)
+      d->bad=1;
+    d->nested=child.seen;
+  }
+  if(d->op==4) {
+    ___SCMOBJ before=*test_callback_input_root;
+    if(___garbage_collect(___PSA(___PSTATE) 0)) d->bad=1;
+    ++test_callback_gc_count;
+    if(*test_callback_input_root==before) d->bad=1;
+    else ++test_callback_moved_count;
+  }
+}
+
+c-end
+)
+(define replay-symkey-callback-native
+ (c-lambda (scheme-object int) void #<<c-end
+#ifdef ___USE_POSIX_THREAD_SYSTEM
+___processor_state ps=___PSTATE;
+void *held=___EXT(___alloc_rc)(___PSA(ps) 0);
+const ___SCMOBJ *root;
+int i,k,steps;
+if(!held||!___try_set_data_rc(ps,held,___arg1)||(root=___borrow_rc_root(ps,held))==0) _Exit(74);
+test_callback_input_root=root;
+for(k=0;k<2;k++) {
+  ___SCMOBJ anchor=___make_symkey_from_UTF_8_string("___symkey_callback_anchor",k?___sKEYWORD:___sSYMBOL);
+  if(___FIXNUMP(anchor)) _Exit(74);
+  for(i=0;i<4;i++) test_callback_ids[k][i]=___FAL;
+}
+steps=___INT(___VECTORLENGTH(___VECTORELEM(*root,0)));
+for(i=0;i<steps;i++) {
+  ___SCMOBJ row=___VECTORELEM(___VECTORELEM(*root,0),i);
+  int op=___INT(___VECTORELEM(row,0)),slot=___INT(___VECTORELEM(row,1))+1;
+  int kind=___INT(___VECTORELEM(row,2)),actual,wanted,ok;
+  test_callback_data data={0};data.subtype=kind?___sKEYWORD:___sSYMBOL;data.op=op;data.slot=slot;
+  if(op==1) actual=!___FIXNUMP(test_callback_create(kind,slot));
+  else if(op>=5) {
+    test_callback_fault=op==5?1:op==6?2:0;
+    /* Interpose validation refusal without mutating a registry count. */
+    actual=op==7?___for_each_symkey(data.subtype,0,&data):
+      test_adapter_for_each(op==6?___sSYMBOL:data.subtype,test_callback_visit,&data);
+    test_callback_fault=0;
+    if(test_callback_live||data.visited) actual=99;
+  } else {
+    if(___arg2) {test_old_for_each_symkey(data.subtype,test_callback_visit,&data);ok=1;}
+    else ok=___for_each_symkey(data.subtype,test_callback_visit,&data);
+    actual=data.seen;
+    if(!ok||data.held||data.bad||(op==3&&data.nested!=data.seen)) actual=99;
+  }
+  wanted=___INT(___VECTORELEM(___VECTORELEM(*root,1),i));
+  if(actual!=wanted) {
+    printf("(root-task-result mismatch %d %d 0 %d %d)\n",i,op,actual,wanted);fflush(stdout);_Exit(71);
+  }
+}
+___return_rc_root(held);___EXT(___release_rc)(held);
+printf("(root-task-result pass %d (gc-moved %d %d) (word-bytes %zu))\n",steps,test_callback_gc_count,test_callback_moved_count,sizeof(___SCMOBJ));fflush(stdout);_Exit(0);
+#else
+_Exit(72);
+#endif
+c-end
+))
+(define (replay-symkey-callback commands fault)
+ (let ((masks (vector 0 0)))
+  (define (add mask slot) (bitwise-ior mask (arithmetic-shift 1 slot)))
+  (let ((expected
+    (map (lambda (row)
+      (let* ((op (vector-ref row 0)) (slot (+ 1 (vector-ref row 1)))
+             (kind (vector-ref row 2)) (before (vector-ref masks kind)))
+       (case op
+        ((1) (vector-set! masks kind (add before slot)) 1)
+        ((2) (vector-set! masks kind (add before slot)) before)
+        ((5 6 7) 0)
+        (else before)))) commands)))
+   (replay-symkey-callback-native (vector (list->vector commands) (list->vector expected)) fault))))
+(define (symkey-callback-suite)
+ (set! family 'symkey-callback) (set! trials 0)
+ (let ((seed 1973) (actions 0))
+  (define (next n) (set! seed (modulo (+ (* seed 48271) 17) 2147483647)) (modulo seed n))
+  (define (noise n) (if (= n 0) '() (cons (vector (next 8) (- (next 4) 1) (next 2)) (noise (- n 1)))))
+  (define chain '(#(0 0 0) #(1 0 0) #(0 0 0) #(2 1 0) #(0 1 0) #(3 0 0) #(4 0 0)
+                  #(1 -1 1) #(3 0 1) #(4 0 1) #(5 0 0) #(6 0 0) #(7 0 1)))
+  (let ((result (trial chain 0)))
+   (if (signature result) (error "callback mandatory history failed" result))
+   (write (list 'SYMKEY-CALLBACK-REENTRY-GC-REFUSAL-PASS result)) (newline))
+  (set! actions (length chain))
+  (do ((i 0 (+ i 1))) ((= i 12))
+   (let* ((commands (append (noise 6) chain (noise 6))) (result (trial commands 0)))
+    (set! actions (+ actions (length commands)))
+    (if (signature result) (error "callback property failed" result (shrink commands 0 (signature result))))))
+  (write (list 'SYMKEY-CALLBACK-PBT-PASS 'seed 1973 'cases 12 'actions actions)) (newline)
+  (let* ((commands (append (make-list 6 '#(1 0 0)) '(#(0 0 0)) (make-list 6 '#(1 1 0))))
+         (failure (trial commands 1)) (wanted (signature failure)))
+   (if (not (equal? wanted '(0 0))) (error "real predecessor lock control missed" failure))
+   (let* ((minimal (shrink commands 1 wanted)) (again (trial minimal 1))
+          (one? (one-minimal? minimal 1 wanted)) (positive (trial minimal 0)))
+    (if (not (and (= (length minimal) 1) one? (equal? (signature again) wanted) (not (signature positive))))
+     (error "callback shrink/replay failed" minimal again positive))
+    (for-each (lambda (pair) (with-output-to-file (trace-file (car pair))
+      (lambda () (write (list (trace-tag) 1 minimal (cdr pair))) (newline))))
+      '(("legacy-minimal" . 1) ("current-minimal" . 0)))
+    (let ((old-file (trial-file (trace-file "legacy-minimal")))
+          (new-file (trial-file (trace-file "current-minimal"))))
+     (if (not (and (equal? (signature old-file) wanted) (not (signature new-file))))
+      (error "serialized callback replay mismatch" old-file new-file))
+     (display "SYMKEY-CALLBACK-SERIALIZED-REPLAY-PASS\n"))
+    (write (list 'SYMKEY-CALLBACK-IMPLEMENTATION-SHRINK-PASS 'from 13 'to 1 'deletion-one-minimal one? 'production-pass #t)) (newline)))
+  (delete-file input-file)))
+))
+ (else (begin)))
+
 (define family 'rc)
 (define (trace-tag)
-  (case family ((marker-input) 'marker-input-trace) ((tcl-command) 'tcl-command-trace) ((rc-write) 'rc-write-trace) ((view) 'symkey-view-trace) ((intern) 'symkey-publication-trace) ((snapshot) 'globals-snapshot-trace) ((vm) 'vm-root-task-trace) ((bank) 'bank-root-task-trace) ((stack) 'stack-root-task-trace) ((symkey) 'symkey-root-task-trace) ((globals) 'globals-root-task-trace)
+  (case family ((symkey-callback) 'symkey-callback-trace) ((marker-input) 'marker-input-trace) ((tcl-command) 'tcl-command-trace) ((rc-write) 'rc-write-trace) ((view) 'symkey-view-trace) ((intern) 'symkey-publication-trace) ((snapshot) 'globals-snapshot-trace) ((vm) 'vm-root-task-trace) ((bank) 'bank-root-task-trace) ((stack) 'stack-root-task-trace) ((symkey) 'symkey-root-task-trace) ((globals) 'globals-root-task-trace)
     ((continuation) 'continuation-history)
     (else 'root-task-trace)))
 (define (trace-file suffix)
-  (string-append (case family ((marker-input) "marker-input-") ((tcl-command) "tcl-command-") ((rc-write) "rc-write-") ((view) "symkey-view-") ((intern) "symkey-publication-") ((snapshot) "globals-snapshot-") ((vm) "vm-root-task-")
+  (string-append (case family ((symkey-callback) "symkey-callback-") ((marker-input) "marker-input-") ((tcl-command) "tcl-command-") ((rc-write) "rc-write-") ((view) "symkey-view-") ((intern) "symkey-publication-") ((snapshot) "globals-snapshot-") ((vm) "vm-root-task-")
                   ((bank) "bank-root-task-") ((stack) "stack-root-task-") ((symkey) "symkey-root-task-") ((globals) "globals-root-task-")
                   ((continuation) "continuation-history-") (else "root-task-")) suffix ".trace"))
 (define (oracle commands)
@@ -983,7 +1313,7 @@ c-end
       commands))))
 
 (define (trace? x)
-  (and (list? x) (= (length x) 4) (memq (car x) '(marker-input-trace tcl-command-trace rc-write-trace root-task-trace vm-root-task-trace bank-root-task-trace stack-root-task-trace symkey-root-task-trace globals-root-task-trace globals-snapshot-trace symkey-publication-trace symkey-view-trace continuation-history))
+  (and (list? x) (= (length x) 4) (memq (car x) '(symkey-callback-trace marker-input-trace tcl-command-trace rc-write-trace root-task-trace vm-root-task-trace bank-root-task-trace stack-root-task-trace symkey-root-task-trace globals-root-task-trace globals-snapshot-trace symkey-publication-trace symkey-view-trace continuation-history))
        (integer? (cadr x)) (<= 1 (cadr x) 3) (list? (caddr x))
        (<= (length (caddr x)) 96)
        (if (eq? (car x) 'symkey-view-trace)
@@ -993,18 +1323,21 @@ c-end
          (or (null? xs)
              (let ((r (car xs)))
                (and (vector? r) (= (vector-length r) 3)
-                    (integer? (vector-ref r 0)) (<= 0 (vector-ref r 0) (case (car x) ((symkey-view-trace) 9) ((rc-write-trace) 8) ((marker-input-trace) 6) ((tcl-command-trace) 7) ((globals-snapshot-trace symkey-publication-trace) 8) ((globals-root-task-trace) 6) (else 5)))
+                    (integer? (vector-ref r 0)) (<= 0 (vector-ref r 0) (case (car x) ((symkey-callback-trace) 7) ((symkey-view-trace) 9) ((rc-write-trace) 8) ((marker-input-trace) 6) ((tcl-command-trace) 7) ((globals-snapshot-trace symkey-publication-trace) 8) ((globals-root-task-trace) 6) (else 5)))
                     (memv (vector-ref r 1) '(-1 0 1 2))
                     (memv (vector-ref r 2) '(0 1)) (loop (cdr xs))))))))
 (define (replay trace)
   (if (not (trace? trace)) (error "invalid structured root-task trace"))
-  (set! family (case (car trace) ((marker-input-trace) 'marker-input) ((tcl-command-trace) 'tcl-command) ((rc-write-trace) 'rc-write) ((symkey-view-trace) 'view) ((symkey-publication-trace) 'intern) ((globals-snapshot-trace) 'snapshot) ((vm-root-task-trace) 'vm)
+  (set! family (case (car trace) ((symkey-callback-trace) 'symkey-callback) ((marker-input-trace) 'marker-input) ((tcl-command-trace) 'tcl-command) ((rc-write-trace) 'rc-write) ((symkey-view-trace) 'view) ((symkey-publication-trace) 'intern) ((globals-snapshot-trace) 'snapshot) ((vm-root-task-trace) 'vm)
                  ((bank-root-task-trace) 'bank) ((stack-root-task-trace) 'stack) ((symkey-root-task-trace) 'symkey) ((globals-root-task-trace) 'globals)
                  ((continuation-history) 'continuation) (else 'rc)))
   (if (not (prepare-source)) (error "root-task source allocation failed"))
   (do ((i 0 (+ i 1))) ((= i (cadr trace))) (##gc))
   (let ((commands (caddr trace)))
-    (cond ((eq? family 'marker-input)
+    (cond ((eq? family 'symkey-callback)
+           (cond-expand (symkey-callback-test (replay-symkey-callback commands (cadddr trace)))
+                        (else (error "symkey callback test feature not selected"))))
+          ((eq? family 'marker-input)
            (cond-expand (marker-input-test (replay-marker-input commands (cadddr trace)))
                         (else (error "marker-input test feature not selected"))))
           ((eq? family 'tcl-command) (replay-tcl-command commands (cadddr trace)))
@@ -1021,8 +1354,10 @@ c-end
   (set! trials (+ trials 1))
   (with-output-to-file input-file
     (lambda () (write (list (trace-tag) 1 commands fault)) (newline)))
+  (trial-file input-file))
+(define (trial-file path)
   (let* ((port (open-input-process
-                (list path: self arguments: (list "-:p1" "--replay" input-file)
+                (list path: self arguments: (list "-:p1" "--replay" path)
                       stderr-redirection: #t)))
          (result (with-exception-catcher (lambda (e) '(root-task-result runtime-error))
                    (lambda () (read port))))
@@ -1969,7 +2304,10 @@ c-end
   (display "PROCESS-DESCRIPTOR-CONTRACT-PASS\n"))
 
 (let ((args (cdr (command-line))))
-  (cond ((equal? args '("--process-contract")) (process-contract))
+  (cond ((equal? args '("--symkey-callback"))
+         (cond-expand (symkey-callback-test (symkey-callback-suite))
+                      (else (error "symkey callback test feature not selected"))))
+        ((equal? args '("--process-contract")) (process-contract))
         ((equal? args '("--process-env")) (write (list (process-fd 3 0) (getenv "GAMBIT_PROCESS_CONTRACT"))) (newline))
         ((equal? args '("--process-bytes"))
          (do ((i 0 (+ i 1))) ((= i 256)) (write-u8 i)) (force-output)
