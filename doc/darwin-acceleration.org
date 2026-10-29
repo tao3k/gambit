@@ -1,0 +1,102 @@
+#+TITLE: Darwin acceleration: reviewed build boundary
+#+OPTIONS: toc:2 num:nil
+
+* Review scope
+:PROPERTIES:
+:CUSTOM_ID: REVIEW-SCOPE
+:BASE: 4652db0d379e6cb1dd65cab3fad675a98e20499f
+:STATUS: draft-not-package-qualified
+:END:
+
+This branch starts from modern-c, including its VM-owned frozen root union.
+The current executable change is limited to lib, gsi and gsc Makefile contracts.
+It does not yet contain the stage-product acceleration or admit a faster package.
+
+Ordinary core construction must not change Git's shared index. Explicit
+select/deselect-gen-for-commit maintenance targets remain available.
+Every native object that consumes gambit.h must depend on that header,
+including generated module/link objects and compiler/interpreter glue objects.
+This is necessary before interpreting incremental results: stale layout objects
+must not masquerade as reusable native products.
+
+* Focused verification
+:PROPERTIES:
+:CUSTOM_ID: MAKE-CONTRACT-CHECKS
+:METHOD: GNU-Make-expanded-database
+:END:
+
+Configured on Darwin with GCC 16, C23, O1 and all three options:
+#+begin_example
+--enable-multiple-threaded-vms --enable-smp --enable-multiple-vms
+#+end_example
+
+The real configured Makefiles were loaded by GNU Make using a probe target
+with no build prerequisites. The expanded object lists and each object's
+header prerequisites were inspected; no compiler/runtime build was executed
+by these dependency-graph checks. The old header rule and automatic index
+mutation were then restored in private control Makefiles and inspected by
+the same query.
+
+| Family | Native objects | Missing header edges after change | Missing edges in old-rule control | Automatic index mutation after change |
+|--------+----------------+-----------------------------------+-----------------------------------+---------------------------------------|
+| lib    |             26 |                                 0 |                                 1 | absent                                |
+| gsi    |              4 |                                 0 |                                 4 | absent                                |
+| gsc    |             36 |                                 0 |                                36 | absent                                |
+
+All three positive cases and all three old-contract controls behaved as
+expected. Explicit maintenance targets remained present in every case.
+The first graph-check attempt read variables before Makefile loading and
+failed; the corrected query expands them in the independent probe recipe.
+Configuration and git diff --check passed.
+
+The 41 additional dependency edges repair invalidation; they are not 41
+eliminated compilations. A header change may correctly rebuild more objects.
+No runtime, continuation, GC, package or acceleration conclusion follows.
+
+* Pending integration
+:PROPERTIES:
+:CUSTOM_ID: PENDING-INTEGRATION
+:END:
+
+The earlier isolated producer was based on 4b9d8656b678100f2172492580e7ec294d05b935.
+It has eleven further handwritten runtime files, seven generated/configure
+differences, and one Gerbil build-bach source change outside this repository.
+Those files have not been copied over the newer modern-c implementation.
+
+| Area | Necessary integration | Required acceptance |
+|------+-----------------------+---------------------|
+| Dynamic global storage | Cover ordinary globals, primitive overrides and presence bits as one storage/GC contract; preserve canonical root enumeration | Growth and failure controls, cross-VM scans and full compiler |
+| Frame copying | Preserve forwarding, initialization/Tail responsibility and captured continuation roots | Real multi-shot continuation and parallel GC cases |
+| SIGCHLD/device cleanup | Preserve status delivery and device custody through setup, cleanup and late notifications | Process completion, cleanup failure and real package cases |
+| Gerbil stage products | Seal generated Scheme/C, binding identity and ordered link inputs; use original consumers | Complete compiler and original MCP/POO clean/build/test |
+| Whole-package acceleration | Compare identical source, dependency closure, flags and workloads after correctness | Matched cold/incremental results; at least twofold remains a target |
+
+In particular, modern-c now uses one VM-owned allocation for ordinary global
+cells, primitive overrides and presence bits. Transplanting an older ordinary-
+cell-only arena would bypass that contract. Its GC/root union must be retained.
+
+* Acceptance and benefit boundary
+:PROPERTIES:
+:CUSTOM_ID: ACCEPTANCE
+:END:
+
+| Change | Concrete benefit | Added work or risk | Measured acceleration |
+|--------+------------------+--------------------+-----------------------|
+| Remove index mutation from ordinary core-post | Native construction no longer invokes three automatic Git-index maintenance hooks | Commit preparation must invoke explicit maintenance targets | none |
+| Complete native header dependencies | Prevent stale glue/link/compiler objects after layout changes | Necessary invalidation can increase legitimate rebuild work | none |
+| Stage-product reuse | Intended elimination of repeated Scheme-to-C and ordered metadata preparation | Source/ABI/identity validation and immutable product storage | not admitted by this commit |
+
+The user-approved build process-group RSS envelope is 8 GiB, monitored over
+the registered process groups with group cleanup on refusal. It is a sampled
+guard, not an OS hard limit or proof of maximum RSS. Earlier 3 GiB refusals used
+an uncalibrated assistant-selected limit and do not establish a refactor
+regression. Stage time budgets and original package test populations remain
+unchanged. Installed Homebrew reference results must be distinguished from
+the three-switch source-built candidate; the installed reference lacks
+multiple-threaded-vms and is not a matched speedup comparator.
+
+Do not merge before the complete source-built compiler and both original
+gerbil-mcp and gerbil-poo suites pass. Component success is not whole-package
+acceptance. QNT owns temporal publication/invalidation/ownership histories;
+Lean owns conditional value, layout, coverage and cost laws. This Makefile
+dependency review adds no new temporal or mathematical proof.
