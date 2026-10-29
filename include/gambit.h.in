@@ -5131,8 +5131,8 @@ else \
       ___temp = ___FAL; \
   }
 
-#define ___CHARINPUTPORTPCACHED(x)(___STRUCTUREP(x)&&___STRUCTURETYPE(x)==___ps->type_cache[___CHAR_INPUT_PORT_TYPE_CACHE])
-#define ___CHAROUTPUTPORTPCACHED(x)(___STRUCTUREP(x)&&___STRUCTURETYPE(x)==___ps->type_cache[___CHAR_OUTPUT_PORT_TYPE_CACHE])
+#define ___CHARINPUTPORTPCACHED(x)(___STRUCTUREP(x)&&___STRUCTURETYPE(x)==___ps->context->type_cache[___CHAR_INPUT_PORT_TYPE_CACHE])
+#define ___CHAROUTPUTPORTPCACHED(x)(___STRUCTUREP(x)&&___STRUCTURETYPE(x)==___ps->context->type_cache[___CHAR_OUTPUT_PORT_TYPE_CACHE])
 
 /* IFJUMP-able operations */
 
@@ -5950,12 +5950,12 @@ ___FIELD(SYMBOL,symkey,___SYMKEY_NEXT)
 #define ___SYMBOL_GLOBAL_FIELD(sym) \
 ___FIELD(SYMBOL,sym,___SYMBOL_GLOBAL)
 
-#define ___GLOBALVARSTRUCT(gv)___CAST(___glo_struct*,___SYMBOL_GLOBAL_FIELD(gv))
+#define ___GLOBALVARSTRUCT(gv)___CAST(___glo_struct*,___LOAD_GLOBAL_WORD(&___SYMBOL_GLOBAL_FIELD(gv)))
 
-#define ___GLOBALVARREF(gv)___GLOCELL(___GLOBALVARSTRUCT(gv)->val)
-#define ___GLOBALVARPRIMREF(gv)___PRMCELL(___GLOBALVARSTRUCT(gv)->prm)
-#define ___GLOBALVARSET(gv,x)___GLOCELL(___GLOBALVARSTRUCT(gv)->val) = x;
-#define ___GLOBALVARPRIMSET(gv,x)___PRMCELL(___GLOBALVARSTRUCT(gv)->prm) = x;
+#define ___GLOBALVARREF(gv)___LOAD_GLOBAL_WORD(&___GLOCELL(___GLOBALVARSTRUCT(gv)->val))
+#define ___GLOBALVARPRIMREF(gv)___EXT(___primitive_ref)(___ps,___GLOBALVARSTRUCT(gv))
+#define ___GLOBALVARSET(gv,x)___EXT(___store_global)(___ps,___GLOBALVARSTRUCT(gv),x);
+#define ___GLOBALVARPRIMSET(gv,x)___EXT(___store_primitive)(___ps,___GLOBALVARSTRUCT(gv),x);
 
 #define ___MAKESYMBOL(name,hash) \
 (___BEGIN_ALLOC_SUBTYPED(___MAKE_HD_WORDS(___SYMBOL_SIZE,___sSYMBOL)), \
@@ -6059,6 +6059,8 @@ ___FIELD(FOREIGN,foreign,___FOREIGN_PTR)
 #define ___GCHASHTABLE_FLAG_MEM_ALLOC_KEYS 16
 #define ___GCHASHTABLE_FLAG_NEED_REHASH    32
 #define ___GCHASHTABLE_FLAG_UNION_FIND     64
+/* The collector repairs references; Scheme owns this table's index algorithm. */
+#define ___GCHASHTABLE_FLAG_SCHEME_INDEX   128
 
 #define ___GCHASHTABLE_NEXT_FIELD(gcht) \
 ___FIELD(WEAK,gcht,___GCHASHTABLE_NEXT)
@@ -6122,7 +6124,7 @@ ___GCHASHTABLE_HASH_STEP_MULT(hash,step,obj,size)
 #define ___CURRENTTHREADSET(thread)___CURRENTTHREAD = thread;
 
 #define ___PROCESSOR_SCMOBJ(ps) \
-___SUBTYPED_FROM_START(___ALIGNUP((ps)->processor_scmobj,___WS))
+___SUBTYPED_FROM_START(___ALIGNUP((ps)->context->processor_scmobj,___WS))
 
 #define ___CURRENTPROCESSOR ___PROCESSOR_SCMOBJ(___ps)
 #define ___CURRENTPROCESSORID ___FIX(___PROCESSOR_ID(___ps,___VMSTATE_FROM_PSTATE(___ps)))
@@ -6301,7 +6303,18 @@ ___TICKETLOCK_UNLOCK2(___FIELD(STRUCTURE,obj,___INT(next)),___FIELD(STRUCTURE,ob
 #endif
 
 
+/* Overflow undo may reuse the previous section only while its frames remain
+   private to the current continuation.  Capturing a continuation or replacing
+   a break frame's NEXT link invalidates that ownership.  Clear the first
+   break's eligibility even when stack_break points to a nested break frame;
+   the normal break handler will copy frames when undo is no longer safe. */
+
+#define ___INVALIDATE_STACK_OVERFLOW_UNDO \
+___FP_SET_STK((___ps->context->stack_start - ___FIRST_BREAK_FRAME_SPACE), \
+             -___FIRST_BREAK_FRAME_STACK_MSECTION,0)
+
 #define ___THREAD_SAVE \
+___INVALIDATE_STACK_OVERFLOW_UNDO \
 if (___R0 == ___ps->handler_break) \
   frame = ___STK(-___BREAK_FRAME_NEXT); \
 else \
@@ -6311,7 +6324,7 @@ else \
     frame = ___CAST(___SCMOBJ,___fp); \
     ___ADJFP(___BREAK_FRAME_SPACE) \
     ___SET_STK(-___BREAK_FRAME_NEXT,frame) \
-    ___ps->stack_break = ___fp; \
+    ___ps->context->stack_break = ___fp; \
   } \
 thread = ___CURRENTTHREAD; \
 ___CONTINUATION_FRAME_FIELD(___THREAD_CONT_FIELD(thread)) = frame;
@@ -6365,7 +6378,8 @@ ___CONTINUATION_FRAME_FIELD(___THREAD_CONT_FIELD(thread)) = frame;
 
 #define ___THREAD_RESTORE \
 { ___SCMOBJ cont = ___THREAD_CONT_FIELD(thread); \
-  ___SET_FP(___ps->stack_break) \
+  ___INVALIDATE_STACK_OVERFLOW_UNDO \
+  ___SET_FP(___ps->context->stack_break) \
   ___SET_STK(-___BREAK_FRAME_NEXT,___CONTINUATION_FRAME_FIELD(cont)) \
   ___CONTINUATION_FRAME_FIELD(cont) = ___END_OF_CONT_MARKER; \
   ___INTERRUPT_MASK_SET(___DENV_INTERRUPT_MASK_FIELD(___THREAD_DENV_FIELD(thread))); \
@@ -6566,15 +6580,16 @@ ___FIELD(VECTOR,denv,___DENV_OUTPUT_PORT)
 #define ___FRAME_RA 0
 
 #define ___FRAME_STORE_RA(ra) \
-if (___fp != ___ps->stack_break) \
+if (___fp != ___ps->context->stack_break) \
   ___SET_STK(-___FRAME_STACK_RA,ra)
 
 #define ___FRAME_FETCH_RA \
-((___fp != ___ps->stack_break) \
+((___fp != ___ps->context->stack_break) \
 ? ___STK(-___FRAME_STACK_RA) \
 : ___ps->handler_break)
 
 #define ___CONTINUATION_CAPTURE \
+___INVALIDATE_STACK_OVERFLOW_UNDO \
 if (___R0 == ___ps->handler_break) \
   frame = ___STK(-___BREAK_FRAME_NEXT); \
 else \
@@ -6590,7 +6605,7 @@ ___SET_STK(-2,___THREAD_DENV_FIELD(___CURRENTTHREAD)) \
 cont = ___SUBTYPED_FROM_START(&___STK(0)); \
 ___ADJFP(___BREAK_FRAME_SPACE) \
 ___SET_STK(-___BREAK_FRAME_NEXT,frame) \
-___ps->stack_break = ___fp;
+___ps->context->stack_break = ___fp;
 
 #define ___JUMP_CONTINUATION_CAPTURE1(jump) \
 { ___SCMOBJ proc; \
@@ -6639,7 +6654,8 @@ ___ps->stack_break = ___fp;
 }
 
 #define ___CONTINUATION_GRAFT_NO_WINDING \
-___SET_FP(___ps->stack_break) \
+___INVALIDATE_STACK_OVERFLOW_UNDO \
+___SET_FP(___ps->context->stack_break) \
 ___SET_STK(-___BREAK_FRAME_NEXT,___CONTINUATION_FRAME_FIELD(cont)) \
 temp = ___CONTINUATION_DENV_FIELD(cont); \
 thread = ___CURRENTTHREAD; \
@@ -6706,7 +6722,8 @@ ___SET_R0(___ps->handler_break)
   ___SCMOBJ thread; \
   ___POP_ARGS2(cont,result) \
   ___SET_R1(result) \
-  ___SET_FP(___ps->stack_break) \
+  ___INVALIDATE_STACK_OVERFLOW_UNDO \
+  ___SET_FP(___ps->context->stack_break) \
   ___SET_STK(-___BREAK_FRAME_NEXT,___CONTINUATION_FRAME_FIELD(cont)) \
   temp = ___CONTINUATION_DENV_FIELD(cont); \
   thread = ___CURRENTTHREAD; \
@@ -6747,11 +6764,11 @@ ___SET_R0(___ps->handler_break)
 #define ___GLOCELL(x)___GLOCELL_IN_VM(___VMSTATE_FROM_PSTATE(___ps),x)
 #endif
 
-#define ___PRMCELL(x)x
+#define ___PRMCELL(x)___LOAD_GLOBAL_WORD(&(x))
 
-#define ___PRM(i,glo)___PRMCELL(___GLOSTRUCT(i,glo).prm)
-#define ___GLO(i,glo)___GLOCELL(___GLOSTRUCT(i,glo).val)
-#define ___SET_GLO(i,glo,x)___GLO(i,glo)=x;
+#define ___PRM(i,glo)___EXT(___primitive_ref)(___ps,&___GLOSTRUCT(i,glo))
+#define ___GLO(i,glo)___LOAD_GLOBAL_WORD(&___GLOCELL(___GLOSTRUCT(i,glo).val))
+#define ___SET_GLO(i,glo,x)___EXT(___store_global)(___ps,&___GLOSTRUCT(i,glo),x);
 #ifdef ___BIND_LATE
 #define ___GLOSTRUCT(i,glo)(*___CAST(___glo_struct*,___glotbl[i]))
 #else
@@ -6798,7 +6815,7 @@ ___U64 ___u64_temp; /*******************/ \
 ___D_ALL
 
 #define ___END_COD \
-___ps->pc = ___pc; \
+___ps->context->pc = ___pc; \
 ___W_ALL } \
 ___EXIT_HOST(); \
 }
@@ -6891,9 +6908,9 @@ ___EXT(___register_host_entry) (___PSP ___start, ___MODULE_NAME, __FILE__, __LIN
 #define ___DEF_HLBL(id)&&id,
 #define ___END_HLBL \
 0}; \
-___pc=___ps->pc; ___R_ALL ___start=___MLBL(___HOST_LBL0); \
+___pc=___ps->context->pc; ___R_ALL ___start=___MLBL(___HOST_LBL0); \
 if (___EXPECT_FALSE(___pc == ___FIX(0))) { \
-  ___ps->pc = ___CAST(___WORD,___hlbltbl); \
+  ___ps->context->pc = ___CAST(___WORD,___hlbltbl); \
   return; \
 }
 
@@ -6938,7 +6955,7 @@ ___jumpext:
 #define ___BEGIN_HLBL
 #define ___DEF_HLBL_INTRO
 #define ___DEF_HLBL(id)
-#define ___END_HLBL ___pc=___ps->pc; ___R_ALL ___start=___MLBL(___HOST_LBL0);
+#define ___END_HLBL ___pc=___ps->context->pc; ___R_ALL ___start=___MLBL(___HOST_LBL0);
 
 #define ___BEGIN_SW \
 ___REGISTER_HOST_ENTRY \
@@ -6963,14 +6980,14 @@ switch((___pc-=___start)/(___LABEL_SIZE*___WS)) \
 
 #define ___REGISTER
 
-#define ___PSHEAP ___ps->hp
+#define ___PSHEAP ___ps->context->hp
 #define ___D_HEAP ___REGISTER ___WORD *___hp;
 #define ___R_HEAP ___R_HEAP_EXPR;
 #define ___W_HEAP ___W_HEAP_EXPR;
 #define ___R_HEAP_EXPR ___hp=___PSHEAP
 #define ___W_HEAP_EXPR ___PSHEAP=___hp
 
-#define ___PSFP ___ps->fp
+#define ___PSFP ___ps->context->fp
 #define ___D_FP ___REGISTER ___WORD *___fp;
 #define ___R_FP ___SET_FP(___PSFP)
 #define ___W_FP ___PSFP=___fp;
@@ -7039,7 +7056,7 @@ switch((___pc-=___start)/(___LABEL_SIZE*___WS)) \
 #endif
 #endif
 
-#define ___PSR0 ___ps->r[0]
+#define ___PSR0 ___ps->context->r[0]
 #if ___MAX_LOCAL_GVM_REGS > 0
 #define ___D_R0 ___REGISTER ___WORD ___r0;
 #define ___R_R0 ___r0=___PSR0;
@@ -7064,7 +7081,7 @@ switch((___pc-=___start)/(___LABEL_SIZE*___WS)) \
 #define ___ST_ARG_REGS
 #endif
 
-#define ___PSR1 ___ps->r[1]
+#define ___PSR1 ___ps->context->r[1]
 #if ___MAX_LOCAL_GVM_REGS > 1
 #define ___D_R1 ___REGISTER ___WORD ___r1;
 #define ___R_R1 ___r1=___PSR1;
@@ -7100,7 +7117,7 @@ if ((na)>0) ___POP_R1_TO_R1
 
 #else
 
-#define ___PSR2 ___ps->r[2]
+#define ___PSR2 ___ps->context->r[2]
 #if ___MAX_LOCAL_GVM_REGS > 2
 #define ___D_R2 ___REGISTER ___WORD ___r2;
 #define ___R_R2 ___r2=___PSR2;
@@ -7146,7 +7163,7 @@ switch (na) \
 
 #else
 
-#define ___PSR3 ___ps->r[3]
+#define ___PSR3 ___ps->context->r[3]
 #if ___MAX_LOCAL_GVM_REGS > 3
 #define ___D_R3 ___REGISTER ___WORD ___r3;
 #define ___R_R3 ___r3=___PSR3;
@@ -7194,7 +7211,7 @@ switch (na) \
 
 #else
 
-#define ___PSR4 ___ps->r[4]
+#define ___PSR4 ___ps->context->r[4]
 #if ___MAX_LOCAL_GVM_REGS > 4
 #define ___D_R4 ___REGISTER ___WORD ___r4;
 #define ___R_R4 ___r4=___PSR4;
@@ -7244,7 +7261,7 @@ switch (na) \
 
 #else
 
-#define ___PSR5 ___ps->r[5]
+#define ___PSR5 ___ps->context->r[5]
 #if ___MAX_LOCAL_GVM_REGS > 5
 #define ___D_R5 ___REGISTER ___WORD ___r5;
 #define ___R_R5 ___r5=___PSR5;
@@ -7296,7 +7313,7 @@ switch (na) \
 
 #else
 
-#define ___PSR6 ___ps->r[6]
+#define ___PSR6 ___ps->context->r[6]
 #if ___MAX_LOCAL_GVM_REGS > 6
 #define ___D_R6 ___REGISTER ___WORD ___r6;
 #define ___R_R6 ___r6=___PSR6;
@@ -7350,7 +7367,7 @@ switch (na) \
 
 #else
 
-#define ___PSR7 ___ps->r[7]
+#define ___PSR7 ___ps->context->r[7]
 #if ___MAX_LOCAL_GVM_REGS > 7
 #define ___D_R7 ___REGISTER ___WORD ___r7;
 #define ___R_R7 ___r7=___PSR7;
@@ -7406,7 +7423,7 @@ switch (na) \
 
 #else
 
-#define ___PSR8 ___ps->r[8]
+#define ___PSR8 ___ps->context->r[8]
 #if ___MAX_LOCAL_GVM_REGS > 8
 #define ___D_R8 ___REGISTER ___WORD ___r8;
 #define ___R_R8 ___r8=___PSR8;
@@ -7464,7 +7481,7 @@ switch (na) \
 
 #else
 
-#define ___PSR9 ___ps->r[9]
+#define ___PSR9 ___ps->context->r[9]
 #if ___MAX_LOCAL_GVM_REGS > 9
 #define ___D_R9 ___REGISTER ___WORD ___r9;
 #define ___R_R9 ___r9=___PSR9;
@@ -7524,7 +7541,7 @@ switch (na) \
 
 #else
 
-#define ___PSR10 ___ps->r[10]
+#define ___PSR10 ___ps->context->r[10]
 #if ___MAX_LOCAL_GVM_REGS > 10
 #define ___D_R10 ___REGISTER ___WORD ___r10;
 #define ___R_R10 ___r10=___PSR10;
@@ -7586,7 +7603,7 @@ switch (na) \
 
 #else
 
-#define ___PSR11 ___ps->r[11]
+#define ___PSR11 ___ps->context->r[11]
 #if ___MAX_LOCAL_GVM_REGS > 11
 #define ___D_R11 ___REGISTER ___WORD ___r11;
 #define ___R_R11 ___r11=___PSR11;
@@ -7650,7 +7667,7 @@ switch (na) \
 
 #else
 
-#define ___PSR12 ___ps->r[12]
+#define ___PSR12 ___ps->context->r[12]
 #if ___MAX_LOCAL_GVM_REGS > 12
 #define ___D_R12 ___REGISTER ___WORD ___r12;
 #define ___R_R12 ___r12=___PSR12;
@@ -7716,7 +7733,7 @@ switch (na) \
 
 #else
 
-#define ___PSR13 ___ps->r[13]
+#define ___PSR13 ___ps->context->r[13]
 #if ___MAX_LOCAL_GVM_REGS > 13
 #define ___D_R13 ___REGISTER ___WORD ___r13;
 #define ___R_R13 ___r13=___PSR13;
@@ -7741,7 +7758,7 @@ switch (na) \
 
 #else
 
-#define ___PSR14 ___ps->r[14]
+#define ___PSR14 ___ps->context->r[14]
 #if ___MAX_LOCAL_GVM_REGS > 14
 #define ___D_R14 ___REGISTER ___WORD ___r14;
 #define ___R_R14 ___r14=___PSR14;
@@ -7766,7 +7783,7 @@ switch (na) \
 
 #else
 
-#define ___PSR15 ___ps->r[15]
+#define ___PSR15 ___ps->context->r[15]
 #if ___MAX_LOCAL_GVM_REGS > 15
 #define ___D_R15 ___REGISTER ___WORD ___r15;
 #define ___R_R15 ___r15=___PSR15;
@@ -7791,7 +7808,7 @@ switch (na) \
 
 #else
 
-#define ___PSR16 ___ps->r[16]
+#define ___PSR16 ___ps->context->r[16]
 #if ___MAX_LOCAL_GVM_REGS > 16
 #define ___D_R16 ___REGISTER ___WORD ___r16;
 #define ___R_R16 ___r16=___PSR16;
@@ -7816,7 +7833,7 @@ switch (na) \
 
 #else
 
-#define ___PSR17 ___ps->r[17]
+#define ___PSR17 ___ps->context->r[17]
 #if ___MAX_LOCAL_GVM_REGS > 17
 #define ___D_R17 ___REGISTER ___WORD ___r17;
 #define ___R_R17 ___r17=___PSR17;
@@ -7841,7 +7858,7 @@ switch (na) \
 
 #else
 
-#define ___PSR18 ___ps->r[18]
+#define ___PSR18 ___ps->context->r[18]
 #if ___MAX_LOCAL_GVM_REGS > 18
 #define ___D_R18 ___REGISTER ___WORD ___r18;
 #define ___R_R18 ___r18=___PSR18;
@@ -7866,7 +7883,7 @@ switch (na) \
 
 #else
 
-#define ___PSR19 ___ps->r[19]
+#define ___PSR19 ___ps->context->r[19]
 #if ___MAX_LOCAL_GVM_REGS > 19
 #define ___D_R19 ___REGISTER ___WORD ___r19;
 #define ___R_R19 ___r19=___PSR19;
@@ -7891,7 +7908,7 @@ switch (na) \
 
 #else
 
-#define ___PSR20 ___ps->r[20]
+#define ___PSR20 ___ps->context->r[20]
 #if ___MAX_LOCAL_GVM_REGS > 20
 #define ___D_R20 ___REGISTER ___WORD ___r20;
 #define ___R_R20 ___r20=___PSR20;
@@ -7916,7 +7933,7 @@ switch (na) \
 
 #else
 
-#define ___PSR21 ___ps->r[21]
+#define ___PSR21 ___ps->context->r[21]
 #if ___MAX_LOCAL_GVM_REGS > 21
 #define ___D_R21 ___REGISTER ___WORD ___r21;
 #define ___R_R21 ___r21=___PSR21;
@@ -7941,7 +7958,7 @@ switch (na) \
 
 #else
 
-#define ___PSR22 ___ps->r[22]
+#define ___PSR22 ___ps->context->r[22]
 #if ___MAX_LOCAL_GVM_REGS > 22
 #define ___D_R22 ___REGISTER ___WORD ___r22;
 #define ___R_R22 ___r22=___PSR22;
@@ -7966,7 +7983,7 @@ switch (na) \
 
 #else
 
-#define ___PSR23 ___ps->r[23]
+#define ___PSR23 ___ps->context->r[23]
 #if ___MAX_LOCAL_GVM_REGS > 23
 #define ___D_R23 ___REGISTER ___WORD ___r23;
 #define ___R_R23 ___r23=___PSR23;
@@ -7991,7 +8008,7 @@ switch (na) \
 
 #else
 
-#define ___PSR24 ___ps->r[24]
+#define ___PSR24 ___ps->context->r[24]
 #if ___MAX_LOCAL_GVM_REGS > 24
 #define ___D_R24 ___REGISTER ___WORD ___r24;
 #define ___R_R24 ___r24=___PSR24;
@@ -8042,30 +8059,30 @@ switch (na) \
 /*---------------------------------------------------------------------------*/
 
 #define ___GC_SAVE1(ps,a) \
-((ps)->saved[0] = (a))
+((ps)->context->saved[0] = (a))
 
 #define ___GC_RESTORE1(ps,a) \
-(a = (ps)->saved[0], \
+(a = (ps)->context->saved[0], \
  ___GC_SAVE1(ps,___VOID))
 
 #define ___GC_SAVE2(ps,a,b) \
-((ps)->saved[0] = (a), \
- (ps)->saved[1] = (b))
+((ps)->context->saved[0] = (a), \
+ (ps)->context->saved[1] = (b))
 
 #define ___GC_RESTORE2(ps,a,b) \
-(a = (ps)->saved[0], \
- b = (ps)->saved[1], \
+(a = (ps)->context->saved[0], \
+ b = (ps)->context->saved[1], \
  ___GC_SAVE2(ps,___VOID,___VOID))
 
 #define ___GC_SAVE3(ps,a,b,c) \
-((ps)->saved[0] = (a), \
- (ps)->saved[1] = (b), \
- (ps)->saved[2] = (c))
+((ps)->context->saved[0] = (a), \
+ (ps)->context->saved[1] = (b), \
+ (ps)->context->saved[2] = (c))
 
 #define ___GC_RESTORE3(ps,a,b,c) \
-(a = (ps)->saved[0], \
- b = (ps)->saved[1], \
- c = (ps)->saved[2], \
+(a = (ps)->context->saved[0], \
+ b = (ps)->context->saved[1], \
+ c = (ps)->context->saved[2], \
  ___GC_SAVE3(ps,___VOID,___VOID,___VOID))
 
 /*---------------------------------------------------------------------------*/
@@ -8490,8 +8507,8 @@ do { \
   ___STACK_TRIP_ON_IF_INTERRUPT_REQ(); \
 } while (0)
 
-#define ___STACK_TRIP_ON()___ps->stack_trip = ___ps->stack_start
-#define ___STACK_TRIP_OFF()___ps->stack_trip = ___ps->stack_limit
+#define ___STACK_TRIP_ON()___ps->stack_trip = ___ps->context->stack_start
+#define ___STACK_TRIP_OFF()___ps->stack_trip = ___ps->context->stack_limit
 #define ___STACK_TRIPPED (___fp < ___ps->stack_trip)
 
 #ifdef ___HEARTBEAT_USING_POLL_COUNTDOWN
@@ -9246,60 +9263,184 @@ ___LOCAL ___WORD ___ofdtbl[]={
 #define ___RETI_CFS_TO_FS(fs) \
 ___ROUND_TO_MULT(fs,___FRAME_ALIGN)+___FRAME_SPACE(___NB_GVM_REGS+1)-___FRAME_RESERVE
 
-#define ___RETI_GET_CFS(ra,fs) \
-{ ___WORD descr = ___LABEL_DESCR_GET(ra); \
-if (___IS_IFD(descr)) \
-fs = ___IFD_FS(descr); \
-else \
-fs = ___OFD_FS(*(___WORD*)descr); }
+/* One decoded frame contract for stack roots, heap frames and restoration.
+ * Input descriptors are trusted, live module metadata. This decoder neither
+ * validates an arbitrary pointer nor extends the lifetime of its module.
+ */
+typedef struct ___frame_descriptor_struct
+  {
+    int kind;
+    int stored_fs;
+    int fs;
+    int link;
+    ___WORD gcmap;
+    ___WORD *nextgcmap;
+  } ___frame_descriptor;
 
-#define ___RETI_GET_FS(ra,fs) \
-{ ___WORD descr = ___LABEL_DESCR_GET(ra); \
-if (___IS_IFD(descr)) \
-fs = ___RETI_CFS_TO_FS(___IFD_FS(descr)); \
-else \
-fs = ___RETI_CFS_TO_FS(___OFD_FS(*(___WORD*)descr)); }
+#if defined(__GNUC__) || defined(__clang__)
+#define ___FRAME_INLINE static __inline__
+#elif defined(_MSC_VER)
+#define ___FRAME_INLINE static __inline
+#elif defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L
+#define ___FRAME_INLINE static inline
+#else
+#define ___FRAME_INLINE static
+#endif
 
-#define ___RETN_GET_FS(ra,fs) \
-{ ___WORD descr = ___LABEL_DESCR_GET(ra); \
-if (___IS_IFD(descr)) \
-fs = ___IFD_FS(descr); \
-else \
-fs = ___OFD_FS(*(___WORD*)descr); }
+___FRAME_INLINE ___frame_descriptor ___decode_frame_descriptor
+   ___P((___WORD descr, int internal),
+        (descr, internal)
+___WORD descr;
+int internal;)
+{
+  ___frame_descriptor frame;
 
-#define ___RETI_GET_FS_LINK(ra,fs,link) \
-{ ___WORD descr = ___LABEL_DESCR_GET(ra); \
-if (___IS_IFD(descr)) \
-{ fs = ___RETI_CFS_TO_FS(___IFD_FS(descr)); link = ___IFD_LINK(descr); } \
-else \
-{ descr = *(___WORD*)descr; \
-fs = ___RETI_CFS_TO_FS(___OFD_FS(descr)); link = ___OFD_LINK(descr); } }
+  if (___IS_IFD(descr))
+    {
+      frame.kind = ___IFD_KIND(descr);
+      frame.stored_fs = ___IFD_FS(descr);
+      frame.link = ___IFD_LINK(descr);
+      frame.gcmap = ___IFD_GCMAP(descr);
+      frame.nextgcmap = 0;
+    }
+  else
+    {
+      ___WORD *table = ___CAST(___WORD*,descr);
+      ___WORD header = *table++;
+      frame.kind = ___OFD_KIND(header);
+      frame.stored_fs = ___OFD_FS(header);
+      frame.link = ___OFD_LINK(header);
+      frame.gcmap = *table++;
+      frame.nextgcmap = table;
+    }
 
-#define ___RETN_GET_FS_LINK(ra,fs,link) \
-{ ___WORD descr = ___LABEL_DESCR_GET(ra); \
-if (___IS_IFD(descr)) \
-{ fs = ___IFD_FS(descr); link = ___IFD_LINK(descr); } \
-else \
-{ descr = *(___WORD*)descr; \
-fs = ___OFD_FS(descr); link = ___OFD_LINK(descr); } }
+  frame.fs = internal ? ___RETI_CFS_TO_FS(frame.stored_fs) : frame.stored_fs;
+  return frame;
+}
 
-#define ___RETI_GET_FS_LINK_GCMAP(ra,fs,link,firstgcmap,nextgcmap) \
-{ ___WORD descr = ___LABEL_DESCR_GET(ra); \
-if (___IS_IFD(descr)) \
-{ fs = ___RETI_CFS_TO_FS(___IFD_FS(descr)); link = ___IFD_LINK(descr); \
-firstgcmap = ___IFD_GCMAP(descr); } \
-else \
-{ nextgcmap = (___WORD*)descr; descr = *nextgcmap++; firstgcmap = *nextgcmap++; \
-fs = ___RETI_CFS_TO_FS(___OFD_FS(descr)); link = ___OFD_LINK(descr); } }
+/* Physical root coordinates are one-based.  nextgcmap starts AFTER the first
+ * word, so slot WORD_WIDTH+1 uses nextgcmap[0].  Cast before shifting: a live
+ * root at the native sign bit is valid metadata, not a signed-int mask.
+ */
+___FRAME_INLINE int ___frame_slot_live
+   ___P((const ___frame_descriptor *frame, int slot),
+        (frame, slot)
+const ___frame_descriptor *frame;
+int slot;)
+{
+  int bit;
+  ___UWORD word;
 
-#define ___RETN_GET_FS_LINK_GCMAP(ra,fs,link,firstgcmap,nextgcmap) \
-{ ___WORD descr = ___LABEL_DESCR_GET(ra); \
-if (___IS_IFD(descr)) \
-{ firstgcmap = ___IFD_GCMAP(descr); \
-fs = ___IFD_FS(descr); link = ___IFD_LINK(descr); } \
-else \
-{ nextgcmap = (___WORD*)descr; descr = *nextgcmap++; firstgcmap = *nextgcmap++; \
-fs = ___OFD_FS(descr); link = ___OFD_LINK(descr); } }
+  if (slot <= 0 || slot > frame->fs)
+    return 0;
+  bit = slot - 1;
+  word = ___CAST(___UWORD,
+           bit < ___WORD_WIDTH
+           ? frame->gcmap
+           : frame->nextgcmap[(bit >> ___LOG_WORD_WIDTH) - 1]);
+  return ___CAST(int, (word >> (bit & (___WORD_WIDTH-1))) & 1);
+}
+
+/* Borrowed, nonallocating scan state.  It never outlives the descriptor's
+ * module or crosses a safepoint.  Runs preserve mark_array's bulk marking.
+ */
+typedef struct ___frame_root_cursor_struct
+  {
+    ___UWORD bits;
+    const ___WORD *next;
+    int slot;
+    int fs;
+    int excluded_slot; /* structural link has a separate traversal contract */
+  } ___frame_root_cursor;
+
+___FRAME_INLINE ___frame_root_cursor ___frame_root_begin
+   ___P((const ___frame_descriptor *frame),
+        (frame)
+const ___frame_descriptor *frame;)
+{
+  ___frame_root_cursor cursor;
+  cursor.bits = ___CAST(___UWORD, frame->gcmap);
+  cursor.next = frame->nextgcmap;
+  cursor.slot = 1;
+  cursor.fs = frame->fs;
+  cursor.excluded_slot = 0;
+  return cursor;
+}
+
+___FRAME_INLINE ___frame_root_cursor ___frame_ordinary_root_begin
+   ___P((const ___frame_descriptor *frame), (frame)
+const ___frame_descriptor *frame;)
+{
+  ___frame_root_cursor cursor = ___frame_root_begin(frame);
+  cursor.excluded_slot = frame->link+1;
+  return cursor;
+}
+
+___FRAME_INLINE void ___frame_root_advance
+   ___P((___frame_root_cursor *cursor),
+        (cursor)
+___frame_root_cursor *cursor;)
+{
+  cursor->bits >>= 1;
+  cursor->slot++;
+  if (cursor->slot <= cursor->fs &&
+      ((cursor->slot-1) & (___WORD_WIDTH-1)) == 0)
+    cursor->bits = ___CAST(___UWORD, *cursor->next++);
+}
+
+___FRAME_INLINE int ___frame_root_next_run
+   ___P((___frame_root_cursor *cursor, int *first, int *past),
+        (cursor, first, past)
+___frame_root_cursor *cursor;
+int *first;
+int *past;)
+{
+  while (cursor->slot <= cursor->fs &&
+         (!(cursor->bits & 1) || cursor->slot == cursor->excluded_slot))
+    ___frame_root_advance (cursor);
+  if (cursor->slot > cursor->fs)
+    return 0;
+  *first = cursor->slot;
+  do
+    ___frame_root_advance (cursor);
+  while (cursor->slot <= cursor->fs && (cursor->bits & 1) &&
+         cursor->slot != cursor->excluded_slot);
+  *past = cursor->slot;
+  return 1;
+}
+
+#undef ___FRAME_INLINE
+
+/* Existing generated/native entry points are mechanical projections only. */
+#define ___RETI_GET_CFS(ra,fs_arg) \
+{ ___frame_descriptor ___fd = ___decode_frame_descriptor(___LABEL_DESCR_GET(ra),0); \
+fs_arg = ___fd.stored_fs; }
+
+#define ___RETI_GET_FS(ra,fs_arg) \
+{ ___frame_descriptor ___fd = ___decode_frame_descriptor(___LABEL_DESCR_GET(ra),1); \
+fs_arg = ___fd.fs; }
+
+#define ___RETN_GET_FS(ra,fs_arg) \
+{ ___frame_descriptor ___fd = ___decode_frame_descriptor(___LABEL_DESCR_GET(ra),0); \
+fs_arg = ___fd.fs; }
+
+#define ___RETI_GET_FS_LINK(ra,fs_arg,link_arg) \
+{ ___frame_descriptor ___fd = ___decode_frame_descriptor(___LABEL_DESCR_GET(ra),1); \
+fs_arg = ___fd.fs; link_arg = ___fd.link; }
+
+#define ___RETN_GET_FS_LINK(ra,fs_arg,link_arg) \
+{ ___frame_descriptor ___fd = ___decode_frame_descriptor(___LABEL_DESCR_GET(ra),0); \
+fs_arg = ___fd.fs; link_arg = ___fd.link; }
+
+#define ___RETI_GET_FS_LINK_GCMAP(ra,fs_arg,link_arg,firstgcmap_arg,nextgcmap_arg) \
+{ ___frame_descriptor ___fd = ___decode_frame_descriptor(___LABEL_DESCR_GET(ra),1); \
+fs_arg = ___fd.fs; link_arg = ___fd.link; \
+firstgcmap_arg = ___fd.gcmap; nextgcmap_arg = ___fd.nextgcmap; }
+
+#define ___RETN_GET_FS_LINK_GCMAP(ra,fs_arg,link_arg,firstgcmap_arg,nextgcmap_arg) \
+{ ___frame_descriptor ___fd = ___decode_frame_descriptor(___LABEL_DESCR_GET(ra),0); \
+fs_arg = ___fd.fs; link_arg = ___fd.link; \
+firstgcmap_arg = ___fd.gcmap; nextgcmap_arg = ___fd.nextgcmap; }
 
 /* Procedure descriptor structures. */
 
@@ -9373,8 +9514,8 @@ ___MAKE_HD(((nbclosed+1)<<___NBPARMS_WIDTH)+nbparms,___sPROCEDURE,___PERM)
 #define ___SUBTBL 0,0
 #endif
 
-#define ___BEGIN_MOD_PRM ___LOCAL ___WORD ___setup_mod ___PVOID {
-#define ___DEF_MOD_PRM(i,glo,n)___PRM(i,glo)=___MLBL(n);
+#define ___BEGIN_MOD_PRM ___LOCAL ___WORD ___setup_mod ___P((___processor_state ___ps),(___ps) ___processor_state ___ps;) {
+#define ___DEF_MOD_PRM(i,glo,n)___EXT(___bind_primitive)(___ps,&___GLOSTRUCT(i,glo),___MLBL(n));
 #define ___END_MOD_PRM return ___FIX(___NO_ERR); }
 
 #define ___BEGIN_MOD_C_INIT ___LOCAL ___WORD ___init_mod \
@@ -9384,7 +9525,7 @@ ___PSDKR) { ___PSGET
 #define ___END_MOD_C_INIT
 
 #define ___BEGIN_MOD_GLO
-#define ___DEF_MOD_GLO(i,glo,n)___GLO(i,glo)=___MLBL(n);
+#define ___DEF_MOD_GLO(i,glo,n)___SET_GLO(i,glo,___MLBL(n))
 #define ___END_MOD_GLO return ___FIX(___NO_ERR); }
 
 #define ___MODULE_DESCR_SUPPLY_MODS   0
@@ -10022,32 +10163,35 @@ void *___x;) \
 #define ___IF_CTOS3(f,c,s,i)if ((___CTOS3(f,c,s,i))==___FIX(___NO_ERR))
 #define ___IF_CTOS5(f,c,t,r,s,i)if ((___CTOS5(f,c,t,r,s,i))==___FIX(___NO_ERR))
 
+/* Root metadata allocation is noncollecting. Every installed root remains
+ * registered across all conversions, nested calls and catcher recovery. */
+#define ___SFUN_ROOT_ARG(i,arg) if (___err==___FIX(___NO_ERR)) {___sfun_roots[(i)-1]=___EXT(___alloc_rc)(___PSP 0);if (___sfun_roots[(i)-1]==0) ___err=___FIX(___SFUN_HEAP_OVERFLOW_ERR);else ___EXT(___set_data_rc)(___sfun_roots[(i)-1],arg);}
 #define ___BEGIN_SFUN_BODY
 #define ___END_SFUN_BODY
 
-#define ___BEGIN_SFUN_VOID(proc) ___processor_state ___ps=___PSTATE;___SCMOBJ ___marker;___SCMOBJ ___err;___SCMOBJ ___errdata=___FAL;___SCMOBJ ___errhandler=___FAL;if ((___err=___EXT(___make_sfun_stack_marker) (___ps,&___marker,proc))==___FIX(___NO_ERR)) {
+#define ___BEGIN_SFUN_VOID(proc,roots) ___processor_state ___ps=___PSTATE;volatile ___SCMOBJ ___marker=___FAL;void *volatile ___sfun_roots[___NARGS+1];int ___sfun_i;___SCMOBJ ___err;___SCMOBJ ___errdata=___FAL;___SCMOBJ ___errhandler=___FAL;for (___sfun_i=0;___sfun_i<___NARGS+1;___sfun_i++) ___sfun_roots[___sfun_i]=0;___BEGIN_TRY roots if (___err==___FIX(___NO_ERR)) {___SCMOBJ ___new_marker;___err=___EXT(___make_sfun_stack_marker)(___ps,&___new_marker,proc);if (___err==___FIX(___NO_ERR)) {___marker=___new_marker;
 #define ___SFUN_CALL_VOID ___err=___EXT(___call) (___PSP ___NARGS,___VECTORELEM(___marker,0),___marker);
 #define ___SFUN_SET_RESULT_VOID /* no result to set */
 #define ___SFUN_ERROR_VOID while ((___err!=___FIX(___NO_ERR))&&(___err!=___FIX(___UNWIND_C_STACK))) {___ps->temp1=___err;___ps->temp2=___errdata;___ps->temp3=___marker;___ps->temp4=___errhandler;___err=___EXT(___call) (___PSP 0,___ps->handler_sfun_conv_error,___marker);
-#define ___END_SFUN_VOID } ___EXT(___kill_sfun_stack_marker) (___marker); } ___EXT(___propagate_error) (___PSP ___err);
+#define ___END_SFUN_VOID } } } ___END_TRY if (___marker!=___FAL) ___EXT(___kill_sfun_stack_marker)(___marker);for (___sfun_i=0;___sfun_i<___NARGS;___sfun_i++) if (___sfun_roots[___sfun_i]!=0) ___EXT(___release_rc)(___sfun_roots[___sfun_i]);___EXT(___propagate_error) (___PSP ___err);
 
-#define ___BEGIN_SFUN_SCMOBJ(proc) ___processor_state ___ps=___PSTATE;___SCMOBJ ___marker;___SCMOBJ ___result;___SCMOBJ ___err;___SCMOBJ ___errdata=___FAL;___SCMOBJ ___errhandler=___FAL;if ((___err=___EXT(___make_sfun_stack_marker) (___ps,&___marker,proc))==___FIX(___NO_ERR)) {
+#define ___BEGIN_SFUN_SCMOBJ(proc,roots) ___processor_state ___ps=___PSTATE;volatile ___SCMOBJ ___marker=___FAL;void *volatile ___sfun_roots[___NARGS+1];int ___sfun_i;___SCMOBJ ___result;___SCMOBJ ___err;___SCMOBJ ___errdata=___FAL;___SCMOBJ ___errhandler=___FAL;for (___sfun_i=0;___sfun_i<___NARGS+1;___sfun_i++) ___sfun_roots[___sfun_i]=0;___BEGIN_TRY roots if (___err==___FIX(___NO_ERR)) {___SCMOBJ ___new_marker;___err=___EXT(___make_sfun_stack_marker)(___ps,&___new_marker,proc);if (___err==___FIX(___NO_ERR)) {___marker=___new_marker;
 #define ___SFUN_CALL_SCMOBJ ___err=___EXT(___call) (___PSP ___NARGS,___VECTORELEM(___marker,0),___marker);
 #define ___SFUN_SET_RESULT_SCMOBJ ___result = ___SFUN_RESULT;
 #define ___SFUN_ERROR_SCMOBJ while ((___err!=___FIX(___NO_ERR))&&(___err!=___FIX(___UNWIND_C_STACK))) {___ps->temp1=___err;___ps->temp2=___errdata;___ps->temp3=___marker;___ps->temp4=___errhandler;___err=___EXT(___call) (___PSP 0,___ps->handler_sfun_conv_error,___marker);
-#define ___END_SFUN_SCMOBJ } ___EXT(___kill_sfun_stack_marker) (___marker); } ___EXT(___propagate_error) (___PSP ___err);
+#define ___END_SFUN_SCMOBJ } } } ___END_TRY if (___marker!=___FAL) ___EXT(___kill_sfun_stack_marker)(___marker);for (___sfun_i=0;___sfun_i<___NARGS;___sfun_i++) if (___sfun_roots[___sfun_i]!=0) ___EXT(___release_rc)(___sfun_roots[___sfun_i]);___EXT(___propagate_error) (___PSP ___err);
 
-#define ___BEGIN_SFUN(proc,decl)___processor_state ___ps=___PSTATE;___SCMOBJ ___marker;decl;___SCMOBJ ___err;___SCMOBJ ___errdata=___FAL;___SCMOBJ ___errhandler=___FAL;if ((___err=___EXT(___make_sfun_stack_marker) (___ps,&___marker,proc))==___FIX(___NO_ERR)) {
+#define ___BEGIN_SFUN(proc,roots,decl)___processor_state ___ps=___PSTATE;volatile ___SCMOBJ ___marker=___FAL;void *volatile ___sfun_roots[___NARGS+1];int ___sfun_i;decl;___SCMOBJ ___err;___SCMOBJ ___errdata=___FAL;___SCMOBJ ___errhandler=___FAL;for (___sfun_i=0;___sfun_i<___NARGS+1;___sfun_i++) ___sfun_roots[___sfun_i]=0;___BEGIN_TRY roots if (___err==___FIX(___NO_ERR)) {___SCMOBJ ___new_marker;___err=___EXT(___make_sfun_stack_marker)(___ps,&___new_marker,proc);if (___err==___FIX(___NO_ERR)) {___marker=___new_marker;
 #define ___SFUN_CALL if ((___err=___EXT(___call) (___PSP ___NARGS,___VECTORELEM(___marker,0),___marker))==___FIX(___NO_ERR))
 #define ___SFUN_SET_RESULT /* done in conversion function */
 #define ___SFUN_ERROR while ((___err!=___FIX(___NO_ERR))&&(___err!=___FIX(___UNWIND_C_STACK))) {___ps->temp1=___err;___ps->temp2=___errdata;___ps->temp3=___marker;___ps->temp4=___errhandler;if ((___err=___EXT(___call) (___PSP 0,___ps->handler_sfun_conv_error,___marker))==___FIX(___NO_ERR))
-#define ___END_SFUN } ___EXT(___kill_sfun_stack_marker) (___marker); } ___EXT(___propagate_error) (___PSP ___err);
+#define ___END_SFUN } } } ___END_TRY if (___marker!=___FAL) ___EXT(___kill_sfun_stack_marker)(___marker);for (___sfun_i=0;___sfun_i<___NARGS;___sfun_i++) if (___sfun_roots[___sfun_i]!=0) ___EXT(___release_rc)(___sfun_roots[___sfun_i]);___EXT(___propagate_error) (___PSP ___err);
 
 #define ___BEGIN_SFUN_ARG(i,arg)___SCMOBJ arg;
 #define ___END_SFUN_ARG(i)
 #define ___BEGIN_SFUN_ARG_SCMOBJ(i)
 #define ___END_SFUN_ARG_SCMOBJ(i)
-#define ___SFUN_ARG(i,arg)___PSSTK(___FRAME_SPACE(2)+i)=arg;
+#define ___SFUN_ARG(i,arg)___PSSTK(___FRAME_SPACE(2)+i)=(___sfun_roots[(i)-1]!=0?___EXT(___data_rc)(___sfun_roots[(i)-1]):arg);
 #define ___SFUN_RESULT ___PSR1
 
 #define ___BEGIN_SFUN_SCMOBJ_TO_S8(s,c)___STOC3(___SCMOBJ_to_S8,s,&c,___RETURN_POS);
@@ -10837,7 +10981,18 @@ typedef struct ___glo_struct
     ___WORD val;
     ___WORD prm;
     struct ___glo_struct* next;
+#ifdef ___SINGLE_VM
+    ___SCMOBJ primitive_value; /* VM-owned override, not shared image code */
+    ___WORD primitive_set;
+#endif
   } ___glo_struct;
+
+/* The existing multiple-VM global capacity also bounds primitive overrides.
+ * One allocation contains ordinary slots, primitive slots, then nonroot bits.
+ * SINGLE_VM retains its unbounded registry and stores overrides in each glo. */
+#define ___GLOBALS_CAPACITY 20000
+#define ___GLOBALS_PRIMITIVE_FLAGS ((___GLOBALS_CAPACITY+___WORD_WIDTH-1)/___WORD_WIDTH)
+#define ___GLOBALS_STORAGE_WORDS (2*___GLOBALS_CAPACITY+___GLOBALS_PRIMITIVE_FLAGS)
 
 typedef struct ___glo_sublist_struct
   {
@@ -10896,6 +11051,7 @@ typedef struct ___full_duplex_pipe
 #define ___CONDVAR_DESTROY(cv) (pthread_cond_destroy (&cv) == 0)
 #define ___CONDVAR_WAIT(cv,mut) (pthread_cond_wait (&cv, &mut) == 0)
 #define ___CONDVAR_SIGNAL(cv) (pthread_cond_signal (&cv) == 0)
+#define ___CONDVAR_BROADCAST(cv) (pthread_cond_broadcast (&cv) == 0)
 
 #define ___THREAD_ID (pthread_self())
 
@@ -10998,6 +11154,9 @@ typedef struct ___full_duplex_pipe
 
 #ifdef ___USE_sync_builtins
 
+#define ___LOAD_GLOBAL_WORD(p) __atomic_load_n(p,__ATOMIC_ACQUIRE)
+#define ___PUBLISH_GLOBAL_WORD(p,v) __atomic_store_n(p,v,__ATOMIC_RELEASE)
+
 #define ___COMPARE_AND_SWAP_WORD(p,oldval,newval) \
 __sync_val_compare_and_swap(p,oldval,newval)
 
@@ -11014,6 +11173,9 @@ __sync_synchronize()
 
 
 #ifdef ___USE_WIN32_sync
+
+#define ___LOAD_GLOBAL_WORD(p) ___COMPARE_AND_SWAP_WORD(p,0,0)
+#define ___PUBLISH_GLOBAL_WORD(p,v) ((void)InterlockedExchangePointer(___CAST(void**,p),___CAST(void*,v)))
 
 #define ___COMPARE_AND_SWAP_WORD(p,oldval,newval) \
 ___CAST(___WORD,InterlockedCompareExchangePointer(___CAST(void**,p),___CAST(void*,newval),___CAST(void*,oldval)))
@@ -11038,6 +11200,16 @@ MemoryBarrier()
 
 #ifdef ___USE_emulated_sync
 
+#define ___LOAD_GLOBAL_WORD(p) ___COMPARE_AND_SWAP_WORD(p,0,0)
+#define ___PUBLISH_GLOBAL_WORD(p,v) \
+  do { \
+    ___WORD *___global_slot=(p); \
+    ___WORD ___global_value=(v); \
+    ___WORD ___global_old=___LOAD_GLOBAL_WORD(___global_slot); \
+    while (___COMPARE_AND_SWAP_WORD(___global_slot,___global_old,___global_value) != ___global_old) \
+      ___global_old=___LOAD_GLOBAL_WORD(___global_slot); \
+  } while (0)
+
 #define ___COMPARE_AND_SWAP_WORD(p,oldval,newval) \
 ___EXT(___emulated_compare_and_swap_word)(p,oldval,newval)
 
@@ -11054,6 +11226,9 @@ ___EXT(___emulated_shared_memory_barrier)()
 
 
 #ifdef ___USE_sequential_sync
+
+#define ___LOAD_GLOBAL_WORD(p) (*(p))
+#define ___PUBLISH_GLOBAL_WORD(p,v) ((void)(*(p)=(v)))
 
 #define ___COMPARE_AND_SWAP_WORD(p,oldval,newval) \
 ((___ps->temp1 = *(p)) == (oldval) && (*(p) = (newval)), ___ps->temp1)
@@ -11269,10 +11444,13 @@ typedef struct ___msect
     int pos;               /* position in msections's 'sections' array */
     struct ___msect *prev; /* previous section in list of sections */
     struct ___msect *next; /* next section in list of sections */
+    ___VOLATILE ___WORD copy_gate; /* source-section forwarding ownership */
     ___WORD base[1];       /* content of section */
   } ___msection;
 
-#define ___sizeof_msection(n) (sizeof (___msection) + ((n)-1) * ___WS)
+/* Destination scan ownership is outside Scheme payload/header coordinates. */
+#define ___msection_scan_words(n) (((n)/2+(___WORD_WIDTH/2)-1)/(___WORD_WIDTH/2))
+#define ___sizeof_msection(n) (sizeof (___msection)+((n)-1+___msection_scan_words(n))*___WS)
 
 typedef struct
   {
@@ -11291,12 +11469,16 @@ typedef struct
  * Header structure of reference counted blocks of memory.
  */
 
+typedef struct ___rc_domain_struct ___rc_domain;
+
 typedef struct ___rc_header_struct
   {
     struct ___rc_header_struct *prev;
     struct ___rc_header_struct *next;
     ___WORD refcount; /* integer but declared ___WORD for alignment */
     ___SCMOBJ data; /* needed for C closures */
+    ___rc_domain *domain; /* source gate/lifetime, independent of native carrier */
+    ___WORD root_borrows; /* stable-cell owners, separate from public references */
   } ___rc_header;
 
 /* fdset state */
@@ -11395,7 +11577,7 @@ ___SIZE_TS words_still_objs_deferred_;
 ___F64 bytes_allocated_minus_occupied_;
 
 /* head of list of reference counted blocks of memory */
-___rc_header rc_head_;
+___rc_domain *rc_domain_;
 
 /* indicates if weak references must be traversed */
 ___BOOL traverse_weak_refs_;
@@ -11448,6 +11630,8 @@ typedef struct ___vmstate_os_struct {
 } ___vmstate_os;
 
 typedef struct ___vmstate_mem_struct {
+
+struct ___global_root_snapshot_struct *globals_snapshot_;
 
 /* size of heap in words (number of words that can be occupied) */
 ___SIZE_TS heap_size_;
@@ -11560,6 +11744,11 @@ typedef struct ___gstate_mem_struct {
    */
 
   ___glo_list_struct glo_list;
+  ___MUTEX_DECL(global_gate)
+  ___MUTEX_DECL(permanent_gate)
+  ___thread global_bootstrap_owner;
+  int global_bootstrap;
+  ___SIZE_T global_snapshots;
 
 } ___gstate_mem;
 
@@ -11589,27 +11778,37 @@ typedef struct ___sync_op_struct
 
 /* Processor structure */
 
-typedef struct ___processor_state_struct
+/* Scheme execution roots are owned by the VM, not the native carrier.
+ * This storage step keeps the existing synchronous binding and collector.
+ * It does not authorize live rebinding or independent context retirement. */
+typedef struct ___execution_context_struct
   {
-    ___WORD * ___VOLATILE stack_trip; /* place first for fast access */
     ___WORD *stack_limit;
     ___WORD *fp;
     ___WORD *stack_start;
     ___WORD *stack_break;
 
-    ___WORD *heap_limit;
     ___WORD *hp;
 
     ___WORD r[___NB_GVM_REGS]; /* GVM registers */
 
     ___WORD pc;
-    ___WORD na;
 
     ___WORD saved[3]; /* Scheme objects protected from GC */
 
     ___WORD type_cache[2];
 #define ___CHAR_INPUT_PORT_TYPE_CACHE  0
 #define ___CHAR_OUTPUT_PORT_TYPE_CACHE 1
+
+    ___WORD processor_scmobj[___SUBTYPED_BODY+___PROCESSOR_SIZE+___PADDING_SIZE]; /* Scheme processor object */
+  } ___execution_context;
+
+typedef struct ___processor_state_struct
+  {
+    ___WORD * ___VOLATILE stack_trip; /* place first for fast access */
+    ___execution_context *context; /* VM-owned execution roots */
+    ___WORD *heap_limit; /* existing allocator capacity guard */
+    ___WORD na; /* existing call-arity guard */
 
     /* these handlers are duplicated from the global state for quick access */
 
@@ -11646,7 +11845,6 @@ typedef struct ___processor_state_struct
     ___procedural_interrupt_header * ___VOLATILE procedural_interrupts_tail;
     ___MUTEX_DECL(procedural_interrupts_mut)
 
-    ___WORD processor_scmobj[___SUBTYPED_BODY+___PROCESSOR_SIZE+___PADDING_SIZE]; /* Scheme processor object */
 
 #ifdef ___USE_UNWIND_C_STACK_TO_TRAMPOLINE
     ___WORD *c_stack_trip;
@@ -11708,12 +11906,16 @@ typedef struct ___processor_state_struct
 #ifdef ___SUPPORT_PSTATE_BIND
     ___processor_state pstate_binding;
 #endif
+    struct ___collector_worker_struct *collector; /* current private work authority */
+
   } ___processor_state_struct;
 
 #ifdef ___SUPPORT_LOWLEVEL_EXEC
 
 typedef struct ___lowlevel_processor_state_struct
   {
+    ___WORD entry_pc; /* transient bridge target; context remains its root */
+    ___WORD saved_r1; /* x86 address scratch aliases the GVM r1 register */
     ___WORD *return_sp;
     ___WORD *return_handler;
   } ___lowlevel_processor_state_struct;
@@ -11877,7 +12079,7 @@ typedef struct ___module_struct
     ___WORD *ofdtbl; int ofd_length;
     ___WORD *cnstbl; int cnscount;
     ___FAKEWORD *subtbl; int subcount;
-    ___WORD (*setup_mod) ___PVOID;
+    ___WORD (*setup_mod) ___P((___processor_state ps), ());
     ___WORD (*init_mod) ___P((___PSDNC),());
     ___UTF_8STRING script_line;
     struct ___module_struct *next;
@@ -11927,11 +12129,27 @@ typedef struct ___program_startup_info_struct
 #endif
   } ___program_startup_info_struct;
 
+/* One full-word CAS owns generation, admission and all registered permits.
+ * No Scheme payload is stored here; these records are not GC root cells.
+ * Fixed capacity is admission capacity, not a limit on Scheme continuations.
+ */
+#ifndef ___NATIVE_SCOPE_CAPACITY
+#define ___NATIVE_SCOPE_CAPACITY 64
+#endif
+#if ___NATIVE_SCOPE_CAPACITY < 1
+#error "___NATIVE_SCOPE_CAPACITY must be positive"
+#endif
+typedef struct ___native_scope_struct
+  {
+    ___VOLATILE ___WORD gate;
+  } ___native_scope;
+
 /* Virtual machine state structure */
 
 typedef struct ___virtual_machine_state_struct
   {
     ___aligned_processor_state_struct aligned_pstate[___MAX_PROCESSORS]; /* VM's processors */
+    ___execution_context execution_contexts[___MAX_PROCESSORS]; /* stable VM slots */
 
     ___VOLATILE int processor_count; /* number of processors in this VM */
 
@@ -11950,6 +12168,8 @@ typedef struct ___virtual_machine_state_struct
 
     ___vmstate_mem mem; /* memory management state */
 
+    ___native_scope native_scopes[___NATIVE_SCOPE_CAPACITY];
+
     ___SCMOBJ main_module_ref; /* symbol identifying the VM's main module */
 
 #ifndef ___SINGLE_VM
@@ -11961,6 +12181,7 @@ typedef struct ___virtual_machine_state_struct
 
 #endif
 
+    struct ___vm_lifecycle_struct *lifecycle; /* VM-owned entry, launch and release custody */
   } ___virtual_machine_state_struct;
 
 #define ___PROCESSOR_ID(ps,vms) \
@@ -13241,6 +13462,17 @@ typedef struct ___global_state_struct
        ___P((void *ptr,
              ___SCMOBJ val),
             ());
+    void (*___store_global)
+       ___P((___processor_state ps,
+             ___glo_struct *global,
+             ___SCMOBJ val),
+            ());
+    ___SCMOBJ (*___primitive_ref)
+       ___P((___processor_state ps, ___glo_struct *global), ());
+    void (*___store_primitive)
+       ___P((___processor_state ps, ___glo_struct *global, ___SCMOBJ val), ());
+    void (*___bind_primitive)
+       ___P((___processor_state ps, ___glo_struct *global, ___SCMOBJ code), ());
     ___SCMOBJ (*___alloc_scmobj)
        ___P((___processor_state ___ps,
              int subtype,
@@ -13287,7 +13519,7 @@ typedef struct ___global_state_struct
        ___P((___SCMOBJ ht_src,
              ___SCMOBJ ht_dst),
             ());
-    void (*___cleanup) ___PVOID;
+    ___BOOL (*___cleanup) ___PVOID;
     void (*___cleanup_and_exit_process)
        ___P((int status),
             ());
@@ -13303,14 +13535,14 @@ typedef struct ___global_state_struct
     ___SCMOBJ (*___setup_vmstate)
        ___P((___virtual_machine_state ___vms),
             ());
-    void (*___cleanup_vmstate)
+    ___BOOL (*___cleanup_vmstate)
        ___P((___virtual_machine_state ___vms),
             ());
     ___SCMOBJ (*___setup_pstate)
        ___P((___processor_state ___ps,
              ___virtual_machine_state ___vms),
             ());
-    void (*___cleanup_pstate)
+    ___BOOL (*___cleanup_pstate)
        ___P((___processor_state ___ps),
             ());
     ___SIZE_T (*___get_min_heap) ___PVOID;
@@ -14554,6 +14786,17 @@ ___IMP_FUNC(___SCMOBJ,___make_sfun_stack_marker)
 ___IMP_FUNC(void,___kill_sfun_stack_marker)
    ___P((___SCMOBJ marker),
         ());
+___IMP_FUNC(void,___store_global)
+   ___P((___processor_state ps,
+         ___glo_struct *global,
+         ___SCMOBJ val),
+        ());
+___IMP_FUNC(___SCMOBJ,___primitive_ref)
+   ___P((___processor_state ps, ___glo_struct *global), ());
+___IMP_FUNC(void,___store_primitive)
+   ___P((___processor_state ps, ___glo_struct *global, ___SCMOBJ val), ());
+___IMP_FUNC(void,___bind_primitive)
+   ___P((___processor_state ps, ___glo_struct *global, ___SCMOBJ code), ());
 #endif
 
 #ifndef ___INCLUDED_FROM_MEM
@@ -14763,7 +15006,7 @@ ___IMP_FUNC(void,___setup_params_reset)
 ___IMP_FUNC(___SCMOBJ,___setup)
    ___P((___setup_params_struct *setup_params),
         ());
-___IMP_FUNC(void,___cleanup) ___PVOID;
+___IMP_FUNC(___BOOL,___cleanup) ___PVOID;
 ___IMP_FUNC(void,___cleanup_and_exit_process)
    ___P((int status),
         ());
@@ -14779,14 +15022,14 @@ ___IMP_FUNC(___BOOL,___garbage_collect)
 ___IMP_FUNC(___SCMOBJ,___setup_vmstate)
    ___P((___virtual_machine_state ___vms),
         ());
-___IMP_FUNC(void,___cleanup_vmstate)
+___IMP_FUNC(___BOOL,___cleanup_vmstate)
    ___P((___virtual_machine_state ___vms),
         ());
 ___IMP_FUNC(___SCMOBJ,___setup_pstate)
    ___P((___processor_state ___ps,
          ___virtual_machine_state ___vms),
         ());
-___IMP_FUNC(void,___cleanup_pstate)
+___IMP_FUNC(___BOOL,___cleanup_pstate)
    ___P((___processor_state ___ps),
         ());
 ___IMP_FUNC(___SIZE_T,___get_min_heap) ___PVOID;
@@ -14859,7 +15102,8 @@ ___IMP_FUNC(___SCMOBJ,___call)
          ___SCMOBJ marker),
         ());
 ___IMP_FUNC(___SCMOBJ,___run)
-   ___P((___SCMOBJ thunk),
+   ___P((___PSD
+         ___SCMOBJ thunk),
         ());
 #ifdef ___USE_UNWIND_C_STACK_TO_TRAMPOLINE
 ___IMP_FUNC(void,___unwind_c_stack_to_trampoline)

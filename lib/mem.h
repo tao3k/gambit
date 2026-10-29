@@ -194,7 +194,9 @@ extern ___SCMOBJ ___make_symkey_from_scheme_string
          unsigned int subtype),
         ());
 
-extern void ___for_each_symkey
+extern ___SCMOBJ ___symkey_table_view(___SCMOBJ view, unsigned int subtype);
+
+extern ___BOOL ___for_each_symkey
    ___P((unsigned int subtype,
          void (*visit) (___SCMOBJ symkey, void *data),
          void *data),
@@ -216,9 +218,10 @@ extern ___SCMOBJ ___find_global_var_bound_to
 
 #endif
 
-extern void ___glo_list_setup ___PVOID;
+extern ___SCMOBJ ___glo_list_setup ___PVOID;
+extern void ___glo_list_open ___PVOID;
 
-extern void ___glo_list_add
+extern ___SCMOBJ ___glo_list_add
    ___P((___glo_struct *glo),
         ());
 

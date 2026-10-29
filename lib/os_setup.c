@@ -1356,7 +1356,7 @@ ___SCMOBJ host;)
 
   ___SCMOBJ ___temp; /* needed by the ___U8VECTORP and ___U16VECTORP macros */
 
-  ___ps->saved[0] = hi;
+  ___ps->context->saved[0] = hi;
 
   errno = 0; /* in case the h_errno ends up being NETDB_SUCCESS
               * incorrectly which will be treated as NETDB_INTERNAL
@@ -1456,7 +1456,7 @@ ___SCMOBJ host;)
       != ___FIX(___NO_ERR))
     goto done;
 
-  ___FIELD(STRUCTURE,___ps->saved[0],___HOST_INFO_NAME) =
+  ___FIELD(STRUCTURE,___ps->context->saved[0],___HOST_INFO_NAME) =
     ___release_scmobj (x);
 
   /* convert h_aliases to strings */
@@ -1492,7 +1492,7 @@ ___SCMOBJ host;)
       lst = result;
     }
 
-  ___FIELD(STRUCTURE,___ps->saved[0],___HOST_INFO_ALIASES) =
+  ___FIELD(STRUCTURE,___ps->context->saved[0],___HOST_INFO_ALIASES) =
     ___release_scmobj (lst);
 
   /* convert h_addr_list to u8/u16vectors */
@@ -1550,7 +1550,7 @@ ___SCMOBJ host;)
       lst = result;
     }
 
-  ___FIELD(STRUCTURE,___ps->saved[0],___HOST_INFO_ADDRESSES) =
+  ___FIELD(STRUCTURE,___ps->context->saved[0],___HOST_INFO_ADDRESSES) =
     ___release_scmobj (lst);
 
   /* guarantee that at least one address is returned */
@@ -1558,10 +1558,10 @@ ___SCMOBJ host;)
   if (lst == ___NUL)
     result = ___FIX(___H_ERRNO_ERR(NO_ADDRESS));
   else
-    result = ___ps->saved[0];
+    result = ___ps->context->saved[0];
 
  done:
-  ___ps->saved[0] = ___VOID; /* prevent space leak */
+  ___ps->context->saved[0] = ___VOID; /* prevent space leak */
 
   return result;
 
@@ -1640,7 +1640,7 @@ ___SCMOBJ protocol;)
 
   ___SCMOBJ ___temp; /* needed by the ___U8VECTORP and ___U16VECTORP macros */
 
-  ___ps->saved[0] = si;
+  ___ps->context->saved[0] = si;
 
   /*
    * Convert the Scheme string to a C "char*" string.  If an invalid
@@ -1713,7 +1713,7 @@ ___SCMOBJ protocol;)
       != ___FIX(___NO_ERR))
     goto done;
 
-  ___FIELD(STRUCTURE,___ps->saved[0],___SERVICE_INFO_NAME) =
+  ___FIELD(STRUCTURE,___ps->context->saved[0],___SERVICE_INFO_NAME) =
     ___release_scmobj (x);
 
   /* convert s_aliases to strings */
@@ -1749,12 +1749,12 @@ ___SCMOBJ protocol;)
       lst = result;
     }
 
-  ___FIELD(STRUCTURE,___ps->saved[0],___SERVICE_INFO_ALIASES) =
+  ___FIELD(STRUCTURE,___ps->context->saved[0],___SERVICE_INFO_ALIASES) =
     ___release_scmobj (lst);
 
   /* convert s_port to integer */
 
-  ___FIELD(STRUCTURE,___ps->saved[0],___SERVICE_INFO_PORT_NUMBER) =
+  ___FIELD(STRUCTURE,___ps->context->saved[0],___SERVICE_INFO_PORT_NUMBER) =
     ___FIX(ntohs (se->s_port));
 
   /* convert s_name to string */
@@ -1766,13 +1766,13 @@ ___SCMOBJ protocol;)
       != ___FIX(___NO_ERR))
     goto done;
 
-  ___FIELD(STRUCTURE,___ps->saved[0],___SERVICE_INFO_PROTOCOL) =
+  ___FIELD(STRUCTURE,___ps->context->saved[0],___SERVICE_INFO_PROTOCOL) =
     ___release_scmobj (x);
 
-  result = ___ps->saved[0];
+  result = ___ps->context->saved[0];
 
  done:
-  ___ps->saved[0] = ___VOID; /* prevent space leak */
+  ___ps->context->saved[0] = ___VOID; /* prevent space leak */
 
   return result;
 
@@ -1812,7 +1812,7 @@ ___SCMOBJ protocol;)
   struct protoent *pe;
   char *cprotocol;
 
-  ___ps->saved[0] = pi;
+  ___ps->context->saved[0] = pi;
 
   /*
    * Convert the Scheme string to a C "char*" string.  If an invalid
@@ -1871,7 +1871,7 @@ ___SCMOBJ protocol;)
       != ___FIX(___NO_ERR))
     goto done;
 
-  ___FIELD(STRUCTURE,___ps->saved[0],___PROTOCOL_INFO_NAME) =
+  ___FIELD(STRUCTURE,___ps->context->saved[0],___PROTOCOL_INFO_NAME) =
     ___release_scmobj (x);
 
   /* convert p_aliases to strings */
@@ -1907,18 +1907,18 @@ ___SCMOBJ protocol;)
       lst = result;
     }
 
-  ___FIELD(STRUCTURE,___ps->saved[0],___PROTOCOL_INFO_ALIASES) =
+  ___FIELD(STRUCTURE,___ps->context->saved[0],___PROTOCOL_INFO_ALIASES) =
     ___release_scmobj (lst);
 
   /* convert p_proto to integer */
 
-  ___FIELD(STRUCTURE,___ps->saved[0],___PROTOCOL_INFO_NUMBER) =
+  ___FIELD(STRUCTURE,___ps->context->saved[0],___PROTOCOL_INFO_NUMBER) =
     ___FIX(pe->p_proto);
 
-  result = ___ps->saved[0];
+  result = ___ps->context->saved[0];
 
  done:
-  ___ps->saved[0] = ___VOID; /* prevent space leak */
+  ___ps->context->saved[0] = ___VOID; /* prevent space leak */
 
   return result;
 
@@ -2094,7 +2094,7 @@ ___SCMOBJ chase;)
   ___SCMOBJ result;
   void *cpath;
 
-  ___ps->saved[0] = fi;
+  ___ps->context->saved[0] = fi;
 
 #ifndef USE_stat
 #ifndef USE_GetFileAttributesEx
@@ -2120,7 +2120,7 @@ ___SCMOBJ chase;)
 
       ___release_string (cpath);
 
-      result = ___ps->saved[0];
+      result = ___ps->context->saved[0];
     }
 
 #endif
@@ -2168,7 +2168,7 @@ ___SCMOBJ chase;)
       else
         x = ___FIX(0);
 
-      ___FIELD(STRUCTURE,___ps->saved[0],___FILE_INFO_TYPE) = x;
+      ___FIELD(STRUCTURE,___ps->context->saved[0],___FILE_INFO_TYPE) = x;
 
       if ((result = ___ULONGLONG_to_SCMOBJ (___ps,
                                             ___CAST(___ULONGLONG,s.st_dev),
@@ -2177,7 +2177,7 @@ ___SCMOBJ chase;)
           != ___FIX(___NO_ERR))
         goto done;
 
-      ___FIELD(STRUCTURE,___ps->saved[0],___FILE_INFO_DEVICE) =
+      ___FIELD(STRUCTURE,___ps->context->saved[0],___FILE_INFO_DEVICE) =
         ___release_scmobj (x);
 
       if ((result = ___LONGLONG_to_SCMOBJ (___ps,
@@ -2187,10 +2187,10 @@ ___SCMOBJ chase;)
           != ___FIX(___NO_ERR))
         goto done;
 
-      ___FIELD(STRUCTURE,___ps->saved[0],___FILE_INFO_INODE) =
+      ___FIELD(STRUCTURE,___ps->context->saved[0],___FILE_INFO_INODE) =
         ___release_scmobj (x);
 
-      ___FIELD(STRUCTURE,___ps->saved[0],___FILE_INFO_MODE) =
+      ___FIELD(STRUCTURE,___ps->context->saved[0],___FILE_INFO_MODE) =
         ___FIX(s.st_mode & (S_ISUID|S_ISGID|S_ISVTX|S_IRWXU|S_IRWXG|S_IRWXO));
 
       if ((result = ___ULONGLONG_to_SCMOBJ (___ps,
@@ -2200,13 +2200,13 @@ ___SCMOBJ chase;)
           != ___FIX(___NO_ERR))
         goto done;
 
-      ___FIELD(STRUCTURE,___ps->saved[0],___FILE_INFO_NUMBER_OF_LINKS) =
+      ___FIELD(STRUCTURE,___ps->context->saved[0],___FILE_INFO_NUMBER_OF_LINKS) =
         ___release_scmobj (x);
 
-      ___FIELD(STRUCTURE,___ps->saved[0],___FILE_INFO_OWNER) =
+      ___FIELD(STRUCTURE,___ps->context->saved[0],___FILE_INFO_OWNER) =
         ___FIX(s.st_uid);
 
-      ___FIELD(STRUCTURE,___ps->saved[0],___FILE_INFO_GROUP) =
+      ___FIELD(STRUCTURE,___ps->context->saved[0],___FILE_INFO_GROUP) =
         ___FIX(s.st_gid);
 
       if ((result = ___LONGLONG_to_SCMOBJ (___ps,
@@ -2216,7 +2216,7 @@ ___SCMOBJ chase;)
           != ___FIX(___NO_ERR))
         goto done;
 
-      ___FIELD(STRUCTURE,___ps->saved[0],___FILE_INFO_SIZE) =
+      ___FIELD(STRUCTURE,___ps->context->saved[0],___FILE_INFO_SIZE) =
         ___release_scmobj (x);
 
       if ((result = ___F64_to_SCMOBJ (___ps,
@@ -2226,7 +2226,7 @@ ___SCMOBJ chase;)
           != ___FIX(___NO_ERR))
         goto done;
 
-      ___FIELD(STRUCTURE,___ps->saved[0],___FILE_INFO_LAST_ACCESS_TIME) =
+      ___FIELD(STRUCTURE,___ps->context->saved[0],___FILE_INFO_LAST_ACCESS_TIME) =
         ___release_scmobj (x);
 
       if ((result = ___F64_to_SCMOBJ (___ps,
@@ -2236,7 +2236,7 @@ ___SCMOBJ chase;)
           != ___FIX(___NO_ERR))
         goto done;
 
-      ___FIELD(STRUCTURE,___ps->saved[0],___FILE_INFO_LAST_MODIFICATION_TIME) =
+      ___FIELD(STRUCTURE,___ps->context->saved[0],___FILE_INFO_LAST_MODIFICATION_TIME) =
         ___release_scmobj (x);
 
       if ((result = ___F64_to_SCMOBJ (___ps,
@@ -2246,7 +2246,7 @@ ___SCMOBJ chase;)
           != ___FIX(___NO_ERR))
         goto done;
 
-      ___FIELD(STRUCTURE,___ps->saved[0],___FILE_INFO_LAST_CHANGE_TIME) =
+      ___FIELD(STRUCTURE,___ps->context->saved[0],___FILE_INFO_LAST_CHANGE_TIME) =
         ___release_scmobj (x);
 
 #ifndef FILE_ATTRIBUTE_READ_ONLY
@@ -2261,7 +2261,7 @@ ___SCMOBJ chase;)
 #define FILE_ATTRIBUTE_NORMAL 128
 #endif
 
-      ___FIELD(STRUCTURE,___ps->saved[0],___FILE_INFO_ATTRIBUTES) =
+      ___FIELD(STRUCTURE,___ps->context->saved[0],___FILE_INFO_ATTRIBUTES) =
         ___FIX(S_ISDIR(s.st_mode)
                ? FILE_ATTRIBUTE_DIRECTORY
                : FILE_ATTRIBUTE_NORMAL);
@@ -2273,10 +2273,10 @@ ___SCMOBJ chase;)
           != ___FIX(___NO_ERR))
         goto done;
 
-      ___FIELD(STRUCTURE,___ps->saved[0],___FILE_INFO_CREATION_TIME) =
+      ___FIELD(STRUCTURE,___ps->context->saved[0],___FILE_INFO_CREATION_TIME) =
         ___release_scmobj (x);
 
-      result = ___ps->saved[0];
+      result = ___ps->context->saved[0];
     }
 
 #endif
@@ -2314,25 +2314,25 @@ ___SCMOBJ chase;)
       else
         x = ___FIX(1);
 
-      ___FIELD(STRUCTURE,___ps->saved[0],___FILE_INFO_TYPE) = x;
+      ___FIELD(STRUCTURE,___ps->context->saved[0],___FILE_INFO_TYPE) = x;
 
-      ___FIELD(STRUCTURE,___ps->saved[0],___FILE_INFO_DEVICE) = ___FIX(0);
+      ___FIELD(STRUCTURE,___ps->context->saved[0],___FILE_INFO_DEVICE) = ___FIX(0);
 
-      ___FIELD(STRUCTURE,___ps->saved[0],___FILE_INFO_INODE) = ___FIX(0);
+      ___FIELD(STRUCTURE,___ps->context->saved[0],___FILE_INFO_INODE) = ___FIX(0);
 
       if (fad.dwFileAttributes & FILE_ATTRIBUTE_READONLY)
         x = ___FIX(0333);
       else
         x = ___FIX(0777);
 
-      ___FIELD(STRUCTURE,___ps->saved[0],___FILE_INFO_MODE) = x;
+      ___FIELD(STRUCTURE,___ps->context->saved[0],___FILE_INFO_MODE) = x;
 
-      ___FIELD(STRUCTURE,___ps->saved[0],___FILE_INFO_NUMBER_OF_LINKS) =
+      ___FIELD(STRUCTURE,___ps->context->saved[0],___FILE_INFO_NUMBER_OF_LINKS) =
         ___FIX(1);
 
-      ___FIELD(STRUCTURE,___ps->saved[0],___FILE_INFO_OWNER) = ___FIX(0);
+      ___FIELD(STRUCTURE,___ps->context->saved[0],___FILE_INFO_OWNER) = ___FIX(0);
 
-      ___FIELD(STRUCTURE,___ps->saved[0],___FILE_INFO_GROUP) = ___FIX(0);
+      ___FIELD(STRUCTURE,___ps->context->saved[0],___FILE_INFO_GROUP) = ___FIX(0);
 
       if ((result = ___U64_to_SCMOBJ (___ps,
                                       ___U64_from_UM32_UM32(fad.nFileSizeHigh,fad.nFileSizeLow),
@@ -2341,7 +2341,7 @@ ___SCMOBJ chase;)
           != ___FIX(___NO_ERR))
         goto done;
 
-      ___FIELD(STRUCTURE,___ps->saved[0],___FILE_INFO_SIZE) =
+      ___FIELD(STRUCTURE,___ps->context->saved[0],___FILE_INFO_SIZE) =
         ___release_scmobj (x);
 
       ___time_from_FILETIME (&atime, fad.ftLastAccessTime);
@@ -2353,7 +2353,7 @@ ___SCMOBJ chase;)
           != ___FIX(___NO_ERR))
         goto done;
 
-      ___FIELD(STRUCTURE,___ps->saved[0],___FILE_INFO_LAST_ACCESS_TIME) =
+      ___FIELD(STRUCTURE,___ps->context->saved[0],___FILE_INFO_LAST_ACCESS_TIME) =
         ___release_scmobj (x);
 
       ___time_from_FILETIME (&wtime, fad.ftLastWriteTime);
@@ -2365,12 +2365,12 @@ ___SCMOBJ chase;)
           != ___FIX(___NO_ERR))
         goto done;
 
-      ___FIELD(STRUCTURE,___ps->saved[0],___FILE_INFO_LAST_MODIFICATION_TIME) = x;
+      ___FIELD(STRUCTURE,___ps->context->saved[0],___FILE_INFO_LAST_MODIFICATION_TIME) = x;
 
-      ___FIELD(STRUCTURE,___ps->saved[0],___FILE_INFO_LAST_CHANGE_TIME) =
+      ___FIELD(STRUCTURE,___ps->context->saved[0],___FILE_INFO_LAST_CHANGE_TIME) =
         ___release_scmobj (x);
 
-      ___FIELD(STRUCTURE,___ps->saved[0],___FILE_INFO_ATTRIBUTES) =
+      ___FIELD(STRUCTURE,___ps->context->saved[0],___FILE_INFO_ATTRIBUTES) =
         ___FIX(fad.dwFileAttributes);
 
       ___time_from_FILETIME (&ctime, fad.ftCreationTime);
@@ -2382,16 +2382,16 @@ ___SCMOBJ chase;)
           != ___FIX(___NO_ERR))
         goto done;
 
-      ___FIELD(STRUCTURE,___ps->saved[0],___FILE_INFO_CREATION_TIME) =
+      ___FIELD(STRUCTURE,___ps->context->saved[0],___FILE_INFO_CREATION_TIME) =
         ___release_scmobj (x);
 
-      result = ___ps->saved[0];
+      result = ___ps->context->saved[0];
     }
 
 #endif
 
  done:
-  ___ps->saved[0] = ___VOID; /* prevent space leak */
+  ___ps->context->saved[0] = ___VOID; /* prevent space leak */
 
   return result;
 }
@@ -2432,7 +2432,7 @@ ___SCMOBJ user;)
   WCHAR *chome = empty;
   WCHAR *cshell = empty;
 
-  ___ps->saved[0] = ui;
+  ___ps->context->saved[0] = ui;
 
 #define ___USER_CE_SELECT(latin1,utf8,ucs2,ucs4,wchar,native) ucs2
 
@@ -2474,11 +2474,11 @@ ___SCMOBJ user;)
           != ___FIX(___NO_ERR))
         goto done;
 
-      ___FIELD(STRUCTURE,___ps->saved[0],___USER_INFO_NAME) = ___release_scmobj (x);
+      ___FIELD(STRUCTURE,___ps->context->saved[0],___USER_INFO_NAME) = ___release_scmobj (x);
 
-      ___FIELD(STRUCTURE,___ps->saved[0],___USER_INFO_UID) = ___FIX(0);
+      ___FIELD(STRUCTURE,___ps->context->saved[0],___USER_INFO_UID) = ___FIX(0);
 
-      ___FIELD(STRUCTURE,___ps->saved[0],___USER_INFO_GID) = ___FIX(0);
+      ___FIELD(STRUCTURE,___ps->context->saved[0],___USER_INFO_GID) = ___FIX(0);
 
       if (pui->usri3_profile && pui->usri3_profile[0] != 0)
         chome = pui->usri3_profile;
@@ -2492,7 +2492,7 @@ ___SCMOBJ user;)
           != ___FIX(___NO_ERR))
         goto done;
 
-      ___FIELD(STRUCTURE,___ps->saved[0],___USER_INFO_HOME) = ___release_scmobj (x);
+      ___FIELD(STRUCTURE,___ps->context->saved[0],___USER_INFO_HOME) = ___release_scmobj (x);
 
       cshell = L"cmd.exe";
 
@@ -2503,13 +2503,13 @@ ___SCMOBJ user;)
           != ___FIX(___NO_ERR))
         goto done;
 
-      ___FIELD(STRUCTURE,___ps->saved[0],___USER_INFO_SHELL) = ___release_scmobj (x);
+      ___FIELD(STRUCTURE,___ps->context->saved[0],___USER_INFO_SHELL) = ___release_scmobj (x);
 
-      result = ___ps->saved[0];
+      result = ___ps->context->saved[0];
     }
 
  done:
-  ___ps->saved[0] = ___VOID; /* prevent space leak */
+  ___ps->context->saved[0] = ___VOID; /* prevent space leak */
 
   if (pui != NULL)
     NetApiBufferFree (pui);
@@ -2531,7 +2531,7 @@ ___SCMOBJ user;)
   void *cuser = 0;
   struct passwd *p;
 
-  ___ps->saved[0] = ui;
+  ___ps->context->saved[0] = ui;
 
 #define ___USER_CE_SELECT(latin1,utf8,ucs2,ucs4,wchar,native) native
 
@@ -2575,13 +2575,13 @@ ___SCMOBJ user;)
           != ___FIX(___NO_ERR))
         goto done;
 
-      ___FIELD(STRUCTURE,___ps->saved[0],___USER_INFO_NAME) =
+      ___FIELD(STRUCTURE,___ps->context->saved[0],___USER_INFO_NAME) =
         ___release_scmobj (x);
 
-      ___FIELD(STRUCTURE,___ps->saved[0],___USER_INFO_UID) =
+      ___FIELD(STRUCTURE,___ps->context->saved[0],___USER_INFO_UID) =
         ___FIX(p->pw_uid);
 
-      ___FIELD(STRUCTURE,___ps->saved[0],___USER_INFO_GID) =
+      ___FIELD(STRUCTURE,___ps->context->saved[0],___USER_INFO_GID) =
         ___FIX(p->pw_gid);
 
       if ((result = ___NONNULLCHARSTRING_to_SCMOBJ (___ps,
@@ -2591,7 +2591,7 @@ ___SCMOBJ user;)
           != ___FIX(___NO_ERR))
         goto done;
 
-      ___FIELD(STRUCTURE,___ps->saved[0],___USER_INFO_HOME) =
+      ___FIELD(STRUCTURE,___ps->context->saved[0],___USER_INFO_HOME) =
         ___release_scmobj (x);
 
       if ((result = ___NONNULLCHARSTRING_to_SCMOBJ (___ps,
@@ -2601,14 +2601,14 @@ ___SCMOBJ user;)
           != ___FIX(___NO_ERR))
         goto done;
 
-      ___FIELD(STRUCTURE,___ps->saved[0],___USER_INFO_SHELL) =
+      ___FIELD(STRUCTURE,___ps->context->saved[0],___USER_INFO_SHELL) =
         ___release_scmobj (x);
 
-      result = ___ps->saved[0];
+      result = ___ps->context->saved[0];
     }
 
  done:
-  ___ps->saved[0] = ___VOID; /* prevent space leak */
+  ___ps->context->saved[0] = ___VOID; /* prevent space leak */
 
   return result;
 
@@ -2720,7 +2720,7 @@ ___SCMOBJ group;)
   ___SCMOBJ lst = ___NUL;
   DWORD i;
 
-  ___ps->saved[0] = gi;
+  ___ps->context->saved[0] = gi;
 
 #define ___GROUP_CE_SELECT(latin1,utf8,ucs2,ucs4,wchar,native) ucs2
 
@@ -2762,9 +2762,9 @@ ___SCMOBJ group;)
           != ___FIX(___NO_ERR))
         goto done;
 
-      ___FIELD(STRUCTURE,___ps->saved[0],___GROUP_INFO_NAME) = ___release_scmobj (x);
+      ___FIELD(STRUCTURE,___ps->context->saved[0],___GROUP_INFO_NAME) = ___release_scmobj (x);
 
-      ___FIELD(STRUCTURE,___ps->saved[0],___GROUP_INFO_GID) = ___FIX(0);
+      ___FIELD(STRUCTURE,___ps->context->saved[0],___GROUP_INFO_GID) = ___FIX(0);
 
       do
         {
@@ -2820,14 +2820,14 @@ ___SCMOBJ group;)
 
         } while (nerr == ERROR_MORE_DATA);
 
-      ___FIELD(STRUCTURE,___ps->saved[0],___GROUP_INFO_MEMBERS) =
+      ___FIELD(STRUCTURE,___ps->context->saved[0],___GROUP_INFO_MEMBERS) =
         ___release_scmobj (lst);
     }
 
-  result = ___ps->saved[0];
+  result = ___ps->context->saved[0];
 
  done:
-  ___ps->saved[0] = ___VOID; /* prevent space leak */
+  ___ps->context->saved[0] = ___VOID; /* prevent space leak */
 
   if (pgi != NULL)
     NetApiBufferFree (pgi);
@@ -2850,7 +2850,7 @@ ___SCMOBJ group;)
   void *cgroup = 0;
   struct group *g;
 
-  ___ps->saved[0] = gi;
+  ___ps->context->saved[0] = gi;
 
 #define ___GROUP_CE_SELECT(latin1,utf8,ucs2,ucs4,wchar,native) native
 
@@ -2892,9 +2892,9 @@ ___SCMOBJ group;)
           != ___FIX(___NO_ERR))
         goto done;
 
-      ___FIELD(STRUCTURE,___ps->saved[0],1) = ___release_scmobj (x);
+      ___FIELD(STRUCTURE,___ps->context->saved[0],1) = ___release_scmobj (x);
 
-      ___FIELD(STRUCTURE,___ps->saved[0],2) = ___FIX(g->gr_gid);
+      ___FIELD(STRUCTURE,___ps->context->saved[0],2) = ___FIX(g->gr_gid);
 
       if ((result = ___NONNULLCHARSTRINGLIST_to_SCMOBJ
                       (___ps,
@@ -2904,13 +2904,13 @@ ___SCMOBJ group;)
           != ___FIX(___NO_ERR))
         goto done;
 
-      ___FIELD(STRUCTURE,___ps->saved[0],3) = ___release_scmobj (x);
+      ___FIELD(STRUCTURE,___ps->context->saved[0],3) = ___release_scmobj (x);
 
-      result = ___ps->saved[0];
+      result = ___ps->context->saved[0];
     }
 
  done:
-  ___ps->saved[0] = ___VOID; /* prevent space leak */
+  ___ps->context->saved[0] = ___VOID; /* prevent space leak */
 
   return result;
 

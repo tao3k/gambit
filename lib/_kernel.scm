@@ -265,7 +265,7 @@ end-of-code
 
    /* check why the handler was called */
 
-   if (___FP_AFTER(___fp,___ps->stack_limit)
+   if (___FP_AFTER(___fp,___ps->context->stack_limit)
 #ifdef ___CALL_GC_FREQUENTLY
        || --___ps->mem.gc_calls_to_punt_ < 0
 #endif
@@ -409,7 +409,7 @@ end-of-code
    for (i=0; i<na; i++)
      ___SET_STK(-i,___STK(-(i+1))) /* shift arguments up by one */
 
-   result = ___GLOCELL(___CAST(___glo_struct*,___ps->temp4)->val);
+   result = ___LOAD_GLOBAL_WORD(&___GLOCELL(___CAST(___glo_struct*,___ps->temp4)->val));
    handler = ___PRMCELL(___G__23__23_apply_2d_with_2d_procedure_2d_check_2d_nary.prm);
 
 #if 0
@@ -3345,20 +3345,14 @@ end-of-code
 
    int i = ___INT(___ARG2);
    ___SCMOBJ ra = ___FIELD(FRAME,___ARG1,0);
-   int fs;
-   int link;
-   ___WORD gcmap;
-   ___WORD *nextgcmap = 0;
+   ___frame_descriptor descriptor;
 
    if (ra == ___ps->internal_return)
-     ___RETI_GET_FS_LINK_GCMAP(___BODY_AS(___ARG1,___tFRAME)[___FRAME_RETI_RA],fs,link,gcmap,nextgcmap)
+     descriptor = ___decode_frame_descriptor (___LABEL_DESCR_GET(___BODY_AS(___ARG1,___tFRAME)[___FRAME_RETI_RA]), 1);
    else
-     ___RETN_GET_FS_LINK_GCMAP(ra,fs,link,gcmap,nextgcmap)
+     descriptor = ___decode_frame_descriptor (___LABEL_DESCR_GET(ra), 0);
 
-   if (i > ___WORD_WIDTH)
-     gcmap = nextgcmap[(i-1) >> ___LOG_WORD_WIDTH];
-
-   ___RESULT = ___BOOLEAN(gcmap & (1 << ((i-1) & (___WORD_WIDTH-1))));
+   ___RESULT = ___BOOLEAN(___frame_slot_live (&descriptor, i));
 
 end-of-code
 
@@ -3372,10 +3366,7 @@ end-of-code
    ___SCMOBJ frame = ___CONTINUATION_FRAME_FIELD(___ARG1);
    int i = ___INT(___ARG2);
    ___SCMOBJ ra;
-   int fs;
-   int link;
-   ___WORD gcmap;
-   ___WORD *nextgcmap = 0;
+   ___frame_descriptor descriptor;
 
    if (___TESTTYPE(frame, ___tFRAME))
      {
@@ -3384,9 +3375,9 @@ end-of-code
        ra = ___FIELD(FRAME,frame,0);
 
        if (ra == ___ps->internal_return)
-         ___RETI_GET_FS_LINK_GCMAP(___FIELD(FRAME,frame,___FRAME_RETI_RA),fs,link,gcmap,nextgcmap)
+         descriptor = ___decode_frame_descriptor (___LABEL_DESCR_GET(___FIELD(FRAME,frame,___FRAME_RETI_RA)), 1);
        else
-         ___RETN_GET_FS_LINK_GCMAP(ra,fs,link,gcmap,nextgcmap)
+         descriptor = ___decode_frame_descriptor (___LABEL_DESCR_GET(ra), 0);
      }
    else
      {
@@ -3397,15 +3388,12 @@ end-of-code
        ra = fp[___FRAME_STACK_RA];
 
        if (ra == ___ps->internal_return)
-         ___RETI_GET_FS_LINK_GCMAP(fp[-___RETI_RA],fs,link,gcmap,nextgcmap)
+         descriptor = ___decode_frame_descriptor (___LABEL_DESCR_GET(fp[-___RETI_RA]), 1);
        else
-         ___RETN_GET_FS_LINK_GCMAP(ra,fs,link,gcmap,nextgcmap)
+         descriptor = ___decode_frame_descriptor (___LABEL_DESCR_GET(ra), 0);
      }
 
-   if (i > ___WORD_WIDTH)
-     gcmap = nextgcmap[(i-1) >> ___LOG_WORD_WIDTH];
-
-   ___RESULT = ___BOOLEAN(gcmap & (1 << ((i-1) & (___WORD_WIDTH-1))));
+   ___RESULT = ___BOOLEAN(___frame_slot_live (&descriptor, i));
 
 end-of-code
 
@@ -3737,13 +3725,13 @@ end-of-code
 
 ;;; Symbols and keywords.
 
+;; These private getters return owned identity vectors, never registry buckets.
+;; Allocation and GC are permitted before the nonallocating capture operation.
 (define-prim (##symbol-table)
-  (##declare (not interrupts-enabled))
-  (##c-code "___RESULT = ___GSTATE->symbol_table;"))
+  (##symkey-table-view #t))
 
 (define-prim (##keyword-table)
-  (##declare (not interrupts-enabled))
-  (##c-code "___RESULT = ___GSTATE->keyword_table;"))
+  (##symkey-table-view #f))
 
 (define-prim (##make-interned-symbol name)
   (##make-interned-symkey name #t))
@@ -3791,18 +3779,36 @@ end-of-code
    name
    symbol?))
 
-(define-prim (##symkey-table-foldl f base symkey-table)
-  (let loop1 ((i (##fx- (##vector-length symkey-table) 1)) ;; skip element 0 = count
-              (result base))
-    (if (##fx> i 0)
-        (let loop2 ((symkey (##vector-ref symkey-table i))
-                    (result result))
-          (if (##mem-allocated? symkey)
-              (loop2 (##c-code "___RESULT = ___SYMKEY_NEXT_FIELD(___ARG1);" symkey) ;; next in bucket
-                     (f result symkey))
-              (loop1 (##fx- i 1)
-                     result)))
-        result)))
+(define-prim (##symkey-table-view symbol?)
+  ;; Allocate/root the destination in Scheme. Registry growth between query
+  ;; and copy only retries; no native buffer or lock survives a collecting call.
+  (let loop ((length
+              (##c-code
+               "___RESULT = ___symkey_table_view (___FAL, ___FALSEP(___ARG1) ? ___sKEYWORD : ___sSYMBOL);"
+               symbol?)))
+    (if (##fx< length 0)
+        (begin
+          (##raise-heap-overflow-exception)
+          (##symkey-table-view symbol?))
+        (let* ((view (##make-vector length #f))
+               (actual
+                (##c-code
+                 "___RESULT = ___symkey_table_view (___ARG1, ___FALSEP(___ARG2) ? ___sKEYWORD : ___sSYMBOL);"
+                 view symbol?)))
+          (cond ((##fx< actual 0)
+                 (##raise-heap-overflow-exception)
+                 (##symkey-table-view symbol?))
+                ((##fx= actual length) view)
+                (else (loop actual)))))))
+
+(define-prim (##symkey-table-foldl f base view)
+  ;; VIEW is a private flat identity snapshot, not a live bucket/NEXT alias.
+  ;; Scheme frames own it across GC, callback escape and multi-shot resumption.
+  (let ((length (##vector-length view)))
+    (let loop ((i 0) (result base))
+      (if (##fx< i length)
+          (loop (##fx+ i 1) (f result (##vector-ref view i)))
+          result))))
 
 (define-prim (##symbol-table-foldl f base)
   (##symkey-table-foldl f base (##symbol-table)))

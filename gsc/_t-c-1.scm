@@ -1945,15 +1945,15 @@
                           nb-params
                           nb-closed)))
                  ((return)
-                  (let ((kind (vector-ref info 0))
-                        (fs (vector-ref info 1))
-                        (link (vector-ref info 2))
-                        (gc-map (vector-ref info 3)))
+                  (let ((kind (targ-frame-spec-kind info))
+                        (fs (targ-frame-spec-stored-fs info))
+                        (link (targ-frame-spec-link info))
+                        (gc-map (targ-frame-spec-gc-map info)))
                     (list
                      "DEF_LBL_RET"
                      host
                      (list
-                      (if (targ-out-of-line-frame? kind fs) "OFD" "IFD")
+                      (if (targ-frame-spec-out-of-line? info) "OFD" "IFD")
                       (case kind
                         ((internal) '("RETI"))
                         ((task)     '("RETT"))
@@ -1984,11 +1984,10 @@
                 (let ((class (vector-ref lbl 2))
                       (info (vector-ref lbl 3)))
                   (if (eq? class 'return)
-                    (let ((kind (vector-ref info 0))
-                          (fs (vector-ref info 1))
-                          (link (vector-ref info 2))
-                          (gc-map (vector-ref info 3)))
-                      (if (targ-out-of-line-frame? kind fs)
+                    (let ((kind (targ-frame-spec-kind info))
+                          (fs (targ-frame-spec-stored-fs info))
+                          (link (targ-frame-spec-link info)))
+                      (if (targ-frame-spec-out-of-line? info)
                         (begin
                           (if (= i 0)
                             (targ-display " ")
@@ -2005,7 +2004,7 @@
                             link))
                           (targ-vector-like-object-body
                            'gcmap
-                           (targ-gc-map-chunks gc-map kind fs)
+                           (targ-frame-spec-chunks info)
                            (lambda (x) (targ-c-hex-u32 x))
                            (quotient targ-max-word-size 4))))))))
               (vector-ref info 1))))
@@ -2055,10 +2054,8 @@
             (let ((class (vector-ref lbl 2))
                   (info (vector-ref lbl 3)))
               (if (eq? class 'return)
-                (let ((kind (vector-ref info 0))
-                      (fs (vector-ref info 1)))
-                  (if (targ-out-of-line-frame? kind fs)
-                    (set! n (+ n 1)))))))
+                (if (targ-frame-spec-out-of-line? info)
+                  (set! n (+ n 1))))))
           (vector-ref info 1))))
      objs)
     n))

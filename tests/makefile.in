@@ -70,10 +70,11 @@ mandir = @mandir@
 
 .SUFFIXES:
 
-RCFILES = makefile.in \
+RCFILES = smp/gc/vm-lifecycle.scm smp/gc/vm-lifecycle-host.scm startup-publication.scm mutex-suspension.scm root-task.scm rc-root-origin.scm runtime-roles.c test-entry.h test-entry.c makefile.in \
 debug.scm error.scm r4rstest.scm mix.scm mem.scm client.c server.scm server.h \
 test1.ok test2.ok test3.ok test4.ok test5.ok test6.ok test7.ok \
-test8.ok test9.ok test10.scm input run-unit-tests.scm
+test8.ok test9.ok test10.scm input run-unit-tests.scm stack-overflow-undo.c \
+inline-primitives.scm native-scope.c frame-spec.scm frame-contract.c frame-continuation.scm frame-continuation-roots.scm
 
 GENDISTFILES =
 
@@ -83,6 +84,12 @@ GAMBITDIR_INCLUDE = $(srcdirpfx)$(rootfromhere)/include
 GAMBITDIR_LIB = $(srcdirpfx)$(rootfromhere)/lib
 GAMBITDIR_LIB_GSI = $(srcdirpfx)$(rootfromhere)/gsi
 GAMBITDIR_LIB_GSC = $(srcdirpfx)$(rootfromhere)/gsc
+
+BUILD_EXE_OUTPUT_FILENAME_PARAM = stack-overflow-undo@exe@
+BUILD_EXE_CC_OPTIONS_PARAM =
+BUILD_EXE_LD_OPTIONS_PRELUDE_PARAM =
+BUILD_EXE_INPUT_FILENAMES_PARAM = $(srcdirpfx)stack-overflow-undo.c
+BUILD_EXE_LD_OPTIONS_PARAM =
 
 all: core
 
@@ -108,7 +115,7 @@ core-post:
 
 .NOTPARALLEL:
 
-check: core test1 test2 test3 test4 test5 test6 test7 test8 test9 test10 test11
+check: core test-runtime-roles test1 test2 test3 test4 test5 test6 test7 test8 test9 test10 test11 test12 test-entry test-inline-primitives test-native-scope test-frame-contract test-rc-roots test-root-task test-mutex-suspension test-vm-lifecycle
 	@echo "============ ALL TESTS SUCCESSFUL"
 	rm -f mem.c mem_.c mem@obj@ mem.o1 mem_@obj@ mem@exe@ \
 	  mix.c mix_.c mix@obj@ mix_@obj@ mix@exe@ \
@@ -240,6 +247,41 @@ st-java:
 	(cd ../lib; make _gambit.java)
 	@SETDLPATH@ $(rootfromhere)/gsi/gsi@exe@ -:tl,~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f ./run-unit-tests.scm -stress -java -gsc
 
+test12:
+	@echo "------------ TEST 12 (stack overflow undo ownership)"
+	@BUILD_EXE@
+	@SETDLPATH@ ./stack-overflow-undo@exe@
+	rm -f stack-overflow-undo@exe@ stack-overflow-undo@obj@
+
+.PHONY: test-native-scope test-native-scope-build
+
+test-native-scope:
+	$(MAKE) test-native-scope-build BUILD_EXE_OUTPUT_FILENAME_PARAM=native-scope@exe@ BUILD_EXE_INPUT_FILENAMES_PARAM=$(srcdirpfx)native-scope.c BUILD_EXE_CC_OPTIONS_PARAM=-I$(srcdirpfx)$(rootfromhere)/lib
+	@SETDLPATH@ ./native-scope@exe@
+	rm -f native-scope@exe@ native-scope@obj@
+
+test-native-scope-build:
+	@BUILD_EXE@
+
+.PHONY: test-frame-contract test-frame-contract-build
+
+test-frame-contract:
+	@SETDLPATH@ FRAME_SPEC_FIXTURES=frame-spec-fixtures.h $(rootfromhere)/gsc/gsc@exe@ -:~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f -i $(srcdirpfx)frame-spec.scm
+	$(MAKE) test-frame-contract-build BUILD_EXE_OUTPUT_FILENAME_PARAM=frame-contract@exe@ BUILD_EXE_INPUT_FILENAMES_PARAM=$(srcdirpfx)frame-contract.c BUILD_EXE_CC_OPTIONS_PARAM=-I.
+	@SETDLPATH@ ./frame-contract@exe@
+	@SETDLPATH@ $(rootfromhere)/gsc/gsc@exe@ -:~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f -exe -o frame-continuation@exe@ $(srcdirpfx)frame-continuation.scm
+	@SETDLPATH@ ./frame-continuation@exe@
+	@SETDLPATH@ $(rootfromhere)/gsc/gsc@exe@ -:~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f -exe -o frame-continuation-roots@exe@ $(srcdirpfx)frame-continuation-roots.scm
+	@SETDLPATH@ ./frame-continuation-roots@exe@
+	rm -f frame-spec-fixtures.h frame-contract@exe@ frame-contract@obj@ frame-continuation@exe@ frame-continuation-roots@exe@
+
+test-frame-contract-build:
+	@BUILD_EXE@
+
+test-inline-primitives:
+	@echo "------------ TEST (internal primitive inlining in safe code)"
+	@SETDLPATH@ $(rootfromhere)/gsc/gsc@exe@ -:~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f -i $(srcdirpfx)inline-primitives.scm
+
 bootstrap-pre:
 
 bootstrap-post:
@@ -266,7 +308,11 @@ mostlyclean-post mostlyclean-post-nonrec:
 	rm -f mem.c mem_.c mem@obj@ mem.o1 mem_@obj@ mem mem.exe \
 	  mix.c mix_.c mix@obj@ mix_@obj@ mix mix.exe \
 	  server.c server_.c server@obj@ server_@obj@ client@obj@ client \
-	  client.exe gambit.h so_locations *.out tmp*
+	  client.exe stack-overflow-undo@exe@ stack-overflow-undo@obj@ \
+	  native-scope@exe@ native-scope@obj@ \
+	  root-task@exe@ root-task-bank@exe@ root-task-primitive@exe@ \
+	  root-task-build@exe@ root-task-bank-build@exe@ root-task-primitive-build@exe@ \
+	  gambit.h so_locations *.out tmp*
 
 clean-pre: mostlyclean-pre
 
@@ -410,3 +456,143 @@ makefile: makefile.in $(rootfromhere)/config.status
 # Tell versions [3.59,3.63) of GNU make not to export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
 .NOEXPORT:
+
+.PHONY: test-entry test-entry-build
+test-entry:
+	$(MAKE) test-entry-build BUILD_EXE_OUTPUT_FILENAME_PARAM=test-entry@exe@ BUILD_EXE_INPUT_FILENAMES_PARAM=$(srcdirpfx)test-entry.c
+	@SETDLPATH@ ./test-entry@exe@
+	rm -f test-entry@exe@ test-entry@obj@
+
+test-entry-build: $(srcdirpfx)test-entry.h
+	@BUILD_EXE@
+
+.PHONY: test-runtime-roles
+test-runtime-roles:
+	$(MAKE) test-frame-contract-build BUILD_EXE_OUTPUT_FILENAME_PARAM=runtime-roles@exe@ BUILD_EXE_INPUT_FILENAMES_PARAM=$(srcdirpfx)runtime-roles.c BUILD_EXE_CC_OPTIONS_PARAM=-I.
+	@SETDLPATH@ ./runtime-roles@exe@
+	rm -f runtime-roles@exe@ runtime-roles@obj@
+
+.PHONY: test-rc-roots
+test-rc-roots:
+	@SETDLPATH@ $(rootfromhere)/gsc/gsc@exe@ -:~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f -exe -cc-options "-DHAVE_CONFIG_H -I$(srcdirpfx)$(rootfromhere)/include -I$(srcdirpfx)$(rootfromhere)/lib" -o rc-root-origin@exe@ $(srcdirpfx)rc-root-origin.scm
+	@SETDLPATH@ ./rc-root-origin@exe@ -:p2
+	rm -f rc-root-origin@exe@
+
+.PHONY: test-symkey-publication
+test-symkey-publication: root-task@exe@
+	@SETDLPATH@ ./root-task@exe@ -:p1 --symkey-publication
+	@SETDLPATH@ ./root-task@exe@ -:p1 --intern-growth
+	rm -f root-task-input.dat
+
+.PHONY: test-globals-snapshot
+test-globals-snapshot: root-task@exe@
+	@SETDLPATH@ ./root-task@exe@ -:p1 --globals-snapshot
+	@SETDLPATH@ ./root-task@exe@ -:p1 --globals-capacity
+	rm -f root-task-input.dat
+
+# These three already-existing feature variants are build products. Test
+# targets remain phony and execute every time; only identical compilation is
+# shared. Configured Make/SDK inputs are checked under the source/profile lease.
+SMP_TEST_BUILD_DEPS = $(srcdirpfx)test-entry.h makefile \
+  $(rootfromhere)/gsc/gsc@exe@ $(rootfromhere)/lib/$(GAMBITLIB) \
+  $(rootfromhere)/include/gambit.h $(rootfromhere)/include/config.h \
+  $(wildcard $(srcdirpfx)$(rootfromhere)/lib/*.h)
+ROOT_TASK_DEPS = $(srcdirpfx)root-task.scm $(SMP_TEST_BUILD_DEPS)
+
+root-task@exe@: $(ROOT_TASK_DEPS)
+	@SETDLPATH@ $(rootfromhere)/gsc/gsc@exe@ -:~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f -exe -cc-options "-DHAVE_CONFIG_H -I$(srcdirpfx)$(rootfromhere)/include -I$(srcdirpfx)$(rootfromhere)/lib" -o root-task-build@exe@ $(srcdirpfx)root-task.scm
+	mv -f root-task-build@exe@ root-task@exe@
+
+root-task-bank@exe@: $(ROOT_TASK_DEPS)
+	@SETDLPATH@ $(rootfromhere)/gsc/gsc@exe@ -:~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f -prelude "(define-cond-expand-feature sfun-root-bank-test)" -exe -cc-options "-DHAVE_CONFIG_H -I$(srcdirpfx)$(rootfromhere)/include -I$(srcdirpfx)$(rootfromhere)/lib" -o root-task-bank-build@exe@ $(srcdirpfx)root-task.scm
+	mv -f root-task-bank-build@exe@ root-task-bank@exe@
+
+root-task-primitive@exe@: $(ROOT_TASK_DEPS)
+	@SETDLPATH@ $(rootfromhere)/gsc/gsc@exe@ -:~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f -prelude "(define-cond-expand-feature primitive-root-probe-test)" -exe -cc-options "-DHAVE_CONFIG_H -I$(srcdirpfx)$(rootfromhere)/include -I$(srcdirpfx)$(rootfromhere)/lib" -o root-task-primitive-build@exe@ $(srcdirpfx)root-task.scm
+	mv -f root-task-primitive-build@exe@ root-task-primitive@exe@
+
+.PHONY: test-root-task
+test-root-task: root-task@exe@ root-task-bank@exe@ root-task-primitive@exe@
+	@SETDLPATH@ ./root-task@exe@ -:p1
+	@SETDLPATH@ ./root-task@exe@ -:p1 --rc-writes
+	@SETDLPATH@ ./root-task@exe@ -:p1 --frozen-union
+	@SETDLPATH@ ./root-task@exe@ -:p1 --collector
+	@SETDLPATH@ ./root-task@exe@ -:p1 --process-contract
+	@SETDLPATH@ ./root-task@exe@ -:p2 --moving-bank
+	@SETDLPATH@ ./root-task@exe@ -:p2 --moving-globals
+	rm -f root-task-input.dat
+	@SETDLPATH@ ./root-task-bank@exe@ -:p1
+	@SETDLPATH@ ./root-task-primitive@exe@ -:p1
+
+.PHONY: test-mutex-suspension
+mutex-suspension@exe@: $(srcdirpfx)mutex-suspension.scm $(SMP_TEST_BUILD_DEPS)
+	@SETDLPATH@ $(rootfromhere)/gsc/gsc@exe@ -:~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f -exe -o mutex-suspension@exe@ $(srcdirpfx)mutex-suspension.scm
+
+test-mutex-suspension: mutex-suspension@exe@
+	@SETDLPATH@ ./mutex-suspension@exe@ -:p1
+	@SETDLPATH@ ./mutex-suspension@exe@ -:p2
+
+# SMP startup transaction. Reuse the configured compiler, official GSC and Make.
+# The fault adapter renames only this test setup consumer; production has no hook.
+.PHONY: test-startup-publication
+test-startup-publication:
+	@SETDLPATH@ $(rootfromhere)/gsc/gsc@exe@ -:p1,~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f -exe -cc-options "-I$(srcdirpfx)$(rootfromhere)/lib" -o startup-publication@exe@ $(srcdirpfx)startup-publication.scm
+	@SETDLPATH@ ./startup-publication@exe@ -:p1 --nonzero
+	$(C_COMPILER) $(FLAGS_OPT_RTS) $(FLAGS_OBJ) $(DEFS) -I$(srcdirpfx)$(rootfromhere)/include -I$(srcdirpfx)$(rootfromhere)/lib -D___LIBRARY -D___thread_create=test_startup_create -D___thread_join=test_startup_join -D___reserve_resize=test_startup_reserve -D___alloc_rc=test_startup_alloc -D___refund_resize=test_startup_refund -D___make_sfun_stack_marker_root=test_startup_marker -c -o startup-setup@obj@ $(srcdirpfx)$(rootfromhere)/lib/setup.c
+	@SETDLPATH@ $(rootfromhere)/gsc/gsc@exe@ -:p1,~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f -exe -cc-options "-I$(srcdirpfx)$(rootfromhere)/lib" -ld-options-prelude startup-setup@obj@ -o startup-faults@exe@ $(srcdirpfx)startup-publication.scm
+	@SETDLPATH@ ./startup-faults@exe@ -:p1
+	@SETDLPATH@ ./startup-faults@exe@ -:p1 --marker-gc
+	@SETDLPATH@ ./startup-faults@exe@ -:p1 --calibration
+	@SETDLPATH@ ./startup-faults@exe@ -:p1 --early-retire
+	@SETDLPATH@ ./startup-faults@exe@ -:p1 --unknown
+	@SETDLPATH@ ./startup-faults@exe@ -:p1 --unknown-create
+	@SETDLPATH@ ./startup-faults@exe@ -:p1 --unknown-expanded
+	@SETDLPATH@ ./startup-faults@exe@ -:p1 --unknown-retire
+	@SETDLPATH@ ./startup-faults@exe@ -:p1 --unknown-requester
+	@SETDLPATH@ ./startup-faults@exe@ -:p1 --unknown-vm
+	rm -f startup-publication@exe@ startup-faults@exe@ startup-setup@obj@
+
+.PHONY: test-symkey-views
+test-symkey-views: root-task@exe@
+	@SETDLPATH@ ./root-task@exe@ -:p1 --symkey-views
+	rm -f root-task-input.dat
+
+# Optional real Tcl provider for the existing root-task replay/shrink fixture.
+.PHONY: test-tcl-command
+test-tcl-command: $(srcdirpfx)$(rootfromhere)/examples/tcltk/command.h
+	@SETDLPATH@ $(rootfromhere)/gsc/gsc@exe@ -:~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f -prelude "(define-cond-expand-feature tcl-command-test)" -exe -cc-options "-DHAVE_CONFIG_H -D___TEST_TCL_COMMAND -I$(srcdirpfx)$(rootfromhere)/include -I$(srcdirpfx)$(rootfromhere)/lib -I$(srcdirpfx)$(rootfromhere)/examples/tcltk $(TCL_CFLAGS)" -ld-options "$(TCL_LIBS)" -o root-task-tcl@exe@ $(srcdirpfx)root-task.scm
+	@SETDLPATH@ ./root-task-tcl@exe@ -:p1 --tcl-command
+	@SETDLPATH@ ./root-task-tcl@exe@ -:p1 --tcl-callback
+	rm -f root-task-tcl@exe@ root-task-input.dat
+
+# The existing root-task driver exercises the actual C marker constructor.
+# Interpose only allocation/borrow refusal and the collecting allocator boundary.
+.PHONY: test-marker-input
+test-marker-input:
+	$(C_COMPILER) $(FLAGS_OPT_RTS) $(FLAGS_OBJ) $(DEFS) -I$(srcdirpfx)$(rootfromhere)/include -I$(srcdirpfx)$(rootfromhere)/lib -D___LIBRARY -D___make_vector=test_marker_vector -D___alloc_rc=test_marker_alloc -D___borrow_rc_root=test_marker_borrow -c -o marker-input-c-intf@obj@ $(srcdirpfx)$(rootfromhere)/lib/c_intf.c
+	@SETDLPATH@ $(rootfromhere)/gsc/gsc@exe@ -:~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f -prelude "(define-cond-expand-feature marker-input-test)" -exe -cc-options "-DHAVE_CONFIG_H -D___TEST_MARKER_INPUT -I$(srcdirpfx)$(rootfromhere)/include -I$(srcdirpfx)$(rootfromhere)/lib" -ld-options-prelude "marker-input-c-intf@obj@" -o root-task-marker@exe@ $(srcdirpfx)root-task.scm
+	@SETDLPATH@ ./root-task-marker@exe@ -:p1 --marker-input
+	rm -f root-task-marker@exe@ marker-input-c-intf@obj@
+
+# Permanent identity callbacks share the existing native replay/shrink fixture.
+.PHONY: test-symkey-callback
+test-symkey-callback:
+	@SETDLPATH@ $(rootfromhere)/gsc/gsc@exe@ -:~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f -prelude "(define-cond-expand-feature symkey-callback-test)" -exe -cc-options "-DHAVE_CONFIG_H -I$(srcdirpfx)$(rootfromhere)/include -I$(srcdirpfx)$(rootfromhere)/lib" -o root-task-callback@exe@ $(srcdirpfx)root-task.scm
+	@SETDLPATH@ ./root-task-callback@exe@ -:p1 --symkey-callback
+	rm -f root-task-callback@exe@ root-task-input.dat
+
+.PHONY: test-vm-lifecycle
+# These existing environment variables belong to the actual build product.
+# GSC compiles deep-directory inputs from a different cwd.
+vm-lifecycle@exe@ vm-lifecycle-host@exe@: export GAMBITDIR_INCLUDE := $(abspath $(GAMBITDIR_INCLUDE))
+vm-lifecycle@exe@ vm-lifecycle-host@exe@: export GAMBITDIR_LIB := $(abspath $(GAMBITDIR_LIB))
+
+vm-lifecycle@exe@: $(srcdirpfx)smp/gc/vm-lifecycle.scm $(SMP_TEST_BUILD_DEPS)
+	@SETDLPATH@ $(abspath $(rootfromhere)/gsc/gsc@exe@) -:p1,~~bin=$(abspath $(srcdirpfx)$(rootfromhere)/bin),~~lib=$(abspath $(srcdirpfx)$(rootfromhere)/lib),~~include=$(abspath $(srcdirpfx)$(rootfromhere)/include) -f -exe -cc-options "-I$(abspath $(srcdirpfx)$(rootfromhere)/lib)" -o $(abspath vm-lifecycle@exe@) $(abspath $(srcdirpfx)smp/gc/vm-lifecycle.scm)
+
+vm-lifecycle-host@exe@: $(srcdirpfx)smp/gc/vm-lifecycle-host.scm $(SMP_TEST_BUILD_DEPS)
+	@SETDLPATH@ $(abspath $(rootfromhere)/gsc/gsc@exe@) -:p1,~~bin=$(abspath $(srcdirpfx)$(rootfromhere)/bin),~~lib=$(abspath $(srcdirpfx)$(rootfromhere)/lib),~~include=$(abspath $(srcdirpfx)$(rootfromhere)/include) -f -exe -cc-options "-I$(abspath $(srcdirpfx)$(rootfromhere)/lib) -I$(abspath $(srcdirpfx).) -D___LIBRARY" -o $(abspath vm-lifecycle-host@exe@) $(abspath $(srcdirpfx)smp/gc/vm-lifecycle-host.scm)
+
+test-vm-lifecycle: vm-lifecycle@exe@ vm-lifecycle-host@exe@
+	@SETDLPATH@ ./vm-lifecycle@exe@ -:p1
+	@SETDLPATH@ ./vm-lifecycle-host@exe@ -:p1

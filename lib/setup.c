@@ -10,6 +10,7 @@
 #define ___INCLUDED_FROM_SETUP
 #define ___VERSION 409008
 #include "gambit.h"
+#include <stddef.h>
 
 #include "os_setup.h"
 #include "os_base.h"
@@ -19,8 +20,12 @@
 #include "os_io.h"
 #include "setup.h"
 #include "mem.h"
+#include "rc.h"
+#include "lifecycle.h"
+extern ___BOOL ___garbage_collect ___P((___PSD ___SIZE_TS requested_words_still),());
 #include "c_intf.h"
 #include "actlog.h"
+#include "native_scope.h"
 
 
 /*---------------------------------------------------------------------------*/
@@ -31,6 +36,8 @@
 
 ___EXP_DATA(___global_state_struct,___gstate0);
 
+
+#include "_setup/vm-registry.inc"
 
 /*
  * Global variables needed by this module.
@@ -63,7 +70,7 @@ ___NEED_GLO(___G__23__23_dynamic_2d_env_2d_bind)
  *   ___INTR_OTHER       some other interrupt is requested
  */
 
-___EXP_FUNC(void,___raise_interrupt_pstate)
+static void raise_interrupt_pstate_open
    ___P((___processor_state ___ps,
          int code),
         (___ps,
@@ -92,6 +99,24 @@ int code;)
 }
 
 
+___EXP_FUNC(void,___raise_interrupt_pstate)
+   ___P((___processor_state ps, int code),(ps,code)
+___processor_state ps;
+int code;)
+{
+  ___virtual_machine_state vm;
+  int id;
+  if(!ps || code<0 || code>=___NB_INTRS)return;
+  vm=___VMSTATE_FROM_PSTATE(ps);
+  if(!vm->lifecycle)return;
+  if(!___lifecycle_members_begin(vm)) {
+    ___lifecycle_interrupt_pending(vm,code);return;
+  }
+  id=___PROCESSOR_ID(ps,vm);
+  if(id>=0 && id<vm->processor_count)raise_interrupt_pstate_open(ps,code);
+  ___lifecycle_members_end(vm);
+}
+
 ___EXP_FUNC(void,___raise_interrupt_vmstate)
    ___P((___virtual_machine_state ___vms,
          int code),
@@ -102,8 +127,13 @@ int code;)
 {
   int i;
 
+  if(code<0 || code>=___NB_INTRS || !___vms->lifecycle)return;
+  if(!___lifecycle_members_begin(___vms)) {
+    ___lifecycle_interrupt_pending(___vms,code);return;
+  }
   for (i=___vms->processor_count-1; i>=0; i--)
-    ___raise_interrupt_pstate (___PSTATE_FROM_PROCESSOR_ID(i,___vms), code);
+    raise_interrupt_pstate_open (___PSTATE_FROM_PROCESSOR_ID(i,___vms), code);
+  ___lifecycle_members_end(___vms);
 }
 
 
@@ -112,31 +142,7 @@ ___EXP_FUNC(void,___raise_interrupt)
         (code)
 int code;)
 {
-  ___virtual_machine_state ___vms = &___GSTATE->vmstate0;
-
-#ifdef ___SINGLE_VM
-
-  ___raise_interrupt_vmstate (___vms, code);
-
-#else
-
-#if 0
-  /* TODO: investigate why this deadlocks the process... probably recursive locking of mutex */
-  ___MUTEX_LOCK(___GSTATE->vm_list_mut);
-#endif
-
-  do
-    {
-      ___vms = ___vms->prev;
-      ___raise_interrupt_vmstate (___vms, code);
-    }
-  while (___vms != &___GSTATE->vmstate0);
-
-#if 0
-  ___MUTEX_UNLOCK(___GSTATE->vm_list_mut);
-#endif
-
-#endif
+  vm_registry_interrupt(code);
 }
 
 
@@ -653,7 +659,21 @@ ___sync_op_struct *sop_ptr;)
        * information is used by the barrier_sync algorithm itself.
        */
       if (sop.op == OP_SET_PROCESSOR_COUNT)
-        ___vms->processor_count = sop.arg[0];
+        {
+          ___vms->processor_count = sop.arg[0];
+          if (___vms->lifecycle != 0)
+            {
+              ___vm_lifecycle *r=___vms->lifecycle;
+              ___MUTEX_LOCK(r->gate);
+              if (r->resize_phase==___RESIZE_PREPARING) {
+                int i;
+                for(i=r->first;i<r->target;i++)r->launches[i].entry=___LAUNCH_RUN;
+                r->resize_phase=___RESIZE_RUN;___CONDVAR_BROADCAST(r->changed);
+              }
+              ___MUTEX_UNLOCK(r->gate);
+              ___lifecycle_members_open(___vms);
+            }
+        }
     }
   else
     {
@@ -736,10 +756,12 @@ ___SCMOBJ ___setup_pstate
         ());
 
 
-void ___cleanup_pstate
+___BOOL ___cleanup_pstate
    ___P((___processor_state ___ps),
         ());
 
+
+static ___SCMOBJ run_startup_root(___processor_state,void*,const ___SCMOBJ*);
 
 ___SCMOBJ ___run
    ___P((___PSD
@@ -760,13 +782,15 @@ void on_all_processors
         ());
 
 
+#ifndef ___SINGLE_THREADED_VMS
 void ___run_and_throw_error_on_processor_0
    ___P((___PSD
-         ___SCMOBJ thunk),
+         void *root, const ___SCMOBJ *cell),
         (___PSV
-         thunk)
+         root, cell)
 ___PSDKR
-___SCMOBJ thunk;)
+void *root;
+const ___SCMOBJ *cell;)
 {
   ___PSGET
   ___SCMOBJ ___err;
@@ -778,7 +802,7 @@ ___SCMOBJ thunk;)
    * when the Gambit VM terminates normally or with an error.
    */
 
-  ___err = ___run (___PSP thunk);
+  ___err = run_startup_root (___ps, root, cell);
 
   /*
    * The error code must be sent to processor 0 because it is the one
@@ -802,39 +826,33 @@ ___SCMOBJ thunk;)
 }
 
 
-___HIDDEN void start_processor_execution
-   ___P((___thread *self),
-        (self)
-___thread *self;)
+___HIDDEN void start_processor_execution(___thread *self)
 {
-  ___processor_state ___ps = ___CAST(___processor_state,self->data_ptr);
-  ___SCMOBJ thunk = self->data_scmobj;
+  ___resize_launch *launch=___CAST(___resize_launch*,self->data_ptr);
+  ___virtual_machine_state vm=launch->vm;
+  ___vm_lifecycle *r=vm->lifecycle;
+  ___processor_state ___ps;
+  void *root; const ___SCMOBJ *cell;
   ___sync_op_struct sop;
-
-  /*
-   * Setup current OS thread so that it can find the processor state
-   * it is running.
-   */
-
-  ___thread_set_pstate (___ps);
-
-  /*
-   * Participate in the synchronous operation that initiated the
-   * resizing of the VM.
-   */
-
-  sop.op = OP_NOOP;
-  execute_sync_op_loop (___PSP &sop, 0);
-
-  /*
-   * Start processor's execution by a call to thunk.  The processor's
-   * termination code will be propagated to processor 0 which will
-   * call ___throw_error with this code, normally terminating the VM.
-   */
-
-  ___run_and_throw_error_on_processor_0 (___PSP thunk);
+  ___MUTEX_LOCK(r->gate);
+  while(launch->entry==___LAUNCH_PARKED)___CONDVAR_WAIT(r->changed,r->gate);
+  if(launch->entry!=___LAUNCH_RUN || launch->generation!=r->generation) {
+    ___PUBLISH_GLOBAL_WORD(&launch->data_closed,1);
+    ___MUTEX_UNLOCK(r->gate);return;
+  }
+  /* PSTATE is obtained only after this descriptor's entry was accepted. */
+  ___ps=___PSTATE_FROM_PROCESSOR_ID(launch->id,vm);
+  root=r->slots[launch->id].root;cell=r->slots[launch->id].cell;
+  ___MUTEX_UNLOCK(r->gate);
+  ___thread_set_pstate(___ps);
+  ___thread_init_from_self(&___ps->os_thread);
+  ___thread_init_from_self(&r->owners[launch->id]);
+  sop.op=OP_NOOP;execute_sync_op_loop(___PSP &sop,0);
+  ___run_and_throw_error_on_processor_0(___PSP root,cell);
 }
 
+
+#endif
 
 ___EXP_FUNC(void,___throw_error)
    ___P((___PSD
@@ -867,144 +885,244 @@ ___SCMOBJ err;)
 }
 
 
-___SCMOBJ ___vm_resize_pstate
-   ___P((___processor_state ___ps,
-         ___SCMOBJ thunk,
-         ___WORD target_processor_count),
-        (___ps,
-         thunk,
-         target_processor_count)
-___processor_state ___ps;
-___SCMOBJ thunk;
-___WORD target_processor_count;)
-{
-  ___SCMOBJ err = ___FIX(___NO_ERR);
-
 #ifndef ___SINGLE_THREADED_VMS
+/* Coordinator fields are private to the stopped old set. Gate phase and child
+ * handoff are protected by a native mutex; no Scheme callback runs under it. */
+static ___vm_lifecycle *resize_state(___virtual_machine_state vm)
+{return vm->lifecycle;}
 
-  ___virtual_machine_state ___vms = ___VMSTATE_FROM_PSTATE(___ps);
-  int id = ___PROCESSOR_ID(___ps, ___vms); /* id of this processor */
+static void resize_phase(___vm_lifecycle *r, enum ___resize_phase phase)
+{
+  ___MUTEX_LOCK(r->gate);
+  r->resize_phase=phase;
+  ___CONDVAR_BROADCAST(r->changed);
+  ___MUTEX_UNLOCK(r->gate);
+}
+
+static void release_startup_root(___resize_slot *slot)
+{
+  if (slot->root != 0)
+    {
+      ___return_rc_root(slot->root);
+      ___release_rc(slot->root);
+      slot->root=0; slot->cell=0;
+    }
+}
+
+static ___SCMOBJ rollback_resize(___processor_state ps,___vm_lifecycle *r)
+{
+  int i;___virtual_machine_state vm=___VMSTATE_FROM_PSTATE(ps);
+  ___MUTEX_LOCK(r->gate);r->resize_phase=___RESIZE_ABORT;
+  for(i=r->first;i<r->target;i++)r->launches[i].entry=___LAUNCH_ABORT;
+  ___CONDVAR_BROADCAST(r->changed);___MUTEX_UNLOCK(r->gate);
+  /* No descriptor received RUN. Native creation/join may be uncertain, but
+   * their only remaining writable storage is the descriptor, not PSTATE. */
+  for(i=r->first;i<r->target;i++) {
+    ___resize_launch *launch=&r->launches[i];
+    if(r->slots[i].phase==___RESIZE_CREATED) {
+      if(___thread_join(&launch->thread)==___FIX(___NO_ERR)) {
+        launch->joined=1;launch->native_live=0;
+      }else ___PUBLISH_GLOBAL_WORD(&launch->uncertain,1);
+    }
+    release_startup_root(&r->slots[i]);
+    if(r->slots[i].phase>=___RESIZE_INITIALIZED &&
+       !___lifecycle_cleanup_pstate(___PSTATE_FROM_PROCESSOR_ID(i,vm))) {
+      r->resize_phase=___RESIZE_RETAINED;return ___FIX(___UNKNOWN_ERR);
+    }
+  }
+  ___refund_resize(ps,r);resize_phase(r,___RESIZE_IDLE);return r->result;
+}
+
+#endif
+
+/* Root-owned decisions travel in each participant's existing sync message.
+ * A later phase may change the coordinator ledger, never an earlier local
+ * decision. Equal NOOPs retain processor0's payload in barrier_sync_op. */
+#ifndef ___SINGLE_THREADED_VMS
+static ___SCMOBJ resize_decision(___processor_state ___ps,___SCMOBJ decision,int cut)
+{
+  ___sync_op_struct message;
+  message.op=OP_NOOP;message.arg[0]=decision;message.arg[1]=cut;
+  barrier_sync_op(___PSP &message);
+  return message.arg[0];
+}
+static ___SCMOBJ resize_capacity_vote(___virtual_machine_state vm,int additional)
+{
+  int resume=___resume_msections(vm);
+  if(additional<0 || resume==INT_MAX || additional>(INT_MAX-resume)/2)
+    return ___FIX(___HEAP_OVERFLOW_ERR);
+  return ___FIX(vm->mem.the_msections_->nb_sections-vm->mem.nb_msections_assigned_
+               <2*additional+resume);
+}
+enum resize_cut { RESIZE_BEGIN, RESIZE_CAPACITY_NEEDED, RESIZE_CAPACITY_RESULT,
+  RESIZE_PREPARED, RESIZE_RETIREABLE, RESIZE_READERS_CLOSED,
+  RESIZE_ROOTS_CLOSED, RESIZE_JOIN_CUSTODY };
+#endif
+
+___SCMOBJ ___vm_resize_pstate(___processor_state ___ps,
+                             const ___SCMOBJ *thunk_root,
+                             ___WORD target_processor_count)
+{
+  ___SCMOBJ err=___FIX(___NO_ERR);
+#ifndef ___SINGLE_THREADED_VMS
+  ___virtual_machine_state vm=___VMSTATE_FROM_PSTATE(___ps);
+  int id=___PROCESSOR_ID(___ps,vm),initial=vm->processor_count,i;
+  ___vm_lifecycle *r=vm->lifecycle;
   ___sync_op_struct sop;
-  int initial = ___vms->processor_count;
-
-  if (id == 0)
-    {
-      ___vms->mem.target_processor_count_ = target_processor_count;
-
-#ifdef ___ACTIVITY_LOG
-      if (target_processor_count > ___vms->actlog.max_processor_count)
-        ___vms->actlog.max_processor_count = target_processor_count;
+  if(id==0 && r) {
+    r->result=___FIX(___NO_ERR);r->refusal=0;
+    if(r->resize_phase==___RESIZE_RETAINED)r->result=___FIX(___UNKNOWN_ERR);
+    else {
+      r->first=initial;r->target=target_processor_count;
+      vm->mem.target_processor_count_=target_processor_count;
+      if(target_processor_count>initial)resize_phase(r,___RESIZE_PREPARING);
+    }
+  }
+  err=resize_decision(___ps,id==0?(r?r->result:___FIX(___HEAP_OVERFLOW_ERR)):___FIX(___NO_ERR),RESIZE_BEGIN);
+  if(err!=___FIX(___NO_ERR))return err;
+  if(target_processor_count>initial) {
+    /* Capacity need is a decision too: GC may change the global counters
+     * before a slower participant otherwise evaluates this branch. */
+    err=resize_decision(___ps,id==0?resize_capacity_vote(vm,target_processor_count-initial):
+      ___FIX(0),RESIZE_CAPACITY_NEEDED);
+    if(err!=___FIX(0) && err!=___FIX(1)) {
+      if(id==0){vm->mem.target_processor_count_=initial;resize_phase(r,___RESIZE_IDLE);}
+      return err;
+    }
+    if(err==___FIX(1)) {
+      ___BOOL overflow=___garbage_collect_pstate(___ps,0);
+      err=resize_decision(___ps,overflow?___FIX(___HEAP_OVERFLOW_ERR):___FIX(___NO_ERR),
+                          RESIZE_CAPACITY_RESULT);
+      if(err!=___FIX(___NO_ERR)) {
+        if(id==0){vm->mem.target_processor_count_=initial;resize_phase(r,___RESIZE_IDLE);}
+        return err;
+      }
+    }
+    if(id==0) {
+      r->result=___FIX(___NO_ERR);
+      if(r->generation==___MAX_FIX)r->result=___FIX(___UNKNOWN_ERR);
+      for(i=initial;i<target_processor_count;i++)
+        if(r->launches[i].uncertain || r->cleanup[i].uncertain)
+          r->result=___FIX(___UNKNOWN_ERR);
+      if(r->result==___FIX(___NO_ERR)) {
+        ++r->generation;r->result=___reserve_resize(___ps,r);
+        if(r->result==___FIX(___NO_ERR)) {
+          for(i=initial;i<target_processor_count;i++) {
+            ___resize_slot *slot=&r->slots[i];
+            ___processor_state ps=___PSTATE_FROM_PROCESSOR_ID(i,vm);
+            slot->root=___alloc_rc(___PSP 0);
+            if(!slot->root){r->result=___FIX(___HEAP_OVERFLOW_ERR);break;}
+            ___set_data_rc(slot->root,*thunk_root);
+            slot->cell=___borrow_rc_root(___ps,slot->root);
+            if(!slot->cell) {
+              ___release_rc(slot->root);slot->root=0;
+              r->result=___FIX(___UNKNOWN_ERR);break;
+            }
+            ___PUBLISH_GLOBAL_WORD(&r->entries[i],0);
+            r->result=___setup_pstate(ps,vm);
+            if(r->result!=___FIX(___NO_ERR)){cleanup_interrupts_pstate(ps);break;}
+            slot->phase=___RESIZE_INITIALIZED;
+          }
+          if(r->result==___FIX(___NO_ERR))for(i=initial;i<target_processor_count;i++) {
+            ___resize_launch *launch=&r->launches[i];
+            memset(launch,0,sizeof(*launch));
+            launch->vm=vm;launch->id=i;launch->generation=r->generation;
+            launch->entry=___LAUNCH_PARKED;launch->native_live=1;
+            launch->thread.start_fn=start_processor_execution;
+            launch->thread.data_ptr=launch;launch->thread.data_scmobj=___FAL;
+            r->result=___thread_create(&launch->thread);
+            if(r->result!=___FIX(___NO_ERR)) {
+              if(r->result==___FIX(___UNKNOWN_ERR))launch->uncertain=1;
+              else launch->native_live=0;
+              break;
+            }
+            r->slots[i].phase=___RESIZE_CREATED;
+          }
+          if(r->result==___FIX(___NO_ERR) && !___lifecycle_members_close(vm))
+            r->result=___FIX(___UNKNOWN_ERR);
+          if(r->result!=___FIX(___NO_ERR))rollback_resize(___ps,r);
+        }
+      }
+      if(r->result!=___FIX(___NO_ERR)) {
+        vm->mem.target_processor_count_=initial;
+        if(r->resize_phase!=___RESIZE_RETAINED)resize_phase(r,___RESIZE_IDLE);
+      }
+    }
+    err=resize_decision(___ps,id==0?r->result:___FIX(___NO_ERR),RESIZE_PREPARED);
+    if(err!=___FIX(___NO_ERR))return err;
+    sop.op=id==0?OP_SET_PROCESSOR_COUNT:OP_NOOP;sop.arg[0]=target_processor_count;sop.arg[1]=0;
+    barrier_sync_op(___PSP &sop);
+    return ___FIX(___NO_ERR);
+  }
+  if(target_processor_count<initial) {
+    if(id==0) {
+      enum ___handoff_status disposition=___HANDOFF_READY;
+      for(i=target_processor_count;i<initial;i++) {
+        enum ___handoff_status current=___LOAD_GLOBAL_WORD(&r->requests[i])
+          ?___HANDOFF_BUSY:___lifecycle_can_handoff(___PSTATE_FROM_PROCESSOR_ID(i,vm));
+        if(current>disposition)disposition=current;
+      }
+      if(disposition!=___HANDOFF_READY) {
+        r->refusal=disposition==___HANDOFF_GC;
+        r->result=___FIX(___UNKNOWN_ERR);
+      }
+    }
+    err=resize_decision(___ps,id==0?r->result:___FIX(___NO_ERR),RESIZE_RETIREABLE);
+    if(err!=___FIX(___NO_ERR)) {
+      if(id==0)vm->mem.target_processor_count_=initial;
+      return err;
+    }
+    if(id==0 && !___lifecycle_members_close(vm))r->result=___FIX(___UNKNOWN_ERR);
+    err=resize_decision(___ps,id==0?r->result:___FIX(___NO_ERR),RESIZE_READERS_CLOSED);
+    if(err!=___FIX(___NO_ERR)) {
+      if(id==0)vm->mem.target_processor_count_=initial;
+      return err;
+    }
+    if(id==0) {
+      for(i=target_processor_count;i<initial;i++)
+        if(r->cleanup[i].uncertain || !___rc_prepare_cleanup(___PSTATE_FROM_PROCESSOR_ID(i,vm))) {
+          while(i>target_processor_count)___rc_cancel_cleanup(___PSTATE_FROM_PROCESSOR_ID(--i,vm));
+          r->result=___FIX(___UNKNOWN_ERR);break;
+        }
+      if(r->result!=___FIX(___NO_ERR)) {
+        vm->mem.target_processor_count_=initial;___lifecycle_members_open(vm);
+      }
+    }
+    err=resize_decision(___ps,id==0?r->result:___FIX(___NO_ERR),RESIZE_ROOTS_CLOSED);
+    if(err!=___FIX(___NO_ERR))return err;
+    if(id==0) {
+      for(i=target_processor_count;i<initial;i++) {
+        ___WORD old=___LOAD_GLOBAL_WORD(&r->entries[i]);
+        while(___lifecycle_cas(&r->entries[i],old,old|1)!=old)
+          old=___LOAD_GLOBAL_WORD(&r->entries[i]);
+        ___lifecycle_handoff(___PSTATE_FROM_PROCESSOR_ID(i,vm),___PSTATE_FROM_PROCESSOR_ID(0,vm));
+      }
+    }
+    sop.op=id==0?OP_SET_PROCESSOR_COUNT:OP_NOOP;sop.arg[0]=target_processor_count;sop.arg[1]=0;
+    barrier_sync_op(___PSP &sop);
+    if(id>=target_processor_count) {
+      if(!___lifecycle_cleanup_pstate(___ps)) {
+        r->cleanup[id].uncertain=1;resize_phase(r,___RESIZE_RETAINED);
+      }
+      ___PUBLISH_GLOBAL_WORD(&r->launches[id].data_closed,1);
+      ___thread_exit();
+    }
+    if(id==0) {
+      for(i=initial-1;i>=target_processor_count;i--) {
+        if(___thread_join(&r->launches[i].thread)!=___FIX(___NO_ERR)) {
+          ___PUBLISH_GLOBAL_WORD(&r->launches[i].uncertain,1);err=___FIX(___UNKNOWN_ERR);
+          if(!___LOAD_GLOBAL_WORD(&r->launches[i].data_closed))resize_phase(r,___RESIZE_RETAINED);
+        }else {r->launches[i].joined=1;r->launches[i].native_live=0;}
+        if(r->cleanup[i].uncertain){err=___FIX(___UNKNOWN_ERR);resize_phase(r,___RESIZE_RETAINED);}
+      }
+      if(err==___FIX(___NO_ERR))for(i=target_processor_count;i<initial;i++)release_startup_root(&r->slots[i]);
+      r->result=err;
+    }
+    /* The surviving requester may be nonzero. Join custody is delivered to
+     * every remaining member, never inferred from processor0's local return. */
+    err=resize_decision(___ps,id==0?r->result:___FIX(___NO_ERR),RESIZE_JOIN_CUSTODY);
+  }
 #endif
-    }
-
-  if (___vms->mem.the_msections_->nb_sections - ___vms->mem.nb_msections_assigned_ <
-      ___MIN_NB_MSECTIONS_PER_PROCESSOR * (target_processor_count - initial))
-    {
-      if (___garbage_collect_pstate (___ps, 0))
-        {
-          /*
-           * A heap overflow occurred, indicating the VM has
-           * insufficient space to accomodate the target number of
-           * processors.
-           */
-
-          if (id == 0)
-            ___vms->mem.target_processor_count_ = initial;
-
-          return ___FIX(___HEAP_OVERFLOW_ERR);
-        }
-    }
-
-  if (id != 0)
-    {
-      /*
-       * Wait for processor 0 to set ___vms->processor_count.
-       */
-
-      BARRIER();
-
-      /*
-       * Terminate current processor if it is no longer needed.
-       */
-
-      if (id >= target_processor_count)
-        {
-          ___cleanup_pstate (___ps);
-          ___thread_exit (); /* this call does not return */
-        }
-    }
-  else
-    {
-      int i;
-
-      /* Setup processor state of each additional processor */
-
-      for (i=initial; i<target_processor_count; i++)
-        {
-          ___processor_state ps = ___PSTATE_FROM_PROCESSOR_ID(i,___vms);
-
-          if ((err = ___setup_pstate (ps, ___vms))
-              != ___FIX(___NO_ERR))
-            {
-              while (--i >= initial)
-                ___cleanup_pstate (ps);
-
-              BARRIER();
-
-              return err;
-            }
-        }
-
-      /*
-       * Set processor_count synchronously.
-       */
-
-      sop.op = OP_SET_PROCESSOR_COUNT;
-      sop.arg[0] = target_processor_count;
-      barrier_sync_op (___PSP &sop);
-
-      if (target_processor_count < initial)
-        {
-          /*
-           * Join processors that are reclaimed when number of
-           * processors shrinks.
-           */
-
-          for (i=initial-1; i>=target_processor_count; i--)
-            {
-              ___processor_state ps = ___PSTATE_FROM_PROCESSOR_ID(i,___vms);
-              ___thread *t = &ps->os_thread;
-
-              ___thread_join (t); /* ignore error */
-            }
-        }
-      else
-        {
-          /*
-           * Create new processors when number of processors grows.
-           */
-
-          for (i=initial; i<target_processor_count; i++)
-            {
-              ___processor_state ps = ___PSTATE_FROM_PROCESSOR_ID(i,___vms);
-              ___thread *t = &ps->os_thread;
-
-              t->start_fn = start_processor_execution;
-              t->data_ptr = ___CAST(void*,ps);
-              t->data_scmobj = thunk;
-
-              if ((err = ___thread_create (t)) != ___FIX(___NO_ERR))
-                {
-                  /* TODO: improve error handling */
-                  static char *msgs[] = { "Could not create OS thread", NULL };
-                  ___fatal_error (msgs);
-                }
-            }
-        }
-    }
-
-#endif
-
   return err;
 }
 
@@ -1022,7 +1140,14 @@ ___sync_op_struct *sop_ptr;)
   switch (sop_ptr->op)
     {
     case OP_VM_RESIZE:
-      sop_ptr->arg[0] = ___vm_resize_pstate (___ps, sop_ptr->arg[0], sop_ptr->arg[1]);
+      sop_ptr->arg[0] = ___vm_resize_pstate (___ps, ___CAST(const ___SCMOBJ*,sop_ptr->arg[0]), sop_ptr->arg[1]);
+#ifndef ___SINGLE_THREADED_VMS
+      /* arg[1] is the consumed target; return retry disposition in that
+       * same existing slot. ___sync_op_struct has exactly two arguments. */
+      sop_ptr->arg[1]=___VMSTATE_FROM_PSTATE(___ps)->lifecycle->refusal;
+#else
+      sop_ptr->arg[1]=0;
+#endif
       break;
 
     case OP_GARBAGE_COLLECT:
@@ -1109,6 +1234,7 @@ ___BOOL first_iter;)
       first_iter = 0;
     }
 
+  ___lifecycle_drain(___ps);
   if (id == 0 && ___err != ___FIX(___NO_ERR))
     ___throw_error (___PSP ___err);
 }
@@ -1139,6 +1265,12 @@ ___sync_op_struct *sop_ptr;)
 {
   ___PSGET
   ___virtual_machine_state ___vms = ___VMSTATE_FROM_PSTATE(___ps);
+  ___vm_lifecycle *life=___vms->lifecycle;
+  int requester=___PROCESSOR_ID(___ps,___vms);
+  ___SCMOBJ ___err;
+  ___WORD pending=___LOAD_GLOBAL_WORD(&life->requests[requester]);
+  while(___lifecycle_cas(&life->requests[requester],pending,pending+1)!=pending)
+    pending=___LOAD_GLOBAL_WORD(&life->requests[requester]);
 
   /* force processors to call service_sync_op */
 
@@ -1146,35 +1278,50 @@ ___sync_op_struct *sop_ptr;)
 
   ___raise_interrupt_vmstate (___vms, ___INTR_SYNC_OP);
 
-  execute_sync_op_loop (___PSP sop_ptr, 1);
+  ___BEGIN_TRY
+    execute_sync_op_loop (___PSP sop_ptr, 1);
+  ___END_TRY
 
+  pending=___LOAD_GLOBAL_WORD(&life->requests[requester]);
+  while(___lifecycle_cas(&life->requests[requester],pending,pending-1)!=pending)
+    pending=___LOAD_GLOBAL_WORD(&life->requests[requester]);
   ___ACTLOG_END();
+  if(___err!=___FIX(___NO_ERR))___throw_error(___PSP ___err);
 }
 
 
 ___EXP_FUNC(___SCMOBJ,___current_vm_resize)
-   ___P((___PSD
-         ___SCMOBJ thunk,
-         int target_processor_count),
-        (___PSV
-         thunk,
-         target_processor_count)
+   ___P((___PSD ___SCMOBJ thunk, int target_processor_count),
+        (___PSV thunk,target_processor_count)
 ___PSDKR
 ___SCMOBJ thunk;
 int target_processor_count;)
 {
   ___PSGET
   ___sync_op_struct sop;
-
-  if (target_processor_count > ___MAX_PROCESSORS)
-    target_processor_count = ___MAX_PROCESSORS;
-
-  sop.op = OP_VM_RESIZE;
-  sop.arg[0] = thunk;
-  sop.arg[1] = target_processor_count;
-
-  on_all_processors (___PSP &sop);
-
+  ___SCMOBJ ___err;
+  void *root;
+  const ___SCMOBJ *cell;
+  if (target_processor_count<1) return ___FIX(___UNKNOWN_ERR);
+  if (target_processor_count>___MAX_PROCESSORS) target_processor_count=___MAX_PROCESSORS;
+  root=___alloc_rc(___PSP 0);
+  if (root==0) return ___FIX(___HEAP_OVERFLOW_ERR);
+  ___set_data_rc(root,thunk);
+  cell=___borrow_rc_root(___ps,root);
+  if (cell==0) { ___release_rc(root); return ___FIX(___UNKNOWN_ERR); }
+  sop.op=OP_VM_RESIZE; sop.arg[0]=___CAST(___WORD,cell); sop.arg[1]=target_processor_count;
+  ___BEGIN_TRY
+  on_all_processors(___PSP &sop);
+  if(sop.arg[1]) {
+    /* Exactly one retry follows a complete GC and owner-effect return. An
+     * actually live affine resource still refuses without membership change. */
+    ___garbage_collect(___PSP 0);
+    sop.op=OP_VM_RESIZE;sop.arg[0]=___CAST(___WORD,cell);sop.arg[1]=target_processor_count;
+    on_all_processors(___PSP &sop);
+  }
+  ___END_TRY
+  ___return_rc_root(root); ___release_rc(root);
+  if (___err!=___FIX(___NO_ERR)) ___throw_error(___PSP ___err);
   return sop.arg[0];
 }
 
@@ -1476,15 +1623,15 @@ int n;)
 
 
 ___HIDDEN ___SCMOBJ make_global
-   ___P((___BOOL collect_undef_glo,
+   ___P((fem_context *ctx,
          ___UTF_8STRING str,
          int supply,
          ___glo_struct **glo),
-        (collect_undef_glo,
+        (ctx,
          str,
          supply,
          glo)
-___BOOL collect_undef_glo;
+fem_context *ctx;
 ___UTF_8STRING str;
 int supply;
 ___glo_struct **glo;)
@@ -1502,15 +1649,17 @@ ___glo_struct **glo;)
 
   g = ___GLOBALVARSTRUCT(sym);
 
-  if (collect_undef_glo)
+  if (ctx->collect_undef_glo)
     {
       /*
        * If the variable is supplied by the module, mark it specially
        * so that it won't be flagged as an undefined variable.
        */
 
-      if (supply && ___GLOCELL(g->val) == ___UNB1)
-        ___GLOCELL(g->val) = ___UNB2;
+      /* Module binding belongs to the loading VM, not an ambient TLS owner. */
+      if (supply &&
+          ___LOAD_GLOBAL_WORD(&___GLOCELL_IN_VM((___VMSTATE_FROM_PSTATE(ctx->ps)),g->val)) == ___UNB1)
+        ___store_global(ctx->ps,g,___UNB2);
     }
 
   *glo = g;
@@ -1551,6 +1700,32 @@ ___module_struct *module;)
   int subcount;
   ___WORD ___temp;
 
+  /* Reject before cached completion or any fixup-state mutation. */
+  /*
+   * Check that the version of the compiler used to compile the module
+   * is compatible with the compiler used to compile the runtime
+   * system.
+   */
+
+  if (module->version < ___VERSION)
+    return ___FIX(___MODULE_VERSION_TOO_OLD_ERR);
+
+  if (module->version > ___VERSION)
+    return ___FIX(___MODULE_VERSION_TOO_NEW_ERR);
+
+  /*
+   * Check that the module was compiled with a C compiler and options that
+   * give the same size structures for ___GSTATE, ___VMSTATE and ___PSTATE.
+   * This is a simple check that catches most mismatches that would cause
+   * problems later.
+   */
+
+  if (module->sizeof_module_struct != sizeof(___module_struct) ||
+      module->sizeof_global_state_struct != sizeof(___global_state_struct) ||
+      module->sizeof_virtual_machine_state_struct != sizeof(___virtual_machine_state_struct) ||
+      module->sizeof_processor_state_struct != sizeof(___processor_state_struct))
+    return ___FIX(___MODULE_INCOMPATIBILITY_ERR);
+
   /* TODO: make this phase atomic for when there are multiple VMs? */
 
   lblcount = module->lblcount;
@@ -1582,31 +1757,6 @@ ___module_struct *module;)
   cnscount   = module->cnscount;
   subtbl     = ___CAST(___SCMOBJ*,module->subtbl);
   subcount   = module->subcount;
-
-  /*
-   * Check that the version of the compiler used to compile the module
-   * is compatible with the compiler used to compile the runtime
-   * system.
-   */
-
-  if (module->version < ___VERSION)
-    return ___FIX(___MODULE_VERSION_TOO_OLD_ERR);
-
-  if (module->version > ___VERSION)
-    return ___FIX(___MODULE_VERSION_TOO_NEW_ERR);
-
-  /*
-   * Check that the module was compiled with a C compiler and options that
-   * give the same size structures for ___GSTATE, ___VMSTATE and ___PSTATE.
-   * This is a simple check that catches most mismatches that would cause
-   * problems later.
-   */
-
-  if (module->sizeof_module_struct != sizeof(___module_struct) ||
-      module->sizeof_global_state_struct != sizeof(___global_state_struct) ||
-      module->sizeof_virtual_machine_state_struct != sizeof(___virtual_machine_state_struct) ||
-      module->sizeof_processor_state_struct != sizeof(___processor_state_struct))
-    return ___FIX(___MODULE_INCOMPATIBILITY_ERR);
 
   /* Align label table */
 
@@ -1649,7 +1799,7 @@ ___module_struct *module;)
       while (i-- > 0)
         {
           ___glo_struct *glo = 0;
-          ___SCMOBJ e = make_global (ctx->collect_undef_glo,
+          ___SCMOBJ e = make_global (ctx,
                                      glo_names[i],
                                      i<supcount,
                                      &glo);
@@ -1795,12 +1945,12 @@ ___module_struct *module;)
 
                   if (___LABEL_HOST_GET(lbl) != current_host)
                     {
-                      ___ps->pc = ___FIX(0); /* special marker indicating that */
+                      ___ps->context->pc = ___FIX(0); /* special marker indicating that */
                                              /* we want the goto labels */
 
                       current_host = ___LABEL_HOST_GET(lbl);
                       current_host (___ps);
-                      hlbl_ptr = ___CAST(void**,___ps->pc);
+                      hlbl_ptr = ___CAST(void**,___ps->context->pc);
                       hlbl_ptr++; /* skip INTRO label */
                     }
 
@@ -1875,7 +2025,7 @@ ___module_struct *module;)
 
           ___glo_struct *glo = ___CAST(___glo_struct*,glotbl[i]);
 
-          if (___GLOCELL_IN_VM(___vms,glo->val) == ___UNB1)
+          if (___LOAD_GLOBAL_WORD(&___GLOCELL_IN_VM(___vms,glo->val)) == ___UNB1)
             {
               ___SCMOBJ err;
               ___SCMOBJ glo_name;
@@ -1955,7 +2105,7 @@ ___module_struct *module;)
       ctx->module_count++;
     }
 
-  return module->setup_mod ();
+  return module->setup_mod (ctx->ps);
 }
 
 
@@ -3128,7 +3278,7 @@ ___mod_or_lnk mol;)
 }
 
 
-___HIDDEN void init_symkey_glo2
+___HIDDEN ___SCMOBJ init_symkey_glo2
    ___P((___mod_or_lnk mol),
         (mol)
 ___mod_or_lnk mol;)
@@ -3141,7 +3291,8 @@ ___mod_or_lnk mol;)
 
       while (p1->mol != 0)
         {
-          init_symkey_glo2 (p1->mol);
+          ___SCMOBJ err=init_symkey_glo2(p1->mol);
+          if (err!=___FIX(___NO_ERR)) return err;
           p1++;
         }
 
@@ -3158,13 +3309,10 @@ ___mod_or_lnk mol;)
           str = align_subtyped (___CAST(___SCMOBJ*,sym_ptr[___SUBTYPED_BODY+___SYMKEY_NAME]));
           glo = ___CAST(___glo_struct*,sym_ptr[___SUBTYPED_BODY+___SYMBOL_GLOBAL]);
 
-#ifndef ___SINGLE_VM
-
-          glo->val = ___GSTATE->mem.glo_list.count;
-
-#endif
-
-          ___glo_list_add (glo);
+          {
+            ___SCMOBJ err=___glo_list_add(glo);
+            if (err!=___FIX(___NO_ERR)) return err;
+          }
 
           sym_ptr[0] = ___MAKE_HD((___SYMBOL_SIZE<<___LWS),___sSYMBOL,___PERM);
 
@@ -3196,6 +3344,7 @@ ___mod_or_lnk mol;)
           ___intern_symkey (key);
         }
     }
+  return ___FIX(___NO_ERR);
 }
 
 
@@ -3232,7 +3381,7 @@ ___processor_state ___ps;)
 
 #define CALL_STEP_DEBUG \
 do { \
-  ___SCMOBJ ___pc = ___ps->pc; \
+  ___SCMOBJ ___pc = ___ps->context->pc; \
   ___SCMOBJ sym = ___subprocedure_parent_name (___pc); \
   printf ("___pc = "); \
   if (sym == ___FAL) { \
@@ -3256,7 +3405,7 @@ do { \
 #define CALL_STEP \
 do { \
   CALL_STEP_DEBUG; \
-  ___CALL_LABEL_HOST(___ps->pc,___ps); \
+  ___CALL_LABEL_HOST(___ps->context->pc,___ps); \
 } while (0)
 
       CALL_STEP;
@@ -3289,6 +3438,7 @@ ___SCMOBJ stack_marker;)
 {
   ___PSGET
   ___SCMOBJ ___err;
+  if (!___lifecycle_enter(___ps)) return ___FIX(___UNKNOWN_ERR);
 
   ___D_FP
 
@@ -3347,16 +3497,16 @@ ___SCMOBJ stack_marker;)
 
   ___PSR0 = ___GSTATE->handler_return_to_c;
 
-  ___ps->fp = ___fp;
+  ___ps->context->fp = ___fp;
   ___ps->na = nargs;
-  ___ps->pc = ___LABEL_ENTRY_GET(proc);
+  ___ps->context->pc = ___LABEL_ENTRY_GET(proc);
   ___PSSELF = proc;
 
 #ifdef ___USE_PROPER_TAIL_CALL_EXCLUSIVELY_TO_EXIT_HOST
 
   ___BEGIN_TRY
 
-  ___CALL_LABEL_HOST(___ps->pc,___ps);
+  ___CALL_LABEL_HOST(___ps->context->pc,___ps);
 
   ___END_TRY
 
@@ -3381,15 +3531,54 @@ ___SCMOBJ stack_marker;)
 #endif
 
   if (___err != ___FIX(___UNWIND_C_STACK) ||
-      stack_marker != ___ps->fp[___FRAME_SPACE(2)-2]) /*need more unwinding?*/
-    ___throw_error (___PSP ___err);
+      stack_marker != ___ps->context->fp[___FRAME_SPACE(2)-2]) /*need more unwinding?*/
+    { ___lifecycle_leave(___ps); ___throw_error (___PSP ___err); }
 
-  ___ps->fp += ___FRAME_SPACE(2);
-  ___PSR0 = ___ps->fp[-1];
+  ___ps->context->fp += ___FRAME_SPACE(2);
+  ___PSR0 = ___ps->context->fp[-1];
 
+  ___lifecycle_leave(___ps);
   return ___FIX(___NO_ERR);
 }
 
+
+#ifndef ___SINGLE_THREADED_VMS
+static void release_startup_activation_root(___processor_state ps, void *root)
+{
+  ___virtual_machine_state vm=___VMSTATE_FROM_PSTATE(ps);
+  ___vm_lifecycle *r=vm->lifecycle;
+  ___resize_slot *slot=&r->slots[___PROCESSOR_ID(ps,vm)];
+  ___MUTEX_LOCK(r->gate);
+  slot->root=0; slot->cell=0;
+  ___MUTEX_UNLOCK(r->gate);
+  ___return_rc_root(root); ___release_rc(root);
+}
+
+static ___SCMOBJ run_startup_root(___processor_state ___ps, void *root,
+                                 const ___SCMOBJ *cell)
+{
+  ___SCMOBJ ___err, temporary;
+  volatile ___SCMOBJ marker=___FAL;
+  void *volatile owner=root;
+  ___ps->context->r[0]=___GSTATE->handler_break;
+  ___BEGIN_TRY
+  ___err=___make_sfun_stack_marker_root(___ps,&temporary,cell);
+  if (___err==___FIX(___NO_ERR))
+    {
+      marker=temporary;
+      /* The record was created for this exact rooted startup. Public SFUN
+       * and ___run entries never acquire this terminal capability. */
+      ___VMSTATE_FROM_PSTATE(___ps)->lifecycle->activations[
+        ___PROCESSOR_ID(___ps,___VMSTATE_FROM_PSTATE(___ps))]->startup=1;
+      release_startup_activation_root(___ps,owner); owner=0;
+      ___err=___call(___PSP 0,___VECTORELEM(marker,0),marker);
+    }
+  ___END_TRY
+  if (marker!=___FAL) ___kill_sfun_stack_marker(marker);
+  if (owner!=0) release_startup_activation_root(___ps,owner);
+  return ___err;
+}
+#endif
 
 ___EXP_FUNC(___SCMOBJ,___run)
    ___P((___PSD
@@ -3401,21 +3590,26 @@ ___SCMOBJ thunk;)
 {
   ___PSGET
   ___SCMOBJ ___err;
-  ___SCMOBJ marker;
+  volatile ___SCMOBJ marker=___FAL;
+  ___SCMOBJ temporary;
+  if (!___lifecycle_enter(___ps)) return ___FIX(___UNKNOWN_ERR);
 
-  ___ps->r[0] = ___GSTATE->handler_break;
+  ___ps->context->r[0] = ___GSTATE->handler_break;
 
   ___BEGIN_TRY
 
-  if ((___err = ___make_sfun_stack_marker (___ps, &marker, thunk))
+  if ((___err = ___make_sfun_stack_marker (___ps, &temporary, thunk))
       == ___FIX(___NO_ERR))
     {
+      marker=temporary;
       ___err = ___call (___PSP 0, ___VECTORELEM(marker, 0), marker);
-      ___kill_sfun_stack_marker (marker);
     }
 
   ___END_TRY
 
+  if (marker!=___FAL) ___kill_sfun_stack_marker(marker);
+
+  ___lifecycle_leave(___ps);
   return ___err;
 }
 
@@ -3449,11 +3643,41 @@ ___processor_state ___ps;)
 
 #ifdef __GNUC__
 
-#define PS_FP   PS_FIELD("2")
-#define PS_HP   PS_FIELD("6")
-#define PS_R(n) PS_FIELD("(" n "+7)")
-#define PS_PC   PS_FIELD("(0+5+7)")
-#define PS_NA   PS_FIELD("(1+5+7)")
+  /* Bridge scratch is not another root bank. No safepoint occurs between
+   * these assembly loads/stores and the context remains the sole root owner. */
+  ___lowlevel_processor_state_struct *bridge =
+    &((___aligned_processor_state_struct *)
+       ((char *)___ps - offsetof(___aligned_processor_state_struct, pstate)))
+       ->aligned_llpstate.llpstate;
+  bridge->entry_pc = ___ps->context->pc;
+
+#define BRIDGE_OFFSET(member) \
+  ((ptrdiff_t)offsetof(___aligned_processor_state_struct, aligned_llpstate.llpstate.member) - \
+   (ptrdiff_t)offsetof(___aligned_processor_state_struct, pstate))
+#define LAYOUT_INPUTS \
+  [ps_context] "i" (offsetof(___processor_state_struct, context)), \
+  [ps_entry_pc] "i" (BRIDGE_OFFSET(entry_pc)), \
+  [ps_saved_r1] "i" (BRIDGE_OFFSET(saved_r1)), \
+  [ps_return_sp] "i" (BRIDGE_OFFSET(return_sp)), \
+  [ps_return_handler] "i" (BRIDGE_OFFSET(return_handler)), \
+  [cx_fp] "i" (offsetof(___execution_context, fp)), \
+  [cx_hp] "i" (offsetof(___execution_context, hp)), \
+  [cx_pc] "i" (offsetof(___execution_context, pc)), \
+  [cx_r0] "i" (offsetof(___execution_context, r[0])), \
+  [cx_r1] "i" (offsetof(___execution_context, r[1])), \
+  [cx_r2] "i" (offsetof(___execution_context, r[2])), \
+  [cx_r3] "i" (offsetof(___execution_context, r[3])), \
+  [cx_r4] "i" (offsetof(___execution_context, r[4]))
+#define PS_CONTEXT PS_MEMBER("ps_context")
+#define PS_ENTRY_PC PS_MEMBER("ps_entry_pc")
+#define PS_SAVED_R1 PS_MEMBER("ps_saved_r1")
+#define PS_RETURN_SP PS_MEMBER("ps_return_sp")
+#define PS_RETURN_HANDLER PS_MEMBER("ps_return_handler")
+
+#define PS_FP   CX_FIELD("cx_fp")
+#define PS_HP   CX_FIELD("cx_hp")
+#define PS_R(n) CX_FIELD("cx_r" n)
+#define PS_PC   CX_FIELD("cx_pc")
 
 #if ___tSUBTYPED == 1
 #define CONTROL_POINT_TAG "1"
@@ -3475,7 +3699,8 @@ ___processor_state ___ps;)
 #define reg_HP "ebp"
 #define reg_TMP reg_R1
 #define reg_SP "esp"
-#define PS_FIELD(field) field "*4(%%" reg_PS ")"
+#define PS_MEMBER(member) "%c[" member "](%%" reg_PS ")"
+#define CX_FIELD(member) "%c[" member "](%%" reg_TMP ")"
 
   /*
     GVM       ___________________C_ABI___________________
@@ -3503,7 +3728,8 @@ ___processor_state ___ps;)
 #define reg_HP "rbp"
 #define reg_TMP reg_R1
 #define reg_SP "rsp"
-#define PS_FIELD(field) field "*8(%%" reg_PS ")"
+#define PS_MEMBER(member) "%c[" member "](%%" reg_PS ")"
+#define CX_FIELD(member) "%c[" member "](%%" reg_TMP ")"
 
   /*
     GVM       ___________________C_ABI___________________
@@ -3558,8 +3784,10 @@ ___processor_state ___ps;)
 #ifdef ___CPU_x86_64
     "lea  return_from_lowlevel(%%rip), %%" reg_TMP "\n\t"
 #endif
-    "mov  %%" reg_TMP ", " PS_FIELD("-1") "\n\t"
-    "mov  %%" reg_SP ", " PS_FIELD("-2") "\n\t"
+    "mov  %%" reg_TMP ", " PS_RETURN_HANDLER "\n\t"
+    "mov  %%" reg_SP ", " PS_RETURN_SP "\n\t"
+
+    "mov  " PS_CONTEXT ", %%" reg_TMP "\n\t"
 
     /* setup frame pointer and heap pointer registers */
 
@@ -3570,7 +3798,7 @@ ___processor_state ___ps;)
 
     "mov  " PS_R("4") ", %%" reg_R4 "\n\t"
 
-    "mov  " PS_PC ", %%" reg_TMP "\n\t"
+    "mov  " PS_ENTRY_PC ", %%" reg_TMP "\n\t"
 #ifdef ___CPU_x86_32
     "cmpl $0x100000,-" CONTROL_POINT_TAG "-2*4(%%" reg_TMP ")\n\t"
     "jl   setup_other_registers\n\t"
@@ -3588,20 +3816,21 @@ ___processor_state ___ps;)
 
     "\n"
     "setup_other_registers:\n\t"
+    "mov  " PS_CONTEXT ", %%" reg_TMP "\n\t"
 
-    /* setup lowlevel registers from ___ps->r[...] */
+    /* setup lowlevel registers from ___ps->context->r[...] */
 
     "mov  " PS_R("0") ", %%" reg_R0 "\n\t"
-    "mov  " PS_R("1") ", %%" reg_R1 "\n\t"
     "mov  " PS_R("2") ", %%" reg_R2 "\n\t"
     "mov  " PS_R("3") ", %%" reg_R3 "\n\t"
+    "mov  " PS_R("1") ", %%" reg_R1 "\n\t"
 
     /*
      * set flags according to ___ps->na and jump to lowlevel code at
-     * ___ps->pc
+     * ___ps->context->pc
      */
 
-    "jmp  *" PS_PC "\n\t"
+    "jmp  *" PS_ENTRY_PC "\n\t"
 
     // "cmpl $0, " PS_NA "\n\t"
     // "je   nargs_0\n\t"
@@ -3682,18 +3911,21 @@ ___processor_state ___ps;)
     // "\n"
     // "nargs_done:\n\t"
 
-    /* save lowlevel registers to ___ps->r[...] */
+    /* save lowlevel registers to ___ps->context->r[...] */
 
+    "mov  %%" reg_R1 ", " PS_SAVED_R1 "\n\t"
+    "mov  " PS_CONTEXT ", %%" reg_TMP "\n\t"
     "mov  %%" reg_R0 ", " PS_R("0") "\n\t"
-    "mov  %%" reg_R1 ", " PS_R("1") "\n\t"
     "mov  %%" reg_R2 ", " PS_R("2") "\n\t"
     "mov  %%" reg_R3 ", " PS_R("3") "\n\t"
+    "mov  " PS_SAVED_R1 ", %%" reg_R0 "\n\t"
+    "mov  %%" reg_R0 ", " PS_R("1") "\n\t"
 
-    /* recover the destination control point in ___ps->pc */
+    /* recover the destination control point in ___ps->context->pc */
 
     "pop  %%" reg_TMP "\n\t"
     "add  $-3, %%" reg_TMP "\n\t"
-    "mov  %%" reg_TMP ", " PS_PC "\n\t"
+    "mov  %%" reg_TMP ", " PS_ENTRY_PC "\n\t"
 
 #ifdef ___CPU_x86_32
     "cmpl $0x100000,-" CONTROL_POINT_TAG "-2*4(%%" reg_TMP ")\n\t"
@@ -3710,7 +3942,10 @@ ___processor_state ___ps;)
 
     "\n"
     "store_self_register:\n\t"
+    "mov  " PS_CONTEXT ", %%" reg_TMP "\n\t"
     "mov  %%" reg_R4 ", " PS_R("4") "\n\t"
+    "mov  " PS_ENTRY_PC ", %%" reg_R0 "\n\t"
+    "mov  %%" reg_R0 ", " PS_PC "\n\t"
 
     /* save frame pointer and heap pointer registers */
 
@@ -3719,7 +3954,7 @@ ___processor_state ___ps;)
 
     /* restore callee-save registers */
 
-    "mov  " PS_FIELD("-2") ", %%" reg_SP "\n\t"
+    "mov  " PS_RETURN_SP ", %%" reg_SP "\n\t"
     /* "pop  %%" reg_FP "\n\t" */
     /* "pop  %%" reg_PS "\n\t" */
     // "pop  %%" reg_HP "\n\t"
@@ -3739,8 +3974,10 @@ ___processor_state ___ps;)
 
     : /* no outputs */
     : /* inputs */
-      "m" (___ps)
+      "m" (___ps),
+      LAYOUT_INPUTS
     : /* clobbers */
+      "memory",
       "%" reg_PS,
       "%" reg_TMP,
       "%" reg_R0,
@@ -3766,7 +4003,8 @@ ___processor_state ___ps;)
 #define reg_TMP "r7"
 #define reg_SP "sp"
 #define reg_LR "lr"
-#define PS_FIELD(field) "[" reg_PS ",#" PS_OFFSET "+(" field "*4)]"
+#define PS_MEMBER(member) "[" reg_PS ",#" PS_OFFSET "+%c[" member "]]"
+#define CX_FIELD(member) "[" reg_TMP ",#%c[" member "]]"
 #define PS_OFFSET "4"
 
   /*
@@ -3797,8 +4035,10 @@ ___processor_state ___ps;)
     /* setup handler for returning from lowlevel code */
 
     "adr  " reg_TMP ", return_from_lowlevel\n\t"
-    "str  " reg_TMP ", " PS_FIELD("-1") "\n\t"
-    "str  " reg_SP ", " PS_FIELD("-2") "\n\t"
+    "str  " reg_TMP ", " PS_RETURN_HANDLER "\n\t"
+    "str  " reg_SP ", " PS_RETURN_SP "\n\t"
+
+    "ldr  " reg_TMP ", " PS_CONTEXT "\n\t"
 
     /* setup frame pointer and heap pointer registers */
 
@@ -3812,7 +4052,7 @@ ___processor_state ___ps;)
     "\n"
     "setup_other_registers:\n\t"
 
-    /* setup lowlevel registers from ___ps->r[...] */
+    /* setup lowlevel registers from ___ps->context->r[...] */
 
     "ldr  " reg_R0 ", " PS_R("0") "\n\t"
     "ldr  " reg_R1 ", " PS_R("1") "\n\t"
@@ -3821,7 +4061,7 @@ ___processor_state ___ps;)
 
     /*
      * set flags according to ___ps->na and jump to lowlevel code at
-     * ___ps->pc
+     * ___ps->context->pc
      */
 
     "ldr  pc, " PS_PC "\n\t"
@@ -3830,14 +4070,16 @@ ___processor_state ___ps;)
     "return_from_lowlevel:"
     "\n\t"
 
-    /* save lowlevel registers to ___ps->r[...] */
+    "ldr  " reg_TMP ", " PS_CONTEXT "\n\t"
+
+    /* save lowlevel registers to ___ps->context->r[...] */
 
     "str  " reg_R0 ", " PS_R("0") "\n\t"
     "str  " reg_R1 ", " PS_R("1") "\n\t"
     "str  " reg_R2 ", " PS_R("2") "\n\t"
     "str  " reg_R3 ", " PS_R("3") "\n\t"
 
-    /* recover the destination control point in ___ps->pc */
+    /* recover the destination control point in ___ps->context->pc */
 
     "sub  " reg_LR ", #4\n\t"
     "str  " reg_LR ", " PS_PC "\n\t"
@@ -3849,6 +4091,7 @@ ___processor_state ___ps;)
 
     "\n"
     "store_self_register:\n\t"
+    "ldr  " reg_TMP ", " PS_CONTEXT "\n\t"
     "str  " reg_R4 ", " PS_R("4") "\n\t"
 
     /* save frame pointer and heap pointer registers */
@@ -3858,12 +4101,14 @@ ___processor_state ___ps;)
 
     /* restore callee-save registers */
 
-    "ldr  " reg_SP ", " PS_FIELD("-2") "\n\t"
+    "ldr  " reg_SP ", " PS_RETURN_SP "\n\t"
 
     : /* no outputs */
     : /* inputs */
-      "r" (___ps)
+      "r" (___ps),
+      LAYOUT_INPUTS
     : /* clobbers */
+      "memory",
       reg_PS,
       reg_TMP,
       reg_R0,
@@ -3895,10 +4140,12 @@ ___processor_state ___ps;)
 /* XXX */
 #if __riscv_xlen == 64
 #define PS_OFFSET "8"
-#define PS_FIELD(field) PS_OFFSET "+(" field "*8)(" reg_PS ")"
+#define PS_MEMBER(member) PS_OFFSET "+%c[" member "](" reg_PS ")"
+#define CX_FIELD(member) "%c[" member "](" reg_TMP0 ")"
 #else
 #define PS_OFFSET "4"
-#define PS_FIELD(field) PS_OFFSET "+(" field "*4)(" reg_PS ")"
+#define PS_MEMBER(member) PS_OFFSET "+%c[" member "](" reg_PS ")"
+#define CX_FIELD(member) "%c[" member "](" reg_TMP0 ")"
 #endif
 
   /*
@@ -3914,11 +4161,17 @@ ___processor_state ___ps;)
 
     "la " reg_TMP0 ", return_from_lowlevel\n\t" // XXX
 #if __riscv_xlen == 64
-    "sd " reg_TMP0 ", " PS_FIELD("-1") "\n\t"
-    "sd " reg_SP ", " PS_FIELD("-2") "\n\t"
+    "sd " reg_TMP0 ", " PS_RETURN_HANDLER "\n\t"
+    "sd " reg_SP ", " PS_RETURN_SP "\n\t"
 #else
-    "sw " reg_TMP0 ", " PS_FIELD("-1") "\n\t"
-    "sw " reg_SP ", " PS_FIELD("-2") "\n\t"
+    "sw " reg_TMP0 ", " PS_RETURN_HANDLER "\n\t"
+    "sw " reg_SP ", " PS_RETURN_SP "\n\t"
+#endif
+
+#if __riscv_xlen == 64
+    "ld " reg_TMP0 ", " PS_CONTEXT "\n\t"
+#else
+    "lw " reg_TMP0 ", " PS_CONTEXT "\n\t"
 #endif
 
     /* setup frame pointer and heap pointer registers */
@@ -3942,7 +4195,7 @@ ___processor_state ___ps;)
     "\n"
     "setup_other_registers:\n\t"
 
-    /* setup lowlevel registers from ___ps->r[...] */
+    /* setup lowlevel registers from ___ps->context->r[...] */
 
 #if __riscv_xlen == 64
     "ld " reg_R0 ", " PS_R("0") "\n\t"
@@ -3958,7 +4211,7 @@ ___processor_state ___ps;)
 
     /*
      * set flags according to ___ps->na and jump to lowlevel code at
-     * ___ps->pc
+     * ___ps->context->pc
      */
 
 #if __riscv_xlen == 64
@@ -3972,7 +4225,13 @@ ___processor_state ___ps;)
     "return_from_lowlevel:"
     "\n\t"
 
-    /* save lowlevel registers to ___ps->r[...] */
+#if __riscv_xlen == 64
+    "ld " reg_TMP0 ", " PS_CONTEXT "\n\t"
+#else
+    "lw " reg_TMP0 ", " PS_CONTEXT "\n\t"
+#endif
+
+    /* save lowlevel registers to ___ps->context->r[...] */
 
 #if __riscv_xlen == 64
     "sd " reg_R0 ", " PS_R("0") "\n\t"
@@ -3986,7 +4245,7 @@ ___processor_state ___ps;)
     "sw " reg_R3 ", " PS_R("3") "\n\t"
 #endif
 
-    /* recover the destination control point in ___ps->pc */
+    /* recover the destination control point in ___ps->context->pc */
 
     "addi " reg_RA ", " reg_RA ", -" PS_OFFSET "+" CONTROL_POINT_TAG "\n\t" /* XXX */
 #if __riscv_xlen == 64
@@ -4008,6 +4267,12 @@ ___processor_state ___ps;)
     "\n"
     "store_self_register:\n\t"
 #if __riscv_xlen == 64
+    "ld " reg_TMP0 ", " PS_CONTEXT "\n\t"
+#else
+    "lw " reg_TMP0 ", " PS_CONTEXT "\n\t"
+#endif
+
+#if __riscv_xlen == 64
     "sd " reg_R4 ", " PS_R("4") "\n\t"
 #else
     "sw " reg_R4 ", " PS_R("4") "\n\t"
@@ -4026,15 +4291,17 @@ ___processor_state ___ps;)
     /* restore callee-save registers */
 
 #if __riscv_xlen == 64
-    "ld " reg_SP ", " PS_FIELD("-2") "\n\t"
+    "ld " reg_SP ", " PS_RETURN_SP "\n\t"
 #else
-    "lw " reg_SP ", " PS_FIELD("-2") "\n\t"
+    "lw " reg_SP ", " PS_RETURN_SP "\n\t"
 #endif
 
     : /* no outputs */
     : /* inputs */
-      "r" (___ps)
+      "r" (___ps),
+      LAYOUT_INPUTS
     : /* clobbers */
+      "memory",
       reg_PS,
       reg_TMP0,
       reg_TMP1,
@@ -4054,7 +4321,7 @@ ___processor_state ___ps;)
   }
 
   {
-    ___WORD ___pc = ___ps->pc;
+    ___WORD ___pc = ___ps->context->pc;
     ___EXIT_HOST();
   }
 }
@@ -4125,16 +4392,13 @@ ___SCMOBJ fixup_objs;)
               break;
 
             case 3:
-              val = ___VECTORREF(fixup_objs, ___FIX(arg));
-              val = ___make_global_var (val);
-              val = ___CAST(___WORD, &___GLOBALVARREF(val));
-              break;
-
             case 4:
-              val = ___VECTORREF(fixup_objs, ___FIX(arg));
-              val = ___make_global_var (val);
-              val = ___CAST(___WORD, &___GLOBALVARPRIMREF(val));
-              break;
+              /* An unbounded writable cell alias cannot carry a VM/source
+               * lease or the primitive override selection. Reject this old
+               * CPU fixup before executing any partially patched code. The
+               * C backend uses the guarded value interfaces instead. */
+              ___propagate_error(___PSP ___FIX(___UNIMPL_ERR));
+              return ___FAL;
 
             case 5:
               switch (arg)
@@ -4537,7 +4801,7 @@ int line;)
 
   ___printf (" ");
 
-  if ((sym = ___find_global_var_bound_to (___ps->pc)) != ___NUL ||
+  if ((sym = ___find_global_var_bound_to (___ps->context->pc)) != ___NUL ||
       (sym = ___find_global_var_bound_to (start)) != ___NUL)
     {
       ___SCMOBJ name = ___SYMKEY_NAME_FIELD(sym);
@@ -4550,11 +4814,11 @@ int line;)
       ___printf ("|%s| host=0x%08x", module_name, start);
     }
 
-  if (start == ___ps->pc)
+  if (start == ___ps->context->pc)
     ___printf ("\n");
   else
     ___printf (" (subprocedure %d)\n",
-               ___CAST(___label_struct*,___ps->pc) -
+               ___CAST(___label_struct*,___ps->context->pc) -
                ___CAST(___label_struct*,start));
 
 }
@@ -4616,7 +4880,16 @@ ___virtual_machine_state ___vms;)
   if ((err = ___setup_os_vmstate (___vms)) == ___FIX(___NO_ERR))
     {
       if ((err = ___setup_mem_vmstate (___vms)) != ___FIX(___NO_ERR))
-        ___cleanup_os_vmstate (___vms);
+        {
+#ifndef ___SINGLE_VM
+
+#endif
+          ___cleanup_mem_vmstate(___vms);
+#ifndef ___SINGLE_VM
+
+#endif
+          ___cleanup_os_vmstate (___vms);
+        }
     }
 
   return err;
@@ -4662,14 +4935,10 @@ ___processor_state ___ps;)
 #endif
 
 
-___EXP_FUNC(void,___cleanup_pstate)
-   ___P((___processor_state ___ps),
-        (___ps)
-___processor_state ___ps;)
-{
-  cleanup_interrupts_pstate (___ps);
-  cleanup_os_and_mem_pstate (___ps);
-}
+___EXP_FUNC(___BOOL,___cleanup_pstate)
+ ___P((___processor_state ps),(ps)
+ ___processor_state ps;)
+{return ___lifecycle_cleanup_pstate(ps);}
 
 
 ___EXP_FUNC(___SCMOBJ,___setup_pstate)
@@ -4682,6 +4951,13 @@ ___virtual_machine_state ___vms;)
 {
   ___SCMOBJ err;
   int i;
+
+  /* Bind stable VM execution storage before any setup helper can use roots.
+   * Existing setup/cleanup and synchronous carrier lifetime are unchanged. */
+  if (___ps->mem.rc_domain_ != 0)
+    return ___FIX(___UNKNOWN_ERR); /* Never overwrite an attached RC source. */
+
+  ___ps->context = &___vms->execution_contexts[___PROCESSOR_ID(___ps, ___vms)];
 
   /*
    * Processors need to know in which VM they are.
@@ -4717,14 +4993,14 @@ ___virtual_machine_state ___vms;)
    * Setup registers.
    */
 
-  for (i=0; i<sizeof(___ps->r)/sizeof(*___ps->r); i++)
-    ___ps->r[i] = ___VOID;
+  for (i=0; i<sizeof(___ps->context->r)/sizeof(*___ps->context->r); i++)
+    ___ps->context->r[i] = ___VOID;
 
-  for (i=0; i<sizeof(___ps->saved)/sizeof(*___ps->saved); i++)
-    ___ps->saved[i] = ___VOID;
+  for (i=0; i<sizeof(___ps->context->saved)/sizeof(*___ps->context->saved); i++)
+    ___ps->context->saved[i] = ___VOID;
 
-  for (i=0; i<sizeof(___ps->type_cache)/sizeof(*___ps->type_cache); i++)
-    ___ps->type_cache[i] = ___VOID;
+  for (i=0; i<sizeof(___ps->context->type_cache)/sizeof(*___ps->context->type_cache); i++)
+    ___ps->context->type_cache[i] = ___VOID;
 
   /*
    * Copy handlers from global state to processor state.
@@ -4770,22 +5046,21 @@ ___virtual_machine_state ___vms;)
 }
 
 
-___EXP_FUNC(void,___cleanup_vmstate)
-   ___P((___virtual_machine_state ___vms),
-        (___vms)
-___virtual_machine_state ___vms;)
-{
-  cleanup_os_and_mem_vmstate (___vms);
-  ___cleanup_actlog_vmstate (___vms);
-}
-
-
-___EXP_FUNC(___SCMOBJ,___setup_vmstate)
+static ___SCMOBJ setup_vmstate_owned
    ___P((___virtual_machine_state ___vms),
         (___vms)
 ___virtual_machine_state ___vms;)
 {
   ___SCMOBJ err;
+  ___vm_lifecycle *life;
+#ifndef ___SINGLE_THREADED_VMS
+  if (___PSTATE_FROM_PROCESSOR_ID(0,___vms)->mem.rc_domain_ != 0)
+    return ___FIX(___UNKNOWN_ERR);
+#endif
+  life=vm_lifecycle_create(___vms);
+  if (!life) return ___FIX(___HEAP_OVERFLOW_ERR);
+  /* Exclusive setup, before any processor/thread can borrow these records. */
+  ___native_scope_init_vmstate (___vms);
 
   /*
    * Virtual machine starts off with a single processor.
@@ -4821,68 +5096,22 @@ ___virtual_machine_state ___vms;)
    * Setup virtual machine's OS specific structures and memory management.
    */
 
-  setup_os_and_mem_vmstate (___vms);
+  life->setup_stages|=___VM_SETUP_ACTLOG;
+  if ((err=setup_os_and_mem_vmstate(___vms)) != ___FIX(___NO_ERR))
+    { ___cleanup_actlog_vmstate(___vms); life->setup_stages=0; return err; }
 
   /*
-   * Setup the main processor of the virtual machine.
+   * Setup the main processor before publishing an executable VM. A failed
+   * processor setup cannot leave the VM root-storage block or list attached.
    */
-
-  return ___setup_pstate (___PSTATE_FROM_PROCESSOR_ID(0,___vms), ___vms);
+  life->setup_stages|=___VM_SETUP_MEMORY;
+  err=___setup_pstate(___PSTATE_FROM_PROCESSOR_ID(0,___vms),___vms);
+  if (err==___FIX(___NO_ERR)) life->setup_stages|=___VM_SETUP_PROCESSOR;
+  return err;
 }
 
 
-___EXP_FUNC(void,___cleanup) ___PVOID
-{
-  ___processor_state ___ps = ___PSTATE;
-  ___virtual_machine_state ___vms = &___GSTATE->vmstate0;
-
-  /*
-   * Only do cleanup once after successful setup.
-   */
-
-  if (___GSTATE->setup_state != 1)
-    return;
-
-  ___GSTATE->setup_state = 2;
-
-  ___cleanup_all_interrupt_handling ();
-
-  if (___vms->processor_count == 0)
-    return;
-
-#ifndef ___SINGLE_THREADED_VMS
-
-  /*
-   * Shutdown processors of this VM except for processor 0.
-   */
-
-  ___current_vm_resize (___PSP ___FAL, 1);
-
-#endif
-
-  ___cleanup_pstate (___ps);
-
-#ifdef ___SINGLE_VM
-
-  ___cleanup_vmstate (&___GSTATE->vmstate0);
-
-#else
-
-  ___MUTEX_LOCK(___GSTATE->vm_list_mut);
-
-  do
-    {
-      ___vms = ___vms->prev;
-      ___cleanup_vmstate (___vms);
-    }
-  while (___vms != &___GSTATE->vmstate0);
-
-  ___MUTEX_DESTROY(___GSTATE->vm_list_mut);
-
-#endif
-
-  cleanup_os_and_mem ();
-}
+#include "_setup/vm-lifecycle.inc"
 
 
 ___EXP_FUNC(void,___cleanup_and_exit_process)
@@ -4890,7 +5119,7 @@ ___EXP_FUNC(void,___cleanup_and_exit_process)
         (status)
 int status;)
 {
-  ___cleanup ();
+  cleanup_runtime(1);
   ___exit_process (status);
 }
 
@@ -5921,6 +6150,13 @@ ___HIDDEN void setup_dynamic_linking ___PVOID
   ___GSTATE->___set_data_rc
     = ___set_data_rc;
 
+  ___GSTATE->___store_global
+    = ___store_global;
+  ___GSTATE->___primitive_ref = ___primitive_ref;
+  ___GSTATE->___store_primitive = ___store_primitive;
+  ___GSTATE->___bind_primitive = ___bind_primitive;
+
+
   ___GSTATE->___alloc_scmobj
     = ___alloc_scmobj;
 
@@ -6247,6 +6483,7 @@ ___setup_params_struct *setup_params;)
   ___processor_state ___ps = ___PSTATE_FROM_PROCESSOR_ID(0,___vms);
   ___SCMOBJ module_descrs;
   ___SCMOBJ supply_modules;
+  int registry_owned=0;
   ___mod_or_lnk mol;
 
   /*
@@ -6261,6 +6498,8 @@ ___setup_params_struct *setup_params;)
    * Remember setup parameters.
    */
 
+  if (!vm_registry_begin_setup()) return ___FIX(___UNKNOWN_ERR);
+  registry_owned=1;
   ___GSTATE->setup_params = *setup_params;
 
   /*
@@ -6277,7 +6516,6 @@ ___setup_params_struct *setup_params;)
 
 #ifndef ___SINGLE_VM
 
-  ___MUTEX_INIT(___GSTATE->vm_list_mut);
 
   ___vms->prev = ___vms;
   ___vms->next = ___vms;
@@ -6312,7 +6550,9 @@ ___setup_params_struct *setup_params;)
 
   {
     ___virtual_machine_state ___vms = &___GSTATE->vmstate0;
-    setup_interrupts_pstate (___PSTATE_FROM_PROCESSOR_ID(0,___vms));
+    ___processor_state initial = ___PSTATE_FROM_PROCESSOR_ID(0,___vms);
+    initial->context = &___vms->execution_contexts[0];
+    setup_interrupts_pstate (initial);
   }
 
   /*
@@ -6325,8 +6565,13 @@ ___setup_params_struct *setup_params;)
    * Setup the operating system and memory management modules.
    */
 
-  if ((err = setup_os_and_mem ()) != ___FIX(___NO_ERR))
+  if ((err = setup_os_and_mem ()) != ___FIX(___NO_ERR)) {
+#ifndef ___SINGLE_VM
+
+#endif
+    ___PUBLISH_GLOBAL_WORD(&vm_registry_gate,VM_REGISTRY_CLOSED);
     return err;
+  }
 
   /*
    * Allow cleanup.
@@ -6346,10 +6591,10 @@ ___setup_params_struct *setup_params;)
    */
 
   init_symkey_glo1 (mol);
-  init_symkey_glo2 (mol);
-
   do
     {
+      err=init_symkey_glo2(mol);
+      if (err!=___FIX(___NO_ERR)) break;
 
       /*
        * Setup each module.
@@ -6380,7 +6625,7 @@ ___setup_params_struct *setup_params;)
        * Setup the main virtual machine.
        */
 
-      if ((err = ___setup_vmstate (___vms))
+      if ((err = setup_vmstate_owned (___vms))
           != ___FIX(___NO_ERR))
         break;
 
@@ -6403,6 +6648,9 @@ ___setup_params_struct *setup_params;)
        */
 
       ___thread_set_pstate (___ps);
+      ___PUBLISH_GLOBAL_WORD(&___vms->lifecycle->phase,___VM_LIVE);
+      vm_registry_publish(___vms); vm_registry_open(); registry_owned=0;
+      ___glo_list_open();
 
       /*
        * By convention, the main module is the last one in the module
@@ -6432,9 +6680,16 @@ ___setup_params_struct *setup_params;)
    * Cleanup if there are any errors.
    */
 
-  if (err != ___FIX(___NO_ERR))
-    ___cleanup ();
+  if (registry_owned) {
+    /* No VM was published. The registry writer still owns every known setup
+     * stage; it does not pass through the LIVE-owner teardown protocol. */
+    abort_vm_setup(___vms);
+#ifndef ___SINGLE_VM
 
+#endif
+    cleanup_os_and_mem();___GSTATE->setup_state=2;
+    ___PUBLISH_GLOBAL_WORD(&vm_registry_gate,VM_REGISTRY_CLOSED);
+  }else if (err != ___FIX(___NO_ERR)) cleanup_runtime(1);
   return err;
 }
 

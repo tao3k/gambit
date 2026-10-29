@@ -1553,12 +1553,9 @@
 
 ;; Processor state table
 
-;; The ps register points at the start of processor state structure.
-;;
-;;  Start: Low level exec processor state structure
-;;  End: Low level exec processor state structure
-;;  Start: Regular processor state structure <-- ps register
-;;  End: Regular processor state structure
+
+;; The ps register names the carrier. Scalar call/allocation guards stay here;
+;; Scheme roots are loaded/stored by the C bridge through its context pointer.
 
 (define USE_BRIDGE #t)
 
@@ -1567,30 +1564,17 @@
   (define word-width (get-word-width cgc))
 
   (define (fields-lowlevelexec) `(
+    (entry-pc                ,word-width)
+    (saved-r1                ,word-width)
     (return-stack-pointer    ,word-width)
     (return-handler          ,word-width)
     ))
 
   (define (fields-regular) `(
     (stack-trip              ,word-width)
-    (stack-limit             ,word-width)
-    (frame-pointer           ,word-width)
-    (stack-start             ,word-width)
-    (stack-break             ,word-width)
+    (context                 ,word-width)
     (heap-limit              ,word-width)
-    (heap-pointer            ,word-width)
-    (gvm-reg0                ,word-width)
-    (gvm-reg1                ,word-width)
-    (gvm-reg2                ,word-width)
-    (gvm-reg3                ,word-width)
-    (gvm-reg4                ,word-width)
-    (program-counter         ,word-width)
     (nargs                   ,word-width)
-    (saved-obj0              ,word-width)
-    (saved-obj1              ,word-width)
-    (saved-obj2              ,word-width)
-    (type-cache0             ,word-width)
-    (type-cache1             ,word-width)
     (handler_sfun_conv_error ,word-width)
     (handler_cfun_conv_error ,word-width)
     (handler_stack_limit     ,word-width)
@@ -1611,6 +1595,9 @@
     (temp3                   ,word-width)
     (temp4                   ,word-width)
     ))
+
+  ;; The word-coordinate contract is checked against C offsetof values.
+  ;; This prefix is independent of carrier interrupts, TLS and collector state.
 
   ;; Returns a pair of the offset from start of lst and the width of the field
   (define (find-field lst accum)
@@ -1645,3 +1632,32 @@
     (cons
       (mem-opnd (get-pstate-pointer cgc) (- (car field) offset target-offset))
       (cdr field))))
+
+;; Pure projection for the C bridge contract, not a new instruction operand.
+;; offsetof assertions in the existing frame fixture validate this prefix.
+(define (get-execution-context-field cgc sym)
+  (let ((word-width (get-word-width cgc)))
+  (define (fields-context) `(
+    (stack-limit             ,word-width)
+    (frame-pointer           ,word-width)
+    (stack-start             ,word-width)
+    (stack-break             ,word-width)
+    (heap-pointer            ,word-width)
+    (gvm-reg0                ,word-width)
+    (gvm-reg1                ,word-width)
+    (gvm-reg2                ,word-width)
+    (gvm-reg3                ,word-width)
+    (gvm-reg4                ,word-width)
+    (program-counter         ,word-width)
+    (saved-obj0              ,word-width)
+    (saved-obj1              ,word-width)
+    (saved-obj2              ,word-width)
+    (type-cache0             ,word-width)
+    (type-cache1             ,word-width)
+    ))
+
+    (let loop ((fields (fields-context)) (offset 0))
+      (cond ((null? fields)
+             (compiler-internal-error "Unknown execution context field: " sym))
+            ((eq? sym (caar fields)) (cons offset (* 8 (cadar fields))))
+            (else (loop (cdr fields) (+ offset (cadar fields))))))))

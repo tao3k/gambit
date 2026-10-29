@@ -16,6 +16,8 @@
 #include "setup.h"
 #include "mem.h"
 #include "c_intf.h"
+#include "rc.h"
+#include "lifecycle.h"
 
 
 /*---------------------------------------------------------------------------*/
@@ -6508,16 +6510,19 @@ int char_encoding;)
 
 /* Create a stack marker for a C to Scheme function call. */
 
-___EXP_FUNC(___SCMOBJ,___make_sfun_stack_marker)
+___HIDDEN ___SCMOBJ make_sfun_stack_marker
    ___P((___processor_state ___ps,
          ___SCMOBJ *marker,
-         ___SCMOBJ proc_or_false),
+         ___SCMOBJ proc_or_false,
+         const ___SCMOBJ *root),
         (___ps,
          marker,
-         proc_or_false)
+         proc_or_false,
+         root)
 ___processor_state ___ps;
 ___SCMOBJ *marker;
-___SCMOBJ proc_or_false;)
+___SCMOBJ proc_or_false;
+const ___SCMOBJ *root;)
 {
   ___SCMOBJ stack_marker;
 
@@ -6527,7 +6532,9 @@ ___SCMOBJ proc_or_false;)
   stack_marker = ___make_vector (___ps, 2, ___FAL);
 #endif
 
-  /*TODO: proc_or_false may have been GC'd at this point! protect it some way*/
+  /* Legacy callers retain their existing contract. Startup supplies a borrowed
+   * stable root cell and reloads only after the allocating constructor. */
+  if (root != 0) proc_or_false=*root;
 
   if (___FIXNUMP(stack_marker))
     return ___FIX(___SFUN_HEAP_OVERFLOW_ERR);
@@ -6546,6 +6553,47 @@ ___SCMOBJ proc_or_false;)
   return ___FIX(___NO_ERR);
 }
 
+___EXP_FUNC(___SCMOBJ,___make_sfun_stack_marker)
+ ___P((___processor_state ps,___SCMOBJ *marker,___SCMOBJ proc),(ps,marker,proc)
+ ___processor_state ps;___SCMOBJ *marker;___SCMOBJ proc;)
+{
+  ___processor_state ___ps=ps;___SCMOBJ ___err,result=___FIX(___SFUN_HEAP_OVERFLOW_ERR);
+  ___activation_record *record=___lifecycle_marker_prepare(ps);
+  void *volatile held=0;volatile int borrowed=0;const ___SCMOBJ *root=0;
+  if(!record)return ___FIX(___UNKNOWN_ERR);
+  ___BEGIN_TRY
+    if(proc==___FAL || (___TESTTYPE(proc,___tSUBTYPED) && ___HD_TYP(___SUBTYPED_HEADER(proc))==___PERM))
+      result=make_sfun_stack_marker(ps,marker,proc,0);
+    else {
+      held=___alloc_rc(___PSA(ps) 0);
+      if(held && ___try_set_data_rc(ps,held,proc)) {
+        root=___borrow_rc_root(ps,held);
+        if(root){borrowed=1;result=make_sfun_stack_marker(ps,marker,___TRU,root);}
+      }
+    }
+  ___END_TRY
+  if(borrowed)___return_rc_root(held);
+  if(held)___release_rc(held);
+  if(___err!=___FIX(___NO_ERR))result=___err;
+  if(result==___FIX(___NO_ERR))record->marker=*marker;
+  else ___lifecycle_marker_abort(record);
+  return result;
+}
+___SCMOBJ ___make_sfun_stack_marker_root(___processor_state ps,___SCMOBJ *marker,const ___SCMOBJ *root)
+{
+  ___processor_state ___ps=ps;___SCMOBJ ___err,result=___FIX(___SFUN_HEAP_OVERFLOW_ERR);
+  ___activation_record *record=___lifecycle_marker_prepare(ps);
+  if(!record)return ___FIX(___UNKNOWN_ERR);
+  ___BEGIN_TRY
+    result=make_sfun_stack_marker(ps,marker,___TRU,root);
+  ___END_TRY
+  if(___err!=___FIX(___NO_ERR))result=___err;
+  if(result==___FIX(___NO_ERR))record->marker=*marker;
+  else ___lifecycle_marker_abort(record);
+  return result;
+}
+
+
 
 /*
  * Invalidate a stack marker.  This happens when a C to Scheme
@@ -6557,8 +6605,7 @@ ___EXP_FUNC(void,___kill_sfun_stack_marker)
         (marker)
 ___SCMOBJ marker;)
 {
-  ___VECTORELEM(marker, 0) = ___FAL; /* invalidate the C stack frame */
-  ___still_obj_refcount_dec (marker); /* allow GC of stack marker */
+  ___lifecycle_marker_kill(___PSTATE,marker);
 }
 
 

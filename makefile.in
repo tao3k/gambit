@@ -120,7 +120,7 @@ core-post:
 phases:
 	@for phase in phase1 phase2 phase3 phase4; do \
 	  echo "*** making $$phase"; \
-	  $(MAKE) $$phase; \
+	  $(MAKE) $$phase || exit 1; \
 	done
 
 phase1: include-phase1 bin-phase1 lib-phase1 gsi-phase1 gsc-phase1

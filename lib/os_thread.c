@@ -495,19 +495,23 @@ ___SCMOBJ ___thread_create
         (thread)
 ___thread *thread;)
 {
+  ___SCMOBJ initialized=thread_init_common(thread);
+  if (initialized!=___FIX(___NO_ERR)) return initialized;
+
 #ifdef ___USE_POSIX_THREAD_SYSTEM
 
   pthread_t thread_id;
+  int error;
 
-  if (pthread_create (&thread_id,
+  if ((error=pthread_create (&thread_id,
                       NULL,
                       start_pthread_thread,
-                      ___CAST(void*,thread)) != 0)
-    return err_code_from_errno ();
+                      ___CAST(void*,thread))) != 0)
+    return ___FIX(___ERRNO_ERR(error));
 
   thread->thread_id = thread_id;
 
-  return thread_init_common (thread);
+  return ___FIX(___NO_ERR);
 
 #endif
 
@@ -529,7 +533,7 @@ ___thread *thread;)
   thread->thread_handle = thread_handle;
   thread->thread_id = thread_id;
 
-  return thread_init_common (thread);
+  return ___FIX(___NO_ERR);
 
 #endif
 
@@ -550,8 +554,8 @@ ___thread *thread;)
 {
 #ifdef ___USE_POSIX_THREAD_SYSTEM
 
-  if (pthread_join (thread->thread_id, NULL) != 0)
-    return err_code_from_errno ();
+  int error=pthread_join(thread->thread_id,NULL);
+  if (error!=0) return ___FIX(___ERRNO_ERR(error));
 
   return ___FIX(___NO_ERR);
 

@@ -5588,9 +5588,28 @@
                   (and type-check?
                        (gen-index-check source env arg1 arg2)))
                  (value-check
-                  (and value-checker
-                       (not (eq? kind 'ref))
-                       (value-checker source env (caddr vars))))
+                  (if (and type-check? (eq? kind 'inc!))
+                      ;; A general vector accepts arbitrary stored values,
+                      ;; but increment requires both the delta and old element
+                      ;; to be fixnums. Evaluate the element check only after
+                      ;; the vector/mutability/index conjunction has succeeded.
+                      (let ((element-check
+                             (gen-call-prim-notsafe source env
+                               **fixnum?-sym
+                               (list
+                                (gen-call-prim-vars-notsafe source env
+                                  **vect-ref-sym
+                                  (list arg1 arg2))))))
+                        (if (pair? (cddr vars))
+                            (new-conj source env
+                              (gen-call-prim-vars-notsafe source env
+                                **fixnum?-sym
+                                (list (caddr vars)))
+                              element-check)
+                            element-check))
+                      (and value-checker
+                           (not (eq? kind 'ref))
+                           (value-checker source env (caddr vars)))))
                  (index-value-check
                   (if (and index-check value-check)
                       (new-conj source env
