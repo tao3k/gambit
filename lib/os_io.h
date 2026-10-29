@@ -15,6 +15,8 @@
 typedef struct ___device_group_struct
   {
     struct ___device_struct *list; /* list of devices in this group */
+    struct ___device_struct *cleaning; /* owned cleanup, outside structural access */
+    ___SCMOBJ cleanup_error; /* first error; ownership and error are independent */
   } ___device_group;
 
 /*TODO: remove "DEVICE" from names*/
@@ -82,6 +84,7 @@ typedef struct ___device_struct
 #endif
 
     ___device_group *group;        /* device group this device belongs to */
+    int cleanup_pending;           /* primary reference belongs to cleanup ring */
     struct ___device_struct *prev; /* bidirectional list pointer to previous */
     struct ___device_struct *next; /* bidirectional list pointer to next */
     int direction;                 /* ___DIRECTION_RD and/or ___DIRECTION_WR */

@@ -74,7 +74,7 @@ RCFILES = startup-publication.scm mutex-suspension.scm root-task.scm rc-root-ori
 debug.scm error.scm r4rstest.scm mix.scm mem.scm client.c server.scm server.h \
 test1.ok test2.ok test3.ok test4.ok test5.ok test6.ok test7.ok \
 test8.ok test9.ok test10.scm input run-unit-tests.scm stack-overflow-undo.c \
-inline-primitives.scm native-scope.c frame-spec.scm frame-contract.c frame-continuation.scm frame-continuation-roots.scm
+inline-primitives.scm native-scope.c frame-spec.scm frame-contract.c frame-continuation.scm frame-continuation-roots.scm exec-image-plan.c
 
 GENDISTFILES =
 
@@ -115,7 +115,7 @@ core-post:
 
 .NOTPARALLEL:
 
-check: core test-runtime-roles test1 test2 test3 test4 test5 test6 test7 test8 test9 test10 test11 test12 test-entry test-inline-primitives test-native-scope test-frame-contract test-rc-roots test-root-task test-mutex-suspension
+check: core test-runtime-roles test1 test2 test3 test4 test5 test6 test7 test8 test9 test10 test11 test12 test-entry test-inline-primitives test-native-scope test-frame-contract test-rc-roots test-root-task test-mutex-suspension test-exec-image-plan
 	@echo "============ ALL TESTS SUCCESSFUL"
 	rm -f mem.c mem_.c mem@obj@ mem.o1 mem_@obj@ mem@exe@ \
 	  mix.c mix_.c mix@obj@ mix_@obj@ mix@exe@ \
@@ -254,6 +254,16 @@ test12:
 	rm -f stack-overflow-undo@exe@ stack-overflow-undo@obj@
 
 .PHONY: test-native-scope test-native-scope-build
+
+.PHONY: test-exec-image-plan test-exec-image-plan-build
+
+test-exec-image-plan:
+	$(MAKE) test-exec-image-plan-build BUILD_EXE_OUTPUT_FILENAME_PARAM=exec-image-plan@exe@ BUILD_EXE_INPUT_FILENAMES_PARAM=$(srcdirpfx)exec-image-plan.c
+	@SETDLPATH@ ./exec-image-plan@exe@
+	rm -f exec-image-plan@exe@ exec-image-plan@obj@
+
+test-exec-image-plan-build:
+	@BUILD_EXE@
 
 test-native-scope:
 	$(MAKE) test-native-scope-build BUILD_EXE_OUTPUT_FILENAME_PARAM=native-scope@exe@ BUILD_EXE_INPUT_FILENAMES_PARAM=$(srcdirpfx)native-scope.c BUILD_EXE_CC_OPTIONS_PARAM=-I$(srcdirpfx)$(rootfromhere)/lib
