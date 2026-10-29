@@ -13,7 +13,7 @@
 #include "setup.h"
 #include "mem.h"
 #include "rc.h"
-#include "vm-resize.h"
+#include "lifecycle.h"
 #include "c_intf.h"
 #include "actlog.h"
 

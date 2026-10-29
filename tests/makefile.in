@@ -70,7 +70,7 @@ mandir = @mandir@
 
 .SUFFIXES:
 
-RCFILES = startup-publication.scm mutex-suspension.scm root-task.scm rc-root-origin.scm runtime-roles.c test-entry.h test-entry.c makefile.in \
+RCFILES = smp/gc/vm-lifecycle.scm smp/gc/vm-lifecycle-host.scm startup-publication.scm mutex-suspension.scm root-task.scm rc-root-origin.scm runtime-roles.c test-entry.h test-entry.c makefile.in \
 debug.scm error.scm r4rstest.scm mix.scm mem.scm client.c server.scm server.h \
 test1.ok test2.ok test3.ok test4.ok test5.ok test6.ok test7.ok \
 test8.ok test9.ok test10.scm input run-unit-tests.scm stack-overflow-undo.c \
@@ -115,7 +115,7 @@ core-post:
 
 .NOTPARALLEL:
 
-check: core test-runtime-roles test1 test2 test3 test4 test5 test6 test7 test8 test9 test10 test11 test12 test-entry test-inline-primitives test-native-scope test-frame-contract test-rc-roots test-root-task test-mutex-suspension
+check: core test-runtime-roles test1 test2 test3 test4 test5 test6 test7 test8 test9 test10 test11 test12 test-entry test-inline-primitives test-native-scope test-frame-contract test-rc-roots test-root-task test-mutex-suspension test-vm-lifecycle
 	@echo "============ ALL TESTS SUCCESSFUL"
 	rm -f mem.c mem_.c mem@obj@ mem.o1 mem_@obj@ mem@exe@ \
 	  mix.c mix_.c mix@obj@ mix_@obj@ mix@exe@ \
@@ -493,10 +493,11 @@ test-globals-snapshot: root-task@exe@
 # These three already-existing feature variants are build products. Test
 # targets remain phony and execute every time; only identical compilation is
 # shared. Configured Make/SDK inputs are checked under the source/profile lease.
-ROOT_TASK_DEPS = $(srcdirpfx)root-task.scm $(srcdirpfx)test-entry.h makefile \
+SMP_TEST_BUILD_DEPS = $(srcdirpfx)test-entry.h makefile \
   $(rootfromhere)/gsc/gsc@exe@ $(rootfromhere)/lib/$(GAMBITLIB) \
   $(rootfromhere)/include/gambit.h $(rootfromhere)/include/config.h \
   $(wildcard $(srcdirpfx)$(rootfromhere)/lib/*.h)
+ROOT_TASK_DEPS = $(srcdirpfx)root-task.scm $(SMP_TEST_BUILD_DEPS)
 
 root-task@exe@: $(ROOT_TASK_DEPS)
 	@SETDLPATH@ $(rootfromhere)/gsc/gsc@exe@ -:~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f -exe -cc-options "-DHAVE_CONFIG_H -I$(srcdirpfx)$(rootfromhere)/include -I$(srcdirpfx)$(rootfromhere)/lib" -o root-task-build@exe@ $(srcdirpfx)root-task.scm
@@ -524,11 +525,12 @@ test-root-task: root-task@exe@ root-task-bank@exe@ root-task-primitive@exe@
 	@SETDLPATH@ ./root-task-primitive@exe@ -:p1
 
 .PHONY: test-mutex-suspension
-test-mutex-suspension:
+mutex-suspension@exe@: $(srcdirpfx)mutex-suspension.scm $(SMP_TEST_BUILD_DEPS)
 	@SETDLPATH@ $(rootfromhere)/gsc/gsc@exe@ -:~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f -exe -o mutex-suspension@exe@ $(srcdirpfx)mutex-suspension.scm
+
+test-mutex-suspension: mutex-suspension@exe@
 	@SETDLPATH@ ./mutex-suspension@exe@ -:p1
 	@SETDLPATH@ ./mutex-suspension@exe@ -:p2
-	rm -f mutex-suspension@exe@
 
 # SMP startup transaction. Reuse the configured compiler, official GSC and Make.
 # The fault adapter renames only this test setup consumer; production has no hook.
@@ -543,6 +545,11 @@ test-startup-publication:
 	@SETDLPATH@ ./startup-faults@exe@ -:p1 --calibration
 	@SETDLPATH@ ./startup-faults@exe@ -:p1 --early-retire
 	@SETDLPATH@ ./startup-faults@exe@ -:p1 --unknown
+	@SETDLPATH@ ./startup-faults@exe@ -:p1 --unknown-create
+	@SETDLPATH@ ./startup-faults@exe@ -:p1 --unknown-expanded
+	@SETDLPATH@ ./startup-faults@exe@ -:p1 --unknown-retire
+	@SETDLPATH@ ./startup-faults@exe@ -:p1 --unknown-requester
+	@SETDLPATH@ ./startup-faults@exe@ -:p1 --unknown-vm
 	rm -f startup-publication@exe@ startup-faults@exe@ startup-setup@obj@
 
 .PHONY: test-symkey-views
@@ -573,3 +580,19 @@ test-symkey-callback:
 	@SETDLPATH@ $(rootfromhere)/gsc/gsc@exe@ -:~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f -prelude "(define-cond-expand-feature symkey-callback-test)" -exe -cc-options "-DHAVE_CONFIG_H -I$(srcdirpfx)$(rootfromhere)/include -I$(srcdirpfx)$(rootfromhere)/lib" -o root-task-callback@exe@ $(srcdirpfx)root-task.scm
 	@SETDLPATH@ ./root-task-callback@exe@ -:p1 --symkey-callback
 	rm -f root-task-callback@exe@ root-task-input.dat
+
+.PHONY: test-vm-lifecycle
+# These existing environment variables belong to the actual build product.
+# GSC compiles deep-directory inputs from a different cwd.
+vm-lifecycle@exe@ vm-lifecycle-host@exe@: export GAMBITDIR_INCLUDE := $(abspath $(GAMBITDIR_INCLUDE))
+vm-lifecycle@exe@ vm-lifecycle-host@exe@: export GAMBITDIR_LIB := $(abspath $(GAMBITDIR_LIB))
+
+vm-lifecycle@exe@: $(srcdirpfx)smp/gc/vm-lifecycle.scm $(SMP_TEST_BUILD_DEPS)
+	@SETDLPATH@ $(abspath $(rootfromhere)/gsc/gsc@exe@) -:p1,~~bin=$(abspath $(srcdirpfx)$(rootfromhere)/bin),~~lib=$(abspath $(srcdirpfx)$(rootfromhere)/lib),~~include=$(abspath $(srcdirpfx)$(rootfromhere)/include) -f -exe -cc-options "-I$(abspath $(srcdirpfx)$(rootfromhere)/lib)" -o $(abspath vm-lifecycle@exe@) $(abspath $(srcdirpfx)smp/gc/vm-lifecycle.scm)
+
+vm-lifecycle-host@exe@: $(srcdirpfx)smp/gc/vm-lifecycle-host.scm $(SMP_TEST_BUILD_DEPS)
+	@SETDLPATH@ $(abspath $(rootfromhere)/gsc/gsc@exe@) -:p1,~~bin=$(abspath $(srcdirpfx)$(rootfromhere)/bin),~~lib=$(abspath $(srcdirpfx)$(rootfromhere)/lib),~~include=$(abspath $(srcdirpfx)$(rootfromhere)/include) -f -exe -cc-options "-I$(abspath $(srcdirpfx)$(rootfromhere)/lib) -I$(abspath $(srcdirpfx).) -D___LIBRARY" -o $(abspath vm-lifecycle-host@exe@) $(abspath $(srcdirpfx)smp/gc/vm-lifecycle-host.scm)
+
+test-vm-lifecycle: vm-lifecycle@exe@ vm-lifecycle-host@exe@
+	@SETDLPATH@ ./vm-lifecycle@exe@ -:p1
+	@SETDLPATH@ ./vm-lifecycle-host@exe@ -:p1

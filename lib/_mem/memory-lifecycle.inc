@@ -192,10 +192,10 @@ ___processor_state ___ps;)
   alloc_heap_ptr = 0;
 
 #ifndef ___SINGLE_THREADED_VMS
-  if (___PROCESSOR_ID(___ps,___vms)>0 && ___vms->resize_state != 0 &&
-      ___vms->resize_state->phase==___RESIZE_PREPARING)
+  if (___PROCESSOR_ID(___ps,___vms)>0 && ___vms->lifecycle != 0 &&
+      ___vms->lifecycle->resize_phase==___RESIZE_PREPARING)
     {
-      ___resize_slot *slot=&___vms->resize_state->slots[___PROCESSOR_ID(___ps,___vms)];
+      ___resize_slot *slot=&___vms->lifecycle->slots[___PROCESSOR_ID(___ps,___vms)];
       if (slot->phase!=___RESIZE_RESERVED || slot->stack==0 || slot->heap==0 || slot->stack==slot->heap)
         { ___rc_prepare_cleanup(___ps); cleanup_rc(___ps); ___cleanup_actlog_pstate(___ps); return ___FIX(___UNKNOWN_ERR); }
       set_stack_msection(___ps,slot->stack);
@@ -327,24 +327,6 @@ ___virtual_machine_state ___vms;)
 #endif
 
 #ifndef ___SINGLE_VM
-
-  /*
-   * Add to tail of virtual machine circular list.
-   */
-
-  ___MUTEX_LOCK(___GSTATE->vm_list_mut);
-
-  {
-    ___virtual_machine_state head = &___GSTATE->vmstate0;
-    ___virtual_machine_state tail = head->prev;
-
-    ___vms->prev = tail;
-    ___vms->next = head;
-    head->prev = ___vms;
-    tail->next = ___vms;
-  }
-
-  ___MUTEX_UNLOCK(___GSTATE->vm_list_mut);
 
   /* TODO: implement expansion of glos array when number of globals grows beyond 20000 */
 
@@ -516,7 +498,6 @@ ___processor_state ___ps;)
 {
   if (!___rc_prepare_cleanup (___ps))
     { rc_contract_error ("RC roots or borrows prevent memory cleanup"); return; }
-  free_still_objs (___ps);
   cleanup_rc (___ps);
 }
 
@@ -535,8 +516,6 @@ ___virtual_machine_state ___vms;)
    * Destroy spinlock for VM level memory allocation.
    */
 
-  if (resize_retained(___vms))
-    { rc_contract_error("Unresolved startup prevents VM reclamation"); return; }
 
   ___SPINLOCK_DESTROY(misc_mem_lock);
   ___SPINLOCK_DESTROY(alloc_mem_lock);
@@ -555,16 +534,6 @@ ___virtual_machine_state ___vms;)
   if (___PSTATE_FROM_PROCESSOR_ID(0,___vms)->mem.rc_domain_ != 0)
     ___cleanup_mem_pstate (___PSTATE_FROM_PROCESSOR_ID(0,___vms));
 
-#ifndef ___SINGLE_THREADED_VMS
-  if (___vms->resize_state != 0)
-    {
-      ___resize_state *r=___vms->resize_state;
-      if (resize_retained(___vms))
-        { rc_contract_error("Unresolved startup prevents VM reclamation"); return; }
-      ___CONDVAR_DESTROY(r->changed); ___MUTEX_DESTROY(r->gate);
-      ___FREE_MEM(r); ___vms->resize_state=0;
-    }
-#endif
   free_msections (&the_msections);
 
 #ifndef ___SINGLE_VM
@@ -573,19 +542,6 @@ ___virtual_machine_state ___vms;)
   ___FREE_MEM(___vms->glos); ___vms->glos=0;
 
 
-  /*
-   * Remove from virtual machine circular list.
-   */
-
-  /* It is assumed that ___GSTATE->vm_list_mut is currently locked */
-
-  {
-    ___virtual_machine_state prev = ___vms->prev;
-    ___virtual_machine_state next = ___vms->next;
-
-    next->prev = prev;
-    prev->next = next;
-  }
 
 #endif
 

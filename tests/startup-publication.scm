@@ -3,18 +3,26 @@
 (declare (standard-bindings) (extended-bindings))
 (c-declare #<<c-end
 #include "rc.h"
-#include "vm-resize.h"
+#include "root.h"
+#include "collector.h"
+#include "lifecycle.h"
 #include "c_intf.h"
 #include "setup.h"
+#include "os_thread.h"
 #include <stdatomic.h>
 #include <stdlib.h>
 static int startup_mode, startup_creates, startup_joins, startup_roots;
 static int startup_faults, startup_calibrate, startup_bad_refund;
+static int startup_base_members, startup_base_entries;
+static int startup_retire_count=1;
+static ___virtual_machine_state startup_other_vm;
 static ___SIZE_T startup_base_nodes, startup_base_borrows;
 static _Atomic int startup_entries, startup_bad_payload, startup_marker_gcs;
 static void startup_arm(int mode) {
   startup_mode=mode; startup_creates=0; startup_joins=0;
   startup_roots=0; startup_faults=0;
+  startup_base_members=___VMSTATE_FROM_PSTATE(___PSTATE)->processor_count;
+  startup_base_entries=atomic_load(&startup_entries);
   { ___rc_domain *d=___PSTATE->mem.rc_domain_;
     ___RC_LOCK(d); startup_base_nodes=d->nodes; startup_base_borrows=d->borrows;
     ___RC_UNLOCK(d); }
@@ -22,7 +30,12 @@ static void startup_arm(int mode) {
 ___SCMOBJ test_startup_create(___thread *thread) {
   ++startup_creates;
   if ((startup_mode==3 || startup_mode==4) && startup_creates==2) {
-    ++startup_faults; return ___FIX(___UNKNOWN_ERR);
+    ++startup_faults; return ___FIX(___HEAP_OVERFLOW_ERR);
+  }
+  if(startup_mode==7 && startup_creates==1) {
+    ___SCMOBJ result=___thread_create(thread);
+    if(result==___FIX(___NO_ERR)) {++startup_faults;return ___FIX(___UNKNOWN_ERR);}
+    return result;
   }
   return ___thread_create(thread);
 }
@@ -31,9 +44,14 @@ ___SCMOBJ test_startup_join(___thread *thread) {
   if (startup_mode==4 && startup_joins==1) {
     ++startup_faults; return ___FIX(___UNKNOWN_ERR);
   }
+  if(startup_mode==8 && startup_joins==1) {
+    ___SCMOBJ result=___thread_join(thread);
+    if(result==___FIX(___NO_ERR)) {++startup_faults;return ___FIX(___UNKNOWN_ERR);}
+    return result;
+  }
   return ___thread_join(thread);
 }
-___SCMOBJ test_startup_reserve(___processor_state ps, ___resize_state *r) {
+___SCMOBJ test_startup_reserve(___processor_state ps, ___vm_lifecycle *r) {
   if (startup_mode==1) { ++startup_faults; return ___FIX(___HEAP_OVERFLOW_ERR); }
   return ___reserve_resize(ps,r);
 }
@@ -43,7 +61,7 @@ void *test_startup_alloc(___PSD ___SIZE_T bytes) {
   if (startup_mode==2 && startup_roots==3) { ++startup_faults; return 0; }
   return ___alloc_rc(___PSP bytes);
 }
-void test_startup_refund(___processor_state ps, ___resize_state *r) {
+void test_startup_refund(___processor_state ps, ___vm_lifecycle *r) {
   ___refund_resize(ps,r);
   if (startup_calibrate) {
     /* Calibrated adapter mutation of the real refunded ledger; observation
@@ -69,10 +87,32 @@ ___SCMOBJ test_startup_marker(___processor_state ps, ___SCMOBJ *marker,
   }
   return ___make_sfun_stack_marker_root(ps,marker,cell);
 }
+static int startup_other_call(int create,___SCMOBJ code) {
+  ___processor_state primary=___PSTATE;
+  ___processor_state ___ps;
+  ___SCMOBJ ___err;
+  volatile int result=0;
+  if(!___MEM_ALLOCATED(code) || ___HD_TYP(___SUBTYPED_HEADER(code))!=___PERM)return 0;
+  if(create) {
+    startup_other_vm=calloc(1,sizeof(*startup_other_vm));
+    if(!startup_other_vm || ___setup_vmstate(startup_other_vm)!=___FIX(___NO_ERR))return 0;
+  }
+  ___ps=___PSTATE_FROM_PROCESSOR_ID(0,startup_other_vm);
+  ___thread_set_pstate(___ps);
+  ___BEGIN_TRY
+    ___SCMOBJ status=___run(___PSP code);
+    fprintf(stderr,"STARTUP-OTHER-RUN status=%ld rc-phase=%d rc-nodes=%lu\n",(long)status,(int)___ps->mem.rc_domain_->phase,(unsigned long)___ps->mem.rc_domain_->nodes);
+    if(status==___FIX(___NO_ERR) && ___FIXNUMP(___ps->context->r[1]))
+      result=___INT(___ps->context->r[1]);
+  ___END_TRY
+  ___thread_set_pstate(primary);
+  fprintf(stderr,"STARTUP-OTHER err=%ld result=%d count=%d creates=%d joins=%d faults=%d phase=%d\n",(long)___err,result,startup_other_vm->processor_count,startup_creates,startup_joins,startup_faults,(int)startup_other_vm->lifecycle->resize_phase);
+  return ___err==___FIX(___NO_ERR) && result!=0 && startup_other_vm->processor_count==1;
+}
 static int startup_rolled_back(___processor_state ps) {
   ___virtual_machine_state vm=___VMSTATE_FROM_PSTATE(ps);
-  ___resize_state *r=vm->resize_state;
-  int i, ok=r && r->phase==___RESIZE_IDLE && vm->processor_count==1;
+  ___vm_lifecycle *r=vm->lifecycle;
+  int i, ok=r && r->resize_phase==___RESIZE_IDLE && vm->processor_count==1;
   if (r && startup_mode!=1)
     ok=ok && vm->mem.nb_msections_assigned_==r->saved_assigned;
   if (r) for(i=r->first;i<r->target;++i)
@@ -87,6 +127,15 @@ static int startup_rolled_back(___processor_state ps) {
 }
 c-end
 )
+(define (test-startup-vm-entry)
+  (declare (not interrupts-enabled))
+  ;; The new VM owns fresh bindings. Share only this capture-free code and
+  ;; call the same native primitive as _kernel.scm; do not copy VM0 globals.
+  ((c-lambda () scheme-object
+     "___return(___EXT(___current_vm_resize)(___PSP ___FAL,3));")))
+(define unknown-other-call-raw (c-lambda (bool scheme-object) bool "startup_other_call"))
+(define (unknown-other-call create?)
+  (unknown-other-call-raw create? test-startup-vm-entry))
 (define arm (c-lambda (int) void "startup_arm"))
 (define rolled-back? (c-lambda () bool "___return(startup_rolled_back(___ps));"))
 (define entries (c-lambda () int "___return(atomic_load(&startup_entries));"))
@@ -171,20 +220,63 @@ c-end
   (require (clean-payload?) 'nonzero-roots)
   (display "STARTUP-PUBLICATION-NONZERO-PASS\n"))
 (define (unknown)
-  (arm 4)
-  (require (not (= (request 3) 0)) 'unknown-refused)
+  (define other? (member "--unknown-vm" (command-line)))
+  (define requester? (member "--unknown-requester" (command-line)))
+  (define retire? (or requester? (member "--unknown-retire" (command-line))))
+  (if retire? (require (pbt) 'prior-known-abort-reuse))
+  (if (or retire? (member "--unknown-expanded" (command-line)))
+      (begin (positive)
+        ((c-lambda () void "___PUBLISH_GLOBAL_WORD(&___COLLECTION(___VMSTATE_FROM_PSTATE(___ps)).requested_workers,1);"))
+        (##gc)))
+  (if requester? ((c-lambda () void "startup_retire_count=2;")))
+  (arm (cond (retire? 8) ((member "--unknown-create" (command-line)) 7) (else 4)))
+  (require (if other? (unknown-other-call #t)
+                  (not (= (if retire?
+                        (if requester?
+                            (let ((t (make-thread
+                                      (lambda ()
+                                        (require (= (processor-id) 1) 'surviving-requester)
+                                        (##current-vm-resize #f 2)))))
+                              (##thread-pin! t (##processor 1))
+                              (thread-start! t) (thread-join! t))
+                            (##current-vm-resize #f 1))
+                       (request (+ (##current-vm-processor-count) 2))) 0))) 'unknown-refused)
   (require ((c-lambda () bool #<<c-end
-___virtual_machine_state vm=___VMSTATE_FROM_PSTATE(___ps);
-___resize_state *r=vm->resize_state;
-___return(r && r->phase==___RESIZE_RETAINED && vm->processor_count==1 &&
-          vm->mem.nb_msections_assigned_==r->saved_assigned+4 &&
-          r->slots[1].root!=0 && r->slots[2].root!=0 &&
-          startup_faults==2 && atomic_load(&startup_entries)==0);
+___virtual_machine_state vm=startup_other_vm?startup_other_vm:___VMSTATE_FROM_PSTATE(___ps);
+___vm_lifecycle *r=vm->lifecycle;
+if(startup_mode==8) {
+  ___return(r && vm->processor_count==startup_retire_count && r->launches[2].uncertain &&
+            r->launches[2].entry==___LAUNCH_RUN && r->launches[2].data_closed &&
+            startup_faults==1 && r->cleanup[1].words==0 && r->cleanup[2].words==0);
+}
+___return(r && r->resize_phase==___RESIZE_IDLE && vm->processor_count==startup_base_members &&
+          vm->mem.nb_msections_assigned_==r->saved_assigned &&
+          r->slots[r->first].root==0 && r->slots[r->first+1].root==0 &&
+          r->launches[r->first].uncertain && r->launches[r->first].entry==___LAUNCH_ABORT &&
+          startup_faults==(startup_mode==7?1:2) && atomic_load(&startup_entries)==startup_base_entries);
 c-end
 )) 'unknown-custody)
-  (require (not (= (request 3) 0)) 'retained-reuse-refused)
-  (require ((c-lambda () bool "___return(___EXT(___garbage_collect)(___PSP 0));")) 'retained-gc-refused)
-  (display "STARTUP-PUBLICATION-UNKNOWN-PASS\n") (force-output)
+  (require (if other? (unknown-other-call #f)
+               (not (= (request (+ (##current-vm-processor-count) 2)) 0))) 'retained-reuse-refused)
+  (require (not ((c-lambda () bool "___return(___EXT(___garbage_collect)(___PSP 0));"))) 'healthy-gc)
+  (##gc)
+  (require (equal? (map (lambda (x) (* x x)) '(1 2 3)) '(1 4 9)) 'healthy-execution)
+  (let ((saved #f) (stage 0))
+    (let ((answer (map (lambda (x)
+                         (if (= x 2) (call/cc (lambda (k) (set! saved k) x)) x))
+                       '(1 2 3))))
+      (require (equal? answer (case stage ((0) '(1 2 3)) ((1) '(1 20 3)) (else '(1 200 3))))
+               'unknown-multi-shot stage answer)
+      (if (< stage 2)
+          (begin (set! stage (+ stage 1)) (##gc) (saved (if (= stage 1) 20 200))))))
+  (require ((c-lambda () bool #<<c-end
+___virtual_machine_state vm=___VMSTATE_FROM_PSTATE(___ps);
+___root_round *round=___ROOT_UNION(vm);
+___return(round->state==___ROOT_ROUND_IDLE && round->participants==vm->processor_count && round->collection.worker_count==1);
+c-end
+)) 'healthy-round-closed)
+  (require (not ((c-lambda () bool "___return(___cleanup());"))) 'global-reclaim-refused)
+  (display "STARTUP-PUBLICATION-UNKNOWN-PASS healthy-gc quarantine no-global-free\n") (force-output)
   ;; Deliberate process end: no fake successful join or teardown permission.
   ((c-lambda () void "_Exit(0);")))
 (define (early-retire)
@@ -213,7 +305,7 @@ c-end
       ((equal? args '("--marker-gc"))
        (positive) (require (= (marker-gcs) 2) 'actual-marker-gc-count)
        (display "STARTUP-PUBLICATION-MARKER-GC-PASS\n"))
-      ((equal? args '("--unknown")) (unknown))
+      ((or (equal? args '("--unknown")) (equal? args '("--unknown-create")) (equal? args '("--unknown-expanded")) (equal? args '("--unknown-retire")) (equal? args '("--unknown-requester")) (equal? args '("--unknown-vm"))) (unknown))
       ((equal? args '("--early-retire")) (early-retire))
       ((equal? args '("--calibrate"))
        ((c-lambda () void "startup_calibrate=1;")) (if (not (pbt)) (exit 70)))

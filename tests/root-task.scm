@@ -49,12 +49,11 @@ for(i=0;i<3;i++) {
  if(___EXT(___garbage_collect)(___PSA(source) 0)) _Exit(74);
  ok=ok && ___GLOBALVARPRIMREF(___arg1)==___arg2;
  ___thread_set_pstate(writer);
- ___cleanup_pstate(writer);
+ /* The real owner closes the complete VM and returns its reclamation receipt.
+  * No caller-owned registry lock or separate premature PSTATE teardown. */
+ if(!___cleanup_vmstate(other)) _Exit(72);
  ___thread_set_pstate(source);
- ___MUTEX_LOCK(___GSTATE->vm_list_mut);
- ___cleanup_vmstate(other);
- ___MUTEX_UNLOCK(___GSTATE->vm_list_mut);
- ok=ok && other->glos==0 && writer->mem.rc_domain_==0;
+ ok=ok && other->lifecycle==0 && other->glos==0 && writer->mem.rc_domain_==0;
 }
 ___EXT(___bind_primitive)(source,global,___FIX(41));
 ok=ok && ___GLOBALVARPRIMREF(___arg1)==___FIX(41);
@@ -1778,6 +1777,11 @@ static ___SCMOBJ collector_test_release(void *payload)
 #endif
   if(___PROCESSOR_ID(ps,___VMSTATE_FROM_PSTATE(ps))!=owner->id)
     atomic_fetch_add(&collector_test_bad_release,1);
+  /* An affine callback belongs after this owner's whole-round root release,
+   * not inside the collector's stopped scan/sweep interval. */
+  if(ps->mem.rc_domain_->phase!=___RC_OPEN ||
+     ps->mem.rc_domain_->joined_round || ps->mem.rc_domain_->task.scan_leases)
+    atomic_fetch_add(&collector_test_bad_release,1);
   atomic_fetch_add(&collector_test_release_count[owner->id],1);
   return ___FIX(___NO_ERR);
 }
@@ -1805,6 +1809,16 @@ c-end
 ___processor_state ps=___PSTATE;
 int id=___PROCESSOR_ID(ps,___VMSTATE_FROM_PSTATE(ps));
 ___release_scmobj(collector_test_foreign[id]);collector_test_foreign[id]=___FAL;
+c-end
+))
+   (define collector-owner-settled?
+    (c-lambda () bool #<<c-end
+___processor_state ps=___PSTATE;
+int id=___PROCESSOR_ID(ps,___VMSTATE_FROM_PSTATE(ps));
+/* Query only: the runtime, not this assertion, drains the owner queue. */
+___result=atomic_load(&collector_test_release_count[id])==1 &&
+ atomic_load(&collector_test_bad_release)==0 &&
+ ps->mem.rc_domain_->phase==___RC_OPEN && !ps->mem.rc_domain_->joined_round;
 c-end
 ))
    (define collector-owners-released?
@@ -2153,6 +2167,12 @@ c-end
     (if (not (collector-on-owner i collector-owner-record!)) (error "owner resource construction failed" i)))
    (do ((i 0 (+ i 1))) ((= i 3)) (collector-on-owner i collector-owner-drop!))
    (collector-check 1)
+   ;; GC completion releases roots; it does not await arbitrary native effects.
+   ;; Existing pinned-owner jobs return receipts after each actual owner resumes.
+   ;; No polling, timeout increase or manual queue drain is used here.
+   (do ((i 0 (+ i 1))) ((= i 3))
+    (if (not (collector-on-owner i collector-owner-settled?))
+        (error "owner resumed before its deferred effect settled" i)))
    (if (not (collector-owners-released? 3)) (error "cleanup left its native owner or repeated"))
    (collector-check 2) (collector-check 3) (collector-check 1)
    (collector-map-suite)
@@ -2173,6 +2193,7 @@ c-end
      (error "single-root collector case requires one active processor"))
  (if (not (collector-owner-record!)) (error "single-owner resource construction failed"))
  (collector-owner-drop!) (collector-check 1)
+ (if (not (collector-owner-settled?)) (error "single-owner effect receipt missing"))
  (if (not (collector-owners-released? 1)) (error "single-owner cleanup failed"))
  (collector-map-suite)
  (let ((small (collector-inline-vector)))

@@ -67,7 +67,7 @@ ___virtual_machine_state ___vms;)
     }
 
   occupied_words_movable = movable;
-  occupied_words_still = still;
+  occupied_words_still = still + ___lifecycle_retained_words(___vms);
 
   latest_gc_alloc = bytes_allocated;
 

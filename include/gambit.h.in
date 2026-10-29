@@ -12181,9 +12181,7 @@ typedef struct ___virtual_machine_state_struct
 
 #endif
 
-#ifndef ___SINGLE_THREADED_VMS
-    struct ___resize_state_struct *resize_state; /* private startup transaction */
-#endif
+    struct ___vm_lifecycle_struct *lifecycle; /* VM-owned entry, launch and release custody */
   } ___virtual_machine_state_struct;
 
 #define ___PROCESSOR_ID(ps,vms) \
@@ -13521,7 +13519,7 @@ typedef struct ___global_state_struct
        ___P((___SCMOBJ ht_src,
              ___SCMOBJ ht_dst),
             ());
-    void (*___cleanup) ___PVOID;
+    ___BOOL (*___cleanup) ___PVOID;
     void (*___cleanup_and_exit_process)
        ___P((int status),
             ());
@@ -13537,14 +13535,14 @@ typedef struct ___global_state_struct
     ___SCMOBJ (*___setup_vmstate)
        ___P((___virtual_machine_state ___vms),
             ());
-    void (*___cleanup_vmstate)
+    ___BOOL (*___cleanup_vmstate)
        ___P((___virtual_machine_state ___vms),
             ());
     ___SCMOBJ (*___setup_pstate)
        ___P((___processor_state ___ps,
              ___virtual_machine_state ___vms),
             ());
-    void (*___cleanup_pstate)
+    ___BOOL (*___cleanup_pstate)
        ___P((___processor_state ___ps),
             ());
     ___SIZE_T (*___get_min_heap) ___PVOID;
@@ -15008,7 +15006,7 @@ ___IMP_FUNC(void,___setup_params_reset)
 ___IMP_FUNC(___SCMOBJ,___setup)
    ___P((___setup_params_struct *setup_params),
         ());
-___IMP_FUNC(void,___cleanup) ___PVOID;
+___IMP_FUNC(___BOOL,___cleanup) ___PVOID;
 ___IMP_FUNC(void,___cleanup_and_exit_process)
    ___P((int status),
         ());
@@ -15024,14 +15022,14 @@ ___IMP_FUNC(___BOOL,___garbage_collect)
 ___IMP_FUNC(___SCMOBJ,___setup_vmstate)
    ___P((___virtual_machine_state ___vms),
         ());
-___IMP_FUNC(void,___cleanup_vmstate)
+___IMP_FUNC(___BOOL,___cleanup_vmstate)
    ___P((___virtual_machine_state ___vms),
         ());
 ___IMP_FUNC(___SCMOBJ,___setup_pstate)
    ___P((___processor_state ___ps,
          ___virtual_machine_state ___vms),
         ());
-___IMP_FUNC(void,___cleanup_pstate)
+___IMP_FUNC(___BOOL,___cleanup_pstate)
    ___P((___processor_state ___ps),
         ());
 ___IMP_FUNC(___SIZE_T,___get_min_heap) ___PVOID;
@@ -15104,7 +15102,8 @@ ___IMP_FUNC(___SCMOBJ,___call)
          ___SCMOBJ marker),
         ());
 ___IMP_FUNC(___SCMOBJ,___run)
-   ___P((___SCMOBJ thunk),
+   ___P((___PSD
+         ___SCMOBJ thunk),
         ());
 #ifdef ___USE_UNWIND_C_STACK_TO_TRAMPOLINE
 ___IMP_FUNC(void,___unwind_c_stack_to_trampoline)

@@ -23,7 +23,7 @@ int ___restore_msections(___virtual_machine_state vm)
   return count;
 }
 
-___SCMOBJ ___reserve_resize(___processor_state ___ps, ___resize_state *r)
+___SCMOBJ ___reserve_resize(___processor_state ___ps, ___vm_lifecycle *r)
 {
   ___virtual_machine_state vm=___VMSTATE_FROM_PSTATE(___ps);
   int n=r->target-r->first, resume=___resume_msections(vm), need, i;
@@ -63,7 +63,7 @@ ___SCMOBJ ___reserve_resize(___processor_state ___ps, ___resize_state *r)
   return ___FIX(___NO_ERR);
 }
 
-void ___refund_resize(___processor_state ___ps, ___resize_state *r)
+void ___refund_resize(___processor_state ___ps, ___vm_lifecycle *r)
 {
   int i;
   nb_msections_assigned=r->saved_assigned;

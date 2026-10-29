@@ -244,9 +244,7 @@ ___SIZE_TS requested_words_still;)
   ___F64 user_time_end, sys_time_end, real_time_end;
   ___F64 user_time, sys_time, real_time;
 
-#ifndef ___SINGLE_THREADED_VMS
-  if (resize_retained(___vms)) return 1; /* VM-local refusal, not a global GC gate */
-#endif
+  if (!___lifecycle_gc_admitted(___ps)) return 1;
   ___ACTLOG_BEGIN_PS(gc,red);
 
   /* Start measuring GC statistics */
