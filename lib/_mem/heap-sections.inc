@@ -1,4 +1,4 @@
-#line 3036 ___MEM_SOURCE_FILE
+#line 3046 ___MEM_SOURCE_FILE
 /*---------------------------------------------------------------------------*/
 
 #ifdef ___DEBUG_GARBAGE_COLLECT
@@ -202,23 +202,99 @@ ___processor_state ___ps;)
 
 
 ___HIDDEN void start_heap_chunk
-   ___P((___processor_state ___ps),
-        (___ps)
-___processor_state ___ps;)
+   ___P((___collector_worker *work),
+        (work)
+___collector_worker *work;)
 {
-  alloc_heap_chunk_start = alloc_heap_ptr;
-  alloc_heap_chunk_limit = alloc_heap_ptr + ___MSECTION_CHUNK;
+  ___processor_state ___ps = work->carrier;
+  alloc_heap_chunk_start = work->arena.cursor;
+  alloc_heap_chunk_limit = work->arena.cursor + ___MSECTION_CHUNK;
 }
 
 
 #define NULL_CHUNK_LINK ___TAG(0, ___FORW)
 
+/* Chunk links occupy non-object word positions in the existing scan map.
+ * 0 private, 1 queued, 2 exclusively held, 3 drained. A local frontier owns
+ * its chunk before any copying can close it. Allocation position is never
+ * evidence of that ownership. */
+___HIDDEN int change_object_scan_state
+   ___P((___collector_worker *work, ___WORD *header, int from, int to),
+        (work, header, from, to)
+___collector_worker *work;
+___WORD *header;
+int from;
+int to;);
+
+___HIDDEN void require_chunk_transition
+   ___P((___collector_worker *work, ___WORD *start, int from, int to),
+        (work, start, from, to)
+___collector_worker *work;
+___WORD *start;
+int from;
+int to;)
+{
+  if (change_object_scan_state(work,start-1,from,to) != from)
+    {
+      static char *msgs[] = { "GC chunk authority lost", NULL };
+      ___fatal_error (msgs);
+    }
+}
+
+/* Full-barrier atomic adapters are already provided by Gambit's portable
+ * native layer. In contrast to a grant polled with a volatile load, the
+ * successful CAS itself acquires preceding queue writes. Every head/tail
+ * access is inside this gate. A failed steal has no queue observation. */
+___HIDDEN void lock_chunk_fifo
+   ___P((___collector_worker *owner), (owner)
+___collector_worker *owner;)
+{
+#ifndef ___SINGLE_THREADED_VMS
+  while (___COMPARE_AND_SWAP_WORD(&owner->chunk_gate_,0,1) != 0)
+    ___CPU_RELAX();
+#endif
+}
+
+___HIDDEN void unlock_chunk_fifo
+   ___P((___collector_worker *owner), (owner)
+___collector_worker *owner;)
+{
+#ifndef ___SINGLE_THREADED_VMS
+  ___FETCH_AND_CLEAR_WORD(&owner->chunk_gate_);
+#endif
+}
+
+___HIDDEN ___WORD *take_heap_chunk
+   ___P((___collector_worker *work, ___collector_worker *owner),
+        (work, owner)
+___collector_worker *work;
+___collector_worker *owner;)
+{
+  ___WORD *node;
+#ifndef ___SINGLE_THREADED_VMS
+  if (___COMPARE_AND_SWAP_WORD(&owner->chunk_gate_,0,1) != 0)
+    return 0;
+#endif
+  if (owner->heap_chunks_to_scan_head_ == owner->heap_chunks_to_scan_tail_)
+    {
+      unlock_chunk_fifo(owner);
+      return 0;
+    }
+  node = ___UNTAG_AS(*owner->heap_chunks_to_scan_head_, ___FORW);
+  require_chunk_transition(work,node+1,1,2);
+  owner->heap_chunks_to_scan_head_ = node;
+  work->chunks_claimed_++;
+  unlock_chunk_fifo(owner);
+  return node+1;
+}
+
 
 ___HIDDEN void end_heap_chunk
-   ___P((___processor_state ___ps),
-        (___ps)
-___processor_state ___ps;)
+   ___P((___collector_worker *work),
+        (work)
+___collector_worker *work;)
 {
+  ___processor_state ___ps = work->carrier;
   /*
    * Add the end of chunk marker.
    *
@@ -226,10 +302,9 @@ ___processor_state ___ps;)
    * currently being scanned.
    */
 
-  *alloc_heap_ptr++ = NULL_CHUNK_LINK; /* leave space for next chunk's link */
+  *work->arena.cursor++ = NULL_CHUNK_LINK; /* leave space for next chunk's link */
 
-  if (alloc_heap_ptr != alloc_heap_chunk_start &&
-      !(scan_ptr >= alloc_heap_chunk_start && scan_ptr < alloc_heap_ptr))
+  if (alloc_heap_chunk_start != work->local_scan_chunk_)
     {
       /*
        * The chunk being ended is not empty and it isn't currently
@@ -239,9 +314,10 @@ ___processor_state ___ps;)
 
       ___WORD *new_tail = alloc_heap_chunk_start-1;
 
-#ifndef ___SINGLE_THREADED_VMS
-      ___SPINLOCK_LOCK(heap_chunks_to_scan_lock);
-#endif
+      require_chunk_transition(work,alloc_heap_chunk_start,0,1);
+      work->chunks_published_++;
+
+      lock_chunk_fifo(work);
 
       *heap_chunks_to_scan_tail = ___TAG(new_tail, ___FORW);
 
@@ -266,8 +342,8 @@ ___processor_state ___ps;)
 
       ___SHARED_MEMORY_BARRIER();
 
+      unlock_chunk_fifo(work);
 #ifndef ___SINGLE_THREADED_VMS
-      ___SPINLOCK_UNLOCK(heap_chunks_to_scan_lock);
       ___CONDVAR_SIGNAL(scan_termination_condvar);
 #endif
     }
@@ -352,24 +428,68 @@ ___processor_state ___ps;)
 }
 
 
-___HIDDEN void prepare_heap_msection
-   ___P((___processor_state ___ps),
-        (___ps)
-___processor_state ___ps;)
+/* Install a VM-assigned destination interval. No context heap cursor is
+ * read or written by copying, including its slow refill path. Two terminal
+ * chunk-link words remain outside the usable copy limit. */
+___HIDDEN void prepare_worker_msection
+ (___collector_worker *work, ___msection *section,
+  ___WORD *base, ___WORD *limit)
 {
-  /*
-   * Heap chunks are non-empty, except possibly for the last chunk in
-   * the msection.  Consequently, an msection may end with 2
-   * consecutive end of chunk markers.  One for the last non-empty
-   * chunk and one for an empty chunk.  The heap allocation limit must
-   * be adjusted to handle this case.
-   */
+  work->arena.section = section;
+  work->arena.base = work->arena.cursor = base;
+  work->arena.physical_limit=limit-1;
+  work->arena.large=work->copy_request.state!=0 &&
+    work->copy_request.destination_words>(___MSECTION_SIZE>>1)-___MSECTION_FUDGE-3;
+  work->arena.limit=limit-2-(work->arena.large?0:___MSECTION_FUDGE);
+  work->arena.pending = work->arena.pending_past = 0;
+  *work->arena.cursor++ = NULL_CHUNK_LINK;
+  start_heap_chunk(work);
+}
 
-  alloc_heap_limit -= 2; /* leave space for 2 end of chunk markers */
+/* The VM allocator serializes section ownership. Exhaustion may consume the
+ * worker's pre-issued restoration-space loan once, never an implicit current
+ * PSTATE stack/heap fallback. The stack footprint was reserved before flip. */
+___HIDDEN void refill_worker_arena (___collector_worker *work)
+{
+  ___processor_state ___ps = work->carrier;
+  ___msection *ms;
+  ___WORD *base, *limit;
+  ___gc_resume_space *r = work->reserve;
+  if (work->arena.pending || work->arena.handed_off)
+    fatal_heap_overflow();
+  work->arena.retired_words += work->arena.cursor-work->arena.base;
+  ALLOC_MEM_LOCK();
+  ms=alloc_msection->next;
+  if(___COLLECTION(work->vm).decision!=1 ||
+     ___COLLECTION(work->vm).issued_copy_sections>=___COLLECTION(work->vm).planned_copy_sections ||
+     ms==___COLLECTION(work->vm).copy_past || ms==0) {
+    ALLOC_MEM_UNLOCK();rc_contract_error("Admitted copy layout exhausted: census/packing refinement violation");return;
+  }
+  alloc_msection=ms;nb_msections_assigned++;
+  ++___COLLECTION(work->vm).issued_copy_sections;
+  ALLOC_MEM_UNLOCK();
+  if (ms != 0)
+    {
+      base = ms->base + ___COLLECTION(work->vm).destination_offset;
+      limit = base + (___MSECTION_SIZE>>1);
+    }
+  else
+    {
+      rc_contract_error("Copying cannot borrow a context restoration interval");return;
+    }
+  work->arena.refills++;
+  prepare_worker_msection(work,ms,base,limit);
+}
 
-  *alloc_heap_ptr++ = NULL_CHUNK_LINK; /* link of msection's first chunk */
 
-  start_heap_chunk (___ps);
+/* Private partition policy, shared by pre-flip admission and actual grants. */
+___HIDDEN ___SIZE_TS restore_loan_words (___SIZE_TS length)
+{
+  ___SIZE_TS space = ___MSECTION_SIZE>>1;
+  ___SIZE_TS loan = 3*((space-2*___MSECTION_FUDGE)>>2)+___MSECTION_FUDGE;
+  if (loan > space-length-___MSECTION_FUDGE)
+    loan = space-length-___MSECTION_FUDGE;
+  return loan;
 }
 
 
@@ -382,47 +502,115 @@ ___virtual_machine_state ___vms;)
 #define ___VMSTATE_MEM(var) ___vms->mem.var
 
   ___msection *alloc = the_msections->head;
-  int np = ___vms->processor_count;
+  int np = ___COLLECTION(___vms).participant_count;
+  int nw=___COLLECTION(___vms).worker_count;
   int i;
-
+  /* All source and restoration admission precedes the first space flip. The
+   * next planner must supply the complete copy envelope, not local headroom. */
+  if(___COLLECTION(___vms).decision!=1 ||
+     ___COLLECTION(___vms).census.state!=___GC_PLAN_ACCEPTED ||
+     np<1 || nw<1 || nw>np || np+___COLLECTION(___vms).planned_copy_sections>the_msections->nb_sections)
+    rc_contract_error("Physical setup requires the all-participant accepted plan");
+  ___COLLECTION(___vms).destination_offset=(___MSECTION_SIZE>>1)-
+    ___PSTATE_FROM_PROCESSOR_ID(0,___vms)->mem.tospace_offset_;
+  for(i=0;i<np;i++) {
+    ___processor_state owner=___PSTATE_FROM_PROCESSOR_ID(i,___vms);
+    ___SIZE_TS length=owner->context->stack_break+___FIRST_BREAK_FRAME_SPACE-owner->context->fp;
+    if(length<0 || length>(___MSECTION_SIZE>>1)-___MSECTION_FUDGE ||
+       owner->mem.tospace_offset_==___COLLECTION(___vms).destination_offset ||
+       (i>=nw && restore_loan_words(length)<___MSECTION_FUDGE+2)) fatal_heap_overflow();
+  }
+  { ___msection *section=the_msections->head;
+    while(section) { section->copy_gate=0;
+      memset(section->base+___MSECTION_SIZE,0,___msection_scan_words(___MSECTION_SIZE)*___WS);
+      section=section->next; } }
+  /* Context restoration and worker destinations are separate physical grants.
+   * RC/still chains and other root-domain state stay in the existing context. */
   for (i=0; i<np; i++)
     {
       ___processor_state ___ps = ___PSTATE_FROM_PROCESSOR_ID(i,___vms);
-
-      tospace_offset = fromspace_offset;  /* Flip fromspace and tospace */
-
+      ___gc_resume_space *r = &___RESUME(___vms,i);
+      ___SIZE_TS length = (___ps->context->stack_break +
+                          ___FIRST_BREAK_FRAME_SPACE) - ___ps->context->fp;
+      ___SIZE_TS loan;
+      if(r->stack_section!=alloc || r->context!=___ps->context || r->epoch!=___COLLECTION(___vms).epoch)
+        rc_contract_error("Restoration grant changed after preflight");
+      tospace_offset = ___COLLECTION(___vms).destination_offset;
       msection_free_list = 0;
-
       words_prev_msections = 0;
-
-      stack_msection = 0;
       heap_msection = 0;
-
-      set_stack_msection (___ps, alloc);
+      set_stack_msection(___ps,alloc);
+      r->context = ___ps->context;
+      r->owner = ___ps;
+      r->epoch = ___COLLECTION(___vms).epoch;
+      r->stack_section = alloc;
+      r->loan_base = alloc_stack_limit;
+      /* Keep the old 3/4 fallback ceiling, capped by the actual restoration
+       * footprint plus stack fudge. This does not enlarge the copy grant. */
+      loan = restore_loan_words(length);
+      r->loan_limit = r->loan_base+loan;
+      r->stack_floor = alloc_stack_limit;
+      r->loan_used = r->accepted = r->restored = 0;
+      r->source_worker = i<nw ? i : -1;
       alloc = alloc->next;
+    }
 
+  for (i=0; i<nw; i++)
+    {
+      ___collector_worker *work = &___COLLECTORS(___vms)[i];
+      ___processor_state ___ps = work->carrier;
+
+      work->census=0;
+      work->destination_revisits=0;
+      work->copied_words = 0;
+      work->copied_source_words = 0;
+      work->copy_request.state = 0; /* preceding round physically drained */
+      work->duplicate_scans = 0;
+      work->copy_begin_ = 0;
+      work->copy_past_ = 0;
+      work->tail_cell_ = 0;
+      work->copy_reserved_words_ = 0;
+      work->copy_padding_words_ = 0;
+      work->tail_started_ = 0;
+      work->tail_completed_ = 0;
+      work->frame_accesses_ = 0;
+      work->frame_links_ = 0;
+      work->local_scan_chunk_ = 0;
+      work->active_scan_chunk_ = 0;
+      work->active_scan_object_ = 0;
+      work->scan_origin_ = 0;
+      work->chunks_published_ = 0;
+      work->chunks_claimed_ = 0;
+      work->chunks_completed_ = 0;
+      work->reserve = &___RESUME(___vms,
+        ___PROCESSOR_ID(___ps,___vms));
+      work->arena.epoch = ___COLLECTION(___vms).epoch;
+      work->arena.retired_words = work->arena.refills = 0;
+      work->arena.handed_off = 0;
+      prepare_worker_msection(work,alloc,
+        alloc->base+___COLLECTION(___vms).destination_offset,
+        alloc->base+___COLLECTION(___vms).destination_offset+(___MSECTION_SIZE>>1));
       alloc_msection = alloc;
-
-      set_heap_msection (___ps, alloc);
       alloc = alloc->next;
-
-      prepare_heap_msection (___ps);
       scan_ptr = alloc_heap_chunk_start;
+      require_chunk_transition(work,alloc_heap_chunk_start,0,2);
+      work->local_scan_chunk_ = alloc_heap_chunk_start;
 
       heap_chunks_to_scan = NULL_CHUNK_LINK;
       heap_chunks_to_scan_head = &heap_chunks_to_scan;
       heap_chunks_to_scan_tail = &heap_chunks_to_scan;
+      still_objs_to_scan = 0;
     }
 
-  nb_msections_assigned = np*2;
+  nb_msections_assigned = np+nw;
   nb_msections_stacks   = np;
 
 #ifndef ___SINGLE_THREADED_VMS
 
   /* Initialize the active scanning workers count */
 
-  scan_workers_count[0] = np;
-  scan_workers_count[1] = np;
+  scan_workers_count[0] = nw;
+  scan_workers_count[1] = nw;
 
 #endif
 
@@ -432,3 +620,10 @@ ___virtual_machine_state ___vms;)
 
 
 /* End internal memory fragment. */
+
+___HIDDEN void prepare_heap_msection(___processor_state ps)
+{
+  *ps->mem.alloc_heap_ptr_++=NULL_CHUNK_LINK;
+  ps->mem.alloc_heap_chunk_start_=ps->mem.alloc_heap_ptr_;
+  ps->mem.alloc_heap_chunk_limit_=ps->mem.alloc_heap_ptr_+___MSECTION_CHUNK;
+}

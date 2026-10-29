@@ -1,13 +1,16 @@
-#line 3667 ___MEM_SOURCE_FILE
-___HIDDEN void mark_captured_continuation
-   ___P((___PSD
+#line 4085 ___MEM_SOURCE_FILE
+/* Caller owns frame access across the initial read, source-frame forwarding,
+ * root repairs and every destination-link update. No collector waits for
+ * frame access while still holding a FIFO gate. */
+___HIDDEN void mark_captured_continuation_locked
+   ___P((___collector_worker *work,
          ___WORD *orig_ptr),
-        (___PSV
+        (work,
          orig_ptr)
-___PSDKR
+___collector_worker *work;
 ___WORD *orig_ptr;)
 {
-  ___PSGET
+  ___processor_state ___ps = work->carrier;
   ___WORD *ptr = orig_ptr;
   int fs, link, i;
   ___WORD *fp;
@@ -25,10 +28,7 @@ ___WORD *orig_ptr;)
     {
       /* continuation frame is in the stack */
 
-      ___WORD *alloc = alloc_heap_ptr;
-      ___WORD *limit = alloc_heap_limit;
-
-      MISC_MEM_LOCK();
+      ___WORD *alloc = work->arena.cursor;
 
       next_frame:
 
@@ -52,6 +52,12 @@ ___WORD *orig_ptr;)
           ___COVER_MARK_CAPTURED_CONTINUATION_RETN;
         }
 
+      if (fs <= 0 || link < 0 || link >= fs)
+        {
+          static char *msgs[] = { "GC invalid captured frame coordinates", NULL };
+          ___fatal_error(msgs);
+        }
+
 #ifdef SHOW_FRAMES
         ___printf ("fs=%d link=%d fp=%p ra=", fs, link, fp);
         print_value (ra1);
@@ -66,28 +72,32 @@ ___WORD *orig_ptr;)
         {
           ___COVER_MARK_CAPTURED_CONTINUATION_ALREADY_COPIED;
           *ptr = ra2; /* already copied, replace by forwarding pointer */
+          work->frame_links_++;
         }
       else
         {
           ___WORD forw;
+          ___WORD *copy_header;
           ___SIZE_TS words;
+          ___copy_reservation grant;
 
           ___COVER_MARK_CAPTURED_CONTINUATION_COPY;
 
           words = fs + ___FRAME_EXTRA_SLOTS;
 
-          while (alloc + words + ___SUBTYPED_BODY > limit)
-            {
-              alloc_heap_ptr = alloc;
-              end_heap_chunk (___ps);
-              next_heap_msection (___ps);
-              prepare_heap_msection (___ps);
-              alloc = alloc_heap_ptr;
-              limit = alloc_heap_limit;
-            }
+          {
+            ___WORD *source = fp-___FRAME_SPACE(fs);
+            ___msection *section =
+              require_fromspace_copy_source(work,ptr,source+1);
+            prepare_copy_request(work,section,source,___FRAME_SPACE(fs),
+                                 words,0,1);
+          }
+          grant = reserve_copy(work,alloc,words,0);
+          alloc = grant.header;
 
           /*TODO: add allocation of handle if using handles*/
 
+          copy_header = alloc;
           *alloc++ = ___MAKE_HD_WORDS(words, ___sFRAME);
 #if ___SUBTYPED_BODY != 1
           #error "___SUBTYPED_BODY != 1"
@@ -123,15 +133,20 @@ ___WORD *orig_ptr;)
           ___FP_SET_STK(fp,link+1,forw) /* leave a forwarding pointer */
 
           *ptr = forw;
+          work->frame_links_++;
+
+          publish_object_scan (work, copy_header);
+          work->copied_words += words+___SUBTYPED_BODY;
+          commit_copy(work,&grant);
 
           ptr = &___FP_STK(alloc,link+1);
 
-          if (alloc_heap_ptr >= alloc_heap_chunk_limit)
+          if (alloc >= alloc_heap_chunk_limit)
             {
-              alloc_heap_ptr = alloc;
-              end_heap_chunk (___ps);
-              start_heap_chunk (___ps);
-              alloc = alloc_heap_ptr;
+              work->arena.cursor = alloc;
+              end_heap_chunk (work);
+              start_heap_chunk (work);
+              alloc = work->arena.cursor;
             }
 
           if (___FIXNUMP(cf) && cf != ___END_OF_CONT_MARKER)
@@ -140,27 +155,37 @@ ___WORD *orig_ptr;)
 
       *orig_ptr = ___TAG(___UNTAG_AS(*orig_ptr, ___tFIXNUM), ___tSUBTYPED);
 
-      alloc_heap_ptr = alloc;
+      work->arena.cursor = alloc;
 
-      MISC_MEM_UNLOCK();
     }
   else
-    mark_array (___PSP orig_ptr, 1);
+    mark_array (work, orig_ptr, 1);
+}
+
+___HIDDEN void mark_captured_continuation
+   ___P((___collector_worker *work, ___WORD *orig_ptr), (work, orig_ptr)
+___collector_worker *work;
+___WORD *orig_ptr;)
+{
+  if(work->census!=0) { census_capture(work,orig_ptr);return; }
+  acquire_frame_access(work);
+  mark_captured_continuation_locked(work,orig_ptr);
+  release_frame_access(work);
 }
 
 
 ___HIDDEN void mark_frame
-   ___P((___PSD
+   ___P((___collector_worker *work,
          ___WORD *fp,
          const ___frame_descriptor *frame),
-        (___PSV
+        (work,
          fp,
          frame)
-___PSDKR
+___collector_worker *work;
 ___WORD *fp;
 const ___frame_descriptor *frame;)
 {
-  ___frame_root_cursor cursor = ___frame_root_begin (frame);
+  ___frame_root_cursor cursor = ___frame_ordinary_root_begin (frame);
   int first, past;
 
   while (___frame_root_next_run (&cursor, &first, &past))
@@ -176,32 +201,35 @@ const ___frame_descriptor *frame;)
           k++;
         }
 #endif
-      mark_array (___PSP &___FP_STK(fp,past-1), past-first);
+      mark_array (work, &___FP_STK(fp,past-1), past-first);
     }
 }
 
 
 ___HIDDEN void mark_continuation
-   ___P((___PSD ___WORD *fp, ___WORD *stack_break),
-        (___PSV fp, stack_break)
-___PSDKR
-___WORD *fp;
-___WORD *stack_break;)
+   ___P((___collector_worker *work, ___execution_context *context),
+        (work, context)
+___collector_worker *work;
+___execution_context *context;)
 {
-  ___PSGET
+  ___processor_state ___ps = work->carrier;
   ___frame_descriptor descriptor;
+  ___WORD *fp;
   ___WORD ra1;
   ___WORD ra2;
 
+  acquire_frame_access(work);
 #ifdef ENABLE_CONSISTENCY_CHECKS
   reference_location = IN_CONTINUATION;
 #endif
+
+  fp = context->fp;
 
 #ifdef SHOW_FRAMES
   ___printf ("mark_continuation fp=%p\n", fp);
 #endif
 
-  if (fp != stack_break)
+  if (fp != context->stack_break)
     for (;;)
       {
         ra1 = ___FP_STK(fp,-___FRAME_STACK_RA);
@@ -233,24 +261,25 @@ ___WORD *stack_break;)
         ra2 = ___FP_STK(fp,descriptor.link+1);
 
 #ifdef SHOW_FRAMES
-        if (fp == stack_break)
+        if (fp == context->stack_break)
           ___printf ("  (first frame above break frame)\n");
 #endif
 
-        mark_frame (___PSP fp, &descriptor);
+        mark_frame (work, fp, &descriptor);
 
-        if (fp == stack_break)
+        if (fp == context->stack_break)
           break;
 
         ___FP_SET_STK(fp,-___FRAME_STACK_RA,ra2)
       }
 
-  mark_captured_continuation (___PSP &___FP_STK(fp,-___BREAK_FRAME_NEXT));
+  mark_captured_continuation_locked (work, &___FP_STK(fp,-___BREAK_FRAME_NEXT));
+  release_frame_access(work);
 }
 
 
-/* Preserve the original active-frame/captured-tail algorithm. Source and
- * frame storage are held by the enclosing stopped GC invocation. */
+/* End internal memory fragment. */
+
 ___BOOL ___root_task_scan_stack(___root_task *task, ___processor_state executor,
                                ___UWORD epoch)
 {
@@ -261,7 +290,12 @@ ___BOOL ___root_task_scan_stack(___root_task *task, ___processor_state executor,
       task->state != ___ROOT_CLAIMED || task->scan_leases != 1) return 0;
   source=task->origin.source.stack;
   task->state=___ROOT_SCANNING;
-  mark_continuation (___PSP source->fp,source->stack_break);
+  if(___ps->collector==0 && source->fp==source->stack_break &&
+     ___FP_STK(source->stack_break,-___BREAK_FRAME_NEXT)==___END_OF_CONT_MARKER) {
+    task->state=___ROOT_SCANNED;return 1;
+  }
+  if(___ps->collector==0) rc_contract_error("Active frame scan requires a collector worker");
+  mark_continuation (___ps->collector, source);
   task->state=___ROOT_SCANNED;
   return 1;
 }

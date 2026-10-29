@@ -216,6 +216,7 @@ int n;)
               s->index = tl->index + 1;
             }
 
+          s->copy_gate=0;
           s->pos = i;
           s->prev = tl;
           s->next = 0;

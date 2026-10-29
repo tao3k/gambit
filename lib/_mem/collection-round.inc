@@ -1,17 +1,17 @@
 #line 6614 ___MEM_SOURCE_FILE
 ___HIDDEN void mark_reachable_from_marked
-   ___P((___PSDNC),
-        (___PSVNC)
-___PSDKR)
+   ___P((___collector_worker *work),
+        (work)
+___collector_worker *work;)
 {
-  ___PSGET
+  ___processor_state ___ps = work->carrier;
 
 #ifndef ___SINGLE_THREADED_VMS
 
-  ___virtual_machine_state ___vms = ___VMSTATE_FROM_PSTATE(___ps);
+  ___virtual_machine_state ___vms = work->vm;
   ___VOLATILE ___WORD *workers_count = &scan_workers_count[traverse_weak_refs];
-  int np = ___vms->processor_count;
-  int id = ___PROCESSOR_ID(___ps,___vms); /* id of this processor */
+  int np = ___COLLECTION(___vms).worker_count;
+  int id = work->id; /* id of this processor */
   int i;
 
  continue_local_scan:
@@ -20,8 +20,8 @@ ___PSDKR)
 
   do
     {
-      scan_still_objs_to_scan (___PSPNC);
-      scan_movable_objs_to_scan (___PSPNC);
+      scan_still_objs_to_scan (work);
+      scan_movable_objs_to_scan (work);
     } while (___CAST(___WORD*,still_objs_to_scan) != 0);
 
 #ifndef ___SINGLE_THREADED_VMS
@@ -34,37 +34,13 @@ ___PSDKR)
 
       for (i = (np-1) * ___GC_SCAN_STEAL_WORK_CYCLES - 1; i>=0; i--)
         {
-          ___processor_state ps = ___PSTATE_FROM_PROCESSOR_ID((i + i%(np-1) + 1) % np,___vms);
-          ___VOLATILE ___WORD *hcsh;
+          ___collector_worker *victim = &___COLLECTORS(___vms)[(id + 1 + i%(np-1)) % np];
+          ___WORD *ptr = take_heap_chunk(work,victim);
 
-          if (ps->mem.heap_chunks_to_scan_head_ !=
-              ps->mem.heap_chunks_to_scan_tail_)
+          if (ptr != 0)
             {
-              /* only try stealing when chunk FIFO is non-empty */
-
-              ___SPINLOCK_LOCK(ps->mem.heap_chunks_to_scan_lock_);
-
-              if ((hcsh=ps->mem.heap_chunks_to_scan_head_) !=
-                  ps->mem.heap_chunks_to_scan_tail_)
-                {
-                  /* chunk FIFO is really non-empty */
-
-                  ___WORD *ptr = ___UNTAG_AS(*hcsh, ___FORW);
-
-                  ps->mem.heap_chunks_to_scan_head_ = ptr;
-
-                  ___SHARED_MEMORY_BARRIER(); /* share heap_chunks_to_scan_head */
-
-                  ___SPINLOCK_UNLOCK(ps->mem.heap_chunks_to_scan_lock_);
-
-                  scan_complete_heap_chunk (___PSP ptr+1);
-
-                  goto continue_local_scan;
-                }
-              else
-                {
-                  ___SPINLOCK_UNLOCK(ps->mem.heap_chunks_to_scan_lock_);
-                }
+              scan_complete_heap_chunk (work, ptr, 3);
+              goto continue_local_scan;
             }
         }
 
@@ -108,11 +84,11 @@ ___PSDKR)
 
 
 ___HIDDEN void garbage_collect_setup_phase
-   ___P((___PSDNC),
-        (___PSVNC)
-___PSDKR)
+   ___P((___collector_worker *work),
+        (work)
+___collector_worker *work;)
 {
-  ___PSGET
+  ___processor_state ___ps=work->carrier;
   ___virtual_machine_state ___vms = ___VMSTATE_FROM_PSTATE(___ps);
 
 #ifdef ENABLE_GC_ACTLOG_PHASES
@@ -122,23 +98,16 @@ ___PSDKR)
 #ifdef ENABLE_GC_TRACE_PHASES
   if (___PROCESSOR_ID(___ps,___vms) == 0)
     ___printf ("garbage_collect_setup_phase\n");
-  BARRIER();
+  /* Physical phase collectives remain in the all-R caller. */
 #endif
 
-  /* Assign initial stack and heap msections to each processor */
-
-  if (___PROCESSOR_ID(___ps,___vms) == 0)
-    setup_stack_heap_vmstate (___vms);
-
-  /* Create list of externally referenced still objects to trace */
-
-  setup_still_objs_to_scan (___PSPNC);
-
-  /* Account for deferred accounting of still object allocation */
-
-  words_still_objs += words_still_objs_deferred;
-  words_still_objs_deferred = 0;
-
+  /* Physical grants have already been installed and published to all R. */
+  { int i; for(i=work->id;i<___COLLECTION(___vms).participant_count;i+=___COLLECTION(___vms).worker_count) {
+      ___processor_state source=___PSTATE_FROM_PROCESSOR_ID(i,___vms);
+      setup_still_objs_to_scan(work,source);
+      source->mem.words_still_objs_+=source->mem.words_still_objs_deferred_;
+      source->mem.words_still_objs_deferred_=0;
+  } }
 #ifdef ENABLE_GC_ACTLOG_PHASES
   ___ACTLOG_END_PS();
 #endif
@@ -146,12 +115,12 @@ ___PSDKR)
 
 
 ___HIDDEN void garbage_collect_mark_strong_phase
-   ___P((___PSD ___UWORD rc_epoch),
-        (___PSV rc_epoch)
-___PSDKR
+   ___P((___collector_worker *work, ___UWORD rc_epoch),
+        (work,rc_epoch)
+___collector_worker *work;
 ___UWORD rc_epoch;)
 {
-  ___PSGET
+  ___processor_state ___ps=work->carrier;
   ___virtual_machine_state ___vms = ___VMSTATE_FROM_PSTATE(___ps);
 
 #ifdef ENABLE_GC_ACTLOG_PHASES
@@ -161,7 +130,7 @@ ___UWORD rc_epoch;)
 #ifdef ENABLE_GC_TRACE_PHASES
   if (___PROCESSOR_ID(___ps,___vms) == 0)
     ___printf ("garbage_collect_mark_strong_phase\n");
-  BARRIER();
+  /* Physical phase collectives remain in the all-R caller. */
 #endif
 
 #ifdef ENABLE_CONSISTENCY_CHECKS
@@ -183,7 +152,7 @@ ___UWORD rc_epoch;)
   if (!___root_round_scan(___ps,rc_epoch))
     rc_contract_error("Frozen root union did not complete");
 
-  mark_reachable_from_marked (___PSPNC);
+  mark_reachable_from_marked (work);
 
 #ifdef ENABLE_GC_ACTLOG_PHASES
   ___ACTLOG_END_PS();
@@ -192,11 +161,11 @@ ___UWORD rc_epoch;)
 
 
 ___HIDDEN void garbage_collect_mark_weak_phase
-   ___P((___PSDNC),
-        (___PSVNC)
-___PSDKR)
+   ___P((___collector_worker *work),
+        (work)
+___collector_worker *work;)
 {
-  ___PSGET
+  ___processor_state ___ps=work->carrier;
   ___virtual_machine_state ___vms = ___VMSTATE_FROM_PSTATE(___ps);
 
   /*
@@ -212,16 +181,17 @@ ___PSDKR)
 #ifdef ENABLE_GC_TRACE_PHASES
   if (___PROCESSOR_ID(___ps,___vms) == 0)
     ___printf ("garbage_collect_mark_weak_phase\n");
-  BARRIER();
+  /* Physical phase collectives remain in the all-R caller. */
 #endif
 
   traverse_weak_refs = 1; /* traverse weak references in this phase */
 
-  process_wills (___PSPNC);
+  { int i; for(i=work->id;i<___COLLECTION(___vms).participant_count;i+=___COLLECTION(___vms).worker_count)
+      process_wills(work,___PSTATE_FROM_PROCESSOR_ID(i,___vms)); }
 
-  mark_reachable_from_marked (___PSPNC);
+  mark_reachable_from_marked (work);
 
-  move_continuation (___PSPNC);
+
 
 #ifdef ENABLE_GC_ACTLOG_PHASES
   ___ACTLOG_END_PS();
@@ -230,11 +200,11 @@ ___PSDKR)
 
 
 ___HIDDEN void garbage_collect_cleanup_phase
-   ___P((___PSDNC),
-        (___PSVNC)
-___PSDKR)
+   ___P((___collector_worker *work),
+        (work)
+___collector_worker *work;)
 {
-  ___PSGET
+  ___processor_state ___ps=work->carrier;
   ___virtual_machine_state ___vms = ___VMSTATE_FROM_PSTATE(___ps);
 
 #ifdef ENABLE_GC_ACTLOG_PHASES
@@ -244,12 +214,12 @@ ___PSDKR)
 #ifdef ENABLE_GC_TRACE_PHASES
   if (___PROCESSOR_ID(___ps,___vms) == 0)
     ___printf ("garbage_collect_cleanup_phase\n");
-  BARRIER();
+  /* Physical phase collectives remain in the all-R caller. */
 #endif
 
-  process_gc_hash_tables (___PSPNC);
+  process_gc_hash_tables (work);
 
-  free_unmarked_still_objs (___PSPNC);
+
 
 #ifdef ENABLE_GC_ACTLOG_PHASES
   ___ACTLOG_END_PS();
@@ -268,6 +238,8 @@ ___SIZE_TS requested_words_still;)
   ___virtual_machine_state ___vms = ___VMSTATE_FROM_PSTATE(___ps);
   ___BOOL overflow = 0;
   ___UWORD rc_epoch;
+  ___collector_worker *work;
+  int worker_id,active_worker;
   ___F64 user_time_start, sys_time_start, real_time_start;
   ___F64 user_time_end, sys_time_end, real_time_end;
   ___F64 user_time, sys_time, real_time;
@@ -337,16 +309,33 @@ ___SIZE_TS requested_words_still;)
   if (___PROCESSOR_ID(___ps,___vms)==0 && !___root_round_publish(___ps))
     rc_contract_error("Frozen root union publication refused");
 
-  /* Setup the stacks and heaps of all the processors */
-
-  garbage_collect_setup_phase (___PSPNC);
-
+  BARRIER(); /* publishes the one RootTask/worker assignment */
+  if(___PROCESSOR_ID(___ps,___vms)==0)
+    ___COLLECTION(___vms).decision=plan_copy_round(___ps);
+  BARRIER(); /* acquire the one decision; no parity changed */
+  ___COLLECTION(___vms).observed[___PROCESSOR_ID(___ps,___vms)]=1;
+  BARRIER(); /* all R observed acceptance/refusal/retention */
+  if(___COLLECTION(___vms).decision!=1) {
+    if(___COLLECTION(___vms).decision==3)
+      rc_contract_error("Unknown planning result retains frozen roots and native buffers");
+    if(___PROCESSOR_ID(___ps,___vms)==0 && !___root_round_refuse(___ps))
+      rc_contract_error("Known refusal cannot retire an already started root task");
+    BARRIER();
+    bytes_allocated_minus_occupied-=bytes_occupied(___ps);
+    ___ACTLOG_END_PS();return 1;
+  }
+  if(___PROCESSOR_ID(___ps,___vms)==0) setup_stack_heap_vmstate(___vms);
   BARRIER();
-
+  worker_id=___PROCESSOR_ID(___ps,___vms);
+  active_worker=worker_id<___COLLECTION(___vms).worker_count;
+  work=&___COLLECTORS(___vms)[worker_id];
+  ___ps->collector=active_worker?work:0;
+  if(active_worker) garbage_collect_setup_phase(work);
+  BARRIER();
 
   /* Mark the objects that are reachable strongly */
 
-  garbage_collect_mark_strong_phase (___PSP rc_epoch);
+  if(active_worker) garbage_collect_mark_strong_phase(work,rc_epoch);
 
   BARRIER();
 
@@ -357,14 +346,46 @@ ___SIZE_TS requested_words_still;)
 
   /* Mark the objects that are reachable weakly */
 
-  garbage_collect_mark_weak_phase (___PSPNC);
+  if(active_worker) garbage_collect_mark_weak_phase(work);
 
   BARRIER();
 
 
+  /* Weak descendants have drained on all W; each physical owner receives
+   * either one exclusive worker tail or its own disjoint empty resume span. */
+  if(active_worker) {
+    /* A final large-object section has no execution fudge. A counted fresh
+     * small grant restores that reserve before physical owner handoff. */
+    if(work->arena.large) {
+      if(work->local_scan_chunk_!=work->alloc_heap_chunk_start_ ||
+         work->scan_ptr_!=work->arena.cursor)
+        rc_contract_error("Large tail handoff retains unfinished local scan work");
+      *work->arena.cursor++=NULL_CHUNK_LINK;
+      require_chunk_transition(work,work->local_scan_chunk_,2,3);
+      work->chunks_completed_++;work->local_scan_chunk_=0;
+      refill_worker_arena(work);
+      require_chunk_transition(work,work->alloc_heap_chunk_start_,0,2);
+      work->local_scan_chunk_=work->alloc_heap_chunk_start_;
+      work->scan_ptr_=work->arena.cursor;
+    }
+    if(work->local_scan_chunk_!=work->alloc_heap_chunk_start_ ||
+       work->scan_ptr_!=work->arena.cursor || work->heap_chunks_to_scan_head_!=work->heap_chunks_to_scan_tail_)
+      rc_contract_error("Restoration cannot retire unfinished scan transport");
+    require_chunk_transition(work,work->local_scan_chunk_,2,3);
+    work->chunks_completed_++;work->local_scan_chunk_=0;
+    if(!___gc_arena_handoff(&work->arena,&___RESUME(___vms,worker_id),rc_epoch))
+      rc_contract_error("Collector tail handoff lacks drained ownership");
+  } else if(!___gc_resume_without_arena(&___RESUME(___vms,worker_id),rc_epoch))
+    rc_contract_error("Context restoration lacks its physical grant");
+  move_continuation(___PSPNC);
+  ___RESUME(___vms,worker_id).restored=1;
+  BARRIER();
   /* Process gc hash tables and free unreachable still objects */
 
-  garbage_collect_cleanup_phase (___PSPNC);
+  if(active_worker) garbage_collect_cleanup_phase(work);
+  free_unmarked_still_objs(___PSPNC);
+  BARRIER();
+  ___ps->collector=0;
 
   BARRIER();
 
@@ -372,10 +393,12 @@ ___SIZE_TS requested_words_still;)
   /* Resize heap */
 
   if (___PROCESSOR_ID(___ps,___vms) == 0)
-    overflow = resize_heap (___vms, requested_words_still);
+    ___COLLECTION(___vms).overflow = resize_heap (___vms, requested_words_still);
 
   BARRIER();
 
+
+  overflow=___COLLECTION(___vms).overflow;
 
   /* Guarantee heap fudge */
 

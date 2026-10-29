@@ -168,9 +168,10 @@ ___processor_state ___ps;)
   tospace_offset = ___PSTATE_FROM_PROCESSOR_ID(0,___vms)->mem.tospace_offset_;
 
 #ifndef ___SINGLE_THREADED_VMS
-  ___SPINLOCK_INIT(heap_chunks_to_scan_lock);
+  /* Collector FIFO gates belong to VM-owned workers, not PSTATE. */
 #endif
 
+  ___ps->collector=0;
   if (!setup_rc (___ps))
     { ___cleanup_actlog_pstate(___ps); return ___FIX(___HEAP_OVERFLOW_ERR); }
 

@@ -265,34 +265,34 @@
 #define alloc_heap_start        ___PSTATE_MEM(alloc_heap_start_)
 #define alloc_heap_ptr          ___PSTATE_MEM(alloc_heap_ptr_)
 #define alloc_heap_limit        ___PSTATE_MEM(alloc_heap_limit_)
-#define alloc_heap_chunk_start  ___PSTATE_MEM(alloc_heap_chunk_start_)
-#define alloc_heap_chunk_limit  ___PSTATE_MEM(alloc_heap_chunk_limit_)
+#define alloc_heap_chunk_start  work->alloc_heap_chunk_start_
+#define alloc_heap_chunk_limit  work->alloc_heap_chunk_limit_
 
 #ifndef ___SINGLE_THREADED_VMS
-#define heap_chunks_to_scan_lock ___PSTATE_MEM(heap_chunks_to_scan_lock_)
+#define heap_chunks_to_scan_lock work->chunk_gate_
 #endif
 
-#define heap_chunks_to_scan     ___PSTATE_MEM(heap_chunks_to_scan_)
-#define heap_chunks_to_scan_head ___PSTATE_MEM(heap_chunks_to_scan_head_)
-#define heap_chunks_to_scan_tail ___PSTATE_MEM(heap_chunks_to_scan_tail_)
-#define scan_ptr                ___PSTATE_MEM(scan_ptr_)
-#define still_objs_to_scan      ___PSTATE_MEM(still_objs_to_scan_)
+#define heap_chunks_to_scan     work->heap_chunks_to_scan_
+#define heap_chunks_to_scan_head work->heap_chunks_to_scan_head_
+#define heap_chunks_to_scan_tail work->heap_chunks_to_scan_tail_
+#define scan_ptr                work->scan_ptr_
+#define still_objs_to_scan      work->still_objs_to_scan_
 #define still_objs              ___PSTATE_MEM(still_objs_)
 #define words_still_objs        ___PSTATE_MEM(words_still_objs_)
 #define words_still_objs_deferred ___PSTATE_MEM(words_still_objs_deferred_)
 #define bytes_allocated_minus_occupied ___PSTATE_MEM(bytes_allocated_minus_occupied_)
-#define traverse_weak_refs      ___PSTATE_MEM(traverse_weak_refs_)
+#define traverse_weak_refs      work->traverse_weak_refs_
 #define nonexecutable_wills     ___PSTATE_MEM(nonexecutable_wills_)
 #define executable_wills        ___PSTATE_MEM(executable_wills_)
-#define reached_gc_hash_tables  ___PSTATE_MEM(reached_gc_hash_tables_)
+#define reached_gc_hash_tables  work->reached_gc_hash_tables_
 #define words_prev_msections    ___PSTATE_MEM(words_prev_msections_)
 #define stack_fudge_used        ___PSTATE_MEM(stack_fudge_used_)
 #define heap_fudge_used         ___PSTATE_MEM(heap_fudge_used_)
 
 #ifdef ___DEBUG_GARBAGE_COLLECT
-#define reference_location      ___PSTATE_MEM(reference_location_)
-#define container_body          ___PSTATE_MEM(container_body_)
-#define mark_array_call_line    ___PSTATE_MEM(mark_array_call_line_)
+#define reference_location      work->reference_location_
+#define container_body          work->container_body_
+#define mark_array_call_line    work->mark_array_call_line_
 #endif
 
 #define heap_size               ___VMSTATE_MEM(heap_size_)
@@ -513,3 +513,9 @@
 
 
 /* End internal memory fragment. */
+
+/* Read-only census adapters. All mutators and root writers are frozen. */
+___HIDDEN void census_array(___collector_worker*,___WORD*,___WORD);
+___HIDDEN void census_capture(___collector_worker*,___WORD*);
+___HIDDEN void census_continuation(___collector_worker*,___execution_context*);
+___HIDDEN int census_claim(___collector_worker*,___WORD*,___SIZE_TS,___SIZE_TS,int);

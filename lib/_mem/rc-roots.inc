@@ -21,7 +21,7 @@ ___UWORD epoch;)
   while (h != &source->head)
     {
       ___rc_header *next=h->next;
-      mark_array (___PSP &h->data, 1);
+      mark_array (___ps->collector, &h->data, 1);
       h=next;
     }
   source->task.state=___ROOT_SCANNED;

@@ -310,6 +310,8 @@ mostlyclean-post mostlyclean-post-nonrec:
 	  server.c server_.c server@obj@ server_@obj@ client@obj@ client \
 	  client.exe stack-overflow-undo@exe@ stack-overflow-undo@obj@ \
 	  native-scope@exe@ native-scope@obj@ \
+	  root-task@exe@ root-task-bank@exe@ root-task-primitive@exe@ \
+	  root-task-build@exe@ root-task-bank-build@exe@ root-task-primitive-build@exe@ \
 	  gambit.h so_locations *.out tmp*
 
 clean-pre: mostlyclean-pre
@@ -477,35 +479,49 @@ test-rc-roots:
 	rm -f rc-root-origin@exe@
 
 .PHONY: test-symkey-publication
-test-symkey-publication:
-	@SETDLPATH@ $(rootfromhere)/gsc/gsc@exe@ -:~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f -exe -cc-options "-DHAVE_CONFIG_H -I$(srcdirpfx)$(rootfromhere)/include -I$(srcdirpfx)$(rootfromhere)/lib" -o root-task@exe@ $(srcdirpfx)root-task.scm
+test-symkey-publication: root-task@exe@
 	@SETDLPATH@ ./root-task@exe@ -:p1 --symkey-publication
 	@SETDLPATH@ ./root-task@exe@ -:p1 --intern-growth
-	rm -f root-task@exe@ root-task-input.dat
+	rm -f root-task-input.dat
 
 .PHONY: test-globals-snapshot
-test-globals-snapshot:
-	@SETDLPATH@ $(rootfromhere)/gsc/gsc@exe@ -:~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f -exe -cc-options "-DHAVE_CONFIG_H -I$(srcdirpfx)$(rootfromhere)/include -I$(srcdirpfx)$(rootfromhere)/lib" -o root-task@exe@ $(srcdirpfx)root-task.scm
+test-globals-snapshot: root-task@exe@
 	@SETDLPATH@ ./root-task@exe@ -:p1 --globals-snapshot
 	@SETDLPATH@ ./root-task@exe@ -:p1 --globals-capacity
-	rm -f root-task@exe@ root-task-input.dat
+	rm -f root-task-input.dat
+
+# These three already-existing feature variants are build products. Test
+# targets remain phony and execute every time; only identical compilation is
+# shared. Configured Make/SDK inputs are checked under the source/profile lease.
+ROOT_TASK_DEPS = $(srcdirpfx)root-task.scm $(srcdirpfx)test-entry.h makefile \
+  $(rootfromhere)/gsc/gsc@exe@ $(rootfromhere)/lib/$(GAMBITLIB) \
+  $(rootfromhere)/include/gambit.h $(rootfromhere)/include/config.h \
+  $(wildcard $(srcdirpfx)$(rootfromhere)/lib/*.h)
+
+root-task@exe@: $(ROOT_TASK_DEPS)
+	@SETDLPATH@ $(rootfromhere)/gsc/gsc@exe@ -:~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f -exe -cc-options "-DHAVE_CONFIG_H -I$(srcdirpfx)$(rootfromhere)/include -I$(srcdirpfx)$(rootfromhere)/lib" -o root-task-build@exe@ $(srcdirpfx)root-task.scm
+	mv -f root-task-build@exe@ root-task@exe@
+
+root-task-bank@exe@: $(ROOT_TASK_DEPS)
+	@SETDLPATH@ $(rootfromhere)/gsc/gsc@exe@ -:~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f -prelude "(define-cond-expand-feature sfun-root-bank-test)" -exe -cc-options "-DHAVE_CONFIG_H -I$(srcdirpfx)$(rootfromhere)/include -I$(srcdirpfx)$(rootfromhere)/lib" -o root-task-bank-build@exe@ $(srcdirpfx)root-task.scm
+	mv -f root-task-bank-build@exe@ root-task-bank@exe@
+
+root-task-primitive@exe@: $(ROOT_TASK_DEPS)
+	@SETDLPATH@ $(rootfromhere)/gsc/gsc@exe@ -:~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f -prelude "(define-cond-expand-feature primitive-root-probe-test)" -exe -cc-options "-DHAVE_CONFIG_H -I$(srcdirpfx)$(rootfromhere)/include -I$(srcdirpfx)$(rootfromhere)/lib" -o root-task-primitive-build@exe@ $(srcdirpfx)root-task.scm
+	mv -f root-task-primitive-build@exe@ root-task-primitive@exe@
 
 .PHONY: test-root-task
-test-root-task:
-	@SETDLPATH@ $(rootfromhere)/gsc/gsc@exe@ -:~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f -exe -cc-options "-DHAVE_CONFIG_H -I$(srcdirpfx)$(rootfromhere)/include -I$(srcdirpfx)$(rootfromhere)/lib" -o root-task@exe@ $(srcdirpfx)root-task.scm
+test-root-task: root-task@exe@ root-task-bank@exe@ root-task-primitive@exe@
 	@SETDLPATH@ ./root-task@exe@ -:p1
 	@SETDLPATH@ ./root-task@exe@ -:p1 --rc-writes
 	@SETDLPATH@ ./root-task@exe@ -:p1 --frozen-union
+	@SETDLPATH@ ./root-task@exe@ -:p1 --collector
 	@SETDLPATH@ ./root-task@exe@ -:p1 --process-contract
 	@SETDLPATH@ ./root-task@exe@ -:p2 --moving-bank
 	@SETDLPATH@ ./root-task@exe@ -:p2 --moving-globals
-	rm -f root-task@exe@ root-task-input.dat
-	@SETDLPATH@ $(rootfromhere)/gsc/gsc@exe@ -:~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f -prelude "(define-cond-expand-feature sfun-root-bank-test)" -exe -cc-options "-DHAVE_CONFIG_H -I$(srcdirpfx)$(rootfromhere)/include -I$(srcdirpfx)$(rootfromhere)/lib" -o root-task-bank@exe@ $(srcdirpfx)root-task.scm
+	rm -f root-task-input.dat
 	@SETDLPATH@ ./root-task-bank@exe@ -:p1
-	rm -f root-task-bank@exe@
-	@SETDLPATH@ $(rootfromhere)/gsc/gsc@exe@ -:~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f -prelude "(define-cond-expand-feature primitive-root-probe-test)" -exe -cc-options "-DHAVE_CONFIG_H -I$(srcdirpfx)$(rootfromhere)/include -I$(srcdirpfx)$(rootfromhere)/lib" -o root-task-primitive@exe@ $(srcdirpfx)root-task.scm
 	@SETDLPATH@ ./root-task-primitive@exe@ -:p1
-	rm -f root-task-primitive@exe@
 
 .PHONY: test-mutex-suspension
 test-mutex-suspension:
@@ -530,10 +546,9 @@ test-startup-publication:
 	rm -f startup-publication@exe@ startup-faults@exe@ startup-setup@obj@
 
 .PHONY: test-symkey-views
-test-symkey-views:
-	@SETDLPATH@ $(rootfromhere)/gsc/gsc@exe@ -:~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f -exe -cc-options "-DHAVE_CONFIG_H -I$(srcdirpfx)$(rootfromhere)/include -I$(srcdirpfx)$(rootfromhere)/lib" -o root-task@exe@ $(srcdirpfx)root-task.scm
+test-symkey-views: root-task@exe@
 	@SETDLPATH@ ./root-task@exe@ -:p1 --symkey-views
-	rm -f root-task@exe@ root-task-input.dat
+	rm -f root-task-input.dat
 
 # Optional real Tcl provider for the existing root-task replay/shrink fixture.
 .PHONY: test-tcl-command

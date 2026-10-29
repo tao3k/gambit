@@ -97,6 +97,19 @@ GAMBIT_TEST_MAIN
               (c->pattern == 1 && (j == 1 || j == actual));
             CHECK(covered[j] == expected);
           }
+        /* Ordinary roots and the structural link form a disjoint partition,
+         * including live sign-bit and out-of-line map positions. */
+        cursor = ___frame_ordinary_root_begin(&frame);
+        for (j=0; j<256; j++) covered[j]=0;
+        while (___frame_root_next_run(&cursor,&first,&past))
+          for (j=first; j<past; j++) covered[j]++;
+        for (j=1; j<=actual; j++)
+          {
+            int expected = (c->pattern == 2 ||
+              (c->pattern == 1 && (j == 1 || j == actual))) &&
+              j != c->link+1;
+            CHECK(covered[j] == expected);
+          }
       }
       /* Size-only consumers use the same decoded contract. */
       frame = ___decode_frame_descriptor(encoded,0);

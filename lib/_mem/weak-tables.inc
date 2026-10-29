@@ -1,4 +1,4 @@
-#line 5070 ___MEM_SOURCE_FILE
+#line 5549 ___MEM_SOURCE_FILE
 ___HIDDEN void gc_hash_table_rehash_in_situ
    ___P((___SCMOBJ ht),
         (ht)
@@ -241,11 +241,11 @@ ___SCMOBJ ht;)
 
 
 ___HIDDEN void process_gc_hash_tables
-   ___P((___PSDNC),
-        (___PSVNC)
-___PSDKR)
+   ___P((___collector_worker *work),
+        (work)
+___collector_worker *work;)
 {
-  ___PSGET
+  ___processor_state ___ps = work->carrier;
   ___WORD curr = reached_gc_hash_tables;
 
   while (curr != ___TAG(0,0))
@@ -591,21 +591,28 @@ ___PSDKR)
                 }
             }
 
-          /* Strong-key scanning records actual address changes. A stable key
-           * does not invalidate native placement or require any rebuild. */
+          /* Strong keys were repaired by scan. Only an actual change of key
+           * address invalidates a native identity index; permanent symbols
+           * must not cause an unnecessary whole-table rebuild every GC. */
         }
 
-      /* A Scheme hash is stable for an unchanged key across GC. Repairing
-       * references does not authorize C address-hash slot permutation.
-       * Preserve separate NEED_REHASH debt from reconstruction. */
+      /* Reference repair does not transfer index-algorithm ownership.
+       * Native identity hashes depend on addresses; a Scheme hash must stay
+       * stable for an unchanged key across GC. Preserve that index instead
+       * of replacing it with an address hash or adding a lazy write on the
+       * next shared read. Existing NEED_REHASH debt (e.g. deserialization)
+       * remains owned by Scheme table-access. No Scheme callback runs here. */
       if (flags & ___GCHASHTABLE_FLAG_SCHEME_INDEX)
         flags &= ~___GCHASHTABLE_FLAG_KEY_MOVED;
 
       body[___GCHASHTABLE_FLAGS] = ___FIX(flags);
 
-      /* Reference repair and weak deletion preserve physical slot order.
-       * A suspended traversal owns its cursor; only a mutator may rebuild.
-       * Keep native address debt for pure lookup and writer settlement. */
+      /* GC owns reference repair and weak deletion, never slot permutation.
+       * A Scheme traversal can suspend in its visitor with a physical cursor.
+       * Rebuilding here invalidates that cursor even with one Scheme writer.
+       * Keep native KEY_MOVED debt for read-only lookup / writer-owned rebuild.
+       * Explicit same-table mutation during traversal remains a separate
+       * mutator precondition, not permission granted to the collector. */
     }
 }
 

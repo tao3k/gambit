@@ -55,6 +55,7 @@
 #include "_mem/hash-table-api.inc"
 #include "_mem/capacity-resize.inc"
 #include "_mem/root-origins.inc"
+#include "_mem/copy-planning.inc"
 #include "_mem/collection-round.inc"
 #include "_mem/allocation-limits.inc"
 #include "_mem/allocation-statistics.inc"

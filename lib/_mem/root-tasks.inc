@@ -45,7 +45,7 @@ ___BOOL ___root_task_publish(___rc_domain *d, ___processor_state executor,
   else if (d->phase == ___RC_OPEN && d->joined_round == 0 && d->owner == executor &&
            d->task.scan_leases == 0 && previous == d->task.epoch &&
            previous != ~___CAST(___UWORD,0) &&
-           (d->task.state == ___ROOT_EMPTY || d->task.state == ___ROOT_DONE))
+           (d->task.state == ___ROOT_EMPTY || d->task.state == ___ROOT_DONE || d->task.state == ___ROOT_REFUSED))
     {
       d->task.origin.kind=___ROOT_RC; d->task.origin.source.rc=d; d->task.executor=executor;
       d->task.epoch=previous+1; d->task.state=___ROOT_READY;
@@ -200,8 +200,15 @@ ___HIDDEN ___BOOL root_context_executor(___execution_context *source,
   if (executor == 0 || executor != ___PSTATE || source == 0) return 0;
   vm=___VMSTATE_FROM_PSTATE(executor);
   id=___PROCESSOR_ID(executor,vm);
-  return id >= 0 && id < vm->processor_count && id < ___MAX_PROCESSORS &&
-         source == executor->context && source == &vm->execution_contexts[id];
+  if(id<0 || id>=vm->processor_count || id>=___MAX_PROCESSORS) return 0;
+  if(source==executor->context && source==&vm->execution_contexts[id]) return 1;
+  if(executor->collector != 0) {
+    ___root_round *round=___ROOT_UNION(vm); int i;
+    if(round->state!=___ROOT_ROUND_FROZEN || id>=round->collection.worker_count) return 0;
+    for(i=id;i<round->participants;i+=round->collection.worker_count)
+      if(round->members[i].context==source && round->members[i].rc->joined_round==round) return 1;
+  }
+  return 0;
 }
 
 ___BOOL ___root_task_publish_bank(___root_task *task, ___execution_context *source,
@@ -471,9 +478,19 @@ ___HIDDEN ___BOOL root_globals_task(___root_task *task,
                                    ___processor_state executor)
 {
   ___global_root_source expected;
+  if(executor!=0 && executor==___PSTATE && executor->collector!=0 && task!=0 &&
+     task->origin.kind==___ROOT_GLOBALS) {
+    ___root_round *round=___ROOT_UNION(___VMSTATE_FROM_PSTATE(executor));
+    int i,worker=executor->collector->id;
+    if(round->state!=___ROOT_ROUND_FROZEN || round->collection.worker_count<1) return 0;
+    for(i=worker;i<round->participants;i+=round->collection.worker_count)
+      if(task==&round->members[i].global_task &&
+         task->origin.source.globals==&round->members[i].globals &&
+         round->members[i].globals.snapshot==&round->globals) return 1;
+    return 0;
+  }
   return executor != 0 && executor == ___PSTATE && task != 0 &&
-         task->origin.kind == ___ROOT_GLOBALS &&
-         task->origin.source.globals != 0 &&
+         task->origin.kind == ___ROOT_GLOBALS && task->origin.source.globals != 0 &&
          root_globals_view(&expected,___VMSTATE_FROM_PSTATE(executor),executor) &&
          root_globals_equal(task->origin.source.globals,&expected);
 }
@@ -536,7 +553,7 @@ ___BOOL ___root_round_begin(___processor_state ps)
       ___RC_LOCK(domain);
       ok=domain->owner == owner && domain->joined_round == 0 && domain->phase == ___RC_OPEN &&
          domain->task.scan_leases == 0 &&
-         (domain->task.state == ___ROOT_EMPTY || domain->task.state == ___ROOT_DONE);
+         (domain->task.state == ___ROOT_EMPTY || domain->task.state == ___ROOT_DONE || domain->task.state == ___ROOT_REFUSED);
       if (previous < domain->task.epoch) previous=domain->task.epoch;
       ___RC_UNLOCK(domain);
       if (!ok) return 0;
@@ -582,7 +599,7 @@ ___BOOL ___root_round_freeze(___processor_state ps, ___UWORD *epoch)
   ___RC_LOCK(domain);
   ok=domain->owner == ps && domain->joined_round == round && domain->phase == ___RC_OPEN &&
      domain->task.scan_leases == 0 && domain->task.epoch < round->epoch &&
-     (domain->task.state == ___ROOT_EMPTY || domain->task.state == ___ROOT_DONE);
+     (domain->task.state == ___ROOT_EMPTY || domain->task.state == ___ROOT_DONE || domain->task.state == ___ROOT_REFUSED);
   if (ok)
     {
       domain->task.origin.kind=___ROOT_RC; domain->task.origin.source.rc=domain;
@@ -600,6 +617,38 @@ ___BOOL ___root_round_publish(___processor_state ps)
   if (!root_vm_executor(ps) || round == 0 ||
       round->state != ___ROOT_ROUND_CLOSING ||
       !___root_globals_begin(&round->globals,ps,round->epoch)) return 0;
+  { int i; ___WORD requested=___LOAD_GLOBAL_WORD(&round->collection.requested_workers);
+    int count=(requested>0 && requested<round->participants)?(int)requested:round->participants;
+    round->collection.decision=0;
+    for(i=0;i<round->participants;i++)round->collection.observed[i]=0;
+    round->collection.epoch=round->epoch;
+    round->collection.participant_count=round->participants;
+    round->collection.worker_count=count;
+    round->collection.frame_gate=0;
+    for(i=0;i<round->participants;i++) {
+      ___root_member *member=&round->members[i];
+      ___processor_state executor=round->members[i%count].owner;
+      ___root_task *tasks[3]={&member->global_task,&member->stack_task,&member->bank_task};
+      int j;
+      member->globals.global=___GSTATE; member->globals.vm=round->vm;
+      member->globals.count=round->globals.count; member->globals.participants=round->participants;
+      member->globals.participant=i; member->globals.snapshot=&round->globals;
+      member->globals.snapshot_epoch=round->epoch;
+#ifdef ___SINGLE_VM
+      if(!___root_globals_partition(___GLO_SUBLIST_COUNT,i,round->participants,&member->globals.lo,&member->globals.hi)) return 0;
+#else
+      if(!___root_globals_partition(round->globals.count,i,round->participants,&member->globals.lo,&member->globals.hi)) return 0;
+#endif
+      member->global_task.origin.kind=___ROOT_GLOBALS;
+      member->global_task.origin.source.globals=&member->globals;
+      member->stack_task.origin.kind=___ROOT_STACK; member->stack_task.origin.source.stack=member->context;
+      member->bank_task.origin.kind=___ROOT_BANK; member->bank_task.origin.source.bank=member->context;
+      for(j=0;j<3;j++) { tasks[j]->executor=executor;tasks[j]->epoch=round->epoch;
+        tasks[j]->scan_leases=1;tasks[j]->state=___ROOT_READY; }
+      round->globals.shards[i]=1;
+      ___RC_LOCK(member->rc);member->rc->task.executor=executor;___RC_UNLOCK(member->rc);
+    }
+  }
   ___RC_LOCK(ps->mem.rc_domain_);
   round->state=___ROOT_ROUND_FROZEN;
   ___RC_UNLOCK(ps->mem.rc_domain_);
@@ -616,13 +665,11 @@ ___BOOL ___root_round_scan(___processor_state ps, ___UWORD epoch)
   ___root_member *member;
   ___UWORD receipt;
   int id;
-  if (round == 0 || round->state != ___ROOT_ROUND_FROZEN || round->epoch != epoch)
+  if (round == 0 || round->state != ___ROOT_ROUND_FROZEN || round->epoch != epoch ||
+      (ps->collector!=0 && round->collection.decision!=1))
     return 0;
   id=___PROCESSOR_ID(ps,round->vm);
   if (id < 0 || id >= round->participants) return 0;
-  member=&round->members[id];
-  if (member->owner != ps || member->context != ps->context ||
-      member->rc != ps->mem.rc_domain_) return 0;
   if (id == 0)
     {
       if (!___root_task_publish_vm(&round->vm_task,round->vm,ps,epoch-1,&receipt) ||
@@ -634,21 +681,21 @@ ___BOOL ___root_round_scan(___processor_state ps, ___UWORD epoch)
           !___root_task_scan_symkey(&round->symkey_task,ps,epoch) ||
           !___root_task_finish_symkey(&round->symkey_task,ps,epoch)) return 0;
     }
+  for(id=___PROCESSOR_ID(ps,round->vm);id<round->participants;id+=round->collection.worker_count) {
+    member=&round->members[id];
   if (!___root_task_claim(member->rc,ps,epoch) ||
       !___root_task_scan(member->rc,ps,epoch) ||
       !___root_task_finish(member->rc,ps,epoch)) return 0;
-  if (!___root_task_publish_globals(&member->global_task,&member->globals,round->vm,ps,epoch-1,&receipt) ||
-      receipt != epoch || !___root_task_claim_globals(&member->global_task,ps,epoch) ||
+  if (!___root_task_claim_globals(&member->global_task,ps,epoch) ||
       !___root_task_scan_globals(&member->global_task,ps,epoch) ||
       !___root_task_finish_globals(&member->global_task,ps,epoch)) return 0;
-  if (!___root_task_publish_stack(&member->stack_task,member->context,ps,epoch-1,&receipt) ||
-      receipt != epoch || !___root_task_claim_stack(&member->stack_task,ps,epoch) ||
+  if (!___root_task_claim_stack(&member->stack_task,ps,epoch) ||
       !___root_task_scan_stack(&member->stack_task,ps,epoch) ||
       !___root_task_finish_stack(&member->stack_task,ps,epoch)) return 0;
-  if (!___root_task_publish_bank(&member->bank_task,member->context,ps,epoch-1,&receipt) ||
-      receipt != epoch || !___root_task_claim_bank(&member->bank_task,ps,epoch) ||
+  if (!___root_task_claim_bank(&member->bank_task,ps,epoch) ||
       !___root_task_scan_bank(&member->bank_task,ps,epoch) ||
       !___root_task_finish_bank(&member->bank_task,ps,epoch)) return 0;
+  }
   return 1;
 }
 
@@ -712,5 +759,41 @@ ___BOOL ___root_round_end(___processor_state ps)
   ___RC_LOCK(ps->mem.rc_domain_);
   round->state=___ROOT_ROUND_IDLE;
   ___RC_UNLOCK(ps->mem.rc_domain_);
+  return 1;
+}
+
+/* All R observed a known pre-copy refusal. No root task has been claimed,
+ * no parity flipped and no source forwarding/payload write began. */
+___BOOL ___root_round_refuse(___processor_state ps)
+{
+  ___root_round *round=root_round_for(ps);
+  int i,j;
+  if(!root_vm_executor(ps) || !round || round->state!=___ROOT_ROUND_FROZEN ||
+     round->collection.decision!=2 || round->collection.census.state!=___GC_PLAN_REFUSED ||
+     round->vm_task.state!=___ROOT_EMPTY || round->symkey_task.state!=___ROOT_EMPTY)return 0;
+  for(i=0;i<round->participants;i++) {
+    ___root_member *m=&round->members[i];
+    ___root_task *tasks[4]={&m->rc->task,&m->global_task,&m->stack_task,&m->bank_task};
+    if(!round->collection.observed[i] || m->rc->phase!=___RC_FROZEN ||
+       m->rc->joined_round!=round || round->globals.shards[i]!=1)return 0;
+    for(j=0;j<4;j++)if(tasks[j]->epoch!=round->epoch ||
+       tasks[j]->state!=___ROOT_READY || tasks[j]->scan_leases!=1)return 0;
+  }
+  ___MUTEX_LOCK(___GSTATE->mem.global_gate);
+  if(round->vm->mem.globals_snapshot_!=&round->globals ||
+     !___GSTATE->mem.global_snapshots) {
+    ___MUTEX_UNLOCK(___GSTATE->mem.global_gate);return 0;
+  }
+  round->vm->mem.globals_snapshot_=0;--___GSTATE->mem.global_snapshots;
+  ___MUTEX_UNLOCK(___GSTATE->mem.global_gate);
+  for(i=0;i<round->participants;i++) {
+    ___root_member *m=&round->members[i];
+    ___root_task *tasks[4]={&m->rc->task,&m->global_task,&m->stack_task,&m->bank_task};
+    ___RC_LOCK(m->rc);
+    for(j=0;j<4;j++) {tasks[j]->state=___ROOT_REFUSED;tasks[j]->scan_leases=0;}
+    m->rc->joined_round=0;m->rc->phase=___RC_OPEN;
+    round->globals.shards[i]=0;___RC_UNLOCK(m->rc);
+  }
+  ___RC_LOCK(ps->mem.rc_domain_);round->state=___ROOT_ROUND_IDLE;___RC_UNLOCK(ps->mem.rc_domain_);
   return 1;
 }

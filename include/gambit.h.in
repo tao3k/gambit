@@ -9350,6 +9350,7 @@ typedef struct ___frame_root_cursor_struct
     const ___WORD *next;
     int slot;
     int fs;
+    int excluded_slot; /* structural link has a separate traversal contract */
   } ___frame_root_cursor;
 
 ___FRAME_INLINE ___frame_root_cursor ___frame_root_begin
@@ -9362,6 +9363,16 @@ const ___frame_descriptor *frame;)
   cursor.next = frame->nextgcmap;
   cursor.slot = 1;
   cursor.fs = frame->fs;
+  cursor.excluded_slot = 0;
+  return cursor;
+}
+
+___FRAME_INLINE ___frame_root_cursor ___frame_ordinary_root_begin
+   ___P((const ___frame_descriptor *frame), (frame)
+const ___frame_descriptor *frame;)
+{
+  ___frame_root_cursor cursor = ___frame_root_begin(frame);
+  cursor.excluded_slot = frame->link+1;
   return cursor;
 }
 
@@ -9384,14 +9395,16 @@ ___frame_root_cursor *cursor;
 int *first;
 int *past;)
 {
-  while (cursor->slot <= cursor->fs && !(cursor->bits & 1))
+  while (cursor->slot <= cursor->fs &&
+         (!(cursor->bits & 1) || cursor->slot == cursor->excluded_slot))
     ___frame_root_advance (cursor);
   if (cursor->slot > cursor->fs)
     return 0;
   *first = cursor->slot;
   do
     ___frame_root_advance (cursor);
-  while (cursor->slot <= cursor->fs && (cursor->bits & 1));
+  while (cursor->slot <= cursor->fs && (cursor->bits & 1) &&
+         cursor->slot != cursor->excluded_slot);
   *past = cursor->slot;
   return 1;
 }
@@ -11431,10 +11444,13 @@ typedef struct ___msect
     int pos;               /* position in msections's 'sections' array */
     struct ___msect *prev; /* previous section in list of sections */
     struct ___msect *next; /* next section in list of sections */
+    ___VOLATILE ___WORD copy_gate; /* source-section forwarding ownership */
     ___WORD base[1];       /* content of section */
   } ___msection;
 
-#define ___sizeof_msection(n) (sizeof (___msection) + ((n)-1) * ___WS)
+/* Destination scan ownership is outside Scheme payload/header coordinates. */
+#define ___msection_scan_words(n) (((n)/2+(___WORD_WIDTH/2)-1)/(___WORD_WIDTH/2))
+#define ___sizeof_msection(n) (sizeof (___msection)+((n)-1+___msection_scan_words(n))*___WS)
 
 typedef struct
   {
@@ -11890,6 +11906,8 @@ typedef struct ___processor_state_struct
 #ifdef ___SUPPORT_PSTATE_BIND
     ___processor_state pstate_binding;
 #endif
+    struct ___collector_worker_struct *collector; /* current private work authority */
+
   } ___processor_state_struct;
 
 #ifdef ___SUPPORT_LOWLEVEL_EXEC

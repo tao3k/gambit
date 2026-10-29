@@ -3,10 +3,11 @@
 #define ___ROOT_H
 #include "gambit.h"
 #include <limits.h>
+#include "collector.h"
 
 enum ___root_task_state {
   ___ROOT_EMPTY, ___ROOT_READY, ___ROOT_CLAIMED,
-  ___ROOT_SCANNING, ___ROOT_SCANNED, ___ROOT_DONE
+  ___ROOT_SCANNING, ___ROOT_SCANNED, ___ROOT_DONE, ___ROOT_REFUSED
 };
 enum ___root_origin_kind { ___ROOT_NONE, ___ROOT_RC, ___ROOT_VM, ___ROOT_BANK, ___ROOT_STACK, ___ROOT_SYMKEY, ___ROOT_GLOBALS };
 /* One immutable extent per VM round, embedded in its persistent union.
@@ -72,7 +73,15 @@ typedef struct ___root_round_struct {
   ___global_root_snapshot globals;
   ___root_task vm_task, symkey_task;
   ___root_member members[___MAX_PROCESSORS];
+  ___gc_round collection;
+  ___collector_worker workers[___MAX_PROCESSORS];
+  ___gc_resume_space resume[___MAX_PROCESSORS];
 } ___root_round;
+#define ___ROOT_UNION(vm) ((___PSTATE_FROM_PROCESSOR_ID(0,(vm)))->mem.rc_domain_->round)
+#define ___COLLECTION(vm) (___ROOT_UNION(vm)->collection)
+#define ___COLLECTORS(vm) (___ROOT_UNION(vm)->workers)
+#define ___RESUME(vm,i) (___ROOT_UNION(vm)->resume[(i)])
+
 
 /* The existing collective publishes these confined records. No lock is held
  * across a scanner, callback or collective. Unknown work retains the union;
@@ -83,6 +92,7 @@ extern ___BOOL ___root_round_publish(___processor_state);
 extern ___BOOL ___root_round_scan(___processor_state,___UWORD);
 extern ___BOOL ___root_round_finish_scan(___processor_state);
 extern ___BOOL ___root_round_end(___processor_state);
+extern ___BOOL ___root_round_refuse(___processor_state);
 /* Noncollecting ordinary-global writer. Generated, reflective and module
  * initialization paths address the same canonical cell. Refusal is no store.
  * Shared primitive cells have a different owner and are not ordinary globals. */

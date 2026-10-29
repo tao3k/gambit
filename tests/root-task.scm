@@ -1757,13 +1757,407 @@ c-end
  ))
  (else (begin)))
 
+   (c-declare #<<c-end
+#include "rc.h"
+#include "c_intf.h"
+#include <stdatomic.h>
+#include <stdio.h>
+struct collector_test_owner { int id; ___thread thread; };
+static struct collector_test_owner collector_test_owners[___MAX_PROCESSORS];
+static ___SCMOBJ collector_test_foreign[___MAX_PROCESSORS];
+static _Atomic int collector_test_release_count[___MAX_PROCESSORS];
+static _Atomic int collector_test_bad_release;
+static ___SIZE_TS collector_test_frame_peak;
+static ___SCMOBJ collector_test_release(void *payload)
+{
+  struct collector_test_owner *owner=payload;
+  ___processor_state ps=___PSTATE;
+#ifdef ___USE_POSIX_THREAD_SYSTEM
+  if(!pthread_equal(pthread_self(),owner->thread.thread_id))
+    atomic_fetch_add(&collector_test_bad_release,1);
+#endif
+  if(___PROCESSOR_ID(ps,___VMSTATE_FROM_PSTATE(ps))!=owner->id)
+    atomic_fetch_add(&collector_test_bad_release,1);
+  atomic_fetch_add(&collector_test_release_count[owner->id],1);
+  return ___FIX(___NO_ERR);
+}
+c-end
+)
+   (define collector-workers! (c-lambda (int) void
+    "___PUBLISH_GLOBAL_WORD(&___COLLECTION(___VMSTATE_FROM_PSTATE(___PSTATE)).requested_workers,___arg1);"))
+   (define collector-owner-record!
+    (c-lambda () bool #<<c-end
+___processor_state ps=___PSTATE;
+int id=___PROCESSOR_ID(ps,___VMSTATE_FROM_PSTATE(ps));
+___SCMOBJ result;
+collector_test_owners[id].id=id;
+___thread_init_from_self(&collector_test_owners[id].thread);
+___result=___POINTER_to_SCMOBJ(ps,&collector_test_owners[id],___FAL,
+ collector_test_release,&result,0)==___FIX(___NO_ERR);
+if(___result) collector_test_foreign[id]=result;
+c-end
+))
+   (define collector-owner-drop!
+    (c-lambda () void #<<c-end
+___processor_state ps=___PSTATE;
+int id=___PROCESSOR_ID(ps,___VMSTATE_FROM_PSTATE(ps));
+___release_scmobj(collector_test_foreign[id]);collector_test_foreign[id]=___FAL;
+c-end
+))
+   (define collector-owners-released?
+    (c-lambda (int) bool #<<c-end
+int i,ok=atomic_load(&collector_test_bad_release)==0;
+for(i=0;i<___arg1;i++) ok=ok && atomic_load(&collector_test_release_count[i])==1;
+___result=ok;
+c-end
+))
+   (define collector-coherent?
+    (c-lambda (int int) bool #<<c-end
+___virtual_machine_state vm=___VMSTATE_FROM_PSTATE(___PSTATE);
+___root_round *round=___ROOT_UNION(vm);
+int i,ok=vm->processor_count==___arg1 && round->participants==___arg1 &&
+ round->collection.worker_count==___arg2 && round->state==___ROOT_ROUND_IDLE &&
+ round->collection.decision==1 && round->collection.census.state==___GC_PLAN_ACCEPTED &&
+ round->collection.issued_copy_sections<=round->collection.planned_copy_sections;
+if(round->collection.census.frames>collector_test_frame_peak)
+ collector_test_frame_peak=round->collection.census.frames;
+for(i=0;ok && i<round->participants;i++) {
+ ___root_member *m=&round->members[i];
+ ___gc_resume_space *span=&round->resume[i];
+ ___processor_state executor=round->members[i%___arg2].owner;
+ ok=round->collection.observed[i] && !span->loan_used &&
+    m->rc->joined_round==0 && m->rc->phase==___RC_OPEN &&
+    m->rc->task.state==___ROOT_DONE && m->rc->task.executor==executor &&
+    m->global_task.state==___ROOT_DONE && m->stack_task.state==___ROOT_DONE &&
+    m->bank_task.state==___ROOT_DONE && m->owner->collector==0 &&
+    span->accepted && span->restored && span->epoch==round->epoch &&
+    span->source_worker==(i<___arg2?i:-1);
+ if(i<___arg2) { ___collector_worker *w=&round->workers[i];
+   ok=ok && w->arena.handed_off && !w->arena.pending && !w->copy_begin_ &&
+     !w->copy_request.state && w->tail_started_==w->tail_completed_ &&
+     !w->local_scan_chunk_ && !w->active_scan_chunk_ &&
+     w->arena.physical_limit-w->arena.cursor>=___MSECTION_FUDGE &&
+     w->copy_reserved_words_==w->copied_words+w->copy_padding_words_;
+ }
+}
+if(!ok) { printf("(COLLECTOR-STATE roots %d workers %d expected %d %d)\n",
+ round->participants,round->collection.worker_count,___arg1,___arg2);fflush(stdout); }
+___result=ok;
+c-end
+))
+   (define (collector-on-owner owner thunk)
+    (let ((thread (make-thread thunk)))
+     (##thread-pin! thread (##processor owner))
+     (thread-start! thread) (thread-join! thread)))
+   (define collector-roots
+    (map (lambda (i) (let ((v (vector i #f))) (vector-set! v 1 v) v)) '(0 1 2)))
+   (define (collector-check count)
+    (collector-workers! count) (##gc)
+    (if (not (collector-coherent? 3 count)) (error "collector/source/restoration contract failed" count))
+    (for-each (lambda (v) (if (not (eq? v (vector-ref v 1)))
+                       (error "shared root cycle lost" count))) collector-roots))
+   (define collector-saved #f) (define collector-escape #f) (define collector-winds '())
+   (define (collector-collect thunk) (call/cc (lambda (k) (set! collector-escape k) (thunk))))
+
+(define collector-legacy-completion?
+ (c-lambda () bool #<<c-end
+___root_round *r=___ROOT_UNION(___VMSTATE_FROM_PSTATE(___PSTATE));
+int i,ok=1;
+/* The exact old reopen predicate on the actual completed production tasks.
+ * Observation only: never reopen another source or damage production roots. */
+for(i=0;i<r->participants;i++) ok=ok && r->members[i].rc->task.executor==r->members[i].owner;
+___result=ok;
+c-end
+))
+(define (collector-setup)
+ (##thread-pin! (current-thread) (##processor 0))
+ (if (not (= (##current-vm-resize ##startup-processor! 3) 0))
+     (error "collector replay topology creation failed")))
+(define (replay-collector commands fault)
+ (collector-setup)
+ (let loop ((xs commands) (at 0) (count 3))
+  (if (null? xs)
+   (begin (write (list 'root-task-result 'pass at)) (newline) (force-output) (exit))
+   (let* ((row (car xs)) (op (vector-ref row 0)) (slot (vector-ref row 1)))
+    (case op
+     ((0) (collector-workers! (+ slot 1)))
+     ((1)
+      (collector-check count)
+      (if (and (= fault 1) (not (collector-legacy-completion?)))
+       (begin (write (list 'root-task-result 'mismatch at 1 0 0 1))
+              (newline) (force-output) (rc-write-exit 71))))
+     ((2) (vector-set! (list-ref collector-roots slot) 0 (vector-ref row 2))))
+    (loop (cdr xs) (+ at 1) (if (= op 0) (+ slot 1) count))))))
+(define (collector-history-suite)
+ (set! family 'collector) (set! trials 0)
+ (let ((seed 2011) (actions 0))
+  (define (next n) (set! seed (modulo (+ (* seed 48271) 17) 2147483647)) (modulo seed n))
+  (define (noise n) (if (= n 0) '() (cons (vector (next 3) (next 3) (next 2)) (noise (- n 1)))))
+  (do ((i 0 (+ i 1))) ((= i 12))
+   (let* ((commands (append (noise 8) '(#(0 0 0) #(1 0 0) #(0 1 0) #(1 0 0) #(0 2 0) #(1 0 0))))
+          (result (trial commands 0)))
+    (set! actions (+ actions (length commands)))
+    (if (signature result) (error "actual collector history failed" result (shrink commands 0 (signature result))))))
+  (let* ((commands (append (make-list 5 '#(2 0 1)) '(#(0 0 0) #(1 0 0)) (make-list 5 '#(2 2 0))))
+         (failed (trial commands 1)) (wanted (signature failed)))
+   (if (not (equal? wanted '(1 0))) (error "old owner/executor predicate control missed" failed))
+   (let* ((minimal (shrink commands 1 wanted)) (one? (one-minimal? minimal 1 wanted)))
+    (if (not (and (= (length minimal) 2) one? (equal? (signature (trial minimal 1)) wanted)
+                  (not (signature (trial minimal 0))))) (error "collector shrink certificate failed" minimal))
+    (for-each (lambda (pair) (with-output-to-file (trace-file (car pair))
+     (lambda () (write (list (trace-tag) 1 minimal (cdr pair))) (newline))))
+     '(("legacy-minimal" . 1) ("current-minimal" . 0)))
+    (if (not (and (equal? (signature (trial-file (trace-file "legacy-minimal"))) wanted)
+                  (not (signature (trial-file (trace-file "current-minimal"))))))
+        (error "collector serialized implementation replay failed"))
+    (write (list 'COLLECTOR-PBT-PASS 'seed 2011 'cases 12 'actions actions
+      'shrink-from 12 'shrink-to 2 'deletion-one-minimal one? 'replayed #t 'production-pass #t)) (newline)))
+  (delete-file input-file)))
+(define collector-frames-seen?
+ (c-lambda () bool #<<c-end
+printf("(COLLECTOR-RAW-FRAME-PEAK %ld)\n",(long)collector_test_frame_peak);fflush(stdout);
+___result=collector_test_frame_peak>0;
+c-end
+))
+(define collector-storage
+ (c-lambda () void #<<c-end
+printf("(COLLECTOR-STORAGE round-bytes %zu worker-bytes %zu resume-bytes %zu scan-trailer-bytes %zu)\n",
+ sizeof(___root_round),sizeof(___collector_worker),sizeof(___gc_resume_space),
+ (size_t)(___msection_scan_words(___MSECTION_SIZE)*___WS));fflush(stdout);
+c-end
+))
+;;; Actual large movable construction: claim only the current owner's free
+;;; physical interval, initialize without a safepoint, then publish the result.
+(define collector-large-vector
+ (c-lambda () scheme-object #<<c-end
+___processor_state ps=___PSTATE;
+___SIZE_TS h=___MSECTION_SIZE>>1;
+___SIZE_TS request=ps->mem.alloc_heap_limit_-ps->context->hp;
+if(request>h-3)request=h-3;
+___WORD *p=ps->context->hp;___SIZE_TS i,parity=ps->mem.tospace_offset_;
+void *root=___alloc_rc(___PSA(ps) 0);
+___result=___FAL;
+if(root && request>h-___MSECTION_FUDGE-3) {
+ p[0]=___MAKE_HD_WORDS(request-1,___sVECTOR);
+ for(i=1;i<request;i++)p[i]=___FIX(i);
+ ps->context->hp=p+request;___set_data_rc(root,___VECTOR_FROM_BODY(p+1));
+ /* Spend the current physical tail, then restore execution fudge before any
+  * Scheme instruction. Known pre-copy refusal permits local rollback only;
+  * an unknown result never does. Use the actual profile's vector tag. */
+ if(___garbage_collect(___PSA(ps) 0)) {
+   if(___COLLECTION(___VMSTATE_FROM_PSTATE(ps)).decision==2 &&
+      ps->mem.tospace_offset_==parity)ps->context->hp=p;
+ }
+ else ___result=___data_rc(root);
+}
+if(root) {___set_data_rc(root,___FAL);___release_rc(root);}
+c-end
+))
+(define collector-plan-refusal
+ (c-lambda () bool #<<c-end
+___processor_state ps=___PSTATE;
+___virtual_machine_state vm=___VMSTATE_FROM_PSTATE(ps);
+___root_round *r=___ROOT_UNION(vm);
+___WORD *fp=ps->context->fp,*hp=ps->context->hp;
+___SIZE_TS parity=ps->mem.tospace_offset_;
+___WORD requested=___LOAD_GLOBAL_WORD(&r->collection.requested_workers);
+int i,ok;
+___PUBLISH_GLOBAL_WORD(&r->collection.requested_workers,vm->processor_count+1);
+ok=___garbage_collect(___PSA(ps) 0)!=0;
+___PUBLISH_GLOBAL_WORD(&r->collection.requested_workers,requested);
+ok=ok && ps->context->fp==fp && ps->context->hp==hp &&
+ ps->mem.tospace_offset_==parity && r->state==___ROOT_ROUND_IDLE &&
+ r->collection.decision==2 && r->collection.census.state==___GC_PLAN_REFUSED &&
+ vm->mem.globals_snapshot_==0;
+for(i=0;ok && i<r->participants;i++) {
+ ___root_member *m=&r->members[i];
+ ok=r->collection.observed[i] && m->rc->phase==___RC_OPEN &&
+    m->rc->joined_round==0 && m->rc->task.state==___ROOT_REFUSED &&
+    !m->rc->task.scan_leases && m->global_task.state==___ROOT_REFUSED &&
+    m->stack_task.state==___ROOT_REFUSED && m->bank_task.state==___ROOT_REFUSED &&
+    m->owner->mem.tospace_offset_==parity;
+}
+___result=ok;
+c-end
+))
+(define collector-capacity-boundary
+ (c-lambda () bool #<<c-end
+___processor_state ps=___PSTATE;
+___virtual_machine_state vm=___VMSTATE_FROM_PSTATE(ps);
+___root_round *r=___ROOT_UNION(vm);
+___SIZE_TS request=(___MSECTION_SIZE>>1)-___MSECTION_FUDGE-3,i;
+___WORD *p=ps->context->hp,*fp=ps->context->fp;
+___SIZE_TS parity=ps->mem.tospace_offset_;
+void *root=___alloc_rc(___PSA(ps) 0);
+___result=0;
+if(root && request<=ps->mem.alloc_heap_limit_-p) {
+ int failed,ok,bound=0;
+ p[0]=___MAKE_HD_WORDS(request-1,___sVECTOR);
+ for(i=1;i<request;i++)p[i]=___FIX(i);
+ ps->context->hp=p+request;___set_data_rc(root,___VECTOR_FROM_BODY(p+1));
+ failed=___garbage_collect(___PSA(ps) 0);
+ ok=!failed && r->collection.decision==1 && r->collection.census.small_max==request &&
+    ___gc_copy_section_bound(r->collection.worker_count,r->collection.census.small_words,
+      r->collection.census.small_max,r->collection.census.large_count,request,
+      ___MSECTION_CHUNK,&bound) && bound==r->collection.planned_copy_sections &&
+    ___gc_copy_plan_fits(vm->processor_count,bound,vm->mem.the_msections_->nb_sections) &&
+    !___gc_copy_plan_fits(vm->processor_count,bound,vm->processor_count+bound-1);
+ if(!failed) {
+   ___SCMOBJ value=___data_rc(root),___temp;
+   ok=ok && ___VECTORP(value) && ___HD_WORDS(___BODY0(value)[-1])==request-1 &&
+       ___BODY0(value)[0]==___FIX(1) && ___BODY0(value)[request-2]==___FIX(request-1);
+ }
+ /* Rollback is legal only on a known entirely unstarted refusal. */
+ if(failed && r->collection.decision==2 && ps->mem.tospace_offset_==parity)
+   ps->context->hp=p;
+ ___result=ok;
+}
+if(root) {___set_data_rc(root,___FAL);___release_rc(root);}
+c-end
+))
+(define collector-census-report
+ (c-lambda () void #<<c-end
+___gc_round *g=&___COLLECTION(___VMSTATE_FROM_PSTATE(___PSTATE));
+printf("(COLLECTOR-CENSUS source %ld destination %ld objects %ld frames %ld largest %ld large-count %ld planned %d issued %d scratch-bytes %zu)\n",
+ (long)g->census.source_words,(long)g->census.destination_words,(long)g->census.objects,
+ (long)g->census.frames,(long)g->census.largest_request,(long)g->census.large_count,
+ g->planned_copy_sections,g->issued_copy_sections,g->census.peak_bytes);fflush(stdout);
+c-end
+))
+(##define-macro (collector-inline-vector)
+ (cons '##vector (let loop ((i 0)) (if (= i 512) '() (cons i (loop (+ i 1)))))))
+(c-declare "static void *collector_aliases[___MAX_PROCESSORS];")
+(define collector-alias-record!
+ (c-lambda (scheme-object) bool #<<c-end
+___processor_state ps=___PSTATE;int id=___PROCESSOR_ID(ps,___VMSTATE_FROM_PSTATE(ps));
+void *p=___alloc_rc(___PSA(ps) 0);
+___result=p!=0;
+if(p) {___set_data_rc(p,___arg1);collector_aliases[id]=p;}
+c-end
+))
+(define collector-alias-drop!
+ (c-lambda () void #<<c-end
+int id=___PROCESSOR_ID(___PSTATE,___VMSTATE_FROM_PSTATE(___PSTATE));
+___set_data_rc(collector_aliases[id],___FAL);___release_rc(collector_aliases[id]);collector_aliases[id]=0;
+c-end
+))
+(define collector-alias-match?
+ (c-lambda (scheme-object) bool #<<c-end
+int i,ok=1;for(i=0;i<3;i++)ok=ok && ___data_rc(collector_aliases[i])==___arg1;
+___result=ok;
+c-end
+))
+(define collector-transport?
+ (c-lambda () bool #<<c-end
+___root_round *r=___ROOT_UNION(___VMSTATE_FROM_PSTATE(___PSTATE));
+___SIZE_TS published=0,claimed=0,tails=0;int i;
+for(i=0;i<r->collection.worker_count;i++) {
+ published+=r->workers[i].chunks_published_;claimed+=r->workers[i].chunks_claimed_;
+ tails+=r->workers[i].tail_completed_;
+}
+printf("(COLLECTOR-TRANSPORT published %ld claimed %ld tails %ld)\n",(long)published,(long)claimed,(long)tails);fflush(stdout);
+___result=published>0 && published==claimed && tails>0;
+c-end
+))
+(define collector-unknown-child
+ (c-lambda () void #<<c-end
+___processor_state ps=___PSTATE;
+___gc_census *c=&___COLLECTION(___VMSTATE_FROM_PSTATE(ps)).census;
+/* Induced unsettled allocation record, not an observed OS-owner death.
+ * Exercise the real next-GC gate: it must never zero/replay this record. */
+c->state=___GC_PLAN_ALLOCATING;
+printf("COLLECTOR-UNKNOWN-PREPARED\n");fflush(stdout);
+___garbage_collect(___PSA(ps) 0);_Exit(73);
+c-end
+))
+(define (collector-unknown-suite)
+ (let* ((port (open-input-process (list path: self arguments: '("-:p1" "--collector-unknown-child") stderr-redirection: #t)))
+        (lines (let loop ((xs '())) (let ((x (read-line port)))
+                  (if (eof-object? x) (reverse xs) (loop (cons x xs))))))
+        (status (process-status port)))
+  (close-input-port port)
+  (if (not (and (= status (arithmetic-shift 70 8))
+                (member "COLLECTOR-UNKNOWN-PREPARED" lines)
+                (member "*** FATAL ERROR -- Unknown planning result retains frozen roots and native buffers" lines)))
+      (error "unknown planning record was reset or replayed" status lines))
+  (display "COLLECTOR-UNKNOWN-GATE-PASS induced-unsettled-record fatal-retained\n")))
+(define (collector-capacity-suite)
+ (do ((i 0 (+ i 1))) ((= i 3))
+  (if (not (collector-on-owner i (lambda () (collector-alias-record! collector-roots))))
+      (error "alias source construction failed" i)))
+ (collector-check 2) (collector-check 3)
+ (if (not (collector-alias-match? collector-roots)) (error "shared RC aliases diverged"))
+ (do ((i 0 (+ i 1))) ((= i 3)) (collector-on-owner i collector-alias-drop!))
+ (let ((cascade (let loop ((i 0) (xs '()))
+                  (if (= i 256) xs (loop (+ i 1) (cons (vector i (cons i i)) xs))))))
+  (collector-check 2)
+  (if (not (and (= (length cascade) 256) (collector-transport?)))
+      (error "Tail/FIFO ownership failed")))
+ (let ((small (collector-inline-vector)))
+  (collector-check 1)
+  (if (not (= (vector-ref small 511) 511)) (error "inline moving vector lost"))
+  (collector-census-report)
+  (##vector-shrink! small 1) (collector-check 1)
+  (if (not (equal? small '#(0))) (error "shrink hole entered census"))
+  (collector-census-report))
+ (collector-check 1)
+ (let ((large (collector-large-vector)))
+  (if (not large) (error "large producer lacks its existing physical interval"))
+  (collector-check 1)
+  (if (not (and (= (vector-ref large 0) 1)
+                (= (vector-ref large (- (vector-length large) 1)) (vector-length large))))
+      (error "large copy lost initialized payload"))
+  (collector-census-report))
+ (collector-check 1)
+ (if (not (collector-capacity-boundary)) (error "near-capacity grant or exact physical-fit boundary failed"))
+ (collector-check 1)
+ (if (not (collector-plan-refusal)) (error "pre-copy refusal changed roots, parity or leases"))
+ (collector-check 1) (collector-check 2) (collector-check 3)
+ (display "COLLECTOR-CENSUS-REFUSAL-PASS shrink-hole inline512 large-grant near-capacity-fit composed-fit-refusal retry-after-refusal\n"))
+(define (collector-integration-suite)
+ (let ((collector-first #f) (collector-second #f) (collector-third #f))
+   (##thread-pin! (current-thread) (##processor 0))
+   (if (not (= (##current-vm-resize ##startup-processor! 3) 0))
+       (error "collector fixture could not construct three root domains"))
+   (do ((i 0 (+ i 1))) ((= i 3))
+    (if (not (collector-on-owner i collector-owner-record!)) (error "owner resource construction failed" i)))
+   (do ((i 0 (+ i 1))) ((= i 3)) (collector-on-owner i collector-owner-drop!))
+   (collector-check 1)
+   (if (not (collector-owners-released? 3)) (error "cleanup left its native owner or repeated"))
+   (collector-check 2) (collector-check 3) (collector-check 1)
+   (set! collector-first
+    (collector-collect (lambda ()
+     (collector-escape
+      (dynamic-wind
+       (lambda () (set! collector-winds (cons 'before collector-winds)))
+       (lambda ()
+        (map (lambda (x)
+              (collector-check 1)
+              (if (= x 2) (call/cc (lambda (k) (set! collector-saved k) x)) x))
+             '(1 2 3)))
+       (lambda () (set! collector-winds (cons 'after collector-winds))))))))
+   (set! collector-second (collector-collect (lambda () (collector-saved 20))))
+   (set! collector-third (collector-collect (lambda () (collector-saved 200))))
+   (if (not (and (equal? collector-first '(1 2 3)) (equal? collector-second '(1 20 3))
+                 (equal? collector-third '(1 200 3))
+                 (equal? collector-winds '(after before after before after before))))
+       (error "collector changed multi-shot map/dynamic-wind" collector-first collector-second collector-third collector-winds))
+   (collector-check 1) (collector-check 2) (collector-check 3)
+   (display "COLLECTOR-INTEGRATION-PASS roots=3 workers=1,2,3 multi-shot=3 owner-cleanup=3\n")
+   (force-output)
+   (if (not (collector-frames-seen?)) (error "raw captured frame census was not exercised"))
+   (collector-storage)
+   (collector-capacity-suite)
+   (collector-history-suite)
+   (collector-unknown-suite)))
+
 (define family 'rc)
 (define (trace-tag)
-  (case family ((union) 'frozen-root-union-trace) ((tcl-callback) 'tcl-callback-trace) ((symkey-callback) 'symkey-callback-trace) ((marker-input) 'marker-input-trace) ((tcl-command) 'tcl-command-trace) ((rc-write) 'rc-write-trace) ((view) 'symkey-view-trace) ((intern) 'symkey-publication-trace) ((snapshot) 'globals-snapshot-trace) ((vm) 'vm-root-task-trace) ((bank) 'bank-root-task-trace) ((stack) 'stack-root-task-trace) ((symkey) 'symkey-root-task-trace) ((globals) 'globals-root-task-trace)
+  (case family ((collector) 'collector-history) ((union) 'frozen-root-union-trace) ((tcl-callback) 'tcl-callback-trace) ((symkey-callback) 'symkey-callback-trace) ((marker-input) 'marker-input-trace) ((tcl-command) 'tcl-command-trace) ((rc-write) 'rc-write-trace) ((view) 'symkey-view-trace) ((intern) 'symkey-publication-trace) ((snapshot) 'globals-snapshot-trace) ((vm) 'vm-root-task-trace) ((bank) 'bank-root-task-trace) ((stack) 'stack-root-task-trace) ((symkey) 'symkey-root-task-trace) ((globals) 'globals-root-task-trace)
     ((continuation) 'continuation-history)
     (else 'root-task-trace)))
 (define (trace-file suffix)
-  (string-append (case family ((union) "frozen-root-union-") ((tcl-callback) "tcl-callback-") ((symkey-callback) "symkey-callback-") ((marker-input) "marker-input-") ((tcl-command) "tcl-command-") ((rc-write) "rc-write-") ((view) "symkey-view-") ((intern) "symkey-publication-") ((snapshot) "globals-snapshot-") ((vm) "vm-root-task-")
+  (string-append (case family ((collector) "collector-history-") ((union) "frozen-root-union-") ((tcl-callback) "tcl-callback-") ((symkey-callback) "symkey-callback-") ((marker-input) "marker-input-") ((tcl-command) "tcl-command-") ((rc-write) "rc-write-") ((view) "symkey-view-") ((intern) "symkey-publication-") ((snapshot) "globals-snapshot-") ((vm) "vm-root-task-")
                   ((bank) "bank-root-task-") ((stack) "stack-root-task-") ((symkey) "symkey-root-task-") ((globals) "globals-root-task-")
                   ((continuation) "continuation-history-") (else "root-task-")) suffix ".trace"))
 (define (oracle commands)
@@ -1793,7 +2187,7 @@ c-end
       commands))))
 
 (define (trace? x)
-  (and (list? x) (= (length x) 4) (memq (car x) '(frozen-root-union-trace tcl-callback-trace symkey-callback-trace marker-input-trace tcl-command-trace rc-write-trace root-task-trace vm-root-task-trace bank-root-task-trace stack-root-task-trace symkey-root-task-trace globals-root-task-trace globals-snapshot-trace symkey-publication-trace symkey-view-trace continuation-history))
+  (and (list? x) (= (length x) 4) (memq (car x) '(collector-history frozen-root-union-trace tcl-callback-trace symkey-callback-trace marker-input-trace tcl-command-trace rc-write-trace root-task-trace vm-root-task-trace bank-root-task-trace stack-root-task-trace symkey-root-task-trace globals-root-task-trace globals-snapshot-trace symkey-publication-trace symkey-view-trace continuation-history))
        (integer? (cadr x)) (<= 1 (cadr x) 3) (list? (caddr x))
        (<= (length (caddr x)) 96)
        (if (eq? (car x) 'symkey-view-trace)
@@ -1803,18 +2197,19 @@ c-end
          (or (null? xs)
              (let ((r (car xs)))
                (and (vector? r) (= (vector-length r) 3)
-                    (integer? (vector-ref r 0)) (<= 0 (vector-ref r 0) (case (car x) ((tcl-callback-trace) 5) ((symkey-callback-trace) 7) ((symkey-view-trace) 9) ((rc-write-trace) 8) ((marker-input-trace) 7) ((tcl-command-trace) 7) ((globals-snapshot-trace symkey-publication-trace) 8) ((globals-root-task-trace) 6) (else 5)))
-                    (memv (vector-ref r 1) '(-1 0 1 2))
+                    (integer? (vector-ref r 0)) (<= 0 (vector-ref r 0) (case (car x) ((collector-history) 2) ((tcl-callback-trace) 5) ((symkey-callback-trace) 7) ((symkey-view-trace) 9) ((rc-write-trace) 8) ((marker-input-trace) 7) ((tcl-command-trace) 7) ((globals-snapshot-trace symkey-publication-trace) 8) ((globals-root-task-trace) 6) (else 5)))
+                    (memv (vector-ref r 1) (if (eq? (car x) 'collector-history) '(0 1 2) '(-1 0 1 2)))
                     (memv (vector-ref r 2) '(0 1)) (loop (cdr xs))))))))
 (define (replay trace)
   (if (not (trace? trace)) (error "invalid structured root-task trace"))
-  (set! family (case (car trace) ((frozen-root-union-trace) 'union) ((tcl-callback-trace) 'tcl-callback) ((symkey-callback-trace) 'symkey-callback) ((marker-input-trace) 'marker-input) ((tcl-command-trace) 'tcl-command) ((rc-write-trace) 'rc-write) ((symkey-view-trace) 'view) ((symkey-publication-trace) 'intern) ((globals-snapshot-trace) 'snapshot) ((vm-root-task-trace) 'vm)
+  (set! family (case (car trace) ((collector-history) 'collector) ((frozen-root-union-trace) 'union) ((tcl-callback-trace) 'tcl-callback) ((symkey-callback-trace) 'symkey-callback) ((marker-input-trace) 'marker-input) ((tcl-command-trace) 'tcl-command) ((rc-write-trace) 'rc-write) ((symkey-view-trace) 'view) ((symkey-publication-trace) 'intern) ((globals-snapshot-trace) 'snapshot) ((vm-root-task-trace) 'vm)
                  ((bank-root-task-trace) 'bank) ((stack-root-task-trace) 'stack) ((symkey-root-task-trace) 'symkey) ((globals-root-task-trace) 'globals)
                  ((continuation-history) 'continuation) (else 'rc)))
   (if (not (prepare-source)) (error "root-task source allocation failed"))
   (do ((i 0 (+ i 1))) ((= i (cadr trace))) (##gc))
   (let ((commands (caddr trace)))
-    (cond ((eq? family 'union) (replay-union commands (cadddr trace)))
+    (cond ((eq? family 'collector) (replay-collector commands (cadddr trace)))
+          ((eq? family 'union) (replay-union commands (cadddr trace)))
           ((eq? family 'symkey-callback)
            (cond-expand (symkey-callback-test (replay-symkey-callback commands (cadddr trace)))
                         (else (error "symkey callback test feature not selected"))))
@@ -2904,7 +3299,9 @@ c-end
 
 
 (let ((args (cdr (command-line))))
-  (cond ((equal? args '("--symkey-callback"))
+  (cond ((equal? args '("--collector-unknown-child")) (collector-unknown-child))
+        ((equal? args '("--collector")) (collector-integration-suite))
+        ((equal? args '("--symkey-callback"))
          (cond-expand (symkey-callback-test (symkey-callback-suite))
                       (else (error "symkey callback test feature not selected"))))
         ((equal? args '("--frozen-union")) (union-suite))

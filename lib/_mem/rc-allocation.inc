@@ -26,7 +26,14 @@ ___HIDDEN ___BOOL setup_rc(___processor_state ps)
     {
       d->round=___CAST(___root_round*,___ALLOC_MEM(sizeof(*d->round)));
       if (d->round == 0) { ___RC_DESTROY(d); ___FREE_MEM(d); return 0; }
+      memset(d->round,0,sizeof(*d->round));
       d->round->vm=___VMSTATE_FROM_PSTATE(ps);
+      { int i; for(i=0;i<___MAX_PROCESSORS;i++) {
+          d->round->workers[i].vm=d->round->vm;
+          d->round->workers[i].id=i;
+          d->round->workers[i].carrier=___PSTATE_FROM_PROCESSOR_ID(i,d->round->vm);
+        } }
+
       d->round->epoch=0; d->round->participants=0;
       d->round->state=___ROOT_ROUND_IDLE;
     }
@@ -44,7 +51,10 @@ ___HIDDEN ___BOOL rc_can_close(___rc_domain *d)
 {
   ___rc_header *h;
   if (d->joined_round != 0) return 0;
-  if (d->round != 0 && d->round->state != ___ROOT_ROUND_IDLE) return 0;
+  if (d->round != 0 && (d->round->state != ___ROOT_ROUND_IDLE ||
+      d->round->collection.census.state==___GC_PLAN_ALLOCATING ||
+      d->round->collection.census.state==___GC_PLAN_RETAINED ||
+      d->round->collection.census.replacement || d->round->collection.census.retired)) return 0;
   if (d->borrows != 0 || d->task.scan_leases != 0 || d->phase == ___RC_FROZEN) return 0;
   for (h=d->head.next; h!=&d->head; h=h->next)
     if (h->data != ___FAL) return 0;
@@ -82,7 +92,11 @@ ___HIDDEN void cleanup_rc(___processor_state ps)
     { ___RC_UNLOCK(d); rc_contract_error("RC cleanup without closed root ownership"); return; }
   /* Native byte owners retain both their allocation and this gate. No PS/VM
    * address remains in the detached domain; last native release reclaims it. */
-  if (d->round != 0) { ___FREE_MEM(d->round); d->round=0; }
+  if (d->round != 0) {
+    if (d->round->collection.census.queue != 0)
+      ___FREE_MEM(d->round->collection.census.queue);
+    ___FREE_MEM(d->round); d->round=0;
+  }
   d->owner = 0; d->task.executor = 0; d->phase = ___RC_DETACHED;
   destroy = d->nodes == 0;
   ps->mem.rc_domain_ = 0;
@@ -93,10 +107,28 @@ ___HIDDEN void cleanup_rc(___processor_state ps)
 ___HIDDEN void reopen_rc_roots(___processor_state ps, ___UWORD epoch)
 {
   ___rc_domain *d = ps->mem.rc_domain_;
+  ___root_round *round;
+  ___BOOL completion_owner;
+  int id;
   ___RC_LOCK(d);
-  if (d->phase != ___RC_FROZEN || d->task.origin.kind != ___ROOT_RC ||
+  round=d->joined_round;
+  /* The current native owner reopens its source after physical restoration.
+   * The scan executor may be a different W worker; its completion alone is
+   * insufficient to authorize the source's return to mutation. */
+  completion_owner=d->owner==ps && ps==___PSTATE;
+  if (round != 0) {
+    id=___PROCESSOR_ID(ps,___VMSTATE_FROM_PSTATE(ps));
+    completion_owner=completion_owner && round->vm==___VMSTATE_FROM_PSTATE(ps) &&
+      round->state==___ROOT_ROUND_DRAINING && round->epoch==epoch &&
+      id>=0 && id<round->participants && round->collection.worker_count>0 &&
+      round->members[id].rc==d && round->members[id].context==ps->context &&
+      d->task.executor==round->members[id%round->collection.worker_count].owner &&
+      round->resume[id].epoch==epoch && round->resume[id].accepted &&
+      round->resume[id].restored;
+  } else completion_owner=completion_owner && d->task.executor==ps;
+  if (!completion_owner || d->phase != ___RC_FROZEN || d->task.origin.kind != ___ROOT_RC ||
       d->task.origin.source.rc != d || d->task.epoch != epoch ||
-      d->task.executor != ps || d->task.state != ___ROOT_DONE || d->task.scan_leases != 0)
+      d->task.state != ___ROOT_DONE || d->task.scan_leases != 0)
     { ___RC_UNLOCK(d); rc_contract_error("RC source cannot resume before task completion"); return; }
   d->phase = ___RC_OPEN;
   ___RC_UNLOCK(d);

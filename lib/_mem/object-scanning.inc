@@ -1,18 +1,35 @@
-#line 3950 ___MEM_SOURCE_FILE
+#line 4389 ___MEM_SOURCE_FILE
 ___HIDDEN ___SIZE_TS scan
-   ___P((___PSD
+   ___P((___collector_worker *work,
          ___WORD *body,
          ___WORD head),
-        (___PSV
+        (work,
          body,
          head)
-___PSDKR
+___collector_worker *work;
 ___WORD *body;
 ___WORD head;)
 {
-  ___PSGET
+  ___processor_state ___ps = work->carrier;
   ___SIZE_TS words = ___HD_WORDS(head);
   int subtype = ___HD_SUBTYPE(head);
+  ___BOOL movable = ___HD_TYP(head) == ___MOVABLE0;
+
+  if (movable && work->census==0)
+    {
+      int state = change_object_scan_state
+        (work,body-1,GC_SCAN_READY,GC_SCAN_OWNED);
+      if (state == GC_SCAN_OWNED || state == GC_SCAN_DONE)
+        {
+          work->duplicate_scans++;
+          return words; /* no field mutation; the first owner carries debt */
+        }
+      if (state != GC_SCAN_READY)
+        {
+          static char *msgs[] = { "GC scan before object initialization", NULL };
+          ___fatal_error (msgs);
+        }
+    }
 
 #ifdef ENABLE_CONSISTENCY_CHECKS
   reference_location = IN_OBJECT;
@@ -51,17 +68,17 @@ ___WORD head;)
            */
 
           if (traverse_weak_refs)
-            mark_array (___PSP body+1, 2); /* scan action and testator */
+            mark_array (work, body+1, 2); /* scan action and testator */
           else
             {
-              mark_array (___PSP body+2, 1); /* scan action only */
+              mark_array (work, body+2, 1); /* scan action only */
 
               /*
                * Remember that this will's testator object remains to
                * be marked by the process_wills function.
                */
 
-              body[0] = body[0] | ___UNMARKED_TESTATOR_WILL;
+              if(work->census==0) body[0] = body[0] | ___UNMARKED_TESTATOR_WILL;
             }
         }
       else
@@ -77,7 +94,7 @@ ___WORD head;)
               for (i=words-2; i>=___GCHASHTABLE_KEY0; i-=2)
                 {
                   ___SCMOBJ key = body[i];
-                  mark_array (___PSP body+i, 1); /* repair this key in place */
+                  mark_array (work, body+i, 1); /* repair this key in place */
                   if (body[i] != key)
                     body[___GCHASHTABLE_FLAGS] =
                       ___FIXIOR(body[___GCHASHTABLE_FLAGS],
@@ -88,22 +105,22 @@ ___WORD head;)
           if ((flags & ___GCHASHTABLE_FLAG_WEAK_VALS) == 0)
             {
               for (i=words-1; i>=___GCHASHTABLE_VAL0; i-=2)
-                mark_array (___PSP body+i, 1); /* mark objects in value fields */
+                mark_array (work, body+i, 1); /* mark objects in value fields */
             }
 
-          body[0] = reached_gc_hash_tables;
-          reached_gc_hash_tables = ___CAST(___WORD,body);
+          if(work->census==0) { body[0] = reached_gc_hash_tables;
+            reached_gc_hash_tables = ___CAST(___WORD,body); }
         }
       break;
 
     case ___sSYMBOL:
     case ___sKEYWORD:
-      mark_array (___PSP body, 1); /* only scan name of symbols & keywords */
+      mark_array (work, body, 1); /* only scan name of symbols & keywords */
       break;
 
     case ___sCONTINUATION:
-      mark_captured_continuation (___PSP &body[___CONTINUATION_FRAME]);
-      mark_array (___PSP body+1, words-1); /* skip the frame pointer */
+      mark_captured_continuation (work, &body[___CONTINUATION_FRAME]);
+      mark_array (work, body+1, words-1); /* skip the frame pointer */
       break;
 
     case ___sFRAME:
@@ -112,6 +129,8 @@ ___WORD head;)
         ___WORD *fp = body + ___FRAME_EXTRA_SLOTS;
         ___WORD ra = body[0];
         ___WORD frame;
+
+        acquire_frame_access(work);
 
 #ifdef SHOW_FRAMES
         ___printf ("___sFRAME object\n");
@@ -136,19 +155,29 @@ ___WORD head;)
         ___printf ("\n");
 #endif
 
+        if (descriptor.fs <= 0 || descriptor.link < 0 ||
+            descriptor.link >= descriptor.fs ||
+            words != descriptor.fs+___FRAME_EXTRA_SLOTS)
+          {
+            static char *msgs[] = { "GC frame payload/descriptor mismatch", NULL };
+            ___fatal_error(msgs);
+          }
+
         fp += descriptor.fs;
 
         frame = ___FP_STK(fp,descriptor.link+1);
 
-        if (___FIXNUMP(frame) && frame != ___END_OF_CONT_MARKER)
-          ___FP_SET_STK(fp,descriptor.link+1,___FAL)
+        mark_frame (work, fp, &descriptor);
 
-        mark_frame (___PSP fp, &descriptor);
-
-        if (___FIXNUMP(frame) && frame != ___END_OF_CONT_MARKER)
+        if (work->census!=0)
+          census_capture(work,&___FP_STK(fp,descriptor.link+1));
+        else if (___FIXNUMP(frame) && frame != ___END_OF_CONT_MARKER)
           ___FP_SET_STK(fp,descriptor.link+1,___TAG(___UNTAG_AS(frame, ___tFIXNUM), ___tSUBTYPED))
+        else
+          mark_array(work,&___FP_STK(fp,descriptor.link+1),1);
 
-        mark_array (___PSP &body[0], 1);
+        mark_array (work, &body[0], 1);
+        release_frame_access(work);
       }
       break;
 
@@ -162,65 +191,60 @@ ___WORD head;)
 
       /* update the closure's lowlevel code trampoline */
 
-      ___CLO_LOWLEVEL_TRAMPOLINE_SETUP(body,
+      if(work->census==0) ___CLO_LOWLEVEL_TRAMPOLINE_SETUP(body,
                                        body[___LABEL_ENTRY_OR_DESCR]);
 
 #endif
 
       /* only need to scan the free variables */
 
-      mark_array (___PSP body+___CLO_FREEVARS, words-___CLO_FREEVARS);
+      mark_array (work, body+___CLO_FREEVARS, words-___CLO_FREEVARS);
 
       break;
 
     default:
 
-      if (___HD_TYP(head) == ___MOVABLE0 && subtype <= ___sBOXVALUES)
-        mark_array (___PSP body+1, words-1);
+      if (work->census==0 && ___HD_TYP(head) == ___MOVABLE0 && subtype <= ___sBOXVALUES)
+        mark_array (work, body+1, words-1);
       else
-        mark_array (___PSP body, words);
+        mark_array (work, body, words);
 
       break;
     }
 
+  if (work->census==0 && movable &&
+      change_object_scan_state(work,body-1,GC_SCAN_OWNED,GC_SCAN_DONE)
+      != GC_SCAN_OWNED)
+    {
+      static char *msgs[] = { "GC scan owner lost before completion", NULL };
+      ___fatal_error (msgs);
+    }
   return words;
 }
 
 
 #define scan_no_fast_path(ptr, head) \
 do { \
-  ptr += scan (___PSP (ptr)+1, head) + 1; \
+  work->active_scan_object_ = (ptr)+1; \
+  ptr += scan (work, (ptr)+1, head) + 1; \
+  work->active_scan_object_ = 0; \
 } while (0)
 
 
-#ifdef ___USE_SCAN_NO_FAST_PATH
-
+/* Pair and general scanning consume the same object authority. The previous
+ * pair macro mutated a field without going through the scan owner. */
 #define scan_and_advance(ptr, head) scan_no_fast_path(ptr, head)
-
-#else
-
-#define scan_and_advance(ptr, head) \
-do { \
-  if ((head) == ___MAKE_HD_WORDS(___PAIR_SIZE,___sPAIR)) \
-    { \
-      mark_array (___PSP (ptr)+2, ___PAIR_SIZE-1); \
-      ptr += ___PAIR_SIZE+1; \
-    } \
-  else \
-    scan_no_fast_path(ptr, head); \
-} while (0)
-
-#endif
 
 
 ___HIDDEN void setup_still_objs_to_scan
-   ___P((___PSDNC),
-        (___PSVNC)
-___PSDKR)
+   ___P((___collector_worker *work, ___processor_state source),
+        (work, source)
+___collector_worker *work;
+___processor_state source;)
 {
-  ___PSGET
-  ___WORD *base = ___CAST(___WORD*,still_objs);
-  ___WORD *to_scan = 0;
+  ___processor_state ___ps = work->carrier;
+  ___WORD *base = ___CAST(___WORD*,source->mem.still_objs_);
+  ___WORD *to_scan = ___CAST(___WORD*,still_objs_to_scan);
 
   while (base != 0)
     {
@@ -239,33 +263,39 @@ ___PSDKR)
 
 
 ___HIDDEN void scan_still_objs_to_scan
-   ___P((___PSDNC),
-        (___PSVNC)
-___PSDKR)
+   ___P((___collector_worker *work),
+        (work)
+___collector_worker *work;)
 {
-  ___PSGET
+  ___processor_state ___ps = work->carrier;
   ___WORD *base;
 
   while ((base = ___CAST(___WORD*,still_objs_to_scan)) != 0)
     {
       ___WORD *body = base + ___STILL_BODY;
       still_objs_to_scan = base[___STILL_MARK];
-      scan (___PSP body, body[-1]);
+      scan (work, body, body[-1]);
     }
 }
 
 
 ___HIDDEN void scan_complete_heap_chunk
-   ___P((___PSD
-         ___WORD *start),
-        (___PSV
-         start)
-___PSDKR
-___WORD *start;)
+   ___P((___collector_worker *work,
+         ___WORD *start,
+         int origin),
+        (work,
+         start,
+         origin)
+___collector_worker *work;
+___WORD *start;
+int origin;)
 {
-  ___PSGET
+  ___processor_state ___ps = work->carrier;
   ___WORD *ptr = start;
   ___WORD head;
+
+  work->active_scan_chunk_ = start;
+  work->scan_origin_ = origin;
 
 #ifdef ENABLE_GC_ACTLOG_SCAN_COMPLETE_HEAP_CHUNK
   ___ACTLOG_BEGIN_PS(scan_complete_heap_chunk,_);
@@ -276,6 +306,11 @@ ___WORD *start;)
       scan_and_advance(ptr, head); /* note: this advances ptr */
     }
 
+  require_chunk_transition(work,start,2,3);
+  work->chunks_completed_++;
+  work->active_scan_chunk_ = 0;
+  work->scan_origin_ = 0;
+
 #ifdef ENABLE_GC_ACTLOG_SCAN_COMPLETE_HEAP_CHUNK
   ___ACTLOG_END_PS();
 #endif
@@ -283,11 +318,11 @@ ___WORD *start;)
 
 
 ___HIDDEN void scan_movable_objs_to_scan
-   ___P((___PSDNC),
-        (___PSVNC)
-___PSDKR)
+   ___P((___collector_worker *work),
+        (work)
+___collector_worker *work;)
 {
-  ___PSGET
+  ___processor_state ___ps = work->carrier;
 
   /*
 
@@ -298,7 +333,7 @@ ___PSDKR)
     |L      |L        |L        |L                 |
     +-------+---------+---------+------------------+-----
                  ^                                  ^
-          scan_ptr                                  alloc_heap_ptr
+          scan_ptr                                  work->arena.cursor
 
 
     SITUATION #2: scanning the incomplete chunk
@@ -308,7 +343,7 @@ ___PSDKR)
     |L      |L        |L        |L                 |
     +-------+---------+---------+------------------+-----
                                          ^          ^
-                                  scan_ptr          alloc_heap_ptr
+                                  scan_ptr          work->arena.cursor
 
 
     SITUATION #3: done scanning all movable objects
@@ -318,72 +353,61 @@ ___PSDKR)
     |L      |L        |L        |L                 |
     +-------+---------+---------+------------------+-----
                                                     ^
-                                            scan_ptr alloc_heap_ptr
+                                            scan_ptr work->arena.cursor
 
      L = link to next chunk tagged with ___FORW
 
    */
 
   ___WORD *ptr = scan_ptr;
-  ___VOLATILE ___WORD *hcsh;
 
-  while (ptr != alloc_heap_ptr) /* SITUATION #1 or #2 ? */
+  while (ptr != work->arena.cursor) /* SITUATION #1 or #2 ? */
     {
       ___WORD head;
+      work->active_scan_chunk_ = work->local_scan_chunk_;
+      work->scan_origin_ = 1;
       while (!___TESTTYPE(head = *ptr, ___FORW)) /* not end of complete chunk? */
         {
           scan_and_advance(ptr, head); /* note: this advances ptr */
-          if (ptr == alloc_heap_ptr) /* end of incomplete chunk? */
+          if (ptr == work->arena.cursor) /* end of incomplete chunk? */
             {
               /* SITUATION #3, done scanning all movable objects */
               scan_ptr = ptr;
+              work->active_scan_chunk_ = 0;
+              work->scan_origin_ = 0;
               return;
             }
         }
 
       scan_ptr = ptr; /* remember where scan ended */
+      require_chunk_transition(work,work->local_scan_chunk_,2,3);
+      work->chunks_completed_++;
+      work->local_scan_chunk_ = 0;
+      work->active_scan_chunk_ = 0;
+      work->scan_origin_ = 0;
 
       /*
        * SITUATION #1, at end of complete chunk.
        */
 
-#ifndef ___SINGLE_THREADED_VMS
-      ___SPINLOCK_LOCK(heap_chunks_to_scan_lock);
-#endif
-
-      while ((hcsh=heap_chunks_to_scan_head) != heap_chunks_to_scan_tail)
+      while ((ptr=take_heap_chunk(work,work)) != 0)
         {
           /*
            * Get the next complete heap chunk from heap chunk FIFO and
            * scan it.
            */
 
-          ptr = ___UNTAG_AS(*hcsh, ___FORW);
-
-          heap_chunks_to_scan_head = ptr;
-
-          ___SHARED_MEMORY_BARRIER(); /* share heap_chunks_to_scan_head */
-
-#ifndef ___SINGLE_THREADED_VMS
-          ___SPINLOCK_UNLOCK(heap_chunks_to_scan_lock);
-#endif
-
-          scan_complete_heap_chunk (___PSP ptr+1);
-
-#ifndef ___SINGLE_THREADED_VMS
-          ___SPINLOCK_LOCK(heap_chunks_to_scan_lock);
-#endif
+          scan_complete_heap_chunk (work, ptr, 2);
         }
-
-#ifndef ___SINGLE_THREADED_VMS
-      ___SPINLOCK_UNLOCK(heap_chunks_to_scan_lock);
-#endif
 
       /*
        * Scan the incomplete heap chunk currently being created.
        */
 
       ptr = alloc_heap_chunk_start;
+
+      require_chunk_transition(work,ptr,0,2);
+      work->local_scan_chunk_ = ptr;
 
       scan_ptr = ptr;
     }

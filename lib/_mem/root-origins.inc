@@ -11,7 +11,7 @@ ___execution_context *source;)
   reference_location = IN_REGISTER;
 #endif
 
-  mark_array (___PSP source->r, sizeof(source->r)/sizeof(*source->r));
+  mark_array (___ps->collector, source->r, sizeof(source->r)/sizeof(*source->r));
 }
 
 
@@ -27,7 +27,7 @@ ___execution_context *source;)
   reference_location = IN_SAVED;
 #endif
 
-  mark_array (___PSP source->saved, sizeof(source->saved)/sizeof(*source->saved));
+  mark_array (___ps->collector, source->saved, sizeof(source->saved)/sizeof(*source->saved));
 }
 
 
@@ -43,7 +43,7 @@ ___execution_context *source;)
   reference_location = IN_TYPE_CACHE;
 #endif
 
-  mark_array (___PSP source->type_cache, sizeof(source->type_cache)/sizeof(*source->type_cache));
+  mark_array (___ps->collector, source->type_cache, sizeof(source->type_cache)/sizeof(*source->type_cache));
 }
 
 
@@ -60,7 +60,7 @@ ___execution_context *source;)
   reference_location = IN_PROCESSOR_SCMOBJ;
 #endif
 
-  mark_array (___PSP
+  mark_array (___ps->collector,
               ___BODY0_AS(___SUBTYPED_FROM_START(___ALIGNUP(source->processor_scmobj,___WS)),___tSUBTYPED),
               ___PROCESSOR_SIZE);
 }
@@ -99,7 +99,7 @@ ___virtual_machine_state source;)
   reference_location = IN_VM_SCMOBJ;
 #endif
 
-  mark_array (___PSP
+  mark_array (___ps->collector,
               ___BODY0_AS(___VM_SCMOBJ(source),___tSUBTYPED),
               ___VM_SIZE);
 }
@@ -128,8 +128,8 @@ ___HIDDEN void mark_global_cell(___PSD ___SCMOBJ *cell)
 {
   ___PSGET
   ___SCMOBJ value=___LOAD_GLOBAL_WORD(cell);
-  mark_array(___PSP &value,1);
-  ___PUBLISH_GLOBAL_WORD(cell,value);
+  mark_array(___ps->collector, &value,1);
+  if(___ps->collector==0 || ___ps->collector->census==0) ___PUBLISH_GLOBAL_WORD(cell,value);
 }
 
 ___HIDDEN void mark_global_variables
@@ -158,7 +158,7 @@ const ___global_root_source *source;)
             mark_global_cell(___PSP &glo->val);
             if (___LOAD_GLOBAL_WORD(&glo->primitive_set))
               mark_global_cell(___PSP &glo->primitive_value);
-            else
+            else if(___ps->collector==0 || ___ps->collector->census==0)
               ___PUBLISH_GLOBAL_WORD(&glo->primitive_value,___FAL);
             glo = glo->next;
           }
@@ -175,7 +175,7 @@ const ___global_root_source *source;)
         mark_global_cell(___PSP values+i);
         if (flags & (___CAST(___UWORD,1) << (i % ___WORD_WIDTH)))
           mark_global_cell(___PSP values+___GLOBALS_CAPACITY+i);
-        else
+        else if(___ps->collector==0 || ___ps->collector->census==0)
           ___PUBLISH_GLOBAL_WORD(values+___GLOBALS_CAPACITY+i,___FAL);
       }
   }
@@ -214,7 +214,7 @@ ___global_state source;)
     before[0]=cells[0]=source->symbol_table;
     before[1]=cells[1]=source->keyword_table;
     ___MUTEX_UNLOCK(source->mem.global_gate);
-    mark_array (___PSP cells, 2);
+    mark_array (___ps->collector, cells, 2);
     ___MUTEX_LOCK(source->mem.global_gate);
     if (cells[0]!=before[0] && source->symbol_table==before[0])
       source->symbol_table=cells[0];
