@@ -20,6 +20,7 @@
 #include "os_files.h"
 #include "setup.h"
 #include "c_intf.h"
+#include "os_exec.h"
 
 #if defined(USE_execvp) && defined(__APPLE__) && defined(__MACH__)
 #include <spawn.h>
@@ -162,6 +163,131 @@ int maxfd;)
 
 /* Device groups. */
 
+/* Native device ownership. Signals only record pending when a normal scope
+ * owns the topology; reaping obtains the same exclusive claim. No handler
+ * waits for an interrupted owner, allocates, or calls a virtual provider. */
+#if defined(USE_POSIX) && defined(USE_SIGNALS)
+#define NATIVE_DEVICE_LOCKED 1u
+#define NATIVE_DEVICE_PENDING 2u
+#define NATIVE_DEVICE_CLOSED 4u
+static unsigned native_device_control = NATIVE_DEVICE_CLOSED;
+static _Thread_local unsigned native_device_depth;
+#ifdef ___USE_POSIX_THREAD_SYSTEM
+static _Thread_local int native_device_cancel_state;
+#endif
+_Static_assert(__atomic_always_lock_free(sizeof(unsigned), 0),
+               "native device monitor requires lock-free unsigned atomics");
+static void native_reap_children_locked(void);
+static void native_device_request_status(void)
+{
+  unsigned state = __atomic_fetch_or(&native_device_control,
+                                     NATIVE_DEVICE_PENDING, __ATOMIC_SEQ_CST);
+  if (state & (NATIVE_DEVICE_LOCKED | NATIVE_DEVICE_CLOSED)) return;
+  state |= NATIVE_DEVICE_PENDING;
+  if (!__atomic_compare_exchange_n(&native_device_control, &state,
+          (state & ~NATIVE_DEVICE_PENDING) | NATIVE_DEVICE_LOCKED,
+          0, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST)) return;
+  for (;;)
+    {
+      unsigned expected = NATIVE_DEVICE_LOCKED;
+      native_reap_children_locked();
+      if (__atomic_compare_exchange_n(&native_device_control, &expected, 0,
+              0, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST)) return;
+      /* A notification arrived during reaping. It must survive the unlock. */
+      __atomic_fetch_and(&native_device_control, ~NATIVE_DEVICE_PENDING,
+                         __ATOMIC_SEQ_CST);
+    }
+}
+static void native_device_begin(void)
+{
+  unsigned state;
+  if (native_device_depth == (unsigned)-1) abort();
+  if (native_device_depth++ != 0) return;
+#ifdef ___USE_POSIX_THREAD_SYSTEM
+  /* A cancellation point in fork/exec setup must not abandon topology ownership. */
+  if (pthread_setcancelstate(PTHREAD_CANCEL_DISABLE,
+                            &native_device_cancel_state) != 0) abort();
+#endif
+  for (;;)
+    {
+      state = __atomic_load_n(&native_device_control, __ATOMIC_SEQ_CST);
+      if (state & NATIVE_DEVICE_LOCKED) continue;
+      if ((state & NATIVE_DEVICE_PENDING) && !(state & NATIVE_DEVICE_CLOSED))
+        { native_device_request_status(); continue; }
+      if (__atomic_compare_exchange_n(&native_device_control, &state,
+              state | NATIVE_DEVICE_LOCKED, 0,
+              __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST)) return;
+    }
+}
+static void native_device_end(void)
+{
+  unsigned old;
+  if (--native_device_depth != 0) return;
+  old = __atomic_fetch_and(&native_device_control, ~NATIVE_DEVICE_LOCKED,
+                          __ATOMIC_SEQ_CST);
+  if ((old & NATIVE_DEVICE_PENDING) && !(old & NATIVE_DEVICE_CLOSED))
+    native_device_request_status();
+#ifdef ___USE_POSIX_THREAD_SYSTEM
+  /* Restoring cancellation may not return. Ownership is already relinquished. */
+  if (pthread_setcancelstate(native_device_cancel_state, NULL) != 0) abort();
+#endif
+}
+static int native_device_closed(void)
+{
+  return (__atomic_load_n(&native_device_control, __ATOMIC_SEQ_CST) &
+          NATIVE_DEVICE_CLOSED) != 0;
+}
+static void native_device_set_closed(int closed)
+{
+  native_device_begin();
+  if (closed)
+    __atomic_fetch_or(&native_device_control, NATIVE_DEVICE_CLOSED, __ATOMIC_SEQ_CST);
+  else
+    __atomic_fetch_and(&native_device_control, ~NATIVE_DEVICE_CLOSED, __ATOMIC_SEQ_CST);
+  native_device_end();
+}
+#else
+#define native_device_begin() ((void)0)
+#define native_device_end() ((void)0)
+#define native_device_request_status() ((void)0)
+#define native_device_set_closed(x) ((void)0)
+#define native_device_closed() 0
+#endif
+
+static void native_device_ring_add(___device **head, ___device *dev)
+{
+  if (*head == NULL)
+    { dev->next = dev; dev->prev = dev; *head = dev; }
+  else
+    {
+      ___device *tail = (*head)->prev;
+      dev->next = *head; dev->prev = tail;
+      tail->next = dev; (*head)->prev = dev;
+    }
+}
+static void native_device_ring_remove(___device **head, ___device *dev)
+{
+  if (dev->prev == dev) *head = NULL;
+  else
+    {
+      if (*head == dev) *head = dev->next;
+      dev->prev->next = dev->next;
+      dev->next->prev = dev->prev;
+    }
+  dev->next = dev; dev->prev = dev;
+}
+static void native_device_claim_cleanup(___device *dev, ___device_group *group)
+{
+  native_device_ring_remove(&group->list, dev);
+  native_device_ring_add(&group->cleaning, dev);
+  dev->cleanup_pending = 1;
+}
+static ___SCMOBJ native_device_cleanup_claimed
+  (___device *self, ___device_group *group, int *settled);
+static ___SCMOBJ native_device_group_cleanup
+  (___device_group *group, int *settled);
+
+
 
 ___SCMOBJ ___device_group_setup
    ___P((___device_group **dgroup),
@@ -178,6 +304,8 @@ ___device_group **dgroup;)
     return ___FIX(___HEAP_OVERFLOW_ERR);
 
   g->list = NULL;
+  g->cleaning = NULL;
+  g->cleanup_error = ___FIX(___NO_ERR);
 
   *dgroup = g;
 
@@ -185,69 +313,57 @@ ___device_group **dgroup;)
 }
 
 
-void ___device_group_cleanup
-   ___P((___device_group *dgroup),
-        (dgroup)
-___device_group *dgroup;)
+
+static ___SCMOBJ native_device_group_cleanup(___device_group *group, int *settled)
 {
-  while (dgroup->list != NULL)
-    if (___device_cleanup (dgroup->list) != ___FIX(___NO_ERR))
-      break;
-
-  ___FREE_MEM(dgroup);
-}
-
-
-void ___device_add_to_group
-   ___P((___device_group *dgroup,
-         ___device *dev),
-        (dgroup,
-         dev)
-___device_group *dgroup;
-___device *dev;)
-{
-  ___device *head = dgroup->list;
-
-  dev->group = dgroup;
-
-  if (head == NULL)
+  ___SCMOBJ result;
+  *settled = 0;
+  if (group == NULL) { *settled = 1; return ___FIX(___NO_ERR); }
+  for (;;)
     {
-      dev->next = dev;
-      dev->prev = dev;
-      dgroup->list = dev;
-    }
-  else
-    {
-      ___device *tail = head->prev;
-      dev->next = head;
-      dev->prev = tail;
-      tail->next = dev;
-      head->prev = dev;
+      ___device *dev;
+      int released;
+      native_device_begin();
+      dev = group->list;
+      if (dev != NULL) native_device_claim_cleanup(dev, group);
+      else
+        {
+          if (group->cleaning != NULL)
+            { native_device_end(); return ___FIX(___UNKNOWN_ERR); }
+          result = group->cleanup_error;
+          if (___io_mod.dgroup == group) ___io_mod.dgroup = NULL;
+          ___FREE_MEM(group);
+          *settled = 1;
+          native_device_end();
+          return result;
+        }
+      native_device_end();
+      result = native_device_cleanup_claimed(dev, group, &released);
+      if (!released) return result; /* strong group custody survives error */
     }
 }
-
-void ___device_remove_from_group
-   ___P((___device *dev),
-        (dev)
-___device *dev;)
+void ___device_group_cleanup(___device_group *group)
 {
-  ___device_group *dgroup = dev->group;
-  ___device *prev = dev->prev;
-  ___device *next = dev->next;
-
-  if (prev == dev)
-    dgroup->list = NULL;
-  else
+  int settled;
+  native_device_group_cleanup(group, &settled);
+}
+void ___device_add_to_group(___device_group *group, ___device *dev)
+{
+  native_device_begin();
+  dev->group = group;
+  dev->cleanup_pending = 0;
+  native_device_ring_add(&group->list, dev);
+  native_device_end();
+}
+void ___device_remove_from_group(___device *dev)
+{
+  native_device_begin();
+  if (dev->group != NULL && !dev->cleanup_pending)
     {
-      if (dgroup->list == dev)
-        dgroup->list = next;
-      prev->next = next;
-      next->prev = prev;
-      dev->next = dev;
-      dev->prev = dev;
+      native_device_ring_remove(&dev->group->list, dev);
+      dev->group = NULL;
     }
-
-  dev->group = NULL;
+  native_device_end();
 }
 
 ___device_group *___global_device_group ___PVOID
@@ -1601,7 +1717,7 @@ ___device *self;)
 #ifdef USE_PUMPS
   InterlockedIncrement (&self->refcount);
 #else
-  self->refcount++;
+  __atomic_add_fetch(&self->refcount, 1, __ATOMIC_SEQ_CST);
 #endif
 }
 
@@ -1616,7 +1732,7 @@ ___device *self;)
 #ifdef USE_PUMPS
       InterlockedDecrement (&self->refcount) == 0
 #else
-      --self->refcount == 0
+      __atomic_sub_fetch(&self->refcount, 1, __ATOMIC_SEQ_CST) == 0
 #endif
       )
     {
@@ -1627,48 +1743,73 @@ ___device *self;)
   return e;
 }
 
-___SCMOBJ ___device_cleanup
-   ___P((___device *self),
-        (self)
-___device *self;)
+
+static ___SCMOBJ native_device_cleanup_claimed
+  (___device *self, ___device_group *group, int *settled)
 {
   ___SCMOBJ e;
   ___device *devs[1];
-
-  if (self->group == NULL)
-    return ___FIX(___UNKNOWN_ERR);
-
-  ___device_remove_from_group (self);
-
+#ifdef ___USE_POSIX_THREAD_SYSTEM
+  int cancel_state;
+#endif
+  *settled = 0;
   for (;;)
     {
-      e = ___device_close (self, ___DIRECTION_RD);
-      if (e == ___FIX(___NO_ERR))
-        break;
-      if (e != ___ERR_CODE_EAGAIN)
-        return e;
-
+      e = ___device_close(self, ___DIRECTION_RD);
+      if (e == ___FIX(___NO_ERR)) break;
+      if (e != ___ERR_CODE_EAGAIN) goto retained;
       devs[0] = self;
-      e = ___device_select (devs, 1, 0, 0, ___time_mod.time_pos_infinity);
-      if (e != ___FIX(___NO_ERR))
-        return e;
+      e = ___device_select(devs, 1, 0, 0, ___time_mod.time_pos_infinity);
+      if (e != ___FIX(___NO_ERR)) goto retained;
     }
-
   for (;;)
     {
-      e = ___device_close (self, ___DIRECTION_WR);
-      if (e == ___FIX(___NO_ERR))
-        break;
-      if (e != ___ERR_CODE_EAGAIN)
-        return e;
-
+      e = ___device_close(self, ___DIRECTION_WR);
+      if (e == ___FIX(___NO_ERR)) break;
+      if (e != ___ERR_CODE_EAGAIN) goto retained;
       devs[0] = self;
-      e = ___device_select (devs, 0, 1, 0, ___time_mod.time_pos_infinity);
-      if (e != ___FIX(___NO_ERR))
-        return e;
+      e = ___device_select(devs, 0, 1, 0, ___time_mod.time_pos_infinity);
+      if (e != ___FIX(___NO_ERR)) goto retained;
     }
+  /* Default builtin release providers are noncollecting. Cancellation may
+   * resume only after the group can observe reference settlement. */
+#ifdef ___USE_POSIX_THREAD_SYSTEM
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &cancel_state);
+#endif
+  native_device_begin();
+  native_device_ring_remove(&group->cleaning, self);
+  self->group = NULL;
+  self->cleanup_pending = 0;
+  *settled = 1;
+  e = ___device_release(self); /* self may no longer exist */
+  if (e != ___FIX(___NO_ERR) && group->cleanup_error == ___FIX(___NO_ERR))
+    group->cleanup_error = e;
+  native_device_end();
+#ifdef ___USE_POSIX_THREAD_SYSTEM
+  pthread_setcancelstate(cancel_state, NULL);
+#endif
+  return e;
 
-  return ___device_release (self);
+retained:
+  native_device_begin();
+  native_device_ring_remove(&group->cleaning, self);
+  self->cleanup_pending = 0;
+  native_device_ring_add(&group->list, self);
+  if (group->cleanup_error == ___FIX(___NO_ERR)) group->cleanup_error = e;
+  native_device_end();
+  return e;
+}
+___SCMOBJ ___device_cleanup(___device *self)
+{
+  ___device_group *group;
+  int settled;
+  native_device_begin();
+  group = self->group;
+  if (group == NULL || self->cleanup_pending)
+    { native_device_end(); return ___FIX(___UNKNOWN_ERR); }
+  native_device_claim_cleanup(self, group);
+  native_device_end();
+  return native_device_cleanup_claimed(self, group, &settled);
 }
 
 
@@ -3502,10 +3643,17 @@ typedef struct ___device_process_struct
     PROCESS_INFORMATION pi;  /* process information */
 #endif
 
-    int status;          /* process status */
-    ___BOOL got_status;  /* was the status retrieved? */
-    ___BOOL cleanuped;   /* has process been cleaned-up? */
-    int event_check_interval_nsecs;  /* interval between event checks */
+#ifdef USE_POSIX
+    _Atomic int status;
+    _Atomic ___BOOL got_status;
+    _Atomic ___BOOL cleanuped;
+    _Atomic int event_check_interval_nsecs;
+#else
+    int status;
+    ___BOOL got_status;
+    ___BOOL cleanuped;
+    int event_check_interval_nsecs;
+#endif
   } ___device_process;
 
 typedef struct ___device_process_vtbl_struct
@@ -3571,6 +3719,7 @@ ___SCMOBJ ___device_process_status_poll
         (dev)
 ___device_process *dev;)
 {
+  native_device_request_status();
   if (!dev->got_status)
     {
 #ifdef USE_POSIX
@@ -8505,65 +8654,60 @@ int *direction;)
 
 #ifdef USE_SIGNALS
 
-___HIDDEN void sigchld_signal_handler
-   ___P((int sig),
-        (sig)
-int sig;)
-{
+
 #ifdef USE_POSIX
-  int save_errno = errno;
-#ifdef USE_signal
-  ___set_signal_handler (SIGCHLD, sigchld_signal_handler);
-#endif
-
-  /*
-   * A SIGCHLD signal indicates that at least one child has changed
-   * status.  There may be more than one because signals are not
-   * queued.  For example during a period when the SIGCHLD signal is
-   * blocked several child processes can terminate and only one call
-   * to the SIGCHLD handler will occur when the SIGCHLD signal is
-   * unblocked.  For this reason we must call waitpid in a loop, until
-   * the last call indicates that no other child process is available.
-   */
-
-  for (;;)
+_Static_assert(__atomic_always_lock_free(sizeof(int), 0),
+               "child status publication requires lock-free int atomics");
+_Static_assert(__atomic_always_lock_free(sizeof(___BOOL), 0),
+               "child status publication requires lock-free bool atomics");
+static void native_reap_children_locked(void)
+{
+  ___device_group *group = ___io_mod.dgroup;
+  int status;
+  pid_t pid;
+  if (group == NULL) return;
+  while ((pid = ___waitpid_no_EINTR(-1, &status, WNOHANG)) > 0)
     {
-      int status;
-      ___device *head;
-      pid_t pid = ___waitpid_no_EINTR (-1, &status, WNOHANG);
-
-      if (pid <= 0 ||
-          !(WIFEXITED(status) || WIFSIGNALED(status)))
-        break;
-
-      /*
-       * Find the process device structure for the process which
-       * terminated, and save the exit status with the process device.
-       */
-
-      head = ___global_device_group ()->list;
-
-      if (head != NULL)
+      ___device *heads[2] = {group->list, group->cleaning};
+      int i;
+      if (!(WIFEXITED(status) || WIFSIGNALED(status))) continue;
+      for (i=0; i<2; i++)
         {
-          ___device *d = head->prev;
-
+          ___device *head = heads[i], *dev = head;
+          if (head == NULL) continue;
           do
             {
-              if (___device_kind (d) == ___PROCESS_DEVICE_KIND)
+              /* The process type is private and has exactly this builtin
+               * table. No virtual provider runs in signal context. */
+              if (dev->vtbl == ___CAST(void*, &___device_process_table))
                 {
-                  ___device_process *dev = ___CAST(___device_process*,d);
-
-                  if (dev->pid == pid)
+                  ___device_process *process = ___CAST(___device_process*,dev);
+                  /* Completed devices may retain a recycled PID. Only a
+                   * device still awaiting this kernel child's status matches. */
+                  if (process->pid == pid && !process->got_status)
                     {
-                      ___device_process_status_set (dev, status); /* ignore error */
-                      break;
+                      process->status = status;
+                      process->cleanuped = 1; /* POSIX cleanup has no OS action */
+                      process->got_status = 1;
+                      goto next_child;
                     }
                 }
-              d = d->prev;
-            } while  (d != head);
+              dev = dev->next;
+            } while (dev != head);
         }
+    next_child:;
     }
-  errno = save_errno;
+}
+#endif
+___HIDDEN void sigchld_signal_handler(int sig)
+{
+#ifdef USE_POSIX
+  int saved_errno = errno;
+#ifdef USE_signal
+  ___set_signal_handler(SIGCHLD, sigchld_signal_handler);
+#endif
+  native_device_request_status();
+  errno = saved_errno;
 #endif
 }
 
@@ -8576,6 +8720,7 @@ ___SCMOBJ ___setup_child_interrupt_handling ___PVOID
 
   ___set_signal_handler (SIGPIPE, SIG_IGN);
   ___set_signal_handler (SIGCHLD, sigchld_signal_handler);
+  native_device_set_closed(0);
 
   ___thread_sigmask1 (SIG_UNBLOCK, SIGCHLD, NULL);
 
@@ -8589,6 +8734,7 @@ void ___cleanup_child_interrupt_handling ___PVOID
 {
 #ifdef USE_SIGNALS
 
+  native_device_set_closed(1);
   ___set_signal_handler (SIGPIPE, SIG_DFL);
   ___set_signal_handler (SIGCHLD, SIG_DFL);
 
@@ -9124,7 +9270,7 @@ static void close_process_child_descriptors (int errno_fd)
 #endif
 
 
-___SCMOBJ ___device_stream_setup_from_process
+static ___SCMOBJ native_device_stream_setup_from_process
    ___P((___device_stream **dev,
          ___device_group *dgroup,
          ___STRING_TYPE(___PROCESS_PATH_AND_ARGS_CE_SELECT) *argv,
@@ -9162,32 +9308,11 @@ int options;)
   int execvp_errno;
   int n;
 #if defined(POSIX_SPAWN_SETEXEC) && defined(POSIX_SPAWN_CLOEXEC_DEFAULT)
-  posix_spawnattr_t spawn_attributes;
-  posix_spawn_file_actions_t spawn_actions;
-  int spawn_ready = 0;
-
-  /* Prepare before fork: the child must not allocate a file-action list.
-   * SETEXEC preserves the existing forked PID, interrupt cleanup, affinity,
-   * error pipe and parent publication protocol.  Explicit paths with the
-   * existing child cwd/environment handling remain unchanged. */
-  if (!(options & PSEUDO_TERM) && strchr (argv[0], '/') != NULL &&
-      posix_spawnattr_init (&spawn_attributes) == 0)
-    {
-      if (posix_spawn_file_actions_init (&spawn_actions) == 0)
-        {
-          int status = posix_spawnattr_setflags
-            (&spawn_attributes,
-             POSIX_SPAWN_SETEXEC | POSIX_SPAWN_CLOEXEC_DEFAULT);
-          int fd;
-          for (fd=STDIN_FILENO; status==0 && fd<=STDERR_FILENO; fd++)
-            status = posix_spawn_file_actions_adddup2 (&spawn_actions, fd, fd);
-          spawn_ready = status == 0;
-          if (!spawn_ready)
-            posix_spawn_file_actions_destroy (&spawn_actions);
-        }
-      if (!spawn_ready)
-        posix_spawnattr_destroy (&spawn_attributes);
-    }
+  ___exec_image_plan spawn_plan = {0};
+  int spawn_ready = !(options & PSEUDO_TERM) &&
+    ___exec_image_plan_prepare (&spawn_plan, argv[0],
+                               env != NULL ? env : environ,
+                               options & (STDIN_REDIR | STDOUT_REDIR | STDERR_REDIR));
 #endif
 
   /*
@@ -9283,16 +9408,7 @@ int options;)
 #if defined(POSIX_SPAWN_SETEXEC) && defined(POSIX_SPAWN_CLOEXEC_DEFAULT)
           if (spawn_ready)
             {
-              int fd;
-              /* This is the single-threaded child, after fd relocation and
-               * redirection. Closed or close-on-exec standard descriptors use
-               * the original path, preserving their exact semantics. */
-              for (fd=STDIN_FILENO; fd<=STDERR_FILENO; fd++)
-                {
-                  int flags = fcntl (fd, F_GETFD);
-                  if (flags < 0 || (flags & FD_CLOEXEC)) break;
-                }
-              defer_close = fd > STDERR_FILENO;
+              defer_close = 1;
             }
 #endif
 
@@ -9310,8 +9426,7 @@ int options;)
                 {
                   /* Successful SETEXEC never returns and keeps this PID.
                    * Failed self-dup actions/exec retain the original error path. */
-                  posix_spawn (NULL, argv[0], &spawn_actions,
-                               &spawn_attributes, argv, environ);
+                  ___exec_image_plan_replace (&spawn_plan, argv, environ);
                   close_process_child_descriptors (hdp_errno.writing_fd);
                 }
 #endif
@@ -9389,10 +9504,11 @@ int options;)
                  fdp.output.reading_fd,
                  direction);
 
-          *dev = ___CAST(___device_stream*,d);
-
           if (e == ___FIX(___NO_ERR))
-            device_transfer_close_responsibility (___CAST(___device*,d));
+            {
+              *dev = ___CAST(___device_stream*,d);
+              device_transfer_close_responsibility (___CAST(___device*,d));
+            }
         }
 
       if (e != ___FIX(___NO_ERR))
@@ -9408,11 +9524,7 @@ int options;)
   ___mask_all_interrupts_end (&all_interrupts);
 
 #if defined(POSIX_SPAWN_SETEXEC) && defined(POSIX_SPAWN_CLOEXEC_DEFAULT)
-  if (spawn_ready)
-    {
-      posix_spawn_file_actions_destroy (&spawn_actions);
-      posix_spawnattr_destroy (&spawn_attributes);
-    }
+  ___exec_image_plan_destroy (&spawn_plan);
 #endif
 
   return e;
@@ -9583,6 +9695,21 @@ int options;)
 
 #endif
 }
+___SCMOBJ ___device_stream_setup_from_process
+  (___device_stream **dev, ___device_group *dgroup,
+   ___STRING_TYPE(___PROCESS_PATH_AND_ARGS_CE_SELECT) *argv,
+   ___STRING_TYPE(___ENVIRON_CE_SELECT) *env,
+   ___STRING_TYPE(___SET_CURRENT_DIRECTORY_PATH_CE_SELECT) dir, int options)
+{
+  ___SCMOBJ result;
+  native_device_begin();
+  if (native_device_closed())
+    { native_device_end(); return ___FIX(___UNKNOWN_ERR); }
+  result = native_device_stream_setup_from_process(dev,dgroup,argv,env,dir,options);
+  native_device_end(); /* pending SIGCHLD can now observe registered ownership */
+  return result;
+}
+
 
 #endif
 
@@ -11997,7 +12124,8 @@ ___SCMOBJ ___setup_io_module ___PVOID
 
 #endif
 
-      io_module_setup ();/*****************************/
+      ___SCMOBJ e = io_module_setup ();
+      if (e != ___FIX(___NO_ERR)) return e;
       ___io_mod.setup = 1;
       return ___FIX(___NO_ERR);
     }
@@ -12010,7 +12138,8 @@ void ___cleanup_io_module ___PVOID
 {
   if (___io_mod.setup)
     {
-      io_module_cleanup ();/*****************************/
+      io_module_cleanup ();
+      if (___io_mod.dgroup != NULL) return; /* retained cleanup ownership */
 
 #ifdef USE_WIN32
       CloseHandle (___io_mod.always_signaled); /* ignore error */

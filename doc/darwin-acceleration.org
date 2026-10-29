@@ -1,0 +1,150 @@
+#+TITLE: Darwin native execution and package acceleration
+#+OPTIONS: toc:2 num:nil
+
+* Branch and acceptance boundary
+:PROPERTIES:
+:CUSTOM_ID: DARWIN-NATIVE-EXECUTION
+:BASE: 4652db0d379e6cb1dd65cab3fad675a98e20499f
+:STATUS: draft-native-checks-passed-package-acceptance-open
+:END:
+
+The branch contains runtime code, not just build configuration:
+- lib/os_exec.h owns a parent-prepared Darwin exec-image plan.
+- lib/os_io.c consumes that plan and coordinates SIGCHLD with device topology.
+- lib/os_io.h separates live devices from cleanup-owned devices.
+- The original tests/check target includes the real private-plan native test.
+
+Public object representation, FrameSpec, continuation and GC algorithms are
+unchanged. The new process protocol does not grant general VM/FFI shutdown
+qualification. Non-Darwin native execution and custom virtual release providers
+still require their own acceptance.
+
+* Exec-image plan
+:PROPERTIES:
+:CUSTOM_ID: EXEC-IMAGE-PLAN
+:END:
+
+The parent constructs file actions, attributes and copied PATH recipes before
+fork. It does not resolve executable files ahead of the child's real cwd.
+The child retains the original interrupt cleanup, affinity reset, redirection,
+chdir and environment transitions. Eligible image replacement uses SETEXEC and
+CLOEXEC_DEFAULT; no child-side plan allocation is needed.
+
+This extends the previous explicit-path/all-standard-fds-open path to bare
+names with an explicit child environment and closed/CLOEXEC standard fds.
+Empty and relative PATH entries are interpreted after the actual child chdir.
+The fd snapshot precedes pipe allocation, so pipe reuse of a closed standard
+number cannot become accidental stdio inheritance. Redirection supplies the
+corresponding standard fd before the kernel actions run.
+
+PTY remains on the original path. Preparation failure releases private plan
+storage and uses the original path. Failed replacement retains execvp handling,
+including ENOEXEC shell fallback and the original errno-pipe delivery. The plan
+has idempotent private destruction; no global plan cache or new public ABI.
+
+Fork is deliberately retained: Gambit's legacy interrupt cleanup includes
+dispositions that a direct parent-side spawn must not silently change.
+The existing production kernel-fd-closure optimization is baseline credit.
+Only newly admitted paths may contribute new savings.
+
+* Child status and device custody
+:PROPERTIES:
+:CUSTOM_ID: CHILD-STATUS-CUSTODY
+:END:
+
+A lock-free control word coordinates normal topology ownership and pending
+SIGCHLD notification. A handler does not wait for an interrupted owner or invoke
+a virtual provider. Reaping examines both live and cleanup-owned rings under
+the same claim; an already completed device with a recycled PID is not the
+recipient of a new child's status. Process-status fields use atomic access.
+
+Cleanup moves a device to a distinct owned ring before releasing topology
+access. A failed close/select returns it to live custody; settled release is
+distinct from a provider error. Cancellation restoration follows relinquishing
+ownership. Group/module cleanup retains unresolved devices rather than freeing
+their outer owner and losing the internal responsibility.
+
+This integrates the earlier isolated native-device design into current
+modern-c without copying its obsolete global arena or frame/GC changes.
+
+* Actual native observations
+:PROPERTIES:
+:CUSTOM_ID: NATIVE-OBSERVATIONS
+:PROFILE: Darwin-arm64 GCC16 C23 O1
+:END:
+
+All three configure options remain enabled:
+#+begin_example
+--enable-multiple-threaded-vms --enable-smp --enable-multiple-vms
+#+end_example
+
+The unchanged native core wall budget is600s. The user-approved aggregate
+registered-process-group RSS envelope is8GiB, sampled with group cleanup on
+refusal; it is not an OS hard cap. Unknown compiler jobs reserve the available
+child allocation exclusively. Bootstrap GSC uses one processor, independently
+of the six-processor runtime fixture.
+
+| Observation | Original branch | Image plan only | Image plan + custody |
+|-------------+-----------------+-----------------+----------------------|
+| Original make core | PASS201.508s | PASS | PASS9.240s incremental |
+|6 processors /96 children, retained handles and GC |35s TIMEOUT |35s TIMEOUT | PASS1.249s, marker and natural group exit |
+| Four bare-command cwd/environment cases + missing-file rejection | PASS1.972s | PASS1.839s | PASS0.293s |
+| Real kernel plan native controls | Not present | PASS | PASS |
+| Original tests/make check including new target | Not run in this cohort | Not run | PASS110.333s; ALL TESTS SUCCESSFUL |
+| Complete Gerbil compiler / original two packages | Not qualified | Not qualified | OPEN |
+
+The elapsed values are individual observations, not repeated performance
+estimates. The timeout pair cannot supply a completed speedup ratio. The bare
+command pair is a focused result, not a package estimate or proof of2x.
+
+The native plan controls exercise actual image replacement: explicit child
+PATH, empty/relative PATH at child cwd, closed/CLOEXEC/redirected stdout,
+allocation refusal, repeated destruction and ENOEXEC shell fallback.
+The Make graph checks also retain three positive/three old-contract controls:
+66 objects are covered and41 missing header edges repaired. The latter adds
+necessary invalidation work; it is not eliminated compilation.
+
+* Complete compiler and package gate
+:PROPERTIES:
+:CUSTOM_ID: PACKAGE-ACCEPTANCE
+:END:
+
+Only the complete Gerbil compiler built from this branch can admit the candidate:
+#+begin_example
+gerbil clean
+gerbil build
+<original repository test entry>
+#+end_example
+
+Run that sequence for gerbil-mcp and gerbil-poo, preserving stage budgets,
+test populations and source/dependency identities. Homebrew remains an
+independent reference, not a fallback candidate or matched three-switch pair.
+
+Pending source dependencies include the VM global-storage contract: current
+modern-c shares ordinary globals, primitive overrides and presence bits in one
+fixed allocation. Any growth migration must cover all three and existing root
+consumers; the earlier ordinary-only segmented arena is not suitable.
+
+StaticModuleProduct/LinkPlan integration and whole-package cold/incremental
+timing remain open. No full package acceptance, twofold speedup or merge is
+claimed by these native results.
+
+* Benefit and new cost matrix
+:PROPERTIES:
+:CUSTOM_ID: BENEFIT-MATRIX
+:END:
+
+| Mechanism | Work removed or failure addressed | Added cost / remaining boundary |
+|-----------+----------------------------------+--------------------------------|
+| Prepared PATH recipes and fd actions | Eligible bare/closed-stdio launches avoid the per-descriptor cleanup path | Parent allocation/copy and candidate attempts; fallback retains original work |
+| Status/topology custody | The unchanged96-child GC fixture now completes; no handler traversal during an unowned topology mutation | Serialized topology access, atomic fields and cancellation-state transitions |
+| Cleanup-owned ring | Failed close retains device/group responsibility | Retained resources and retry/drain obligations; custom provider and VM teardown qualification open |
+| Index-neutral core-post | Three implicit Git-index maintenance hooks removed | Explicit commit-maintenance targets remain |
+| Complete header dependencies | Stale native layout objects cannot appear reusable | Legitimate header changes rebuild more objects |
+| Stage-product reuse | Intended removal of redundant C generation/link preparation | Complete compiler/package evidence still required; no new credit yet |
+
+QNT owns temporal notification/publication/ownership histories. Lean owns
+conditional value/layout/coverage/cost laws. These native checks do not close
+C23 weak-memory refinement, fairness, custom provider callbacks or the complete
+runtime lifetime proof; neither model/file linkage nor a component marker
+grants package admission.

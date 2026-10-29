@@ -176,8 +176,9 @@ core:
 
 core-pre: $(LIBRARY) $(EXECUTABLE)
 
+# Native construction never mutates Git's shared index. Explicit
+# select/deselect-gen-for-commit targets remain maintenance operations.
 core-post:
-	$(MAKE) deselect-gen-for-commit-post-nonrec
 
 phase1: $(LIBRARY_MODULES_C_IN_COMPILE_ORDER) $(EXECUTABLE_MODULES_C)
 
@@ -249,7 +250,7 @@ $(srcdirpfx)$(rootfromhere)/lib/_syntax-xform.scm \
 $(srcdirpfx)$(rootfromhere)/lib/_syntax.scm \
 $(srcdirpfx)$(rootfromhere)/lib/_with-syntax-boot.scm
 
-$(MODULES_O): $(srcdirpfx)$(rootfromhere)/include/gambit.h
+$(LIBRARY_OBJECTS) $(EXECUTABLE_OBJECTS): $(srcdirpfx)$(rootfromhere)/include/gambit.h
 
 bootstrap-pre:
 
