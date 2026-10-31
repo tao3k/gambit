@@ -6005,6 +6005,7 @@
 "c#targ-heap-ref-obj"
 "c#targ-heap-reserve"
 "c#targ-heap-reserve-and-check"
+"c#targ-host-plan-entry"
 "c#targ-ifjump-apply"
 "c#targ-ifjump-apply-s"
 "c#targ-ifjump-apply-u"
@@ -6043,6 +6044,7 @@
 "c#targ-macro-definition"
 "c#targ-make-cell"
 "c#targ-make-glbl"
+"c#targ-make-host-plan"
 "c#targ-make-mod"
 "c#targ-make-rsrc"
 "c#targ-make-target"
@@ -14784,6 +14786,7 @@
 "c#targ-heap-ref-obj"
 "c#targ-heap-reserve"
 "c#targ-heap-reserve-and-check"
+"c#targ-host-plan-entry"
 "c#targ-ifjump-apply"
 "c#targ-ifjump-apply-u"
 "c#targ-ifjump-fixflonums?"
@@ -14829,6 +14832,7 @@
 "c#targ-macro-definition"
 "c#targ-make-cell"
 "c#targ-make-glbl"
+"c#targ-make-host-plan"
 "c#targ-make-rsrc"
 "c#targ-make-target"
 "c#targ-max-adigit-width"
@@ -25892,6 +25896,7 @@ ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_heap_2d_end_21_,___G_c_23_targ_2d_heap_2d_e
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_heap_2d_ref_2d_obj,___G_c_23_targ_2d_heap_2d_ref_2d_obj)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_heap_2d_reserve,___G_c_23_targ_2d_heap_2d_reserve)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_heap_2d_reserve_2d_and_2d_check,___G_c_23_targ_2d_heap_2d_reserve_2d_and_2d_check)
+___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_host_2d_plan_2d_entry,___G_c_23_targ_2d_host_2d_plan_2d_entry)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_host_2d_tag,___G_c_23_targ_2d_host_2d_tag)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_ifjump_2d_apply,___G_c_23_targ_2d_ifjump_2d_apply)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_ifjump_2d_apply_2d_s,___G_c_23_targ_2d_ifjump_2d_apply_2d_s)
@@ -25948,6 +25953,7 @@ ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_loc_2d_opnd,___G_c_23_targ_2d_loc_2d_opnd)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_macro_2d_definition,___G_c_23_targ_2d_macro_2d_definition)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_make_2d_cell,___G_c_23_targ_2d_make_2d_cell)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_make_2d_glbl,___G_c_23_targ_2d_make_2d_glbl)
+___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_make_2d_host_2d_plan,___G_c_23_targ_2d_make_2d_host_2d_plan)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_make_2d_mod,___G_c_23_targ_2d_make_2d_mod)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_make_2d_rsrc,___G_c_23_targ_2d_make_2d_rsrc)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_make_2d_target,___G_c_23_targ_2d_make_2d_target)
