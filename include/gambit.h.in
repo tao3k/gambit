@@ -1236,6 +1236,21 @@
 #define ___OPTIMIZED_MODULE_LIMIT @CONF_OPTIMIZED_MODULE_LIMIT@
 #endif
 
+/* Explicit producer-owned GVM host plan.  Legacy modules retain their
+ * configured layout; planned modules never merge distinct GVM procedures.
+ * Host functions, labels and frame descriptors use the existing multiple-host
+ * ABI.  This does not impose an RSS bound on an individual procedure.
+ */
+#ifdef ___GVM_HOST_LAYOUT
+#if ___GVM_HOST_LAYOUT != 1
+#error "Unsupported GVM host layout"
+#endif
+#undef ___SINGLE_HOST
+#undef ___MULTIPLE_HOSTS
+#define ___MULTIPLE_HOSTS
+#define ___GVM_HOST_LAYOUT_SUPPORTED 1
+#endif
+
 #ifdef ___SINGLE_HOST
 #ifdef ___MULTIPLE_HOSTS
 #error "Define either ___SINGLE_HOST or ___MULTIPLE_HOSTS"
