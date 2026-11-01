@@ -282,7 +282,7 @@ extract_cc_ld_options()
   IFS="${GAMBUILD_SAVE_IFS}"
 }
 
-substitute_common()
+substitute_common_portable()
 {
   printf "%s" "$1" | sed \
     -e "s\${C_COMPILER}$(sed_quote "${C_COMPILER}")g" \
@@ -300,17 +300,17 @@ substitute_common()
     -e "s\${LIBS}$(sed_quote "${LIBS}")g"
 }
 
-substitute_obj()
+substitute_obj_portable()
 {
-  printf "%s" "$(substitute_common "$1")" | sed \
+  printf "%s" "$(substitute_common_portable "$1")" | sed \
     -e "s\${BUILD_OBJ_CC_OPTIONS_PARAM}$(sed_quote "${BUILD_OBJ_CC_OPTIONS_PARAM}")g" \
     -e "s\${BUILD_OBJ_INPUT_FILENAMES_PARAM}$(sed_quote "$(shell_quote "${BUILD_OBJ_INPUT_FILENAMES_PARAM}")")g" \
     -e "s\${BUILD_OBJ_OUTPUT_FILENAME_PARAM}$(sed_quote "$(shell_quote "${BUILD_OBJ_OUTPUT_FILENAME_PARAM}")")g"
 }
 
-substitute_dyn()
+substitute_dyn_portable()
 {
-  printf "%s" "$(substitute_common "$1")" | sed \
+  printf "%s" "$(substitute_common_portable "$1")" | sed \
     -e "s\${BUILD_DYN_CC_OPTIONS_PARAM}$(sed_quote "${BUILD_DYN_CC_OPTIONS_PARAM}")g" \
     -e "s\${BUILD_DYN_LD_OPTIONS_PRELUDE_PARAM}$(sed_quote "${BUILD_DYN_LD_OPTIONS_PRELUDE_PARAM}")g" \
     -e "s\${BUILD_DYN_LD_OPTIONS_PARAM}$(sed_quote "${BUILD_DYN_LD_OPTIONS_PARAM}")g" \
@@ -318,14 +318,105 @@ substitute_dyn()
     -e "s\${BUILD_DYN_OUTPUT_FILENAME_PARAM}$(sed_quote "$(shell_quote "${BUILD_DYN_OUTPUT_FILENAME_PARAM}")")g"
 }
 
-substitute_exe()
+substitute_exe_portable()
 {
-  printf "%s" "$(substitute_common "$1")" | sed \
+  printf "%s" "$(substitute_common_portable "$1")" | sed \
     -e "s\${BUILD_EXE_CC_OPTIONS_PARAM}$(sed_quote "${BUILD_EXE_CC_OPTIONS_PARAM}")g" \
     -e "s\${BUILD_EXE_LD_OPTIONS_PRELUDE_PARAM}$(sed_quote "${BUILD_EXE_LD_OPTIONS_PRELUDE_PARAM}")g" \
     -e "s\${BUILD_EXE_LD_OPTIONS_PARAM}$(sed_quote "${BUILD_EXE_LD_OPTIONS_PARAM}")g" \
     -e "s\${BUILD_EXE_INPUT_FILENAMES_PARAM}$(sed_quote "$(shell_quote "${BUILD_EXE_INPUT_FILENAMES_PARAM}")")g" \
     -e "s\${BUILD_EXE_OUTPUT_FILENAME_PARAM}$(sed_quote "$(shell_quote "${BUILD_EXE_OUTPUT_FILENAME_PARAM}")")g"
+}
+
+# This experiment is selected only on Darwin with the configured GNU compiler.
+GAMBUILD_LITERAL_SUBSTITUTION=0
+if test "${BUILD_FEATURE_C_COMP}" = gcc && test "$(uname -s)" = Darwin; then
+  GAMBUILD_LITERAL_SUBSTITUTION=1
+fi
+
+replace_literal()
+{
+  literal_rest="$GAMBUILD_EXPANDED"
+  literal_result=""
+  while :; do
+    case "$literal_rest" in
+      *"$1"*)
+        literal_result="$literal_result${literal_rest%%"$1"*}$2"
+        literal_rest="${literal_rest#*"$1"}"
+        ;;
+      *) break ;;
+    esac
+  done
+  GAMBUILD_EXPANDED="$literal_result$literal_rest"
+}
+
+substitute_common_literal()
+{
+  replace_literal '${C_COMPILER}' "${C_COMPILER}"
+  replace_literal '${C_PREPROC}' "${C_PREPROC}"
+  replace_literal '${PKG_CONFIG}' "${PKG_CONFIG}"
+  replace_literal '${GAMBITDIR_INCLUDE}' "${GAMBITDIR_INCLUDE}"
+  replace_literal '${GAMBITDIR_LIB}' "${GAMBITDIR_LIB}"
+  replace_literal '${DEFS_DYN}' "${DEFS_DYN}"
+  replace_literal '${DEFS_EXE}' "${DEFS_EXE}"
+  replace_literal '${DEFS_OBJ}' "${DEFS_OBJ}"
+  replace_literal '${FLAGS_DYN}' "${FLAGS_DYN}"
+  replace_literal '${FLAGS_EXE}' "${FLAGS_EXE}"
+  replace_literal '${FLAGS_OBJ}' "${FLAGS_OBJ}"
+  replace_literal '${FLAGS_OPT}' "${FLAGS_OPT}"
+  replace_literal '${LIBS}' "${LIBS}"
+}
+
+substitute_obj()
+{
+  if test "$GAMBUILD_LITERAL_SUBSTITUTION" != 1; then
+    substitute_obj_portable "$1"; return
+  fi
+  case "${C_COMPILER}${C_PREPROC}${PKG_CONFIG}${GAMBITDIR_INCLUDE}${GAMBITDIR_LIB}${DEFS_DYN}${DEFS_EXE}${DEFS_OBJ}${FLAGS_DYN}${FLAGS_EXE}${FLAGS_OBJ}${FLAGS_OPT}${LIBS}${BUILD_OBJ_CC_OPTIONS_PARAM}${BUILD_OBJ_INPUT_FILENAMES_PARAM}${BUILD_OBJ_OUTPUT_FILENAME_PARAM}" in
+    *"$GAMBUILD_NL"*|*""*) substitute_obj_portable "$1"; return ;;
+  esac
+  GAMBUILD_EXPANDED="$1"
+  substitute_common_literal
+  replace_literal '${BUILD_OBJ_CC_OPTIONS_PARAM}' "${BUILD_OBJ_CC_OPTIONS_PARAM}"
+  replace_literal '${BUILD_OBJ_INPUT_FILENAMES_PARAM}' "$(shell_quote "${BUILD_OBJ_INPUT_FILENAMES_PARAM}")"
+  replace_literal '${BUILD_OBJ_OUTPUT_FILENAME_PARAM}' "$(shell_quote "${BUILD_OBJ_OUTPUT_FILENAME_PARAM}")"
+  printf "%s" "$GAMBUILD_EXPANDED"
+}
+
+substitute_dyn()
+{
+  if test "$GAMBUILD_LITERAL_SUBSTITUTION" != 1; then
+    substitute_dyn_portable "$1"; return
+  fi
+  case "${C_COMPILER}${C_PREPROC}${PKG_CONFIG}${GAMBITDIR_INCLUDE}${GAMBITDIR_LIB}${DEFS_DYN}${DEFS_EXE}${DEFS_OBJ}${FLAGS_DYN}${FLAGS_EXE}${FLAGS_OBJ}${FLAGS_OPT}${LIBS}${BUILD_DYN_CC_OPTIONS_PARAM}${BUILD_DYN_LD_OPTIONS_PRELUDE_PARAM}${BUILD_DYN_LD_OPTIONS_PARAM}${BUILD_DYN_INPUT_FILENAMES_PARAM}${BUILD_DYN_OUTPUT_FILENAME_PARAM}" in
+    *"$GAMBUILD_NL"*|*""*) substitute_dyn_portable "$1"; return ;;
+  esac
+  GAMBUILD_EXPANDED="$1"
+  substitute_common_literal
+  replace_literal '${BUILD_DYN_CC_OPTIONS_PARAM}' "${BUILD_DYN_CC_OPTIONS_PARAM}"
+  replace_literal '${BUILD_DYN_LD_OPTIONS_PRELUDE_PARAM}' "${BUILD_DYN_LD_OPTIONS_PRELUDE_PARAM}"
+  replace_literal '${BUILD_DYN_LD_OPTIONS_PARAM}' "${BUILD_DYN_LD_OPTIONS_PARAM}"
+  replace_literal '${BUILD_DYN_INPUT_FILENAMES_PARAM}' "$(shell_quote "${BUILD_DYN_INPUT_FILENAMES_PARAM}")"
+  replace_literal '${BUILD_DYN_OUTPUT_FILENAME_PARAM}' "$(shell_quote "${BUILD_DYN_OUTPUT_FILENAME_PARAM}")"
+  printf "%s" "$GAMBUILD_EXPANDED"
+}
+
+substitute_exe()
+{
+  if test "$GAMBUILD_LITERAL_SUBSTITUTION" != 1; then
+    substitute_exe_portable "$1"; return
+  fi
+  case "${C_COMPILER}${C_PREPROC}${PKG_CONFIG}${GAMBITDIR_INCLUDE}${GAMBITDIR_LIB}${DEFS_DYN}${DEFS_EXE}${DEFS_OBJ}${FLAGS_DYN}${FLAGS_EXE}${FLAGS_OBJ}${FLAGS_OPT}${LIBS}${BUILD_EXE_CC_OPTIONS_PARAM}${BUILD_EXE_LD_OPTIONS_PRELUDE_PARAM}${BUILD_EXE_LD_OPTIONS_PARAM}${BUILD_EXE_INPUT_FILENAMES_PARAM}${BUILD_EXE_OUTPUT_FILENAME_PARAM}" in
+    *"$GAMBUILD_NL"*|*""*) substitute_exe_portable "$1"; return ;;
+  esac
+  GAMBUILD_EXPANDED="$1"
+  substitute_common_literal
+  replace_literal '${BUILD_EXE_CC_OPTIONS_PARAM}' "${BUILD_EXE_CC_OPTIONS_PARAM}"
+  replace_literal '${BUILD_EXE_LD_OPTIONS_PRELUDE_PARAM}' "${BUILD_EXE_LD_OPTIONS_PRELUDE_PARAM}"
+  replace_literal '${BUILD_EXE_LD_OPTIONS_PARAM}' "${BUILD_EXE_LD_OPTIONS_PARAM}"
+  replace_literal '${BUILD_EXE_INPUT_FILENAMES_PARAM}' "$(shell_quote "${BUILD_EXE_INPUT_FILENAMES_PARAM}")"
+  replace_literal '${BUILD_EXE_OUTPUT_FILENAME_PARAM}' "$(shell_quote "${BUILD_EXE_OUTPUT_FILENAME_PARAM}")"
+  printf "%s" "$GAMBUILD_EXPANDED"
 }
 
 case "$1" in

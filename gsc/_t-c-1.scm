@@ -1134,33 +1134,6 @@
 ;; These routines write out the C code that represents the Scheme objects
 ;; contained in the compilation module.
 
-
-;; One native optimizer host per GVM procedure.  The plan bounds aggregation,
-;; not the memory used by an arbitrary individual procedure or C compiler.
-;; [host-count max-labels max-code-slots total-labels entries]
-;; entry = [original-procedure label-count code-slot-count].
-(define (targ-host-plan-entry obj)
-  (let* ((proc (car obj))
-         (code (vector-ref (car (cdr obj)) 0))
-         (labels 0))
-    (stretchable-vector-for-each
-     (lambda (x i)
-       (if (and (pair? x) (eq? (car x) 'label))
-           (set! labels (+ labels 1))))
-     code)
-    (vector proc labels (stretchable-vector-length code))))
-
-(define (targ-make-host-plan objs)
-  (let ((entries (map targ-host-plan-entry objs)))
-    (let loop ((lst entries) (max-labels 0) (max-slots 0) (total 0))
-      (if (null? lst)
-          (vector (length entries) max-labels max-slots total entries)
-          (let ((entry (car lst)))
-            (loop (cdr lst)
-                  (max max-labels (vector-ref entry 1))
-                  (max max-slots (vector-ref entry 2))
-                  (+ total (vector-ref entry 1))))))))
-
 (define (targ-heap-dump filename c-decls c-inits c-objs module-descr linker-name)
   (let* ((sym-list
           (targ-sort (table->list targ-sym-objs) symbol->string))
@@ -1174,8 +1147,6 @@
           (ordered-table->list targ-sub-objs))
          (prc-list
           (queue->list targ-prc-objs))
-         (host-plan
-          (targ-make-host-plan prc-list))
          (prm-list
           (targ-extract-primitives prc-list))
          (sym-rsrc
@@ -1223,25 +1194,14 @@
     (targ-define-count "SUBCOUNT" (length sub-list))
     (targ-define-count "LBLCOUNT" targ-lbl-alloc)
     (targ-define-count "OFDCOUNT" ofd-count)
-    (targ-define-count "GVM_HOST_LAYOUT" 1)
-    (targ-define-count "GVM_HOST_COUNT" (vector-ref host-plan 0))
-    (targ-define-count "GVM_HOST_MAX_LABELS" (vector-ref host-plan 1))
-    (targ-define-count "GVM_HOST_MAX_CODE_SLOTS" (vector-ref host-plan 2))
-    (targ-define-count "GVM_HOST_TOTAL_LABELS" (vector-ref host-plan 3))
     (targ-macro-definition '("MODDESCR") (targ-heap-ref-obj module-descr))
     (targ-display "#include \"gambit.h\"")
-    (targ-line)
-    (targ-display "#ifndef ___GVM_HOST_LAYOUT_SUPPORTED")
-    (targ-line)
-    (targ-display "#error GVM_host_plan_requires_matching_runtime_header")
-    (targ-line)
-    (targ-display "#endif")
     (targ-line)
 
     (targ-dump-sym-key-glo-comp sym-list key-list glo-list)
     (targ-dump-cns cns-list)
     (targ-dump-sub sub-list)
-    (targ-dump-prc prc-list c-objs c-decls ofd-count host-plan)
+    (targ-dump-prc prc-list c-objs c-decls ofd-count)
     (targ-dump-mod prm-list c-inits sym-list key-list)
     (targ-end-dump)))
 
@@ -1891,7 +1851,7 @@
             (else        1))))
     (targ-vector-like-object def-name id chunk-name elems convert cycle)))
 
-(define (targ-dump-prc objs c-objs c-decls ofd-count host-plan)
+(define (targ-dump-prc objs c-objs c-decls ofd-count)
 
   (if (pair? objs)
     (begin
@@ -1936,7 +1896,7 @@
 
   (targ-line)
 
-  (for-each targ-dump-cod objs (vector-ref host-plan 4))
+  (for-each targ-dump-cod objs)
 
   (targ-code* '("END_M_SW"))
 
@@ -2103,7 +2063,7 @@
      objs)
     n))
 
-(define (targ-dump-cod obj host-entry)
+(define (targ-dump-cod obj)
   (let* ((proc (car obj))
          (p (cdr obj))
          (name (proc-obj-name proc))
@@ -2119,15 +2079,6 @@
       (targ-display " ")
       (targ-code val)
       (targ-line))
-
-    (let ((current-entry (targ-host-plan-entry obj)))
-      (if (or (not (eq? (vector-ref current-entry 0)
-                       (vector-ref host-entry 0)))
-              (not (= (vector-ref current-entry 1)
-                      (vector-ref host-entry 1)))
-              (not (= (vector-ref current-entry 2)
-                      (vector-ref host-entry 2))))
-          (compiler-internal-error "GVM host plan changed before emission")))
 
     (def "PH_PROC" host)
     (def "PH_LBL0" (caddr p))
