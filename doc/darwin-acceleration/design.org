@@ -1,0 +1,74 @@
+#+TITLE: Darwin acceleration source review checkpoint
+#+STARTUP: overview
+#+OPTIONS: toc:2
+
+* Scope
+:PROPERTIES:
+:STATUS: DRAFT-NOT-MERGE-QUALIFIED
+:SOURCE_BASE: f1c787a000fbb50132af79a1bdf6c7610d430c9b
+:CODE_HEAD: 6e647736d7003db252b7b61ad761c53e3cdf7c86
+:END:
+
+This draft replaces the earlier Modern C-based Darwin cohort. Its source base
+is master =f1c787a000fbb50132af79a1bdf6c7610d430c9b=; no Modern C, GC or SMP
+redesign is imported. The historical PR commits remain addressable by their
+original hashes, but their observations do not qualify this source generation.
+
+| Source boundary | Resulting behavior |
+|-----------------+--------------------|
+| =bin/gambuild-C.unix.in= | Darwin/GNU literal command substitution avoids the sed expansion chain for admitted strings; portable substitution remains the fallback |
+| =lib/os_io.c= | Darwin process construction uses posix_spawn file actions and explicit signal/fd handling; pseudo-terminal and bare-name/custom-environment cases retain fork/execvp |
+| =gsc/igsc.scm= | Source bootstrap preserves compiler argv and accepts the explicit bootstrap interpreter without changing target compiler identity |
+| Root, lib and gsc Makefiles | Order-only resource admission serializes unqualified generated-C work while preserving ordinary jobserver work and timestamp invalidation |
+
+The final diff retains configured upstream C host selection. Earlier experimental
+GVM host-emitter edits were withdrawn and are absent from this checkpoint.
+Published GCC, process-startup and command-substitution advantages are baseline
+capabilities, not newly measured net package acceleration.
+
+* Validation and limitations
+:PROPERTIES:
+:CURATED_EVIDENCE: checkpoint.json
+:END:
+
+The combined compiler construction completed using Gambit6e647736 and
+Gerbilc8f57355. Actual source heads, output identity and the8GiB supervisor
+record are retained in the curated checkpoint. The installed directory label
+=30ad943= is retained build metadata, not a substitute for source identity.
+
+| Gate | Observed result | Interpretation |
+|------+-----------------+----------------|
+| Official metadata transport and mixed-host controls | PASS8371e4bc | Selected tail-call, GC and multishot-continuation executions, not a universal semantic proof |
+| Complete compiler/tools construction | PASS2f7b9088; peak7,188,480,176 charged bytes | Construction only; package behavior remains separate |
+| Candidate planned package run | Identity queries pass; both clean commands time out30s | No candidate package-suite pass |
+| Current-PATH Homebrew MCP | clean3.0664s; build59.2477s; original27-file suite exits0 with zero failed checks | Control package passes; includes previously published improvements |
+| Current-PATH Homebrew POO | clean3.1297s; build95.1062s; original test compilation interrupted at8,609,413,240 charged bytes | POO tests not passed; not evidence of a candidate-only regression |
+| Excluded extra candidate execution | MCP clean8.19669s/build70.04815s complete; original tests interrupted | Unplanned execution; no speedup admission; counterevidence to a permanent clean failure |
+| Net whole-package acceleration | Unresolved | No twofold claim, no component-to-package promotion |
+
+Both candidate clean samples show =dynamic_load -> dlopen -> mapSegments ->
+fcntl=. Each is a one-second sample, not whole-command syscall timing. Owned fd
+snapshots do not establish exact fd/syscall association. Source-unchanged timing
+variation prevents attributing the full delay to the absent native gxpkg product.
+
+The accidental extra run used =--step= with =--run=, which did not limit execution.
+It was stopped and owned groups were reconciled. The framework now rejects that
+combination before launch. Its times remain excluded from net-benefit claims.
+
+* Acceptance still required
+- Build and install the native command product through the existing official
+  tools producer; preserve library imports and provider override semantics.
+- Preserve positive and negative controls, natural exit, original package tests,
+  worker/environment resolution and the8GiB charged-footprint contract.
+- Complete =gerbil clean=, =gerbil build= and original tests for both gerbil-mcp
+  and gerbil-poo before admitting matched cold/incremental net benefit.
+- Do not convert sum-RSS or the charged-footprint ledger into exact physical RAM,
+  multiply stack fractions by whole-command time, or count existing GCC gains again.
+- QNT owns readiness/publication/custody histories; Lean owns binding, argv,
+  representation and semantic refinement. Neither proves measured speedup.
+
+* Evidence retention
+Only source, this design note and the curated checkpoint are distributed.
+Compiler copies, generated C/object products, raw logs and process caches remain
+outside Git. Run IDs identify local execution history; their absence in a clean
+checkout is missing native evidence, never a passed gate.

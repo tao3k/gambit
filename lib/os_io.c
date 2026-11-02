@@ -21,6 +21,12 @@
 #include "setup.h"
 #include "c_intf.h"
 
+#if defined(__APPLE__) && defined(__MACH__)
+#include <spawn.h>
+#include <sys/spawn.h>
+#define USE_DARWIN_POSIX_SPAWN
+#endif
+
 /*---------------------------------------------------------------------------*/
 
 
@@ -9136,6 +9142,25 @@ int options;)
   int execvp_errno;
   int n;
 
+#ifdef USE_DARWIN_POSIX_SPAWN
+  int use_posix_spawn = !(options & PSEUDO_TERM);
+  ___sigset_type posix_spawn_sigmask;
+
+  /* posix_spawnp searches the caller's PATH, not the supplied envp PATH.
+     Keep fork/execvp for bare names with an explicit child environment. */
+  if (use_posix_spawn && env != NULL)
+    {
+      n = 0;
+      while (argv[0][n] != 0 && argv[0][n] != '/')
+        n++;
+      if (argv[0][n] == 0)
+        use_posix_spawn = 0;
+    }
+
+  if (use_posix_spawn)
+    ___thread_sigmask (SIG_SETMASK, NULL, &posix_spawn_sigmask);
+#endif
+
   /*
    * Block SIGCHLD so that if the process is created the
    * sigchld_signal_handler will find it in the device group.
@@ -9153,6 +9178,187 @@ int options;)
       if (!has_redir ||
           (e = open_full_duplex_pipe1 (&fdp, options & PSEUDO_TERM, 0)) == ___FIX(___NO_ERR))
         {
+#ifdef USE_DARWIN_POSIX_SPAWN
+          if (use_posix_spawn)
+            {
+              posix_spawn_file_actions_t actions;
+              posix_spawnattr_t attributes;
+              int actions_initialized = 0;
+              int attributes_initialized = 0;
+              int spawn_errno = 0;
+              int fds[6];
+              int fd_count;
+              short spawn_flags =
+                POSIX_SPAWN_CLOEXEC_DEFAULT |
+                POSIX_SPAWN_SETSIGMASK |
+                POSIX_SPAWN_SETSIGDEF;
+              ___sigset_type default_signals;
+
+              if (has_redir)
+                {
+                  fds[0] = fdp.input.reading_fd;
+                  fds[1] = fdp.input.writing_fd;
+                  fds[2] = fdp.output.reading_fd;
+                  fds[3] = fdp.output.writing_fd;
+                  fds[4] = hdp_errno.reading_fd;
+                  fds[5] = hdp_errno.writing_fd;
+                  fd_count = 6;
+                }
+              else
+                {
+                  fds[0] = hdp_errno.reading_fd;
+                  fds[1] = hdp_errno.writing_fd;
+                  fd_count = 2;
+                }
+
+              {
+                int move_fds_errno =
+                  ___move_fds_to_non_std (fds, fd_count, 0);
+
+                /* Keep the owning pipe structures synchronized even when
+                   moving a later descriptor fails after earlier moves. */
+                if (has_redir)
+                  {
+                    fdp.input.reading_fd = fds[0];
+                    fdp.input.writing_fd = fds[1];
+                    fdp.output.reading_fd = fds[2];
+                    fdp.output.writing_fd = fds[3];
+                    hdp_errno.reading_fd = fds[4];
+                    hdp_errno.writing_fd = fds[5];
+                  }
+                else
+                  {
+                    hdp_errno.reading_fd = fds[0];
+                    hdp_errno.writing_fd = fds[1];
+                  }
+
+                if (move_fds_errno < 0)
+                  spawn_errno = errno;
+              }
+
+#define CHECK_POSIX_SPAWN(call) \
+              do { int posix_spawn_errno = (call); \
+                   if (posix_spawn_errno != 0 && spawn_errno == 0) \
+                     spawn_errno = posix_spawn_errno; } while (0)
+
+              if (spawn_errno == 0)
+                {
+                  CHECK_POSIX_SPAWN (posix_spawn_file_actions_init (&actions));
+                  if (spawn_errno == 0) actions_initialized = 1;
+                }
+              if (spawn_errno == 0)
+                {
+                  CHECK_POSIX_SPAWN (posix_spawnattr_init (&attributes));
+                  if (spawn_errno == 0) attributes_initialized = 1;
+                }
+
+              if (spawn_errno == 0 && (options & STDIN_REDIR))
+                CHECK_POSIX_SPAWN
+                  (posix_spawn_file_actions_adddup2
+                     (&actions, fdp.input.reading_fd, STDIN_FILENO));
+              if (spawn_errno == 0 && (options & STDOUT_REDIR))
+                CHECK_POSIX_SPAWN
+                  (posix_spawn_file_actions_adddup2
+                     (&actions, fdp.output.writing_fd, STDOUT_FILENO));
+              if (spawn_errno == 0 && (options & STDERR_REDIR))
+                CHECK_POSIX_SPAWN
+                  (posix_spawn_file_actions_adddup2
+                     (&actions, fdp.output.writing_fd, STDERR_FILENO));
+
+              /* POSIX_SPAWN_CLOEXEC_DEFAULT closes descriptors that are not
+                 mentioned by a file action.  Match execvp semantics by only
+                 preserving an open standard descriptor that did not already
+                 have FD_CLOEXEC set.  A closed or close-on-exec standard
+                 descriptor must remain closed in the spawned process. */
+#define INHERIT_STANDARD_FD(fd, redirected) \
+              do { \
+                if (spawn_errno == 0 && !(redirected)) \
+                  { \
+                    int fd_flags = fcntl ((fd), F_GETFD); \
+                    if (fd_flags >= 0) \
+                      { \
+                        if (!(fd_flags & FD_CLOEXEC)) \
+                          CHECK_POSIX_SPAWN \
+                            (posix_spawn_file_actions_addinherit_np \
+                               (&actions, (fd))); \
+                      } \
+                    else if (errno != EBADF) \
+                      spawn_errno = errno; \
+                  } \
+              } while (0)
+
+              INHERIT_STANDARD_FD (STDIN_FILENO, options & STDIN_REDIR);
+              INHERIT_STANDARD_FD (STDOUT_FILENO, options & STDOUT_REDIR);
+              INHERIT_STANDARD_FD (STDERR_FILENO, options & STDERR_REDIR);
+
+#undef INHERIT_STANDARD_FD
+
+              if (spawn_errno == 0 && has_redir)
+                {
+                  CHECK_POSIX_SPAWN
+                    (posix_spawn_file_actions_addclose
+                       (&actions, fdp.input.reading_fd));
+                  CHECK_POSIX_SPAWN
+                    (posix_spawn_file_actions_addclose
+                       (&actions, fdp.output.writing_fd));
+                }
+
+              if (spawn_errno == 0 && dir != NULL)
+                {
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#endif
+                  CHECK_POSIX_SPAWN
+                    (posix_spawn_file_actions_addchdir_np (&actions, dir));
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif
+                }
+
+              if (spawn_errno == 0)
+                {
+                  sigemptyset (&default_signals);
+                  sigaddset (&default_signals, SIGPIPE);
+                  CHECK_POSIX_SPAWN
+                    (posix_spawnattr_setsigmask
+                       (&attributes, &posix_spawn_sigmask));
+                  CHECK_POSIX_SPAWN
+                    (posix_spawnattr_setsigdefault
+                       (&attributes, &default_signals));
+                  CHECK_POSIX_SPAWN
+                    (posix_spawnattr_setflags (&attributes, spawn_flags));
+                }
+
+              if (spawn_errno == 0)
+                spawn_errno =
+                  posix_spawnp (&pid,
+                                argv[0],
+                                &actions,
+                                &attributes,
+                                argv,
+                                env != NULL ? env : environ);
+
+              if (attributes_initialized)
+                posix_spawnattr_destroy (&attributes);
+              if (actions_initialized)
+                posix_spawn_file_actions_destroy (&actions);
+
+#undef CHECK_POSIX_SPAWN
+
+              if (spawn_errno != 0)
+                {
+                  errno = spawn_errno;
+                  e = err_code_from_errno ();
+                  if (has_redir)
+                    {
+                      ___close_half_duplex_pipe (&fdp.input, 2);
+                      ___close_half_duplex_pipe (&fdp.output, 2);
+                    }
+                }
+            }
+          else
+#endif
           if ((pid = fork ()) < 0)
             {
               e = err_code_from_errno ();

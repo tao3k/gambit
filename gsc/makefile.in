@@ -588,6 +588,16 @@ dist-devel-recursive: dist-devel-pre
 makefile: makefile.in $(rootfromhere)/config.status
 	cd $(rootfromhere) && CONFIG_FILES=$(herefromroot)/$@ CONFIG_HEADERS= ./config.status
 
+gambit_generated_objects := $(LIBRARY_OBJECTS_IN_COMPILE_ORDER)
+# BEGIN generated compilation resource admission.
+# Generated whole-module C shares one admission lane. Order-only edges do not
+# make a changed predecessor invalidate a successor's native object.
+ifneq (,$(findstring darwin,@target_os@))
+gambit_resource_previous :=
+$(foreach gambit_resource_object,$(gambit_generated_objects),$(if $(gambit_resource_previous),$(eval $(gambit_resource_object): | $(gambit_resource_previous)))$(eval gambit_resource_previous := $(gambit_resource_object)))
+endif
+# END generated compilation resource admission.
+
 # Tell versions [3.59,3.63) of GNU make not to export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
 .NOEXPORT:

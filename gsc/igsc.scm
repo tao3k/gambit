@@ -1,5 +1,5 @@
 #! /bin/sh
-":";THISDIR="`dirname $0`";GSI="$THISDIR/../gsi/gsi";if test "`basename $0`" == "igsc.scm" ; then exec $GSI -:dar,=$THISDIR/.. -f $0 $*; else exec $GSI -:dar,=$THISDIR -f $0 $*; fi
+":";THISDIR=$(dirname "$0");case $(basename "$0") in igsc.scm) GAMBIT_IGSC_ROOT="$THISDIR/..";; *) GAMBIT_IGSC_ROOT="$THISDIR";; esac;GSI="${GAMBIT_BOOT_GSI:-$GAMBIT_IGSC_ROOT/gsi/gsi}";exec "$GSI" "-:dar,=$GAMBIT_IGSC_ROOT" -f "$0" "$@"
 
 ;;;============================================================================
 
@@ -24,6 +24,10 @@
 
 ;;;----------------------------------------------------------------------------
 
+
+;; Enter compiler mode with the original argv, not the SRFI-193 script view.
+(set! ##processed-command-line (command-line))
+(##script-command-line-set! #f)
 
 (define-macro (at-expansion-time expr) (eval expr) '(begin))
 
