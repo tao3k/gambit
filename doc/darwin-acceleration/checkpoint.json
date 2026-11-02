@@ -1,0 +1,285 @@
+{
+  "schema": "darwin-review-checkpoint",
+  "source": {
+    "repository": "tao3k/gambit",
+    "base": "f1c787a000fbb50132af79a1bdf6c7610d430c9b",
+    "codeHead": "6e647736d7003db252b7b61ad761c53e3cdf7c86",
+    "files": {
+      "bin/gambuild-C.unix.in": "1765f8c04957fb666ba44aee0c4d8ea8ecf76aa83d7f3314e72a3aa5f862639a",
+      "gsc/igsc.scm": "4943da6a3503f23fdf18b61bb9fcbab442c597a36e7ecfd12fef41b62f159340",
+      "gsc/makefile.in": "f748c5d474761725769a6eb0188363cf71979ade5570224954e4fe54d61bf3b8",
+      "lib/makefile.in": "33119e93e88c756b755f85da1334665c38d0481f732817e6af4c4fedfbe1160f",
+      "lib/os_io.c": "e17daf7fb752e9eb85b8b6e6e4672d81ae05435332392cff273ceaf6f5f223fa",
+      "makefile.in": "049f11dfe2d75226b3593b439d297b46f5242d0f588439f334690d349b16a2ec"
+    }
+  },
+  "runtimeProfile": {
+    "smp": false,
+    "multipleVms": false,
+    "multipleThreadedVms": false
+  },
+  "buildConcurrency": "Environment and machine-derived external GSC/GCC workers; not Scheme SMP",
+  "resourceContract": {
+    "metric": "sum-darwin-phys-footprint",
+    "limitBytes": 8589934592,
+    "uniquePhysicalMachineRamEquivalent": false
+  },
+  "compilerConstruction": {
+    "run": "local-run:2f7b9088004e4e9cb04cf28174f97f0f",
+    "outcome": "PASS",
+    "constructionPassed": true,
+    "packageReady": true,
+    "heads": {
+      "gambit": "6e647736d7003db252b7b61ad761c53e3cdf7c86",
+      "gerbil": "c8f5735516368a31b60a708f243e5d88e45ec3a2"
+    },
+    "observationSha256": "36f128bcd148d5722f9b62bcf93227d3b03b2ea23ef0dfebd8535b6bb2d38076",
+    "recoveredStdlib": "Fresh native current-image verification; earlier observer failure remains DENY",
+    "historicalByteCustodyProved": false,
+    "bothPackagesPassed": false,
+    "netSpeedup": null,
+    "constructionRuns": {
+      "6dcceab7cf454af8b2270c009af94a13": {
+        "peakRegisteredFootprintBytes": 8066488664,
+        "footprintLimitBytes": 8589934592,
+        "exit": 2,
+        "childOutcome": "DENY",
+        "parentReaped": true,
+        "startedAt": "2026-11-02T17:51:31.969193+08:00",
+        "endedAt": "2026-11-02T19:21:47.974010+08:00",
+        "metric": "sum-darwin-phys-footprint; not unique machine RAM"
+      },
+      "2f7b9088004e4e9cb04cf28174f97f0f": {
+        "peakRegisteredFootprintBytes": 7188480176,
+        "footprintLimitBytes": 8589934592,
+        "exit": 0,
+        "childOutcome": "PASS",
+        "parentReaped": true,
+        "startedAt": "2026-11-02T19:50:13.924903+08:00",
+        "endedAt": "2026-11-02T19:59:27.969783+08:00",
+        "metric": "sum-darwin-phys-footprint; not unique machine RAM"
+      }
+    }
+  },
+  "packageControlComparison": {
+    "candidate": {
+      "run": "local-run:b09fda333b6741cb9fcabc53b3aaf2fa",
+      "commands": {
+        "mcp-runtime-identity": {
+          "exit": 0,
+          "timeout": false,
+          "seconds": 6.964060875005089,
+          "parentReaped": true,
+          "processGroupQuiescent": true,
+          "completionObserved": true,
+          "sha256": "b2fb5b6f3afaeb5b645df55fb7639cda0d1b9c14d495a4ea25741eebc0aec874"
+        },
+        "mcp-clean": {
+          "exit": -9,
+          "timeout": true,
+          "seconds": 30.009638416995585,
+          "parentReaped": true,
+          "processGroupQuiescent": true,
+          "completionObserved": true,
+          "sha256": "ca9c3cca2e6576037590139bd1f86336c88cdbf4f2cfc4502162ce497838b024"
+        },
+        "poo-runtime-identity": {
+          "exit": 0,
+          "timeout": false,
+          "seconds": 1.8758144160019583,
+          "parentReaped": true,
+          "processGroupQuiescent": true,
+          "completionObserved": true,
+          "sha256": "d7a6f097c783a25590cf118cd4286e15aa9e8ed629323f998546ec0733960e9e"
+        },
+        "poo-clean": {
+          "exit": -9,
+          "timeout": true,
+          "seconds": 30.008160666999174,
+          "parentReaped": true,
+          "processGroupQuiescent": true,
+          "completionObserved": true,
+          "sha256": "24a1830b5348741bc0000a0b19e4615351ff4c287d0c20787f3596515f2126e9"
+        }
+      },
+      "bothPackagesPassed": false,
+      "blockedAt": "clean"
+    },
+    "currentPathControl": {
+      "run": "local-run:9f495fca76734179ad1ca4c7c9328277",
+      "commands": {
+        "mcp-runtime-identity": {
+          "exit": 0,
+          "timeout": false,
+          "seconds": 1.7400406250017113,
+          "parentReaped": true,
+          "processGroupQuiescent": true,
+          "completionObserved": true,
+          "sha256": "b71611d1fb4237504d460487c2265607cff672c063e358a794e1687fe1884262"
+        },
+        "mcp-clean": {
+          "exit": 0,
+          "timeout": false,
+          "seconds": 3.066399792005541,
+          "parentReaped": true,
+          "processGroupQuiescent": true,
+          "completionObserved": true,
+          "sha256": "b73723945759cfca5bd53f4e3acf740fa381ea5f7394f21ed90658a741069d19"
+        },
+        "mcp-build": {
+          "exit": 0,
+          "timeout": false,
+          "seconds": 59.24773745800485,
+          "parentReaped": true,
+          "processGroupQuiescent": true,
+          "completionObserved": true,
+          "sha256": "e4c16e7ad7f744cbf36ad778e9249dd8cb0713e2fb5bfb1b9dc7c893f3fd87d5"
+        },
+        "mcp-test": {
+          "exit": 0,
+          "timeout": false,
+          "seconds": 316.7152527500002,
+          "parentReaped": true,
+          "processGroupQuiescent": true,
+          "completionObserved": true,
+          "sha256": "19f6b631f9502299568606fe0befed10fc1e32190a68a1bf3c9d279599ce8754"
+        },
+        "poo-runtime-identity": {
+          "exit": 0,
+          "timeout": false,
+          "seconds": 2.984971707999648,
+          "parentReaped": true,
+          "processGroupQuiescent": true,
+          "completionObserved": true,
+          "sha256": "c52a712f59a521284401395a035019f03ce58fd27843a722650167dd845c8ecf"
+        },
+        "poo-clean": {
+          "exit": 0,
+          "timeout": false,
+          "seconds": 3.1296629999997094,
+          "parentReaped": true,
+          "processGroupQuiescent": true,
+          "completionObserved": true,
+          "sha256": "fb739257618e378e43acc2e64ebc83bbdc82d32d195f392da92b142faaf4a2da"
+        },
+        "poo-build": {
+          "exit": 0,
+          "timeout": false,
+          "seconds": 95.1061856249944,
+          "parentReaped": true,
+          "processGroupQuiescent": true,
+          "completionObserved": true,
+          "sha256": "e912eff92df9c72307530d24bd4826eb7d440c895d3404b5f3c951ca887eb557"
+        },
+        "poo-test": {
+          "exit": null,
+          "timeout": null,
+          "seconds": null,
+          "parentReaped": null,
+          "processGroupQuiescent": null,
+          "completionObserved": false,
+          "sha256": "c2f31dea63b07823d176c772a36aa8d89c5e63e30b44e23e618b903ccee2becf"
+        }
+      },
+      "mcpOriginalSummary": "files=27 failed-checks=0; original test command exit0 and group quiescent",
+      "pooOriginalTests": "Interrupted during original test compilation; not passed",
+      "supervisor": {
+        "sha256": "2cdd18a973e7922fd9af059fcb720f1370952ecf60177d5b42654ee2d2537ca3",
+        "state": "interrupted",
+        "peakRegisteredFootprintBytes": 8609413240,
+        "footprintLimitBytes": 8589934592,
+        "resourceMetric": "sum-darwin-phys-footprint",
+        "physicalMemoryQuotaEquivalent": false,
+        "parentReaped": true,
+        "footprintLimitExceeded": true,
+        "unresolvedGroups": []
+      }
+    },
+    "candidateStack": {
+      "observation": "Both clean commands sampled in ___dynamic_load -> dlopen -> dyld mapSegments -> fcntl",
+      "sampleDurationSeconds": 1,
+      "wholeCommandAttributionProved": false,
+      "exactFcntlCommandProved": false,
+      "fdToSyscallAssociationProved": false,
+      "ownedOpenFileCandidate": "std/misc/ports~0.o1 during identity observation only"
+    },
+    "producerConsumerGap": {
+      "source": "src/tools/build.ss",
+      "sourceSha256": "285168b7a3078576453269388d55e1e9eca815beb5ac7feb4f7a73382e01daea",
+      "consumer": "src/gerbil/main.ss:tool-main",
+      "observation": "Tool build spec produces a gxpkg library; no lib/gerbil/tools/gxpkg executable exists in completed installed image. tool-main only executes that native product if present and provider admission succeeds. Runtime-only admission was not observed in package execution.",
+      "consumerBranchProved": false,
+      "requiredDesign": "Declare the official executable product in the tools producer, preserve library/import consumers, install and hash the product, then require runtime-provider positive and override/failure negative controls before both package suites.",
+      "causalAttributionProved": false
+    },
+    "performance": {
+      "netSpeedup": null,
+      "twofoldTargetPassed": false,
+      "reason": "Candidate clean times out; POO control tests incomplete. Identity timing changes without source changes do not establish an optimization."
+    },
+    "hostLoadPolicy": "Continue without an idle-host gate; record interference and do not infer causal net acceleration from unmatched intervals.",
+    "unplannedExecution": {
+      "run": "local-run:e71d987df9ab4e20b55a4b46932adc1a",
+      "reason": "Caller incorrectly supplied --step to --run, which ignored it and executed the declared recipe. Supervisor interrupted and all registered groups reconciled. CLI now rejects this combination before discovery or launch.",
+      "commands": {
+        "mcp-runtime-identity": {
+          "exit": 0,
+          "timeout": false,
+          "seconds": 3.7937799999999697,
+          "parentReaped": true,
+          "processGroupQuiescent": true,
+          "sha256": "feaf6663e5bc1be216ad4f8a4ca5c110cde69b2b9e11f1338369b872323f1fdb"
+        },
+        "mcp-clean": {
+          "exit": 0,
+          "timeout": false,
+          "seconds": 8.196692124998663,
+          "parentReaped": true,
+          "processGroupQuiescent": true,
+          "sha256": "a4a3f5668b3ffb2bf4f2a9208b58e20a74164ab18534ba5c4483b8d8e464cf33"
+        },
+        "mcp-build": {
+          "exit": 0,
+          "timeout": false,
+          "seconds": 70.0481534999999,
+          "parentReaped": true,
+          "processGroupQuiescent": true,
+          "sha256": "cf2d2499e0db9dd831bc1352eb15a79a13189c56230bbedca1e4c200b2adf064"
+        },
+        "mcp-test": {
+          "exit": null,
+          "timeout": null,
+          "seconds": null,
+          "parentReaped": null,
+          "processGroupQuiescent": null,
+          "sha256": "3ec0d454073ed2160b2579d24205b9a0875ed94f408b4ba4fce8a8b8a1cabdaa"
+        }
+      },
+      "performanceAdmitted": false,
+      "bothPackagesPassed": false,
+      "sourceChangeBeforeExecution": false,
+      "counterevidence": "Same-source MCP clean and build completed, so earlier clean timeout does not prove a permanent functional failure or attribute the entire delay to missing native gxpkg."
+    },
+    "executionGuardChecks": {
+      "focusedCompilerFramework": {
+        "tests": 90,
+        "passed": true
+      },
+      "researchKernelBroad": {
+        "tests": 93,
+        "passed": false,
+        "errors": 4,
+        "scope": "One missing static gerbil_initialization_view.ss fixture and three sandbox-denied process identity syscall tests"
+      },
+      "launchControlsWithProcessIdentityAccess": {
+        "tests": 4,
+        "passed": true,
+        "includesRunStepRefusal": true
+      },
+      "remaining": "Missing static research resource remains unresolved; no complete framework suite pass claimed"
+    }
+  },
+  "wholePackagePassed": false,
+  "netSpeedup": null,
+  "mergeAdmitted": false
+}
