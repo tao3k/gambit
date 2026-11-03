@@ -39,7 +39,7 @@ ___HIDDEN ___BOOL setup_rc(___processor_state ps)
     }
   d->head.prev = d->head.next = &d->head;
   d->head.refcount = 1; d->head.data = ___FAL;
-  d->head.domain = d; d->head.root_borrows = 0;
+  d->head.domain = d; d->head.root_borrows = 0; d->head.root_count = 0;
   d->owner = ps; d->nodes = d->borrows = 0; d->phase = ___RC_OPEN;
   d->task.origin.kind=___ROOT_RC; d->task.origin.source.rc=d; d->task.executor=0; d->task.epoch=0;
   d->task.state=___ROOT_EMPTY; d->task.scan_leases=0;
@@ -56,8 +56,12 @@ ___HIDDEN ___BOOL rc_can_close(___rc_domain *d)
       d->round->collection.census.state==___GC_PLAN_RETAINED ||
       d->round->collection.census.replacement || d->round->collection.census.retired)) return 0;
   if (d->borrows != 0 || d->task.scan_leases != 0 || d->phase == ___RC_FROZEN) return 0;
-  for (h=d->head.next; h!=&d->head; h=h->next)
+  for (h=d->head.next; h!=&d->head; h=h->next) {
+    ___SIZE_T i;
     if (h->data != ___FAL) return 0;
+    for (i=0; i<h->root_count; i++)
+      if (___CAST(___SCMOBJ*,h+1)[i] != ___FAL) return 0;
+  }
   return 1;
 }
 
@@ -144,7 +148,7 @@ ___EXP_FUNC(void*,___alloc_rc_no_register)
   h=___CAST(___rc_header*,___ALLOC_MEM(bytes+sizeof(*h)));
   if (h == 0) return 0;
   h->prev=h->next=h; h->refcount=1; h->data=___FAL;
-  h->domain=0; h->root_borrows=0;
+  h->domain=0; h->root_borrows=0; h->root_count=0;
   return ___CAST(void*,h+1);
 }
 
@@ -177,6 +181,24 @@ ___EXP_FUNC(void*,___alloc_rc)
   void *ptr=___alloc_rc_no_register(bytes);
   if (ptr != 0 && ___register_rc(___PSP ptr) == 0)
     { ___FREE_MEM(___CAST(___rc_header*,ptr)-1); return 0; }
+  return ptr;
+}
+
+/* Publish only a completely initialized span. Native metadata allocation and
+ * registration do not collect or call Scheme. The ordinary RC source gate and
+ * scan lease own both the procedure cell and every argument cell. */
+void *___alloc_rc_roots(___processor_state ps, ___SIZE_T count)
+{
+  void *ptr;
+  ___rc_header *h;
+  ___SIZE_T i;
+  if (count > (~___CAST(___SIZE_T,0)-sizeof(*h))/sizeof(___SCMOBJ)) return 0;
+  ptr=___alloc_rc_no_register(count*sizeof(___SCMOBJ));
+  if (!ptr) return 0;
+  h=___CAST(___rc_header*,ptr)-1;
+  h->root_count=count;
+  for (i=0; i<count; i++) ___CAST(___SCMOBJ*,ptr)[i]=___FAL;
+  if (!___register_rc(___PSA(ps) ptr)) { ___FREE_MEM(h); return 0; }
   return ptr;
 }
 

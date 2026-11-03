@@ -175,7 +175,7 @@ ___activation_record *___lifecycle_marker_prepare(___processor_state ps)
   record=___CAST(___activation_record*,___ALLOC_MEM(sizeof(*record)));
   if(!record){___lifecycle_leave(ps);return 0;}
   life=___VMSTATE_FROM_PSTATE(ps)->lifecycle;id=___PROCESSOR_ID(ps,___VMSTATE_FROM_PSTATE(ps));
-  record->owner=ps;record->marker=___FAL;record->startup=0;
+  record->owner=ps;record->marker=___FAL;record->roots=0;record->kind=___ACTIVATION_LEGACY;
   record->next=life->activations[id];life->activations[id]=record;return record;
 }
 void ___lifecycle_marker_abort(___activation_record *record)
@@ -183,7 +183,11 @@ void ___lifecycle_marker_abort(___activation_record *record)
   ___processor_state ps=record->owner;___virtual_machine_state vm=___VMSTATE_FROM_PSTATE(ps);
   ___activation_record **link=&vm->lifecycle->activations[___PROCESSOR_ID(ps,vm)];
   while(*link && *link!=record)link=&(*link)->next;
-  if(*link==record){*link=record->next;___FREE_MEM(record);___lifecycle_leave(ps);}
+  if(*link==record){
+    *link=record->next;
+    if(record->roots){___return_rc_root(record->roots);___release_rc(record->roots);}
+    ___FREE_MEM(record);___lifecycle_leave(ps);
+  }
 }
 void ___lifecycle_marker_kill(___processor_state ps,___SCMOBJ marker)
 {
@@ -191,10 +195,15 @@ void ___lifecycle_marker_kill(___processor_state ps,___SCMOBJ marker)
   ___activation_record *record;
   if(!vm->lifecycle || !lifecycle_owner(vm->lifecycle,id))return;
   record=vm->lifecycle->activations[id];
-  while(record && record->marker!=marker)record=record->next;
+  while(record && (record->marker!=marker || !___activation_marker_live(record)))record=record->next;
   if(!record)return; /* never discharge an unowned or already retired marker */
   ___VECTORELEM(marker,0)=___FAL;___still_obj_refcount_dec(marker);
-  ___lifecycle_marker_abort(record);
+  record->marker=___FAL;
+  /* Revoking a return destination does not prove the generated C extent has
+   * stopped. Its explicit end owns the bank, borrow and entry until last use.
+   * Legacy marker-only records still retire at their existing kill boundary. */
+  if(record->kind==___ACTIVATION_SFUN_ACTIVE)record->kind=___ACTIVATION_SFUN_REVOKED;
+  else ___lifecycle_marker_abort(record);
 }
 
 int ___lifecycle_members_begin(___virtual_machine_state vm)

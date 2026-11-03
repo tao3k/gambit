@@ -10,9 +10,10 @@ static int lifecycle_close_context(___processor_state ps,int terminal)
     ___activation_record *record=life->activations[id];
     while(record) {
       ___activation_record *next=record->next;
-      if(record->marker!=___FAL) {
+      if(___activation_marker_live(record)) {
         ___VECTORELEM(record->marker,0)=___FAL;___still_obj_refcount_dec(record->marker);
       }
+      if(record->roots){___return_rc_root(record->roots);___release_rc(record->roots);}
       ___FREE_MEM(record);record=next;
     }
     life->activations[id]=0;

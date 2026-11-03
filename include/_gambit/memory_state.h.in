@@ -54,6 +54,7 @@ typedef struct ___rc_header_struct
     ___SCMOBJ data; /* needed for C closures */
     ___rc_domain *domain; /* source gate/lifetime, independent of native carrier */
     ___WORD root_borrows; /* stable-cell owners, separate from public references */
+    ___SIZE_T root_count; /* immutable Scheme slots in payload; zero for byte RC */
   } ___rc_header;
 
 /* fdset state */

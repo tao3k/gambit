@@ -164,7 +164,7 @@ LIBRARY_LIBS =
 
 OBJECTS = $(LIBRARY_OBJECTS)
 
-RCFILES = _setup/vm-registry.inc _setup/vm-lifecycle.inc makefile.in module-common.mk.in header.scm $(MODULES_SCM) sys.scm \
+RCFILES = _c_intf/sfun-entry.inc _setup/vm-registry.inc _setup/vm-lifecycle.inc makefile.in module-common.mk.in header.scm $(MODULES_SCM) sys.scm \
 $(LIBRARIES_SCM) $(NORMAL_SOURCES) check___P check___P.st \
 psyntax69c.pp psyntax69c.ss psyntax73.pp psyntax73.ss \
 syntax-case-build syntax-case-expand-file \
@@ -361,7 +361,7 @@ setup@obj@: _setup/vm-registry.inc _setup/vm-lifecycle.inc setup.c os.h os_setup
 mem@obj@: mem.c $(MEMORY_SOURCES) os.h os_setup.h os_base.h os_time.h setup.h mem.h rc.h root.h collector.h lifecycle.h c_intf.h actlog.h
 	@BUILD_OBJ_RTS@ -D___LIBRARY
 
-c_intf@obj@: c_intf.c os.h os_base.h os_dyn.h setup.h mem.h c_intf.h rc.h root.h collector.h lifecycle.h
+c_intf@obj@: _c_intf/sfun-entry.inc c_intf.c os.h os_base.h os_dyn.h setup.h mem.h c_intf.h rc.h root.h collector.h lifecycle.h
 	@BUILD_OBJ_RTS@ -D___LIBRARY
 
 actlog@obj@: actlog.c os.h os_base.h os_time.h actlog.h

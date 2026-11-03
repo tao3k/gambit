@@ -3598,7 +3598,7 @@ static ___SCMOBJ run_startup_root(___processor_state ___ps, void *root,
       /* The record was created for this exact rooted startup. Public SFUN
        * and ___run entries never acquire this terminal capability. */
       ___VMSTATE_FROM_PSTATE(___ps)->lifecycle->activations[
-        ___PROCESSOR_ID(___ps,___VMSTATE_FROM_PSTATE(___ps))]->startup=1;
+        ___PROCESSOR_ID(___ps,___VMSTATE_FROM_PSTATE(___ps))]->kind=___ACTIVATION_STARTUP;
       release_startup_activation_root(___ps,owner); owner=0;
       ___err=___call(___PSP 0,___VECTORELEM(marker,0),marker);
     }
@@ -6197,6 +6197,12 @@ ___HIDDEN void setup_dynamic_linking ___PVOID
 
   ___GSTATE->___free_NONNULLUCS_2STRINGLIST
     = ___free_NONNULLUCS_2STRINGLIST;
+
+  ___GSTATE->___begin_sfun = ___begin_sfun;
+  ___GSTATE->___sfun_arg = ___sfun_arg;
+  ___GSTATE->___sfun_marker = ___sfun_marker;
+  ___GSTATE->___call_sfun = ___call_sfun;
+  ___GSTATE->___end_sfun = ___end_sfun;
 
   ___GSTATE->___make_sfun_stack_marker
     = ___make_sfun_stack_marker;

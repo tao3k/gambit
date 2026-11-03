@@ -215,7 +215,10 @@ ___HIDDEN int plan_copy_round(___processor_state ps)
   for(i=0;i<n && !c->failed;i++) {
     ___root_member *m=&round->members[i];___rc_header *h;___WORD *base;
     ___RC_LOCK(m->rc);
-    for(h=m->rc->head.next;h!=&m->rc->head;h=h->next)census_array(work,&h->data,1);
+    for(h=m->rc->head.next;h!=&m->rc->head;h=h->next) {
+      census_array(work,&h->data,1);
+      census_array(work,___CAST(___SCMOBJ*,h+1),h->root_count);
+    }
     ___RC_UNLOCK(m->rc);
     mark_global_variables(___PSP &m->globals);
     mark_registers(___PSP m->context);mark_saved(___PSP m->context);

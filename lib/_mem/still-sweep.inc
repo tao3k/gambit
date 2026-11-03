@@ -129,7 +129,7 @@ enum ___handoff_status ___lifecycle_can_handoff(___processor_state ps)
    * owns a return to external C and cannot be abandoned by processor removal.
    * The marker and ___call each hold one entry; unrelated borrows refuse. */
   if(record) {
-    if(!record->startup || record->next || entries!=4)return ___HANDOFF_BUSY;
+    if(record->kind!=___ACTIVATION_STARTUP || record->next || entries!=4)return ___HANDOFF_BUSY;
   }else if(entries!=0)return ___HANDOFF_BUSY;
   if(q->uncertain || q->draining || q->inflight)return ___HANDOFF_BUSY;
   if(q->words)return ___HANDOFF_GC;

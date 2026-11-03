@@ -44,12 +44,25 @@ typedef struct ___resize_slot_struct {
   enum ___resize_slot_phase phase;
 } ___resize_slot;
 
+enum ___activation_kind {
+  ___ACTIVATION_LEGACY, ___ACTIVATION_STARTUP,
+  ___ACTIVATION_SFUN_ROOTED, ___ACTIVATION_SFUN_PERMANENT,
+  ___ACTIVATION_SFUN_ACTIVE, ___ACTIVATION_SFUN_REVOKED
+};
 typedef struct ___activation_record_struct {
   struct ___activation_record_struct *next;
   ___processor_state owner;
-  ___SCMOBJ marker;
-  int startup; /* Only run_startup_root grants terminal ownership. */
+  ___SCMOBJ marker; /* PERMANENT preparation holds an immovable proc instead */
+  void *roots; /* one registered SFUN bank, retained through physical C exit */
+  enum ___activation_kind kind;
 } ___activation_record;
+
+static int ___activation_marker_live(___activation_record *record)
+{
+  return record->marker!=___FAL &&
+    (record->kind==___ACTIVATION_LEGACY || record->kind==___ACTIVATION_STARTUP ||
+     record->kind==___ACTIVATION_SFUN_ACTIVE);
+}
 
 typedef struct ___vm_lifecycle_struct {
   ___VOLATILE ___WORD phase;

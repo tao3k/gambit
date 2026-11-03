@@ -46,5 +46,6 @@ extern void ___rc_cancel_cleanup(___processor_state);
 extern const ___SCMOBJ *___borrow_rc_root(___processor_state, void*);
 extern void ___return_rc_root(void*);
 extern ___BOOL ___try_set_data_rc(___processor_state, void*, ___SCMOBJ);
+extern void *___alloc_rc_roots(___processor_state, ___SIZE_T);
 
 #endif

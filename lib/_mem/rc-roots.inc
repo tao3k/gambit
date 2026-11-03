@@ -22,6 +22,7 @@ ___UWORD epoch;)
     {
       ___rc_header *next=h->next;
       mark_array (___ps->collector, &h->data, 1);
+      mark_array (___ps->collector, ___CAST(___SCMOBJ*,h+1), h->root_count);
       h=next;
     }
   source->task.state=___ROOT_SCANNED;

@@ -6595,6 +6595,8 @@ ___SCMOBJ ___make_sfun_stack_marker_root(___processor_state ps,___SCMOBJ *marker
 
 
 
+#include "_c_intf/sfun-entry.inc"
+
 /*
  * Invalidate a stack marker.  This happens when a C to Scheme
  * function call returns.

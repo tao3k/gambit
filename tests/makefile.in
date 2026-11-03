@@ -621,3 +621,24 @@ binding-activation@exe@: $(srcdirpfx)binding-activation.scm $(srcdirpfx)root-tas
 
 test-binding-activation: binding-activation@exe@
 	@SETDLPATH@ ./binding-activation@exe@ -:p1
+
+# One generated activation and its actual c_intf.c callout-failure controls.
+sfun-entry-fault@obj@: sfun-entry-fault.c $(SMP_TEST_BUILD_DEPS)
+	$(C_COMPILER) $(FLAGS_OPT_RTS) $(FLAGS_OBJ) $(DEFS) -I$(srcdirpfx)$(rootfromhere)/include -I$(srcdirpfx)$(rootfromhere)/lib -D___LIBRARY -c -o $@ $(srcdirpfx)sfun-entry-fault.c
+
+sfun-entry-c-intf@obj@: $(rootfromhere)/lib/c_intf.c $(rootfromhere)/lib/_c_intf/sfun-entry.inc $(SMP_TEST_BUILD_DEPS)
+	$(C_COMPILER) $(FLAGS_OPT_RTS) $(FLAGS_OBJ) $(DEFS) -I$(srcdirpfx)$(rootfromhere)/include -I$(srcdirpfx)$(rootfromhere)/lib -D___LIBRARY -D___alloc_rc_roots=sfun_test_allocate_root_bank -D___make_vector=sfun_test_make_vector -D___c_closure_self=sfun_test_closure_self -c -o $@ $(srcdirpfx)$(rootfromhere)/lib/c_intf.c
+
+sfun-entry@exe@: sfun-entry.scm root-task-replay.scm sfun-entry-fault@obj@ $(SMP_TEST_BUILD_DEPS)
+	@SETDLPATH@ $(rootfromhere)/gsc/gsc@exe@ -:p1,~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f -exe -cc-options "-I$(srcdirpfx)$(rootfromhere)/lib" -ld-options "sfun-entry-fault@obj@" -o $@ $(srcdirpfx)sfun-entry.scm
+
+sfun-entry-probe@exe@: sfun-entry.scm root-task-replay.scm sfun-entry-c-intf@obj@ sfun-entry-fault@obj@ $(SMP_TEST_BUILD_DEPS)
+	@SETDLPATH@ $(rootfromhere)/gsc/gsc@exe@ -:p1,~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f -exe -cc-options "-I$(srcdirpfx)$(rootfromhere)/lib" -ld-options "sfun-entry-c-intf@obj@ sfun-entry-fault@obj@" -o $@ $(srcdirpfx)sfun-entry.scm
+
+.PHONY: test-sfun-entry
+test-sfun-entry: sfun-entry@exe@ sfun-entry-probe@exe@
+	@SETDLPATH@ ./sfun-entry-probe@exe@ -:p1 --constructors
+	@SETDLPATH@ ./sfun-entry-probe@exe@ -:p1 --closure-source
+	@SETDLPATH@ ./sfun-entry@exe@ -:p1 --properties
+	@SETDLPATH@ ./sfun-entry@exe@ -:p2 --nonzero
+	@SETDLPATH@ ./sfun-entry@exe@ -:p1 --revoke
