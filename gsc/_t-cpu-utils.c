@@ -46,6 +46,7 @@
 #define ___GLOCOUNT 8
 #define ___SUPCOUNT 7
 #define ___SUBCOUNT 3
+#define ___HOST_LAYOUT ___HOST_LAYOUT_PROCEDURES
 #define ___LBLCOUNT 24
 #define ___MODDESCR ___REF_SUB(0)
 #include "gambit.h"

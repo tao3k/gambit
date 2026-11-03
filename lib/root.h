@@ -18,6 +18,7 @@ typedef struct ___global_root_snapshot_struct {
   ___virtual_machine_state vm;
   ___UWORD epoch;
   int count, participants;
+  ___global_slot_page *pages;
   unsigned char shards[___MAX_PROCESSORS]; /* 0 absent, 1 leased, 2 complete */
 } ___global_root_snapshot;
 
@@ -27,6 +28,7 @@ typedef struct ___global_root_source_struct {
   int count, participants, participant, lo, hi;
   const ___global_root_snapshot *snapshot;
   ___UWORD snapshot_epoch;
+  ___global_slot_page *pages;
 } ___global_root_source;
 
 typedef struct ___root_origin_struct {

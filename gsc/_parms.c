@@ -230,6 +230,7 @@
 #define ___GLOCOUNT 194
 #define ___SUPCOUNT 191
 #define ___SUBCOUNT 354
+#define ___HOST_LAYOUT ___HOST_LAYOUT_PROCEDURES
 #define ___LBLCOUNT 276
 #define ___OFDCOUNT 60
 #define ___MODDESCR ___REF_SUB(351)

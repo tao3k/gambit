@@ -646,6 +646,7 @@
 #define ___SUPCOUNT 92
 #define ___CNSCOUNT 342
 #define ___SUBCOUNT 12
+#define ___HOST_LAYOUT ___HOST_LAYOUT_PROCEDURES
 #define ___LBLCOUNT 1999
 #define ___OFDCOUNT 121
 #define ___MODDESCR ___REF_SUB(9)

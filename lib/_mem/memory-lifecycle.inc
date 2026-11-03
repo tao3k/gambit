@@ -328,15 +328,22 @@ ___virtual_machine_state ___vms;)
 
 #ifndef ___SINGLE_VM
 
-  /* TODO: implement expansion of glos array when number of globals grows beyond 20000 */
-
   {
-    int n;
-    ___vms->glos=___CAST(___SCMOBJ*,___ALLOC_MEM(
-      ___CAST(___SIZE_T,___GLOBALS_STORAGE_WORDS)*sizeof(___SCMOBJ)));
-    if (___vms->glos == 0) return ___FIX(___HEAP_OVERFLOW_ERR);
-    for (n=0;n<2*___GLOBALS_CAPACITY;n++) ___vms->glos[n]=___UNB1;
-    for (;n<___GLOBALS_STORAGE_WORDS;n++) ___vms->glos[n]=0;
+    ___SIZE_T identity, count;
+    ___vms->glos=___CAST(___global_slot_store*,___ALLOC_MEM(sizeof(*___vms->glos)));
+    if (___vms->glos==0) return ___FIX(___HEAP_OVERFLOW_ERR);
+    ___vms->glos->directory=0; ___vms->glos->pages=0;
+    ___vms->glos->count=0; ___vms->glos->unbound=___UNB1;
+    /* The initial image is this VM's bootstrap binding inventory. Later
+     * identities registered by another VM do not reserve cells in this VM. */
+    ___MUTEX_LOCK(___GSTATE->mem.global_gate);
+    count=___GSTATE->mem.glo_list.count;
+    for (identity=0;identity<count;identity++)
+      if (!global_prepare_locked(___vms,identity)) break;
+    ___MUTEX_UNLOCK(___GSTATE->mem.global_gate);
+    if (identity<count) {
+      global_storage_cleanup(___vms); return ___FIX(___HEAP_OVERFLOW_ERR);
+    }
   }
 
 #endif
@@ -539,7 +546,7 @@ ___virtual_machine_state ___vms;)
 #ifndef ___SINGLE_VM
   /* One VM-owned block covers ordinary/primitive slots and presence bits.
    * All source leases and native borrowers have drained before this cut. */
-  ___FREE_MEM(___vms->glos); ___vms->glos=0;
+  global_storage_cleanup(___vms);
 
 
 

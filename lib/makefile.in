@@ -85,7 +85,7 @@ GAMBIT_LIB_O = _$(GAMBITLIB)@obj@
 NORMAL_C = native_scope.c main.c setup.c mem.c os_setup.c os_base.c os_thread.c os_time.c os_shell.c os_files.c os_dyn.c os_tty.c os_io.c c_intf.c actlog.c
 MEMORY_SOURCES = _mem/configuration.inc \
   _mem/aligned-allocation.inc \
-  _mem/rc-allocation.inc _mem/root-tasks.inc \
+  _mem/rc-allocation.inc _mem/global-storage.inc _mem/root-tasks.inc \
   _mem/movable-sections.inc \
   _mem/permanent-allocation.inc \
   _mem/global-bindings.inc \

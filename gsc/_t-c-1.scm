@@ -382,7 +382,8 @@
      c-inits
      (map (lambda (x) (cons (car x) (targ-use-obj (cdr x)))) c-objs)
      module-descr
-     linker-name)
+     linker-name
+     c-procs)
 
     (targ-heap-end!)
 
@@ -1134,7 +1135,25 @@
 ;; These routines write out the C code that represents the Scheme objects
 ;; contained in the compilation module.
 
-(define (targ-heap-dump filename c-decls c-inits c-objs module-descr linker-name)
+;; The compiler unit plan is made only after semantic scanning has assigned
+;; all control points and FrameSpecs. It owns physical host placement, not
+;; Scheme control or root analysis. A procedure is the natural physical host
+;; for Scheme-only code; no module-size threshold or compiler flag selects it.
+;; Embedded C retains the configured layout until its host assumptions have
+;; an explicit contract. Lists and FrameSpecs in this private plan are read-only.
+(define (targ-plan-compilation-unit procs label-count c-decls c-procs c-inits c-objs)
+  (vector (if (or (pair? c-decls) (pair? c-procs)
+                  (pair? c-inits) (pair? c-objs))
+              'configured
+              'procedures)
+          procs
+          label-count))
+
+(define (targ-compilation-unit-host-layout unit) (vector-ref unit 0))
+(define (targ-compilation-unit-procedures unit) (vector-ref unit 1))
+(define (targ-compilation-unit-label-count unit) (vector-ref unit 2))
+
+(define (targ-heap-dump filename c-decls c-inits c-objs module-descr linker-name c-procs)
   (let* ((sym-list
           (targ-sort (table->list targ-sym-objs) symbol->string))
          (key-list
@@ -1147,8 +1166,11 @@
           (ordered-table->list targ-sub-objs))
          (prc-list
           (queue->list targ-prc-objs))
+         (unit
+          (targ-plan-compilation-unit prc-list targ-lbl-alloc
+                                      c-decls c-procs c-inits c-objs))
          (prm-list
-          (targ-extract-primitives prc-list))
+          (targ-extract-primitives (targ-compilation-unit-procedures unit)))
          (sym-rsrc
           (map targ-sym-rsrc sym-list))
          (key-rsrc
@@ -1192,7 +1214,11 @@
     (targ-define-count "SUPCOUNT" (length (keep targ-glo-supplied? glo-list)))
     (targ-define-count "CNSCOUNT" (length cns-list))
     (targ-define-count "SUBCOUNT" (length sub-list))
-    (targ-define-count "LBLCOUNT" targ-lbl-alloc)
+    (targ-macro-definition '("HOST_LAYOUT")
+      (case (targ-compilation-unit-host-layout unit)
+        ((procedures) '("HOST_LAYOUT_PROCEDURES"))
+        (else '("HOST_LAYOUT_CONFIGURED"))))
+    (targ-define-count "LBLCOUNT" (targ-compilation-unit-label-count unit))
     (targ-define-count "OFDCOUNT" ofd-count)
     (targ-macro-definition '("MODDESCR") (targ-heap-ref-obj module-descr))
     (targ-display "#include \"gambit.h\"")
@@ -1201,7 +1227,9 @@
     (targ-dump-sym-key-glo-comp sym-list key-list glo-list)
     (targ-dump-cns cns-list)
     (targ-dump-sub sub-list)
-    (targ-dump-prc prc-list c-objs c-decls ofd-count)
+    (targ-dump-prc unit c-objs c-decls ofd-count)
+    (if (not (= (targ-compilation-unit-label-count unit) targ-lbl-alloc))
+        (compiler-internal-error "physical host emission added control points"))
     (targ-dump-mod prm-list c-inits sym-list key-list)
     (targ-end-dump)))
 
@@ -1851,7 +1879,8 @@
             (else        1))))
     (targ-vector-like-object def-name id chunk-name elems convert cycle)))
 
-(define (targ-dump-prc objs c-objs c-decls ofd-count)
+(define (targ-dump-prc unit c-objs c-decls ofd-count)
+  (let ((objs (targ-compilation-unit-procedures unit)))
 
   (if (pair? objs)
     (begin
@@ -2010,7 +2039,7 @@
               (vector-ref info 1))))
          objs))
       (targ-code* '("END_OFD"))
-      (targ-line))))
+      (targ-line)))))
 
 (define (targ-unique-name proc)
 

@@ -526,11 +526,29 @@ test-root-task: root-task@exe@ root-task-bank@exe@ root-task-primitive@exe@
 
 .PHONY: test-mutex-suspension
 mutex-suspension@exe@: $(srcdirpfx)mutex-suspension.scm $(SMP_TEST_BUILD_DEPS)
-	@SETDLPATH@ $(rootfromhere)/gsc/gsc@exe@ -:~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f -exe -o mutex-suspension@exe@ $(srcdirpfx)mutex-suspension.scm
+	@SETDLPATH@ $(rootfromhere)/gsc/gsc@exe@ -:~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f -exe -cc-options "-I$(srcdirpfx)$(rootfromhere)/lib" -o mutex-suspension@exe@ $(srcdirpfx)mutex-suspension.scm
 
 test-mutex-suspension: mutex-suspension@exe@
+	@SETDLPATH@ ./mutex-suspension@exe@ -:p1 --priority
+	@SETDLPATH@ ./mutex-suspension@exe@ -:p2 --priority
+	@SETDLPATH@ ./mutex-suspension@exe@ -:p1 --priority-cycle
+	@SETDLPATH@ ./mutex-suspension@exe@ -:p2 --priority-cycle
+	@SETDLPATH@ ./mutex-suspension@exe@ -:p1 --queue-ownership
+	@SETDLPATH@ ./mutex-suspension@exe@ -:p2 --queue-ownership
+	@SETDLPATH@ ./mutex-suspension@exe@ -:p1 --handoff
+	@SETDLPATH@ ./mutex-suspension@exe@ -:p2 --handoff
 	@SETDLPATH@ ./mutex-suspension@exe@ -:p1
 	@SETDLPATH@ ./mutex-suspension@exe@ -:p2
+	@SETDLPATH@ ./mutex-suspension@exe@ -:p1 --wait-continuation
+	@SETDLPATH@ ./mutex-suspension@exe@ -:p2 --wait-continuation
+	@SETDLPATH@ ./mutex-suspension@exe@ -:p1 --join-continuation
+	@SETDLPATH@ ./mutex-suspension@exe@ -:p2 --join-continuation
+	@SETDLPATH@ ./mutex-suspension@exe@ -:p1 --sleep-continuation
+	@SETDLPATH@ ./mutex-suspension@exe@ -:p2 --sleep-continuation
+	@SETDLPATH@ ./mutex-suspension@exe@ -:p1 --cv-continuation
+	@SETDLPATH@ ./mutex-suspension@exe@ -:p2 --cv-continuation
+	@SETDLPATH@ ./mutex-suspension@exe@ -:p1 --wait-io
+	@SETDLPATH@ ./mutex-suspension@exe@ -:p2 --wait-io
 
 # SMP startup transaction. Reuse the configured compiler, official GSC and Make.
 # The fault adapter renames only this test setup consumer; production has no hook.
@@ -538,7 +556,7 @@ test-mutex-suspension: mutex-suspension@exe@
 test-startup-publication:
 	@SETDLPATH@ $(rootfromhere)/gsc/gsc@exe@ -:p1,~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f -exe -cc-options "-I$(srcdirpfx)$(rootfromhere)/lib" -o startup-publication@exe@ $(srcdirpfx)startup-publication.scm
 	@SETDLPATH@ ./startup-publication@exe@ -:p1 --nonzero
-	$(C_COMPILER) $(FLAGS_OPT_RTS) $(FLAGS_OBJ) $(DEFS) -I$(srcdirpfx)$(rootfromhere)/include -I$(srcdirpfx)$(rootfromhere)/lib -D___LIBRARY -D___thread_create=test_startup_create -D___thread_join=test_startup_join -D___reserve_resize=test_startup_reserve -D___alloc_rc=test_startup_alloc -D___refund_resize=test_startup_refund -D___make_sfun_stack_marker_root=test_startup_marker -c -o startup-setup@obj@ $(srcdirpfx)$(rootfromhere)/lib/setup.c
+	$(C_COMPILER) $(FLAGS_OPT_RTS) $(FLAGS_OBJ) $(DEFS) -I$(srcdirpfx)$(rootfromhere)/include -I$(srcdirpfx)$(rootfromhere)/lib -D___LIBRARY -D___thread_create=test_startup_create -D___thread_join=test_startup_join -D___reserve_resize=test_startup_reserve -D___alloc_rc=test_startup_alloc -D___refund_resize=test_startup_refund -D___make_sfun_stack_marker_root=test_startup_marker -Dpthread_mutex_init=test_startup_mutex_init -Dpthread_cond_init=test_startup_cond_init -c -o startup-setup@obj@ $(srcdirpfx)$(rootfromhere)/lib/setup.c
 	@SETDLPATH@ $(rootfromhere)/gsc/gsc@exe@ -:p1,~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f -exe -cc-options "-I$(srcdirpfx)$(rootfromhere)/lib" -ld-options-prelude startup-setup@obj@ -o startup-faults@exe@ $(srcdirpfx)startup-publication.scm
 	@SETDLPATH@ ./startup-faults@exe@ -:p1
 	@SETDLPATH@ ./startup-faults@exe@ -:p1 --marker-gc

@@ -182,3 +182,28 @@
              c#riscv-32-target c#riscv-64-target))
       (close-output-port out)
       (display "EXECUTION-LAYOUT-FIXTURES ") (write serial) (newline)))
+
+;;; Physical layout selection consumes completed semantics without renumbering
+;;; points or replacing the procedure list. Keep foreign-host assumptions out
+;;; of the Scheme-only plan; this is independent of the frame arithmetic above.
+(let* ((procedures (list 'first 'second))
+       (plan (c#targ-plan-compilation-unit procedures 17 '() '() '() '()))
+       (unit-checks 0))
+  (define (unit-check value)
+    (set! unit-checks (+ unit-checks 1))
+    (if (not value) (error "compilation-unit plan" unit-checks)))
+  (unit-check (eq? (c#targ-compilation-unit-host-layout plan) 'procedures))
+  (unit-check (eq? (c#targ-compilation-unit-procedures plan) procedures))
+  (unit-check (= (c#targ-compilation-unit-label-count plan) 17))
+  (for-each
+   (lambda (foreign)
+     (let ((plan (apply c#targ-plan-compilation-unit
+                        (append (list procedures 17) foreign))))
+       (unit-check (eq? (c#targ-compilation-unit-host-layout plan) 'configured))
+       (unit-check (eq? (c#targ-compilation-unit-procedures plan) procedures))
+       (unit-check (= (c#targ-compilation-unit-label-count plan) 17))))
+   (list (list '(declaration) '() '() '())
+         (list '() '(procedure) '() '())
+         (list '() '() '(initializer) '())
+         (list '() '() '() '(object))))
+  (display "COMPILATION-UNIT-PLAN-PASS ") (write unit-checks) (newline))

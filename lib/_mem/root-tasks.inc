@@ -368,11 +368,17 @@ ___BOOL ___root_globals_begin(___global_root_snapshot *snapshot,
       ___GSTATE->mem.glo_list.count>___CAST(___UWORD,INT_MAX) ||
       ___GSTATE->mem.global_snapshots==~___CAST(___SIZE_T,0)) ok=0;
 #ifndef ___SINGLE_VM
-  if (vm->glos==0 || ___GSTATE->mem.glo_list.count>___GLOBALS_CAPACITY) ok=0;
+  if (vm->glos==0 || vm->glos->count>INT_MAX) ok=0;
 #endif
   if (ok) {
     snapshot->vm=vm; snapshot->epoch=epoch;
+#ifdef ___SINGLE_VM
     snapshot->count=___CAST(int,___GSTATE->mem.glo_list.count);
+    snapshot->pages=0;
+#else
+    snapshot->count=___CAST(int,vm->glos->count);
+    snapshot->pages=vm->glos->pages;
+#endif
     snapshot->participants=vm->processor_count;
     for (i=0;i<snapshot->participants;i++) snapshot->shards[i]=0;
     ++___GSTATE->mem.global_snapshots;
@@ -425,17 +431,28 @@ ___HIDDEN ___BOOL root_globals_view(___global_root_source *view,
 #ifdef ___SINGLE_VM
   extent=___GLO_SUBLIST_COUNT;
 #else
-  if (view->count > ___GLOBALS_CAPACITY || vm->glos == 0) return 0;
+  if (vm->glos == 0) return 0;
   extent=view->count;
 #endif
-  return ___root_globals_partition(extent,view->participant,view->participants,
-                                   &view->lo,&view->hi);
+  if (!___root_globals_partition(extent,view->participant,view->participants,
+                                &view->lo,&view->hi)) return 0;
+  view->pages=snapshot->pages;
+#ifndef ___SINGLE_VM
+  {
+    int skip;
+    for (skip=0;skip<view->lo;skip++) {
+      if (view->pages==0) return 0;
+      view->pages=view->pages->next;
+    }
+  }
+#endif
+  return 1;
 }
 
 ___HIDDEN ___BOOL root_globals_equal(const ___global_root_source *a,
                                     const ___global_root_source *b)
 {
-  return a->global == b->global && a->vm == b->vm && a->count == b->count &&
+  return a->global == b->global && a->vm == b->vm && a->count == b->count && a->pages == b->pages &&
          a->participants == b->participants && a->participant == b->participant &&
          a->lo == b->lo && a->hi == b->hi &&
          a->snapshot == b->snapshot && a->snapshot_epoch == b->snapshot_epoch;
@@ -617,7 +634,7 @@ ___BOOL ___root_round_publish(___processor_state ps)
   if (!root_vm_executor(ps) || round == 0 ||
       round->state != ___ROOT_ROUND_CLOSING ||
       !___root_globals_begin(&round->globals,ps,round->epoch)) return 0;
-  { int i; ___WORD requested=___LOAD_GLOBAL_WORD(&round->collection.requested_workers);
+  { int i; ___WORD requested=___WORD_LOAD_ACQUIRE(&round->collection.requested_workers);
     int count=(requested>0 && requested<round->participants)?(int)requested:round->participants;
     round->collection.decision=0;
     for(i=0;i<round->participants;i++)round->collection.observed[i]=0;
@@ -634,10 +651,18 @@ ___BOOL ___root_round_publish(___processor_state ps)
       member->globals.count=round->globals.count; member->globals.participants=round->participants;
       member->globals.participant=i; member->globals.snapshot=&round->globals;
       member->globals.snapshot_epoch=round->epoch;
+      member->globals.pages=round->globals.pages;
 #ifdef ___SINGLE_VM
       if(!___root_globals_partition(___GLO_SUBLIST_COUNT,i,round->participants,&member->globals.lo,&member->globals.hi)) return 0;
 #else
       if(!___root_globals_partition(round->globals.count,i,round->participants,&member->globals.lo,&member->globals.hi)) return 0;
+      {
+        int skip;
+        for(skip=0;skip<member->globals.lo;skip++) {
+          if(member->globals.pages==0) return 0;
+          member->globals.pages=member->globals.pages->next;
+        }
+      }
 #endif
       member->global_task.origin.kind=___ROOT_GLOBALS;
       member->global_task.origin.source.globals=&member->globals;

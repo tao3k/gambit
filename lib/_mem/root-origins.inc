@@ -127,9 +127,9 @@ ___BOOL ___root_task_scan_vm(___root_task *task, ___processor_state executor,
 ___HIDDEN void mark_global_cell(___PSD ___SCMOBJ *cell)
 {
   ___PSGET
-  ___SCMOBJ value=___LOAD_GLOBAL_WORD(cell);
+  ___SCMOBJ value=___WORD_LOAD_ACQUIRE(cell);
   mark_array(___ps->collector, &value,1);
-  if(___ps->collector==0 || ___ps->collector->census==0) ___PUBLISH_GLOBAL_WORD(cell,value);
+  if(___ps->collector==0 || ___ps->collector->census==0) ___WORD_STORE_RELEASE(cell,value);
 }
 
 ___HIDDEN void mark_global_variables
@@ -156,10 +156,10 @@ const ___global_root_source *source;)
             ___printf ("\n");
 #endif
             mark_global_cell(___PSP &glo->val);
-            if (___LOAD_GLOBAL_WORD(&glo->primitive_set))
+            if (___WORD_LOAD_ACQUIRE(&glo->primitive_set))
               mark_global_cell(___PSP &glo->primitive_value);
             else if(___ps->collector==0 || ___ps->collector->census==0)
-              ___PUBLISH_GLOBAL_WORD(&glo->primitive_value,___FAL);
+              ___WORD_STORE_RELEASE(&glo->primitive_value,___FAL);
             glo = glo->next;
           }
         lo++;
@@ -167,16 +167,18 @@ const ___global_root_source *source;)
   }
 #else
   {
-    int i;
-    for (i=source->lo;i<source->hi;i++)
+    int i, slot;
+    ___global_slot_page *page=source->pages;
+    for (i=source->lo;i<source->hi;i++,page=page->next)
       {
-        ___SCMOBJ *values=source->vm->glos;
-        ___WORD flags=___LOAD_GLOBAL_WORD(values+2*___GLOBALS_CAPACITY+i/___WORD_WIDTH);
-        mark_global_cell(___PSP values+i);
-        if (flags & (___CAST(___UWORD,1) << (i % ___WORD_WIDTH)))
-          mark_global_cell(___PSP values+___GLOBALS_CAPACITY+i);
-        else if(___ps->collector==0 || ___ps->collector->census==0)
-          ___PUBLISH_GLOBAL_WORD(values+___GLOBALS_CAPACITY+i,___FAL);
+        ___WORD flags=___WORD_LOAD_ACQUIRE(&page->primitive_set);
+        for (slot=0;slot<___WORD_WIDTH;slot++) {
+          mark_global_cell(___PSP &page->ordinary[slot]);
+          if (flags & (___CAST(___UWORD,1)<<slot))
+            mark_global_cell(___PSP &page->primitive[slot]);
+          else if (___ps->collector==0 || ___ps->collector->census==0)
+            ___WORD_STORE_RELEASE(&page->primitive[slot],___FAL);
+        }
       }
   }
 #endif

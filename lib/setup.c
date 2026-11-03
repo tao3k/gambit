@@ -311,6 +311,10 @@ ___processor_state ___ps;)
       if (next == ___NUL)
         ___PROCESSOR_INTERRUPTS_TAIL_FIELD(ps) = ___NUL;
 
+      /* Transfer a detached node, not a borrowed suffix of this queue.
+       * The receiver may re-route it into a thread's interrupt queue. */
+      ___FIELD(VECTOR,intr,0) = ___NUL;
+
       ___SHARED_MEMORY_BARRIER(); /* make sure write happens promptly */
     }
 
@@ -499,7 +503,8 @@ ___virtual_machine_state ___vms;)
 
 #define SYNC_WAITING -1
 
-#define SYNC_INIT_MSG(var) var = SYNC_WAITING
+#define SYNC_INIT_MSG(var) ((var) = SYNC_WAITING) /* exclusive construction */
+#define SYNC_ACK_MSG(var) ___WORD_STORE_RELEASE(&(var),SYNC_WAITING)
 
 #define SYNC_GET_MSG_SPIN_TIMEOUT 2000
 
@@ -523,8 +528,7 @@ do { \
 #define SYNC_SEND_MSG(ps,field,val) \
 do { \
      ___MUTEX_LOCK(ps->sync_mut); \
-     ps->field = val; \
-     ___SHARED_MEMORY_BARRIER(); /* make sure write happens promptly */  \
+     ___WORD_STORE_RELEASE(&ps->field,val); \
      ___MUTEX_UNLOCK(ps->sync_mut); \
      ___CONDVAR_SIGNAL(ps->sync_cv); \
    } while (0)
@@ -568,6 +572,12 @@ ___sync_op_struct *sop_ptr;)
   ___sync_op_struct sop = *sop_ptr;
   int sid = id;
 
+  /* A tree edge is SPSC for one admitted population incarnation. The
+   * receiver copies the payload before ACK. The next reverse-direction tree
+   * message acknowledges consumption before this edge is reused; ACK alone
+   * does not grant another send. No extra polling or wait bound is added.
+   */
+
   /*
    * This function performs a barrier synchronization by imposing a
    * tree structure on the set of processors in this Gambit VM.
@@ -583,10 +593,9 @@ ___sync_op_struct *sop_ptr;)
       int sid1;
       ___sync_op_struct sop1;
 
-      SYNC_GET_MSG(sid1 = ___ps->sync_id1);
-      SYNC_INIT_MSG(___ps->sync_id1);
-
+      SYNC_GET_MSG(sid1 = ___WORD_LOAD_ACQUIRE(&___ps->sync_id1));
       sop1 = ___ps->sync_op1;
+      SYNC_ACK_MSG(___ps->sync_id1);
 
       if (sop1.op < sop.op)
         {
@@ -617,10 +626,9 @@ ___sync_op_struct *sop_ptr;)
           int sid2;
           ___sync_op_struct sop2;
 
-          SYNC_GET_MSG(sid2 = ___ps->sync_id2);
-          SYNC_INIT_MSG(___ps->sync_id2);
-
+          SYNC_GET_MSG(sid2 = ___WORD_LOAD_ACQUIRE(&___ps->sync_id2));
           sop2 = ___ps->sync_op2;
+          SYNC_ACK_MSG(___ps->sync_id2);
 
           if (sop2.op < sop.op)
             {
@@ -694,10 +702,9 @@ ___sync_op_struct *sop_ptr;)
        * Wait for parent to reply with winning operation.
        */
 
-      SYNC_GET_MSG(sid = ___ps->sync_id0);
-      SYNC_INIT_MSG(___ps->sync_id0);
-
+      SYNC_GET_MSG(sid = ___WORD_LOAD_ACQUIRE(&___ps->sync_id0));
       sop = ___ps->sync_op0;
+      SYNC_ACK_MSG(___ps->sync_id0);
     }
 
   /*
@@ -741,7 +748,7 @@ ___PSDKR)
 
   ___PSGET
 
-  ___sync_op_struct sop;
+  ___sync_op_struct sop = {0,{0,0}};
 
   sop.op = OP_NOOP;
   barrier_sync_op (___PSP &sop);
@@ -794,7 +801,7 @@ const ___SCMOBJ *cell;)
 {
   ___PSGET
   ___SCMOBJ ___err;
-  ___sync_op_struct sop;
+  ___sync_op_struct sop = {0,{0,0}};
 
   /*
    * Start the processor's execution by a call to thunk.  This call
@@ -833,11 +840,11 @@ ___HIDDEN void start_processor_execution(___thread *self)
   ___vm_lifecycle *r=vm->lifecycle;
   ___processor_state ___ps;
   void *root; const ___SCMOBJ *cell;
-  ___sync_op_struct sop;
+  ___sync_op_struct sop = {0,{0,0}};
   ___MUTEX_LOCK(r->gate);
   while(launch->entry==___LAUNCH_PARKED)___CONDVAR_WAIT(r->changed,r->gate);
   if(launch->entry!=___LAUNCH_RUN || launch->generation!=r->generation) {
-    ___PUBLISH_GLOBAL_WORD(&launch->data_closed,1);
+    ___WORD_STORE_RELEASE(&launch->data_closed,1);
     ___MUTEX_UNLOCK(r->gate);return;
   }
   /* PSTATE is obtained only after this descriptor's entry was accepted. */
@@ -922,7 +929,7 @@ static ___SCMOBJ rollback_resize(___processor_state ps,___vm_lifecycle *r)
     if(r->slots[i].phase==___RESIZE_CREATED) {
       if(___thread_join(&launch->thread)==___FIX(___NO_ERR)) {
         launch->joined=1;launch->native_live=0;
-      }else ___PUBLISH_GLOBAL_WORD(&launch->uncertain,1);
+      }else ___WORD_STORE_RELEASE(&launch->uncertain,1);
     }
     release_startup_root(&r->slots[i]);
     if(r->slots[i].phase>=___RESIZE_INITIALIZED &&
@@ -941,7 +948,7 @@ static ___SCMOBJ rollback_resize(___processor_state ps,___vm_lifecycle *r)
 #ifndef ___SINGLE_THREADED_VMS
 static ___SCMOBJ resize_decision(___processor_state ___ps,___SCMOBJ decision,int cut)
 {
-  ___sync_op_struct message;
+  ___sync_op_struct message = {0,{0,0}};
   message.op=OP_NOOP;message.arg[0]=decision;message.arg[1]=cut;
   barrier_sync_op(___PSP &message);
   return message.arg[0];
@@ -968,7 +975,7 @@ ___SCMOBJ ___vm_resize_pstate(___processor_state ___ps,
   ___virtual_machine_state vm=___VMSTATE_FROM_PSTATE(___ps);
   int id=___PROCESSOR_ID(___ps,vm),initial=vm->processor_count,i;
   ___vm_lifecycle *r=vm->lifecycle;
-  ___sync_op_struct sop;
+  ___sync_op_struct sop = {0,{0,0}};
   if(id==0 && r) {
     r->result=___FIX(___NO_ERR);r->refusal=0;
     if(r->resize_phase==___RESIZE_RETAINED)r->result=___FIX(___UNKNOWN_ERR);
@@ -1018,9 +1025,9 @@ ___SCMOBJ ___vm_resize_pstate(___processor_state ___ps,
               ___release_rc(slot->root);slot->root=0;
               r->result=___FIX(___UNKNOWN_ERR);break;
             }
-            ___PUBLISH_GLOBAL_WORD(&r->entries[i],0);
+            ___WORD_STORE_RELEASE(&r->entries[i],0);
             r->result=___setup_pstate(ps,vm);
-            if(r->result!=___FIX(___NO_ERR)){cleanup_interrupts_pstate(ps);break;}
+            if(r->result!=___FIX(___NO_ERR))break;
             slot->phase=___RESIZE_INITIALIZED;
           }
           if(r->result==___FIX(___NO_ERR))for(i=initial;i<target_processor_count;i++) {
@@ -1058,7 +1065,7 @@ ___SCMOBJ ___vm_resize_pstate(___processor_state ___ps,
     if(id==0) {
       enum ___handoff_status disposition=___HANDOFF_READY;
       for(i=target_processor_count;i<initial;i++) {
-        enum ___handoff_status current=___LOAD_GLOBAL_WORD(&r->requests[i])
+        enum ___handoff_status current=___WORD_LOAD_ACQUIRE(&r->requests[i])
           ?___HANDOFF_BUSY:___lifecycle_can_handoff(___PSTATE_FROM_PROCESSOR_ID(i,vm));
         if(current>disposition)disposition=current;
       }
@@ -1092,9 +1099,9 @@ ___SCMOBJ ___vm_resize_pstate(___processor_state ___ps,
     if(err!=___FIX(___NO_ERR))return err;
     if(id==0) {
       for(i=target_processor_count;i<initial;i++) {
-        ___WORD old=___LOAD_GLOBAL_WORD(&r->entries[i]);
+        ___WORD old=___WORD_LOAD_ACQUIRE(&r->entries[i]);
         while(___lifecycle_cas(&r->entries[i],old,old|1)!=old)
-          old=___LOAD_GLOBAL_WORD(&r->entries[i]);
+          old=___WORD_LOAD_ACQUIRE(&r->entries[i]);
         ___lifecycle_handoff(___PSTATE_FROM_PROCESSOR_ID(i,vm),___PSTATE_FROM_PROCESSOR_ID(0,vm));
       }
     }
@@ -1104,14 +1111,14 @@ ___SCMOBJ ___vm_resize_pstate(___processor_state ___ps,
       if(!___lifecycle_cleanup_pstate(___ps)) {
         r->cleanup[id].uncertain=1;resize_phase(r,___RESIZE_RETAINED);
       }
-      ___PUBLISH_GLOBAL_WORD(&r->launches[id].data_closed,1);
+      ___WORD_STORE_RELEASE(&r->launches[id].data_closed,1);
       ___thread_exit();
     }
     if(id==0) {
       for(i=initial-1;i>=target_processor_count;i--) {
         if(___thread_join(&r->launches[i].thread)!=___FIX(___NO_ERR)) {
-          ___PUBLISH_GLOBAL_WORD(&r->launches[i].uncertain,1);err=___FIX(___UNKNOWN_ERR);
-          if(!___LOAD_GLOBAL_WORD(&r->launches[i].data_closed))resize_phase(r,___RESIZE_RETAINED);
+          ___WORD_STORE_RELEASE(&r->launches[i].uncertain,1);err=___FIX(___UNKNOWN_ERR);
+          if(!___WORD_LOAD_ACQUIRE(&r->launches[i].data_closed))resize_phase(r,___RESIZE_RETAINED);
         }else {r->launches[i].joined=1;r->launches[i].native_live=0;}
         if(r->cleanup[i].uncertain){err=___FIX(___UNKNOWN_ERR);resize_phase(r,___RESIZE_RETAINED);}
       }
@@ -1246,7 +1253,7 @@ void service_sync_op
 ___PSDKR)
 {
   ___PSGET
-  ___sync_op_struct sop;
+  ___sync_op_struct sop = {0,{0,0}};
 
   sop.op = OP_NOOP;
   ___ACTLOG_BEGIN(service_sync_op,_);
@@ -1268,9 +1275,9 @@ ___sync_op_struct *sop_ptr;)
   ___vm_lifecycle *life=___vms->lifecycle;
   int requester=___PROCESSOR_ID(___ps,___vms);
   ___SCMOBJ ___err;
-  ___WORD pending=___LOAD_GLOBAL_WORD(&life->requests[requester]);
+  ___WORD pending=___WORD_LOAD_ACQUIRE(&life->requests[requester]);
   while(___lifecycle_cas(&life->requests[requester],pending,pending+1)!=pending)
-    pending=___LOAD_GLOBAL_WORD(&life->requests[requester]);
+    pending=___WORD_LOAD_ACQUIRE(&life->requests[requester]);
 
   /* force processors to call service_sync_op */
 
@@ -1282,9 +1289,9 @@ ___sync_op_struct *sop_ptr;)
     execute_sync_op_loop (___PSP sop_ptr, 1);
   ___END_TRY
 
-  pending=___LOAD_GLOBAL_WORD(&life->requests[requester]);
+  pending=___WORD_LOAD_ACQUIRE(&life->requests[requester]);
   while(___lifecycle_cas(&life->requests[requester],pending,pending-1)!=pending)
-    pending=___LOAD_GLOBAL_WORD(&life->requests[requester]);
+    pending=___WORD_LOAD_ACQUIRE(&life->requests[requester]);
   ___ACTLOG_END();
   if(___err!=___FIX(___NO_ERR))___throw_error(___PSP ___err);
 }
@@ -1298,7 +1305,7 @@ ___SCMOBJ thunk;
 int target_processor_count;)
 {
   ___PSGET
-  ___sync_op_struct sop;
+  ___sync_op_struct sop = {0,{0,0}};
   ___SCMOBJ ___err;
   void *root;
   const ___SCMOBJ *cell;
@@ -1335,7 +1342,7 @@ ___PSDKR
 ___SIZE_TS requested_words_still;)
 {
   ___PSGET
-  ___sync_op_struct sop;
+  ___sync_op_struct sop = {0,{0,0}};
 
   sop.op = OP_GARBAGE_COLLECT;
   sop.arg[0] = requested_words_still;
@@ -1358,7 +1365,7 @@ int fd2;)
 {
   ___processor_state ___ps = ___PSTATE;
   ___virtual_machine_state ___vms = ___VMSTATE_FROM_PSTATE(___ps);
-  ___sync_op_struct sop;
+  ___sync_op_struct sop = {0,{0,0}};
 
   int newsize;
   int maxfd = (fd2 > fd1) ? fd2 : fd1;
@@ -1384,7 +1391,7 @@ ___processor_state ___ps;)
 #ifdef ___ACTIVITY_LOG
 
   ___virtual_machine_state ___vms = ___VMSTATE_FROM_PSTATE(___ps);
-  ___sync_op_struct sop;
+  ___sync_op_struct sop = {0,{0,0}};
 
   sop.op = OP_ACTLOG_START;
 
@@ -1404,7 +1411,7 @@ ___processor_state ___ps;)
 #ifdef ___ACTIVITY_LOG
 
   ___virtual_machine_state ___vms = ___VMSTATE_FROM_PSTATE(___ps);
-  ___sync_op_struct sop;
+  ___sync_op_struct sop = {0,{0,0}};
 
   sop.op = OP_ACTLOG_STOP;
 
@@ -1658,7 +1665,7 @@ ___glo_struct **glo;)
 
       /* Module binding belongs to the loading VM, not an ambient TLS owner. */
       if (supply &&
-          ___LOAD_GLOBAL_WORD(&___GLOCELL_IN_VM((___VMSTATE_FROM_PSTATE(ctx->ps)),g->val)) == ___UNB1)
+          ___WORD_LOAD_ACQUIRE(&___GLOCELL_IN_VM((___VMSTATE_FROM_PSTATE(ctx->ps)),g->val)) == ___UNB1)
         ___store_global(ctx->ps,g,___UNB2);
     }
 
@@ -2025,7 +2032,7 @@ ___module_struct *module;)
 
           ___glo_struct *glo = ___CAST(___glo_struct*,glotbl[i]);
 
-          if (___LOAD_GLOBAL_WORD(&___GLOCELL_IN_VM(___vms,glo->val)) == ___UNB1)
+          if (___WORD_LOAD_ACQUIRE(&___GLOCELL_IN_VM(___vms,glo->val)) == ___UNB1)
             {
               ___SCMOBJ err;
               ___SCMOBJ glo_name;
@@ -4919,17 +4926,65 @@ ___HIDDEN ___SCMOBJ setup_os_and_mem ___PVOID
 
 #ifndef ___SINGLE_THREADED_VMS
 
-___HIDDEN void setup_sync_op_pstate
+___HIDDEN ___SCMOBJ setup_sync_op_pstate
    ___P((___processor_state ___ps),
         (___ps)
 ___processor_state ___ps;)
 {
+  ___virtual_machine_state vm=___VMSTATE_FROM_PSTATE(___ps);
+  unsigned char *owned=&vm->lifecycle->sync_constructed[___PROCESSOR_ID(___ps,vm)];
+  /* Exclusive setup after the old-set rendezvous and receiver join. Remote
+   * senders may still signal the retained pair, so never initialize it again.
+   * The old reverse-tree rendezvous excludes old payload writers here. */
+  if(!(*owned & 1)) {
+#ifdef ___USE_POSIX_THREAD_SYSTEM
+    if(!___MUTEX_INIT(___ps->sync_mut))return ___FIX(___UNKNOWN_ERR);
+#else
+    ___MUTEX_INIT(___ps->sync_mut);
+#endif
+    *owned |= 1;
+  }
+  if(!(*owned & 2)) {
+#ifdef ___USE_POSIX_THREAD_SYSTEM
+    if(!___CONDVAR_INIT(___ps->sync_cv))return ___FIX(___UNKNOWN_ERR);
+#else
+    ___CONDVAR_INIT(___ps->sync_cv);
+#endif
+    *owned |= 2;
+  }
   SYNC_INIT_MSG(___ps->sync_id0);
   SYNC_INIT_MSG(___ps->sync_id1);
   SYNC_INIT_MSG(___ps->sync_id2);
 
-  ___MUTEX_INIT(___ps->sync_mut);
-  ___CONDVAR_INIT(___ps->sync_cv);
+  return ___FIX(___NO_ERR);
+}
+
+/* Only an unpublished constructor or the closed, joined VM may destroy
+ * retained synchronization resources. Never called by processor cleanup. */
+static ___BOOL cleanup_sync_op_vmstate(___virtual_machine_state vm)
+{
+  int i;___vm_lifecycle *life=vm->lifecycle;
+  for(i=0;i<___MAX_PROCESSORS;i++) {
+    ___processor_state ps=___PSTATE_FROM_PROCESSOR_ID(i,vm);
+    unsigned char *owned=&life->sync_constructed[i];
+    if(*owned & 2) {
+#ifdef ___USE_POSIX_THREAD_SYSTEM
+      if(!___CONDVAR_DESTROY(ps->sync_cv))return 0;
+#else
+      ___CONDVAR_DESTROY(ps->sync_cv);
+#endif
+      *owned &= ~2;
+    }
+    if(*owned & 1) {
+#ifdef ___USE_POSIX_THREAD_SYSTEM
+      if(!___MUTEX_DESTROY(ps->sync_mut))return 0;
+#else
+      ___MUTEX_DESTROY(ps->sync_mut);
+#endif
+      *owned &= ~1;
+    }
+  }
+  return 1;
 }
 
 #endif
@@ -4974,12 +5029,22 @@ ___virtual_machine_state ___vms;)
   if (!(___vms == &___GSTATE->vmstate0 && ___PROCESSOR_ID(___ps, ___vms) == 0))
     setup_interrupts_pstate (___ps);  /* processor 0 of vm 0 has early init */
 
+#ifndef ___SINGLE_THREADED_VMS
+  /* The constructor owns failure unwind. Its caller must not guess which
+   * native stage completed or clean an uninitialized interrupt record. */
+  err=setup_sync_op_pstate(___ps);
+  if(err!=___FIX(___NO_ERR)) {
+    cleanup_interrupts_pstate(___ps);return err;
+  }
+#endif
+
   /*
    * Setup processor's OS specific structures and memory management.
    */
 
-  if ((err = setup_os_and_mem_pstate (___ps)) != ___FIX(___NO_ERR))
-    return err;
+  if ((err = setup_os_and_mem_pstate (___ps)) != ___FIX(___NO_ERR)) {
+    cleanup_interrupts_pstate(___ps);return err;
+  }
 
   ___ACTLOG_PS(run,green);
 
@@ -5029,16 +5094,6 @@ ___virtual_machine_state ___vms;)
 #ifdef ___USE_SETJMP
 
   ___ps->catcher = 0;
-
-#endif
-
-  /*
-   * Setup synchronous operation system.
-   */
-
-#ifndef ___SINGLE_THREADED_VMS
-
-  setup_sync_op_pstate (___ps);
 
 #endif
 
@@ -6152,6 +6207,7 @@ ___HIDDEN void setup_dynamic_linking ___PVOID
 
   ___GSTATE->___store_global
     = ___store_global;
+  ___GSTATE->___global_cell = ___global_cell;
   ___GSTATE->___primitive_ref = ___primitive_ref;
   ___GSTATE->___store_primitive = ___store_primitive;
   ___GSTATE->___bind_primitive = ___bind_primitive;
@@ -6569,7 +6625,7 @@ ___setup_params_struct *setup_params;)
 #ifndef ___SINGLE_VM
 
 #endif
-    ___PUBLISH_GLOBAL_WORD(&vm_registry_gate,VM_REGISTRY_CLOSED);
+    ___WORD_STORE_RELEASE(&vm_registry_gate,VM_REGISTRY_CLOSED);
     return err;
   }
 
@@ -6648,7 +6704,7 @@ ___setup_params_struct *setup_params;)
        */
 
       ___thread_set_pstate (___ps);
-      ___PUBLISH_GLOBAL_WORD(&___vms->lifecycle->phase,___VM_LIVE);
+      ___WORD_STORE_RELEASE(&___vms->lifecycle->phase,___VM_LIVE);
       vm_registry_publish(___vms); vm_registry_open(); registry_owned=0;
       ___glo_list_open();
 
@@ -6688,7 +6744,7 @@ ___setup_params_struct *setup_params;)
 
 #endif
     cleanup_os_and_mem();___GSTATE->setup_state=2;
-    ___PUBLISH_GLOBAL_WORD(&vm_registry_gate,VM_REGISTRY_CLOSED);
+    ___WORD_STORE_RELEASE(&vm_registry_gate,VM_REGISTRY_CLOSED);
   }else if (err != ___FIX(___NO_ERR)) cleanup_runtime(1);
   return err;
 }

@@ -62,6 +62,10 @@ typedef struct ___vm_lifecycle_struct {
   ___activation_record *activations[___MAX_PROCESSORS];
   ___thread owners[___MAX_PROCESSORS];
 #ifndef ___SINGLE_THREADED_VMS
+  /* Slot resources belong to this VM, not to a carrier incarnation. Bit 0
+   * owns the mutex, bit 1 owns the condition variable. Constructor rollback
+   * visits only acquired resources; processor retirement destroys neither. */
+  unsigned char sync_constructed[___MAX_PROCESSORS];
   ___MUTEX_DECL(gate)
   ___CONDVAR_DECL(changed)
   enum ___resize_phase resize_phase;
@@ -113,11 +117,11 @@ static ___BOOL resize_retained(___virtual_machine_state vm)
   int i;
   ___vm_lifecycle *r=vm->lifecycle;
   if (!r) return 0;
-  if (___LOAD_GLOBAL_WORD(&r->phase)==___VM_RETAINED) return 1;
+  if (___WORD_LOAD_ACQUIRE(&r->phase)==___VM_RETAINED) return 1;
   for(i=0;i<___MAX_PROCESSORS;++i)
-    if (___LOAD_GLOBAL_WORD(&r->launches[i].uncertain) &&
-        ___LOAD_GLOBAL_WORD(&r->launches[i].entry)==___LAUNCH_RUN &&
-        !___LOAD_GLOBAL_WORD(&r->launches[i].data_closed)) return 1;
+    if (___WORD_LOAD_ACQUIRE(&r->launches[i].uncertain) &&
+        ___WORD_LOAD_ACQUIRE(&r->launches[i].entry)==___LAUNCH_RUN &&
+        !___WORD_LOAD_ACQUIRE(&r->launches[i].data_closed)) return 1;
   return r->resize_phase==___RESIZE_RETAINED;
 }
 #endif

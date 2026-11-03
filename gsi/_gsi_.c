@@ -1867,6 +1867,7 @@
 "##module-whitelist-reset!"
 "##modulo"
 "##mutable?"
+"##mutex-acquire-with-acquired-lock!"
 "##mutex-lock-anonymously-out-of-line!"
 "##mutex-lock-out-of-line!"
 "##mutex-signal!"
@@ -1874,6 +1875,8 @@
 "##mutex-signal-no-reschedule!"
 "##mutex-state"
 "##mutex-unlock-out-of-line!"
+"##mutex-wait!"
+"##mutex-wait-register!"
 "##namespace"
 "##namespace-separator-index"
 "##namespace-separators-set!"
@@ -2775,8 +2778,6 @@
 "##thread"
 "##thread-abandoned-mutex-action!"
 "##thread-base-priority-set!"
-"##thread-base-priority-set-locked!"
-"##thread-boosted-priority-changed!"
 "##thread-btq-insert!"
 "##thread-btq-remove!"
 "##thread-call"
@@ -2785,8 +2786,6 @@
 "##thread-check-timeouts!"
 "##thread-continuation-capture"
 "##thread-deadlock-action!"
-"##thread-effective-priority-changed!"
-"##thread-effective-priority-downgrade!"
 "##thread-end!"
 "##thread-end-current-thread!"
 "##thread-end-locked!"
@@ -2794,9 +2793,14 @@
 "##thread-execute-and-end!"
 "##thread-heartbeat!"
 "##thread-interrupt!"
+"##thread-interrupted-wait-action!"
 "##thread-intr!"
+"##thread-intr-dispatch!"
 "##thread-intr-propagate!"
+"##thread-intr-service!"
 "##thread-join!"
+"##thread-join-register!"
+"##thread-join-wait!"
 "##thread-lock-remove-btq-toq!"
 "##thread-locked-mutex-action!"
 "##thread-mailbox-extract-and-rewind"
@@ -2807,8 +2811,20 @@
 "##thread-migrate-to!"
 "##thread-pin!"
 "##thread-poll-devices!"
+"##thread-priority-apply!"
 "##thread-priority-boost-set!"
-"##thread-priority-boost-set-locked!"
+"##thread-priority-capacity"
+"##thread-priority-duplicate?"
+"##thread-priority-external-head"
+"##thread-priority-member?"
+"##thread-priority-observe!"
+"##thread-priority-plan"
+"##thread-priority-prepare!"
+"##thread-priority-release!"
+"##thread-priority-successor"
+"##thread-priority-try!"
+"##thread-priority-update!"
+"##thread-priority-validate!"
 "##thread-quantum-set!"
 "##thread-quantum-set-locked!"
 "##thread-repl-channel-get!"
@@ -2822,6 +2838,8 @@
 "##thread-send"
 "##thread-signaled-condvar-action!"
 "##thread-sleep!"
+"##thread-sleep-register!"
+"##thread-sleep-wait!"
 "##thread-start!"
 "##thread-start-on!"
 "##thread-state"
@@ -2830,6 +2848,7 @@
 "##thread-timeout-action!"
 "##thread-toq-remove!"
 "##thread-void-action!"
+"##thread-wait-return!"
 "##thread-yield!"
 "##time->seconds"
 "##time-thunk"
@@ -2960,6 +2979,7 @@
 "##type-6-edb28923-9aa0-4c55-9756-f1a37136f727"
 "##type-7-cd5f5bad-f96f-438d-8d63-ff887b7b39de"
 "##type-8-1b002758-f900-4e96-be5e-fa407e331fc0"
+"##type-9-824803b3-2917-4ad5-953e-eb0e6717635d"
 "##type-all-fields"
 "##type-cast"
 "##type-exception-names-set!"
@@ -3823,6 +3843,7 @@
 "cos"
 "cosh"
 "count"
+"counts"
 "cpu-cycles"
 "cpu-time"
 "cr"
@@ -4614,6 +4635,7 @@
 "new"
 "newfield"
 "newline"
+"next"
 "ninth"
 "no-colon"
 "no-comma"
@@ -4668,6 +4690,7 @@
 "object-output-port"
 "object-port"
 "odd?"
+"offsets"
 "open-binary-input-file"
 "open-binary-output-file"
 "open-directory"
@@ -4723,6 +4746,7 @@
 "output-width"
 "owner"
 "owner-mutex"
+"owners"
 "p"
 "pair"
 "pair-list"
@@ -4785,6 +4809,7 @@
 "primordial"
 "print"
 "println"
+"priority-update"
 "proc"
 "procedure"
 "procedure?"
@@ -4819,6 +4844,8 @@
 "quasiquote"
 "quasiquote-keyword"
 "quasisyntax"
+"queued"
+"queues"
 "quote"
 "quote-keyword"
 "quotient"
@@ -4933,6 +4960,7 @@
 "result-history"
 "resume-thunk"
 "return"
+"returned"
 "reuse-address"
 "rev-args"
 "rev-head"
@@ -4956,6 +4984,7 @@
 "rte"
 "rtimeout"
 "rtimeout-thunk"
+"running"
 "s"
 "s1"
 "s16-expected"
@@ -5492,6 +5521,7 @@
 "thread-thread-group"
 "thread-yield!"
 "thread?"
+"threads"
 "threads-deq-next"
 "threads-deq-prev"
 "thunk"
@@ -7262,12 +7292,15 @@
 "##module-whitelist-add!"
 "##module-whitelist-reset!"
 "##modulo"
+"##mutex-acquire-with-acquired-lock!"
 "##mutex-lock-anonymously-out-of-line!"
 "##mutex-lock-out-of-line!"
 "##mutex-signal-and-condvar-wait!"
 "##mutex-signal-no-reschedule!"
 "##mutex-state"
 "##mutex-unlock-out-of-line!"
+"##mutex-wait!"
+"##mutex-wait-register!"
 "##namespace-separator-index"
 "##namespace-separators"
 "##namespace-valid?"
@@ -8047,8 +8080,7 @@
 "##third"
 "##thread"
 "##thread-abandoned-mutex-action!"
-"##thread-base-priority-set-locked!"
-"##thread-boosted-priority-changed!"
+"##thread-base-priority-set!"
 "##thread-btq-insert!"
 "##thread-btq-remove!"
 "##thread-call"
@@ -8056,8 +8088,6 @@
 "##thread-check-interrupts!"
 "##thread-check-timeouts!"
 "##thread-continuation-capture"
-"##thread-effective-priority-changed!"
-"##thread-effective-priority-downgrade!"
 "##thread-end!"
 "##thread-end-current-thread!"
 "##thread-end-locked!"
@@ -8065,9 +8095,14 @@
 "##thread-execute-and-end!"
 "##thread-heartbeat!"
 "##thread-interrupt!"
+"##thread-interrupted-wait-action!"
 "##thread-intr!"
+"##thread-intr-dispatch!"
 "##thread-intr-propagate!"
+"##thread-intr-service!"
 "##thread-join!"
+"##thread-join-register!"
+"##thread-join-wait!"
 "##thread-lock-remove-btq-toq!"
 "##thread-locked-mutex-action!"
 "##thread-mailbox-extract-and-rewind"
@@ -8077,7 +8112,20 @@
 "##thread-make-repl-channel"
 "##thread-migrate-to!"
 "##thread-poll-devices!"
-"##thread-priority-boost-set-locked!"
+"##thread-priority-apply!"
+"##thread-priority-boost-set!"
+"##thread-priority-capacity"
+"##thread-priority-duplicate?"
+"##thread-priority-external-head"
+"##thread-priority-member?"
+"##thread-priority-observe!"
+"##thread-priority-plan"
+"##thread-priority-prepare!"
+"##thread-priority-release!"
+"##thread-priority-successor"
+"##thread-priority-try!"
+"##thread-priority-update!"
+"##thread-priority-validate!"
 "##thread-quantum-set-locked!"
 "##thread-repl-channel-get!"
 "##thread-repl-context-get!"
@@ -8089,6 +8137,8 @@
 "##thread-send"
 "##thread-signaled-condvar-action!"
 "##thread-sleep!"
+"##thread-sleep-register!"
+"##thread-sleep-wait!"
 "##thread-start!"
 "##thread-state"
 "##thread-suspend!"
@@ -8096,6 +8146,7 @@
 "##thread-timeout-action!"
 "##thread-toq-remove!"
 "##thread-void-action!"
+"##thread-wait-return!"
 "##thread-yield!"
 "##timeout->time"
 "##top"
@@ -8908,8 +8959,10 @@
 "tcp-service-unregister!"
 "tenth"
 "third"
+"thread-base-priority-set!"
 "thread-interrupt!"
 "thread-join!"
+"thread-priority-boost-set!"
 "thread-start!"
 "timeout->time"
 "transcript-on"
@@ -9832,11 +9885,10 @@
 "##system-type-string"
 "##table?"
 "##take"
-"##thread-base-priority-set!"
 "##thread-deadlock-action!"
 "##thread-make-repl-channel-set!"
+"##thread-park!"
 "##thread-pin!"
-"##thread-priority-boost-set!"
 "##thread-quantum-set!"
 "##thread-reschedule!"
 "##thread-restore!"
@@ -10693,7 +10745,6 @@
 "textual-port?"
 "thread"
 "thread-base-priority"
-"thread-base-priority-set!"
 "thread-group->thread-group-list"
 "thread-group->thread-group-vector"
 "thread-group->thread-list"
@@ -10712,7 +10763,6 @@
 "thread-mailbox-rewind"
 "thread-name"
 "thread-priority-boost"
-"thread-priority-boost-set!"
 "thread-quantum"
 "thread-quantum-set!"
 "thread-receive"
@@ -12991,6 +13041,7 @@ ___DEF_OLD_SYM_GLO(___S__23__23_module_2d_whitelist_2d_reset_21_,___G__23__23_mo
 ___DEF_OLD_SYM_GLO(___S__23__23_modulo,___G__23__23_modulo)
 ___DEF_OLD_SYM_GLO(___S__23__23_mult_2d_inner_2d_loop,___G__23__23_mult_2d_inner_2d_loop)
 ___DEF_OLD_SYM_GLO(___S__23__23_mutable_3f_,___G__23__23_mutable_3f_)
+___DEF_OLD_SYM_GLO(___S__23__23_mutex_2d_acquire_2d_with_2d_acquired_2d_lock_21_,___G__23__23_mutex_2d_acquire_2d_with_2d_acquired_2d_lock_21_)
 ___DEF_OLD_SYM_GLO(___S__23__23_mutex_2d_lock_2d_anonymously_2d_out_2d_of_2d_line_21_,___G__23__23_mutex_2d_lock_2d_anonymously_2d_out_2d_of_2d_line_21_)
 ___DEF_OLD_SYM_GLO(___S__23__23_mutex_2d_lock_2d_out_2d_of_2d_line_21_,___G__23__23_mutex_2d_lock_2d_out_2d_of_2d_line_21_)
 ___DEF_OLD_SYM_GLO(___S__23__23_mutex_2d_signal_21_,___G__23__23_mutex_2d_signal_21_)
@@ -12998,6 +13049,8 @@ ___DEF_OLD_SYM_GLO(___S__23__23_mutex_2d_signal_2d_and_2d_condvar_2d_wait_21_,__
 ___DEF_OLD_SYM_GLO(___S__23__23_mutex_2d_signal_2d_no_2d_reschedule_21_,___G__23__23_mutex_2d_signal_2d_no_2d_reschedule_21_)
 ___DEF_OLD_SYM_GLO(___S__23__23_mutex_2d_state,___G__23__23_mutex_2d_state)
 ___DEF_OLD_SYM_GLO(___S__23__23_mutex_2d_unlock_2d_out_2d_of_2d_line_21_,___G__23__23_mutex_2d_unlock_2d_out_2d_of_2d_line_21_)
+___DEF_OLD_SYM_GLO(___S__23__23_mutex_2d_wait_21_,___G__23__23_mutex_2d_wait_21_)
+___DEF_OLD_SYM_GLO(___S__23__23_mutex_2d_wait_2d_register_21_,___G__23__23_mutex_2d_wait_2d_register_21_)
 ___DEF_OLD_SYM_GLO(___S__23__23_namespace,___G__23__23_namespace)
 ___DEF_OLD_SYM_GLO(___S__23__23_namespace_2d_separator_2d_index,___G__23__23_namespace_2d_separator_2d_index)
 ___DEF_OLD_SYM_GLO(___S__23__23_namespace_2d_separators,___G__23__23_namespace_2d_separators)
@@ -14042,8 +14095,6 @@ ___DEF_OLD_SYM_GLO(___S__23__23_this_2d_source_2d_file,___G__23__23_this_2d_sour
 ___DEF_OLD_SYM_GLO(___S__23__23_thread,___G__23__23_thread)
 ___DEF_OLD_SYM_GLO(___S__23__23_thread_2d_abandoned_2d_mutex_2d_action_21_,___G__23__23_thread_2d_abandoned_2d_mutex_2d_action_21_)
 ___DEF_OLD_SYM_GLO(___S__23__23_thread_2d_base_2d_priority_2d_set_21_,___G__23__23_thread_2d_base_2d_priority_2d_set_21_)
-___DEF_OLD_SYM_GLO(___S__23__23_thread_2d_base_2d_priority_2d_set_2d_locked_21_,___G__23__23_thread_2d_base_2d_priority_2d_set_2d_locked_21_)
-___DEF_OLD_SYM_GLO(___S__23__23_thread_2d_boosted_2d_priority_2d_changed_21_,___G__23__23_thread_2d_boosted_2d_priority_2d_changed_21_)
 ___DEF_OLD_SYM_GLO(___S__23__23_thread_2d_btq_2d_insert_21_,___G__23__23_thread_2d_btq_2d_insert_21_)
 ___DEF_OLD_SYM_GLO(___S__23__23_thread_2d_btq_2d_remove_21_,___G__23__23_thread_2d_btq_2d_remove_21_)
 ___DEF_OLD_SYM_GLO(___S__23__23_thread_2d_call,___G__23__23_thread_2d_call)
@@ -14052,8 +14103,6 @@ ___DEF_OLD_SYM_GLO(___S__23__23_thread_2d_check_2d_interrupts_21_,___G__23__23_t
 ___DEF_OLD_SYM_GLO(___S__23__23_thread_2d_check_2d_timeouts_21_,___G__23__23_thread_2d_check_2d_timeouts_21_)
 ___DEF_OLD_SYM_GLO(___S__23__23_thread_2d_continuation_2d_capture,___G__23__23_thread_2d_continuation_2d_capture)
 ___DEF_OLD_SYM_GLO(___S__23__23_thread_2d_deadlock_2d_action_21_,___G__23__23_thread_2d_deadlock_2d_action_21_)
-___DEF_OLD_SYM_GLO(___S__23__23_thread_2d_effective_2d_priority_2d_changed_21_,___G__23__23_thread_2d_effective_2d_priority_2d_changed_21_)
-___DEF_OLD_SYM_GLO(___S__23__23_thread_2d_effective_2d_priority_2d_downgrade_21_,___G__23__23_thread_2d_effective_2d_priority_2d_downgrade_21_)
 ___DEF_OLD_SYM_GLO(___S__23__23_thread_2d_end_21_,___G__23__23_thread_2d_end_21_)
 ___DEF_OLD_SYM_GLO(___S__23__23_thread_2d_end_2d_current_2d_thread_21_,___G__23__23_thread_2d_end_2d_current_2d_thread_21_)
 ___DEF_OLD_SYM_GLO(___S__23__23_thread_2d_end_2d_locked_21_,___G__23__23_thread_2d_end_2d_locked_21_)
@@ -14061,9 +14110,14 @@ ___DEF_OLD_SYM_GLO(___S__23__23_thread_2d_end_2d_with_2d_uncaught_2d_exception_2
 ___DEF_OLD_SYM_GLO(___S__23__23_thread_2d_execute_2d_and_2d_end_21_,___G__23__23_thread_2d_execute_2d_and_2d_end_21_)
 ___DEF_OLD_SYM_GLO(___S__23__23_thread_2d_heartbeat_21_,___G__23__23_thread_2d_heartbeat_21_)
 ___DEF_OLD_SYM_GLO(___S__23__23_thread_2d_interrupt_21_,___G__23__23_thread_2d_interrupt_21_)
+___DEF_OLD_SYM_GLO(___S__23__23_thread_2d_interrupted_2d_wait_2d_action_21_,___G__23__23_thread_2d_interrupted_2d_wait_2d_action_21_)
 ___DEF_OLD_SYM_GLO(___S__23__23_thread_2d_intr_21_,___G__23__23_thread_2d_intr_21_)
+___DEF_OLD_SYM_GLO(___S__23__23_thread_2d_intr_2d_dispatch_21_,___G__23__23_thread_2d_intr_2d_dispatch_21_)
 ___DEF_OLD_SYM_GLO(___S__23__23_thread_2d_intr_2d_propagate_21_,___G__23__23_thread_2d_intr_2d_propagate_21_)
+___DEF_OLD_SYM_GLO(___S__23__23_thread_2d_intr_2d_service_21_,___G__23__23_thread_2d_intr_2d_service_21_)
 ___DEF_OLD_SYM_GLO(___S__23__23_thread_2d_join_21_,___G__23__23_thread_2d_join_21_)
+___DEF_OLD_SYM_GLO(___S__23__23_thread_2d_join_2d_register_21_,___G__23__23_thread_2d_join_2d_register_21_)
+___DEF_OLD_SYM_GLO(___S__23__23_thread_2d_join_2d_wait_21_,___G__23__23_thread_2d_join_2d_wait_21_)
 ___DEF_OLD_SYM_GLO(___S__23__23_thread_2d_lock_2d_remove_2d_btq_2d_toq_21_,___G__23__23_thread_2d_lock_2d_remove_2d_btq_2d_toq_21_)
 ___DEF_OLD_SYM_GLO(___S__23__23_thread_2d_locked_2d_mutex_2d_action_21_,___G__23__23_thread_2d_locked_2d_mutex_2d_action_21_)
 ___DEF_OLD_SYM_GLO(___S__23__23_thread_2d_mailbox_2d_extract_2d_and_2d_rewind,___G__23__23_thread_2d_mailbox_2d_extract_2d_and_2d_rewind)
@@ -14073,10 +14127,23 @@ ___DEF_OLD_SYM_GLO(___S__23__23_thread_2d_mailbox_2d_rewind,___G__23__23_thread_
 ___DEF_OLD_SYM_GLO(___S__23__23_thread_2d_make_2d_repl_2d_channel,___G__23__23_thread_2d_make_2d_repl_2d_channel)
 ___DEF_OLD_SYM_GLO(___S__23__23_thread_2d_make_2d_repl_2d_channel_2d_set_21_,___G__23__23_thread_2d_make_2d_repl_2d_channel_2d_set_21_)
 ___DEF_OLD_SYM_GLO(___S__23__23_thread_2d_migrate_2d_to_21_,___G__23__23_thread_2d_migrate_2d_to_21_)
+___DEF_OLD_SYM_GLO(___S__23__23_thread_2d_park_21_,___G__23__23_thread_2d_park_21_)
 ___DEF_OLD_SYM_GLO(___S__23__23_thread_2d_pin_21_,___G__23__23_thread_2d_pin_21_)
 ___DEF_OLD_SYM_GLO(___S__23__23_thread_2d_poll_2d_devices_21_,___G__23__23_thread_2d_poll_2d_devices_21_)
+___DEF_OLD_SYM_GLO(___S__23__23_thread_2d_priority_2d_apply_21_,___G__23__23_thread_2d_priority_2d_apply_21_)
 ___DEF_OLD_SYM_GLO(___S__23__23_thread_2d_priority_2d_boost_2d_set_21_,___G__23__23_thread_2d_priority_2d_boost_2d_set_21_)
-___DEF_OLD_SYM_GLO(___S__23__23_thread_2d_priority_2d_boost_2d_set_2d_locked_21_,___G__23__23_thread_2d_priority_2d_boost_2d_set_2d_locked_21_)
+___DEF_OLD_SYM_GLO(___S__23__23_thread_2d_priority_2d_capacity,___G__23__23_thread_2d_priority_2d_capacity)
+___DEF_OLD_SYM_GLO(___S__23__23_thread_2d_priority_2d_duplicate_3f_,___G__23__23_thread_2d_priority_2d_duplicate_3f_)
+___DEF_OLD_SYM_GLO(___S__23__23_thread_2d_priority_2d_external_2d_head,___G__23__23_thread_2d_priority_2d_external_2d_head)
+___DEF_OLD_SYM_GLO(___S__23__23_thread_2d_priority_2d_member_3f_,___G__23__23_thread_2d_priority_2d_member_3f_)
+___DEF_OLD_SYM_GLO(___S__23__23_thread_2d_priority_2d_observe_21_,___G__23__23_thread_2d_priority_2d_observe_21_)
+___DEF_OLD_SYM_GLO(___S__23__23_thread_2d_priority_2d_plan,___G__23__23_thread_2d_priority_2d_plan)
+___DEF_OLD_SYM_GLO(___S__23__23_thread_2d_priority_2d_prepare_21_,___G__23__23_thread_2d_priority_2d_prepare_21_)
+___DEF_OLD_SYM_GLO(___S__23__23_thread_2d_priority_2d_release_21_,___G__23__23_thread_2d_priority_2d_release_21_)
+___DEF_OLD_SYM_GLO(___S__23__23_thread_2d_priority_2d_successor,___G__23__23_thread_2d_priority_2d_successor)
+___DEF_OLD_SYM_GLO(___S__23__23_thread_2d_priority_2d_try_21_,___G__23__23_thread_2d_priority_2d_try_21_)
+___DEF_OLD_SYM_GLO(___S__23__23_thread_2d_priority_2d_update_21_,___G__23__23_thread_2d_priority_2d_update_21_)
+___DEF_OLD_SYM_GLO(___S__23__23_thread_2d_priority_2d_validate_21_,___G__23__23_thread_2d_priority_2d_validate_21_)
 ___DEF_OLD_SYM_GLO(___S__23__23_thread_2d_quantum_2d_set_21_,___G__23__23_thread_2d_quantum_2d_set_21_)
 ___DEF_OLD_SYM_GLO(___S__23__23_thread_2d_quantum_2d_set_2d_locked_21_,___G__23__23_thread_2d_quantum_2d_set_2d_locked_21_)
 ___DEF_OLD_SYM_GLO(___S__23__23_thread_2d_repl_2d_channel_2d_get_21_,___G__23__23_thread_2d_repl_2d_channel_2d_get_21_)
@@ -14092,6 +14159,8 @@ ___DEF_OLD_SYM_GLO(___S__23__23_thread_2d_schedule_2d_with_2d_acquired_2d_proces
 ___DEF_OLD_SYM_GLO(___S__23__23_thread_2d_send,___G__23__23_thread_2d_send)
 ___DEF_OLD_SYM_GLO(___S__23__23_thread_2d_signaled_2d_condvar_2d_action_21_,___G__23__23_thread_2d_signaled_2d_condvar_2d_action_21_)
 ___DEF_OLD_SYM_GLO(___S__23__23_thread_2d_sleep_21_,___G__23__23_thread_2d_sleep_21_)
+___DEF_OLD_SYM_GLO(___S__23__23_thread_2d_sleep_2d_register_21_,___G__23__23_thread_2d_sleep_2d_register_21_)
+___DEF_OLD_SYM_GLO(___S__23__23_thread_2d_sleep_2d_wait_21_,___G__23__23_thread_2d_sleep_2d_wait_21_)
 ___DEF_OLD_SYM_GLO(___S__23__23_thread_2d_start_21_,___G__23__23_thread_2d_start_21_)
 ___DEF_OLD_SYM_GLO(___S__23__23_thread_2d_start_2d_on_21_,___G__23__23_thread_2d_start_2d_on_21_)
 ___DEF_OLD_SYM_GLO(___S__23__23_thread_2d_state,___G__23__23_thread_2d_state)
@@ -14100,6 +14169,7 @@ ___DEF_OLD_SYM_GLO(___S__23__23_thread_2d_terminate_21_,___G__23__23_thread_2d_t
 ___DEF_OLD_SYM_GLO(___S__23__23_thread_2d_timeout_2d_action_21_,___G__23__23_thread_2d_timeout_2d_action_21_)
 ___DEF_OLD_SYM_GLO(___S__23__23_thread_2d_toq_2d_remove_21_,___G__23__23_thread_2d_toq_2d_remove_21_)
 ___DEF_OLD_SYM_GLO(___S__23__23_thread_2d_void_2d_action_21_,___G__23__23_thread_2d_void_2d_action_21_)
+___DEF_OLD_SYM_GLO(___S__23__23_thread_2d_wait_2d_return_21_,___G__23__23_thread_2d_wait_2d_return_21_)
 ___DEF_OLD_SYM_GLO(___S__23__23_thread_2d_yield_21_,___G__23__23_thread_2d_yield_21_)
 ___DEF_OLD_SYM_GLO(___S__23__23_time_2d__3e_seconds,___G__23__23_time_2d__3e_seconds)
 ___DEF_OLD_SYM_GLO(___S__23__23_time_2d_thunk,___G__23__23_time_2d_thunk)
@@ -14232,6 +14302,7 @@ ___DEF_OLD_SYM_GLO(___S__23__23_type_2d_6_2d_F3F63A41_2d_2974_2d_4D41_2d_8B24_2d
 ___DEF_OLD_SYM_GLO(___S__23__23_type_2d_6_2d_edb28923_2d_9aa0_2d_4c55_2d_9756_2d_f1a37136f727,___G__23__23_type_2d_6_2d_edb28923_2d_9aa0_2d_4c55_2d_9756_2d_f1a37136f727)
 ___DEF_OLD_SYM_GLO(___S__23__23_type_2d_7_2d_cd5f5bad_2d_f96f_2d_438d_2d_8d63_2d_ff887b7b39de,___G__23__23_type_2d_7_2d_cd5f5bad_2d_f96f_2d_438d_2d_8d63_2d_ff887b7b39de)
 ___DEF_OLD_SYM_GLO(___S__23__23_type_2d_8_2d_1b002758_2d_f900_2d_4e96_2d_be5e_2d_fa407e331fc0,___G__23__23_type_2d_8_2d_1b002758_2d_f900_2d_4e96_2d_be5e_2d_fa407e331fc0)
+___DEF_OLD_SYM_GLO(___S__23__23_type_2d_9_2d_824803b3_2d_2917_2d_4ad5_2d_953e_2d_eb0e6717635d,___G__23__23_type_2d_9_2d_824803b3_2d_2917_2d_4ad5_2d_953e_2d_eb0e6717635d)
 ___DEF_OLD_SYM_GLO(___S__23__23_type_2d_all_2d_fields,___G__23__23_type_2d_all_2d_fields)
 ___DEF_OLD_SYM_GLO(___S__23__23_type_2d_cast,___G__23__23_type_2d_cast)
 ___DEF_OLD_SYM_GLO(___S__23__23_type_2d_exception_2d_names,___G__23__23_type_2d_exception_2d_names)
@@ -15138,6 +15209,7 @@ ___DEF_OLD_SYM_GLO(___S_copy_2d_file,___G_copy_2d_file)
 ___DEF_OLD_SYM_GLO(___S_cos,___G_cos)
 ___DEF_OLD_SYM_GLO(___S_cosh,___G_cosh)
 ___DEF_OLD_SYM_GLO(___S_count,___G_count)
+___DEF_OLD_SYM_GLO(___S_counts,___G_counts)
 ___DEF_OLD_SYM_GLO(___S_cpu_2d_cycles,___G_cpu_2d_cycles)
 ___DEF_OLD_SYM_GLO(___S_cpu_2d_time,___G_cpu_2d_time)
 ___DEF_OLD_SYM_GLO(___S_cr,___G_cr)
@@ -15943,6 +16015,7 @@ ___DEF_OLD_SYM_GLO(___S_network_2d_socket_2d_type,___G_network_2d_socket_2d_type
 ___DEF_OLD_SYM_GLO(___S_new,___G_new)
 ___DEF_OLD_SYM_GLO(___S_newfield,___G_newfield)
 ___DEF_OLD_SYM_GLO(___S_newline,___G_newline)
+___DEF_OLD_SYM_GLO(___S_next,___G_next)
 ___DEF_OLD_SYM_GLO(___S_ninth,___G_ninth)
 ___DEF_OLD_SYM_GLO(___S_no_2d_colon,___G_no_2d_colon)
 ___DEF_OLD_SYM_GLO(___S_no_2d_comma,___G_no_2d_comma)
@@ -15997,6 +16070,7 @@ ___DEF_OLD_SYM_GLO(___S_object_2d_input_2d_port,___G_object_2d_input_2d_port)
 ___DEF_OLD_SYM_GLO(___S_object_2d_output_2d_port,___G_object_2d_output_2d_port)
 ___DEF_OLD_SYM_GLO(___S_object_2d_port,___G_object_2d_port)
 ___DEF_OLD_SYM_GLO(___S_odd_3f_,___G_odd_3f_)
+___DEF_OLD_SYM_GLO(___S_offsets,___G_offsets)
 ___DEF_OLD_SYM_GLO(___S_open_2d_binary_2d_input_2d_file,___G_open_2d_binary_2d_input_2d_file)
 ___DEF_OLD_SYM_GLO(___S_open_2d_binary_2d_output_2d_file,___G_open_2d_binary_2d_output_2d_file)
 ___DEF_OLD_SYM_GLO(___S_open_2d_directory,___G_open_2d_directory)
@@ -16052,6 +16126,7 @@ ___DEF_OLD_SYM_GLO(___S_output_2d_readtable,___G_output_2d_readtable)
 ___DEF_OLD_SYM_GLO(___S_output_2d_width,___G_output_2d_width)
 ___DEF_OLD_SYM_GLO(___S_owner,___G_owner)
 ___DEF_OLD_SYM_GLO(___S_owner_2d_mutex,___G_owner_2d_mutex)
+___DEF_OLD_SYM_GLO(___S_owners,___G_owners)
 ___DEF_OLD_SYM_GLO(___S_p,___G_p)
 ___DEF_OLD_SYM_GLO(___S_pair,___G_pair)
 ___DEF_OLD_SYM_GLO(___S_pair_2d_list,___G_pair_2d_list)
@@ -16115,6 +16190,7 @@ ___DEF_OLD_SYM_GLO(___S_primordial,___G_primordial)
 ___DEF_OLD_SYM_GLO(___S_primordial_2d_exception_2d_handler,___G_primordial_2d_exception_2d_handler)
 ___DEF_OLD_SYM_GLO(___S_print,___G_print)
 ___DEF_OLD_SYM_GLO(___S_println,___G_println)
+___DEF_OLD_SYM_GLO(___S_priority_2d_update,___G_priority_2d_update)
 ___DEF_OLD_SYM_GLO(___S_proc,___G_proc)
 ___DEF_OLD_SYM_GLO(___S_procedure,___G_procedure)
 ___DEF_OLD_SYM_GLO(___S_procedure_3f_,___G_procedure_3f_)
@@ -16149,6 +16225,8 @@ ___DEF_OLD_SYM_GLO(___S_qt,___G_qt)
 ___DEF_OLD_SYM_GLO(___S_quasiquote,___G_quasiquote)
 ___DEF_OLD_SYM_GLO(___S_quasiquote_2d_keyword,___G_quasiquote_2d_keyword)
 ___DEF_OLD_SYM_GLO(___S_quasisyntax,___G_quasisyntax)
+___DEF_OLD_SYM_GLO(___S_queued,___G_queued)
+___DEF_OLD_SYM_GLO(___S_queues,___G_queues)
 ___DEF_OLD_SYM_GLO(___S_quote,___G_quote)
 ___DEF_OLD_SYM_GLO(___S_quote_2d_keyword,___G_quote_2d_keyword)
 ___DEF_OLD_SYM_GLO(___S_quotient,___G_quotient)
@@ -16269,6 +16347,7 @@ ___DEF_OLD_SYM_GLO(___S_result,___G_result)
 ___DEF_OLD_SYM_GLO(___S_result_2d_history,___G_result_2d_history)
 ___DEF_OLD_SYM_GLO(___S_resume_2d_thunk,___G_resume_2d_thunk)
 ___DEF_OLD_SYM_GLO(___S_return,___G_return)
+___DEF_OLD_SYM_GLO(___S_returned,___G_returned)
 ___DEF_OLD_SYM_GLO(___S_reuse_2d_address,___G_reuse_2d_address)
 ___DEF_OLD_SYM_GLO(___S_rev_2d_args,___G_rev_2d_args)
 ___DEF_OLD_SYM_GLO(___S_rev_2d_head,___G_rev_2d_head)
@@ -16292,6 +16371,7 @@ ___DEF_OLD_SYM_GLO(___S_rpc_2d_remote_2d_error_2d_exception_3f_,___G_rpc_2d_remo
 ___DEF_OLD_SYM_GLO(___S_rte,___G_rte)
 ___DEF_OLD_SYM_GLO(___S_rtimeout,___G_rtimeout)
 ___DEF_OLD_SYM_GLO(___S_rtimeout_2d_thunk,___G_rtimeout_2d_thunk)
+___DEF_OLD_SYM_GLO(___S_running,___G_running)
 ___DEF_OLD_SYM_GLO(___S_s,___G_s)
 ___DEF_OLD_SYM_GLO(___S_s1,___G_s1)
 ___DEF_OLD_SYM_GLO(___S_s16_2d_expected,___G_s16_2d_expected)
@@ -16828,6 +16908,7 @@ ___DEF_OLD_SYM_GLO(___S_thread_2d_terminate_21_,___G_thread_2d_terminate_21_)
 ___DEF_OLD_SYM_GLO(___S_thread_2d_thread_2d_group,___G_thread_2d_thread_2d_group)
 ___DEF_OLD_SYM_GLO(___S_thread_2d_yield_21_,___G_thread_2d_yield_21_)
 ___DEF_OLD_SYM_GLO(___S_thread_3f_,___G_thread_3f_)
+___DEF_OLD_SYM_GLO(___S_threads,___G_threads)
 ___DEF_OLD_SYM_GLO(___S_threads_2d_deq_2d_next,___G_threads_2d_deq_2d_next)
 ___DEF_OLD_SYM_GLO(___S_threads_2d_deq_2d_prev,___G_threads_2d_deq_2d_prev)
 ___DEF_OLD_SYM_GLO(___S_thunk,___G_thunk)

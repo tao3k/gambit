@@ -1236,6 +1236,27 @@
 #define ___OPTIMIZED_MODULE_LIMIT @CONF_OPTIMIZED_MODULE_LIMIT@
 #endif
 
+/* The completed Scheme producer owns physical host layout. The configured
+ * policy remains available to bootstrap sources and embedded-C units whose
+ * host assumptions have not been replaced. These are protocol tags, not a
+ * control-point or performance threshold. */
+#define ___HOST_LAYOUT_CONFIGURED 0
+#define ___HOST_LAYOUT_PROCEDURES 1
+#ifndef ___HOST_LAYOUT
+#define ___HOST_LAYOUT ___HOST_LAYOUT_CONFIGURED
+#endif
+#if defined(___SINGLE_HOST) && defined(___MULTIPLE_HOSTS)
+#error "Define either ___SINGLE_HOST or ___MULTIPLE_HOSTS"
+#endif
+#if ___HOST_LAYOUT == ___HOST_LAYOUT_PROCEDURES
+#undef ___SINGLE_HOST
+#ifndef ___MULTIPLE_HOSTS
+#define ___MULTIPLE_HOSTS
+#endif
+#elif ___HOST_LAYOUT != ___HOST_LAYOUT_CONFIGURED
+#error "Unknown producer host layout"
+#endif
+
 #ifdef ___SINGLE_HOST
 #ifdef ___MULTIPLE_HOSTS
 #error "Define either ___SINGLE_HOST or ___MULTIPLE_HOSTS"
@@ -5950,9 +5971,9 @@ ___FIELD(SYMBOL,symkey,___SYMKEY_NEXT)
 #define ___SYMBOL_GLOBAL_FIELD(sym) \
 ___FIELD(SYMBOL,sym,___SYMBOL_GLOBAL)
 
-#define ___GLOBALVARSTRUCT(gv)___CAST(___glo_struct*,___LOAD_GLOBAL_WORD(&___SYMBOL_GLOBAL_FIELD(gv)))
+#define ___GLOBALVARSTRUCT(gv)___CAST(___glo_struct*,___WORD_LOAD_ACQUIRE(&___SYMBOL_GLOBAL_FIELD(gv)))
 
-#define ___GLOBALVARREF(gv)___LOAD_GLOBAL_WORD(&___GLOCELL(___GLOBALVARSTRUCT(gv)->val))
+#define ___GLOBALVARREF(gv)___WORD_LOAD_ACQUIRE(&___GLOCELL(___GLOBALVARSTRUCT(gv)->val))
 #define ___GLOBALVARPRIMREF(gv)___EXT(___primitive_ref)(___ps,___GLOBALVARSTRUCT(gv))
 #define ___GLOBALVARSET(gv,x)___EXT(___store_global)(___ps,___GLOBALVARSTRUCT(gv),x);
 #define ___GLOBALVARPRIMSET(gv,x)___EXT(___store_primitive)(___ps,___GLOBALVARSTRUCT(gv),x);
@@ -6156,9 +6177,9 @@ ___TICKETLOCK_UNLOCK2((lock).next_ticket,(lock).current_ticket)
 
 #define ___TICKETLOCK_LOCK2(next,current) \
 do { \
-  ___WORD ___ticket = ___FETCH_AND_ADD_WORD(___CAST(___VOLATILE ___WORD*,&next),___FIX(1)); \
+  ___WORD ___ticket = ___WORD_FETCH_ADD_RELAXED(___CAST(___VOLATILE ___WORD*,&next),___FIX(1)); \
   int ___count = 0; \
-  while (*___CAST(___VOLATILE ___WORD*,&current) != ___ticket) \
+  while (___WORD_LOAD_ACQUIRE(___CAST(___VOLATILE ___WORD*,&current)) != ___ticket) \
     { \
       if (++___count == 100000000) \
         { \
@@ -6169,12 +6190,12 @@ do { \
               ___ticketlock_location *___probe = &___VMSTATE->ticketlock_history[--___i % ___TICKETLOCK_HISTORY_LENGTH]; \
               if (___probe->id == &current && ___probe->lock_op) \
                 { \
-                  printf("*** ERROR at \"%s\"@%d.1 -- lock attempt on TICKETLOCK %p spinning too long\ndue to successful locking at \"%s\"@%d.1 (current=%d ticket=%d)\n",__FILE__,__LINE__,&current,___probe->location.file,___probe->location.line,___INT(*___CAST(___VOLATILE ___WORD*,&current)),___INT(___ticket)); \
+                  printf("*** ERROR at \"%s\"@%d.1 -- lock attempt on TICKETLOCK %p spinning too long\ndue to successful locking at \"%s\"@%d.1 (current=%d ticket=%d)\n",__FILE__,__LINE__,&current,___probe->location.file,___probe->location.line,___INT(___WORD_LOAD_ACQUIRE(___CAST(___VOLATILE ___WORD*,&current))),___INT(___ticket)); \
                   ___i = -1; \
                 } \
             } \
           if (___i != -1) \
-            printf("*** ERROR at \"%s\"@%d.1 -- lock attempt on TICKETLOCK %p spinning too long (current=%d ticket=%d)\n",__FILE__,__LINE__,&current,___INT(*___CAST(___VOLATILE ___WORD*,&current)),___INT(___ticket)); \
+            printf("*** ERROR at \"%s\"@%d.1 -- lock attempt on TICKETLOCK %p spinning too long (current=%d ticket=%d)\n",__FILE__,__LINE__,&current,___INT(___WORD_LOAD_ACQUIRE(___CAST(___VOLATILE ___WORD*,&current))),___INT(___ticket)); \
         } \
       ___CPU_RELAX(); \
     } \
@@ -6188,12 +6209,12 @@ do { \
 } while (0)
 
 #define ___TICKETLOCK_TRYLOCK2(next,current,temp) \
-(temp=*___CAST(___VOLATILE ___WORD*,&current), \
- ___COMPARE_AND_SWAP_WORD(___CAST(___VOLATILE ___WORD*,&next),temp,___FIXWRAPADD(temp,___FIX(1)))==temp)
+(temp=___WORD_LOAD_ACQUIRE(___CAST(___VOLATILE ___WORD*,&current)), \
+ ___WORD_CAS_ACQUIRE(___CAST(___VOLATILE ___WORD*,&next),temp,___FIXWRAPADD(temp,___FIX(1))))
 
 #define ___TICKETLOCK_UNLOCK2(next,current) \
 do { \
-  if (___FETCH_AND_ADD_WORD(___CAST(___VOLATILE ___WORD*,&current),___FIX(1)) >= *___CAST(___VOLATILE ___WORD*,&next)) \
+  if (___WORD_FETCH_ADD_RELEASE(___CAST(___VOLATILE ___WORD*,&current),___FIX(1)) >= ___WORD_LOAD_RELAXED(___CAST(___VOLATILE ___WORD*,&next))) \
     { \
       ___WORD ___n = ___VMSTATE->ticketlock_history_index; \
       ___WORD ___i = ___n; \
@@ -6202,12 +6223,12 @@ do { \
           ___ticketlock_location *___probe = &___VMSTATE->ticketlock_history[--___i % ___TICKETLOCK_HISTORY_LENGTH]; \
           if (___probe->id == &current && !___probe->lock_op) \
             { \
-              printf("*** ERROR at \"%s\"@%d.1 -- duplicate unlock attempt on TICKETLOCK %p\nwhich was also unlocked at \"%s\"@%d.1 (current=%d next=%d)\n",__FILE__,__LINE__,&current,___probe->location.file,___probe->location.line,___INT(*___CAST(___VOLATILE ___WORD*,&current)),___INT(*___CAST(___VOLATILE ___WORD*,&next))); \
+              printf("*** ERROR at \"%s\"@%d.1 -- duplicate unlock attempt on TICKETLOCK %p\nwhich was also unlocked at \"%s\"@%d.1 (current=%d next=%d)\n",__FILE__,__LINE__,&current,___probe->location.file,___probe->location.line,___INT(___WORD_LOAD_ACQUIRE(___CAST(___VOLATILE ___WORD*,&current))),___INT(___WORD_LOAD_RELAXED(___CAST(___VOLATILE ___WORD*,&next)))); \
               ___i = -1; \
             } \
         } \
       if (___i != -1) \
-        printf("*** ERROR at \"%s\"@%d.1 -- duplicate unlock attempt on TICKETLOCK %p (current=%d next=%d)\n",__FILE__,__LINE__,&current,___INT(*___CAST(___VOLATILE ___WORD*,&current)),___INT(*___CAST(___VOLATILE ___WORD*,&next))); \
+        printf("*** ERROR at \"%s\"@%d.1 -- duplicate unlock attempt on TICKETLOCK %p (current=%d next=%d)\n",__FILE__,__LINE__,&current,___INT(___WORD_LOAD_ACQUIRE(___CAST(___VOLATILE ___WORD*,&current))),___INT(___WORD_LOAD_RELAXED(___CAST(___VOLATILE ___WORD*,&next)))); \
     } \
   { ___ticketlock_location *___ptr = &___VMSTATE->ticketlock_history[___FETCH_AND_ADD_WORD(&___VMSTATE->ticketlock_history_index,1) % ___TICKETLOCK_HISTORY_LENGTH]; \
     ___ptr->id = &current; \
@@ -6222,17 +6243,17 @@ do { \
 
 #define ___TICKETLOCK_LOCK2(next,current) \
 do { \
-  ___WORD ___ticket = ___FETCH_AND_ADD_WORD(___CAST(___VOLATILE ___WORD*,&next),___FIX(1)); \
-  while (*___CAST(___VOLATILE ___WORD*,&current) != ___ticket) \
+  ___WORD ___ticket = ___WORD_FETCH_ADD_RELAXED(___CAST(___VOLATILE ___WORD*,&next),___FIX(1)); \
+  while (___WORD_LOAD_ACQUIRE(___CAST(___VOLATILE ___WORD*,&current)) != ___ticket) \
     ___CPU_RELAX(); \
 } while (0)
 
 #define ___TICKETLOCK_TRYLOCK2(next,current,temp) \
-(temp=*___CAST(___VOLATILE ___WORD*,&current), \
- ___COMPARE_AND_SWAP_WORD(___CAST(___VOLATILE ___WORD*,&next),temp,___FIXWRAPADD(temp,___FIX(1)))==temp)
+(temp=___WORD_LOAD_ACQUIRE(___CAST(___VOLATILE ___WORD*,&current)), \
+ ___WORD_CAS_ACQUIRE(___CAST(___VOLATILE ___WORD*,&next),temp,___FIXWRAPADD(temp,___FIX(1))))
 
 #define ___TICKETLOCK_UNLOCK2(next,current) \
-___FETCH_AND_ADD_WORD(___CAST(___VOLATILE ___WORD*,&current),___FIX(1))
+___WORD_FETCH_ADD_RELEASE(___CAST(___VOLATILE ___WORD*,&current),___FIX(1))
 
 #endif
 
@@ -6372,6 +6393,70 @@ ___CONTINUATION_FRAME_FIELD(___THREAD_CONT_FIELD(thread)) = frame;
   ___SCMOBJ frame; \
   ___POP_ARGS4(proc,arg1,arg2,arg3) \
   ___THREAD_SAVE \
+  ___PUSH_ARGS4(thread,arg1,arg2,arg3) \
+  jump(___SET_NARGS(4),proc) \
+}
+
+/* Reinstall a reusable logical wait suffix without executing its frames.
+   Thread.cont is the mutable physical scheduler root; cont remains an ordinary
+   multi-shot continuation root. Preserve the current denv: service parameter
+   updates are not rolled back by an internal repark. No allocation or frame
+   payload copy occurs between these root publications and the queue callback. */
+#define ___THREAD_PARK \
+___INVALIDATE_STACK_OVERFLOW_UNDO \
+thread = ___CURRENTTHREAD; \
+frame = ___CONTINUATION_FRAME_FIELD(cont); \
+___SET_FP(___ps->context->stack_break) \
+___SET_STK(-___BREAK_FRAME_NEXT,frame) \
+___CONTINUATION_FRAME_FIELD(___THREAD_CONT_FIELD(thread)) = frame; \
+___SET_R0(___ps->handler_break)
+
+#define ___JUMP_THREAD_PARK2(jump) \
+{ ___SCMOBJ cont; \
+  ___SCMOBJ proc; \
+  ___SCMOBJ thread; \
+  ___SCMOBJ frame; \
+  ___POP_ARGS2(cont,proc) \
+  ___THREAD_PARK \
+  ___PUSH_ARGS1(thread) \
+  jump(___SET_NARGS(1),proc) \
+}
+
+#define ___JUMP_THREAD_PARK3(jump) \
+{ ___SCMOBJ cont; \
+  ___SCMOBJ proc; \
+  ___SCMOBJ thread; \
+  ___SCMOBJ frame; \
+  ___SCMOBJ arg1; \
+  ___POP_ARGS3(cont,proc,arg1) \
+  ___THREAD_PARK \
+  ___PUSH_ARGS2(thread,arg1) \
+  jump(___SET_NARGS(2),proc) \
+}
+
+#define ___JUMP_THREAD_PARK4(jump) \
+{ ___SCMOBJ cont; \
+  ___SCMOBJ proc; \
+  ___SCMOBJ thread; \
+  ___SCMOBJ frame; \
+  ___SCMOBJ arg1; \
+  ___SCMOBJ arg2; \
+  ___POP_ARGS4(cont,proc,arg1,arg2) \
+  ___THREAD_PARK \
+  ___PUSH_ARGS3(thread,arg1,arg2) \
+  jump(___SET_NARGS(3),proc) \
+}
+
+#define ___JUMP_THREAD_PARK5(jump) \
+{ ___SCMOBJ cont; \
+  ___SCMOBJ proc; \
+  ___SCMOBJ thread; \
+  ___SCMOBJ frame; \
+  ___SCMOBJ arg1; \
+  ___SCMOBJ arg2; \
+  ___SCMOBJ arg3; \
+  ___POP_ARGS5(cont,proc,arg1,arg2,arg3) \
+  ___THREAD_PARK \
   ___PUSH_ARGS4(thread,arg1,arg2,arg3) \
   jump(___SET_NARGS(4),proc) \
 }
@@ -6760,14 +6845,20 @@ ___SET_R0(___ps->handler_break)
 #define ___GLOCELL_IN_VM(vm,x)x
 #define ___GLOCELL(x)x
 #else
-#define ___GLOCELL_IN_VM(vm,x)vm->glos[x]
+#if defined(___INCLUDED_FROM_MEM) || \
+    (defined(___GLOCOUNT) && defined(__ATOMIC_ACQUIRE) && \
+     defined(__ATOMIC_RELEASE) && !defined(___ORDERED_WORD_FORCE_LEGACY))
+#define ___GLOCELL_IN_VM(vm,x)(*___global_cell_address((vm),(x)))
+#else
+#define ___GLOCELL_IN_VM(vm,x)(*___EXT(___global_cell)((vm),(x)))
+#endif
 #define ___GLOCELL(x)___GLOCELL_IN_VM(___VMSTATE_FROM_PSTATE(___ps),x)
 #endif
 
-#define ___PRMCELL(x)___LOAD_GLOBAL_WORD(&(x))
+#define ___PRMCELL(x)___WORD_LOAD_ACQUIRE(&(x))
 
 #define ___PRM(i,glo)___EXT(___primitive_ref)(___ps,&___GLOSTRUCT(i,glo))
-#define ___GLO(i,glo)___LOAD_GLOBAL_WORD(&___GLOCELL(___GLOSTRUCT(i,glo).val))
+#define ___GLO(i,glo)___WORD_LOAD_ACQUIRE(&___GLOCELL(___GLOSTRUCT(i,glo).val))
 #define ___SET_GLO(i,glo,x)___EXT(___store_global)(___ps,&___GLOSTRUCT(i,glo),x);
 #ifdef ___BIND_LATE
 #define ___GLOSTRUCT(i,glo)(*___CAST(___glo_struct*,___glotbl[i]))
@@ -10987,12 +11078,25 @@ typedef struct ___glo_struct
 #endif
   } ___glo_struct;
 
-/* The existing multiple-VM global capacity also bounds primitive overrides.
- * One allocation contains ordinary slots, primitive slots, then nonroot bits.
- * SINGLE_VM retains its unbounded registry and stores overrides in each glo. */
-#define ___GLOBALS_CAPACITY 20000
-#define ___GLOBALS_PRIMITIVE_FLAGS ((___GLOBALS_CAPACITY+___WORD_WIDTH-1)/___WORD_WIDTH)
-#define ___GLOBALS_STORAGE_WORDS (2*___GLOBALS_CAPACITY+___GLOBALS_PRIMITIVE_FLAGS)
+/* Identity indices do not bound or describe a VM's physical root storage.
+ * Page width follows the one-word primitive-presence representation. */
+typedef struct ___global_slot_page_struct {
+  ___SIZE_T key;
+  struct ___global_slot_page_struct *next;
+  ___WORD primitive_set;
+  ___SCMOBJ ordinary[___WORD_WIDTH], primitive[___WORD_WIDTH];
+} ___global_slot_page;
+typedef struct ___global_slot_directory_struct {
+  ___SIZE_T capacity;
+  struct ___global_slot_directory_struct *retired;
+  ___global_slot_page *entries[1];
+} ___global_slot_directory;
+typedef struct ___global_slot_store_struct {
+  ___global_slot_directory *directory;
+  ___global_slot_page *pages;
+  ___SIZE_T count;
+  ___SCMOBJ unbound;
+} ___global_slot_store;
 
 typedef struct ___glo_sublist_struct
   {
@@ -11154,8 +11258,6 @@ typedef struct ___full_duplex_pipe
 
 #ifdef ___USE_sync_builtins
 
-#define ___LOAD_GLOBAL_WORD(p) __atomic_load_n(p,__ATOMIC_ACQUIRE)
-#define ___PUBLISH_GLOBAL_WORD(p,v) __atomic_store_n(p,v,__ATOMIC_RELEASE)
 
 #define ___COMPARE_AND_SWAP_WORD(p,oldval,newval) \
 __sync_val_compare_and_swap(p,oldval,newval)
@@ -11174,8 +11276,6 @@ __sync_synchronize()
 
 #ifdef ___USE_WIN32_sync
 
-#define ___LOAD_GLOBAL_WORD(p) ___COMPARE_AND_SWAP_WORD(p,0,0)
-#define ___PUBLISH_GLOBAL_WORD(p,v) ((void)InterlockedExchangePointer(___CAST(void**,p),___CAST(void*,v)))
 
 #define ___COMPARE_AND_SWAP_WORD(p,oldval,newval) \
 ___CAST(___WORD,InterlockedCompareExchangePointer(___CAST(void**,p),___CAST(void*,newval),___CAST(void*,oldval)))
@@ -11200,15 +11300,6 @@ MemoryBarrier()
 
 #ifdef ___USE_emulated_sync
 
-#define ___LOAD_GLOBAL_WORD(p) ___COMPARE_AND_SWAP_WORD(p,0,0)
-#define ___PUBLISH_GLOBAL_WORD(p,v) \
-  do { \
-    ___WORD *___global_slot=(p); \
-    ___WORD ___global_value=(v); \
-    ___WORD ___global_old=___LOAD_GLOBAL_WORD(___global_slot); \
-    while (___COMPARE_AND_SWAP_WORD(___global_slot,___global_old,___global_value) != ___global_old) \
-      ___global_old=___LOAD_GLOBAL_WORD(___global_slot); \
-  } while (0)
 
 #define ___COMPARE_AND_SWAP_WORD(p,oldval,newval) \
 ___EXT(___emulated_compare_and_swap_word)(p,oldval,newval)
@@ -11227,8 +11318,6 @@ ___EXT(___emulated_shared_memory_barrier)()
 
 #ifdef ___USE_sequential_sync
 
-#define ___LOAD_GLOBAL_WORD(p) (*(p))
-#define ___PUBLISH_GLOBAL_WORD(p,v) ((void)(*(p)=(v)))
 
 #define ___COMPARE_AND_SWAP_WORD(p,oldval,newval) \
 ((___ps->temp1 = *(p)) == (oldval) && (*(p) = (newval)), ___ps->temp1)
@@ -11256,6 +11345,56 @@ ___EXT(___emulated_shared_memory_barrier)()
 #define ___CPU_RELAX()
 #endif
 
+
+/* Ordered word service. Scheme lock words keep their object layout; every
+ * concurrent access uses this service, never a volatile polling load. GCC and
+ * Clang atomics operate on naturally aligned word storage. Other supported
+ * backends conservatively refine these orders to the existing full RMW/mutex
+ * operations. Plain access is restricted to the no-thread backend or exclusive
+ * initialization / physically stopped GC relocation. */
+#if defined(__ATOMIC_ACQUIRE) && defined(__ATOMIC_RELEASE) && \
+    !defined(___ORDERED_WORD_FORCE_LEGACY)
+#define ___ORDERED_WORD_NATIVE 1
+#define ___WORD_LOAD_ACQUIRE(p) __atomic_load_n(p,__ATOMIC_ACQUIRE)
+#define ___WORD_LOAD_RELAXED(p) __atomic_load_n(p,__ATOMIC_RELAXED)
+#define ___WORD_STORE_RELEASE(p,v) __atomic_store_n(p,v,__ATOMIC_RELEASE)
+#define ___WORD_STORE_RELAXED(p,v) __atomic_store_n(p,v,__ATOMIC_RELAXED)
+#define ___WORD_FETCH_ADD_RELAXED(p,v) __atomic_fetch_add(p,v,__ATOMIC_RELAXED)
+#define ___WORD_FETCH_ADD_RELEASE(p,v) __atomic_fetch_add(p,v,__ATOMIC_RELEASE)
+#define ___WORD_CAS_ACQUIRE(p,expected,v) \
+__atomic_compare_exchange_n(p,&(expected),v,0,__ATOMIC_ACQUIRE,__ATOMIC_RELAXED)
+#else
+#define ___ORDERED_WORD_NATIVE 0
+#ifdef ___USE_sequential_sync
+#define ___WORD_LOAD_ACQUIRE(p) (*(p))
+#define ___WORD_LOAD_RELAXED(p) (*(p))
+#define ___WORD_STORE_RELEASE(p,v) (*(p)=(v))
+#define ___WORD_STORE_RELAXED(p,v) (*(p)=(v))
+/* Ticket locks are erased for the no-thread system. */
+#define ___WORD_FETCH_ADD_RELAXED(p,v) ___FETCH_AND_ADD_WORD(p,v)
+#define ___WORD_FETCH_ADD_RELEASE(p,v) ___FETCH_AND_ADD_WORD(p,v)
+#define ___WORD_CAS_ACQUIRE(p,expected,v) \
+(___COMPARE_AND_SWAP_WORD(p,expected,v)==(expected))
+#else
+#define ___WORD_LOAD_ACQUIRE(p) ___COMPARE_AND_SWAP_WORD(p,0,0)
+#define ___WORD_LOAD_RELAXED(p) ___WORD_LOAD_ACQUIRE(p)
+#define ___WORD_FETCH_ADD_RELAXED(p,v) ___FETCH_AND_ADD_WORD(p,v)
+#define ___WORD_FETCH_ADD_RELEASE(p,v) ___FETCH_AND_ADD_WORD(p,v)
+#define ___WORD_CAS_ACQUIRE(p,expected,v) \
+(___COMPARE_AND_SWAP_WORD(p,expected,v)==(expected))
+#define ___WORD_STORE_RELEASE(p,v) \
+do { \
+  ___VOLATILE ___WORD *___ordered_p = (p); \
+  ___WORD ___ordered_v = (v); \
+  ___WORD ___ordered_old = ___WORD_LOAD_ACQUIRE(___ordered_p); \
+  ___WORD ___ordered_seen; \
+  while ((___ordered_seen = ___COMPARE_AND_SWAP_WORD \
+           (___ordered_p,___ordered_old,___ordered_v)) != ___ordered_old) \
+    ___ordered_old = ___ordered_seen; \
+} while (0)
+#define ___WORD_STORE_RELAXED(p,v) ___WORD_STORE_RELEASE(p,v)
+#endif
+#endif
 
 typedef struct ___thread_struct
   {
@@ -11772,8 +11911,8 @@ typedef struct ___global_state_struct *___global_state;
 
 typedef struct ___sync_op_struct
   {
-    ___VOLATILE unsigned char op; /* operation requested */
-    ___VOLATILE ___WORD arg[2];   /* arguments of the operation */
+    unsigned char op; /* sender-private until release publication */
+    ___WORD arg[2]; /* receiver owns a private copy before acknowledgement */
   } ___sync_op_struct;
 
 /* Processor structure */
@@ -11892,11 +12031,11 @@ typedef struct ___processor_state_struct
     ___thread os_thread;
 
     /* for implementation of on_all_processors */
-    ___VOLATILE int sync_id0;
+    ___WORD sync_id0; /* atomic published stamp; same field name */
     ___sync_op_struct sync_op0;
-    ___VOLATILE int sync_id1;
+    ___WORD sync_id1; /* atomic published stamp; same field name */
     ___sync_op_struct sync_op1;
-    ___VOLATILE int sync_id2;
+    ___WORD sync_id2; /* atomic published stamp; same field name */
     ___sync_op_struct sync_op2;
     ___MUTEX_DECL(sync_mut)
     ___CONDVAR_DECL(sync_cv)
@@ -12177,7 +12316,7 @@ typedef struct ___virtual_machine_state_struct
     ___VOLATILE ___virtual_machine_state prev; /* circular list links */
     ___VOLATILE ___virtual_machine_state next;
 
-    ___SCMOBJ *glos; /* Scheme global variables */
+    ___global_slot_store *glos; /* VM-owned stable cells and dense scan pages */
 
 #endif
 
@@ -13467,6 +13606,8 @@ typedef struct ___global_state_struct
              ___glo_struct *global,
              ___SCMOBJ val),
             ());
+    ___SCMOBJ *(*___global_cell)
+       ___P((___virtual_machine_state vm, int identity), ());
     ___SCMOBJ (*___primitive_ref)
        ___P((___processor_state ps, ___glo_struct *global), ());
     void (*___store_primitive)
@@ -14791,6 +14932,8 @@ ___IMP_FUNC(void,___store_global)
          ___glo_struct *global,
          ___SCMOBJ val),
         ());
+___IMP_FUNC(___SCMOBJ*,___global_cell)
+   ___P((___virtual_machine_state vm, int identity), ());
 ___IMP_FUNC(___SCMOBJ,___primitive_ref)
    ___P((___processor_state ps, ___glo_struct *global), ());
 ___IMP_FUNC(void,___store_primitive)
@@ -15333,6 +15476,41 @@ ___IMP_FUNC(void,___set_tls_ptr)
         ());
 #endif
 #endif
+
+/* Generated hosts and the runtime use one ordinary-cell resolver.  The page
+ * directory can grow concurrently; every read still acquires its publication.
+ * Published pages and cell addresses remain owned by the VM until cleanup.
+ * No address/value cache, allocation, callback or safepoint is introduced.
+ * Keep the probe loop outlined: duplicating it at every GLO increases native
+ * code and compiler work.  Foreign C and non-native ordered-word backends retain the exported ABI.
+ * Definitions follow service prototypes so the emulated runtime backend
+ * can use its existing word service; generated hosts require native atomics. */
+#if !defined(___SINGLE_VM) && (defined(___INCLUDED_FROM_MEM) || \
+    (defined(___GLOCOUNT) && ___ORDERED_WORD_NATIVE))
+static ___global_slot_page *___global_page(___virtual_machine_state vm, int id)
+{
+  ___global_slot_directory *directory;
+  ___SIZE_T key, position, probes;
+  if (vm==0 || vm->glos==0 || id<0) return 0;
+  directory=___CAST(___global_slot_directory*,___WORD_LOAD_ACQUIRE(&vm->glos->directory));
+  if (directory==0) return 0;
+  key=___CAST(___SIZE_T,id)/___WORD_WIDTH;
+  position=key & (directory->capacity-1);
+  for (probes=0;probes<directory->capacity;probes++) {
+    ___global_slot_page *page=___CAST(___global_slot_page*,___WORD_LOAD_ACQUIRE(&directory->entries[position]));
+    if (page==0 || page->key==key) return page;
+    position=(position+1)&(directory->capacity-1);
+  }
+  return 0;
+}
+
+static ___SCMOBJ *___global_cell_address(___virtual_machine_state vm, int id)
+{
+  ___global_slot_page *page=___global_page(vm,id);
+  return page==0 ? &vm->glos->unbound : &page->ordinary[id%___WORD_WIDTH];
+}
+#endif
+
 
 #endif
 

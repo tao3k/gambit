@@ -17,7 +17,7 @@ static int vm_registry_begin_setup(void)
  vm_shutdown=0;return ___lifecycle_cas(&vm_registry_gate,VM_REGISTRY_CLOSED,VM_REGISTRY_WRITER)==VM_REGISTRY_CLOSED;}
 ___BOOL ___lifecycle_registry_begin(void)
 {
-  ___WORD old=___LOAD_GLOBAL_WORD(&vm_registry_gate),found;
+  ___WORD old=___WORD_LOAD_ACQUIRE(&vm_registry_gate),found;
   while((old & 3)==VM_REGISTRY_OPEN && old<=___MAX_FIX-VM_REGISTRY_READER) {
     found=___lifecycle_cas(&vm_registry_gate,old,old+VM_REGISTRY_READER);
     if(found==old)return 1;old=found;
@@ -26,12 +26,12 @@ ___BOOL ___lifecycle_registry_begin(void)
 }
 void ___lifecycle_registry_end(void)
 {
-  ___WORD old=___LOAD_GLOBAL_WORD(&vm_registry_gate);
+  ___WORD old=___WORD_LOAD_ACQUIRE(&vm_registry_gate);
   while(___lifecycle_cas(&vm_registry_gate,old,old-VM_REGISTRY_READER)!=old)
-    old=___LOAD_GLOBAL_WORD(&vm_registry_gate);
+    old=___WORD_LOAD_ACQUIRE(&vm_registry_gate);
 }
 static void vm_registry_open(void)
-{___PUBLISH_GLOBAL_WORD(&vm_registry_gate,VM_REGISTRY_OPEN);vm_registry_flush();}
+{___WORD_STORE_RELEASE(&vm_registry_gate,VM_REGISTRY_OPEN);vm_registry_flush();}
 static int vm_registry_contains(___virtual_machine_state vm)
 {
   ___virtual_machine_state head=&___GSTATE->vmstate0,cursor=head;
@@ -63,13 +63,13 @@ static void vm_registry_flush(void)
   ___WORD bits,old;int code;
   ___virtual_machine_state vm=&___GSTATE->vmstate0,cursor=vm;
   if(!___lifecycle_registry_begin())return;
-  old=___LOAD_GLOBAL_WORD(&vm_pending_interrupts);
-  while(___lifecycle_cas(&vm_pending_interrupts,old,0)!=old)old=___LOAD_GLOBAL_WORD(&vm_pending_interrupts);
+  old=___WORD_LOAD_ACQUIRE(&vm_pending_interrupts);
+  while(___lifecycle_cas(&vm_pending_interrupts,old,0)!=old)old=___WORD_LOAD_ACQUIRE(&vm_pending_interrupts);
   bits=old;
   for(code=0;code<___NB_INTRS;++code)if(bits & (___CAST(___WORD,1)<<code)) {
     cursor=vm;
     do {
-      if(cursor->lifecycle && ___LOAD_GLOBAL_WORD(&cursor->lifecycle->phase)==___VM_LIVE)
+      if(cursor->lifecycle && ___WORD_LOAD_ACQUIRE(&cursor->lifecycle->phase)==___VM_LIVE)
         ___raise_interrupt_vmstate(cursor,code);
 #ifndef ___SINGLE_VM
       cursor=cursor->next;
@@ -84,10 +84,10 @@ static void vm_registry_interrupt(int code)
 {
   ___WORD old,next;
   if(code<0 || code>=___NB_INTRS)return;
-  old=___LOAD_GLOBAL_WORD(&vm_pending_interrupts);
+  old=___WORD_LOAD_ACQUIRE(&vm_pending_interrupts);
   do {next=old|(___CAST(___WORD,1)<<code);
     if(___lifecycle_cas(&vm_pending_interrupts,old,next)==old)break;
-    old=___LOAD_GLOBAL_WORD(&vm_pending_interrupts);
+    old=___WORD_LOAD_ACQUIRE(&vm_pending_interrupts);
   }while(1);
   vm_registry_flush();
 }
@@ -129,8 +129,8 @@ ___BOOL ___lifecycle_enter(___processor_state ps)
   vm=___VMSTATE_FROM_PSTATE(ps);
   if(!vm_registry_contains(vm))goto done;
   life=vm->lifecycle;id=___PROCESSOR_ID(ps,vm);
-  if(___LOAD_GLOBAL_WORD(&life->phase)!=___VM_LIVE || id<0 || id>=vm->processor_count || !lifecycle_owner(life,id))goto done;
-  old=___LOAD_GLOBAL_WORD(&life->entries[id]);
+  if(___WORD_LOAD_ACQUIRE(&life->phase)!=___VM_LIVE || id<0 || id>=vm->processor_count || !lifecycle_owner(life,id))goto done;
+  old=___WORD_LOAD_ACQUIRE(&life->entries[id]);
   while(!(old&1) && old<=___MAX_FIX-2) {
     found=___lifecycle_cas(&life->entries[id],old,old+2);
     if(found==old){ok=1;break;}old=found;
@@ -141,10 +141,10 @@ void ___lifecycle_leave(___processor_state ps)
 {
   ___vm_lifecycle *life=___VMSTATE_FROM_PSTATE(ps)->lifecycle;
   int id=___PROCESSOR_ID(ps,___VMSTATE_FROM_PSTATE(ps));
-  ___WORD old=___LOAD_GLOBAL_WORD(&life->entries[id]);
+  ___WORD old=___WORD_LOAD_ACQUIRE(&life->entries[id]);
   while(old>=2) {
     if(___lifecycle_cas(&life->entries[id],old,old-2)==old)return;
-    old=___LOAD_GLOBAL_WORD(&life->entries[id]);
+    old=___WORD_LOAD_ACQUIRE(&life->entries[id]);
   }
 }
 ___BOOL ___lifecycle_gc_admitted(___processor_state ps)
@@ -154,8 +154,8 @@ ___BOOL ___lifecycle_gc_admitted(___processor_state ps)
 #ifndef ___SINGLE_THREADED_VMS
   if(resize_retained(vm))return 0;
 #endif
-  return vm->lifecycle && ___LOAD_GLOBAL_WORD(&vm->lifecycle->phase)==___VM_LIVE &&
-    id>=0 && id<vm->processor_count && !(___LOAD_GLOBAL_WORD(&vm->lifecycle->entries[id])&1);
+  return vm->lifecycle && ___WORD_LOAD_ACQUIRE(&vm->lifecycle->phase)==___VM_LIVE &&
+    id>=0 && id<vm->processor_count && !(___WORD_LOAD_ACQUIRE(&vm->lifecycle->entries[id])&1);
 }
 
 ___activation_record *___lifecycle_marker_prepare(___processor_state ps)
@@ -191,7 +191,7 @@ int ___lifecycle_members_begin(___virtual_machine_state vm)
 {
   ___WORD old,found;___vm_lifecycle *life=vm->lifecycle;
   if(!life)return 0;
-  old=___LOAD_GLOBAL_WORD(&life->member_gate);
+  old=___WORD_LOAD_ACQUIRE(&life->member_gate);
   while(!(old&1) && old<=___MAX_FIX-2) {
     found=___lifecycle_cas(&life->member_gate,old,old+2);
     if(found==old)return 1;old=found;
@@ -200,9 +200,9 @@ int ___lifecycle_members_begin(___virtual_machine_state vm)
 }
 void ___lifecycle_members_end(___virtual_machine_state vm)
 {
-  ___WORD old=___LOAD_GLOBAL_WORD(&vm->lifecycle->member_gate);
+  ___WORD old=___WORD_LOAD_ACQUIRE(&vm->lifecycle->member_gate);
   while(___lifecycle_cas(&vm->lifecycle->member_gate,old,old-2)!=old)
-    old=___LOAD_GLOBAL_WORD(&vm->lifecycle->member_gate);
+    old=___WORD_LOAD_ACQUIRE(&vm->lifecycle->member_gate);
 }
 int ___lifecycle_members_close(___virtual_machine_state vm)
 {return ___lifecycle_cas(&vm->lifecycle->member_gate,0,1)==0;}
@@ -210,9 +210,9 @@ static void lifecycle_members_flush(___virtual_machine_state vm)
 {
   ___WORD bits,old;int code;
   if(!___lifecycle_members_begin(vm))return;
-  old=___LOAD_GLOBAL_WORD(&vm->lifecycle->pending_interrupts);
+  old=___WORD_LOAD_ACQUIRE(&vm->lifecycle->pending_interrupts);
   while(___lifecycle_cas(&vm->lifecycle->pending_interrupts,old,0)!=old)
-    old=___LOAD_GLOBAL_WORD(&vm->lifecycle->pending_interrupts);
+    old=___WORD_LOAD_ACQUIRE(&vm->lifecycle->pending_interrupts);
   bits=old;
   for(code=0;code<___NB_INTRS;code++)if(bits & (___CAST(___WORD,1)<<code))
     ___raise_interrupt_vmstate(vm,code);
@@ -220,11 +220,11 @@ static void lifecycle_members_flush(___virtual_machine_state vm)
 }
 void ___lifecycle_interrupt_pending(___virtual_machine_state vm,int code)
 {
-  ___WORD old=___LOAD_GLOBAL_WORD(&vm->lifecycle->pending_interrupts),next;
+  ___WORD old=___WORD_LOAD_ACQUIRE(&vm->lifecycle->pending_interrupts),next;
   do {
     next=old|(___CAST(___WORD,1)<<code);
     if(___lifecycle_cas(&vm->lifecycle->pending_interrupts,old,next)==old)break;
-    old=___LOAD_GLOBAL_WORD(&vm->lifecycle->pending_interrupts);
+    old=___WORD_LOAD_ACQUIRE(&vm->lifecycle->pending_interrupts);
   }while(1);
   /* The producer also tries delivery: opening between the producer's failed
    * borrow and this bit publication cannot strand the notification. */
@@ -232,6 +232,6 @@ void ___lifecycle_interrupt_pending(___virtual_machine_state vm,int code)
 }
 void ___lifecycle_members_open(___virtual_machine_state vm)
 {
-  ___PUBLISH_GLOBAL_WORD(&vm->lifecycle->member_gate,0);
+  ___WORD_STORE_RELEASE(&vm->lifecycle->member_gate,0);
   lifecycle_members_flush(vm);
 }

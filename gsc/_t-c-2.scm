@@ -4261,6 +4261,20 @@
            (targ-wr-reg (+ (targ-nb-arg-regs) 1))
            #t))))
 
+(targ-jump-inline "##thread-park!"
+  (lambda (nb-args poll? safe?)
+    (and (< 1 nb-args)
+         (< nb-args 6)
+         (let ((fs (frame-size targ-proc-exit-frame)))
+           (targ-end-of-block-checks poll? fs)
+           (targ-emit (targ-adjust-stack fs))
+           (targ-emit-jump-inline "THREAD_PARK" safe? nb-args)
+           (targ-rd-fp)
+           (targ-wr-fp)
+           (targ-wr-reg 0)
+           (targ-wr-reg (+ (targ-nb-arg-regs) 1))
+           #t))))
+
 (targ-op "##make-continuation"
          (targ-apply-make-continuation))
 ;;(targ-op "##continuation-frame"

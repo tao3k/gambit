@@ -124,7 +124,7 @@ enum ___handoff_status ___lifecycle_can_handoff(___processor_state ps)
   int id=___PROCESSOR_ID(ps,vm);
   ___owner_cleanup *q=&vm->lifecycle->cleanup[id];
   ___activation_record *record=vm->lifecycle->activations[id];
-  ___WORD entries=___LOAD_GLOBAL_WORD(&vm->lifecycle->entries[id]);
+  ___WORD entries=___WORD_LOAD_ACQUIRE(&vm->lifecycle->entries[id]);
   /* A terminal startup owns its entire native stack. A nested host callback
    * owns a return to external C and cannot be abandoned by processor removal.
    * The marker and ___call each hold one entry; unrelated borrows refuse. */

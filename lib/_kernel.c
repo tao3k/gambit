@@ -1154,6 +1154,7 @@
 #define ___SUPCOUNT 573
 #define ___CNSCOUNT 1
 #define ___SUBCOUNT 52
+#define ___HOST_LAYOUT ___HOST_LAYOUT_CONFIGURED
 #define ___LBLCOUNT 1470
 #define ___OFDCOUNT 20
 #define ___MODDESCR ___REF_SUB(49)
@@ -11130,7 +11131,7 @@ ___DEF_SLBL(5,___L5__23__23_kernel_2d_handlers)
    for (i=0; i<na; i++)
      ___SET_STK(-i,___STK(-(i+1))) /* shift arguments up by one */
 
-   result = ___LOAD_GLOBAL_WORD(&___GLOCELL(___CAST(___glo_struct*,___ps->temp4)->val));
+   result = ___WORD_LOAD_ACQUIRE(&___GLOCELL(___CAST(___glo_struct*,___ps->temp4)->val));
    handler = ___PRMCELL(___G__23__23_apply_2d_with_2d_procedure_2d_check_2d_nary.prm);
 
 #if 0

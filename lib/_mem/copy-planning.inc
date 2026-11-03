@@ -202,8 +202,8 @@ ___HIDDEN int plan_copy_round(___processor_state ps)
   c->source_offset=ps->mem.tospace_offset_;c->state=___GC_PLAN_READING;
   for(i=0;i<n;i++)g->observed[i]=0;
   if(custom_msection_alloc || w<1 || w>n ||
-     ___LOAD_GLOBAL_WORD(&g->requested_workers)<0 ||
-     ___LOAD_GLOBAL_WORD(&g->requested_workers)>n)goto refuse;
+     ___WORD_LOAD_ACQUIRE(&g->requested_workers)<0 ||
+     ___WORD_LOAD_ACQUIRE(&g->requested_workers)>n)goto refuse;
   for(section=the_msections->head;section;section=section->next)
     memset(section->base+___MSECTION_SIZE,0,___msection_scan_words(___MSECTION_SIZE)*___WS);
   for(i=0;i<n;i++) {

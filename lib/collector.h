@@ -4,8 +4,7 @@
 #define ___COLLECTOR_H
 #include "gambit.h"
 #include <limits.h>
-#define ___WORD_LOAD_ACQUIRE(p) ___LOAD_GLOBAL_WORD(p)
-#define ___gc_atomic_load(p) ___LOAD_GLOBAL_WORD(p)
+#define ___gc_atomic_load(p) ___WORD_LOAD_ACQUIRE(p)
 typedef struct ___gc_resume_space_struct
   {
     ___execution_context *context;

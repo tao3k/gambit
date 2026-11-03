@@ -11,10 +11,49 @@
 #include "os_thread.h"
 #include <stdatomic.h>
 #include <stdlib.h>
+#include <errno.h>
 static int startup_mode, startup_creates, startup_joins, startup_roots;
 static int startup_faults, startup_calibrate, startup_bad_refund;
 static int startup_base_members, startup_base_entries;
 static int startup_retire_count=1;
+#ifdef ___USE_POSIX_THREAD_SYSTEM
+static unsigned int sync_mutex_inits[___MAX_PROCESSORS], sync_cond_inits[___MAX_PROCESSORS];
+/* Observe the existing setup consumer's actual libc operations. Only this
+ * test object renames the calls; the production runtime has no fault mode. */
+int test_startup_mutex_init(pthread_mutex_t *mutex,const pthread_mutexattr_t *attr) {
+  int i;
+  for(i=0;i<___MAX_PROCESSORS;i++)
+    if(mutex==&___PSTATE_FROM_PROCESSOR_ID(i,&___GSTATE->vmstate0)->sync_mut) {
+      sync_mutex_inits[i]++;
+      if(startup_mode==9 && i==1 && !startup_faults) {
+        startup_faults++;return EAGAIN;
+      }
+    }
+  return pthread_mutex_init(mutex,attr);
+}
+int test_startup_cond_init(pthread_cond_t *cond,const pthread_condattr_t *attr) {
+  int i;
+  for(i=0;i<___MAX_PROCESSORS;i++)
+    if(cond==&___PSTATE_FROM_PROCESSOR_ID(i,&___GSTATE->vmstate0)->sync_cv) {
+      sync_cond_inits[i]++;
+      if(startup_mode==10 && i==1 && !startup_faults) {
+        startup_faults++;return EAGAIN;
+      }
+    }
+  return pthread_cond_init(cond,attr);
+}
+static int sync_resources_once(void) {
+  ___vm_lifecycle *life=___GSTATE->vmstate0.lifecycle;
+  int i;
+  for(i=1;i<3;i++) {
+    printf("SYNC-RESOURCE-COUNTS id=%d mutex-calls=%u condition-calls=%u owned=%u\n",
+           i,sync_mutex_inits[i],sync_cond_inits[i],life->sync_constructed[i]);
+    if(life->sync_constructed[i]!=3 || sync_mutex_inits[i]!=(unsigned int)(1+(i==1 && startup_mode==9)) ||
+       sync_cond_inits[i]!=(unsigned int)(1+(i==1 && startup_mode==10)))return 0;
+  }
+  return 1;
+}
+#endif
 static ___virtual_machine_state startup_other_vm;
 static ___SIZE_T startup_base_nodes, startup_base_borrows;
 static _Atomic int startup_entries, startup_bad_payload, startup_marker_gcs;
@@ -219,6 +258,27 @@ c-end
   (##gc)
   (require (clean-payload?) 'nonzero-roots)
   (display "STARTUP-PUBLICATION-NONZERO-PASS\n"))
+
+(define (sync-resources mode)
+  (arm mode)
+  (if (> mode 0)
+      (require (and (not (= (request 3) 0)) (rolled-back?)) 'native-construction-rollback))
+  ;; Keep the injected mode: its single failed libc call is consumed, while
+  ;; the successful retry must preserve any already-constructed mutex.
+  (do ((round 0 (+ round 1))) ((= round 3))
+    (require (= (request 3) 0) 'retained-resource-growth round)
+    (##gc)
+    (require (= (request 1) 0) 'retained-resource-retirement round)
+    (##gc))
+  (require ((c-lambda () bool #<<c-end
+#ifdef ___USE_POSIX_THREAD_SYSTEM
+___return(sync_resources_once());
+#else
+___return(0);
+#endif
+c-end
+)) 'exact-native-construction-count)
+  (display "SYNC-RESOURCES-PASS retained-pair three-incarnations partial-init retry\n"))
 (define (unknown)
   (define other? (member "--unknown-vm" (command-line)))
   (define requester? (member "--unknown-requester" (command-line)))
@@ -226,7 +286,7 @@ c-end
   (if retire? (require (pbt) 'prior-known-abort-reuse))
   (if (or retire? (member "--unknown-expanded" (command-line)))
       (begin (positive)
-        ((c-lambda () void "___PUBLISH_GLOBAL_WORD(&___COLLECTION(___VMSTATE_FROM_PSTATE(___ps)).requested_workers,1);"))
+        ((c-lambda () void "___WORD_STORE_RELEASE(&___COLLECTION(___VMSTATE_FROM_PSTATE(___ps)).requested_workers,1);"))
         (##gc)))
   (if requester? ((c-lambda () void "startup_retire_count=2;")))
   (arm (cond (retire? 8) ((member "--unknown-create" (command-line)) 7) (else 4)))
@@ -301,6 +361,9 @@ c-end
 (define args (cdr (command-line)))
 (require (= (##current-vm-processor-count) 1) 'initial-owner)
 (cond ((equal? args '("--positive")) (positive))
+      ((equal? args '("--sync-resources")) (sync-resources 0))
+      ((equal? args '("--sync-mutex-failure")) (sync-resources 9))
+      ((equal? args '("--sync-cond-failure")) (sync-resources 10))
       ((equal? args '("--nonzero")) (nonzero))
       ((equal? args '("--marker-gc"))
        (positive) (require (= (marker-gcs) 2) 'actual-marker-gc-count)

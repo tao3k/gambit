@@ -219,6 +219,7 @@
 #define ___SUPCOUNT 91
 #define ___CNSCOUNT 84
 #define ___SUBCOUNT 6
+#define ___HOST_LAYOUT ___HOST_LAYOUT_PROCEDURES
 #define ___LBLCOUNT 178
 #define ___MODDESCR ___REF_SUB(3)
 #include "gambit.h"

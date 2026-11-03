@@ -180,6 +180,7 @@
 #define ___SUPCOUNT 4
 #define ___CNSCOUNT 13
 #define ___SUBCOUNT 27
+#define ___HOST_LAYOUT ___HOST_LAYOUT_PROCEDURES
 #define ___LBLCOUNT 179
 #define ___OFDCOUNT 4
 #define ___MODDESCR ___REF_SUB(24)

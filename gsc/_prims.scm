@@ -1709,6 +1709,7 @@
 
 ("##thread-save!"                     1     #t ()    1113 (#f)    extended)
 ("##thread-restore!"                  2     #t ()    2203 #f      extended)
+("##thread-park!"                     2     #t ()    2213 #f      extended)
 
 ("##primitive-lock!"                  (3)   #t ()    0    #f      extended)
 ("##primitive-trylock!"               (3)   #t ()    0    #f      extended)

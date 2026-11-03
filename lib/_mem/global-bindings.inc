@@ -9,8 +9,8 @@ ___HIDDEN ___SCMOBJ *primitive_cell(___virtual_machine_state vm, ___glo_struct *
 #ifdef ___SINGLE_VM
   return &g->primitive_value;
 #else
-  if (vm == 0 || vm->glos == 0 || g->val < 0 || g->val >= ___GLOBALS_CAPACITY) return 0;
-  return vm->glos+___GLOBALS_CAPACITY+g->val;
+  ___global_slot_page *page=___global_page(vm,g->val);
+  return page==0 ? 0 : &page->primitive[g->val%___WORD_WIDTH];
 #endif
 }
 ___HIDDEN ___WORD *primitive_flag(___virtual_machine_state vm, ___glo_struct *g)
@@ -18,7 +18,8 @@ ___HIDDEN ___WORD *primitive_flag(___virtual_machine_state vm, ___glo_struct *g)
 #ifdef ___SINGLE_VM
   return &g->primitive_set;
 #else
-  return vm->glos+2*___GLOBALS_CAPACITY+g->val/___WORD_WIDTH;
+  ___global_slot_page *page=___global_page(vm,g->val);
+  return page==0 ? 0 : &page->primitive_set;
 #endif
 }
 ___HIDDEN ___UWORD primitive_mask(___glo_struct *g)
@@ -32,8 +33,8 @@ ___HIDDEN ___UWORD primitive_mask(___glo_struct *g)
 ___HIDDEN ___SCMOBJ primitive_value(___virtual_machine_state vm, ___glo_struct *g)
 {
   ___SCMOBJ *cell=primitive_cell(vm,g);
-  if (cell != 0 && (___LOAD_GLOBAL_WORD(primitive_flag(vm,g)) & primitive_mask(g)))
-    return ___LOAD_GLOBAL_WORD(cell);
+  if (cell != 0 && (___WORD_LOAD_ACQUIRE(primitive_flag(vm,g)) & primitive_mask(g)))
+    return ___WORD_LOAD_ACQUIRE(cell);
   return ___PRMCELL(g->prm);
 }
 ___EXP_FUNC(___SCMOBJ,___primitive_ref)
@@ -57,8 +58,8 @@ ___processor_state ps; ___glo_struct *g; ___SCMOBJ value;)
   if (cell == 0) { rc_contract_error("Primitive storage is not initialized"); return; }
   flag=primitive_flag(vm,g);
   ___MUTEX_LOCK(___GSTATE->mem.global_gate);
-  ___PUBLISH_GLOBAL_WORD(cell,value);
-  ___PUBLISH_GLOBAL_WORD(flag,___LOAD_GLOBAL_WORD(flag) | primitive_mask(g));
+  ___WORD_STORE_RELEASE(cell,value);
+  ___WORD_STORE_RELEASE(flag,___WORD_LOAD_ACQUIRE(flag) | primitive_mask(g));
   ___MUTEX_UNLOCK(___GSTATE->mem.global_gate);
 }
 /* Only generated module code publishes this image template. A runtime module
@@ -78,12 +79,12 @@ ___processor_state ps; ___glo_struct *g; ___SCMOBJ code;)
   if (!(bootstrap ? global_bootstrap_owner() : root_writer_open(ps)))
     { ___MUTEX_UNLOCK(___GSTATE->mem.global_gate);
       rc_contract_error("Module primitive publication outside root ownership"); return; }
-  ___PUBLISH_GLOBAL_WORD(&g->prm,code);
+  ___WORD_STORE_RELEASE(&g->prm,code);
   if (!bootstrap)
     {
       ___virtual_machine_state vm=___VMSTATE_FROM_PSTATE(ps);
       ___WORD *flag=primitive_flag(vm,g);
-      ___PUBLISH_GLOBAL_WORD(flag,___LOAD_GLOBAL_WORD(flag) & ~primitive_mask(g));
+      ___WORD_STORE_RELEASE(flag,___WORD_LOAD_ACQUIRE(flag) & ~primitive_mask(g));
     }
   ___MUTEX_UNLOCK(___GSTATE->mem.global_gate);
 }
@@ -100,7 +101,15 @@ ___BOOL ___try_store_global(___processor_state ps, ___glo_struct *global,
                              ___SCMOBJ value)
 {
   if (global == 0 || !root_writer_open(ps)) return 0;
-  ___PUBLISH_GLOBAL_WORD(&___GLOCELL_IN_VM((___VMSTATE_FROM_PSTATE(ps)),global->val),value);
+#ifndef ___SINGLE_VM
+  {
+    ___global_slot_page *page=___global_page(___VMSTATE_FROM_PSTATE(ps),global->val);
+    if (page==0) return 0; /* Module/variable binding must prepare storage. */
+    ___WORD_STORE_RELEASE(&page->ordinary[global->val%___WORD_WIDTH],value);
+  }
+#else
+  ___WORD_STORE_RELEASE(&global->val,value);
+#endif
   return 1;
 }
 
@@ -162,11 +171,7 @@ void ___glo_list_open ___PVOID
 
 ___HIDDEN ___BOOL global_room(void)
 {
-#ifdef ___SINGLE_VM
   return ___GSTATE->mem.glo_list.count < INT_MAX;
-#else
-  return ___GSTATE->mem.glo_list.count < ___GLOBALS_CAPACITY;
-#endif
 }
 
 ___HIDDEN void global_append(___glo_struct *glo)
@@ -228,7 +233,7 @@ ___BOOL prm;)
         }
       else
         {
-          while (probe != 0 && ___LOAD_GLOBAL_WORD(&___GLOCELL(probe->val)) != obj)
+          while (probe != 0 && ___WORD_LOAD_ACQUIRE(&___GLOCELL(probe->val)) != obj)
             {
               probe = probe->next;
               if (++probe_depth > glo_depth) break;
@@ -338,11 +343,28 @@ ___SCMOBJ sym;)
 #ifdef ___SINGLE_VM
         glo->primitive_value=___FAL; glo->primitive_set=0;
 #endif
-        global_append(glo);
-        ___PUBLISH_GLOBAL_WORD(&___SYMBOL_GLOBAL_FIELD(sym),___CAST(___SCMOBJ,glo));
+#ifndef ___SINGLE_VM
+        if (ps!=0 && ___VMSTATE_FROM_PSTATE(ps)->glos!=0 &&
+            !global_prepare_locked(___VMSTATE_FROM_PSTATE(ps),___GSTATE->mem.glo_list.count))
+          result=___FIX(___HEAP_OVERFLOW_ERR);
+        else
+#endif
+        {
+          global_append(glo);
+          ___WORD_STORE_RELEASE(&___SYMBOL_GLOBAL_FIELD(sym),___CAST(___SCMOBJ,glo));
+        }
       }
     }
   }
+#ifndef ___SINGLE_VM
+  if (!___FIXNUMP(result) && ps!=0 && ___VMSTATE_FROM_PSTATE(ps)->glos!=0 &&
+      ___global_page(___VMSTATE_FROM_PSTATE(ps),___GLOBALVARSTRUCT(sym)->val)==0) {
+    if (!(domain!=0 ? domain->owner==ps && domain->joined_round==0 && domain->phase==___RC_OPEN :
+          ___GSTATE->mem.global_bootstrap && global_bootstrap_owner())) result=___FIX(___IMPL_LIMIT_ERR);
+    else if (!global_prepare_locked(___VMSTATE_FROM_PSTATE(ps),___GLOBALVARSTRUCT(sym)->val))
+      result=___FIX(___HEAP_OVERFLOW_ERR);
+  }
+#endif
   ___MUTEX_UNLOCK(___GSTATE->mem.global_gate);
   if (domain!=0) ___RC_UNLOCK(domain);
   return result;
@@ -369,7 +391,7 @@ ___SCMOBJ val;)
           ___glo_struct *g = ___GLOBALVARSTRUCT(sym);
 
           if (g != 0 &&
-              (primitive_value(___VMSTATE_FROM_PSTATE(___ps),g) == val || ___LOAD_GLOBAL_WORD(&___GLOCELL(g->val)) == val))
+              (primitive_value(___VMSTATE_FROM_PSTATE(___ps),g) == val || ___WORD_LOAD_ACQUIRE(&___GLOCELL(g->val)) == val))
             {
               i = 0;
               break;

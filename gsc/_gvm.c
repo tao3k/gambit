@@ -619,6 +619,7 @@
 #define ___SUPCOUNT 251
 #define ___CNSCOUNT 19
 #define ___SUBCOUNT 180
+#define ___HOST_LAYOUT ___HOST_LAYOUT_PROCEDURES
 #define ___LBLCOUNT 2020
 #define ___OFDCOUNT 77
 #define ___MODDESCR ___REF_SUB(177)

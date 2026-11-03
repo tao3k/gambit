@@ -1788,7 +1788,7 @@ static ___SCMOBJ collector_test_release(void *payload)
 c-end
 )
    (define collector-workers! (c-lambda (int) void
-    "___PUBLISH_GLOBAL_WORD(&___COLLECTION(___VMSTATE_FROM_PSTATE(___PSTATE)).requested_workers,___arg1);"))
+    "___WORD_STORE_RELEASE(&___COLLECTION(___VMSTATE_FROM_PSTATE(___PSTATE)).requested_workers,___arg1);"))
    (define collector-max-domains (c-lambda () int "___result=___MAX_PROCESSORS;"))
    (define collector-domain-count
     (c-lambda () int "___result=___VMSTATE_FROM_PSTATE(___PSTATE)->processor_count;"))
@@ -1984,11 +1984,11 @@ ___virtual_machine_state vm=___VMSTATE_FROM_PSTATE(ps);
 ___root_round *r=___ROOT_UNION(vm);
 ___WORD *fp=ps->context->fp,*hp=ps->context->hp;
 ___SIZE_TS parity=ps->mem.tospace_offset_;
-___WORD requested=___LOAD_GLOBAL_WORD(&r->collection.requested_workers);
+___WORD requested=___WORD_LOAD_ACQUIRE(&r->collection.requested_workers);
 int i,ok;
-___PUBLISH_GLOBAL_WORD(&r->collection.requested_workers,vm->processor_count+1);
+___WORD_STORE_RELEASE(&r->collection.requested_workers,vm->processor_count+1);
 ok=___garbage_collect(___PSA(ps) 0)!=0;
-___PUBLISH_GLOBAL_WORD(&r->collection.requested_workers,requested);
+___WORD_STORE_RELEASE(&r->collection.requested_workers,requested);
 ok=ok && ps->context->fp==fp && ps->context->hp==hp &&
  ps->mem.tospace_offset_==parity && r->state==___ROOT_ROUND_IDLE &&
  r->collection.decision==2 && r->collection.census.state==___GC_PLAN_REFUSED &&
