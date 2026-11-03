@@ -1,0 +1,21 @@
+/* File: "gambit.h" */
+
+/*
+ * Copyright (c) 1994-2026 by Marc Feeley, All Rights Reserved.
+ */
+
+#ifndef ___GAMBIT_H
+#define ___GAMBIT_H
+
+#ifndef ___VERSION
+#define ___VERSION 409008
+#endif
+
+#if ___VERSION != 409008
+#include "gambit-not409008.h"
+#else
+
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+

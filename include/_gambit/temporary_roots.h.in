@@ -1,0 +1,29 @@
+/*---------------------------------------------------------------------------*/
+
+#define ___GC_SAVE1(ps,a) \
+((ps)->context->saved[0] = (a))
+
+#define ___GC_RESTORE1(ps,a) \
+(a = (ps)->context->saved[0], \
+ ___GC_SAVE1(ps,___VOID))
+
+#define ___GC_SAVE2(ps,a,b) \
+((ps)->context->saved[0] = (a), \
+ (ps)->context->saved[1] = (b))
+
+#define ___GC_RESTORE2(ps,a,b) \
+(a = (ps)->context->saved[0], \
+ b = (ps)->context->saved[1], \
+ ___GC_SAVE2(ps,___VOID,___VOID))
+
+#define ___GC_SAVE3(ps,a,b,c) \
+((ps)->context->saved[0] = (a), \
+ (ps)->context->saved[1] = (b), \
+ (ps)->context->saved[2] = (c))
+
+#define ___GC_RESTORE3(ps,a,b,c) \
+(a = (ps)->context->saved[0], \
+ b = (ps)->context->saved[1], \
+ c = (ps)->context->saved[2], \
+ ___GC_SAVE3(ps,___VOID,___VOID,___VOID))
+

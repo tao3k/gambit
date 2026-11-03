@@ -1,0 +1,6 @@
+/*---------------------------------------------------------------------------*/
+
+typedef struct ___processor_state_struct *___processor_state;
+typedef struct ___virtual_machine_state_struct *___virtual_machine_state;
+typedef struct ___global_state_struct *___global_state;
+

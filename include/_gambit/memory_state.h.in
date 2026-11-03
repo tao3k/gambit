@@ -1,0 +1,339 @@
+/*---------------------------------------------------------------------------*/
+
+/* TODO: where to put this? */
+
+/* Memory management */
+
+/*
+ * Movable Scheme objects are allocated in an area of memory
+ * distributed in multiple noncontiguous sections (collectively
+ * called the "msections").  All sections are of the same size and are
+ * allocated through the '___alloc_mem' function.  The number of
+ * sections can expand and contract to accommodate the needs of the
+ * program.
+ */
+
+typedef struct ___msect
+  {
+    int index;             /* index in list of sections */
+    int pos;               /* position in msections's 'sections' array */
+    struct ___msect *prev; /* previous section in list of sections */
+    struct ___msect *next; /* next section in list of sections */
+    ___VOLATILE ___WORD copy_gate; /* source-section forwarding ownership */
+    ___WORD base[1];       /* content of section */
+  } ___msection;
+
+/* Destination scan ownership is outside Scheme payload/header coordinates. */
+#define ___msection_scan_words(n) (((n)/2+(___WORD_WIDTH/2)-1)/(___WORD_WIDTH/2))
+#define ___sizeof_msection(n) (sizeof (___msection)+((n)-1+___msection_scan_words(n))*___WS)
+
+typedef struct
+  {
+    int max_nb_sections;      /* actual size of 'sections' array */
+    int nb_sections;          /* number of sections */
+    ___msection *head;        /* head of doubly-linked list of sections */
+    ___msection *tail;        /* tail of doubly-linked list of sections */
+    ___msection *sections[1]; /* each section ordered by address */
+                              /* (increasing order if ___ALLOC_MEM_UP */
+                              /* is defined otherwise decreasing order) */
+  } ___msections;
+
+#define ___sizeof_msections(n) (sizeof (___msections) + ((n)-1) * sizeof (___msection*))
+
+/*
+ * Header structure of reference counted blocks of memory.
+ */
+
+typedef struct ___rc_domain_struct ___rc_domain;
+
+typedef struct ___rc_header_struct
+  {
+    struct ___rc_header_struct *prev;
+    struct ___rc_header_struct *next;
+    ___WORD refcount; /* integer but declared ___WORD for alignment */
+    ___SCMOBJ data; /* needed for C closures */
+    ___rc_domain *domain; /* source gate/lifetime, independent of native carrier */
+    ___WORD root_borrows; /* stable-cell owners, separate from public references */
+  } ___rc_header;
+
+/* fdset state */
+#ifndef ___OS_WIN32
+typedef struct ___fdset_struct {
+  int size;
+  void *readfds;
+  void *writefds;
+  void *exceptfds;
+} ___fdset;
+#endif
+
+typedef struct ___pstate_os_struct {
+
+  /*
+   * for implementation of asynchronous interrupting the following
+   * structures are needed to force ___device_select to abort wait
+   */
+#ifdef ___OS_WIN32
+  HANDLE select_abort; /* WIN32 event */
+#else
+  ___half_duplex_pipe select_abort; /* POSIX self-pipe */
+  ___fdset fdset; /* Dynamic fdsets for unlimited file descriptors */
+#endif
+
+} ___pstate_os;
+
+typedef struct ___pstate_mem_struct {
+
+/* location of tospace in each msection */
+___SIZE_TS tospace_offset_;
+
+/* msection free list */
+___msection *msection_free_list_;
+
+/* msection where continuation frames are currently being allocated */
+___msection *stack_msection_;
+
+/* start of allocation of continuation frames in stack_msection */
+___WORD *alloc_stack_start_;
+
+/* allocation pointer for continuation frames in stack_msection */
+___WORD *alloc_stack_ptr_;
+
+/* allocation limit for continuation frames in stack_msection */
+___WORD *alloc_stack_limit_;
+
+/* msection where movable objects are currently being allocated */
+___msection *heap_msection_;
+
+/* start of allocation of movable objects in heap_msection */
+___WORD *alloc_heap_start_;
+
+/* allocation pointer for movable objects in heap_msection */
+___WORD *alloc_heap_ptr_;
+
+/* allocation limit for movable objects in heap_msection */
+___WORD *alloc_heap_limit_;
+
+/* start of current group of movable objects being copied by mark_array */
+___WORD *alloc_heap_chunk_start_;
+
+/* allocation limit for movable objects in current chunk */
+___WORD *alloc_heap_chunk_limit_;
+
+#ifndef ___SINGLE_THREADED_VMS
+
+/* spinlock for accessing the movable object chunks remaining to scan */
+___SPINLOCK_DECL(heap_chunks_to_scan_lock_)
+
+#endif
+
+/* list of complete movable object chunks to scan */
+___VOLATILE ___WORD heap_chunks_to_scan_;
+
+/* fifo of complete movable object chunks remaining to scan */
+___VOLATILE ___WORD * ___VOLATILE heap_chunks_to_scan_head_;
+___VOLATILE ___WORD * ___VOLATILE heap_chunks_to_scan_tail_;
+
+/* scan pointer in currently scanned (possibly incomplete) chunk */
+___WORD *scan_ptr_;
+
+/* still objects remaining to scan */
+___WORD still_objs_to_scan_;
+
+/* list of still objects */
+___WORD still_objs_;
+
+/* words occupied by still objects */
+___SIZE_TS words_still_objs_;
+
+/* words occupied by still objects not yet accounted for at the VM level */
+___SIZE_TS words_still_objs_deferred_;
+
+/* bytes allocated minus occupied */
+___F64 bytes_allocated_minus_occupied_;
+
+/* head of list of reference counted blocks of memory */
+___rc_domain *rc_domain_;
+
+/* indicates if weak references must be traversed */
+___BOOL traverse_weak_refs_;
+
+/* list of nonexecutable wills */
+___WORD nonexecutable_wills_;
+
+/* list of executable wills */
+___WORD executable_wills_;
+
+/* GC hash tables reached by GC */
+___WORD reached_gc_hash_tables_;
+
+/* words occupied in msections of this processor excluding current msections */
+___SIZE_TS words_prev_msections_;
+
+/* space used in msection stack fudge */
+___SIZE_TS stack_fudge_used_;
+
+/* space used in msection heap fudge */
+___SIZE_TS heap_fudge_used_;
+
+#ifdef ___DEBUG_GARBAGE_COLLECT
+
+/* GC state used for debugging */
+int reference_location_; /* where is offending reference located */
+___WORD *container_body_; /* body of object containing offending reference */
+int mark_array_call_line_; /* where was mark_array called */
+
+#endif
+
+#ifdef ___CALL_GC_FREQUENTLY
+int gc_calls_to_punt_;
+#endif
+} ___pstate_mem;
+
+#ifndef ___OS_WIN32
+typedef struct ___vmstate_fdset_struct {
+  int size;
+  ___VOLATILE int overflow;
+} ___vmstate_fdset;
+#endif
+
+typedef struct ___vmstate_os_struct {
+#ifdef ___OS_WIN32
+  int dummy; /* avoid empty struct error raised by MSVC */
+#else
+  ___vmstate_fdset fdset;
+#endif
+} ___vmstate_os;
+
+typedef struct ___vmstate_mem_struct {
+
+struct ___global_root_snapshot_struct *globals_snapshot_;
+
+/* size of heap in words (number of words that can be occupied) */
+___SIZE_TS heap_size_;
+
+/*
+ * 'normal_overflow_reserve' is the number of words reserved in the
+ * heap in normal circumstances for handling heap overflows.
+ */
+___SIZE_TS normal_overflow_reserve_;
+
+/*
+ * 'overflow_reserve' is the number of words currently reserved in the
+ * heap for handling heap overflows.  Initially 'overflow_reserve' is
+ * set to 'normal_overflow_reserve'.  When a heap overflow occurs,
+ * some fraction of the 'overflow_reserve' is made available to the
+ * heap overflow handler.  When a GC makes at least
+ * 'normal_overflow_reserve' free, then 'overflow_reserve' is reset to
+ * 'normal_overflow_reserve'.
+ */
+___SIZE_TS overflow_reserve_;
+
+/* words occupied by movable objects (only updated at end of GC) */
+___SIZE_TS occupied_words_movable_;
+
+/* words occupied by still objects (excluding deferred ones) */
+___SIZE_TS occupied_words_still_;
+
+/* the msections */
+___msections *the_msections_;
+
+/* last msection allocated */
+___msection *alloc_msection_;
+
+/* number of msections assigned to processors */
+int nb_msections_assigned_;
+
+/* number of msections assigned to stacks (otherwise assigned to heap) */
+int nb_msections_stacks_;
+
+/* history of target heap space */
+#ifndef ___TARGET_HEAP_SPACE_HIST_LENGTH
+#define ___TARGET_HEAP_SPACE_HIST_LENGTH 16
+#endif
+#if ___TARGET_HEAP_SPACE_HIST_LENGTH > 0
+___SIZE_TS target_heap_space_hist_[___TARGET_HEAP_SPACE_HIST_LENGTH];
+int target_heap_space_hist_last_;
+#endif
+
+/* Used for resizing VM (number of processors after the resize operation) */
+___VOLATILE int target_processor_count_;
+
+#ifndef ___SINGLE_THREADED_VMS
+
+/* spinlock for miscellaneous memory operations at the VM level */
+___SPINLOCK_DECL(misc_mem_lock_)
+
+/* spinlock for allocation of memory at the VM level */
+___SPINLOCK_DECL(alloc_mem_lock_)
+
+/* mutex and condition variable to determine termination of GC scan */
+___MUTEX_DECL(scan_termination_mutex_)
+___CONDVAR_DECL(scan_termination_condvar_)
+
+/* number of processors currently doing GC scan work (for each phase) */
+___VOLATILE ___WORD scan_workers_count_[2];
+
+#endif
+
+/*
+ * Garbage collection statistics.
+ */
+
+___F64 nb_gcs_;
+___F64 gc_user_time_;
+___F64 gc_sys_time_;
+___F64 gc_real_time_;
+
+___F64 latest_gc_user_time_;
+___F64 latest_gc_sys_time_;
+___F64 latest_gc_real_time_;
+___F64 latest_gc_heap_size_;
+___F64 latest_gc_alloc_;
+___F64 latest_gc_live_;
+___F64 latest_gc_movable_;
+___F64 latest_gc_still_;
+
+/*
+ * Custom msection allocator (when not NULL).
+ */
+
+___msection *(*custom_msection_alloc_) ___PVOID;
+
+} ___vmstate_mem;
+
+typedef struct ___gstate_mem_struct {
+
+  /*
+   * Permanent objects are allocated in sections called "psections".
+   * Each section contains multiple objects.  The sections are kept in a
+   * list so that the storage they occupy can be reclaimed when the
+   * program terminates.
+   */
+
+  void *psections;       /* list of psections */
+  ___WORD *palloc_ptr;   /* allocation pointer in current psection */
+  ___WORD *palloc_limit; /* allocation limit in current psection */
+
+  /*
+   * Global variable list.
+   */
+
+  ___glo_list_struct glo_list;
+  ___MUTEX_DECL(global_gate)
+  ___MUTEX_DECL(permanent_gate)
+  ___thread global_bootstrap_owner;
+  int global_bootstrap;
+  ___SIZE_T global_snapshots;
+
+} ___gstate_mem;
+
+/*
+ * Header structure of procedural interrupts.
+ */
+
+typedef struct ___procedural_interrupt_header_struct
+  {
+    struct ___procedural_interrupt_header_struct * ___VOLATILE next;
+    ___SCMOBJ (*execute_fn) ___P((void *self, ___SCMOBJ op),());
+  } ___procedural_interrupt_header;
+

@@ -1,0 +1,54 @@
+/*---------------------------------------------------------------------------*/
+
+/* Miscellaneous macros */
+
+#define ___IF(x) if (x) {
+#define ___END_IF }
+
+#define ___NOTHING
+
+#define ___NBELEMS(table) (sizeof (table) / sizeof ((table)[0]))
+
+#define ___ORD(x)((x)>>___TB)
+
+#define ___INT(x)((x)>>___TB_FIXNUM)
+
+#ifdef ___NAN_BOXING
+#define ___FIX_WIDTH (32-___TB_FIXNUM)
+#else
+#define ___FIX_WIDTH (___SCMOBJ_WIDTH-___TB_FIXNUM)
+#endif
+
+#define ___MIN_FIX (-(___CAST(___WORD,1)<<(___FIX_WIDTH-1)))
+#define ___MAX_FIX ((___CAST(___WORD,1)<<(___FIX_WIDTH-1))-1)
+
+#define ___MAX_FIX32 ((___CAST(___WORD,1)<<(32-2-1))-1)
+
+#define ___FIXNUM_WIDTH ___FIX(___FIX_WIDTH)
+#define ___FIXNUM_WIDTH_NEG ___FIX(-___FIX_WIDTH)
+#define ___LEAST_FIXNUM ___FIX(___MIN_FIX)
+#define ___GREATEST_FIXNUM ___FIX(___MAX_FIX)
+
+#if ___FIX_WIDTH == 30
+#define ___SQRT_MAX_FIX 23170
+#endif
+#if ___FIX_WIDTH == 61
+#define ___SQRT_MAX_FIX 1073741823L
+#endif
+#if ___FIX_WIDTH == 62
+#define ___SQRT_MAX_FIX 1518500249L
+#endif
+
+#if ___FIX_WIDTH == 30
+#define ___BIGFIX(i,x)___SUB(i)
+#else
+#define ___BIGFIX(i,x)(((x) >= ___MIN_FIX && (x) <= ___MAX_FIX) ? ___FIX(x) : ___SUB(i))
+#endif
+
+/*
+ * The C id prefix must match the definition in the file
+ * "gsc/_parms.scm".
+ */
+
+#define ___C_ID_PREFIX "___"
+

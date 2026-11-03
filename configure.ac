@@ -3356,7 +3356,12 @@ case "$target_os" in
 #define ___SCRIPT_LINE 0
 #define ___MAX_CHR 0x10ffff
 #define ___VOIDSTAR_WIDTH ___LONG_WIDTH
-#include "gambit.h.in"
+_ACEOF
+
+           sed -n 's/^#include "\(.*\)"$/\1/p' "$srcdir/include/gambit.h.in" |
+             while IFS= read -r header; do cat "$srcdir/include/$header"; done >>conftest.$ac_ext
+
+           cat >>conftest.$ac_ext <<_ACEOF
 
 ___BEGIN_MOD1
 ___END_MOD1
@@ -3854,7 +3859,7 @@ AC_PROG_MAKE_SET
 AC_CONFIG_FILES( \
 makefile \
 include/makefile \
-include/gambit.h \
+include/gambit.h:include/_gambit/header_begin.h.in:include/_gambit/platform.h.in:include/_gambit/compiler.h.in:include/_gambit/configuration.h.in:include/_gambit/language.h.in:include/_gambit/math.h.in:include/_gambit/signals.h.in:include/_gambit/visibility.h.in:include/_gambit/code_generation.h.in:include/_gambit/integer_representation.h.in:include/_gambit/value_types.h.in:include/_gambit/object_tags.h.in:include/_gambit/utilities.h.in:include/_gambit/object_access.h.in:include/_gambit/gvm_operations.h.in:include/_gambit/stack_operations.h.in:include/_gambit/gvm_registers.h.in:include/_gambit/temporary_roots.h.in:include/_gambit/labels.h.in:include/_gambit/module_generation.h.in:include/_gambit/foreign_abi.h.in:include/_gambit/foreign_conversion.h.in:include/_gambit/declarations_begin.h.in:include/_gambit/native_platform.h.in:include/_gambit/native_types.h.in:include/_gambit/activity_log.h.in:include/_gambit/processor_os.h.in:include/_gambit/memory_state.h.in:include/_gambit/runtime_forwards.h.in:include/_gambit/synchronization.h.in:include/_gambit/processor_state.h.in:include/_gambit/label_types.h.in:include/_gambit/module_state.h.in:include/_gambit/write_authority.h.in:include/_gambit/vm_state.h.in:include/_gambit/setup_parameters.h.in:include/_gambit/global_state.h.in:include/_gambit/runtime_protocols.h.in:include/_gambit/declarations_end.h.in:include/_gambit/header_end.h.in \
 lib/makefile \
 lib/module-common.mk \
 $RTLIBMAKEFILES \

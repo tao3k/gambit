@@ -1,0 +1,48 @@
+/* Virtual machine state structure */
+
+typedef struct ___virtual_machine_state_struct
+  {
+    ___aligned_processor_state_struct aligned_pstate[___MAX_PROCESSORS]; /* VM's processors */
+    ___execution_context execution_contexts[___MAX_PROCESSORS]; /* stable VM slots */
+
+    ___VOLATILE int processor_count; /* number of processors in this VM */
+
+    ___WORD vm_scmobj[___SUBTYPED_BODY+___VM_SIZE+___PADDING_SIZE]; /* Scheme vm object */
+
+#ifdef ___ACTIVITY_LOG
+    ___vmstate_actlog actlog; /* activity log state */
+#endif
+
+#ifdef ___DEBUG_TICKETLOCK
+    ___VOLATILE ___WORD ticketlock_history_index;
+    ___ticketlock_location ticketlock_history[___TICKETLOCK_HISTORY_LENGTH];
+#endif
+
+    ___vmstate_os os; /* OS specific state */
+
+    ___vmstate_mem mem; /* memory management state */
+
+    ___native_scope native_scopes[___NATIVE_SCOPE_CAPACITY];
+
+    ___SCMOBJ main_module_ref; /* symbol identifying the VM's main module */
+
+#ifndef ___SINGLE_VM
+
+    ___VOLATILE ___virtual_machine_state prev; /* circular list links */
+    ___VOLATILE ___virtual_machine_state next;
+
+    ___global_slot_store *glos; /* VM-owned stable cells and dense scan pages */
+
+#endif
+
+    struct ___vm_lifecycle_struct *lifecycle; /* VM-owned entry, launch and release custody */
+  } ___virtual_machine_state_struct;
+
+#define ___PROCESSOR_ID(ps,vms) \
+(___CAST(___aligned_processor_state_struct*,ps) - \
+ ___CAST(___aligned_processor_state_struct*,&(vms)->aligned_pstate[0].pstate))
+
+
+#define ___PSTATE_FROM_PROCESSOR_ID(id,vms) \
+(&(vms)->aligned_pstate[id].pstate)
+

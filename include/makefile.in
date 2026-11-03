@@ -70,7 +70,49 @@ mandir = @mandir@
 
 .SUFFIXES:
 
-RCFILES = makefile.in gambit.h.in config.h.in stamp-release.h
+HEADER_TEMPLATES = _gambit/header_begin.h.in \
+  _gambit/platform.h.in \
+  _gambit/compiler.h.in \
+  _gambit/configuration.h.in \
+  _gambit/language.h.in \
+  _gambit/math.h.in \
+  _gambit/signals.h.in \
+  _gambit/visibility.h.in \
+  _gambit/code_generation.h.in \
+  _gambit/integer_representation.h.in \
+  _gambit/value_types.h.in \
+  _gambit/object_tags.h.in \
+  _gambit/utilities.h.in \
+  _gambit/object_access.h.in \
+  _gambit/gvm_operations.h.in \
+  _gambit/stack_operations.h.in \
+  _gambit/gvm_registers.h.in \
+  _gambit/temporary_roots.h.in \
+  _gambit/labels.h.in \
+  _gambit/module_generation.h.in \
+  _gambit/foreign_abi.h.in \
+  _gambit/foreign_conversion.h.in \
+  _gambit/declarations_begin.h.in \
+  _gambit/native_platform.h.in \
+  _gambit/native_types.h.in \
+  _gambit/activity_log.h.in \
+  _gambit/processor_os.h.in \
+  _gambit/memory_state.h.in \
+  _gambit/runtime_forwards.h.in \
+  _gambit/synchronization.h.in \
+  _gambit/processor_state.h.in \
+  _gambit/label_types.h.in \
+  _gambit/module_state.h.in \
+  _gambit/write_authority.h.in \
+  _gambit/vm_state.h.in \
+  _gambit/setup_parameters.h.in \
+  _gambit/global_state.h.in \
+  _gambit/runtime_protocols.h.in \
+  _gambit/declarations_end.h.in \
+  _gambit/header_end.h.in
+HEADER_CONFIG = include/gambit.h:include/_gambit/header_begin.h.in:include/_gambit/platform.h.in:include/_gambit/compiler.h.in:include/_gambit/configuration.h.in:include/_gambit/language.h.in:include/_gambit/math.h.in:include/_gambit/signals.h.in:include/_gambit/visibility.h.in:include/_gambit/code_generation.h.in:include/_gambit/integer_representation.h.in:include/_gambit/value_types.h.in:include/_gambit/object_tags.h.in:include/_gambit/utilities.h.in:include/_gambit/object_access.h.in:include/_gambit/gvm_operations.h.in:include/_gambit/stack_operations.h.in:include/_gambit/gvm_registers.h.in:include/_gambit/temporary_roots.h.in:include/_gambit/labels.h.in:include/_gambit/module_generation.h.in:include/_gambit/foreign_abi.h.in:include/_gambit/foreign_conversion.h.in:include/_gambit/declarations_begin.h.in:include/_gambit/native_platform.h.in:include/_gambit/native_types.h.in:include/_gambit/activity_log.h.in:include/_gambit/processor_os.h.in:include/_gambit/memory_state.h.in:include/_gambit/runtime_forwards.h.in:include/_gambit/synchronization.h.in:include/_gambit/processor_state.h.in:include/_gambit/label_types.h.in:include/_gambit/module_state.h.in:include/_gambit/write_authority.h.in:include/_gambit/vm_state.h.in:include/_gambit/setup_parameters.h.in:include/_gambit/global_state.h.in:include/_gambit/runtime_protocols.h.in:include/_gambit/declarations_end.h.in:include/_gambit/header_end.h.in
+
+RCFILES = makefile.in gambit.h.in config.h.in stamp-release.h $(HEADER_TEMPLATES)
 
 GENDISTFILES =
 
@@ -196,11 +238,12 @@ rc-setup-post:
 dist-pre dist-devel-pre:
 	mkdir $(rootfromhere)/$(PACKAGE_TARNAME)/$(herefromroot)
 	chmod 777 $(rootfromhere)/$(PACKAGE_TARNAME)/$(herefromroot)
+	mkdir $(rootfromhere)/$(PACKAGE_TARNAME)/$(herefromroot)/_gambit
 	@echo "  Copying distribution files:"
 	@for file in $(DISTFILES); do \
 	  echo "    $(herefromroot)/$$file"; \
-	  ln $(srcdirpfx)$$file $(rootfromhere)/$(PACKAGE_TARNAME)/$(herefromroot) 2> /dev/null \
-	    || cp -p $(srcdirpfx)$$file $(rootfromhere)/$(PACKAGE_TARNAME)/$(herefromroot); \
+	  ln $(srcdirpfx)$$file $(rootfromhere)/$(PACKAGE_TARNAME)/$(herefromroot)/$$file 2> /dev/null \
+	    || cp -p $(srcdirpfx)$$file $(rootfromhere)/$(PACKAGE_TARNAME)/$(herefromroot)/$$file; \
 	done
 
 dist-post dist-devel-post:
@@ -365,8 +408,8 @@ stamp-release:
 makefile: makefile.in $(rootfromhere)/config.status
 	cd $(rootfromhere) && CONFIG_FILES=$(herefromroot)/$@ CONFIG_HEADERS= ./config.status
 
-gambit.h: gambit.h.in $(rootfromhere)/config.status
-	cd $(rootfromhere) && CONFIG_FILES=$(herefromroot)/$@ CONFIG_HEADERS= ./config.status
+gambit.h: gambit.h.in $(HEADER_TEMPLATES) $(rootfromhere)/config.status
+	cd $(rootfromhere) && CONFIG_FILES='$(HEADER_CONFIG)' CONFIG_HEADERS= ./config.status
 
 # Tell versions [3.59,3.63) of GNU make not to export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

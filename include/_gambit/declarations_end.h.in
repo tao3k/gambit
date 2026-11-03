@@ -1,0 +1,37 @@
+
+/* Generated hosts and the runtime use one ordinary-cell resolver.  The page
+ * directory can grow concurrently; every read still acquires its publication.
+ * Published pages and cell addresses remain owned by the VM until cleanup.
+ * No address/value cache, allocation, callback or safepoint is introduced.
+ * Keep the probe loop outlined: duplicating it at every GLO increases native
+ * code and compiler work.  Foreign C and non-native ordered-word backends retain the exported ABI.
+ * Definitions follow service prototypes so the emulated runtime backend
+ * can use its existing word service; generated hosts require native atomics. */
+#if !defined(___SINGLE_VM) && (defined(___INCLUDED_FROM_MEM) || \
+    (defined(___GLOCOUNT) && ___ORDERED_WORD_NATIVE))
+static ___global_slot_page *___global_page(___virtual_machine_state vm, int id)
+{
+  ___global_slot_directory *directory;
+  ___SIZE_T key, position, probes;
+  if (vm==0 || vm->glos==0 || id<0) return 0;
+  directory=___CAST(___global_slot_directory*,___WORD_LOAD_ACQUIRE(&vm->glos->directory));
+  if (directory==0) return 0;
+  key=___CAST(___SIZE_T,id)/___WORD_WIDTH;
+  position=key & (directory->capacity-1);
+  for (probes=0;probes<directory->capacity;probes++) {
+    ___global_slot_page *page=___CAST(___global_slot_page*,___WORD_LOAD_ACQUIRE(&directory->entries[position]));
+    if (page==0 || page->key==key) return page;
+    position=(position+1)&(directory->capacity-1);
+  }
+  return 0;
+}
+
+static ___SCMOBJ *___global_cell_address(___virtual_machine_state vm, int id)
+{
+  ___global_slot_page *page=___global_page(vm,id);
+  return page==0 ? &vm->glos->unbound : &page->ordinary[id%___WORD_WIDTH];
+}
+#endif
+
+
+#endif

@@ -1,0 +1,1504 @@
+
+#if ___LBLCOUNT > 0
+___LOCAL ___WORD ___lp; /* Module's label table pointer */
+#endif
+
+___GLODECL
+___SYMDECL
+___KEYDECL
+
+#define ___CHAR_ENCODING(x)                       ((x)&(31<<0))
+#define ___CHAR_ENCODING_MASK(x)                  ((x)&~(31<<0))
+#define ___CHAR_ENCODING_ASCII                    (1<<0)
+#define ___CHAR_ENCODING_ISO_8859_1               (2<<0)
+#define ___CHAR_ENCODING_UTF_8                    (3<<0)
+#define ___CHAR_ENCODING_UTF_16                   (4<<0)
+#define ___CHAR_ENCODING_UTF_16BE                 (5<<0)
+#define ___CHAR_ENCODING_UTF_16LE                 (6<<0)
+#define ___CHAR_ENCODING_UTF_FALLBACK_ASCII       (7<<0)
+#define ___CHAR_ENCODING_UTF_FALLBACK_ISO_8859_1  (8<<0)
+#define ___CHAR_ENCODING_UTF_FALLBACK_UTF_8       (9<<0)
+#define ___CHAR_ENCODING_UTF_FALLBACK_UTF_16      (10<<0)
+#define ___CHAR_ENCODING_UTF_FALLBACK_UTF_16BE    (11<<0)
+#define ___CHAR_ENCODING_UTF_FALLBACK_UTF_16LE    (12<<0)
+#define ___CHAR_ENCODING_UCS_2                    (13<<0)
+#define ___CHAR_ENCODING_UCS_2BE                  (14<<0)
+#define ___CHAR_ENCODING_UCS_2LE                  (15<<0)
+#define ___CHAR_ENCODING_UCS_4                    (16<<0)
+#define ___CHAR_ENCODING_UCS_4BE                  (17<<0)
+#define ___CHAR_ENCODING_UCS_4LE                  (18<<0)
+#define ___CHAR_ENCODING_WCHAR                    (19<<0)
+#define ___CHAR_ENCODING_NATIVE                   (20<<0)
+
+#define ___CHAR_ENCODING_UTF ___CHAR_ENCODING_UTF_FALLBACK_UTF_8
+
+#define ___CHAR_ENCODING_SUPPORTS_BMP(x) \
+((x) >= ___CHAR_ENCODING_UTF_8 && \
+ (x) <= ___CHAR_ENCODING_UCS_4LE)
+
+#ifdef ___BIG_ENDIAN
+#define ___CHAR_ENCODING_U8  ___CHAR_ENCODING_ISO_8859_1
+#define ___CHAR_ENCODING_U16 ___CHAR_ENCODING_UCS_2BE
+#define ___CHAR_ENCODING_U32 ___CHAR_ENCODING_UCS_4BE
+#else
+#define ___CHAR_ENCODING_U8  ___CHAR_ENCODING_ISO_8859_1
+#define ___CHAR_ENCODING_U16 ___CHAR_ENCODING_UCS_2LE
+#define ___CHAR_ENCODING_U32 ___CHAR_ENCODING_UCS_4LE
+#endif
+
+#define ___CHAR_ENCODING_ERRORS(x)      ((x)&(3<<5))
+#define ___CHAR_ENCODING_ERRORS_MASK(x) ((x)&~(3<<5))
+#define ___CHAR_ENCODING_ERRORS_ON      (1<<5)
+#define ___CHAR_ENCODING_ERRORS_OFF     (2<<5)
+
+#define ___EOL_ENCODING(x)      ((x)&(3<<7))
+#define ___EOL_ENCODING_MASK(x) ((x)&~(3<<7))
+#define ___EOL_ENCODING_LF      (1<<7)
+#define ___EOL_ENCODING_CR      (2<<7)
+#define ___EOL_ENCODING_CRLF    (3<<7)
+
+#define ___BUFFERING(x)      ((x)&(3<<9))
+#define ___BUFFERING_MASK(x) ((x)&~(3<<9))
+#define ___NO_BUFFERING      (1<<9)
+#define ___LINE_BUFFERING    (2<<9)
+#define ___FULL_BUFFERING    (3<<9)
+#define ___FULLY_BUFFERED(x)  (___BUFFERING(x)>=___FULL_BUFFERING)
+
+#define ___DECODE_STATE(x)      ((x)&(3<<11))
+#define ___DECODE_STATE_MASK(x) ((x)&~(3<<11))
+#define ___DECODE_STATE_NONE    (0<<11)
+#define ___DECODE_STATE_LF      (1<<11)
+#define ___DECODE_STATE_CR      (2<<11)
+
+#define ___TERMINAL_LINE_EDITING(x)      ((x)&(3<<16))
+#define ___TERMINAL_LINE_EDITING_MASK(x) ((x)&~(3<<16))
+#define ___TERMINAL_LINE_EDITING_ON      (1<<16)
+#define ___TERMINAL_LINE_EDITING_OFF     (2<<16)
+
+#ifndef ___INCLUDED_FROM_C_INTF
+___IMP_FUNC(___S64,___S64_from_SM32_fn)
+   ___P((___SM32 val),
+        ());
+___IMP_FUNC(___S64,___S64_from_SM32_UM32_fn)
+   ___P((___SM32 hi32,
+         ___UM32 lo32),
+        ());
+___IMP_FUNC(___S64,___S64_from_LONGLONG_fn)
+   ___P((___LONGLONG val),
+        ());
+___IMP_FUNC(___LONGLONG,___S64_to_LONGLONG_fn)
+   ___P((___S64 val),
+        ());
+___IMP_FUNC(___BOOL,___S64_fits_in_width_fn)
+   ___P((___S64 val,
+         int width),
+        ());
+___IMP_FUNC(___U64,___U64_from_UM32_fn)
+   ___P((___UM32 val),
+        ());
+___IMP_FUNC(___U64,___U64_from_UM32_UM32_fn)
+   ___P((___UM32 hi32,
+         ___UM32 lo32),
+        ());
+___IMP_FUNC(___U64,___U64_from_ULONGLONG_fn)
+   ___P((___ULONGLONG val),
+        ());
+___IMP_FUNC(___ULONGLONG,___U64_to_ULONGLONG_fn)
+   ___P((___U64 val),
+        ());
+___IMP_FUNC(___BOOL,___U64_fits_in_width_fn)
+   ___P((___U64 val,
+         int width),
+        ());
+___IMP_FUNC(___U64,___U64_mul_UM32_UM32_fn)
+   ___P((___UM32 x,
+         ___UM32 y),
+        ());
+___IMP_FUNC(___U64,___U64_add_U64_U64_fn)
+   ___P((___U64 x,
+         ___U64 y),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_S8)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___S8 *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_U8)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___U8 *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_S16)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___S16 *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_U16)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___U16 *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_S32)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___S32 *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_U32)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___U32 *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_S64)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___S64 *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_U64)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___U64 *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_F32)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___F32 *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_F64)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___F64 *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_CHAR)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         char *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_SCHAR)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___SCHAR *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_UCHAR)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         unsigned char *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_ISO_8859_1)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___ISO_8859_1 *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_UCS_2)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___UCS_2 *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_UCS_4)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___UCS_4 *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_WCHAR)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___WCHAR *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_SIZE_T)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___SIZE_T *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_SSIZE_T)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___SSIZE_T *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_PTRDIFF_T)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___PTRDIFF_T *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_SHORT)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         short *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_USHORT)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         unsigned short *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_INT)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         int *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_UINT)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         unsigned int *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_LONG)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         long *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_ULONG)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         unsigned long *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_LONGLONG)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___LONGLONG *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_ULONGLONG)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___ULONGLONG *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_FLOAT)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         float *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_DOUBLE)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         double *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_STRUCT)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         void **x,
+         ___SCMOBJ tags,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_UNION)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         void **x,
+         ___SCMOBJ tags,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_TYPE)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         void **x,
+         ___SCMOBJ tags,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_POINTER)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         void **x,
+         ___SCMOBJ tags,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_NONNULLPOINTER)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         void **x,
+         ___SCMOBJ tags,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_FUNCTION)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         void *converter,
+         void **x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_NONNULLFUNCTION)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         void *converter,
+         void **x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_BOOL)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___BOOL *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_STRING)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         void **x,
+         int arg_num,
+         int char_encoding,
+         int fudge),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_NONNULLSTRING)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         void **x,
+         int arg_num,
+         int char_encoding,
+         int fudge),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_NONNULLSTRINGLIST)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         void **x,
+         int arg_num,
+         int char_encoding),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_CHARSTRING)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         char **x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_NONNULLCHARSTRING)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         char **x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_NONNULLCHARSTRINGLIST)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         char ***x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_ISO_8859_1STRING)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___ISO_8859_1STRING *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_NONNULLISO_8859_1STRING)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___ISO_8859_1STRING *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_NONNULLISO_8859_1STRINGLIST)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___ISO_8859_1STRING **x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_UTF_8STRING)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___UTF_8STRING *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_NONNULLUTF_8STRING)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___UTF_8STRING *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_NONNULLUTF_8STRINGLIST)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___UTF_8STRING **x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_UTF_16STRING)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___UTF_16STRING *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_NONNULLUTF_16STRING)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___UTF_16STRING *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_NONNULLUTF_16STRINGLIST)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___UTF_16STRING **x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_UCS_2STRING)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___UCS_2STRING *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_NONNULLUCS_2STRING)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___UCS_2STRING *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_NONNULLUCS_2STRINGLIST)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___UCS_2STRING **x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_UCS_4STRING)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___UCS_4STRING *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_NONNULLUCS_4STRING)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___UCS_4STRING *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_NONNULLUCS_4STRINGLIST)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___UCS_4STRING **x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_WCHARSTRING)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___WCHARSTRING *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_NONNULLWCHARSTRING)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___WCHARSTRING *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_NONNULLWCHARSTRINGLIST)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___WCHARSTRING **x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_VARIANT)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___VARIANT *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___release_foreign)
+   ___P((___SCMOBJ obj),
+        ());
+___IMP_FUNC(___SCMOBJ,___release_pointer)
+   ___P((void *x),
+        ());
+___IMP_FUNC(___SCMOBJ,___release_function)
+   ___P((void *x),
+        ());
+___IMP_FUNC(void,___addref_function)
+   ___P((void *x),
+        ());
+___IMP_FUNC(void,___release_string)
+   ___P((void *x),
+        ());
+___IMP_FUNC(void,___addref_string)
+   ___P((void *x),
+        ());
+___IMP_FUNC(void,___release_string_list)
+   ___P((void *x),
+        ());
+___IMP_FUNC(void,___addref_string_list)
+   ___P((void *x),
+        ());
+___IMP_FUNC(void,___release_variant)
+   ___P((___VARIANT x),
+        ());
+___IMP_FUNC(void,___addref_variant)
+   ___P((___VARIANT x),
+        ());
+___IMP_FUNC(___SCMOBJ,___S8_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___S8 x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___U8_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___U8 x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___S16_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___S16 x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___U16_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___U16 x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___S32_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___S32 x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___U32_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___U32 x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___S64_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___S64 x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___U64_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___U64 x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___F32_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___F32 x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___F64_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___F64 x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___CHAR_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         char x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCHAR_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___SCHAR x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___UCHAR_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         unsigned char x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___ISO_8859_1_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___ISO_8859_1 x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___UCS_2_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___UCS_2 x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___UCS_4_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___UCS_4 x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___WCHAR_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___WCHAR x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SIZE_T_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___SIZE_T x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SSIZE_T_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___SSIZE_T x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___PTRDIFF_T_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___PTRDIFF_T x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SHORT_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         short x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___USHORT_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         unsigned short x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___INT_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         int x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___UINT_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         unsigned int x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___LONG_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         long x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___ULONG_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         unsigned long x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___LONGLONG_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___LONGLONG x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___ULONGLONG_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___ULONGLONG x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___FLOAT_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         float x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___DOUBLE_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         double x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___STRUCT_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         void *x,
+         ___SCMOBJ tags,
+         ___SCMOBJ (*release_fn) ___P((void *ptr),()),
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___UNION_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         void *x,
+         ___SCMOBJ tags,
+         ___SCMOBJ (*release_fn) ___P((void *ptr),()),
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___TYPE_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         void *x,
+         ___SCMOBJ tags,
+         ___SCMOBJ (*release_fn) ___P((void *ptr),()),
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___POINTER_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         void *x,
+         ___SCMOBJ tags,
+         ___SCMOBJ (*release_fn) ___P((void *ptr),()),
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___NONNULLPOINTER_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         void *x,
+         ___SCMOBJ tags,
+         ___SCMOBJ (*release_fn) ___P((void *ptr),()),
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___FUNCTION_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         void *x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___NONNULLFUNCTION_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         void *x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___BOOL_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___BOOL x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___STRING_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         void *x,
+         ___SCMOBJ *obj,
+         int arg_num,
+         int char_encoding),
+        ());
+___IMP_FUNC(___SCMOBJ,___NONNULLSTRING_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         void *x,
+         ___SCMOBJ *obj,
+         int arg_num,
+         int char_encoding),
+        ());
+___IMP_FUNC(___SCMOBJ,___NONNULLSTRINGLIST_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         void *x,
+         ___SCMOBJ *obj,
+         int arg_num,
+         int char_encoding),
+        ());
+___IMP_FUNC(___SCMOBJ,___CHARSTRING_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         char *x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___NONNULLCHARSTRING_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         char *x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___NONNULLCHARSTRINGLIST_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         char **x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___ISO_8859_1STRING_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___ISO_8859_1STRING x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___NONNULLISO_8859_1STRING_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___ISO_8859_1STRING x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___NONNULLISO_8859_1STRINGLIST_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___ISO_8859_1STRING *x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___UTF_8STRING_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___UTF_8STRING x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___NONNULLUTF_8STRING_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___UTF_8STRING x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___NONNULLUTF_8STRINGLIST_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___UTF_8STRING *x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___UTF_16STRING_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___UTF_16STRING x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___NONNULLUTF_16STRING_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___UTF_16STRING x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___NONNULLUTF_16STRINGLIST_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___UTF_16STRING *x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___UCS_2STRING_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___UCS_2STRING x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___NONNULLUCS_2STRING_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___UCS_2STRING x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___NONNULLUCS_2STRINGLIST_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___UCS_2STRING *x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___UCS_4STRING_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___UCS_4STRING x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___NONNULLUCS_4STRING_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___UCS_4STRING x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___NONNULLUCS_4STRINGLIST_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___UCS_4STRING *x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___WCHARSTRING_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___WCHARSTRING x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___NONNULLWCHARSTRING_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___WCHARSTRING x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___NONNULLWCHARSTRINGLIST_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___WCHARSTRING *x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___VARIANT_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___VARIANT x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___STRING_to_UCS_2STRING)
+   ___P((char *str_char,
+         ___UCS_2STRING *str_UCS_2,
+         int char_encoding),
+        ());
+___IMP_FUNC(void,___free_UCS_2STRING)
+   ___P((___UCS_2STRING str_UCS_2),
+        ());
+___IMP_FUNC(___SCMOBJ,___NONNULLSTRINGLIST_to_NONNULLUCS_2STRINGLIST)
+   ___P((char **str_list_char,
+         ___UCS_2STRING **str_list_UCS_2,
+         int char_encoding),
+        ());
+___IMP_FUNC(void,___free_NONNULLUCS_2STRINGLIST)
+   ___P((___UCS_2STRING *str_list_UCS_2),
+        ());
+___IMP_FUNC(___SCMOBJ,___make_sfun_stack_marker)
+   ___P((___processor_state ___ps,
+         ___SCMOBJ *marker,
+         ___SCMOBJ proc_or_false),
+        ());
+___IMP_FUNC(void,___kill_sfun_stack_marker)
+   ___P((___SCMOBJ marker),
+        ());
+___IMP_FUNC(void,___store_global)
+   ___P((___processor_state ps,
+         ___glo_struct *global,
+         ___SCMOBJ val),
+        ());
+___IMP_FUNC(___SCMOBJ*,___global_cell)
+   ___P((___virtual_machine_state vm, int identity), ());
+___IMP_FUNC(___SCMOBJ,___primitive_ref)
+   ___P((___processor_state ps, ___glo_struct *global), ());
+___IMP_FUNC(void,___store_primitive)
+   ___P((___processor_state ps, ___glo_struct *global, ___SCMOBJ val), ());
+___IMP_FUNC(void,___bind_primitive)
+   ___P((___processor_state ps, ___glo_struct *global, ___SCMOBJ code), ());
+#endif
+
+#ifndef ___INCLUDED_FROM_MEM
+___IMP_FUNC(void*,___alloc_rc_no_register)
+   ___P((___SIZE_T bytes),
+        ());
+___IMP_FUNC(void*,___register_rc)
+   ___P((___PSD
+         void *ptr),
+        ());
+___IMP_FUNC(void*,___alloc_rc)
+   ___P((___PSD
+         ___SIZE_T bytes),
+        ());
+___IMP_FUNC(void,___release_rc)
+   ___P((void *ptr),
+        ());
+___IMP_FUNC(void,___addref_rc)
+   ___P((void *ptr),
+        ());
+___IMP_FUNC(___WORD,___refcount_rc)
+   ___P((void *ptr),
+        ());
+___IMP_FUNC(___SCMOBJ,___data_rc)
+   ___P((void *ptr),
+        ());
+___IMP_FUNC(void,___set_data_rc)
+   ___P((void *ptr,
+         ___SCMOBJ val),
+        ());
+___IMP_FUNC(___SCMOBJ,___alloc_scmobj)
+   ___P((___processor_state ___ps,
+         int subtype,
+         ___SIZE_TS bytes),
+        ());
+___IMP_FUNC(___SCMOBJ,___release_scmobj)
+   ___P((___SCMOBJ obj),
+        ());
+___IMP_FUNC(___SCMOBJ,___make_pair)
+   ___P((___processor_state ___ps,
+         ___SCMOBJ car,
+         ___SCMOBJ cdr),
+        ());
+___IMP_FUNC(___SCMOBJ,___make_vector)
+   ___P((___processor_state ___ps,
+         ___SIZE_TS length,
+         ___SCMOBJ init),
+        ());
+___IMP_FUNC(void,___still_obj_refcount_inc)
+   ___P((___SCMOBJ obj),
+        ());
+___IMP_FUNC(void,___still_obj_refcount_dec)
+   ___P((___SCMOBJ obj),
+        ());
+___IMP_FUNC(___WORD,___still_obj_refcount)
+   ___P((___SCMOBJ obj),
+        ());
+___IMP_FUNC(___SCMOBJ,___gc_hash_table_ref)
+   ___P((___SCMOBJ ht,
+         ___SCMOBJ key),
+        ());
+___IMP_FUNC(___SCMOBJ,___gc_hash_table_set)
+   ___P((___SCMOBJ ht,
+         ___SCMOBJ key,
+         ___SCMOBJ val),
+        ());
+___IMP_FUNC(___SCMOBJ,___gc_hash_table_union_find)
+   ___P((___SCMOBJ ht,
+         ___SCMOBJ key1,
+         ___SCMOBJ key2,
+         ___BOOL find),
+        ());
+___IMP_FUNC(___SCMOBJ,___gc_hash_table_rehash)
+   ___P((___SCMOBJ ht_src,
+         ___SCMOBJ ht_dst),
+        ());
+#endif
+
+#ifndef ___INCLUDED_FROM_SETUP
+___GSTATEDECL
+#ifdef ___USE_C_RTS_CHAR_OPERATIONS
+___IMP_FUNC(___BOOL,___iswalpha)
+   ___P((___UCS_4 x),
+        ());
+___IMP_FUNC(___BOOL,___iswdigit)
+   ___P((___UCS_4 x),
+        ());
+___IMP_FUNC(___BOOL,___iswspace)
+   ___P((___UCS_4 x),
+        ());
+___IMP_FUNC(___BOOL,___iswupper)
+   ___P((___UCS_4 x),
+        ());
+___IMP_FUNC(___BOOL,___iswlower)
+   ___P((___UCS_4 x),
+        ());
+___IMP_FUNC(___UCS_4,___towupper)
+   ___P((___UCS_4 x),
+        ());
+___IMP_FUNC(___UCS_4,___towlower)
+   ___P((___UCS_4 x),
+        ());
+___IMP_FUNC(___SCMOBJ,___string_collate)
+   ___P((___SCMOBJ s1,
+         ___SCMOBJ s2),
+        ());
+___IMP_FUNC(___SCMOBJ,___string_collate_ci)
+   ___P((___SCMOBJ s1,
+         ___SCMOBJ s2),
+        ());
+#endif
+___IMP_FUNC(double,___copysign)
+   ___P((double x,
+         double y),
+        ());
+___IMP_FUNC(___BOOL,___isfinite)
+   ___P((double x),
+        ());
+___IMP_FUNC(___BOOL,___isinf)
+   ___P((double x),
+        ());
+___IMP_FUNC(___BOOL,___isnan)
+   ___P((double x),
+        ());
+___IMP_FUNC(double,___trunc)
+   ___P((double x),
+        ());
+___IMP_FUNC(double,___round)
+   ___P((double x),
+        ());
+#ifdef ___DEFINE_SCALBN
+___IMP_FUNC(double,___scalbn)
+   ___P((double x,
+         int n),
+        ());
+#endif
+#ifdef ___DEFINE_ILOGB
+___IMP_FUNC(int,___ilogb)
+   ___P((double x),
+        ());
+#endif
+#ifdef ___DEFINE_EXPM1
+___IMP_FUNC(double,___expm1)
+   ___P((double x),
+        ());
+#endif
+#ifdef ___DEFINE_LOG1P
+___IMP_FUNC(double,___log1p)
+   ___P((double x),
+        ());
+#endif
+#ifdef ___DEFINE_SINH
+___IMP_FUNC(double,___sinh)
+   ___P((double x),
+        ());
+#endif
+#ifdef ___DEFINE_COSH
+___IMP_FUNC(double,___cosh)
+   ___P((double x),
+        ());
+#endif
+#ifdef ___DEFINE_TANH
+___IMP_FUNC(double,___tanh)
+   ___P((double x),
+        ());
+#endif
+#ifdef ___DEFINE_ASINH
+___IMP_FUNC(double,___asinh)
+   ___P((double x),
+        ());
+#endif
+#ifdef ___DEFINE_ACOSH
+___IMP_FUNC(double,___acosh)
+   ___P((double x),
+        ());
+#endif
+#ifdef ___DEFINE_ATANH
+___IMP_FUNC(double,___atanh)
+   ___P((double x),
+        ());
+#endif
+#ifdef ___DEFINE_ATAN2
+___IMP_FUNC(double,___atan2)
+   ___P((double y,
+         double x),
+        ());
+#endif
+#ifdef ___DEFINE_POW
+___IMP_FUNC(double,___pow)
+   ___P((double x,
+         double y),
+        ());
+#endif
+#ifdef ___DEFINE_HYPOT
+___IMP_FUNC(double,___hypot)
+   ___P((double x,
+         double y),
+        ());
+#endif
+___IMP_FUNC(___SCMOBJ,___F64_to_STRING)
+   ___P((___PSD
+         double x),
+        ());
+___IMP_FUNC(void,___setup_params_reset)
+   ___P((___setup_params_struct *setup_params),
+        ());
+___IMP_FUNC(___SCMOBJ,___setup)
+   ___P((___setup_params_struct *setup_params),
+        ());
+___IMP_FUNC(___BOOL,___cleanup) ___PVOID;
+___IMP_FUNC(void,___cleanup_and_exit_process)
+   ___P((int status),
+        ());
+___IMP_FUNC(___SCMOBJ,___current_vm_resize)
+   ___P((___PSD
+         ___SCMOBJ thunk,
+         int target_processor_count),
+        ());
+___IMP_FUNC(___BOOL,___garbage_collect)
+   ___P((___PSD
+         ___SIZE_TS requested_words_still),
+        ());
+___IMP_FUNC(___SCMOBJ,___setup_vmstate)
+   ___P((___virtual_machine_state ___vms),
+        ());
+___IMP_FUNC(___BOOL,___cleanup_vmstate)
+   ___P((___virtual_machine_state ___vms),
+        ());
+___IMP_FUNC(___SCMOBJ,___setup_pstate)
+   ___P((___processor_state ___ps,
+         ___virtual_machine_state ___vms),
+        ());
+___IMP_FUNC(___BOOL,___cleanup_pstate)
+   ___P((___processor_state ___ps),
+        ());
+___IMP_FUNC(___SIZE_T,___get_min_heap) ___PVOID;
+___IMP_FUNC(void,___set_min_heap)
+   ___P((___SIZE_T bytes),
+        ());
+___IMP_FUNC(___SIZE_T,___get_max_heap) ___PVOID;
+___IMP_FUNC(void,___set_max_heap)
+   ___P((___SIZE_T bytes),
+        ());
+___IMP_FUNC(int,___get_live_percent) ___PVOID;
+___IMP_FUNC(void,___set_live_percent)
+   ___P((int percent),
+        ());
+___IMP_FUNC(int,___get_parallelism_level) ___PVOID;
+___IMP_FUNC(void,___set_parallelism_level)
+   ___P((int level),
+        ());
+___IMP_FUNC(int,___get_standard_level) ___PVOID;
+___IMP_FUNC(void,___set_standard_level)
+   ___P((int level),
+        ());
+___IMP_FUNC(int,___get_debug_settings) ___PVOID;
+___IMP_FUNC(int,___set_debug_settings)
+   ___P((int mask,
+         int new_settings),
+        ());
+___IMP_FUNC(int,___get_io_settings)
+   ___P((int index),
+        ());
+___IMP_FUNC(void,___set_io_settings)
+   ___P((int index,
+         int settings),
+        ());
+___IMP_FUNC(___UCS_2STRING,___get_gambitdir) ___PVOID;
+___IMP_FUNC(void,___set_gambitdir)
+   ___P((___UCS_2STRING gambitdir),
+        ());
+___IMP_FUNC(___UCS_2STRING*,___get_gambitdir_map) ___PVOID;
+___IMP_FUNC(void,___set_gambitdir_map)
+   ___P((___UCS_2STRING *gambitdir_map),
+        ());
+___IMP_FUNC(___UCS_2STRING*,___get_module_search_order) ___PVOID;
+___IMP_FUNC(void,___set_module_search_order)
+   ___P((___UCS_2STRING *module_search_order),
+        ());
+___IMP_FUNC(___UCS_2STRING*,___get_module_whitelist) ___PVOID;
+___IMP_FUNC(void,___set_module_whitelist)
+   ___P((___UCS_2STRING *module_whitelist),
+        ());
+___IMP_FUNC(int,___get_module_install_mode) ___PVOID;
+___IMP_FUNC(void,___set_module_install_mode)
+   ___P((int module_install_mode),
+        ());
+___IMP_FUNC(___UCS_2STRING,___get_repl_client_addr) ___PVOID;
+___IMP_FUNC(void,___set_repl_client_addr)
+   ___P((___UCS_2STRING repl_client_addr),
+        ());
+___IMP_FUNC(___UCS_2STRING,___get_repl_server_addr) ___PVOID;
+___IMP_FUNC(void,___set_repl_server_addr)
+   ___P((___UCS_2STRING repl_server_addr),
+        ());
+
+___IMP_FUNC(___program_startup_info_struct*,___get_program_startup_info)
+   ___PVOID;
+___IMP_FUNC(___SCMOBJ,___call)
+   ___P((___PSD
+         ___WORD nargs,
+         ___SCMOBJ proc,
+         ___SCMOBJ marker),
+        ());
+___IMP_FUNC(___SCMOBJ,___run)
+   ___P((___PSD
+         ___SCMOBJ thunk),
+        ());
+#ifdef ___USE_UNWIND_C_STACK_TO_TRAMPOLINE
+___IMP_FUNC(void,___unwind_c_stack_to_trampoline)
+   ___P((___PSDNC),
+        ());
+#endif
+#ifdef ___SUPPORT_LOWLEVEL_EXEC
+___IMP_FUNC(void,___lowlevel_exec)
+   ___P((___processor_state ___ps),
+        ());
+#endif
+___IMP_FUNC(___SCMOBJ,___machine_code_block_fixup)
+   ___P((___processor_state ___ps,
+         void *mcb,
+         ___SCMOBJ fixup_locs,
+         ___SCMOBJ fixup_objs),
+        ());
+___IMP_FUNC(void,___throw_error)
+   ___P((___PSD
+         ___SCMOBJ err),
+        ());
+___IMP_FUNC(void,___propagate_error)
+   ___P((___PSD
+         ___SCMOBJ err),
+        ());
+#ifdef ___DEBUG_HOST_CHANGES
+___IMP_FUNC(void,___register_host_entry)
+   ___P((___PSD
+         ___WORD start,
+         char *module_name,
+         char *file,
+         int line),
+        ());
+#endif
+#ifdef ___ACTIVITY_LOG
+___IMP_FUNC(void,___actlog_add_pstate)
+   ___P((___processor_state ___ps,
+         ___U16 *type,
+         char *name,
+         ___U32 color),
+        ());
+___IMP_FUNC(void,___actlog_begin_pstate)
+   ___P((___processor_state ___ps,
+         ___U16 *type,
+         char *name,
+         ___U32 color),
+        ());
+___IMP_FUNC(void,___actlog_end_pstate)
+   ___P((___processor_state ___ps),
+        ());
+___IMP_FUNC(void,___actlog_start)
+   ___P((___processor_state ___ps),
+        ());
+___IMP_FUNC(void,___actlog_stop)
+   ___P((___processor_state ___ps),
+        ());
+___IMP_FUNC(void,___actlog_dump)
+   ___P((___virtual_machine_state ___vms,
+         char *filename),
+        ());
+#endif
+___IMP_FUNC(void,___raise_high_level_interrupt_pstate)
+   ___P((___processor_state ___ps,
+         ___SCMOBJ intr),
+        ());
+___IMP_FUNC(___SCMOBJ,___get_next_high_level_interrupt_pstate)
+   ___P((___processor_state ___ps),
+        ());
+___IMP_FUNC(void,___init_procedural_interrupt)
+   ___P((void *intr,
+         ___SCMOBJ (*execute_fn) ___P((void *self, ___SCMOBJ op),())),
+        ());
+___IMP_FUNC(void,___raise_procedural_interrupt_pstate)
+   ___P((___processor_state ___ps,
+         void *intr),
+        ());
+___IMP_FUNC(void,___raise_interrupt_pstate)
+   ___P((___processor_state ___ps,
+         int code),
+        ());
+___IMP_FUNC(void,___raise_interrupt_vmstate)
+   ___P((___virtual_machine_state ___vms,
+         int code),
+        ());
+___IMP_FUNC(void,___raise_interrupt)
+   ___P((int code),
+        ());
+___IMP_FUNC(___SCMOBJ,___service_interrupts_pstate)
+   ___P((___processor_state ___ps),
+        ());
+___IMP_FUNC(void,___refresh_interrupts_pstate)
+   ___P((___processor_state ___ps),
+        ());
+___IMP_FUNC(void,___disable_interrupts_pstate)
+   ___P((___processor_state ___ps),
+        ());
+___IMP_FUNC(void,___enable_interrupts_pstate)
+   ___P((___processor_state ___ps),
+        ());
+#endif
+
+#ifndef ___INCLUDED_FROM_OS_SETUP
+___IMP_FUNC(void,___mask_all_interrupts_begin)
+   ___P((___mask_all_interrupts_state *state),
+        ());
+___IMP_FUNC(void,___mask_all_interrupts_end)
+   ___P((___mask_all_interrupts_state *state),
+        ());
+#endif
+
+#ifndef ___INCLUDED_FROM_OS_TTY
+___IMP_FUNC(void,___mask_user_interrupts_begin)
+   ___P((___mask_user_interrupts_state *state),
+        ());
+___IMP_FUNC(void,___mask_user_interrupts_end)
+   ___P((___mask_user_interrupts_state *state),
+        ());
+#endif
+
+#ifndef ___INCLUDED_FROM_OS_TIME
+___IMP_FUNC(void,___mask_heartbeat_interrupts_begin)
+   ___P((___mask_heartbeat_interrupts_state *state),
+        ());
+___IMP_FUNC(void,___mask_heartbeat_interrupts_end)
+   ___P((___mask_heartbeat_interrupts_state *state),
+        ());
+#endif
+
+#ifndef ___INCLUDED_FROM_OS_IO
+___IMP_FUNC(void,___mask_child_interrupts_begin)
+   ___P((___mask_child_interrupts_state *state),
+        ());
+___IMP_FUNC(void,___mask_child_interrupts_end)
+   ___P((___mask_child_interrupts_state *state),
+        ());
+#endif
+
+#ifndef ___DEBUG_ALLOC_MEM
+#define ___ALLOC_MEM(bytes)___EXT(___alloc_mem) (bytes)
+#define ___FREE_MEM(ptr)___EXT(___free_mem) (ptr)
+#define ___ALLOC_MEM_HEAP(bytes)___EXT(___alloc_mem_heap) (bytes)
+#define ___FREE_MEM_HEAP(ptr)___EXT(___free_mem_heap) (ptr)
+#else
+#define ___ALLOC_MEM(bytes)___EXT(___alloc_mem) (bytes,__LINE__,__FILE__)
+#define ___FREE_MEM(ptr)___EXT(___free_mem) (ptr,__LINE__,__FILE__)
+#define ___ALLOC_MEM_HEAP(bytes)___EXT(___alloc_mem_heap) (bytes,__LINE__,__FILE__)
+#define ___FREE_MEM_HEAP(ptr)___EXT(___free_mem_heap) (ptr,__LINE__,__FILE__)
+#endif
+
+#ifndef ___INCLUDED_FROM_OS_BASE
+#ifndef ___DEBUG_ALLOC_MEM
+___IMP_FUNC(void *,___alloc_mem)
+   ___P((___SIZE_T bytes),
+        ());
+___IMP_FUNC(void,___free_mem)
+   ___P((void *ptr),
+        ());
+___IMP_FUNC(void *,___alloc_mem_heap)
+   ___P((___SIZE_T bytes),
+        ());
+___IMP_FUNC(void,___free_mem_heap)
+   ___P((void *ptr),
+        ());
+#else
+___IMP_FUNC(void *,___alloc_mem)
+   ___P((___SIZE_T bytes,
+         int lineno,
+         char *file),
+        ());
+___IMP_FUNC(void,___free_mem)
+   ___P((void *ptr,
+         int lineno,
+         char *file),
+        ());
+___IMP_FUNC(void *,___alloc_mem_heap)
+   ___P((___SIZE_T bytes,
+         int lineno,
+         char *file),
+        ());
+___IMP_FUNC(void,___free_mem_heap)
+   ___P((void *ptr,
+         int lineno,
+         char *file),
+        ());
+#endif
+___IMP_FUNC(void *,___alloc_mem_code)
+   ___P((___SIZE_T bytes),
+        ());
+___IMP_FUNC(void,___free_mem_code)
+   ___P((void *ptr),
+        ());
+___IMP_FUNC(void,___make_executable_mem_code)
+   ___P((void *ptr),
+        ());
+#endif
+
+#ifndef ___INCLUDED_FROM_OS_THREAD
+___IMP_FUNC(___SCMOBJ,___thread_init_from_self)
+   ___P((___thread *thread),
+        ());
+___IMP_FUNC(___SCMOBJ,___thread_create)
+   ___P((___thread *thread),
+        ());
+___IMP_FUNC(___SCMOBJ,___thread_join)
+   ___P((___thread *thread),
+        ());
+___IMP_FUNC(void,___thread_exit) ___PVOID;
+#ifdef ___USE_emulated_sync
+___IMP_FUNC(___WORD,___emulated_compare_and_swap_word)
+   ___P((___VOLATILE ___WORD *ptr,
+         ___WORD oldval,
+         ___WORD newval),
+        ());
+___IMP_FUNC(___WORD,___emulated_fetch_and_add_word)
+   ___P((___VOLATILE ___WORD *ptr,
+         ___WORD val),
+        ());
+___IMP_FUNC(___WORD,___emulated_fetch_and_clear_word)
+   ___P((___VOLATILE ___WORD *ptr),
+        ());
+___IMP_FUNC(void,___emulated_shared_memory_barrier) ___PVOID;
+#endif
+#ifdef ___DEFINE_THREAD_LOCAL_STORAGE_GETTER_SETTER
+___IMP_FUNC(void *,___get_tls_ptr) ___PVOID;
+___IMP_FUNC(void,___set_tls_ptr)
+   ___P((void *ptr),
+        ());
+#endif
+#endif
