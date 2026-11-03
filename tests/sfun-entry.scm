@@ -47,6 +47,49 @@ extern void *sfun_entry_self_root;
 c-end
 )
 (define callback-body #f)
+(define root-store-check
+ (c-lambda (scheme-object) bool #<<c-end
+{
+  void *scope=0;
+  ___SCMOBJ proc=___MLBL(___C_LBL_sfun_entry_zero);
+  ___SCMOBJ status=___begin_sfun(___ps,2,proc,&scope);
+  ___result=0;
+  if(status==___FIX(___NO_ERR)) {
+    ___activation_record *record=___CAST(___activation_record*,scope);
+    void *bank=record->roots;
+    ___rc_domain *d=___ps->mem.rc_domain_;
+    const ___SCMOBJ *extra;
+    int ok=___sfun_arg(___ps,scope,1,___arg1)==___FIX(___NO_ERR);
+    ok=ok && ___try_set_data_rc(___ps,bank,proc) &&
+       !___try_set_data_rc(___ps,bank,___FAL) &&
+       !___store_rc_root(___ps,bank,3,___arg1) &&
+       !___store_rc_root(0,bank,1,___arg1);
+    extra=___borrow_rc_root(___ps,bank);
+    ok=ok && extra && !___store_rc_root(___ps,bank,2,___arg1);
+    if(extra)___return_rc_root(bank);
+    /* A source pointer alone does not prove current source ownership. This
+     * confined inconsistent-owner control neither polls nor allocates. */
+    ___RC_LOCK(d);d->owner=0;___RC_UNLOCK(d);
+    extra=___borrow_rc_root(___ps,bank);
+    ok=ok && !extra && !___store_rc_root(___ps,bank,2,___arg1);
+    if(extra)___return_rc_root(bank);
+    ___RC_LOCK(d);d->owner=___ps;___RC_UNLOCK(d);
+    /* Confined refusal control, not an independent GC phase. This registered
+     * cooperative owner does not poll/allocate while the phase is restored. */
+    ___RC_LOCK(d);d->phase=___RC_FROZEN;___RC_UNLOCK(d);
+    ok=ok && !___store_rc_root(___ps,bank,2,___arg1) &&
+       !___borrow_rc_root(___ps,bank);
+    ___RC_LOCK(d);d->phase=___RC_OPEN;___RC_UNLOCK(d);
+    ok=ok && ___store_rc_root(___ps,bank,2,___arg1) &&
+       ___CAST(___SCMOBJ*,bank)[0]==___arg1 &&
+       ___CAST(___SCMOBJ*,bank)[1]==___arg1;
+    ___end_sfun(___ps,scope);
+    ___result=ok;
+  }
+}
+c-end
+))
+
 (define conversion-failure? #f)
 (define caught-conversion? #f)
 (c-define (entry-zero) () int "sfun_entry_zero" "" (##gc) 1)
@@ -253,6 +296,8 @@ c-end
            (begin (write (list 'root-task-result 'mismatch at op 0)) (newline) (exit 71)))
        (loop (cdr xs) (+ at 1))))))
 (define (suite check-constructors?)
+ (if (not (root-store-check (vector 2071))) (error "RC writer/borrow authority"))
+ (display "RC-WRITER-PASS primary span owner borrow frozen\n")
  (if check-constructors? (constructors))
  (let ((seed 2027) (actions 0))
   (define (next n) (set! seed (modulo (+ (* seed 48271) 17) 2147483647)) (modulo seed n))
@@ -289,6 +334,8 @@ c-end
         (let ((worker (make-thread
                        (lambda ()
                         (if (not (= (##current-processor-id) 1)) (error "nonzero owner not acquired"))
+                        (if (not (root-store-check (vector 2077))) (error "nonzero RC writer authority"))
+                        (display "RC-WRITER-NONZERO-PASS\n")
                         (replay-entry '(#(0 0) #(1 0) #(2 2) #(3 0) #(4 0) #(5 0) #(6 0) #(7 0)) 0)))))
          (##thread-pin! worker (##processor 1))
          (thread-start! worker) (thread-join! worker)))

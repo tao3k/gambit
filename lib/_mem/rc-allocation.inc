@@ -268,22 +268,34 @@ ___EXP_FUNC(___SCMOBJ,___data_rc)
   return value; /* Snapshot only: a stable root borrow must span allocating calls. */
 }
 
-___BOOL ___try_set_data_rc(___processor_state ps, void *ptr, ___SCMOBJ value)
+/* One source gate owns mutator writes to the primary cell and typed payload.
+ * Primary borrows preserve logical identity. A generated argument span has
+ * one activation borrow, whose owner fills its cells between safe points. */
+___BOOL ___store_rc_root(___processor_state ps, void *ptr,
+                        ___SIZE_T index, ___SCMOBJ value)
 {
   ___rc_header *h;
   ___rc_domain *d;
+  ___SCMOBJ *cell;
   if (ptr == 0 || ps == 0 || ps != ___PSTATE) return 0;
   h=___CAST(___rc_header*,ptr)-1; d=h->domain;
   if (d == 0 || d != ps->mem.rc_domain_) return 0;
   ___RC_LOCK(d);
-  if (d->owner != ps || d->joined_round != 0 || d->phase != ___RC_OPEN || h->refcount <= 0 ||
-      (h->root_borrows != 0 && h->data != value))
+  if (!root_writer_open(ps) || h->refcount <= 0 || index > h->root_count ||
+      (index == 0 ? (h->root_borrows != 0 && h->data != value)
+                  : h->root_borrows != 1))
     { ___RC_UNLOCK(d); return 0; }
   /* A borrowed cell may be relocated by the collector, not rebound by a
    * mutator. An idempotent admission performs no racing same-value store. */
-  if (h->data != value) h->data=value;
+  cell=index==0 ? &h->data : ___CAST(___SCMOBJ*,ptr)+index-1;
+  if (*cell != value) *cell=value;
   ___RC_UNLOCK(d);
   return 1;
+}
+
+___BOOL ___try_set_data_rc(___processor_state ps, void *ptr, ___SCMOBJ value)
+{
+  return ___store_rc_root(ps,ptr,0,value);
 }
 
 ___EXP_FUNC(void,___set_data_rc)
@@ -301,7 +313,7 @@ const ___SCMOBJ *___borrow_rc_root(___processor_state ps, void *ptr)
   h=___CAST(___rc_header*,ptr)-1; d=h->domain;
   if (d == 0 || d != ps->mem.rc_domain_) return 0;
   ___RC_LOCK(d);
-  if (d->joined_round != 0 || d->phase != ___RC_OPEN || h->refcount <= 0 ||
+  if (!root_writer_open(ps) || h->refcount <= 0 ||
       d->borrows == ~___CAST(___SIZE_T,0) || h->root_borrows == ___MAX_FIX)
     { ___RC_UNLOCK(d); return 0; }
   ++h->root_borrows; ++d->borrows;

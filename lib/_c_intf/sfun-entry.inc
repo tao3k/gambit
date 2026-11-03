@@ -46,20 +46,10 @@ ___EXP_FUNC(___SCMOBJ,___sfun_arg)
          ___SCMOBJ value), ())
 {
   ___activation_record *record=___CAST(___activation_record*,scope);
-  ___rc_header *h;
-  ___rc_domain *d;
-  if (!record || record->owner!=ps || ps!=___PSTATE || !record->roots)
+  if (!record || record->owner!=ps || !record->roots || index<1)
     return ___FIX(___UNKNOWN_ERR);
-  h=___CAST(___rc_header*,record->roots)-1;d=h->domain;
-  ___RC_LOCK(d);
-  if (d!=ps->mem.rc_domain_ || d->owner!=ps || d->phase!=___RC_OPEN ||
-      d->joined_round || h->root_borrows!=1 || index<1 ||
-      ___CAST(___SIZE_T,index)>h->root_count) {
-    ___RC_UNLOCK(d);return ___FIX(___UNKNOWN_ERR);
-  }
-  ___CAST(___SCMOBJ*,record->roots)[index-1]=value;
-  ___RC_UNLOCK(d);
-  return ___FIX(___NO_ERR);
+  return ___FIX(___store_rc_root(ps,record->roots,___CAST(___SIZE_T,index),value)
+               ? ___NO_ERR : ___UNKNOWN_ERR);
 }
 
 ___EXP_FUNC(___SCMOBJ,___sfun_marker)
