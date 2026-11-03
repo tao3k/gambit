@@ -68,7 +68,7 @@ ___BOOL ___rc_prepare_cleanup(___processor_state ps)
   if (d == 0) return 1;
   ___RC_LOCK(d);
   ready = (d->phase == ___RC_OPEN || d->phase == ___RC_CLOSING) && rc_can_close(d);
-  if (ready) d->phase = ___RC_CLOSING;
+  if (ready) { ___binding_context_close(ps); d->phase = ___RC_CLOSING; }
   ___RC_UNLOCK(d);
   return ready;
 }
@@ -80,6 +80,7 @@ void ___rc_cancel_cleanup(___processor_state ps)
   ___RC_LOCK(d);
   if (d->phase == ___RC_CLOSING) d->phase = ___RC_OPEN;
   ___RC_UNLOCK(d);
+  ___binding_context_admit(ps);
 }
 
 ___HIDDEN void cleanup_rc(___processor_state ps)
@@ -132,6 +133,7 @@ ___HIDDEN void reopen_rc_roots(___processor_state ps, ___UWORD epoch)
     { ___RC_UNLOCK(d); rc_contract_error("RC source cannot resume before task completion"); return; }
   d->phase = ___RC_OPEN;
   ___RC_UNLOCK(d);
+  if (round == 0) ___binding_context_admit(ps);
 }
 
 ___EXP_FUNC(void*,___alloc_rc_no_register)

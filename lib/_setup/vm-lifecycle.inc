@@ -17,9 +17,10 @@ static int lifecycle_close_context(___processor_state ps,int terminal)
     }
     life->activations[id]=0;
   }
-  if(old&1)return 1;
+  if(old&1){___binding_context_close(ps);return 1;}
   if(old!=0 && !terminal)return 0;
-  return ___lifecycle_cas(&life->entries[id],old,old|1)==old;
+  if(___lifecycle_cas(&life->entries[id],old,old|1)!=old)return 0;
+  ___binding_context_close(ps);return 1;
 }
 ___BOOL ___lifecycle_cleanup_pstate(___processor_state ps)
 {

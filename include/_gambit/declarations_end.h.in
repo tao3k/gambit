@@ -9,13 +9,10 @@
  * can use its existing word service; generated hosts require native atomics. */
 #if !defined(___SINGLE_VM) && (defined(___INCLUDED_FROM_MEM) || \
     (defined(___GLOCOUNT) && ___ORDERED_WORD_NATIVE))
-static ___global_slot_page *___global_page(___virtual_machine_state vm, int id)
+static ___global_slot_page *___global_page_at(___global_slot_directory *directory, int id)
 {
-  ___global_slot_directory *directory;
   ___SIZE_T key, position, probes;
-  if (vm==0 || vm->glos==0 || id<0) return 0;
-  directory=___CAST(___global_slot_directory*,___WORD_LOAD_ACQUIRE(&vm->glos->directory));
-  if (directory==0) return 0;
+  if (directory==0 || id<0) return 0;
   key=___CAST(___SIZE_T,id)/___WORD_WIDTH;
   position=key & (directory->capacity-1);
   for (probes=0;probes<directory->capacity;probes++) {
@@ -26,6 +23,13 @@ static ___global_slot_page *___global_page(___virtual_machine_state vm, int id)
   return 0;
 }
 
+static ___global_slot_page *___global_page(___virtual_machine_state vm, int id)
+{
+  if (vm==0 || vm->glos==0) return 0;
+  return ___global_page_at(___CAST(___global_slot_directory*,
+    ___WORD_LOAD_ACQUIRE(&vm->glos->directory)),id);
+}
+
 static ___SCMOBJ *___global_cell_address(___virtual_machine_state vm, int id)
 {
   ___global_slot_page *page=___global_page(vm,id);
@@ -34,4 +38,38 @@ static ___SCMOBJ *___global_cell_address(___virtual_machine_state vm, int id)
 #endif
 
 
+#endif
+/* Ordered-word capability is known only after synchronization declarations.
+ * Select the admitted generated-host accessors here, never at the earlier
+ * GVM macro declarations where an undefined feature would select legacy code. */
+#if defined(___MODULE_NAME) && ___ORDERED_WORD_NATIVE
+#undef ___PRM
+#undef ___GLO
+#define ___PRM(i,glo)(___binding_vm ? ___binding_primitive(___binding_vm,&___GLOSTRUCT(i,glo)) : ___EXT(___primitive_ref)(___ps,&___GLOSTRUCT(i,glo)))
+#define ___GLO(i,glo)(___binding_vm ? ___WORD_LOAD_ACQUIRE(___binding_global(___binding_vm,&___GLOSTRUCT(i,glo))) : ___WORD_LOAD_ACQUIRE(&___GLOCELL(___GLOSTRUCT(i,glo).val)))
+static ___SCMOBJ *___binding_global(___virtual_machine_state vm, ___glo_struct *global)
+{
+#ifdef ___SINGLE_VM
+  (void)vm; return &global->val;
+#else
+  ___global_slot_page *page=___global_page(vm,global->val);
+  return page ? &page->ordinary[global->val%___WORD_WIDTH] : &vm->glos->unbound;
+#endif
+}
+static ___SCMOBJ ___binding_primitive(___virtual_machine_state vm, ___glo_struct *global)
+{
+#ifdef ___SINGLE_VM
+  (void)vm;
+  if (___WORD_LOAD_ACQUIRE(&global->primitive_set))
+    return ___WORD_LOAD_ACQUIRE(&global->primitive_value);
+#else
+  ___global_slot_page *page=___global_page(vm,global->val);
+  if (page) {
+    ___UWORD mask=___CAST(___UWORD,1) << (global->val%___WORD_WIDTH);
+    if (___WORD_LOAD_ACQUIRE(&page->primitive_set)&mask)
+      return ___WORD_LOAD_ACQUIRE(&page->primitive[global->val%___WORD_WIDTH]);
+  }
+#endif
+  return ___PRMCELL(global->prm);
+}
 #endif

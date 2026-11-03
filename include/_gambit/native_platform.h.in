@@ -228,6 +228,12 @@ typedef struct ___global_slot_store_struct {
   ___SCMOBJ unbound;
 } ___global_slot_store;
 
+/* Context binding authority borrows the existing VM store. Directory growth
+ * is acquired at the read, so module admission adds no host-switch cache. */
+typedef struct ___binding_view_struct {
+  struct ___virtual_machine_state_struct *vm;
+} ___binding_view;
+
 typedef struct ___glo_sublist_struct
   {
     ___glo_struct* head;

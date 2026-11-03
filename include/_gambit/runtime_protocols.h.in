@@ -7,6 +7,11 @@ ___GLODECL
 ___SYMDECL
 ___KEYDECL
 
+#ifdef ___MODULE_NAME
+___LOCAL ___module_struct ___module_descr;
+static ___virtual_machine_state const ___binding_vm = 0;
+#endif
+
 #define ___CHAR_ENCODING(x)                       ((x)&(31<<0))
 #define ___CHAR_ENCODING_MASK(x)                  ((x)&~(31<<0))
 #define ___CHAR_ENCODING_ASCII                    (1<<0)

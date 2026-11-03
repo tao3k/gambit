@@ -133,7 +133,11 @@ ___BOOL ___lifecycle_enter(___processor_state ps)
   old=___WORD_LOAD_ACQUIRE(&life->entries[id]);
   while(!(old&1) && old<=___MAX_FIX-2) {
     found=___lifecycle_cas(&life->entries[id],old,old+2);
-    if(found==old){ok=1;break;}old=found;
+    if(found==old){
+      if(___binding_context_admit(ps))ok=1;
+      else ___lifecycle_cas(&life->entries[id],old+2,old);
+      break;
+    }old=found;
   }
 done:___lifecycle_registry_end();return ok;
 }
@@ -143,7 +147,13 @@ void ___lifecycle_leave(___processor_state ps)
   int id=___PROCESSOR_ID(ps,___VMSTATE_FROM_PSTATE(ps));
   ___WORD old=___WORD_LOAD_ACQUIRE(&life->entries[id]);
   while(old>=2) {
-    if(___lifecycle_cas(&life->entries[id],old,old-2)==old)return;
+    /* The last entry retains the context while its permit is revoked.
+     * Publishing zero first would allow cleanup to reclaim that context
+     * before this owner finishes its final metadata write. */
+    if(old<4)___binding_context_close(ps);
+    if(___lifecycle_cas(&life->entries[id],old,old-2)==old){
+      return;
+    }
     old=___WORD_LOAD_ACQUIRE(&life->entries[id]);
   }
 }

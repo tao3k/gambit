@@ -1390,7 +1390,8 @@ ___PSDKR) { ___PSGET
   ___init_mod, \
   ___SCRIPT_LINE, \
   0,\
-  ___MODDESCR \
+  ___MODDESCR, \
+  ___MODULE_FIXUP_PRIVATE \
 }; \
 ___BEGIN_C_LINKAGE \
 ___EXP_FUNC(___mod_or_lnk,___LINKER_ID) \

@@ -50,6 +50,7 @@ ___BOOL ___root_task_publish(___rc_domain *d, ___processor_state executor,
       d->task.origin.kind=___ROOT_RC; d->task.origin.source.rc=d; d->task.executor=executor;
       d->task.epoch=previous+1; d->task.state=___ROOT_READY;
       d->task.scan_leases=1;
+      ___binding_context_close(executor);
       d->phase=___RC_FROZEN;
       accepted=1;
     }
@@ -619,6 +620,7 @@ ___BOOL ___root_round_freeze(___processor_state ps, ___UWORD *epoch)
      (domain->task.state == ___ROOT_EMPTY || domain->task.state == ___ROOT_DONE || domain->task.state == ___ROOT_REFUSED);
   if (ok)
     {
+      ___binding_context_close(ps);
       domain->task.origin.kind=___ROOT_RC; domain->task.origin.source.rc=domain;
       domain->task.executor=ps; domain->task.epoch=round->epoch;
       domain->task.state=___ROOT_READY; domain->task.scan_leases=1;
@@ -780,6 +782,7 @@ ___BOOL ___root_round_end(___processor_state ps)
       ___RC_LOCK(round->members[i].rc);
       round->members[i].rc->joined_round=0;
       ___RC_UNLOCK(round->members[i].rc);
+      ___binding_context_admit(round->members[i].owner);
     }
   ___RC_LOCK(ps->mem.rc_domain_);
   round->state=___ROOT_ROUND_IDLE;
@@ -818,6 +821,7 @@ ___BOOL ___root_round_refuse(___processor_state ps)
     for(j=0;j<4;j++) {tasks[j]->state=___ROOT_REFUSED;tasks[j]->scan_leases=0;}
     m->rc->joined_round=0;m->rc->phase=___RC_OPEN;
     round->globals.shards[i]=0;___RC_UNLOCK(m->rc);
+    ___binding_context_admit(m->owner);
   }
   ___RC_LOCK(ps->mem.rc_domain_);round->state=___ROOT_ROUND_IDLE;___RC_UNLOCK(ps->mem.rc_domain_);
   return 1;

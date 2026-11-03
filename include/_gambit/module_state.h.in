@@ -26,6 +26,7 @@ typedef struct ___module_struct
     ___UTF_8STRING script_line;
     struct ___module_struct *next;
     ___SCMOBJ moddescr; /* module descriptor */
+    ___WORD fixup_state; /* shared fixup ownership, guarded by global_gate */
   } ___module_struct;
 
 /* Linkfile structure */
@@ -71,3 +72,8 @@ typedef struct ___program_startup_info_struct
 #endif
   } ___program_startup_info_struct;
 
+
+#define ___MODULE_FIXUP_PRIVATE 0
+#define ___MODULE_FIXUP_CLAIMED 1
+#define ___MODULE_FIXUP_READY 2
+#define ___MODULE_FIXUP_REFUSED 3

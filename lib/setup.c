@@ -1675,6 +1675,21 @@ ___glo_struct **glo;)
 }
 
 
+/* A losing/failed setup never treats an unfinished shared fixup as ready.
+ * Claim and completion use the existing registry gate; allocation and host
+ * label initialization run outside it. An interrupted winner retains state1
+ * until global teardown rather than allowing another owner to repeat writes. */
+static ___SCMOBJ module_fixup_result(___module_struct *module, ___SCMOBJ result)
+{
+  ___MUTEX_LOCK(___GSTATE->mem.global_gate);
+  if (result==___FIX(___NO_ERR)) {
+    module->flags |= ___SETUP_FIXUP_DONE;
+    ___WORD_STORE_RELEASE(&module->fixup_state,___MODULE_FIXUP_READY);
+  } else ___WORD_STORE_RELEASE(&module->fixup_state,___MODULE_FIXUP_REFUSED);
+  ___MUTEX_UNLOCK(___GSTATE->mem.global_gate);
+  return result;
+}
+
 ___HIDDEN ___SCMOBJ setup_module_fixup
    ___P((fem_context *ctx,
          ___module_struct *module),
@@ -1733,19 +1748,19 @@ ___module_struct *module;)
       module->sizeof_processor_state_struct != sizeof(___processor_state_struct))
     return ___FIX(___MODULE_INCOMPATIBILITY_ERR);
 
-  /* TODO: make this phase atomic for when there are multiple VMs? */
-
   lblcount = module->lblcount;
 
   if (lblcount > 0)
     ctx->module_count++;
 
-  flags = module->flags;
-
-  if (flags & ___SETUP_FIXUP_DONE)
-    return ___FIX(___NO_ERR);
-
-  module->flags = flags | ___SETUP_FIXUP_DONE;
+  ___MUTEX_LOCK(___GSTATE->mem.global_gate);
+  if (module->fixup_state!=___MODULE_FIXUP_PRIVATE) {
+    ___SCMOBJ result=module->fixup_state==___MODULE_FIXUP_READY ? ___FIX(___NO_ERR) : ___FIX(___UNKNOWN_ERR);
+    ___MUTEX_UNLOCK(___GSTATE->mem.global_gate); return result;
+  }
+  module->fixup_state=___MODULE_FIXUP_CLAIMED;
+  flags=module->flags;
+  ___MUTEX_UNLOCK(___GSTATE->mem.global_gate);
 
   glotbl     = module->glotbl;
   supcount   = module->supcount;
@@ -1801,8 +1816,10 @@ ___module_struct *module;)
        */
 
       i = 0;
-      while (glo_names[i] != 0)
+      while (i<module->glocount && glo_names[i] != 0)
         i++;
+      if (i!=module->glocount || glo_names[i]!=0)
+        return module_fixup_result(module,___FIX(___IMPL_LIMIT_ERR));
       while (i-- > 0)
         {
           ___glo_struct *glo = 0;
@@ -1811,7 +1828,7 @@ ___module_struct *module;)
                                      i<supcount,
                                      &glo);
           if (e != ___FIX(___NO_ERR))
-            return e;
+            return module_fixup_result(module,e);
           glotbl[i] = ___CAST(___FAKEWORD,glo);
         }
     }
@@ -1825,7 +1842,7 @@ ___module_struct *module;)
         {
           ___SCMOBJ sym = ___make_symkey_from_UTF_8_string (sym_names[i], ___sSYMBOL);
           if (___FIXNUMP(sym))
-            return sym;
+            return module_fixup_result(module,sym);
           symtbl[i] = sym;
           i++;
         }
@@ -1845,7 +1862,7 @@ ___module_struct *module;)
         {
           ___SCMOBJ key = ___make_symkey_from_UTF_8_string (key_names[i], ___sKEYWORD);
           if (___FIXNUMP(key))
-            return key;
+            return module_fixup_result(module,key);
           keytbl[i] = key;
           i++;
         }
@@ -1999,7 +2016,7 @@ ___module_struct *module;)
       *lp = ___SUBTYPED_FROM_BODY(&new_lbltbl[0].entry_or_descr);
     }
 
-  return ___FIX(___NO_ERR);
+  return module_fixup_result(module,___FIX(___NO_ERR));
 }
 
 
@@ -2087,6 +2104,11 @@ ___HIDDEN ___SCMOBJ setup_module_collect_moddescrs
 fem_context *ctx;
 ___module_struct *module;)
 {
+  /* A program descriptor is executable authority. A failed or competing
+   * fixup cannot reach setup_mod or publish a Scheme-visible descriptor. */
+  if (___WORD_LOAD_ACQUIRE(&module->fixup_state)!=___MODULE_FIXUP_READY)
+    return ___FIX(___UNKNOWN_ERR);
+
   if (module->lblcount > 0)
     {
       ___SCMOBJ err;
@@ -5013,6 +5035,7 @@ ___virtual_machine_state ___vms;)
     return ___FIX(___UNKNOWN_ERR); /* Never overwrite an attached RC source. */
 
   ___ps->context = &___vms->execution_contexts[___PROCESSOR_ID(___ps, ___vms)];
+  memset(&___ps->context->binding_view,0,sizeof(___ps->context->binding_view));
 
   /*
    * Processors need to know in which VM they are.

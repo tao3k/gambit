@@ -35,6 +35,7 @@
 #include "_mem/aligned-allocation.inc"
 #include "_mem/rc-allocation.inc"
 #include "_mem/global-storage.inc"
+#include "_mem/binding-views.inc"
 #include "_mem/root-tasks.inc"
 #include "_mem/movable-sections.inc"
 #include "_mem/permanent-allocation.inc"

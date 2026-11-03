@@ -5,6 +5,11 @@
 #ifndef ___MEM_H
 #define ___MEM_H
 
+extern ___BOOL ___binding_context_admit ___P((___processor_state ps), ());
+extern void ___binding_context_close ___P((___processor_state ps), ());
+
+
+
 
 /*
  * Memory allocation parameters:

@@ -76,6 +76,7 @@
 #define ___BEGIN_COD \
 ___HIDDEN void ___GNUC_HOST_FUNCTION_ATTRIBUTES ___HOST_PROC ___P((___processor_state ___ps),(___ps) \
 ___processor_state ___ps;) { \
+___virtual_machine_state const ___binding_vm = ___ps->context->binding_view.vm; \
 ___WORD ___pc; { ___WORD ___start, ___temp; \
 ___S32 ___s32_temp; /*******************/ \
 ___U32 ___u32_temp; /*******************/ \

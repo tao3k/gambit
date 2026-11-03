@@ -70,7 +70,7 @@ mandir = @mandir@
 
 .SUFFIXES:
 
-RCFILES = smp/gc/vm-lifecycle.scm smp/gc/vm-lifecycle-host.scm startup-publication.scm mutex-suspension.scm root-task.scm rc-root-origin.scm runtime-roles.c test-entry.h test-entry.c makefile.in \
+RCFILES = smp/gc/vm-lifecycle.scm smp/gc/vm-lifecycle-host.scm startup-publication.scm mutex-suspension.scm root-task.scm root-task-replay.scm binding-activation.scm rc-root-origin.scm runtime-roles.c test-entry.h test-entry.c makefile.in \
 debug.scm error.scm r4rstest.scm mix.scm mem.scm client.c server.scm server.h \
 test1.ok test2.ok test3.ok test4.ok test5.ok test6.ok test7.ok \
 test8.ok test9.ok test10.scm input run-unit-tests.scm stack-overflow-undo.c \
@@ -497,7 +497,7 @@ SMP_TEST_BUILD_DEPS = $(srcdirpfx)test-entry.h makefile \
   $(rootfromhere)/gsc/gsc@exe@ $(rootfromhere)/lib/$(GAMBITLIB) \
   $(rootfromhere)/include/gambit.h $(rootfromhere)/include/config.h \
   $(wildcard $(srcdirpfx)$(rootfromhere)/lib/*.h)
-ROOT_TASK_DEPS = $(srcdirpfx)root-task.scm $(SMP_TEST_BUILD_DEPS)
+ROOT_TASK_DEPS = $(srcdirpfx)root-task.scm $(srcdirpfx)root-task-replay.scm $(SMP_TEST_BUILD_DEPS)
 
 root-task@exe@: $(ROOT_TASK_DEPS)
 	@SETDLPATH@ $(rootfromhere)/gsc/gsc@exe@ -:~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f -exe -cc-options "-DHAVE_CONFIG_H -I$(srcdirpfx)$(rootfromhere)/include -I$(srcdirpfx)$(rootfromhere)/lib" -o root-task-build@exe@ $(srcdirpfx)root-task.scm
@@ -614,3 +614,10 @@ vm-lifecycle-host@exe@: $(srcdirpfx)smp/gc/vm-lifecycle-host.scm $(SMP_TEST_BUIL
 test-vm-lifecycle: vm-lifecycle@exe@ vm-lifecycle-host@exe@
 	@SETDLPATH@ ./vm-lifecycle@exe@ -:p1
 	@SETDLPATH@ ./vm-lifecycle-host@exe@ -:p1
+
+.PHONY: test-binding-activation
+binding-activation@exe@: $(srcdirpfx)binding-activation.scm $(srcdirpfx)root-task-replay.scm $(SMP_TEST_BUILD_DEPS)
+	@SETDLPATH@ $(rootfromhere)/gsc/gsc@exe@ -:p1,~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f -exe -cc-options "-I$(srcdirpfx)$(rootfromhere)/lib" -o binding-activation@exe@ $(srcdirpfx)binding-activation.scm
+
+test-binding-activation: binding-activation@exe@
+	@SETDLPATH@ ./binding-activation@exe@ -:p1

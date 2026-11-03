@@ -23,6 +23,7 @@ typedef struct ___execution_context_struct
 #define ___CHAR_OUTPUT_PORT_TYPE_CACHE 1
 
     ___WORD processor_scmobj[___SUBTYPED_BODY+___PROCESSOR_SIZE+___PADDING_SIZE]; /* Scheme processor object */
+    ___binding_view binding_view; /* VM identity only; no address/value cache */
   } ___execution_context;
 
 typedef struct ___processor_state_struct
