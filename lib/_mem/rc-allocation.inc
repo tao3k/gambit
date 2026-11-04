@@ -162,10 +162,12 @@ ___EXP_FUNC(void*,___register_rc)
   h=___CAST(___rc_header*,ptr)-1; d=___ps->mem.rc_domain_;
   /* First registration requires exclusive ownership of a private block.
    * A registered block cannot be moved by re-registering it with another PS. */
-  if (h->domain != 0) return h->domain == d ? ptr : 0;
-  if (d == 0) return 0;
+  if (d == 0 || (h->domain != 0 && h->domain != d)) return 0;
   ___RC_LOCK(d);
-  if (d->joined_round != 0 || d->phase != ___RC_OPEN || d->nodes == ~___CAST(___SIZE_T,0))
+  if (!root_writer_open(___ps) || h->refcount <= 0)
+    { ___RC_UNLOCK(d); return 0; }
+  if (h->domain == d) { ___RC_UNLOCK(d); return ptr; }
+  if (d->nodes == ~___CAST(___SIZE_T,0))
     { ___RC_UNLOCK(d); return 0; }
   h->prev=d->head.prev; h->next=&d->head;
   d->head.prev->next=h; d->head.prev=h;
@@ -271,13 +273,17 @@ ___EXP_FUNC(___SCMOBJ,___data_rc)
 /* One source gate owns mutator writes to the primary cell and typed payload.
  * Primary borrows preserve logical identity. A generated argument span has
  * one activation borrow, whose owner fills its cells between safe points. */
-___BOOL ___store_rc_root(___processor_state ps, void *ptr,
-                        ___SIZE_T index, ___SCMOBJ value)
+static ___BOOL store_rc_root(___processor_state ps, void *ptr,
+                            ___SIZE_T index, ___SCMOBJ value,
+                            ___activation_record *record)
 {
   ___rc_header *h;
   ___rc_domain *d;
   ___SCMOBJ *cell;
   if (ptr == 0 || ps == 0 || ps != ___PSTATE) return 0;
+  if (index != 0 && (!record || record->owner != ps || record->roots != ptr ||
+      (record->kind != ___ACTIVATION_SFUN_ROOTED &&
+       record->kind != ___ACTIVATION_SFUN_ACTIVE))) return 0;
   h=___CAST(___rc_header*,ptr)-1; d=h->domain;
   if (d == 0 || d != ps->mem.rc_domain_) return 0;
   ___RC_LOCK(d);
@@ -291,6 +297,25 @@ ___BOOL ___store_rc_root(___processor_state ps, void *ptr,
   if (*cell != value) *cell=value;
   ___RC_UNLOCK(d);
   return 1;
+}
+
+/* Raw root access cannot infer an activation from a borrow count. Only the
+ * generated SFUN entry supplies its live record for a positive span index.
+ * Colocation keeps one policy and avoids an inter-unit forwarding call. */
+___BOOL ___store_rc_root(___processor_state ps, void *ptr,
+                        ___SIZE_T index, ___SCMOBJ value)
+{
+  return store_rc_root(ps,ptr,index,value,0);
+}
+
+___EXP_FUNC(___SCMOBJ,___sfun_arg)
+   ___P((___processor_state ps, void *scope, ___WORD index,
+         ___SCMOBJ value), ())
+{
+  ___activation_record *record=___CAST(___activation_record*,scope);
+  if (!record || index<1) return ___FIX(___UNKNOWN_ERR);
+  return ___FIX(store_rc_root(ps,record->roots,___CAST(___SIZE_T,index),value,record)
+               ? ___NO_ERR : ___UNKNOWN_ERR);
 }
 
 ___BOOL ___try_set_data_rc(___processor_state ps, void *ptr, ___SCMOBJ value)

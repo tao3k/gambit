@@ -47,8 +47,9 @@ extern const ___SCMOBJ *___borrow_rc_root(___processor_state, void*);
 extern void ___return_rc_root(void*);
 extern ___BOOL ___try_set_data_rc(___processor_state, void*, ___SCMOBJ);
 extern void *___alloc_rc_roots(___processor_state, ___SIZE_T);
-/* index0 is the primary cell; positive indices are the activation-owned span.
- * Caller owns live storage and supplies canonical values after any GC. */
+/* Raw stores admit only index0 (the primary cell). Positive argument indices
+ * require ___sfun_arg and its live activation, not just a matching borrow count.
+ * Caller owns live storage and reloads canonical values after any GC. */
 extern ___BOOL ___store_rc_root(___processor_state, void*, ___SIZE_T, ___SCMOBJ);
 
 #endif

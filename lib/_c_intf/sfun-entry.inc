@@ -41,17 +41,6 @@ ___EXP_FUNC(___SCMOBJ,___begin_sfun)
   return ___FIX(___SFUN_HEAP_OVERFLOW_ERR);
 }
 
-___EXP_FUNC(___SCMOBJ,___sfun_arg)
-   ___P((___processor_state ps, void *scope, ___WORD index,
-         ___SCMOBJ value), ())
-{
-  ___activation_record *record=___CAST(___activation_record*,scope);
-  if (!record || record->owner!=ps || !record->roots || index<1)
-    return ___FIX(___UNKNOWN_ERR);
-  return ___FIX(___store_rc_root(ps,record->roots,___CAST(___SIZE_T,index),value)
-               ? ___NO_ERR : ___UNKNOWN_ERR);
-}
-
 ___EXP_FUNC(___SCMOBJ,___sfun_marker)
    ___P((___processor_state ps, void *scope, ___SCMOBJ *marker), ())
 {

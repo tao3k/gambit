@@ -65,22 +65,28 @@ c-end
        !___store_rc_root(___ps,bank,3,___arg1) &&
        !___store_rc_root(0,bank,1,___arg1);
     extra=___borrow_rc_root(___ps,bank);
-    ok=ok && extra && !___store_rc_root(___ps,bank,2,___arg1);
+    ok=ok && extra && !___store_rc_root(___ps,bank,2,___arg1) &&
+       ___sfun_arg(___ps,scope,2,___arg1)!=___FIX(___NO_ERR);
     if(extra)___return_rc_root(bank);
     /* A source pointer alone does not prove current source ownership. This
      * confined inconsistent-owner control neither polls nor allocates. */
     ___RC_LOCK(d);d->owner=0;___RC_UNLOCK(d);
     extra=___borrow_rc_root(___ps,bank);
     ok=ok && !extra && !___store_rc_root(___ps,bank,2,___arg1);
+    ok=ok && !___EXT(___register_rc)(___PSP bank) &&
+       ___sfun_arg(___ps,scope,2,___arg1)!=___FIX(___NO_ERR);
     if(extra)___return_rc_root(bank);
     ___RC_LOCK(d);d->owner=___ps;___RC_UNLOCK(d);
     /* Confined refusal control, not an independent GC phase. This registered
      * cooperative owner does not poll/allocate while the phase is restored. */
     ___RC_LOCK(d);d->phase=___RC_FROZEN;___RC_UNLOCK(d);
     ok=ok && !___store_rc_root(___ps,bank,2,___arg1) &&
-       !___borrow_rc_root(___ps,bank);
+       !___borrow_rc_root(___ps,bank) &&
+       !___EXT(___register_rc)(___PSP bank) &&
+       ___sfun_arg(___ps,scope,2,___arg1)!=___FIX(___NO_ERR);
     ___RC_LOCK(d);d->phase=___RC_OPEN;___RC_UNLOCK(d);
-    ok=ok && ___store_rc_root(___ps,bank,2,___arg1) &&
+    ok=ok && !___store_rc_root(___ps,bank,2,___arg1) &&
+       ___sfun_arg(___ps,scope,2,___arg1)==___FIX(___NO_ERR) &&
        ___CAST(___SCMOBJ*,bank)[0]==___arg1 &&
        ___CAST(___SCMOBJ*,bank)[1]==___arg1;
     ___end_sfun(___ps,scope);
@@ -196,7 +202,8 @@ c-end
   ___RC_LOCK(d);nodes=d->nodes;borrows=d->borrows;___RC_UNLOCK(d);
   want_bank=!(___TESTTYPE(___arg1,___tSUBTYPED) &&
               ___HD_TYP(___SUBTYPED_HEADER(___arg1))==___PERM);
-  if (___EXT(___begin_sfun)(___ps,0,___arg1,&scope)==___FIX(___NO_ERR)) {
+  if (___EXT(___begin_sfun)(___ps,want_bank ? 1 : 0,___arg1,&scope)==___FIX(___NO_ERR)) {
+    if (want_bank && ___EXT(___sfun_arg)(___ps,scope,1,___arg1)!=___FIX(___NO_ERR)) _Exit(76);
     if (___lifecycle_can_handoff(___ps)!=___HANDOFF_BUSY) _Exit(73);
     if (___EXT(___sfun_marker)(___ps,scope,&marker)==___FIX(___NO_ERR)) {
       ___EXT(___kill_sfun_stack_marker)(marker);
@@ -209,6 +216,10 @@ c-end
       /* The rejected implementation frees scope during marker kill. Never
        * dereference/finish it when the independent source counts prove loss. */
       if (retained) {
+        ___SCMOBJ ignored=___FAL;
+        if (___EXT(___sfun_marker)(___ps,scope,&ignored)==___FIX(___NO_ERR) ||
+            ___EXT(___call_sfun)(___ps,scope)==___FIX(___NO_ERR)) _Exit(74);
+        if (___EXT(___sfun_arg)(___ps,scope,1,___FAL)==___FIX(___NO_ERR)) _Exit(75);
         if (!___EXT(___garbage_collect)(___PSA(___ps) 0)) {
           ___EXT(___end_sfun)(___ps,scope);
           ___RC_LOCK(d);
@@ -292,6 +303,9 @@ c-end
                (set! ok (eq? payload (invoke-object payload)))))
         ((5) (let ((payload (vector 2053)))
                (invoke-void payload) (set! ok (eq? payload void-seen)))))
+       (if (= op 8)
+           (let ((held (vector 2081)))
+             (set! ok (revoke-control (lambda () held)))))
        (if (not (and ok (or (not (= op 7)) caught-conversion?) (= wind-balance 0) (= before (owner-state)) (not (and (= fault 1) (= op 3)))))
            (begin (write (list 'root-task-result 'mismatch at op 0)) (newline) (exit 71)))
        (loop (cdr xs) (+ at 1))))))
@@ -302,9 +316,9 @@ c-end
  (let ((seed 2027) (actions 0))
   (define (next n) (set! seed (modulo (+ (* seed 48271) 17) 2147483647)) (modulo seed n))
   (do ((i 0 (+ i 1))) ((= i 12))
-   (let ((commands (append '(#(0 0) #(1 0) #(2 2) #(3 0) #(4 0) #(5 0) #(6 0) #(7 0))
+   (let ((commands (append '(#(0 0) #(1 0) #(2 2) #(3 0) #(4 0) #(5 0) #(6 0) #(7 0) #(8 0))
                     (let loop ((n 8))
-                     (if (= n 0) '() (cons (vector (next 8) (next 3)) (loop (- n 1))))))))
+                     (if (= n 0) '() (cons (vector (next 9) (next 3)) (loop (- n 1))))))))
     (set! actions (+ actions (length commands)))
     (let ((result (trial commands 0)))
      (if (signature result) (error "SFUN native history failed" result
@@ -336,7 +350,7 @@ c-end
                         (if (not (= (##current-processor-id) 1)) (error "nonzero owner not acquired"))
                         (if (not (root-store-check (vector 2077))) (error "nonzero RC writer authority"))
                         (display "RC-WRITER-NONZERO-PASS\n")
-                        (replay-entry '(#(0 0) #(1 0) #(2 2) #(3 0) #(4 0) #(5 0) #(6 0) #(7 0)) 0)))))
+                        (replay-entry '(#(0 0) #(1 0) #(2 2) #(3 0) #(4 0) #(5 0) #(6 0) #(7 0) #(8 0)) 0)))))
          (##thread-pin! worker (##processor 1))
          (thread-start! worker) (thread-join! worker)))
        ((equal? args '("--constructors")) (constructors) (display "SFUN-CONSTRUCTORS-PASS 7\n"))
@@ -362,7 +376,7 @@ c-end
                         (or (null? xs)
                             (let ((v (car xs)))
                              (and (vector? v) (= (vector-length v) 2)
-                                  (memv (vector-ref v 0) '(0 1 2 3 4 5 6 7))
+                                  (memv (vector-ref v 0) '(0 1 2 3 4 5 6 7 8))
                                   (memv (vector-ref v 1) '(0 1 2)) (valid (cdr xs))))))))
              (error "invalid SFUN trace"))
          (replay-entry (caddr x) (cadddr x))))
