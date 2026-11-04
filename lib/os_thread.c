@@ -715,6 +715,8 @@ ___processor_state ___ps;)
 
 #ifdef ___USE_emulated_sync
 
+#include <stdatomic.h>
+#include <string.h>
 
 ___WORD ___emulated_compare_and_swap_word
    ___P((___VOLATILE ___WORD *ptr,
@@ -760,7 +762,16 @@ ___WORD val;)
 
   temp = *ptr;
 
-  *ptr += val;
+  /* Word operations preserve the encoded ticket/tag bit pattern modulo2^W,
+   * independently of a compiler signed-overflow option. */
+  {
+    ___UWORD bits = ___CAST(___UWORD,temp) + ___CAST(___UWORD,val);
+    ___WORD next;
+    /* C23 two's-complement representation; do not narrow an out-of-range
+     * unsigned value through an implementation-defined signed conversion. */
+    memcpy(&next,&bits,sizeof next);
+    *ptr = next;
+  }
 
   ___MUTEX_UNLOCK(*mut_ptr);
 
@@ -791,10 +802,10 @@ ___VOLATILE ___WORD *ptr;)
 
 void ___emulated_shared_memory_barrier ___PVOID
 {
-  /*
-   * It is impossible to emulate a memory barrier portably, so just
-   * hope for the best...
-   */
+  /* This is an ordering fence, not thread quiescence or a cure for racing
+   * ordinary accesses. Ordered word publication still uses the same source
+   * mutex through the existing CAS/RMW service. */
+  atomic_thread_fence(memory_order_seq_cst);
 }
 
 

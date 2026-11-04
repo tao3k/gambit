@@ -74,7 +74,7 @@ RCFILES = smp/gc/vm-lifecycle.scm smp/gc/vm-lifecycle-host.scm startup-publicati
 debug.scm error.scm r4rstest.scm mix.scm mem.scm client.c server.scm server.h \
 test1.ok test2.ok test3.ok test4.ok test5.ok test6.ok test7.ok \
 test8.ok test9.ok test10.scm input run-unit-tests.scm stack-overflow-undo.c \
-inline-primitives.scm sfun-entry.scm sfun-entry-fault.c pipe.scm frame-spec.scm frame-contract.c frame-continuation.scm frame-continuation-roots.scm
+inline-primitives.scm sfun-entry.scm sfun-entry-fault.c pipe.scm ordered-sync.c frame-spec.scm frame-contract.c frame-continuation.scm frame-continuation-roots.scm
 
 GENDISTFILES =
 
@@ -632,6 +632,22 @@ test-sfun-entry: sfun-entry@exe@ sfun-entry-probe@exe@
 	@SETDLPATH@ ./sfun-entry@exe@ -:p1 --properties
 	@SETDLPATH@ ./sfun-entry@exe@ -:p2 --nonzero
 	@SETDLPATH@ ./sfun-entry@exe@ -:p1 --revoke
+
+
+# POSIX C23 word service. The emulated control links only real OS units;
+# callers supply the existing BUILD_EXE_LD_OPTIONS_PARAM for section collection.
+.PHONY: test-ordered-sync test-ordered-sync-emulated
+ordered-sync@exe@: ordered-sync.c $(SMP_TEST_BUILD_DEPS)
+	$(C_COMPILER) $(FLAGS_OPT_RTS) $(FLAGS_EXE) $(DEFS) -D___LIBRARY -I$(srcdirpfx)$(rootfromhere)/include -I$(srcdirpfx)$(rootfromhere)/lib -o $@ $(srcdirpfx)ordered-sync.c $(LIBS)
+
+test-ordered-sync: ordered-sync@exe@
+	@SETDLPATH@ ./ordered-sync@exe@
+
+ordered-sync-emulated@exe@: ordered-sync.c $(rootfromhere)/lib/os_thread.c $(rootfromhere)/lib/os_base.c $(rootfromhere)/lib/os_setup.c $(SMP_TEST_BUILD_DEPS)
+	$(C_COMPILER) $(FLAGS_OPT_RTS) $(FLAGS_EXE) $(DEFS) -D___LIBRARY -I$(srcdirpfx)$(rootfromhere)/include -I$(srcdirpfx)$(rootfromhere)/lib -U__GCC_HAVE_SYNC_COMPARE_AND_SWAP_8 -U__GCC_HAVE_SYNC_COMPARE_AND_SWAP_4 -ffunction-sections -fdata-sections -fno-wrapv -fsanitize=undefined -fno-sanitize-recover=undefined $(BUILD_EXE_LD_OPTIONS_PARAM) -o $@ $(srcdirpfx)ordered-sync.c $(srcdirpfx)$(rootfromhere)/lib/os_thread.c $(srcdirpfx)$(rootfromhere)/lib/os_base.c $(srcdirpfx)$(rootfromhere)/lib/os_setup.c $(LIBS)
+
+test-ordered-sync-emulated: ordered-sync-emulated@exe@
+	@SETDLPATH@ ./ordered-sync-emulated@exe@
 
 # One peer-shared domain: public I/O, actual GC and existing trace replay/shrink.
 pipe-domain@exe@: pipe.scm root-task-replay.scm $(SMP_TEST_BUILD_DEPS)
