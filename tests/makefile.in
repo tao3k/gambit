@@ -74,7 +74,7 @@ RCFILES = smp/gc/vm-lifecycle.scm smp/gc/vm-lifecycle-host.scm startup-publicati
 debug.scm error.scm r4rstest.scm mix.scm mem.scm client.c server.scm server.h \
 test1.ok test2.ok test3.ok test4.ok test5.ok test6.ok test7.ok \
 test8.ok test9.ok test10.scm input run-unit-tests.scm stack-overflow-undo.c \
-inline-primitives.scm sfun-entry.scm sfun-entry-fault.c native-scope.c frame-spec.scm frame-contract.c frame-continuation.scm frame-continuation-roots.scm
+inline-primitives.scm sfun-entry.scm sfun-entry-fault.c pipe.scm native-scope.c frame-spec.scm frame-contract.c frame-continuation.scm frame-continuation-roots.scm
 
 GENDISTFILES =
 
@@ -115,7 +115,7 @@ core-post:
 
 .NOTPARALLEL:
 
-check: core test-runtime-roles test1 test2 test3 test4 test5 test6 test7 test8 test9 test10 test11 test12 test-entry test-inline-primitives test-native-scope test-sfun-entry test-frame-contract test-rc-roots test-root-task test-mutex-suspension test-vm-lifecycle
+check: core test-runtime-roles test1 test2 test3 test4 test5 test6 test7 test8 test9 test10 test11 test12 test-entry test-inline-primitives test-native-scope test-sfun-entry test-pipe-domain test-frame-contract test-rc-roots test-root-task test-mutex-suspension test-vm-lifecycle
 	@echo "============ ALL TESTS SUCCESSFUL"
 	rm -f mem.c mem_.c mem@obj@ mem.o1 mem_@obj@ mem@exe@ \
 	  mix.c mix_.c mix@obj@ mix_@obj@ mix@exe@ \
@@ -312,6 +312,7 @@ mostlyclean-post mostlyclean-post-nonrec:
 	  native-scope@exe@ native-scope@obj@ \
 	  root-task@exe@ root-task-bank@exe@ root-task-primitive@exe@ \
 	  root-task-build@exe@ root-task-bank-build@exe@ root-task-primitive-build@exe@ \
+	  pipe-domain@exe@ pipe-domain@obj@ pipe.c pipe_.c pipe-domain.trace \
 	  gambit.h so_locations *.out tmp*
 
 clean-pre: mostlyclean-pre
@@ -642,3 +643,12 @@ test-sfun-entry: sfun-entry@exe@ sfun-entry-probe@exe@
 	@SETDLPATH@ ./sfun-entry@exe@ -:p1 --properties
 	@SETDLPATH@ ./sfun-entry@exe@ -:p2 --nonzero
 	@SETDLPATH@ ./sfun-entry@exe@ -:p1 --revoke
+
+# One peer-shared domain: public I/O, actual GC and existing trace replay/shrink.
+pipe-domain@exe@: pipe.scm root-task-replay.scm $(SMP_TEST_BUILD_DEPS)
+	@SETDLPATH@ $(rootfromhere)/gsc/gsc@exe@ -:p1,~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f -exe -o $@ $(srcdirpfx)pipe.scm
+
+.PHONY: test-pipe-domain
+test-pipe-domain: pipe-domain@exe@
+	@SETDLPATH@ ./pipe-domain@exe@ -:p1
+	@SETDLPATH@ ./pipe-domain@exe@ -:p2 --parallel
