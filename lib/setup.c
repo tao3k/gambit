@@ -25,7 +25,6 @@
 extern ___BOOL ___garbage_collect ___P((___PSD ___SIZE_TS requested_words_still),());
 #include "c_intf.h"
 #include "actlog.h"
-#include "native_scope.h"
 
 
 /*---------------------------------------------------------------------------*/
@@ -5138,7 +5137,6 @@ ___virtual_machine_state ___vms;)
   life=vm_lifecycle_create(___vms);
   if (!life) return ___FIX(___HEAP_OVERFLOW_ERR);
   /* Exclusive setup, before any processor/thread can borrow these records. */
-  ___native_scope_init_vmstate (___vms);
 
   /*
    * Virtual machine starts off with a single processor.
