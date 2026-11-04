@@ -34,6 +34,8 @@
 (c-declare #<<c-end
 #include "rc.h"
 #include "lifecycle.h"
+#include "os_thread.h"
+#include <stdlib.h>
 extern int sfun_entry_callback(___SCMOBJ,___SCMOBJ,int);
 extern int sfun_entry_driver(___SCMOBJ,___SCMOBJ,int);
 extern int sfun_entry_zero(void);
@@ -46,6 +48,64 @@ extern ___SIZE_T sfun_entry_nodes,sfun_entry_borrows;
 extern void *sfun_entry_self_root;
 c-end
 )
+;;; Observe the actual owner slot, not malloc address coincidence. The record
+;;; can be reused only after unlink/root return, with no active/unknown borrower.
+(define activation-storage
+ (c-lambda () bool #<<c-end
+{
+  ___processor_state ps=___PSTATE;
+  ___rc_domain *d=ps->mem.rc_domain_;
+  ___vm_lifecycle *life=___VMSTATE_FROM_PSTATE(ps)->lifecycle;
+  int id=___PROCESSOR_ID(ps,___VMSTATE_FROM_PSTATE(ps));
+  ___activation_record *head=life->activations[id], *a, *b, *c;
+  ___WORD entries=___WORD_LOAD_ACQUIRE(&life->entries[id]);
+  ___SIZE_T nodes=d->nodes,borrows=d->borrows;
+  a=___lifecycle_marker_prepare(ps); b=___lifecycle_marker_prepare(ps);
+  if(!a || !b || a==b || life->activations[id]!=b) _Exit(80);
+  ___lifecycle_marker_abort(b);
+  if(d->idle_activation!=b || b->owner || b->roots || b->next ||
+     b->marker!=___FAL || b->kind!=___ACTIVATION_IDLE) _Exit(81);
+  c=___lifecycle_marker_prepare(ps);
+  if(c!=b || d->idle_activation || life->activations[id]!=c) _Exit(82);
+  ___lifecycle_marker_abort(a); /* known middle extent, not LIFO inference */
+  if(d->idle_activation!=a || life->activations[id]!=c || c->next!=head) _Exit(83);
+  if(___garbage_collect(___PSA(ps) 0)) _Exit(84);
+  if(d->idle_activation!=a || a->marker!=___FAL || a->roots) _Exit(85);
+  ___lifecycle_marker_abort(c); /* full idle slot: release excess storage */
+  if(d->idle_activation!=a || life->activations[id]!=head ||
+     ___WORD_LOAD_ACQUIRE(&life->entries[id])!=entries ||
+     d->nodes!=nodes || d->borrows!=borrows) _Exit(86);
+#ifndef ___SINGLE_VM
+  {
+    ___virtual_machine_state other=calloc(1,sizeof(*other));
+    ___processor_state owner;
+    ___rc_domain *kept;
+    ___activation_record *live;
+    void *bytes;
+    if(!other || ___setup_vmstate(other)!=___FIX(___NO_ERR)) _Exit(87);
+    owner=___PSTATE_FROM_PROCESSOR_ID(0,other);
+    ___thread_set_pstate(owner);
+    kept=owner->mem.rc_domain_;
+    bytes=___alloc_rc(___PSA(owner) 0);
+    live=___lifecycle_marker_prepare(owner);
+    if(!bytes || !live || ___cleanup_vmstate(other) ||
+       other->lifecycle->phase!=___VM_LIVE || kept->idle_activation) _Exit(88);
+    ___lifecycle_marker_abort(live);
+    if(kept->idle_activation!=live || !___cleanup_vmstate(other)) _Exit(89);
+    ___thread_set_pstate(ps);
+    /* The byte RC owner keeps this detached domain alive for inspection.
+     * Never read a freed record or reclaimed PSTATE to infer cleanup. */
+    if(kept->owner || kept->phase!=___RC_DETACHED ||
+       kept->idle_activation || kept->nodes!=1) _Exit(90);
+    ___release_rc(bytes);free(other);
+  }
+#endif
+  printf("ACTIVATION-STORAGE-PASS nested middle-unlink gc clean-idle bounded-one live-cleanup-refusal detached-idle-drain domain=%lu record=%lu\n",
+    (unsigned long)sizeof(*d),(unsigned long)sizeof(*a));
+  ___result=1;
+}
+c-end
+))
 (define callback-body #f)
 (define root-store-check
  (c-lambda (scheme-object) bool #<<c-end
@@ -342,6 +402,8 @@ c-end
                'shrink-from 13 'shrink-to 1 'control 'observation-mutation)) (newline)))
 (let ((args (cdr (command-line))))
  (cond ((null? args) (suite #t))
+       ((equal? args '("--activation-storage"))
+        (if (not (activation-storage)) (error "activation storage ownership")))
        ((equal? args '("--properties")) (suite #f))
        ((equal? args '("--nonzero"))
         (if (< (##current-vm-processor-count) 2) (error "nonzero processor required"))

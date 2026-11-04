@@ -21,7 +21,7 @@ ___HIDDEN ___BOOL setup_rc(___processor_state ps)
   ___rc_domain *d = ___CAST(___rc_domain*, ___ALLOC_MEM(sizeof(*d)));
   if (d == 0) return 0;
   if (!___RC_INIT(d)) { ___FREE_MEM(d); return 0; }
-  d->round=0; d->joined_round=0;
+  d->round=0; d->joined_round=0; d->idle_activation=0;
   if (___PROCESSOR_ID(ps,___VMSTATE_FROM_PSTATE(ps)) == 0)
     {
       d->round=___CAST(___root_round*,___ALLOC_MEM(sizeof(*d->round)));
@@ -51,6 +51,11 @@ ___HIDDEN ___BOOL rc_can_close(___rc_domain *d)
 {
   ___rc_header *h;
   if (d->joined_round != 0) return 0;
+  if (d->idle_activation != 0 &&
+      (d->idle_activation->kind != ___ACTIVATION_IDLE ||
+       d->idle_activation->owner != 0 || d->idle_activation->roots != 0 ||
+       d->idle_activation->marker != ___FAL || d->idle_activation->next != 0))
+    return 0;
   if (d->round != 0 && (d->round->state != ___ROOT_ROUND_IDLE ||
       d->round->collection.census.state==___GC_PLAN_ALLOCATING ||
       d->round->collection.census.state==___GC_PLAN_RETAINED ||
@@ -101,6 +106,11 @@ ___HIDDEN void cleanup_rc(___processor_state ps)
     if (d->round->collection.census.queue != 0)
       ___FREE_MEM(d->round->collection.census.queue);
     ___FREE_MEM(d->round); d->round=0;
+  }
+  /* Lifecycle closure has excluded the cooperative activation owner. Only
+   * a clean, physically retired record can occupy this byte-only slot. */
+  if (d->idle_activation != 0) {
+    ___FREE_MEM(d->idle_activation); d->idle_activation=0;
   }
   d->owner = 0; d->task.executor = 0; d->phase = ___RC_DETACHED;
   destroy = d->nodes == 0;

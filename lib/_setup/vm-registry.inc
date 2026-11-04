@@ -172,7 +172,15 @@ ___activation_record *___lifecycle_marker_prepare(___processor_state ps)
 {
   ___vm_lifecycle *life;___activation_record *record;int id;
   if(!___lifecycle_enter(ps))return 0;
-  record=___CAST(___activation_record*,___ALLOC_MEM(sizeof(*record)));
+  /* The same admitted cooperative owner owns both its active list and one
+   * next-acquisition slot in its RC domain. GC workers never read/write it.
+   * No safepoint/callback intervenes; lifecycle entry excludes teardown. */
+  record=ps->mem.rc_domain_->idle_activation;
+  if(record) {
+    if(record->kind!=___ACTIVATION_IDLE || record->owner || record->roots ||
+       record->marker!=___FAL || record->next) {___lifecycle_leave(ps);return 0;}
+    ps->mem.rc_domain_->idle_activation=0;
+  } else record=___CAST(___activation_record*,___ALLOC_MEM(sizeof(*record)));
   if(!record){___lifecycle_leave(ps);return 0;}
   life=___VMSTATE_FROM_PSTATE(ps)->lifecycle;id=___PROCESSOR_ID(ps,___VMSTATE_FROM_PSTATE(ps));
   record->owner=ps;record->marker=___FAL;record->roots=0;record->kind=___ACTIVATION_LEGACY;
@@ -186,7 +194,15 @@ void ___lifecycle_marker_abort(___activation_record *record)
   if(*link==record){
     *link=record->next;
     if(record->roots){___return_rc_root(record->roots);___release_rc(record->roots);}
-    ___FREE_MEM(record);___lifecycle_leave(ps);
+    /* Unlink and return every root before offering native storage again.
+     * An unknown/live/revoked activation is never put in this slot. Publish
+     * the clean slot before dropping the last lifecycle entry. */
+    record->next=0;record->owner=0;record->marker=___FAL;
+    record->roots=0;record->kind=___ACTIVATION_IDLE;
+    if(ps->mem.rc_domain_->idle_activation==0)
+      ps->mem.rc_domain_->idle_activation=record;
+    else ___FREE_MEM(record);
+    ___lifecycle_leave(ps);
   }
 }
 void ___lifecycle_marker_kill(___processor_state ps,___SCMOBJ marker)

@@ -628,6 +628,7 @@ sfun-entry-probe@exe@: sfun-entry.scm root-task-replay.scm sfun-entry-c-intf@obj
 
 .PHONY: test-sfun-entry
 test-sfun-entry: sfun-entry@exe@ sfun-entry-probe@exe@
+	@SETDLPATH@ ./sfun-entry@exe@ -:p1 --activation-storage
 	@SETDLPATH@ ./sfun-entry-probe@exe@ -:p1 --constructors
 	@SETDLPATH@ ./sfun-entry-probe@exe@ -:p1 --closure-source
 	@SETDLPATH@ ./sfun-entry@exe@ -:p1 --properties

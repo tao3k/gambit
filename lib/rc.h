@@ -31,6 +31,7 @@ struct ___rc_domain_struct {
   enum ___rc_phase phase;
   ___root_task task;
   ___root_round *round; /* coordinator-owned; null for other sources */
+  struct ___activation_record_struct *idle_activation; /* owner-only, no roots */
   ___root_round *joined_round; /* nonowning live-union lease, cleared last */
 };
 

@@ -47,7 +47,7 @@ typedef struct ___resize_slot_struct {
 enum ___activation_kind {
   ___ACTIVATION_LEGACY, ___ACTIVATION_STARTUP,
   ___ACTIVATION_SFUN_ROOTED, ___ACTIVATION_SFUN_PERMANENT,
-  ___ACTIVATION_SFUN_ACTIVE, ___ACTIVATION_SFUN_REVOKED
+  ___ACTIVATION_SFUN_ACTIVE, ___ACTIVATION_SFUN_REVOKED, ___ACTIVATION_IDLE
 };
 typedef struct ___activation_record_struct {
   struct ___activation_record_struct *next;
