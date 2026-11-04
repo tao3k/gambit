@@ -378,6 +378,11 @@ ___SCMOBJ ___find_global_var_bound_to
         (val)
 ___SCMOBJ val;)
 {
+#ifndef ___SINGLE_VM
+  ___processor_state ___ps = ___PSTATE;
+  if (___ps == 0) return ___NUL;
+#endif
+
   ___SCMOBJ sym = ___NUL;
   int i;
   ___MUTEX_LOCK(___GSTATE->mem.global_gate);

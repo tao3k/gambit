@@ -74,7 +74,8 @@ RCFILES = smp/gc/vm-lifecycle.scm smp/gc/vm-lifecycle-host.scm startup-publicati
 debug.scm error.scm r4rstest.scm mix.scm mem.scm client.c server.scm server.h \
 test1.ok test2.ok test3.ok test4.ok test5.ok test6.ok test7.ok \
 test8.ok test9.ok test10.scm input run-unit-tests.scm stack-overflow-undo.c \
-inline-primitives.scm sfun-entry.scm sfun-entry-fault.c pipe.scm ordered-sync.c frame-spec.scm frame-contract.c frame-continuation.scm frame-continuation-roots.scm
+inline-primitives.scm sfun-entry.scm sfun-entry-fault.c pipe.scm collector-diagnostics.c \
+  ordered-sync.c frame-spec.scm frame-contract.c frame-continuation.scm frame-continuation-roots.scm
 
 GENDISTFILES =
 
@@ -657,3 +658,11 @@ pipe-domain@exe@: pipe.scm root-task-replay.scm $(SMP_TEST_BUILD_DEPS)
 test-pipe-domain: pipe-domain@exe@
 	@SETDLPATH@ ./pipe-domain@exe@ -:p1
 	@SETDLPATH@ ./pipe-domain@exe@ -:p2 --parallel
+
+# Diagnostic C layouts are isolated: never link a production-profile archive.
+.PHONY: test-collector-diagnostics
+collector-diagnostics@exe@: collector-diagnostics.c $(rootfromhere)/lib/mem.c $(SMP_TEST_BUILD_DEPS)
+	$(C_COMPILER) $(FLAGS_OPT_RTS) $(FLAGS_EXE) $(DEFS) -D___LIBRARY -D___DEBUG_GARBAGE_COLLECT -D___DEBUG_LOG -ffunction-sections -fdata-sections -I$(srcdirpfx)$(rootfromhere)/include -I$(srcdirpfx)$(rootfromhere)/lib $(BUILD_EXE_LD_OPTIONS_PARAM) -o $@ $(srcdirpfx)collector-diagnostics.c
+
+test-collector-diagnostics: collector-diagnostics@exe@
+	@SETDLPATH@ ./collector-diagnostics@exe@

@@ -211,7 +211,7 @@ ___HIDDEN int plan_copy_round(___processor_state ps)
     while(base) {base[___STILL_MARK]=0;base=___CAST(___WORD*,base[___STILL_LINK]);}
   }
   work->census=c;ps->collector=work;work->traverse_weak_refs_=1;
-  mark_vm_scmobj(___PSP vm);mark_symkey_tables(___PSP ___GSTATE);
+  mark_vm_scmobj(work, vm);mark_symkey_tables(___PSP ___GSTATE);
   for(i=0;i<n && !c->failed;i++) {
     ___root_member *m=&round->members[i];___rc_header *h;___WORD *base;
     ___RC_LOCK(m->rc);
@@ -221,8 +221,8 @@ ___HIDDEN int plan_copy_round(___processor_state ps)
     }
     ___RC_UNLOCK(m->rc);
     mark_global_variables(___PSP &m->globals);
-    mark_registers(___PSP m->context);mark_saved(___PSP m->context);
-    mark_type_cache(___PSP m->context);mark_processor_scmobj(___PSP m->context);
+    mark_registers(work, m->context);mark_saved(work, m->context);
+    mark_type_cache(work, m->context);mark_processor_scmobj(work, m->context);
     census_continuation(work,m->context);
     base=___CAST(___WORD*,m->owner->mem.still_objs_);
     while(base) {

@@ -532,17 +532,16 @@ ___glo_struct *glo;)
 }
 
 
-___HIDDEN void dump_memory_map
-   ___P((___PSDNC),
-        (___PSVNC)
-___PSDKR)
+___HIDDEN void dump_memory_map(___collector_worker *work)
 {
-  ___PSGET
-  int ns = the_msections->nb_sections;
-  ___msection **sections = the_msections->sections;
+  ___processor_state ___ps = work->carrier;
+  int ns = work->vm->mem.the_msections_->nb_sections;
+  ___msection **sections = work->vm->mem.the_msections_->sections;
   int i;
 
-  ___printf (">>> Memory map:\n");
+  ___printf (">>> Memory map for worker %d:\n", work->id);
+  ___printf (">>>  worker_arena_cursor = %p\n", work->arena.cursor);
+  ___printf (">>>  worker_arena_limit  = %p\n", work->arena.limit);
 
   for (i=0; i<ns; i++)
     ___printf (">>>  msection %2d:  %p .. %p .. %p\n",
@@ -561,23 +560,11 @@ ___PSDKR)
   ___printf (">>>  scan_ptr             = %p\n", scan_ptr);
 }
 
-___HIDDEN void explain_problem
-   ___P((___PSD
-         ___WORD obj,
-         int shift,
-         char *msg),
-        (___PSV
-         obj,
-         shift,
-         msg)
-___PSDKR
-___WORD obj;
-int shift;
-char *msg;)
+___HIDDEN void explain_problem(___collector_worker *work, ___WORD obj,
+                           int shift, char *msg)
 {
-  ___PSGET
 
-  dump_memory_map (___PSPNC);
+  dump_memory_map (work);
 
   ___printf (">>> The object 0x%" ___PRIxWORD " %s\n", obj, msg);
 
@@ -685,83 +672,65 @@ char *msg;)
 }
 
 
-___HIDDEN void bug
-   ___P((___PSD
-         ___WORD obj,
-         int shift,
-         char *msg),
-        (___PSV
-         obj,
-         shift,
-         msg)
-___PSDKR
-___WORD obj;
-int shift;
-char *msg;)
+___HIDDEN void bug(___collector_worker *work, ___WORD obj,
+                           int shift, char *msg)
 {
-  ___PSGET
+  ___processor_state ___ps = work->carrier;
   char *msgs[2];
 
-  ___printf (">>> P%d: the GC has detected the following inconsistency\n",
-             ___PROCESSOR_ID(___ps,___VMSTATE_FROM_PSTATE(___ps)));
+  ___printf (">>> W%d (carrier P%d): the GC has detected the following inconsistency\n",
+             work->id, ___PROCESSOR_ID(___ps,work->vm));
   ___printf (">>> during call of mark_array on line %d of mem.c:\n",
              mark_array_call_line);
-  explain_problem (___PSP obj, shift, msg);
+  explain_problem (work, obj, shift, msg);
   msgs[0] = "GC inconsistency detected";
   msgs[1] = 0;
   ___fatal_error (msgs);
 }
 
 
-___HIDDEN void validate_old_obj
-   ___P((___PSD
-         ___WORD obj),
-        (___PSV
-         obj)
-___PSDKR
-___WORD obj;)
+___HIDDEN void validate_old_obj(___collector_worker *work, ___WORD obj)
 {
-  ___PSGET
   ___WORD *hd_ptr = ___BODY0(obj)-1;
   ___WORD head;
-  int i = find_msection (the_msections, hd_ptr);
-  if (i >= 0 && i < the_msections->nb_sections)
+  int i = find_msection (work->vm->mem.the_msections_, hd_ptr);
+  if (i >= 0 && i < work->vm->mem.the_msections_->nb_sections)
     {
-      ___PTRDIFF_T pos = hd_ptr - the_msections->sections[i]->base;
+      ___PTRDIFF_T pos = hd_ptr - work->vm->mem.the_msections_->sections[i]->base;
       if (pos >= 0 && pos < ___MSECTION_SIZE)
         {
           head = *hd_ptr;
           if (___TESTTYPE(head, ___FORW))
             {
               ___WORD *hd_ptr2 = ___BODY0(head)-1;
-              int i2 = find_msection (the_msections, hd_ptr2);
-              if (i2 >= 0 && i2 < the_msections->nb_sections)
+              int i2 = find_msection (work->vm->mem.the_msections_, hd_ptr2);
+              if (i2 >= 0 && i2 < work->vm->mem.the_msections_->nb_sections)
                 {
                   ___PTRDIFF_T pos2 = hd_ptr2 -
-                                      (the_msections->sections[i2]->base +
-                                       tospace_offset);
+                                      (work->vm->mem.the_msections_->sections[i2]->base +
+                                       ___COLLECTION(work->vm).destination_offset);
                   if (pos2 < 0 || pos2 >= ___MSECTION_SIZE>>1)
-                    bug (___PSP obj, 0, "was copied outside of tospace");
+                    bug (work, obj, 0, "was copied outside of tospace");
                   else if (___HD_TYP((*hd_ptr2)) != ___MOVABLE0)
-                    bug (___PSP obj, 0, "was copied and copy is not ___MOVABLE0");
+                    bug (work, obj, 0, "was copied and copy is not ___MOVABLE0");
                 }
               else
-                bug (___PSP obj, 0, "was copied outside of tospace");
+                bug (work, obj, 0, "was copied outside of tospace");
             }
           else if (___HD_TYP(head) != ___MOVABLE0)
-            bug (___PSP obj, ___HTB, "should be ___MOVABLE0");
+            bug (work, obj, ___HTB, "should be ___MOVABLE0");
           else
             {
-              pos -= tospace_offset;
+              pos -= ___COLLECTION(work->vm).destination_offset;
               if (pos >= 0 && pos < ___MSECTION_SIZE>>1)
-                bug (___PSP obj, 0, "is in tospace");
+                bug (work, obj, 0, "is in tospace");
             }
           return;
         }
     }
   head = *hd_ptr; /* this dereference will likely bomb if there is a bug */
   if (___HD_TYP(head) != ___PERM && ___HD_TYP(head) != ___STILL)
-    bug (___PSP obj, 0, "is not ___PERM or ___STILL");
+    bug (work, obj, 0, "is not ___PERM or ___STILL");
 }
 
 

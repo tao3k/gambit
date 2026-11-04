@@ -398,7 +398,7 @@ ___WORD n;)
 
 #ifdef ENABLE_CONSISTENCY_CHECKS
             if (___DEBUG_SETTINGS_LEVEL(___GSTATE->setup_params.debug_settings) >= 1)
-              validate_old_obj (___PSP obj);
+              validate_old_obj (work, obj);
 #endif
 
             body = ___BODY0(obj);
@@ -548,7 +548,7 @@ ___WORD n;)
 #ifdef ENABLE_CONSISTENCY_CHECKS
             else if (___DEBUG_SETTINGS_LEVEL(___GSTATE->setup_params.debug_settings) >= 1 &&
                      head_typ != ___PERM)
-              bug (___PSP obj, 0, "was not ___PERM, ___STILL, ___MOVABLE0 or ___FORW");
+              bug (work, obj, 0, "was not ___PERM, ___STILL, ___MOVABLE0 or ___FORW");
 #endif
           }
       }

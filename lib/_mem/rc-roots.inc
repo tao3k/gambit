@@ -7,6 +7,7 @@ ___rc_domain *source;
 ___UWORD epoch;)
 {
   ___PSGET
+  ___collector_worker *work = ___ps->collector;
   ___rc_header *h;
   ___RC_LOCK(source);
   if (source->phase != ___RC_FROZEN || source->task.scan_leases != 1 ||
@@ -15,14 +16,14 @@ ___UWORD epoch;)
     { ___RC_UNLOCK(source); return 0; }
   source->task.state=___ROOT_SCANNING;
 #ifdef ENABLE_CONSISTENCY_CHECKS
-  reference_location = IN_RC;
+  if (work != 0) reference_location = IN_RC;
 #endif
   h=source->head.next;
   while (h != &source->head)
     {
       ___rc_header *next=h->next;
-      mark_array (___ps->collector, &h->data, 1);
-      mark_array (___ps->collector, ___CAST(___SCMOBJ*,h+1), h->root_count);
+      mark_array (work, &h->data, 1);
+      mark_array (work, ___CAST(___SCMOBJ*,h+1), h->root_count);
       h=next;
     }
   source->task.state=___ROOT_SCANNED;
