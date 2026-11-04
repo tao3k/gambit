@@ -22,8 +22,6 @@ typedef struct ___virtual_machine_state_struct
 
     ___vmstate_mem mem; /* memory management state */
 
-    ___native_scope native_scopes[___NATIVE_SCOPE_CAPACITY];
-
     ___SCMOBJ main_module_ref; /* symbol identifying the VM's main module */
 
 #ifndef ___SINGLE_VM
