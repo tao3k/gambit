@@ -1,0 +1,18 @@
+/*---------------------------------------------------------------------------*/
+
+/*
+ * Structures for half and full duplex pipes on POSIX.
+ */
+
+typedef struct ___half_duplex_pipe
+  {
+    int reading_fd;
+    int writing_fd;
+  } ___half_duplex_pipe;
+
+typedef struct ___full_duplex_pipe
+  {
+    ___half_duplex_pipe input;
+    ___half_duplex_pipe output;
+  } ___full_duplex_pipe;
+

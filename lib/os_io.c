@@ -21,6 +21,11 @@
 #include "setup.h"
 #include "c_intf.h"
 
+#if defined(USE_execvp) && defined(__APPLE__) && defined(__MACH__)
+#include <spawn.h>
+#endif
+
+
 /*---------------------------------------------------------------------------*/
 
 
@@ -9098,6 +9103,27 @@ ___STRING_TYPE(___ENVIRON_CE_SELECT) *env;)
 #endif
 
 
+#ifdef USE_execvp
+
+static void close_process_child_descriptors (int errno_fd)
+{
+  int fd = errno_fd;
+  if (fd < STDERR_FILENO) fd = STDERR_FILENO;
+  if (fd < STDOUT_FILENO) fd = STDOUT_FILENO;
+  if (fd < STDIN_FILENO) fd = STDIN_FILENO;
+  ___closefrom (fd+1);
+  while (fd > 0)
+    {
+      fd--;
+      if (fd != STDIN_FILENO && fd != STDOUT_FILENO &&
+          fd != STDERR_FILENO && fd != errno_fd)
+        ___close_no_EINTR (fd); /* ignore error */
+    }
+}
+
+#endif
+
+
 ___SCMOBJ ___device_stream_setup_from_process
    ___P((___device_stream **dev,
          ___device_group *dgroup,
@@ -9135,6 +9161,34 @@ int options;)
   int has_redir = options & (STDIN_REDIR | STDOUT_REDIR | STDERR_REDIR);
   int execvp_errno;
   int n;
+#if defined(POSIX_SPAWN_SETEXEC) && defined(POSIX_SPAWN_CLOEXEC_DEFAULT)
+  posix_spawnattr_t spawn_attributes;
+  posix_spawn_file_actions_t spawn_actions;
+  int spawn_ready = 0;
+
+  /* Prepare before fork: the child must not allocate a file-action list.
+   * SETEXEC preserves the existing forked PID, interrupt cleanup, affinity,
+   * error pipe and parent publication protocol.  Explicit paths with the
+   * existing child cwd/environment handling remain unchanged. */
+  if (!(options & PSEUDO_TERM) && strchr (argv[0], '/') != NULL &&
+      posix_spawnattr_init (&spawn_attributes) == 0)
+    {
+      if (posix_spawn_file_actions_init (&spawn_actions) == 0)
+        {
+          int status = posix_spawnattr_setflags
+            (&spawn_attributes,
+             POSIX_SPAWN_SETEXEC | POSIX_SPAWN_CLOEXEC_DEFAULT);
+          int fd;
+          for (fd=STDIN_FILENO; status==0 && fd<=STDERR_FILENO; fd++)
+            status = posix_spawn_file_actions_adddup2 (&spawn_actions, fd, fd);
+          spawn_ready = status == 0;
+          if (!spawn_ready)
+            posix_spawn_file_actions_destroy (&spawn_actions);
+        }
+      if (!spawn_ready)
+        posix_spawnattr_destroy (&spawn_attributes);
+    }
+#endif
 
   /*
    * Block SIGCHLD so that if the process is created the
@@ -9173,6 +9227,7 @@ int options;)
       if (pid == 0)
         {
           /* child process */
+          int defer_close = 0;
 
           ___cleanup_all_interrupt_handling ();
 
@@ -9225,28 +9280,24 @@ int options;)
           ___close_half_duplex_pipe (&fdp.output, 0);
           ___close_half_duplex_pipe (&hdp_errno, 0);
 
-          {
-            /* Close all file descriptors that aren't used. */
+#if defined(POSIX_SPAWN_SETEXEC) && defined(POSIX_SPAWN_CLOEXEC_DEFAULT)
+          if (spawn_ready)
+            {
+              int fd;
+              /* This is the single-threaded child, after fd relocation and
+               * redirection. Closed or close-on-exec standard descriptors use
+               * the original path, preserving their exact semantics. */
+              for (fd=STDIN_FILENO; fd<=STDERR_FILENO; fd++)
+                {
+                  int flags = fcntl (fd, F_GETFD);
+                  if (flags < 0 || (flags & FD_CLOEXEC)) break;
+                }
+              defer_close = fd > STDERR_FILENO;
+            }
+#endif
 
-            int fd = hdp_errno.writing_fd;
-
-            if (fd < STDERR_FILENO) fd = STDERR_FILENO;
-            if (fd < STDOUT_FILENO) fd = STDOUT_FILENO;
-            if (fd < STDIN_FILENO) fd = STDIN_FILENO;
-
-            ___closefrom (fd+1);
-
-            while (fd > 0)
-              {
-                fd--;
-                if (fd != STDIN_FILENO &&
-                    fd != STDOUT_FILENO &&
-                    fd != STDERR_FILENO &&
-                    fd != hdp_errno.writing_fd)
-                  ___close_no_EINTR (fd); /* ignore error */
-              }
-
-          }
+          if (!defer_close)
+            close_process_child_descriptors (hdp_errno.writing_fd);
 
           if (dir == NULL || chdir_long_path (dir) == 0)
             {
@@ -9254,11 +9305,25 @@ int options;)
               if (env != NULL)
                 environ = env;
 #endif
+#if defined(POSIX_SPAWN_SETEXEC) && defined(POSIX_SPAWN_CLOEXEC_DEFAULT)
+              if (defer_close)
+                {
+                  /* Successful SETEXEC never returns and keeps this PID.
+                   * Failed self-dup actions/exec retain the original error path. */
+                  posix_spawn (NULL, argv[0], &spawn_actions,
+                               &spawn_attributes, argv, environ);
+                  close_process_child_descriptors (hdp_errno.writing_fd);
+                }
+#endif
               execvp (argv[0], argv);
               /* the exec failed, errno will be returned to parent */
             }
           else
-            errno = 0; /* special code indicating chdir failed */
+            {
+              if (defer_close)
+                close_process_child_descriptors (hdp_errno.writing_fd);
+              errno = 0; /* special code indicating chdir failed */
+            }
 
         return_errno:
 
@@ -9341,6 +9406,14 @@ int options;)
     }
 
   ___mask_all_interrupts_end (&all_interrupts);
+
+#if defined(POSIX_SPAWN_SETEXEC) && defined(POSIX_SPAWN_CLOEXEC_DEFAULT)
+  if (spawn_ready)
+    {
+      posix_spawn_file_actions_destroy (&spawn_actions);
+      posix_spawnattr_destroy (&spawn_attributes);
+    }
+#endif
 
   return e;
 

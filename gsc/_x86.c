@@ -632,6 +632,8 @@
 #define ___SUPCOUNT 226
 #define ___CNSCOUNT 2
 #define ___SUBCOUNT 273
+#define ___HOST_LAYOUT ___HOST_LAYOUT_PROCEDURES
+#define ___SHARED_PROCEDURE_DISPATCH 1
 #define ___LBLCOUNT 1882
 #define ___OFDCOUNT 38
 #define ___MODDESCR ___REF_SUB(270)
@@ -5871,8 +5873,8 @@ ___BEGIN_M_SW
 #undef ___PW_ALL
 #define ___PW_ALL ___W_R1
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(1)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_)
 ___END_P_HLBL
 ___BEGIN_P_SW
@@ -5915,8 +5917,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_R1 ___W_R2 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_register_2d_name)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_register_2d_name)
 ___END_P_HLBL
@@ -5944,8 +5946,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(9)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_arch_2d_set_21_)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_arch_2d_set_21_)
 ___DEF_P_HLBL(___L2___x86_23_x86_2d_arch_2d_set_21_)
@@ -6028,8 +6030,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R0 ___W_R2 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(4)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_64bit_2d_mode_3f_)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_64bit_2d_mode_3f_)
 ___DEF_P_HLBL(___L2___x86_23_x86_2d_64bit_2d_mode_3f_)
@@ -6067,8 +6069,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R0 ___W_R1
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(3)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_word_2d_width)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_word_2d_width)
 ___DEF_P_HLBL(___L2___x86_23_x86_2d_word_2d_width)
@@ -6109,8 +6111,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_force_2d_width)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_force_2d_width)
 ___END_P_HLBL
@@ -6137,8 +6139,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(5)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_force_2d_width_3f_)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_force_2d_width_3f_)
 ___DEF_P_HLBL(___L2___x86_23_x86_2d_force_2d_width_3f_)
@@ -6189,8 +6191,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_R2 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_force_2d_width_2d_opnd)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_force_2d_width_2d_opnd)
 ___END_P_HLBL
@@ -6217,8 +6219,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_R2 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_force_2d_width_2d_width)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_force_2d_width_2d_width)
 ___END_P_HLBL
@@ -6245,8 +6247,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_imm_3f_)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_imm_3f_)
 ___END_P_HLBL
@@ -6272,8 +6274,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_imm_2d_int)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_imm_2d_int)
 ___END_P_HLBL
@@ -6305,8 +6307,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(5)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_imm_2d_int_3f_)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_imm_2d_int_3f_)
 ___DEF_P_HLBL(___L2___x86_23_x86_2d_imm_2d_int_3f_)
@@ -6356,8 +6358,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_imm_2d_int_2d_width)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_imm_2d_int_2d_width)
 ___END_P_HLBL
@@ -6383,8 +6385,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_imm_2d_int_2d_value)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_imm_2d_int_2d_value)
 ___END_P_HLBL
@@ -6410,8 +6412,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_imm_2d_lbl)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_imm_2d_lbl)
 ___END_P_HLBL
@@ -6443,8 +6445,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(5)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_imm_2d_lbl_3f_)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_imm_2d_lbl_3f_)
 ___DEF_P_HLBL(___L2___x86_23_x86_2d_imm_2d_lbl_3f_)
@@ -6494,8 +6496,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_imm_2d_lbl_2d_offset)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_imm_2d_lbl_2d_offset)
 ___END_P_HLBL
@@ -6521,8 +6523,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_imm_2d_lbl_2d_label)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_imm_2d_lbl_2d_label)
 ___END_P_HLBL
@@ -6548,8 +6550,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_R1 ___W_R2 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_imm_2d_glo)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_imm_2d_glo)
 ___END_P_HLBL
@@ -6577,8 +6579,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(5)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_imm_2d_glo_3f_)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_imm_2d_glo_3f_)
 ___DEF_P_HLBL(___L2___x86_23_x86_2d_imm_2d_glo_3f_)
@@ -6628,8 +6630,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_imm_2d_glo_2d_name)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_imm_2d_glo_2d_name)
 ___END_P_HLBL
@@ -6655,8 +6657,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_imm_2d_late)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_imm_2d_late)
 ___END_P_HLBL
@@ -6687,8 +6689,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(5)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_imm_2d_late_3f_)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_imm_2d_late_3f_)
 ___DEF_P_HLBL(___L2___x86_23_x86_2d_imm_2d_late_3f_)
@@ -6738,8 +6740,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_imm_2d_late_2d_width)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_imm_2d_late_2d_width)
 ___END_P_HLBL
@@ -6765,8 +6767,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_imm_2d_late_2d_handler)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_imm_2d_late_2d_handler)
 ___END_P_HLBL
@@ -6792,8 +6794,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_R2 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_imm_2d_obj)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_imm_2d_obj)
 ___END_P_HLBL
@@ -6820,8 +6822,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(5)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_imm_2d_obj_3f_)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_imm_2d_obj_3f_)
 ___DEF_P_HLBL(___L2___x86_23_x86_2d_imm_2d_obj_3f_)
@@ -6871,8 +6873,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_imm_2d_obj_2d_value)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_imm_2d_obj_2d_value)
 ___END_P_HLBL
@@ -6898,8 +6900,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_mem)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_mem)
 ___END_P_HLBL
@@ -6931,8 +6933,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(5)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_mem_3f_)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_mem_3f_)
 ___DEF_P_HLBL(___L2___x86_23_x86_2d_mem_3f_)
@@ -6983,8 +6985,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_R2 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_mem_2d_offset)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_mem_2d_offset)
 ___END_P_HLBL
@@ -7011,8 +7013,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_R2 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_mem_2d_reg1)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_mem_2d_reg1)
 ___END_P_HLBL
@@ -7039,8 +7041,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_R2 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_mem_2d_reg2)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_mem_2d_reg2)
 ___END_P_HLBL
@@ -7067,8 +7069,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_R2 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_mem_2d_scale)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_mem_2d_scale)
 ___END_P_HLBL
@@ -7095,8 +7097,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(6)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_mem_2d_abs_3f_)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_mem_2d_abs_3f_)
 ___DEF_P_HLBL(___L2___x86_23_x86_2d_mem_2d_abs_3f_)
@@ -7152,8 +7154,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(7)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_offset_2d__3e_string)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_offset_2d__3e_string)
 ___DEF_P_HLBL(___L2___x86_23_x86_2d_offset_2d__3e_string)
@@ -7224,8 +7226,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(129)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_listing)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_listing)
 ___DEF_P_HLBL(___L2___x86_23_x86_2d_listing)
@@ -8332,8 +8334,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(8)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_width_2d_suffix)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_width_2d_suffix)
 ___DEF_P_HLBL(___L2___x86_23_x86_2d_width_2d_suffix)
@@ -8441,8 +8443,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(4)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_xmm_2d_width_2d_suffix)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_xmm_2d_width_2d_suffix)
 ___DEF_P_HLBL(___L2___x86_23_x86_2d_xmm_2d_width_2d_suffix)
@@ -8498,8 +8500,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_R2 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_esc_2d_opcode)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_esc_2d_opcode)
 ___END_P_HLBL
@@ -8526,8 +8528,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(30)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_opnd_2d_prefix_2d_reg_2d_opnd)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_opnd_2d_prefix_2d_reg_2d_opnd)
 ___DEF_P_HLBL(___L2___x86_23_x86_2d_opnd_2d_prefix_2d_reg_2d_opnd)
@@ -8840,8 +8842,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(10)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_opnd_2d_prefix_2d_opnd)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_opnd_2d_prefix_2d_opnd)
 ___DEF_P_HLBL(___L2___x86_23_x86_2d_opnd_2d_prefix_2d_opnd)
@@ -8940,8 +8942,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(4)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_opnd_2d_modrm_2f_sib_2d_reg_2d_opnd)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_opnd_2d_modrm_2f_sib_2d_reg_2d_opnd)
 ___DEF_P_HLBL(___L2___x86_23_x86_2d_opnd_2d_modrm_2f_sib_2d_reg_2d_opnd)
@@ -8985,8 +8987,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(44)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_opnd_2d_prefix)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_opnd_2d_prefix)
 ___DEF_P_HLBL(___L2___x86_23_x86_2d_opnd_2d_prefix)
@@ -9380,8 +9382,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(4)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_opnd_2d_size_2d_override_2d_prefix)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_opnd_2d_size_2d_override_2d_prefix)
 ___DEF_P_HLBL(___L2___x86_23_x86_2d_opnd_2d_size_2d_override_2d_prefix)
@@ -9430,8 +9432,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(9)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_addr_2d_size_2d_override_2d_prefix)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_addr_2d_size_2d_override_2d_prefix)
 ___DEF_P_HLBL(___L2___x86_23_x86_2d_addr_2d_size_2d_override_2d_prefix)
@@ -9515,8 +9517,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(60)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_opnd_2d_modrm_2f_sib)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_opnd_2d_modrm_2f_sib)
 ___DEF_P_HLBL(___L2___x86_23_x86_2d_opnd_2d_modrm_2f_sib)
@@ -10010,8 +10012,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(17)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_imm_2d_encode)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_imm_2d_encode)
 ___DEF_P_HLBL(___L2___x86_23_x86_2d_imm_2d_encode)
@@ -10172,8 +10174,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(5)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_imm_2d_lbl_2d_encode)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_imm_2d_lbl_2d_encode)
 ___DEF_P_HLBL(___L2___x86_23_x86_2d_imm_2d_lbl_2d_encode)
@@ -10227,8 +10229,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(4)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_imm_2d_glo_2d_encode)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_imm_2d_glo_2d_encode)
 ___DEF_P_HLBL(___L2___x86_23_x86_2d_imm_2d_glo_2d_encode)
@@ -10273,8 +10275,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(4)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_imm_2d_obj_2d_encode)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_imm_2d_obj_2d_encode)
 ___DEF_P_HLBL(___L2___x86_23_x86_2d_imm_2d_obj_2d_encode)
@@ -10319,8 +10321,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(7)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_label)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_label)
 ___DEF_P_HLBL(___L2___x86_23_x86_2d_label)
@@ -10383,8 +10385,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_db)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_db)
 ___END_P_HLBL
@@ -10411,8 +10413,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_dw)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_dw)
 ___END_P_HLBL
@@ -10439,8 +10441,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_dd)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_dd)
 ___END_P_HLBL
@@ -10467,8 +10469,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_dq)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_dq)
 ___END_P_HLBL
@@ -10495,8 +10497,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(34)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_data_2d_elems)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_data_2d_elems)
 ___DEF_P_HLBL(___L2___x86_23_x86_2d_data_2d_elems)
@@ -10813,8 +10815,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_add)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_add)
 ___END_P_HLBL
@@ -10848,8 +10850,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_or)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_or)
 ___END_P_HLBL
@@ -10883,8 +10885,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_adc)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_adc)
 ___END_P_HLBL
@@ -10918,8 +10920,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_sbb)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_sbb)
 ___END_P_HLBL
@@ -10953,8 +10955,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_and)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_and)
 ___END_P_HLBL
@@ -10988,8 +10990,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_sub)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_sub)
 ___END_P_HLBL
@@ -11023,8 +11025,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_xor)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_xor)
 ___END_P_HLBL
@@ -11058,8 +11060,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_cmp)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_cmp)
 ___END_P_HLBL
@@ -11093,8 +11095,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_mov)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_mov)
 ___END_P_HLBL
@@ -11128,8 +11130,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(138)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_op)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_op)
 ___DEF_P_HLBL(___L2___x86_23_x86_2d_op)
@@ -12443,8 +12445,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_inc)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_inc)
 ___END_P_HLBL
@@ -12478,8 +12480,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_dec)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_dec)
 ___END_P_HLBL
@@ -12513,8 +12515,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(39)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_inc_2d_dec)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_inc_2d_dec)
 ___DEF_P_HLBL(___L2___x86_23_x86_2d_inc_2d_dec)
@@ -12900,8 +12902,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(16)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_lea)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_lea)
 ___DEF_P_HLBL(___L2___x86_23_x86_2d_lea)
@@ -13060,8 +13062,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(11)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_ret)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_ret)
 ___DEF_P_HLBL(___L2___x86_23_x86_2d_ret)
@@ -13166,8 +13168,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(13)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_enter)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_enter)
 ___DEF_P_HLBL(___L2___x86_23_x86_2d_enter)
@@ -13288,8 +13290,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_R2
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_nop)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_nop)
 ___END_P_HLBL
@@ -13316,8 +13318,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_R2
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_pushf)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_pushf)
 ___END_P_HLBL
@@ -13344,8 +13346,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_R2
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_popf)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_popf)
 ___END_P_HLBL
@@ -13372,8 +13374,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_R2
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_leave)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_leave)
 ___END_P_HLBL
@@ -13400,8 +13402,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_R2
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_hlt)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_hlt)
 ___END_P_HLBL
@@ -13428,8 +13430,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_R2
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_cmc)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_cmc)
 ___END_P_HLBL
@@ -13456,8 +13458,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_R2
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_clc)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_clc)
 ___END_P_HLBL
@@ -13484,8 +13486,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_R2
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_stc)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_stc)
 ___END_P_HLBL
@@ -13512,8 +13514,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_R2
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_cli)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_cli)
 ___END_P_HLBL
@@ -13540,8 +13542,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_R2
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_sti)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_sti)
 ___END_P_HLBL
@@ -13568,8 +13570,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_R2
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_cld)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_cld)
 ___END_P_HLBL
@@ -13596,8 +13598,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_R2
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_std)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_std)
 ___END_P_HLBL
@@ -13624,8 +13626,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(11)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_no_2d_opnd_2d_instr)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_no_2d_opnd_2d_instr)
 ___DEF_P_HLBL(___L2___x86_23_x86_2d_no_2d_opnd_2d_instr)
@@ -13741,8 +13743,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(7)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_int)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_int)
 ___DEF_P_HLBL(___L2___x86_23_x86_2d_int)
@@ -13811,8 +13813,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(6)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_int3)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_int3)
 ___DEF_P_HLBL(___L2___x86_23_x86_2d_int3)
@@ -13874,8 +13876,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_R2
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_syscall)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_syscall)
 ___END_P_HLBL
@@ -13902,8 +13904,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_R2
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_sysret)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_sysret)
 ___END_P_HLBL
@@ -13930,8 +13932,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_R2
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_wrmsr)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_wrmsr)
 ___END_P_HLBL
@@ -13958,8 +13960,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_R2
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_rdtsc)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_rdtsc)
 ___END_P_HLBL
@@ -13986,8 +13988,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_R2
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_rdmsr)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_rdmsr)
 ___END_P_HLBL
@@ -14014,8 +14016,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_R2
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_rdpmc)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_rdpmc)
 ___END_P_HLBL
@@ -14042,8 +14044,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_R2
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_cpuid)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_cpuid)
 ___END_P_HLBL
@@ -14070,8 +14072,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(11)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_no_2d_opnd_2d_instr_2d_esc)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_no_2d_opnd_2d_instr_2d_esc)
 ___DEF_P_HLBL(___L2___x86_23_x86_2d_no_2d_opnd_2d_instr_2d_esc)
@@ -14182,8 +14184,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(5)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_jmp)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_jmp)
 ___DEF_P_HLBL(___L2___x86_23_x86_2d_jmp)
@@ -14241,8 +14243,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(5)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_call)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_call)
 ___DEF_P_HLBL(___L2___x86_23_x86_2d_call)
@@ -14300,8 +14302,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_jo)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_jo)
 ___END_P_HLBL
@@ -14332,8 +14334,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_jno)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_jno)
 ___END_P_HLBL
@@ -14364,8 +14366,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_jb)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_jb)
 ___END_P_HLBL
@@ -14396,8 +14398,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_jae)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_jae)
 ___END_P_HLBL
@@ -14428,8 +14430,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_je)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_je)
 ___END_P_HLBL
@@ -14460,8 +14462,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_jne)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_jne)
 ___END_P_HLBL
@@ -14492,8 +14494,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_jbe)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_jbe)
 ___END_P_HLBL
@@ -14524,8 +14526,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_ja)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_ja)
 ___END_P_HLBL
@@ -14556,8 +14558,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_js)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_js)
 ___END_P_HLBL
@@ -14588,8 +14590,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_jns)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_jns)
 ___END_P_HLBL
@@ -14620,8 +14622,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_jp)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_jp)
 ___END_P_HLBL
@@ -14652,8 +14654,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_jnp)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_jnp)
 ___END_P_HLBL
@@ -14684,8 +14686,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_jl)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_jl)
 ___END_P_HLBL
@@ -14716,8 +14718,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_jge)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_jge)
 ___END_P_HLBL
@@ -14748,8 +14750,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_jle)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_jle)
 ___END_P_HLBL
@@ -14780,8 +14782,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_jg)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_jg)
 ___END_P_HLBL
@@ -14812,8 +14814,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(50)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_jump_2d_label)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_jump_2d_label)
 ___DEF_P_HLBL(___L2___x86_23_x86_2d_jump_2d_label)
@@ -15239,8 +15241,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(19)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_jump_2d_general)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_jump_2d_general)
 ___DEF_P_HLBL(___L2___x86_23_x86_2d_jump_2d_general)
@@ -15434,8 +15436,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_seto)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_seto)
 ___END_P_HLBL
@@ -15462,8 +15464,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_setno)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_setno)
 ___END_P_HLBL
@@ -15490,8 +15492,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_setb)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_setb)
 ___END_P_HLBL
@@ -15518,8 +15520,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_setae)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_setae)
 ___END_P_HLBL
@@ -15546,8 +15548,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_sete)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_sete)
 ___END_P_HLBL
@@ -15574,8 +15576,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_setne)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_setne)
 ___END_P_HLBL
@@ -15602,8 +15604,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_setbe)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_setbe)
 ___END_P_HLBL
@@ -15630,8 +15632,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_seta)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_seta)
 ___END_P_HLBL
@@ -15658,8 +15660,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_sets)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_sets)
 ___END_P_HLBL
@@ -15686,8 +15688,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_setns)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_setns)
 ___END_P_HLBL
@@ -15714,8 +15716,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_setp)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_setp)
 ___END_P_HLBL
@@ -15742,8 +15744,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_setnp)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_setnp)
 ___END_P_HLBL
@@ -15770,8 +15772,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_setl)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_setl)
 ___END_P_HLBL
@@ -15798,8 +15800,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_setge)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_setge)
 ___END_P_HLBL
@@ -15826,8 +15828,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_setle)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_setle)
 ___END_P_HLBL
@@ -15854,8 +15856,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_setg)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_setg)
 ___END_P_HLBL
@@ -15882,8 +15884,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(10)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_set_2d_cc)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_set_2d_cc)
 ___DEF_P_HLBL(___L2___x86_23_x86_2d_set_2d_cc)
@@ -15974,8 +15976,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_push)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_push)
 ___END_P_HLBL
@@ -16002,8 +16004,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_pop)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_pop)
 ___END_P_HLBL
@@ -16030,8 +16032,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(39)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_push_2d_pop)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_push_2d_pop)
 ___DEF_P_HLBL(___L2___x86_23_x86_2d_push_2d_pop)
@@ -16360,8 +16362,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_R2
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_cwde)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_cwde)
 ___END_P_HLBL
@@ -16388,8 +16390,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_R2
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_cdq)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_cdq)
 ___END_P_HLBL
@@ -16416,8 +16418,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_R2
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_cbw)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_cbw)
 ___END_P_HLBL
@@ -16444,8 +16446,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_R2
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_cwd)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_cwd)
 ___END_P_HLBL
@@ -16472,8 +16474,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_R2
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_cdqe)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_cdqe)
 ___END_P_HLBL
@@ -16500,8 +16502,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_R2
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_cqo)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_cqo)
 ___END_P_HLBL
@@ -16528,8 +16530,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(14)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_widen)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_widen)
 ___DEF_P_HLBL(___L2___x86_23_x86_2d_widen)
@@ -16653,8 +16655,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_rol)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_rol)
 ___END_P_HLBL
@@ -16688,8 +16690,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_ror)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_ror)
 ___END_P_HLBL
@@ -16723,8 +16725,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_rcl)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_rcl)
 ___END_P_HLBL
@@ -16758,8 +16760,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_rcr)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_rcr)
 ___END_P_HLBL
@@ -16793,8 +16795,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_shl)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_shl)
 ___END_P_HLBL
@@ -16828,8 +16830,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_shr)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_shr)
 ___END_P_HLBL
@@ -16863,8 +16865,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_sar)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_sar)
 ___END_P_HLBL
@@ -16898,8 +16900,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(45)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_shift)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_shift)
 ___DEF_P_HLBL(___L2___x86_23_x86_2d_shift)
@@ -17343,8 +17345,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_not)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_not)
 ___END_P_HLBL
@@ -17378,8 +17380,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_neg)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_neg)
 ___END_P_HLBL
@@ -17413,8 +17415,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(24)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_negate)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_negate)
 ___DEF_P_HLBL(___L2___x86_23_x86_2d_negate)
@@ -17685,8 +17687,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(65)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_test)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_test)
 ___DEF_P_HLBL(___L2___x86_23_x86_2d_test)
@@ -18387,8 +18389,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(48)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_xchg)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_xchg)
 ___DEF_P_HLBL(___L2___x86_23_x86_2d_xchg)
@@ -18862,8 +18864,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_mul)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_mul)
 ___END_P_HLBL
@@ -18897,8 +18899,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_imul)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_imul)
 ___END_P_HLBL
@@ -18936,8 +18938,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_div)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_div)
 ___END_P_HLBL
@@ -18971,8 +18973,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_idiv)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_idiv)
 ___END_P_HLBL
@@ -19006,8 +19008,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(62)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_multiply_2d_divide)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_multiply_2d_divide)
 ___DEF_P_HLBL(___L2___x86_23_x86_2d_multiply_2d_divide)
@@ -19618,8 +19620,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_movzx)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_movzx)
 ___END_P_HLBL
@@ -19653,8 +19655,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_movsx)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_movsx)
 ___END_P_HLBL
@@ -19688,8 +19690,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(58)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_move_2d_extended)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_move_2d_extended)
 ___DEF_P_HLBL(___L2___x86_23_x86_2d_move_2d_extended)
@@ -20282,8 +20284,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_bt)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_bt)
 ___END_P_HLBL
@@ -20317,8 +20319,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_bts)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_bts)
 ___END_P_HLBL
@@ -20352,8 +20354,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_btr)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_btr)
 ___END_P_HLBL
@@ -20387,8 +20389,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_btc)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_btc)
 ___END_P_HLBL
@@ -20422,8 +20424,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(75)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_bit_2d_op)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_bit_2d_op)
 ___DEF_P_HLBL(___L2___x86_23_x86_2d_bit_2d_op)
@@ -21168,8 +21170,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_cmova)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_cmova)
 ___END_P_HLBL
@@ -21202,8 +21204,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_cmovae)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_cmovae)
 ___END_P_HLBL
@@ -21236,8 +21238,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_cmovb)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_cmovb)
 ___END_P_HLBL
@@ -21270,8 +21272,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_cmovbe)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_cmovbe)
 ___END_P_HLBL
@@ -21304,8 +21306,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_cmovc)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_cmovc)
 ___END_P_HLBL
@@ -21338,8 +21340,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_cmove)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_cmove)
 ___END_P_HLBL
@@ -21372,8 +21374,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_cmovg)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_cmovg)
 ___END_P_HLBL
@@ -21406,8 +21408,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_cmovge)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_cmovge)
 ___END_P_HLBL
@@ -21440,8 +21442,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_cmovl)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_cmovl)
 ___END_P_HLBL
@@ -21474,8 +21476,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_cmovle)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_cmovle)
 ___END_P_HLBL
@@ -21508,8 +21510,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_cmovna)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_cmovna)
 ___END_P_HLBL
@@ -21542,8 +21544,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_cmovnae)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_cmovnae)
 ___END_P_HLBL
@@ -21576,8 +21578,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_cmovnb)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_cmovnb)
 ___END_P_HLBL
@@ -21610,8 +21612,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_cmovnbe)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_cmovnbe)
 ___END_P_HLBL
@@ -21644,8 +21646,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_cmovnc)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_cmovnc)
 ___END_P_HLBL
@@ -21678,8 +21680,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_cmovne)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_cmovne)
 ___END_P_HLBL
@@ -21712,8 +21714,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_cmovng)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_cmovng)
 ___END_P_HLBL
@@ -21746,8 +21748,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_cmovnge)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_cmovnge)
 ___END_P_HLBL
@@ -21780,8 +21782,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_cmovnl)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_cmovnl)
 ___END_P_HLBL
@@ -21814,8 +21816,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_cmovnle)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_cmovnle)
 ___END_P_HLBL
@@ -21848,8 +21850,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_cmovno)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_cmovno)
 ___END_P_HLBL
@@ -21882,8 +21884,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_cmovnp)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_cmovnp)
 ___END_P_HLBL
@@ -21916,8 +21918,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_cmovns)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_cmovns)
 ___END_P_HLBL
@@ -21950,8 +21952,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_cmovnz)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_cmovnz)
 ___END_P_HLBL
@@ -21984,8 +21986,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_cmovo)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_cmovo)
 ___END_P_HLBL
@@ -22018,8 +22020,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_cmovp)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_cmovp)
 ___END_P_HLBL
@@ -22052,8 +22054,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_cmovpe)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_cmovpe)
 ___END_P_HLBL
@@ -22086,8 +22088,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_cmovpo)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_cmovpo)
 ___END_P_HLBL
@@ -22120,8 +22122,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_cmovs)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_cmovs)
 ___END_P_HLBL
@@ -22154,8 +22156,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_cmovz)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_cmovz)
 ___END_P_HLBL
@@ -22188,8 +22190,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(45)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_cmovcc)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_cmovcc)
 ___DEF_P_HLBL(___L2___x86_23_x86_2d_cmovcc)
@@ -22648,8 +22650,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_popcnt)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_popcnt)
 ___END_P_HLBL
@@ -22683,8 +22685,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_lzcnt)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_lzcnt)
 ___END_P_HLBL
@@ -22718,8 +22720,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(47)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_count)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_count)
 ___DEF_P_HLBL(___L2___x86_23_x86_2d_count)
@@ -23200,8 +23202,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(20)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_in_2d_imm)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_in_2d_imm)
 ___DEF_P_HLBL(___L2___x86_23_x86_2d_in_2d_imm)
@@ -23397,8 +23399,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(18)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_in_2d_dx)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_in_2d_dx)
 ___DEF_P_HLBL(___L2___x86_23_x86_2d_in_2d_dx)
@@ -23580,8 +23582,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(20)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_out_2d_imm)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_out_2d_imm)
 ___DEF_P_HLBL(___L2___x86_23_x86_2d_out_2d_imm)
@@ -23777,8 +23779,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(18)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___x86_23_x86_2d_out_2d_dx)
 ___DEF_P_HLBL(___L1___x86_23_x86_2d_out_2d_dx)
 ___DEF_P_HLBL(___L2___x86_23_x86_2d_out_2d_dx)
@@ -23954,1887 +23956,1887 @@ ___END_M_COD
 
 ___BEGIN_LBL
  ___DEF_LBL_INTRO(___H___x86_23_,___REF_SYM(1,___S___x86_23_),___REF_FAL,1,0)
-,___DEF_LBL_PROC(___H___x86_23_,0,-1)
+,___DEF_LBL_PROC_AT(___H___x86_23_,0,-1,1)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_register_2d_name,___REF_SYM(168,___S___x86_23_x86_2d_register_2d_name),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_register_2d_name,1,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_register_2d_name,___IFD(___RETI,0,0,0x3fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_register_2d_name,1,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_register_2d_name,___IFD(___RETI,0,0,0x3fL),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_arch_2d_set_21_,___REF_SYM(7,___S___x86_23_x86_2d_arch_2d_set_21_),___REF_FAL,9,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_arch_2d_set_21_,2,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_arch_2d_set_21_,___IFD(___RETI,8,0,0x3f03L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_arch_2d_set_21_,___IFD(___RETN,5,0,0x3L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_arch_2d_set_21_,___IFD(___RETN,5,0,0x3L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_arch_2d_set_21_,___IFD(___RETN,5,0,0x3L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_arch_2d_set_21_,___IFD(___RETN,5,0,0x3L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_arch_2d_set_21_,___IFD(___RETN,5,0,0x3L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_arch_2d_set_21_,___IFD(___RETI,8,8,0x3f00L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_arch_2d_set_21_,___IFD(___RETN,5,0,0x3L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_arch_2d_set_21_,2,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_arch_2d_set_21_,___IFD(___RETI,8,0,0x3f03L),2)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_arch_2d_set_21_,___IFD(___RETN,5,0,0x3L),3)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_arch_2d_set_21_,___IFD(___RETN,5,0,0x3L),4)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_arch_2d_set_21_,___IFD(___RETN,5,0,0x3L),5)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_arch_2d_set_21_,___IFD(___RETN,5,0,0x3L),6)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_arch_2d_set_21_,___IFD(___RETN,5,0,0x3L),7)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_arch_2d_set_21_,___IFD(___RETI,8,8,0x3f00L),8)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_arch_2d_set_21_,___IFD(___RETN,5,0,0x3L),9)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_64bit_2d_mode_3f_,___REF_SYM(2,___S___x86_23_x86_2d_64bit_2d_mode_3f_),___REF_FAL,4,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_64bit_2d_mode_3f_,1,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_64bit_2d_mode_3f_,___IFD(___RETI,4,0,0x3f1L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_64bit_2d_mode_3f_,___IFD(___RETN,1,0,0x1L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_64bit_2d_mode_3f_,___IFD(___RETI,4,4,0x3f0L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_64bit_2d_mode_3f_,1,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_64bit_2d_mode_3f_,___IFD(___RETI,4,0,0x3f1L),2)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_64bit_2d_mode_3f_,___IFD(___RETN,1,0,0x1L),3)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_64bit_2d_mode_3f_,___IFD(___RETI,4,4,0x3f0L),4)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_word_2d_width,___REF_SYM(203,___S___x86_23_x86_2d_word_2d_width),___REF_FAL,3,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_word_2d_width,1,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_word_2d_width,___IFD(___RETI,4,0,0x3f1L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_word_2d_width,___IFD(___RETN,1,0,0x1L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_word_2d_width,1,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_word_2d_width,___IFD(___RETI,4,0,0x3f1L),2)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_word_2d_width,___IFD(___RETN,1,0,0x1L),3)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_force_2d_width,___REF_SYM(67,___S___x86_23_x86_2d_force_2d_width),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_force_2d_width,2,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_force_2d_width,___IFD(___RETI,0,0,0x3fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_force_2d_width,2,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_force_2d_width,___IFD(___RETI,0,0,0x3fL),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_force_2d_width_3f_,___REF_SYM(70,___S___x86_23_x86_2d_force_2d_width_3f_),___REF_FAL,5,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_force_2d_width_3f_,1,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_force_2d_width_3f_,___IFD(___RETI,8,0,0x3f03L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_force_2d_width_3f_,___IFD(___RETN,5,0,0x3L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_force_2d_width_3f_,___IFD(___RETN,1,0,0x1L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_force_2d_width_3f_,___IFD(___RETI,4,4,0x3f0L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_force_2d_width_3f_,1,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_force_2d_width_3f_,___IFD(___RETI,8,0,0x3f03L),2)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_force_2d_width_3f_,___IFD(___RETN,5,0,0x3L),3)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_force_2d_width_3f_,___IFD(___RETN,1,0,0x1L),4)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_force_2d_width_3f_,___IFD(___RETI,4,4,0x3f0L),5)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_force_2d_width_2d_opnd,___REF_SYM(68,___S___x86_23_x86_2d_force_2d_width_2d_opnd),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_force_2d_width_2d_opnd,1,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_force_2d_width_2d_opnd,___IFD(___RETI,0,0,0x3fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_force_2d_width_2d_opnd,1,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_force_2d_width_2d_opnd,___IFD(___RETI,0,0,0x3fL),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_force_2d_width_2d_width,___REF_SYM(69,___S___x86_23_x86_2d_force_2d_width_2d_width),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_force_2d_width_2d_width,1,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_force_2d_width_2d_width,___IFD(___RETI,0,0,0x3fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_force_2d_width_2d_width,1,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_force_2d_width_2d_width,___IFD(___RETI,0,0,0x3fL),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_imm_3f_,___REF_SYM(95,___S___x86_23_x86_2d_imm_3f_),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_imm_3f_,1,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_imm_3f_,___IFD(___RETI,0,0,0x3fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_imm_3f_,1,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_imm_3f_,___IFD(___RETI,0,0,0x3fL),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_imm_2d_int,___REF_SYM(78,___S___x86_23_x86_2d_imm_2d_int),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_imm_2d_int,2,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_imm_2d_int,___IFD(___RETI,1,4,0x3f0L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_imm_2d_int,2,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_imm_2d_int,___IFD(___RETI,1,4,0x3f0L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_imm_2d_int_3f_,___REF_SYM(81,___S___x86_23_x86_2d_imm_2d_int_3f_),___REF_FAL,5,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_imm_2d_int_3f_,1,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_imm_2d_int_3f_,___IFD(___RETI,8,0,0x3f03L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_imm_2d_int_3f_,___IFD(___RETN,5,0,0x3L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_imm_2d_int_3f_,___IFD(___RETN,1,0,0x1L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_imm_2d_int_3f_,___IFD(___RETI,4,4,0x3f0L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_imm_2d_int_3f_,1,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_imm_2d_int_3f_,___IFD(___RETI,8,0,0x3f03L),2)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_imm_2d_int_3f_,___IFD(___RETN,5,0,0x3L),3)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_imm_2d_int_3f_,___IFD(___RETN,1,0,0x1L),4)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_imm_2d_int_3f_,___IFD(___RETI,4,4,0x3f0L),5)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_imm_2d_int_2d_width,___REF_SYM(80,___S___x86_23_x86_2d_imm_2d_int_2d_width),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_imm_2d_int_2d_width,1,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_imm_2d_int_2d_width,___IFD(___RETI,0,0,0x3fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_imm_2d_int_2d_width,1,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_imm_2d_int_2d_width,___IFD(___RETI,0,0,0x3fL),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_imm_2d_int_2d_value,___REF_SYM(79,___S___x86_23_x86_2d_imm_2d_int_2d_value),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_imm_2d_int_2d_value,1,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_imm_2d_int_2d_value,___IFD(___RETI,0,0,0x3fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_imm_2d_int_2d_value,1,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_imm_2d_int_2d_value,___IFD(___RETI,0,0,0x3fL),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_imm_2d_lbl,___REF_SYM(86,___S___x86_23_x86_2d_imm_2d_lbl),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_imm_2d_lbl,2,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_imm_2d_lbl,___IFD(___RETI,1,4,0x3f0L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_imm_2d_lbl,2,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_imm_2d_lbl,___IFD(___RETI,1,4,0x3f0L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_imm_2d_lbl_3f_,___REF_SYM(90,___S___x86_23_x86_2d_imm_2d_lbl_3f_),___REF_FAL,5,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_imm_2d_lbl_3f_,1,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_imm_2d_lbl_3f_,___IFD(___RETI,8,0,0x3f03L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_imm_2d_lbl_3f_,___IFD(___RETN,5,0,0x3L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_imm_2d_lbl_3f_,___IFD(___RETN,1,0,0x1L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_imm_2d_lbl_3f_,___IFD(___RETI,4,4,0x3f0L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_imm_2d_lbl_3f_,1,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_imm_2d_lbl_3f_,___IFD(___RETI,8,0,0x3f03L),2)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_imm_2d_lbl_3f_,___IFD(___RETN,5,0,0x3L),3)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_imm_2d_lbl_3f_,___IFD(___RETN,1,0,0x1L),4)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_imm_2d_lbl_3f_,___IFD(___RETI,4,4,0x3f0L),5)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_imm_2d_lbl_2d_offset,___REF_SYM(89,___S___x86_23_x86_2d_imm_2d_lbl_2d_offset),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_imm_2d_lbl_2d_offset,1,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_imm_2d_lbl_2d_offset,___IFD(___RETI,0,0,0x3fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_imm_2d_lbl_2d_offset,1,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_imm_2d_lbl_2d_offset,___IFD(___RETI,0,0,0x3fL),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_imm_2d_lbl_2d_label,___REF_SYM(88,___S___x86_23_x86_2d_imm_2d_lbl_2d_label),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_imm_2d_lbl_2d_label,1,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_imm_2d_lbl_2d_label,___IFD(___RETI,0,0,0x3fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_imm_2d_lbl_2d_label,1,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_imm_2d_lbl_2d_label,___IFD(___RETI,0,0,0x3fL),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_imm_2d_glo,___REF_SYM(74,___S___x86_23_x86_2d_imm_2d_glo),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_imm_2d_glo,1,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_imm_2d_glo,___IFD(___RETI,0,0,0x3fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_imm_2d_glo,1,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_imm_2d_glo,___IFD(___RETI,0,0,0x3fL),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_imm_2d_glo_3f_,___REF_SYM(77,___S___x86_23_x86_2d_imm_2d_glo_3f_),___REF_FAL,5,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_imm_2d_glo_3f_,1,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_imm_2d_glo_3f_,___IFD(___RETI,8,0,0x3f03L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_imm_2d_glo_3f_,___IFD(___RETN,5,0,0x3L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_imm_2d_glo_3f_,___IFD(___RETN,1,0,0x1L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_imm_2d_glo_3f_,___IFD(___RETI,4,4,0x3f0L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_imm_2d_glo_3f_,1,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_imm_2d_glo_3f_,___IFD(___RETI,8,0,0x3f03L),2)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_imm_2d_glo_3f_,___IFD(___RETN,5,0,0x3L),3)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_imm_2d_glo_3f_,___IFD(___RETN,1,0,0x1L),4)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_imm_2d_glo_3f_,___IFD(___RETI,4,4,0x3f0L),5)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_imm_2d_glo_2d_name,___REF_SYM(76,___S___x86_23_x86_2d_imm_2d_glo_2d_name),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_imm_2d_glo_2d_name,1,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_imm_2d_glo_2d_name,___IFD(___RETI,0,0,0x3fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_imm_2d_glo_2d_name,1,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_imm_2d_glo_2d_name,___IFD(___RETI,0,0,0x3fL),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_imm_2d_late,___REF_SYM(82,___S___x86_23_x86_2d_imm_2d_late),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_imm_2d_late,2,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_imm_2d_late,___IFD(___RETI,1,4,0x3f0L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_imm_2d_late,2,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_imm_2d_late,___IFD(___RETI,1,4,0x3f0L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_imm_2d_late_3f_,___REF_SYM(85,___S___x86_23_x86_2d_imm_2d_late_3f_),___REF_FAL,5,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_imm_2d_late_3f_,1,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_imm_2d_late_3f_,___IFD(___RETI,8,0,0x3f03L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_imm_2d_late_3f_,___IFD(___RETN,5,0,0x3L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_imm_2d_late_3f_,___IFD(___RETN,1,0,0x1L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_imm_2d_late_3f_,___IFD(___RETI,4,4,0x3f0L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_imm_2d_late_3f_,1,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_imm_2d_late_3f_,___IFD(___RETI,8,0,0x3f03L),2)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_imm_2d_late_3f_,___IFD(___RETN,5,0,0x3L),3)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_imm_2d_late_3f_,___IFD(___RETN,1,0,0x1L),4)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_imm_2d_late_3f_,___IFD(___RETI,4,4,0x3f0L),5)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_imm_2d_late_2d_width,___REF_SYM(84,___S___x86_23_x86_2d_imm_2d_late_2d_width),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_imm_2d_late_2d_width,1,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_imm_2d_late_2d_width,___IFD(___RETI,0,0,0x3fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_imm_2d_late_2d_width,1,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_imm_2d_late_2d_width,___IFD(___RETI,0,0,0x3fL),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_imm_2d_late_2d_handler,___REF_SYM(83,___S___x86_23_x86_2d_imm_2d_late_2d_handler),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_imm_2d_late_2d_handler,1,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_imm_2d_late_2d_handler,___IFD(___RETI,0,0,0x3fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_imm_2d_late_2d_handler,1,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_imm_2d_late_2d_handler,___IFD(___RETI,0,0,0x3fL),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_imm_2d_obj,___REF_SYM(91,___S___x86_23_x86_2d_imm_2d_obj),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_imm_2d_obj,1,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_imm_2d_obj,___IFD(___RETI,0,0,0x3fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_imm_2d_obj,1,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_imm_2d_obj,___IFD(___RETI,0,0,0x3fL),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_imm_2d_obj_3f_,___REF_SYM(94,___S___x86_23_x86_2d_imm_2d_obj_3f_),___REF_FAL,5,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_imm_2d_obj_3f_,1,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_imm_2d_obj_3f_,___IFD(___RETI,8,0,0x3f03L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_imm_2d_obj_3f_,___IFD(___RETN,5,0,0x3L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_imm_2d_obj_3f_,___IFD(___RETN,1,0,0x1L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_imm_2d_obj_3f_,___IFD(___RETI,4,4,0x3f0L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_imm_2d_obj_3f_,1,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_imm_2d_obj_3f_,___IFD(___RETI,8,0,0x3f03L),2)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_imm_2d_obj_3f_,___IFD(___RETN,5,0,0x3L),3)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_imm_2d_obj_3f_,___IFD(___RETN,1,0,0x1L),4)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_imm_2d_obj_3f_,___IFD(___RETI,4,4,0x3f0L),5)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_imm_2d_obj_2d_value,___REF_SYM(93,___S___x86_23_x86_2d_imm_2d_obj_2d_value),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_imm_2d_obj_2d_value,1,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_imm_2d_obj_2d_value,___IFD(___RETI,0,0,0x3fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_imm_2d_obj_2d_value,1,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_imm_2d_obj_2d_value,___IFD(___RETI,0,0,0x3fL),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_mem,___REF_SYM(127,___S___x86_23_x86_2d_mem),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_mem,4,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_mem,___IFD(___RETI,1,4,0x3f1L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_mem,4,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_mem,___IFD(___RETI,1,4,0x3f1L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_mem_3f_,___REF_SYM(133,___S___x86_23_x86_2d_mem_3f_),___REF_FAL,5,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_mem_3f_,1,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_mem_3f_,___IFD(___RETI,8,0,0x3f03L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_mem_3f_,___IFD(___RETN,5,0,0x3L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_mem_3f_,___IFD(___RETN,1,0,0x1L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_mem_3f_,___IFD(___RETI,4,4,0x3f0L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_mem_3f_,1,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_mem_3f_,___IFD(___RETI,8,0,0x3f03L),2)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_mem_3f_,___IFD(___RETN,5,0,0x3L),3)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_mem_3f_,___IFD(___RETN,1,0,0x1L),4)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_mem_3f_,___IFD(___RETI,4,4,0x3f0L),5)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_mem_2d_offset,___REF_SYM(129,___S___x86_23_x86_2d_mem_2d_offset),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_mem_2d_offset,1,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_mem_2d_offset,___IFD(___RETI,0,0,0x3fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_mem_2d_offset,1,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_mem_2d_offset,___IFD(___RETI,0,0,0x3fL),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_mem_2d_reg1,___REF_SYM(130,___S___x86_23_x86_2d_mem_2d_reg1),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_mem_2d_reg1,1,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_mem_2d_reg1,___IFD(___RETI,0,0,0x3fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_mem_2d_reg1,1,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_mem_2d_reg1,___IFD(___RETI,0,0,0x3fL),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_mem_2d_reg2,___REF_SYM(131,___S___x86_23_x86_2d_mem_2d_reg2),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_mem_2d_reg2,1,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_mem_2d_reg2,___IFD(___RETI,0,0,0x3fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_mem_2d_reg2,1,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_mem_2d_reg2,___IFD(___RETI,0,0,0x3fL),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_mem_2d_scale,___REF_SYM(132,___S___x86_23_x86_2d_mem_2d_scale),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_mem_2d_scale,1,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_mem_2d_scale,___IFD(___RETI,0,0,0x3fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_mem_2d_scale,1,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_mem_2d_scale,___IFD(___RETI,0,0,0x3fL),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_mem_2d_abs_3f_,___REF_SYM(128,___S___x86_23_x86_2d_mem_2d_abs_3f_),___REF_FAL,6,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_mem_2d_abs_3f_,1,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_mem_2d_abs_3f_,___IFD(___RETI,8,0,0x3f03L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_mem_2d_abs_3f_,___IFD(___RETN,5,0,0x3L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_mem_2d_abs_3f_,___IFD(___RETN,5,0,0x3L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_mem_2d_abs_3f_,___IFD(___RETN,1,0,0x1L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_mem_2d_abs_3f_,___IFD(___RETI,4,4,0x3f0L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_mem_2d_abs_3f_,1,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_mem_2d_abs_3f_,___IFD(___RETI,8,0,0x3f03L),2)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_mem_2d_abs_3f_,___IFD(___RETN,5,0,0x3L),3)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_mem_2d_abs_3f_,___IFD(___RETN,5,0,0x3L),4)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_mem_2d_abs_3f_,___IFD(___RETN,1,0,0x1L),5)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_mem_2d_abs_3f_,___IFD(___RETI,4,4,0x3f0L),6)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_offset_2d__3e_string,___REF_SYM(146,___S___x86_23_x86_2d_offset_2d__3e_string),___REF_FAL,7,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_offset_2d__3e_string,1,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_offset_2d__3e_string,___IFD(___RETI,8,0,0x3f03L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_offset_2d__3e_string,___IFD(___RETN,5,0,0x3L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_offset_2d__3e_string,___IFD(___RETN,5,0,0x3L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_offset_2d__3e_string,___IFD(___RETI,8,8,0x3f00L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_offset_2d__3e_string,___IFD(___RETN,1,0,0x1L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_offset_2d__3e_string,___IFD(___RETI,4,4,0x3f0L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_offset_2d__3e_string,1,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_offset_2d__3e_string,___IFD(___RETI,8,0,0x3f03L),2)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_offset_2d__3e_string,___IFD(___RETN,5,0,0x3L),3)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_offset_2d__3e_string,___IFD(___RETN,5,0,0x3L),4)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_offset_2d__3e_string,___IFD(___RETI,8,8,0x3f00L),5)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_offset_2d__3e_string,___IFD(___RETN,1,0,0x1L),6)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_offset_2d__3e_string,___IFD(___RETI,4,4,0x3f0L),7)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_listing,___REF_SYM(125,___S___x86_23_x86_2d_listing),___REF_FAL,129,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_listing,4,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETI,8,1,0x3f1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___OFD(___RETI,12,1,0x3f02fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,9,1,0x2fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x17L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x17L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x3L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x3L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETI,8,8,0x3f00L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x7L))
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_listing,1,2)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETI,8,0,0x3f07L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,0,0x7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,0,0x5L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETI,8,8,0x3f04L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,0,0x7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,0,0x7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,0,0x7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,0,0x3L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,0,0x3L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,1,0,0x1L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,1,0,0x1L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,1,0,0x1L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETI,4,4,0x3f0L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,1,0,0x1L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETI,4,4,0x3f0L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,1,0,0x1L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,1,0,0x1L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,1,0,0x1L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,0,0x7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,0,0x3L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,0,0x3L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,0,0x5L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,0,0x5L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,0,0x7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,0,0x7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,0,0x5L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,0,0x3L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,1,0,0x1L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,1,0,0x1L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,1,0,0x1L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,0,0x7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,0,0x7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,0,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,9,0,0x3dL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,0,0x3L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,0,0x3L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,0,0x7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,0,0x7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,0,0xdL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,0,0xdL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,0,0x9L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETI,8,8,0x3f08L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,9,0,0x2bL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,9,0,0x2fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,0,0xbL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,0,0xbL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,9,0,0x37L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___OFD(___RETI,12,1,0x3f04fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,9,1,0x4fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,9,1,0x4fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x13L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x17L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x17L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x13L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x3L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETI,8,8,0x3f00L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x2L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETI,8,8,0x3f00L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,13,1,0x102eL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,0,0x7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETI,1,4,0x3f1L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETI,8,1,0x3f1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETI,8,8,0x3f00L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x1eL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x13L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x12L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x12L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x3L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x3L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETI,8,8,0x3f01L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x13L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x2L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETI,8,8,0x3f00L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x13L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x3L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETI,8,8,0x3f04L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x12L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETI,8,8,0x3f00L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x2L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,9,1,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,9,1,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,9,1,0xefL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,9,1,0x1ffL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,13,9,0x363L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,13,9,0x367L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,13,9,0x267L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,13,9,0x223L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,13,9,0x207L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___OFD(___RETI,16,16,0x3f0007L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,13,9,0x267L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,9,1,0x22L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___OFD(___RETI,12,12,0x3f020L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x17L))
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_listing,1,4)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_listing,___IFD(___RETI,8,0,0x3f07L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_listing,4,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETI,8,1,0x3f1fL),2)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x1fL),3)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___OFD(___RETI,12,1,0x3f02fL),4)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,9,1,0x2fL),5)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0xfL),6)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0xfL),7)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x1fL),8)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x17L),9)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x1fL),10)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0xfL),11)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x7L),12)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x17L),13)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x3L),14)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x3L),15)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETI,8,8,0x3f00L),16)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x7L),17)
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_listing,1,2,18)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETI,8,0,0x3f07L),19)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,0,0x7L),20)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,0,0x5L),21)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETI,8,8,0x3f04L),22)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,0,0x7L),23)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,0,0x7L),24)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,0,0x7L),25)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,0,0x3L),26)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,0,0x3L),27)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,1,0,0x1L),28)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,1,0,0x1L),29)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,1,0,0x1L),30)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETI,4,4,0x3f0L),31)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,1,0,0x1L),32)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETI,4,4,0x3f0L),33)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,1,0,0x1L),34)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,1,0,0x1L),35)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,1,0,0x1L),36)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,0,0x7L),37)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,0,0x3L),38)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,0,0x3L),39)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,0,0x5L),40)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,0,0x5L),41)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,0,0x7L),42)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,0,0x7L),43)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,0,0x5L),44)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,0,0x3L),45)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,1,0,0x1L),46)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,1,0,0x1L),47)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,1,0,0x1L),48)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,0,0x7L),49)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,0,0x7L),50)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,0,0xfL),51)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,0,0x1fL),52)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,9,0,0x3dL),53)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,0,0x3L),54)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,0,0x3L),55)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,0,0x7L),56)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,0,0x7L),57)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,0,0xdL),58)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,0,0xdL),59)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,0,0x9L),60)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETI,8,8,0x3f08L),61)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,9,0,0x2bL),62)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,9,0,0x2fL),63)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,0,0xfL),64)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,0,0xbL),65)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,0,0xbL),66)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,0,0xfL),67)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,9,0,0x37L),68)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x1fL),69)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___OFD(___RETI,12,1,0x3f04fL),70)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,9,1,0x4fL),71)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,9,1,0x4fL),72)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x7L),73)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x13L),74)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x1fL),75)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x17L),76)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x17L),77)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x13L),78)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x3L),79)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETI,8,8,0x3f00L),80)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x2L),81)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETI,8,8,0x3f00L),82)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x1fL),83)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x1fL),84)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,13,1,0x102eL),85)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,0,0x7L),86)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETI,1,4,0x3f1L),87)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETI,8,1,0x3f1fL),88)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x1fL),89)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x1fL),90)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETI,8,8,0x3f00L),91)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x1fL),92)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x1fL),93)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x1eL),94)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0xfL),95)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x1fL),96)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x13L),97)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x12L),98)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x12L),99)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x3L),100)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x3L),101)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETI,8,8,0x3f01L),102)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x13L),103)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x2L),104)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETI,8,8,0x3f00L),105)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x13L),106)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x3L),107)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETI,8,8,0x3f04L),108)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x12L),109)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETI,8,8,0x3f00L),110)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x2L),111)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x1fL),112)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x1fL),113)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,9,1,0x3fL),114)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,9,1,0x7fL),115)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,9,1,0xefL),116)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,9,1,0x1ffL),117)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,13,9,0x363L),118)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,13,9,0x367L),119)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,13,9,0x267L),120)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,13,9,0x223L),121)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,13,9,0x207L),122)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___OFD(___RETI,16,16,0x3f0007L),123)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,13,9,0x267L),124)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,9,1,0x22L),125)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___OFD(___RETI,12,12,0x3f020L),126)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETN,5,1,0x17L),127)
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_listing,1,4,128)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_listing,___IFD(___RETI,8,0,0x3f07L),129)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_width_2d_suffix,___REF_SYM(202,___S___x86_23_x86_2d_width_2d_suffix),___REF_FAL,8,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_width_2d_suffix,2,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_width_2d_suffix,___IFD(___RETI,8,0,0x3f03L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_width_2d_suffix,___IFD(___RETN,5,0,0x3L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_width_2d_suffix,___IFD(___RETN,5,0,0x3L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_width_2d_suffix,___IFD(___RETN,5,0,0x3L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_width_2d_suffix,___IFD(___RETN,5,0,0x3L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_width_2d_suffix,___IFD(___RETN,5,0,0x3L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_width_2d_suffix,___IFD(___RETN,1,0,0x1L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_width_2d_suffix,2,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_width_2d_suffix,___IFD(___RETI,8,0,0x3f03L),2)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_width_2d_suffix,___IFD(___RETN,5,0,0x3L),3)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_width_2d_suffix,___IFD(___RETN,5,0,0x3L),4)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_width_2d_suffix,___IFD(___RETN,5,0,0x3L),5)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_width_2d_suffix,___IFD(___RETN,5,0,0x3L),6)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_width_2d_suffix,___IFD(___RETN,5,0,0x3L),7)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_width_2d_suffix,___IFD(___RETN,1,0,0x1L),8)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_xmm_2d_width_2d_suffix,___REF_SYM(206,___S___x86_23_x86_2d_xmm_2d_width_2d_suffix),___REF_FAL,4,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_xmm_2d_width_2d_suffix,2,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_xmm_2d_width_2d_suffix,___IFD(___RETI,8,0,0x3f03L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_xmm_2d_width_2d_suffix,___IFD(___RETN,5,0,0x3L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_xmm_2d_width_2d_suffix,___IFD(___RETN,1,0,0x1L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_xmm_2d_width_2d_suffix,2,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_xmm_2d_width_2d_suffix,___IFD(___RETI,8,0,0x3f03L),2)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_xmm_2d_width_2d_suffix,___IFD(___RETN,5,0,0x3L),3)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_xmm_2d_width_2d_suffix,___IFD(___RETN,1,0,0x1L),4)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_esc_2d_opcode,___REF_SYM(66,___S___x86_23_x86_2d_esc_2d_opcode),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_esc_2d_opcode,1,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_esc_2d_opcode,___IFD(___RETI,0,0,0x3fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_esc_2d_opcode,1,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_esc_2d_opcode,___IFD(___RETI,0,0,0x3fL),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_opnd_2d_prefix_2d_reg_2d_opnd,___REF_SYM(152,___S___x86_23_x86_2d_opnd_2d_prefix_2d_reg_2d_opnd),___REF_FAL,30,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_opnd_2d_prefix_2d_reg_2d_opnd,3,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix_2d_reg_2d_opnd,___IFD(___RETI,8,0,0x3f0fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix_2d_reg_2d_opnd,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix_2d_reg_2d_opnd,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix_2d_reg_2d_opnd,___IFD(___RETN,5,0,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix_2d_reg_2d_opnd,___IFD(___RETN,9,0,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix_2d_reg_2d_opnd,___IFD(___RETN,9,0,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix_2d_reg_2d_opnd,___IFD(___RETN,9,0,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix_2d_reg_2d_opnd,___IFD(___RETN,9,0,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix_2d_reg_2d_opnd,___IFD(___RETN,9,0,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix_2d_reg_2d_opnd,___OFD(___RETI,12,12,0x3f003L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix_2d_reg_2d_opnd,___IFD(___RETN,9,0,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix_2d_reg_2d_opnd,___IFD(___RETN,9,0,0xffL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix_2d_reg_2d_opnd,___IFD(___RETN,9,0,0xffL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix_2d_reg_2d_opnd,___IFD(___RETN,9,0,0xffL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix_2d_reg_2d_opnd,___IFD(___RETN,9,0,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix_2d_reg_2d_opnd,___IFD(___RETN,5,0,0xdL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix_2d_reg_2d_opnd,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix_2d_reg_2d_opnd,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix_2d_reg_2d_opnd,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix_2d_reg_2d_opnd,___IFD(___RETN,5,0,0x3L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix_2d_reg_2d_opnd,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix_2d_reg_2d_opnd,___IFD(___RETN,9,0,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix_2d_reg_2d_opnd,___IFD(___RETN,9,0,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix_2d_reg_2d_opnd,___IFD(___RETN,9,0,0xffL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix_2d_reg_2d_opnd,___IFD(___RETN,9,0,0xffL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix_2d_reg_2d_opnd,___IFD(___RETN,9,0,0xffL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix_2d_reg_2d_opnd,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix_2d_reg_2d_opnd,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix_2d_reg_2d_opnd,___IFD(___RETN,5,0,0xfL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_opnd_2d_prefix_2d_reg_2d_opnd,3,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix_2d_reg_2d_opnd,___IFD(___RETI,8,0,0x3f0fL),2)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix_2d_reg_2d_opnd,___IFD(___RETN,5,0,0xfL),3)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix_2d_reg_2d_opnd,___IFD(___RETN,5,0,0xfL),4)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix_2d_reg_2d_opnd,___IFD(___RETN,5,0,0x1fL),5)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix_2d_reg_2d_opnd,___IFD(___RETN,9,0,0x3fL),6)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix_2d_reg_2d_opnd,___IFD(___RETN,9,0,0x3fL),7)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix_2d_reg_2d_opnd,___IFD(___RETN,9,0,0x3fL),8)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix_2d_reg_2d_opnd,___IFD(___RETN,9,0,0x3fL),9)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix_2d_reg_2d_opnd,___IFD(___RETN,9,0,0x7fL),10)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix_2d_reg_2d_opnd,___OFD(___RETI,12,12,0x3f003L),11)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix_2d_reg_2d_opnd,___IFD(___RETN,9,0,0x7fL),12)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix_2d_reg_2d_opnd,___IFD(___RETN,9,0,0xffL),13)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix_2d_reg_2d_opnd,___IFD(___RETN,9,0,0xffL),14)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix_2d_reg_2d_opnd,___IFD(___RETN,9,0,0xffL),15)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix_2d_reg_2d_opnd,___IFD(___RETN,9,0,0x7fL),16)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix_2d_reg_2d_opnd,___IFD(___RETN,5,0,0xdL),17)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix_2d_reg_2d_opnd,___IFD(___RETN,5,0,0xfL),18)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix_2d_reg_2d_opnd,___IFD(___RETN,5,0,0xfL),19)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix_2d_reg_2d_opnd,___IFD(___RETN,5,0,0xfL),20)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix_2d_reg_2d_opnd,___IFD(___RETN,5,0,0x3L),21)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix_2d_reg_2d_opnd,___IFD(___RETN,5,0,0xfL),22)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix_2d_reg_2d_opnd,___IFD(___RETN,9,0,0x7fL),23)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix_2d_reg_2d_opnd,___IFD(___RETN,9,0,0x7fL),24)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix_2d_reg_2d_opnd,___IFD(___RETN,9,0,0xffL),25)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix_2d_reg_2d_opnd,___IFD(___RETN,9,0,0xffL),26)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix_2d_reg_2d_opnd,___IFD(___RETN,9,0,0xffL),27)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix_2d_reg_2d_opnd,___IFD(___RETN,5,0,0xfL),28)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix_2d_reg_2d_opnd,___IFD(___RETN,5,0,0xfL),29)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix_2d_reg_2d_opnd,___IFD(___RETN,5,0,0xfL),30)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_opnd_2d_prefix_2d_opnd,___REF_SYM(151,___S___x86_23_x86_2d_opnd_2d_prefix_2d_opnd),___REF_FAL,10,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_opnd_2d_prefix_2d_opnd,3,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix_2d_opnd,___IFD(___RETI,8,0,0x3f0fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix_2d_opnd,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix_2d_opnd,___IFD(___RETI,8,8,0x3f03L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix_2d_opnd,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix_2d_opnd,___IFD(___RETI,8,8,0x3f03L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix_2d_opnd,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix_2d_opnd,___IFD(___RETN,5,0,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix_2d_opnd,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix_2d_opnd,___IFD(___RETN,5,0,0xfL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_opnd_2d_prefix_2d_opnd,3,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix_2d_opnd,___IFD(___RETI,8,0,0x3f0fL),2)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix_2d_opnd,___IFD(___RETN,5,0,0xfL),3)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix_2d_opnd,___IFD(___RETI,8,8,0x3f03L),4)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix_2d_opnd,___IFD(___RETN,5,0,0xfL),5)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix_2d_opnd,___IFD(___RETI,8,8,0x3f03L),6)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix_2d_opnd,___IFD(___RETN,5,0,0xfL),7)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix_2d_opnd,___IFD(___RETN,5,0,0x1fL),8)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix_2d_opnd,___IFD(___RETN,5,0,0xfL),9)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix_2d_opnd,___IFD(___RETN,5,0,0xfL),10)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib_2d_reg_2d_opnd,___REF_SYM(149,___S___x86_23_x86_2d_opnd_2d_modrm_2f_sib_2d_reg_2d_opnd),___REF_FAL,4,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib_2d_reg_2d_opnd,3,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib_2d_reg_2d_opnd,___IFD(___RETI,8,0,0x3f07L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib_2d_reg_2d_opnd,___IFD(___RETN,5,0,0x7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib_2d_reg_2d_opnd,___IFD(___RETI,8,8,0x3f00L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib_2d_reg_2d_opnd,3,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib_2d_reg_2d_opnd,___IFD(___RETI,8,0,0x3f07L),2)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib_2d_reg_2d_opnd,___IFD(___RETN,5,0,0x7L),3)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib_2d_reg_2d_opnd,___IFD(___RETI,8,8,0x3f00L),4)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_opnd_2d_prefix,___REF_SYM(150,___S___x86_23_x86_2d_opnd_2d_prefix),___REF_FAL,44,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_opnd_2d_prefix,5,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix,___OFD(___RETI,12,2,0x3f03fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,9,2,0x5fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,9,2,0x5fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,9,2,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,9,2,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,9,2,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,5,2,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,9,2,0x3dL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,9,2,0x35L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,9,2,0x25L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,9,2,0x25L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,9,2,0x25L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,9,2,0x25L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,5,2,0x5L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,5,2,0x4L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,9,2,0x25L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,9,2,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,9,2,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,9,2,0xffL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,9,2,0x1ffL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETI,8,0,0x3f07L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,5,0,0x7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,5,0,0x3L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,5,0,0x3L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,5,0,0x3L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,5,0,0x3L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,5,0,0x3L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,1,0,0x1L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,1,0,0x1L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETI,4,4,0x3f0L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,13,2,0x27fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,9,2,0x1ffL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,9,2,0x1ffL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,9,2,0x1ffL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,9,2,0x1ffL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,9,2,0x1ffL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,9,2,0x1ffL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,9,2,0x1ffL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,9,2,0x3fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_opnd_2d_prefix,5,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix,___OFD(___RETI,12,2,0x3f03fL),2)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,9,2,0x3fL),3)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,9,2,0x3fL),4)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,9,2,0x3fL),5)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,9,2,0x5fL),6)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,9,2,0x5fL),7)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,9,2,0x7fL),8)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,9,2,0x7fL),9)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,9,2,0x7fL),10)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,5,2,0x1fL),11)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,9,2,0x3dL),12)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,9,2,0x35L),13)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,9,2,0x25L),14)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,9,2,0x25L),15)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,9,2,0x25L),16)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,9,2,0x25L),17)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,5,2,0x5L),18)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,5,2,0x4L),19)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,9,2,0x25L),20)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,9,2,0x7fL),21)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,9,2,0x7fL),22)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,9,2,0xffL),23)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,9,2,0x1ffL),24)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETI,8,0,0x3f07L),25)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,5,0,0x7L),26)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,5,0,0x3L),27)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,5,0,0x3L),28)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,5,0,0x3L),29)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,5,0,0x3L),30)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,5,0,0x3L),31)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,1,0,0x1L),32)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,1,0,0x1L),33)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETI,4,4,0x3f0L),34)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,13,2,0x27fL),35)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,9,2,0x1ffL),36)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,9,2,0x1ffL),37)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,9,2,0x1ffL),38)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,9,2,0x1ffL),39)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,9,2,0x1ffL),40)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,9,2,0x1ffL),41)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,9,2,0x1ffL),42)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,9,2,0x3fL),43)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_prefix,___IFD(___RETN,9,2,0x3fL),44)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_opnd_2d_size_2d_override_2d_prefix,___REF_SYM(153,___S___x86_23_x86_2d_opnd_2d_size_2d_override_2d_prefix),___REF_FAL,4,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_opnd_2d_size_2d_override_2d_prefix,2,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_size_2d_override_2d_prefix,___IFD(___RETI,8,0,0x3f03L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_size_2d_override_2d_prefix,___IFD(___RETN,5,0,0x3L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_size_2d_override_2d_prefix,___IFD(___RETI,8,8,0x3f00L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_opnd_2d_size_2d_override_2d_prefix,2,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_size_2d_override_2d_prefix,___IFD(___RETI,8,0,0x3f03L),2)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_size_2d_override_2d_prefix,___IFD(___RETN,5,0,0x3L),3)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_size_2d_override_2d_prefix,___IFD(___RETI,8,8,0x3f00L),4)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_addr_2d_size_2d_override_2d_prefix,___REF_SYM(5,___S___x86_23_x86_2d_addr_2d_size_2d_override_2d_prefix),___REF_FAL,9,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_addr_2d_size_2d_override_2d_prefix,2,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_addr_2d_size_2d_override_2d_prefix,___IFD(___RETI,8,0,0x3f07L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_addr_2d_size_2d_override_2d_prefix,___IFD(___RETN,5,0,0x7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_addr_2d_size_2d_override_2d_prefix,___IFD(___RETN,5,0,0x3L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_addr_2d_size_2d_override_2d_prefix,___IFD(___RETN,5,0,0x7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_addr_2d_size_2d_override_2d_prefix,___IFD(___RETN,5,0,0xbL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_addr_2d_size_2d_override_2d_prefix,___IFD(___RETN,5,0,0xbL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_addr_2d_size_2d_override_2d_prefix,___IFD(___RETN,5,0,0x3L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_addr_2d_size_2d_override_2d_prefix,___IFD(___RETI,8,8,0x3f00L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_addr_2d_size_2d_override_2d_prefix,2,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_addr_2d_size_2d_override_2d_prefix,___IFD(___RETI,8,0,0x3f07L),2)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_addr_2d_size_2d_override_2d_prefix,___IFD(___RETN,5,0,0x7L),3)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_addr_2d_size_2d_override_2d_prefix,___IFD(___RETN,5,0,0x3L),4)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_addr_2d_size_2d_override_2d_prefix,___IFD(___RETN,5,0,0x7L),5)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_addr_2d_size_2d_override_2d_prefix,___IFD(___RETN,5,0,0xbL),6)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_addr_2d_size_2d_override_2d_prefix,___IFD(___RETN,5,0,0xbL),7)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_addr_2d_size_2d_override_2d_prefix,___IFD(___RETN,5,0,0x3L),8)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_addr_2d_size_2d_override_2d_prefix,___IFD(___RETI,8,8,0x3f00L),9)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___REF_SYM(148,___S___x86_23_x86_2d_opnd_2d_modrm_2f_sib),___REF_FAL,60,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,3,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETI,8,0,0x3f07L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,5,0,0x7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,5,0,0x7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,5,0,0xbL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,5,0,0xbL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,5,0,0x3L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,5,0,0x3L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETI,8,8,0x3f00L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,5,0,0x7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETI,8,8,0x3f00L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETI,8,8,0x3f00L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,5,0,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,9,0,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,9,0,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,9,0,0xffL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,9,0,0xf7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,9,0,0xbbL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,9,0,0xbbL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,9,0,0x9fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,9,0,0x9fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,9,0,0x9fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,9,0,0x9fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,5,0,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,5,0,0x17L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,5,0,0x17L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,5,0,0x13L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETI,8,8,0x3f00L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,5,0,0x7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,5,0,0x17L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,5,0,0x17L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,5,0,0x13L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETI,8,8,0x3f00L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,5,0,0x13L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETI,8,8,0x3f00L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,9,0,0xffL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,9,0,0x1ffL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,9,0,0x1ffL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,9,0,0x1ffL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,9,0,0x1bfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,9,0,0xbfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,9,0,0xbfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,9,0,0xfbL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,9,0,0xfbL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,9,0,0x93L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,9,0,0x97L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,9,0,0x97L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,9,0,0x97L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,5,0,0x17L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,5,0,0x13L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,5,0,0x13L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,9,0,0xffL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,9,0,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,5,0,0x1bL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,5,0,0x13L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,5,0,0x13L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,5,0,0x13L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,3,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETI,8,0,0x3f07L),2)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,5,0,0x7L),3)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,5,0,0x7L),4)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,5,0,0xfL),5)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,5,0,0xbL),6)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,5,0,0xbL),7)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,5,0,0x3L),8)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,5,0,0x3L),9)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETI,8,8,0x3f00L),10)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,5,0,0x7L),11)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETI,8,8,0x3f00L),12)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,5,0,0xfL),13)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETI,8,8,0x3f00L),14)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,5,0,0xfL),15)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,5,0,0x1fL),16)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,9,0,0x3fL),17)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,9,0,0x7fL),18)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,9,0,0xffL),19)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,9,0,0xf7L),20)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,9,0,0xbbL),21)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,9,0,0xbbL),22)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,9,0,0x9fL),23)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,9,0,0x9fL),24)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,9,0,0x9fL),25)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,9,0,0x9fL),26)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,5,0,0x1fL),27)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,5,0,0x17L),28)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,5,0,0x17L),29)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,5,0,0x13L),30)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETI,8,8,0x3f00L),31)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,5,0,0x7L),32)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,5,0,0x17L),33)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,5,0,0x17L),34)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,5,0,0x13L),35)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETI,8,8,0x3f00L),36)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,5,0,0x13L),37)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETI,8,8,0x3f00L),38)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,9,0,0xffL),39)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,9,0,0x1ffL),40)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,9,0,0x1ffL),41)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,9,0,0x1ffL),42)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,9,0,0x1bfL),43)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,9,0,0xbfL),44)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,9,0,0xbfL),45)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,9,0,0xfbL),46)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,9,0,0xfbL),47)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,9,0,0x93L),48)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,9,0,0x97L),49)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,9,0,0x97L),50)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,9,0,0x97L),51)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,5,0,0x17L),52)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,5,0,0x13L),53)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,5,0,0x13L),54)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,9,0,0xffL),55)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,9,0,0x7fL),56)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,5,0,0x1bL),57)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,5,0,0x13L),58)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,5,0,0x13L),59)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_opnd_2d_modrm_2f_sib,___IFD(___RETN,5,0,0x13L),60)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_imm_2d_encode,___REF_SYM(73,___S___x86_23_x86_2d_imm_2d_encode),___REF_FAL,17,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_imm_2d_encode,3,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_imm_2d_encode,___IFD(___RETI,8,0,0x3f0fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_imm_2d_encode,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_imm_2d_encode,___IFD(___RETN,5,0,0xbL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_imm_2d_encode,___IFD(___RETN,5,0,0xdL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_imm_2d_encode,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_imm_2d_encode,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_imm_2d_encode,___IFD(___RETN,5,0,0xbL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_imm_2d_encode,___IFD(___RETI,8,8,0x3f00L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_imm_2d_encode,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_imm_2d_encode,___IFD(___RETN,5,0,0x5L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_imm_2d_encode,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_imm_2d_encode,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_imm_2d_encode,___IFD(___RETN,5,0,0x3L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_imm_2d_encode,___IFD(___RETI,8,8,0x3f04L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_imm_2d_encode,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_imm_2d_encode,___IFD(___RETI,8,8,0x3f00L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_imm_2d_encode,3,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_imm_2d_encode,___IFD(___RETI,8,0,0x3f0fL),2)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_imm_2d_encode,___IFD(___RETN,5,0,0xfL),3)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_imm_2d_encode,___IFD(___RETN,5,0,0xbL),4)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_imm_2d_encode,___IFD(___RETN,5,0,0xdL),5)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_imm_2d_encode,___IFD(___RETN,5,0,0xfL),6)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_imm_2d_encode,___IFD(___RETN,5,0,0xfL),7)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_imm_2d_encode,___IFD(___RETN,5,0,0xbL),8)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_imm_2d_encode,___IFD(___RETI,8,8,0x3f00L),9)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_imm_2d_encode,___IFD(___RETN,5,0,0xfL),10)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_imm_2d_encode,___IFD(___RETN,5,0,0x5L),11)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_imm_2d_encode,___IFD(___RETN,5,0,0xfL),12)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_imm_2d_encode,___IFD(___RETN,5,0,0xfL),13)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_imm_2d_encode,___IFD(___RETN,5,0,0x3L),14)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_imm_2d_encode,___IFD(___RETI,8,8,0x3f04L),15)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_imm_2d_encode,___IFD(___RETN,5,0,0xfL),16)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_imm_2d_encode,___IFD(___RETI,8,8,0x3f00L),17)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_imm_2d_lbl_2d_encode,___REF_SYM(87,___S___x86_23_x86_2d_imm_2d_lbl_2d_encode),___REF_FAL,5,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_imm_2d_lbl_2d_encode,3,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_imm_2d_lbl_2d_encode,___IFD(___RETI,8,1,0x3f0fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_imm_2d_lbl_2d_encode,___IFD(___RETN,5,1,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_imm_2d_lbl_2d_encode,___IFD(___RETN,5,4,0x1bL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_imm_2d_lbl_2d_encode,___IFD(___RETI,8,8,0x3f0fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_imm_2d_lbl_2d_encode,3,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_imm_2d_lbl_2d_encode,___IFD(___RETI,8,1,0x3f0fL),2)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_imm_2d_lbl_2d_encode,___IFD(___RETN,5,1,0xfL),3)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_imm_2d_lbl_2d_encode,___IFD(___RETN,5,4,0x1bL),4)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_imm_2d_lbl_2d_encode,___IFD(___RETI,8,8,0x3f0fL),5)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_imm_2d_glo_2d_encode,___REF_SYM(75,___S___x86_23_x86_2d_imm_2d_glo_2d_encode),___REF_FAL,4,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_imm_2d_glo_2d_encode,3,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_imm_2d_glo_2d_encode,___IFD(___RETI,8,1,0x3f07L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_imm_2d_glo_2d_encode,___IFD(___RETN,5,1,0x7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_imm_2d_glo_2d_encode,___IFD(___RETI,8,8,0x3f03L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_imm_2d_glo_2d_encode,3,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_imm_2d_glo_2d_encode,___IFD(___RETI,8,1,0x3f07L),2)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_imm_2d_glo_2d_encode,___IFD(___RETN,5,1,0x7L),3)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_imm_2d_glo_2d_encode,___IFD(___RETI,8,8,0x3f03L),4)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_imm_2d_obj_2d_encode,___REF_SYM(92,___S___x86_23_x86_2d_imm_2d_obj_2d_encode),___REF_FAL,4,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_imm_2d_obj_2d_encode,3,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_imm_2d_obj_2d_encode,___IFD(___RETI,8,1,0x3f07L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_imm_2d_obj_2d_encode,___IFD(___RETN,5,1,0x7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_imm_2d_obj_2d_encode,___IFD(___RETI,8,8,0x3f03L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_imm_2d_obj_2d_encode,3,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_imm_2d_obj_2d_encode,___IFD(___RETI,8,1,0x3f07L),2)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_imm_2d_obj_2d_encode,___IFD(___RETN,5,1,0x7L),3)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_imm_2d_obj_2d_encode,___IFD(___RETI,8,8,0x3f03L),4)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_label,___REF_SYM(122,___S___x86_23_x86_2d_label),___REF_FAL,7,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_label,2,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_label,___IFD(___RETI,8,0,0x3f07L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_label,___IFD(___RETN,5,0,0x7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_label,___IFD(___RETN,5,0,0x7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_label,___IFD(___RETN,5,0,0x3L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_label,___IFD(___RETN,5,0,0x3L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_label,___IFD(___RETI,8,8,0x3f00L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_label,2,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_label,___IFD(___RETI,8,0,0x3f07L),2)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_label,___IFD(___RETN,5,0,0x7L),3)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_label,___IFD(___RETN,5,0,0x7L),4)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_label,___IFD(___RETN,5,0,0x3L),5)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_label,___IFD(___RETN,5,0,0x3L),6)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_label,___IFD(___RETI,8,8,0x3f00L),7)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_db,___REF_SYM(59,___S___x86_23_x86_2d_db),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_db,2,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_db,___IFD(___RETI,0,0,0x3fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_db,2,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_db,___IFD(___RETI,0,0,0x3fL),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_dw,___REF_SYM(64,___S___x86_23_x86_2d_dw),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_dw,2,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_dw,___IFD(___RETI,0,0,0x3fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_dw,2,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_dw,___IFD(___RETI,0,0,0x3fL),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_dd,___REF_SYM(60,___S___x86_23_x86_2d_dd),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_dd,2,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_dd,___IFD(___RETI,0,0,0x3fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_dd,2,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_dd,___IFD(___RETI,0,0,0x3fL),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_dq,___REF_SYM(63,___S___x86_23_x86_2d_dq),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_dq,2,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_dq,___IFD(___RETI,0,0,0x3fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_dq,2,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_dq,___IFD(___RETI,0,0,0x3fL),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_data_2d_elems,___REF_SYM(58,___S___x86_23_x86_2d_data_2d_elems),___REF_FAL,34,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_data_2d_elems,3,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_data_2d_elems,___IFD(___RETI,8,0,0x3f07L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_data_2d_elems,___IFD(___RETN,5,0,0x7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_data_2d_elems,___IFD(___RETI,1,4,0x3f1L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_data_2d_elems,___IFD(___RETN,5,3,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_data_2d_elems,___IFD(___RETI,1,4,0x3f1L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_data_2d_elems,___IFD(___RETI,8,1,0x3f1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_data_2d_elems,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_data_2d_elems,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_data_2d_elems,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_data_2d_elems,___IFD(___RETN,9,1,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_data_2d_elems,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_data_2d_elems,___IFD(___RETI,3,4,0x3f7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_data_2d_elems,___IFD(___RETN,9,3,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_data_2d_elems,___IFD(___RETI,3,4,0x3f7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_data_2d_elems,___OFD(___RETI,12,3,0x3f07fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_data_2d_elems,___IFD(___RETN,9,3,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_data_2d_elems,___IFD(___RETN,9,3,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_data_2d_elems,___IFD(___RETN,9,3,0xffL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_data_2d_elems,___IFD(___RETN,9,3,0xdfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_data_2d_elems,___IFD(___RETN,9,3,0x5fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_data_2d_elems,___IFD(___RETN,9,3,0x15fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_data_2d_elems,___IFD(___RETN,9,3,0x15fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_data_2d_elems,___IFD(___RETN,9,3,0x15fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_data_2d_elems,___IFD(___RETN,9,3,0x13fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_data_2d_elems,___IFD(___RETN,9,3,0x13fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_data_2d_elems,___IFD(___RETN,5,3,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_data_2d_elems,___IFD(___RETN,9,3,0x15fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_data_2d_elems,___IFD(___RETN,9,3,0x15fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_data_2d_elems,___IFD(___RETN,9,3,0x15fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_data_2d_elems,___IFD(___RETN,9,3,0x15fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_data_2d_elems,___IFD(___RETN,9,3,0x15fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_data_2d_elems,___IFD(___RETN,9,3,0x15fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_data_2d_elems,___IFD(___RETN,9,3,0x15fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_data_2d_elems,3,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_data_2d_elems,___IFD(___RETI,8,0,0x3f07L),2)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_data_2d_elems,___IFD(___RETN,5,0,0x7L),3)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_data_2d_elems,___IFD(___RETI,1,4,0x3f1L),4)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_data_2d_elems,___IFD(___RETN,5,3,0x1fL),5)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_data_2d_elems,___IFD(___RETI,1,4,0x3f1L),6)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_data_2d_elems,___IFD(___RETI,8,1,0x3f1fL),7)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_data_2d_elems,___IFD(___RETN,5,1,0x1fL),8)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_data_2d_elems,___IFD(___RETN,5,1,0x1fL),9)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_data_2d_elems,___IFD(___RETN,5,1,0x1fL),10)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_data_2d_elems,___IFD(___RETN,9,1,0x3fL),11)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_data_2d_elems,___IFD(___RETN,5,1,0x1fL),12)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_data_2d_elems,___IFD(___RETI,3,4,0x3f7L),13)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_data_2d_elems,___IFD(___RETN,9,3,0x3fL),14)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_data_2d_elems,___IFD(___RETI,3,4,0x3f7L),15)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_data_2d_elems,___OFD(___RETI,12,3,0x3f07fL),16)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_data_2d_elems,___IFD(___RETN,9,3,0x7fL),17)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_data_2d_elems,___IFD(___RETN,9,3,0x7fL),18)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_data_2d_elems,___IFD(___RETN,9,3,0xffL),19)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_data_2d_elems,___IFD(___RETN,9,3,0xdfL),20)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_data_2d_elems,___IFD(___RETN,9,3,0x5fL),21)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_data_2d_elems,___IFD(___RETN,9,3,0x15fL),22)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_data_2d_elems,___IFD(___RETN,9,3,0x15fL),23)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_data_2d_elems,___IFD(___RETN,9,3,0x15fL),24)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_data_2d_elems,___IFD(___RETN,9,3,0x13fL),25)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_data_2d_elems,___IFD(___RETN,9,3,0x13fL),26)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_data_2d_elems,___IFD(___RETN,5,3,0x1fL),27)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_data_2d_elems,___IFD(___RETN,9,3,0x15fL),28)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_data_2d_elems,___IFD(___RETN,9,3,0x15fL),29)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_data_2d_elems,___IFD(___RETN,9,3,0x15fL),30)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_data_2d_elems,___IFD(___RETN,9,3,0x15fL),31)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_data_2d_elems,___IFD(___RETN,9,3,0x15fL),32)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_data_2d_elems,___IFD(___RETN,9,3,0x15fL),33)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_data_2d_elems,___IFD(___RETN,9,3,0x15fL),34)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_add,___REF_SYM(4,___S___x86_23_x86_2d_add),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_add,4,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_add,___IFD(___RETI,3,4,0x3f3L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_add,4,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_add,___IFD(___RETI,3,4,0x3f3L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_or,___REF_SYM(154,___S___x86_23_x86_2d_or),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_or,4,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_or,___IFD(___RETI,3,4,0x3f3L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_or,4,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_or,___IFD(___RETI,3,4,0x3f3L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_adc,___REF_SYM(3,___S___x86_23_x86_2d_adc),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_adc,4,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_adc,___IFD(___RETI,3,4,0x3f3L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_adc,4,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_adc,___IFD(___RETI,3,4,0x3f3L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_sbb,___REF_SYM(173,___S___x86_23_x86_2d_sbb),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_sbb,4,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_sbb,___IFD(___RETI,3,4,0x3f3L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_sbb,4,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_sbb,___IFD(___RETI,3,4,0x3f3L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_and,___REF_SYM(6,___S___x86_23_x86_2d_and),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_and,4,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_and,___IFD(___RETI,3,4,0x3f3L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_and,4,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_and,___IFD(___RETI,3,4,0x3f3L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_sub,___REF_SYM(197,___S___x86_23_x86_2d_sub),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_sub,4,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_sub,___IFD(___RETI,3,4,0x3f3L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_sub,4,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_sub,___IFD(___RETI,3,4,0x3f3L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_xor,___REF_SYM(207,___S___x86_23_x86_2d_xor),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_xor,4,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_xor,___IFD(___RETI,3,4,0x3f3L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_xor,4,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_xor,___IFD(___RETI,3,4,0x3f3L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_cmp,___REF_SYM(52,___S___x86_23_x86_2d_cmp),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_cmp,4,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cmp,___IFD(___RETI,3,4,0x3f3L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_cmp,4,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cmp,___IFD(___RETI,3,4,0x3f3L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_mov,___REF_SYM(134,___S___x86_23_x86_2d_mov),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_mov,4,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_mov,___IFD(___RETI,3,4,0x3f3L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_mov,4,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_mov,___IFD(___RETI,3,4,0x3f3L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_op,___REF_SYM(147,___S___x86_23_x86_2d_op),___REF_FAL,138,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_op,5,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___OFD(___RETI,12,2,0x3f03fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x2fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x2fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETI,3,4,0x3f7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,6,0x77L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETI,3,4,0x3f7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___OFD(___RETI,12,3,0x3f07fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,3,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,3,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,3,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,3,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,3,0xabL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETI,2,4,0x3f3L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x57L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETI,2,4,0x3f3L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___OFD(___RETI,12,2,0x3f03fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3dL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___OFD(___RETI,12,12,0x3f003L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x2fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x2fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x2fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETI,2,4,0x3f3L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETI,2,4,0x3f3L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___OFD(___RETI,12,2,0x3f03fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x67L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETI,2,4,0x3f3L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x67L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETI,2,4,0x3f3L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x6fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x67L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETI,2,4,0x3f3L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x5fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x57L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETI,2,4,0x3f3L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x2fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x2fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x2fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x2fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x2fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETI,3,4,0x3f7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETI,3,4,0x3f7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___OFD(___RETI,12,3,0x3f07fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,3,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,3,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,3,0x7dL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,3,0x7dL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,3,0x7dL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,3,0xffL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,3,0x7dL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,3,0x7dL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,3,0x7dL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,3,0x7dL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,3,0x7dL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,3,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,3,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,3,0x3bL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___OFD(___RETI,12,12,0x3f003L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,3,0x7dL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,3,0x7dL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,3,0x7dL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,3,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,3,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,3,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,3,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,3,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___IFD(___RETN,9,3,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_op,___OFD(___RETI,12,12,0x3f000L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_op,5,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___OFD(___RETI,12,2,0x3f03fL),2)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL),3)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL),4)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL),5)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL),6)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL),7)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL),8)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL),9)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL),10)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL),11)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL),12)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL),13)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x2fL),14)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x2fL),15)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL),16)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL),17)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL),18)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL),19)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETI,3,4,0x3f7L),20)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,6,0x77L),21)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETI,3,4,0x3f7L),22)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___OFD(___RETI,12,3,0x3f07fL),23)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,3,0x7fL),24)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,3,0x7fL),25)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,3,0x7fL),26)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,3,0x7fL),27)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,3,0xabL),28)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETI,2,4,0x3f3L),29)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x57L),30)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETI,2,4,0x3f3L),31)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___OFD(___RETI,12,2,0x3f03fL),32)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL),33)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL),34)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3dL),35)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___OFD(___RETI,12,12,0x3f003L),36)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL),37)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL),38)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x7fL),39)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x7fL),40)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL),41)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL),42)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x2fL),43)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x2fL),44)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x2fL),45)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL),46)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL),47)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL),48)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL),49)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL),50)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL),51)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL),52)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL),53)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL),54)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL),55)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL),56)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL),57)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL),58)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL),59)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL),60)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETI,2,4,0x3f3L),61)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL),62)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETI,2,4,0x3f3L),63)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___OFD(___RETI,12,2,0x3f03fL),64)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL),65)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL),66)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL),67)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL),68)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x67L),69)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETI,2,4,0x3f3L),70)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL),71)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL),72)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL),73)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL),74)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL),75)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x67L),76)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETI,2,4,0x3f3L),77)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL),78)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL),79)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x6fL),80)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x67L),81)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETI,2,4,0x3f3L),82)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL),83)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL),84)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL),85)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x7fL),86)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL),87)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL),88)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x5fL),89)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x57L),90)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETI,2,4,0x3f3L),91)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL),92)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL),93)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x2fL),94)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x2fL),95)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL),96)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL),97)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL),98)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL),99)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x2fL),100)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x2fL),101)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x2fL),102)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL),103)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL),104)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL),105)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL),106)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL),107)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL),108)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL),109)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETI,3,4,0x3f7L),110)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,2,0x3fL),111)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETI,3,4,0x3f7L),112)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___OFD(___RETI,12,3,0x3f07fL),113)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,3,0x7fL),114)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,3,0x7fL),115)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,3,0x7dL),116)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,3,0x7dL),117)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,3,0x7dL),118)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,3,0xffL),119)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,3,0x7dL),120)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,3,0x7dL),121)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,3,0x7dL),122)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,3,0x7dL),123)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,3,0x7dL),124)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,3,0x3fL),125)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,3,0x3fL),126)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,3,0x3bL),127)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___OFD(___RETI,12,12,0x3f003L),128)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,3,0x7dL),129)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,3,0x7dL),130)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,3,0x7dL),131)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,3,0x7fL),132)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,3,0x7fL),133)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,3,0x7fL),134)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,3,0x7fL),135)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,3,0x7fL),136)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___IFD(___RETN,9,3,0x7fL),137)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_op,___OFD(___RETI,12,12,0x3f000L),138)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_inc,___REF_SYM(99,___S___x86_23_x86_2d_inc),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_inc,3,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_inc,___IFD(___RETI,2,4,0x3f1L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_inc,3,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_inc,___IFD(___RETI,2,4,0x3f1L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_dec,___REF_SYM(61,___S___x86_23_x86_2d_dec),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_dec,3,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_dec,___IFD(___RETI,2,4,0x3f1L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_dec,3,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_dec,___IFD(___RETI,2,4,0x3f1L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_inc_2d_dec,___REF_SYM(100,___S___x86_23_x86_2d_inc_2d_dec),___REF_FAL,39,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_inc_2d_dec,4,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_inc_2d_dec,___IFD(___RETI,8,1,0x3f1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_inc_2d_dec,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_inc_2d_dec,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_inc_2d_dec,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_inc_2d_dec,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_inc_2d_dec,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_inc_2d_dec,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_inc_2d_dec,___IFD(___RETI,1,4,0x3f1L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_inc_2d_dec,___IFD(___RETI,8,1,0x3f1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_inc_2d_dec,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_inc_2d_dec,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_inc_2d_dec,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_inc_2d_dec,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_inc_2d_dec,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_inc_2d_dec,___IFD(___RETI,1,4,0x3f1L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_inc_2d_dec,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_inc_2d_dec,___IFD(___RETI,1,4,0x3f1L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_inc_2d_dec,___IFD(___RETI,8,1,0x3f1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_inc_2d_dec,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_inc_2d_dec,___IFD(___RETN,5,1,0x17L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_inc_2d_dec,___IFD(___RETI,8,8,0x3f01L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_inc_2d_dec,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_inc_2d_dec,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_inc_2d_dec,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_inc_2d_dec,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_inc_2d_dec,___IFD(___RETN,5,1,0x17L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_inc_2d_dec,___IFD(___RETN,5,1,0x17L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_inc_2d_dec,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_inc_2d_dec,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_inc_2d_dec,___IFD(___RETN,5,1,0x17L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_inc_2d_dec,___IFD(___RETN,5,1,0x17L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_inc_2d_dec,___IFD(___RETN,5,1,0x17L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_inc_2d_dec,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_inc_2d_dec,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_inc_2d_dec,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_inc_2d_dec,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_inc_2d_dec,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_inc_2d_dec,___IFD(___RETN,5,1,0x1fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_inc_2d_dec,4,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_inc_2d_dec,___IFD(___RETI,8,1,0x3f1fL),2)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_inc_2d_dec,___IFD(___RETN,5,1,0x1fL),3)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_inc_2d_dec,___IFD(___RETN,5,1,0x1fL),4)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_inc_2d_dec,___IFD(___RETN,5,1,0x1fL),5)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_inc_2d_dec,___IFD(___RETN,5,1,0x1fL),6)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_inc_2d_dec,___IFD(___RETN,5,1,0x1fL),7)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_inc_2d_dec,___IFD(___RETN,5,1,0x1fL),8)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_inc_2d_dec,___IFD(___RETI,1,4,0x3f1L),9)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_inc_2d_dec,___IFD(___RETI,8,1,0x3f1fL),10)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_inc_2d_dec,___IFD(___RETN,5,1,0x1fL),11)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_inc_2d_dec,___IFD(___RETN,5,1,0x1fL),12)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_inc_2d_dec,___IFD(___RETN,5,1,0x1fL),13)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_inc_2d_dec,___IFD(___RETN,5,1,0x1fL),14)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_inc_2d_dec,___IFD(___RETN,5,1,0x1fL),15)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_inc_2d_dec,___IFD(___RETI,1,4,0x3f1L),16)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_inc_2d_dec,___IFD(___RETN,5,1,0x1fL),17)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_inc_2d_dec,___IFD(___RETI,1,4,0x3f1L),18)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_inc_2d_dec,___IFD(___RETI,8,1,0x3f1fL),19)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_inc_2d_dec,___IFD(___RETN,5,1,0x1fL),20)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_inc_2d_dec,___IFD(___RETN,5,1,0x17L),21)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_inc_2d_dec,___IFD(___RETI,8,8,0x3f01L),22)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_inc_2d_dec,___IFD(___RETN,5,1,0x1fL),23)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_inc_2d_dec,___IFD(___RETN,5,1,0x1fL),24)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_inc_2d_dec,___IFD(___RETN,5,1,0x1fL),25)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_inc_2d_dec,___IFD(___RETN,5,1,0x1fL),26)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_inc_2d_dec,___IFD(___RETN,5,1,0x17L),27)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_inc_2d_dec,___IFD(___RETN,5,1,0x17L),28)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_inc_2d_dec,___IFD(___RETN,5,1,0x1fL),29)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_inc_2d_dec,___IFD(___RETN,5,1,0x1fL),30)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_inc_2d_dec,___IFD(___RETN,5,1,0x17L),31)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_inc_2d_dec,___IFD(___RETN,5,1,0x17L),32)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_inc_2d_dec,___IFD(___RETN,5,1,0x17L),33)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_inc_2d_dec,___IFD(___RETN,5,1,0x1fL),34)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_inc_2d_dec,___IFD(___RETN,5,1,0x1fL),35)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_inc_2d_dec,___IFD(___RETN,5,1,0x1fL),36)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_inc_2d_dec,___IFD(___RETN,5,1,0x1fL),37)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_inc_2d_dec,___IFD(___RETN,5,1,0x1fL),38)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_inc_2d_dec,___IFD(___RETN,5,1,0x1fL),39)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_lea,___REF_SYM(123,___S___x86_23_x86_2d_lea),___REF_FAL,16,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_lea,3,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_lea,___IFD(___RETI,8,0,0x3f0fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_lea,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_lea,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_lea,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_lea,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_lea,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_lea,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_lea,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_lea,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_lea,___IFD(___RETN,5,4,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_lea,___IFD(___RETN,5,4,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_lea,___IFD(___RETI,8,8,0x3f03L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_lea,___IFD(___RETN,5,4,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_lea,___IFD(___RETN,5,4,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_lea,___IFD(___RETN,5,4,0x1fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_lea,3,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_lea,___IFD(___RETI,8,0,0x3f0fL),2)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_lea,___IFD(___RETN,5,0,0xfL),3)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_lea,___IFD(___RETN,5,0,0xfL),4)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_lea,___IFD(___RETN,5,0,0xfL),5)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_lea,___IFD(___RETN,5,0,0xfL),6)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_lea,___IFD(___RETN,5,0,0xfL),7)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_lea,___IFD(___RETN,5,0,0xfL),8)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_lea,___IFD(___RETN,5,0,0xfL),9)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_lea,___IFD(___RETN,5,0,0xfL),10)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_lea,___IFD(___RETN,5,4,0x1fL),11)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_lea,___IFD(___RETN,5,4,0x1fL),12)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_lea,___IFD(___RETI,8,8,0x3f03L),13)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_lea,___IFD(___RETN,5,4,0x1fL),14)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_lea,___IFD(___RETN,5,4,0x1fL),15)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_lea,___IFD(___RETN,5,4,0x1fL),16)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_ret,___REF_SYM(169,___S___x86_23_x86_2d_ret),___REF_FAL,11,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_ret,2,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_ret,___IFD(___RETI,8,0,0x3f07L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_ret,___IFD(___RETN,5,0,0x7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_ret,___IFD(___RETN,5,0,0x3L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_ret,___IFD(___RETN,5,0,0x3L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_ret,___IFD(___RETI,8,8,0x3f00L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_ret,___IFD(___RETN,5,0,0x7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_ret,___IFD(___RETN,5,3,0x9L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_ret,___IFD(___RETI,8,8,0x3f01L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_ret,___IFD(___RETN,5,0,0x7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_ret,___IFD(___RETN,5,0,0x7L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_ret,2,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_ret,___IFD(___RETI,8,0,0x3f07L),2)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_ret,___IFD(___RETN,5,0,0x7L),3)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_ret,___IFD(___RETN,5,0,0x3L),4)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_ret,___IFD(___RETN,5,0,0x3L),5)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_ret,___IFD(___RETI,8,8,0x3f00L),6)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_ret,___IFD(___RETN,5,0,0x7L),7)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_ret,___IFD(___RETN,5,3,0x9L),8)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_ret,___IFD(___RETI,8,8,0x3f01L),9)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_ret,___IFD(___RETN,5,0,0x7L),10)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_ret,___IFD(___RETN,5,0,0x7L),11)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_enter,___REF_SYM(65,___S___x86_23_x86_2d_enter),___REF_FAL,13,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_enter,3,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_enter,___IFD(___RETI,8,0,0x3f0fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_enter,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_enter,___IFD(___RETN,5,0,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_enter,___IFD(___RETN,9,0,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_enter,___IFD(___RETN,9,0,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_enter,___IFD(___RETN,9,0,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_enter,___IFD(___RETN,9,0,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_enter,___IFD(___RETN,9,0,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_enter,___OFD(___RETI,12,12,0x3f003L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_enter,___IFD(___RETN,5,4,0x1bL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_enter,___IFD(___RETN,5,4,0x17L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_enter,___IFD(___RETI,8,8,0x3f07L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_enter,3,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_enter,___IFD(___RETI,8,0,0x3f0fL),2)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_enter,___IFD(___RETN,5,0,0xfL),3)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_enter,___IFD(___RETN,5,0,0x1fL),4)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_enter,___IFD(___RETN,9,0,0x3fL),5)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_enter,___IFD(___RETN,9,0,0x3fL),6)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_enter,___IFD(___RETN,9,0,0x3fL),7)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_enter,___IFD(___RETN,9,0,0x3fL),8)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_enter,___IFD(___RETN,9,0,0x3fL),9)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_enter,___OFD(___RETI,12,12,0x3f003L),10)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_enter,___IFD(___RETN,5,4,0x1bL),11)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_enter,___IFD(___RETN,5,4,0x17L),12)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_enter,___IFD(___RETI,8,8,0x3f07L),13)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_nop,___REF_SYM(144,___S___x86_23_x86_2d_nop),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_nop,1,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_nop,___IFD(___RETI,0,0,0x3fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_nop,1,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_nop,___IFD(___RETI,0,0,0x3fL),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_pushf,___REF_SYM(162,___S___x86_23_x86_2d_pushf),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_pushf,1,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_pushf,___IFD(___RETI,0,0,0x3fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_pushf,1,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_pushf,___IFD(___RETI,0,0,0x3fL),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_popf,___REF_SYM(159,___S___x86_23_x86_2d_popf),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_popf,1,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_popf,___IFD(___RETI,0,0,0x3fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_popf,1,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_popf,___IFD(___RETI,0,0,0x3fL),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_leave,___REF_SYM(124,___S___x86_23_x86_2d_leave),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_leave,1,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_leave,___IFD(___RETI,0,0,0x3fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_leave,1,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_leave,___IFD(___RETI,0,0,0x3fL),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_hlt,___REF_SYM(71,___S___x86_23_x86_2d_hlt),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_hlt,1,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_hlt,___IFD(___RETI,0,0,0x3fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_hlt,1,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_hlt,___IFD(___RETI,0,0,0x3fL),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_cmc,___REF_SYM(20,___S___x86_23_x86_2d_cmc),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_cmc,1,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cmc,___IFD(___RETI,0,0,0x3fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_cmc,1,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cmc,___IFD(___RETI,0,0,0x3fL),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_clc,___REF_SYM(17,___S___x86_23_x86_2d_clc),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_clc,1,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_clc,___IFD(___RETI,0,0,0x3fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_clc,1,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_clc,___IFD(___RETI,0,0,0x3fL),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_stc,___REF_SYM(194,___S___x86_23_x86_2d_stc),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_stc,1,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_stc,___IFD(___RETI,0,0,0x3fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_stc,1,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_stc,___IFD(___RETI,0,0,0x3fL),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_cli,___REF_SYM(19,___S___x86_23_x86_2d_cli),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_cli,1,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cli,___IFD(___RETI,0,0,0x3fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_cli,1,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cli,___IFD(___RETI,0,0,0x3fL),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_sti,___REF_SYM(196,___S___x86_23_x86_2d_sti),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_sti,1,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_sti,___IFD(___RETI,0,0,0x3fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_sti,1,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_sti,___IFD(___RETI,0,0,0x3fL),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_cld,___REF_SYM(18,___S___x86_23_x86_2d_cld),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_cld,1,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cld,___IFD(___RETI,0,0,0x3fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_cld,1,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cld,___IFD(___RETI,0,0,0x3fL),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_std,___REF_SYM(195,___S___x86_23_x86_2d_std),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_std,1,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_std,___IFD(___RETI,0,0,0x3fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_std,1,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_std,___IFD(___RETI,0,0,0x3fL),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_no_2d_opnd_2d_instr,___REF_SYM(142,___S___x86_23_x86_2d_no_2d_opnd_2d_instr),___REF_FAL,11,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_no_2d_opnd_2d_instr,2,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_no_2d_opnd_2d_instr,___IFD(___RETI,8,0,0x3f07L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_no_2d_opnd_2d_instr,___IFD(___RETN,5,0,0x7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_no_2d_opnd_2d_instr,___IFD(___RETN,5,0,0x7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_no_2d_opnd_2d_instr,___IFD(___RETN,5,0,0x7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_no_2d_opnd_2d_instr,___IFD(___RETN,5,0,0x3L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_no_2d_opnd_2d_instr,___IFD(___RETI,8,8,0x3f00L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_no_2d_opnd_2d_instr,___IFD(___RETN,5,0,0x7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_no_2d_opnd_2d_instr,___IFD(___RETN,5,0,0x7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_no_2d_opnd_2d_instr,___IFD(___RETN,5,0,0x7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_no_2d_opnd_2d_instr,___IFD(___RETN,5,0,0x3L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_no_2d_opnd_2d_instr,2,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_no_2d_opnd_2d_instr,___IFD(___RETI,8,0,0x3f07L),2)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_no_2d_opnd_2d_instr,___IFD(___RETN,5,0,0x7L),3)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_no_2d_opnd_2d_instr,___IFD(___RETN,5,0,0x7L),4)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_no_2d_opnd_2d_instr,___IFD(___RETN,5,0,0x7L),5)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_no_2d_opnd_2d_instr,___IFD(___RETN,5,0,0x3L),6)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_no_2d_opnd_2d_instr,___IFD(___RETI,8,8,0x3f00L),7)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_no_2d_opnd_2d_instr,___IFD(___RETN,5,0,0x7L),8)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_no_2d_opnd_2d_instr,___IFD(___RETN,5,0,0x7L),9)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_no_2d_opnd_2d_instr,___IFD(___RETN,5,0,0x7L),10)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_no_2d_opnd_2d_instr,___IFD(___RETN,5,0,0x3L),11)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_int,___REF_SYM(101,___S___x86_23_x86_2d_int),___REF_FAL,7,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_int,2,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_int,___IFD(___RETI,8,0,0x3f07L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_int,___IFD(___RETN,5,0,0x7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_int,___IFD(___RETN,5,0,0x7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_int,___IFD(___RETN,5,0,0x7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_int,___IFD(___RETN,5,3,0x9L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_int,___IFD(___RETI,8,8,0x3f01L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_int,2,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_int,___IFD(___RETI,8,0,0x3f07L),2)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_int,___IFD(___RETN,5,0,0x7L),3)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_int,___IFD(___RETN,5,0,0x7L),4)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_int,___IFD(___RETN,5,0,0x7L),5)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_int,___IFD(___RETN,5,3,0x9L),6)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_int,___IFD(___RETI,8,8,0x3f01L),7)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_int3,___REF_SYM(102,___S___x86_23_x86_2d_int3),___REF_FAL,6,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_int3,1,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_int3,___IFD(___RETI,8,0,0x3f03L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_int3,___IFD(___RETN,5,0,0x3L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_int3,___IFD(___RETN,5,0,0x3L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_int3,___IFD(___RETN,5,2,0x5L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_int3,___IFD(___RETI,8,8,0x3f01L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_int3,1,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_int3,___IFD(___RETI,8,0,0x3f03L),2)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_int3,___IFD(___RETN,5,0,0x3L),3)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_int3,___IFD(___RETN,5,0,0x3L),4)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_int3,___IFD(___RETN,5,2,0x5L),5)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_int3,___IFD(___RETI,8,8,0x3f01L),6)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_syscall,___REF_SYM(198,___S___x86_23_x86_2d_syscall),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_syscall,1,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_syscall,___IFD(___RETI,0,0,0x3fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_syscall,1,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_syscall,___IFD(___RETI,0,0,0x3fL),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_sysret,___REF_SYM(199,___S___x86_23_x86_2d_sysret),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_sysret,1,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_sysret,___IFD(___RETI,0,0,0x3fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_sysret,1,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_sysret,___IFD(___RETI,0,0,0x3fL),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_wrmsr,___REF_SYM(204,___S___x86_23_x86_2d_wrmsr),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_wrmsr,1,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_wrmsr,___IFD(___RETI,0,0,0x3fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_wrmsr,1,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_wrmsr,___IFD(___RETI,0,0,0x3fL),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_rdtsc,___REF_SYM(167,___S___x86_23_x86_2d_rdtsc),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_rdtsc,1,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_rdtsc,___IFD(___RETI,0,0,0x3fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_rdtsc,1,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_rdtsc,___IFD(___RETI,0,0,0x3fL),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_rdmsr,___REF_SYM(165,___S___x86_23_x86_2d_rdmsr),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_rdmsr,1,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_rdmsr,___IFD(___RETI,0,0,0x3fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_rdmsr,1,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_rdmsr,___IFD(___RETI,0,0,0x3fL),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_rdpmc,___REF_SYM(166,___S___x86_23_x86_2d_rdpmc),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_rdpmc,1,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_rdpmc,___IFD(___RETI,0,0,0x3fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_rdpmc,1,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_rdpmc,___IFD(___RETI,0,0,0x3fL),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_cpuid,___REF_SYM(54,___S___x86_23_x86_2d_cpuid),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_cpuid,1,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cpuid,___IFD(___RETI,0,0,0x3fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_cpuid,1,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cpuid,___IFD(___RETI,0,0,0x3fL),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_no_2d_opnd_2d_instr_2d_esc,___REF_SYM(143,___S___x86_23_x86_2d_no_2d_opnd_2d_instr_2d_esc),___REF_FAL,11,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_no_2d_opnd_2d_instr_2d_esc,2,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_no_2d_opnd_2d_instr_2d_esc,___IFD(___RETI,8,0,0x3f07L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_no_2d_opnd_2d_instr_2d_esc,___IFD(___RETN,5,0,0x7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_no_2d_opnd_2d_instr_2d_esc,___IFD(___RETN,5,0,0x7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_no_2d_opnd_2d_instr_2d_esc,___IFD(___RETN,5,0,0x7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_no_2d_opnd_2d_instr_2d_esc,___IFD(___RETN,5,0,0x7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_no_2d_opnd_2d_instr_2d_esc,___IFD(___RETN,5,0,0x3L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_no_2d_opnd_2d_instr_2d_esc,___IFD(___RETI,8,8,0x3f00L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_no_2d_opnd_2d_instr_2d_esc,___IFD(___RETN,5,0,0x7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_no_2d_opnd_2d_instr_2d_esc,___IFD(___RETN,5,0,0x7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_no_2d_opnd_2d_instr_2d_esc,___IFD(___RETN,5,0,0x3L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_no_2d_opnd_2d_instr_2d_esc,2,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_no_2d_opnd_2d_instr_2d_esc,___IFD(___RETI,8,0,0x3f07L),2)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_no_2d_opnd_2d_instr_2d_esc,___IFD(___RETN,5,0,0x7L),3)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_no_2d_opnd_2d_instr_2d_esc,___IFD(___RETN,5,0,0x7L),4)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_no_2d_opnd_2d_instr_2d_esc,___IFD(___RETN,5,0,0x7L),5)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_no_2d_opnd_2d_instr_2d_esc,___IFD(___RETN,5,0,0x7L),6)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_no_2d_opnd_2d_instr_2d_esc,___IFD(___RETN,5,0,0x3L),7)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_no_2d_opnd_2d_instr_2d_esc,___IFD(___RETI,8,8,0x3f00L),8)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_no_2d_opnd_2d_instr_2d_esc,___IFD(___RETN,5,0,0x7L),9)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_no_2d_opnd_2d_instr_2d_esc,___IFD(___RETN,5,0,0x7L),10)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_no_2d_opnd_2d_instr_2d_esc,___IFD(___RETN,5,0,0x3L),11)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_jmp,___REF_SYM(112,___S___x86_23_x86_2d_jmp),___REF_FAL,5,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_jmp,2,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jmp,___IFD(___RETI,8,0,0x3f07L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jmp,___IFD(___RETN,5,0,0x7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jmp,___IFD(___RETI,8,8,0x3f01L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jmp,___IFD(___RETI,8,8,0x3f00L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_jmp,2,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jmp,___IFD(___RETI,8,0,0x3f07L),2)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jmp,___IFD(___RETN,5,0,0x7L),3)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jmp,___IFD(___RETI,8,8,0x3f01L),4)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jmp,___IFD(___RETI,8,8,0x3f00L),5)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_call,___REF_SYM(13,___S___x86_23_x86_2d_call),___REF_FAL,5,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_call,2,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_call,___IFD(___RETI,8,0,0x3f07L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_call,___IFD(___RETN,5,0,0x7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_call,___IFD(___RETI,8,8,0x3f01L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_call,___IFD(___RETI,8,8,0x3f00L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_call,2,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_call,___IFD(___RETI,8,0,0x3f07L),2)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_call,___IFD(___RETN,5,0,0x7L),3)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_call,___IFD(___RETI,8,8,0x3f01L),4)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_call,___IFD(___RETI,8,8,0x3f00L),5)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_jo,___REF_SYM(117,___S___x86_23_x86_2d_jo),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_jo,2,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jo,___IFD(___RETI,1,4,0x3f1L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_jo,2,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jo,___IFD(___RETI,1,4,0x3f1L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_jno,___REF_SYM(114,___S___x86_23_x86_2d_jno),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_jno,2,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jno,___IFD(___RETI,1,4,0x3f1L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_jno,2,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jno,___IFD(___RETI,1,4,0x3f1L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_jb,___REF_SYM(105,___S___x86_23_x86_2d_jb),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_jb,2,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jb,___IFD(___RETI,1,4,0x3f1L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_jb,2,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jb,___IFD(___RETI,1,4,0x3f1L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_jae,___REF_SYM(104,___S___x86_23_x86_2d_jae),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_jae,2,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jae,___IFD(___RETI,1,4,0x3f1L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_jae,2,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jae,___IFD(___RETI,1,4,0x3f1L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_je,___REF_SYM(107,___S___x86_23_x86_2d_je),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_je,2,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_je,___IFD(___RETI,1,4,0x3f1L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_je,2,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_je,___IFD(___RETI,1,4,0x3f1L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_jne,___REF_SYM(113,___S___x86_23_x86_2d_jne),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_jne,2,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jne,___IFD(___RETI,1,4,0x3f1L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_jne,2,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jne,___IFD(___RETI,1,4,0x3f1L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_jbe,___REF_SYM(106,___S___x86_23_x86_2d_jbe),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_jbe,2,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jbe,___IFD(___RETI,1,4,0x3f1L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_jbe,2,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jbe,___IFD(___RETI,1,4,0x3f1L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_ja,___REF_SYM(103,___S___x86_23_x86_2d_ja),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_ja,2,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_ja,___IFD(___RETI,1,4,0x3f1L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_ja,2,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_ja,___IFD(___RETI,1,4,0x3f1L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_js,___REF_SYM(119,___S___x86_23_x86_2d_js),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_js,2,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_js,___IFD(___RETI,1,4,0x3f1L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_js,2,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_js,___IFD(___RETI,1,4,0x3f1L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_jns,___REF_SYM(116,___S___x86_23_x86_2d_jns),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_jns,2,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jns,___IFD(___RETI,1,4,0x3f1L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_jns,2,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jns,___IFD(___RETI,1,4,0x3f1L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_jp,___REF_SYM(118,___S___x86_23_x86_2d_jp),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_jp,2,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jp,___IFD(___RETI,1,4,0x3f1L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_jp,2,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jp,___IFD(___RETI,1,4,0x3f1L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_jnp,___REF_SYM(115,___S___x86_23_x86_2d_jnp),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_jnp,2,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jnp,___IFD(___RETI,1,4,0x3f1L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_jnp,2,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jnp,___IFD(___RETI,1,4,0x3f1L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_jl,___REF_SYM(110,___S___x86_23_x86_2d_jl),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_jl,2,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jl,___IFD(___RETI,1,4,0x3f1L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_jl,2,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jl,___IFD(___RETI,1,4,0x3f1L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_jge,___REF_SYM(109,___S___x86_23_x86_2d_jge),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_jge,2,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jge,___IFD(___RETI,1,4,0x3f1L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_jge,2,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jge,___IFD(___RETI,1,4,0x3f1L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_jle,___REF_SYM(111,___S___x86_23_x86_2d_jle),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_jle,2,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jle,___IFD(___RETI,1,4,0x3f1L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_jle,2,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jle,___IFD(___RETI,1,4,0x3f1L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_jg,___REF_SYM(108,___S___x86_23_x86_2d_jg),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_jg,2,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jg,___IFD(___RETI,1,4,0x3f1L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_jg,2,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jg,___IFD(___RETI,1,4,0x3f1L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_jump_2d_label,___REF_SYM(121,___S___x86_23_x86_2d_jump_2d_label),___REF_FAL,50,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_jump_2d_label,4,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETI,8,1,0x3f0fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETN,5,1,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETN,5,1,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETN,5,1,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETN,5,1,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETI,5,1,0x3f0fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETI,8,8,0x3f63L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETI,8,8,0x3f63L))
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_jump_2d_label,2,3)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETI,8,0,0x3f07L))
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_jump_2d_label,2,1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETI,4,0,0x3f1L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETI,8,0,0x3f07L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETN,5,0,0x7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETN,5,0,0x9L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETI,8,8,0x3f08L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETN,1,0,0x1L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETN,1,0,0x1L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETN,5,0,0x7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETN,5,0,0x5L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETI,1,4,0x3f1L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETN,5,0,0x5L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETI,1,4,0x3f1L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETI,8,1,0x3f1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETN,5,1,0x17L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETN,5,1,0x1bL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETI,8,8,0x3f09L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETN,5,1,0x17L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETN,5,0,0x7L))
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_jump_2d_label,2,1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETI,8,0,0x3f03L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETN,5,0,0x3L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETN,1,0,0x1L))
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_jump_2d_label,2,3)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETI,8,0,0x3f07L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETN,5,0,0x7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETN,5,0,0x7L))
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_jump_2d_label,2,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETN,5,1,0xfL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_jump_2d_label,4,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETI,8,1,0x3f0fL),2)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETN,5,1,0xfL),3)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETN,5,1,0xfL),4)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETN,5,1,0xfL),5)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETN,5,1,0xfL),6)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETI,5,1,0x3f0fL),7)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETI,8,8,0x3f63L),8)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETI,8,8,0x3f63L),9)
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_jump_2d_label,2,3,10)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETI,8,0,0x3f07L),11)
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_jump_2d_label,2,1,12)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETI,4,0,0x3f1L),13)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETI,8,0,0x3f07L),14)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETN,5,0,0x7L),15)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETN,5,0,0x9L),16)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETI,8,8,0x3f08L),17)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETN,1,0,0x1L),18)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETN,1,0,0x1L),19)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETN,5,0,0x7L),20)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETN,5,0,0xfL),21)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETN,5,0,0xfL),22)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETN,5,0,0x5L),23)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETI,1,4,0x3f1L),24)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETN,5,0,0x5L),25)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETI,1,4,0x3f1L),26)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETI,8,1,0x3f1fL),27)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETN,5,1,0x1fL),28)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETN,5,1,0x1fL),29)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETN,5,1,0x17L),30)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETN,5,1,0x1bL),31)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETI,8,8,0x3f09L),32)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETN,5,1,0x1fL),33)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETN,5,1,0x17L),34)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETN,5,0,0xfL),35)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETN,5,0,0xfL),36)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETN,5,0,0xfL),37)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETN,5,0,0xfL),38)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETN,5,0,0x7L),39)
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_jump_2d_label,2,1,40)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETI,8,0,0x3f03L),41)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETN,5,0,0x3L),42)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETN,1,0,0x1L),43)
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_jump_2d_label,2,3,44)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETI,8,0,0x3f07L),45)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETN,5,0,0x7L),46)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETN,5,0,0xfL),47)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETN,5,0,0x7L),48)
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_jump_2d_label,2,-1,49)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jump_2d_label,___IFD(___RETN,5,1,0xfL),50)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_jump_2d_general,___REF_SYM(120,___S___x86_23_x86_2d_jump_2d_general),___REF_FAL,19,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_jump_2d_general,3,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jump_2d_general,___IFD(___RETI,8,0,0x3f0fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jump_2d_general,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jump_2d_general,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jump_2d_general,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jump_2d_general,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jump_2d_general,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jump_2d_general,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jump_2d_general,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jump_2d_general,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jump_2d_general,___IFD(___RETN,5,4,0x15L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jump_2d_general,___IFD(___RETI,8,8,0x3f01L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jump_2d_general,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jump_2d_general,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jump_2d_general,___IFD(___RETN,5,0,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jump_2d_general,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jump_2d_general,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jump_2d_general,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_jump_2d_general,___IFD(___RETN,5,0,0xfL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_jump_2d_general,3,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jump_2d_general,___IFD(___RETI,8,0,0x3f0fL),2)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jump_2d_general,___IFD(___RETN,5,0,0xfL),3)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jump_2d_general,___IFD(___RETN,5,0,0xfL),4)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jump_2d_general,___IFD(___RETN,5,0,0xfL),5)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jump_2d_general,___IFD(___RETN,5,0,0xfL),6)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jump_2d_general,___IFD(___RETN,5,0,0xfL),7)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jump_2d_general,___IFD(___RETN,5,0,0xfL),8)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jump_2d_general,___IFD(___RETN,5,0,0xfL),9)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jump_2d_general,___IFD(___RETN,5,0,0xfL),10)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jump_2d_general,___IFD(___RETN,5,4,0x15L),11)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jump_2d_general,___IFD(___RETI,8,8,0x3f01L),12)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jump_2d_general,___IFD(___RETN,5,0,0xfL),13)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jump_2d_general,___IFD(___RETN,5,0,0xfL),14)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jump_2d_general,___IFD(___RETN,5,0,0x1fL),15)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jump_2d_general,___IFD(___RETN,5,0,0xfL),16)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jump_2d_general,___IFD(___RETN,5,0,0xfL),17)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jump_2d_general,___IFD(___RETN,5,0,0xfL),18)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_jump_2d_general,___IFD(___RETN,5,0,0xfL),19)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_seto,___REF_SYM(188,___S___x86_23_x86_2d_seto),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_seto,2,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_seto,___IFD(___RETI,0,0,0x3fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_seto,2,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_seto,___IFD(___RETI,0,0,0x3fL),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_setno,___REF_SYM(185,___S___x86_23_x86_2d_setno),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_setno,2,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_setno,___IFD(___RETI,0,0,0x3fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_setno,2,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_setno,___IFD(___RETI,0,0,0x3fL),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_setb,___REF_SYM(177,___S___x86_23_x86_2d_setb),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_setb,2,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_setb,___IFD(___RETI,0,0,0x3fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_setb,2,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_setb,___IFD(___RETI,0,0,0x3fL),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_setae,___REF_SYM(176,___S___x86_23_x86_2d_setae),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_setae,2,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_setae,___IFD(___RETI,0,0,0x3fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_setae,2,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_setae,___IFD(___RETI,0,0,0x3fL),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_sete,___REF_SYM(179,___S___x86_23_x86_2d_sete),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_sete,2,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_sete,___IFD(___RETI,0,0,0x3fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_sete,2,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_sete,___IFD(___RETI,0,0,0x3fL),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_setne,___REF_SYM(184,___S___x86_23_x86_2d_setne),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_setne,2,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_setne,___IFD(___RETI,0,0,0x3fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_setne,2,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_setne,___IFD(___RETI,0,0,0x3fL),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_setbe,___REF_SYM(178,___S___x86_23_x86_2d_setbe),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_setbe,2,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_setbe,___IFD(___RETI,0,0,0x3fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_setbe,2,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_setbe,___IFD(___RETI,0,0,0x3fL),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_seta,___REF_SYM(175,___S___x86_23_x86_2d_seta),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_seta,2,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_seta,___IFD(___RETI,0,0,0x3fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_seta,2,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_seta,___IFD(___RETI,0,0,0x3fL),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_sets,___REF_SYM(190,___S___x86_23_x86_2d_sets),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_sets,2,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_sets,___IFD(___RETI,0,0,0x3fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_sets,2,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_sets,___IFD(___RETI,0,0,0x3fL),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_setns,___REF_SYM(187,___S___x86_23_x86_2d_setns),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_setns,2,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_setns,___IFD(___RETI,0,0,0x3fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_setns,2,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_setns,___IFD(___RETI,0,0,0x3fL),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_setp,___REF_SYM(189,___S___x86_23_x86_2d_setp),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_setp,2,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_setp,___IFD(___RETI,0,0,0x3fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_setp,2,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_setp,___IFD(___RETI,0,0,0x3fL),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_setnp,___REF_SYM(186,___S___x86_23_x86_2d_setnp),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_setnp,2,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_setnp,___IFD(___RETI,0,0,0x3fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_setnp,2,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_setnp,___IFD(___RETI,0,0,0x3fL),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_setl,___REF_SYM(182,___S___x86_23_x86_2d_setl),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_setl,2,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_setl,___IFD(___RETI,0,0,0x3fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_setl,2,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_setl,___IFD(___RETI,0,0,0x3fL),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_setge,___REF_SYM(181,___S___x86_23_x86_2d_setge),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_setge,2,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_setge,___IFD(___RETI,0,0,0x3fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_setge,2,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_setge,___IFD(___RETI,0,0,0x3fL),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_setle,___REF_SYM(183,___S___x86_23_x86_2d_setle),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_setle,2,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_setle,___IFD(___RETI,0,0,0x3fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_setle,2,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_setle,___IFD(___RETI,0,0,0x3fL),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_setg,___REF_SYM(180,___S___x86_23_x86_2d_setg),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_setg,2,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_setg,___IFD(___RETI,0,0,0x3fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_setg,2,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_setg,___IFD(___RETI,0,0,0x3fL),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_set_2d_cc,___REF_SYM(174,___S___x86_23_x86_2d_set_2d_cc),___REF_FAL,10,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_set_2d_cc,3,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_set_2d_cc,___IFD(___RETI,8,0,0x3f0fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_set_2d_cc,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_set_2d_cc,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_set_2d_cc,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_set_2d_cc,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_set_2d_cc,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_set_2d_cc,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_set_2d_cc,___IFD(___RETN,5,0,0x7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_set_2d_cc,___IFD(___RETI,8,8,0x3f00L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_set_2d_cc,3,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_set_2d_cc,___IFD(___RETI,8,0,0x3f0fL),2)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_set_2d_cc,___IFD(___RETN,5,0,0xfL),3)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_set_2d_cc,___IFD(___RETN,5,0,0xfL),4)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_set_2d_cc,___IFD(___RETN,5,0,0xfL),5)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_set_2d_cc,___IFD(___RETN,5,0,0xfL),6)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_set_2d_cc,___IFD(___RETN,5,0,0xfL),7)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_set_2d_cc,___IFD(___RETN,5,0,0xfL),8)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_set_2d_cc,___IFD(___RETN,5,0,0x7L),9)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_set_2d_cc,___IFD(___RETI,8,8,0x3f00L),10)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_push,___REF_SYM(160,___S___x86_23_x86_2d_push),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_push,2,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_push,___IFD(___RETI,0,0,0x3fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_push,2,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_push,___IFD(___RETI,0,0,0x3fL),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_pop,___REF_SYM(157,___S___x86_23_x86_2d_pop),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_pop,2,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_pop,___IFD(___RETI,0,0,0x3fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_pop,2,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_pop,___IFD(___RETI,0,0,0x3fL),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_push_2d_pop,___REF_SYM(161,___S___x86_23_x86_2d_push_2d_pop),___REF_FAL,39,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_push_2d_pop,3,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_push_2d_pop,___IFD(___RETI,8,0,0x3f0fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_push_2d_pop,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_push_2d_pop,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_push_2d_pop,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_push_2d_pop,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_push_2d_pop,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_push_2d_pop,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_push_2d_pop,___IFD(___RETN,5,0,0xbL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_push_2d_pop,___IFD(___RETI,0,0,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_push_2d_pop,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_push_2d_pop,___IFD(___RETI,0,0,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_push_2d_pop,___IFD(___RETI,8,0,0x3f0fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_push_2d_pop,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_push_2d_pop,___IFD(___RETN,5,4,0x1bL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_push_2d_pop,___IFD(___RETN,5,4,0x1dL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_push_2d_pop,___IFD(___RETI,8,8,0x3f05L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_push_2d_pop,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_push_2d_pop,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_push_2d_pop,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_push_2d_pop,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_push_2d_pop,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_push_2d_pop,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_push_2d_pop,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_push_2d_pop,___IFD(___RETN,5,0,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_push_2d_pop,___IFD(___RETN,5,0,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_push_2d_pop,___IFD(___RETN,5,0,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_push_2d_pop,___IFD(___RETN,5,0,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_push_2d_pop,___IFD(___RETN,5,0,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_push_2d_pop,___IFD(___RETN,5,0,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_push_2d_pop,___IFD(___RETN,5,0,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_push_2d_pop,___IFD(___RETN,5,0,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_push_2d_pop,___IFD(___RETN,5,0,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_push_2d_pop,___IFD(___RETN,5,0,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_push_2d_pop,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_push_2d_pop,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_push_2d_pop,___IFD(___RETN,5,0,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_push_2d_pop,___IFD(___RETN,5,0,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_push_2d_pop,___IFD(___RETN,5,0,0x1fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_push_2d_pop,3,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_push_2d_pop,___IFD(___RETI,8,0,0x3f0fL),2)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_push_2d_pop,___IFD(___RETN,5,0,0xfL),3)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_push_2d_pop,___IFD(___RETN,5,0,0xfL),4)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_push_2d_pop,___IFD(___RETN,5,0,0xfL),5)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_push_2d_pop,___IFD(___RETN,5,0,0xfL),6)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_push_2d_pop,___IFD(___RETN,5,0,0xfL),7)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_push_2d_pop,___IFD(___RETN,5,0,0xfL),8)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_push_2d_pop,___IFD(___RETN,5,0,0xbL),9)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_push_2d_pop,___IFD(___RETI,0,0,0x3fL),10)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_push_2d_pop,___IFD(___RETN,5,0,0xfL),11)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_push_2d_pop,___IFD(___RETI,0,0,0x3fL),12)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_push_2d_pop,___IFD(___RETI,8,0,0x3f0fL),13)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_push_2d_pop,___IFD(___RETN,5,0,0xfL),14)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_push_2d_pop,___IFD(___RETN,5,4,0x1bL),15)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_push_2d_pop,___IFD(___RETN,5,4,0x1dL),16)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_push_2d_pop,___IFD(___RETI,8,8,0x3f05L),17)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_push_2d_pop,___IFD(___RETN,5,0,0xfL),18)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_push_2d_pop,___IFD(___RETN,5,0,0xfL),19)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_push_2d_pop,___IFD(___RETN,5,0,0xfL),20)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_push_2d_pop,___IFD(___RETN,5,0,0xfL),21)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_push_2d_pop,___IFD(___RETN,5,0,0xfL),22)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_push_2d_pop,___IFD(___RETN,5,0,0xfL),23)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_push_2d_pop,___IFD(___RETN,5,0,0xfL),24)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_push_2d_pop,___IFD(___RETN,5,0,0x1fL),25)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_push_2d_pop,___IFD(___RETN,5,0,0x1fL),26)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_push_2d_pop,___IFD(___RETN,5,0,0x1fL),27)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_push_2d_pop,___IFD(___RETN,5,0,0x1fL),28)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_push_2d_pop,___IFD(___RETN,5,0,0x1fL),29)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_push_2d_pop,___IFD(___RETN,5,0,0x1fL),30)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_push_2d_pop,___IFD(___RETN,5,0,0x1fL),31)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_push_2d_pop,___IFD(___RETN,5,0,0x1fL),32)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_push_2d_pop,___IFD(___RETN,5,0,0x1fL),33)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_push_2d_pop,___IFD(___RETN,5,0,0x1fL),34)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_push_2d_pop,___IFD(___RETN,5,0,0xfL),35)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_push_2d_pop,___IFD(___RETN,5,0,0xfL),36)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_push_2d_pop,___IFD(___RETN,5,0,0x1fL),37)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_push_2d_pop,___IFD(___RETN,5,0,0x1fL),38)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_push_2d_pop,___IFD(___RETN,5,0,0x1fL),39)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_cwde,___REF_SYM(57,___S___x86_23_x86_2d_cwde),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_cwde,1,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cwde,___IFD(___RETI,0,0,0x3fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_cwde,1,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cwde,___IFD(___RETI,0,0,0x3fL),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_cdq,___REF_SYM(15,___S___x86_23_x86_2d_cdq),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_cdq,1,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cdq,___IFD(___RETI,0,0,0x3fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_cdq,1,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cdq,___IFD(___RETI,0,0,0x3fL),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_cbw,___REF_SYM(14,___S___x86_23_x86_2d_cbw),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_cbw,1,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cbw,___IFD(___RETI,0,0,0x3fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_cbw,1,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cbw,___IFD(___RETI,0,0,0x3fL),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_cwd,___REF_SYM(56,___S___x86_23_x86_2d_cwd),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_cwd,1,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cwd,___IFD(___RETI,0,0,0x3fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_cwd,1,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cwd,___IFD(___RETI,0,0,0x3fL),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_cdqe,___REF_SYM(16,___S___x86_23_x86_2d_cdqe),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_cdqe,1,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cdqe,___IFD(___RETI,0,0,0x3fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_cdqe,1,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cdqe,___IFD(___RETI,0,0,0x3fL),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_cqo,___REF_SYM(55,___S___x86_23_x86_2d_cqo),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_cqo,1,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cqo,___IFD(___RETI,0,0,0x3fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_cqo,1,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cqo,___IFD(___RETI,0,0,0x3fL),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_widen,___REF_SYM(201,___S___x86_23_x86_2d_widen),___REF_FAL,14,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_widen,2,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_widen,___IFD(___RETI,8,0,0x3f07L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_widen,___IFD(___RETN,5,0,0x7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_widen,___IFD(___RETN,5,0,0x7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_widen,___IFD(___RETN,5,0,0x7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_widen,___IFD(___RETN,5,0,0x7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_widen,___IFD(___RETN,5,0,0x7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_widen,___IFD(___RETN,5,0,0x7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_widen,___IFD(___RETN,5,0,0x7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_widen,___IFD(___RETN,5,0,0x7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_widen,___IFD(___RETN,5,0,0x7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_widen,___IFD(___RETN,5,0,0x7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_widen,___IFD(___RETN,5,0,0x3L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_widen,___IFD(___RETI,8,8,0x3f00L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_widen,2,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_widen,___IFD(___RETI,8,0,0x3f07L),2)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_widen,___IFD(___RETN,5,0,0x7L),3)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_widen,___IFD(___RETN,5,0,0x7L),4)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_widen,___IFD(___RETN,5,0,0x7L),5)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_widen,___IFD(___RETN,5,0,0x7L),6)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_widen,___IFD(___RETN,5,0,0x7L),7)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_widen,___IFD(___RETN,5,0,0x7L),8)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_widen,___IFD(___RETN,5,0,0x7L),9)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_widen,___IFD(___RETN,5,0,0x7L),10)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_widen,___IFD(___RETN,5,0,0x7L),11)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_widen,___IFD(___RETN,5,0,0x7L),12)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_widen,___IFD(___RETN,5,0,0x3L),13)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_widen,___IFD(___RETI,8,8,0x3f00L),14)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_rol,___REF_SYM(170,___S___x86_23_x86_2d_rol),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_rol,4,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_rol,___IFD(___RETI,3,4,0x3f3L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_rol,4,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_rol,___IFD(___RETI,3,4,0x3f3L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_ror,___REF_SYM(171,___S___x86_23_x86_2d_ror),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_ror,4,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_ror,___IFD(___RETI,3,4,0x3f3L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_ror,4,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_ror,___IFD(___RETI,3,4,0x3f3L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_rcl,___REF_SYM(163,___S___x86_23_x86_2d_rcl),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_rcl,4,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_rcl,___IFD(___RETI,3,4,0x3f3L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_rcl,4,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_rcl,___IFD(___RETI,3,4,0x3f3L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_rcr,___REF_SYM(164,___S___x86_23_x86_2d_rcr),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_rcr,4,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_rcr,___IFD(___RETI,3,4,0x3f3L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_rcr,4,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_rcr,___IFD(___RETI,3,4,0x3f3L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_shl,___REF_SYM(192,___S___x86_23_x86_2d_shl),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_shl,4,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_shl,___IFD(___RETI,3,4,0x3f3L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_shl,4,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_shl,___IFD(___RETI,3,4,0x3f3L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_shr,___REF_SYM(193,___S___x86_23_x86_2d_shr),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_shr,4,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_shr,___IFD(___RETI,3,4,0x3f3L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_shr,4,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_shr,___IFD(___RETI,3,4,0x3f3L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_sar,___REF_SYM(172,___S___x86_23_x86_2d_sar),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_sar,4,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_sar,___IFD(___RETI,3,4,0x3f3L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_sar,4,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_sar,___IFD(___RETI,3,4,0x3f3L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_shift,___REF_SYM(191,___S___x86_23_x86_2d_shift),___REF_FAL,45,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_shift,5,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_shift,___OFD(___RETI,12,2,0x3f03fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0xffL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_shift,___IFD(___RETN,5,2,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x37L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_shift,___OFD(___RETI,12,12,0x3f003L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x37L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x37L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x2fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x2fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x2fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x2fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x2fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x3fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_shift,5,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_shift,___OFD(___RETI,12,2,0x3f03fL),2)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x3fL),3)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x3fL),4)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x3fL),5)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x3fL),6)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x3fL),7)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x3fL),8)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x3fL),9)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x7fL),10)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x7fL),11)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x7fL),12)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x7fL),13)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x7fL),14)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0xffL),15)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x7fL),16)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x7fL),17)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x7fL),18)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x7fL),19)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x7fL),20)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x3fL),21)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x3fL),22)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_shift,___IFD(___RETN,5,2,0x1fL),23)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x3fL),24)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x3fL),25)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x37L),26)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_shift,___OFD(___RETI,12,12,0x3f003L),27)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x37L),28)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x37L),29)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x3fL),30)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x3fL),31)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x3fL),32)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x3fL),33)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x3fL),34)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x2fL),35)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x2fL),36)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x2fL),37)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x2fL),38)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x2fL),39)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x3fL),40)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x3fL),41)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x3fL),42)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x3fL),43)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x3fL),44)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_shift,___IFD(___RETN,9,2,0x3fL),45)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_not,___REF_SYM(145,___S___x86_23_x86_2d_not),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_not,3,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_not,___IFD(___RETI,2,4,0x3f1L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_not,3,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_not,___IFD(___RETI,2,4,0x3f1L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_neg,___REF_SYM(140,___S___x86_23_x86_2d_neg),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_neg,3,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_neg,___IFD(___RETI,2,4,0x3f1L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_neg,3,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_neg,___IFD(___RETI,2,4,0x3f1L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_negate,___REF_SYM(141,___S___x86_23_x86_2d_negate),___REF_FAL,24,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_negate,4,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_negate,___IFD(___RETI,8,1,0x3f1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_negate,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_negate,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_negate,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_negate,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_negate,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_negate,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_negate,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_negate,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_negate,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_negate,___IFD(___RETN,5,1,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_negate,___IFD(___RETI,8,8,0x3f01L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_negate,___IFD(___RETN,5,1,0x17L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_negate,___IFD(___RETN,5,1,0x17L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_negate,___IFD(___RETN,5,1,0x17L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_negate,___IFD(___RETN,5,1,0x17L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_negate,___IFD(___RETN,5,1,0x17L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_negate,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_negate,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_negate,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_negate,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_negate,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_negate,___IFD(___RETN,5,1,0x1fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_negate,4,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_negate,___IFD(___RETI,8,1,0x3f1fL),2)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_negate,___IFD(___RETN,5,1,0x1fL),3)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_negate,___IFD(___RETN,5,1,0x1fL),4)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_negate,___IFD(___RETN,5,1,0x1fL),5)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_negate,___IFD(___RETN,5,1,0x1fL),6)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_negate,___IFD(___RETN,5,1,0x1fL),7)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_negate,___IFD(___RETN,5,1,0x1fL),8)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_negate,___IFD(___RETN,5,1,0x1fL),9)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_negate,___IFD(___RETN,5,1,0x1fL),10)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_negate,___IFD(___RETN,5,1,0x1fL),11)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_negate,___IFD(___RETN,5,1,0xfL),12)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_negate,___IFD(___RETI,8,8,0x3f01L),13)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_negate,___IFD(___RETN,5,1,0x17L),14)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_negate,___IFD(___RETN,5,1,0x17L),15)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_negate,___IFD(___RETN,5,1,0x17L),16)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_negate,___IFD(___RETN,5,1,0x17L),17)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_negate,___IFD(___RETN,5,1,0x17L),18)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_negate,___IFD(___RETN,5,1,0x1fL),19)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_negate,___IFD(___RETN,5,1,0x1fL),20)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_negate,___IFD(___RETN,5,1,0x1fL),21)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_negate,___IFD(___RETN,5,1,0x1fL),22)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_negate,___IFD(___RETN,5,1,0x1fL),23)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_negate,___IFD(___RETN,5,1,0x1fL),24)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_test,___REF_SYM(200,___S___x86_23_x86_2d_test),___REF_FAL,65,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_test,4,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_test,___IFD(___RETI,8,1,0x3f1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_test,___IFD(___RETI,8,8,0x3f03L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_test,___IFD(___RETI,1,4,0x3f1L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_test,___IFD(___RETI,8,1,0x3f1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x17L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_test,___IFD(___RETN,9,1,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_test,___IFD(___RETN,9,1,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_test,___IFD(___RETN,9,1,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_test,___IFD(___RETN,9,1,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_test,___IFD(___RETN,9,1,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_test,4,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_test,___IFD(___RETI,8,1,0x3f1fL),2)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL),3)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL),4)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL),5)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL),6)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL),7)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL),8)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL),9)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL),10)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL),11)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0xfL),12)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0xfL),13)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL),14)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL),15)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL),16)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL),17)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL),18)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_test,___IFD(___RETI,8,8,0x3f03L),19)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0xfL),20)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0xfL),21)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0xfL),22)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL),23)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL),24)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL),25)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL),26)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL),27)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_test,___IFD(___RETI,1,4,0x3f1L),28)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_test,___IFD(___RETI,8,1,0x3f1fL),29)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL),30)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL),31)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL),32)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL),33)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL),34)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x17L),35)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL),36)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL),37)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0xfL),38)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0xfL),39)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL),40)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0xfL),41)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0xfL),42)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0xfL),43)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL),44)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL),45)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL),46)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL),47)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL),48)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL),49)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL),50)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL),51)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_test,___IFD(___RETN,9,1,0x3fL),52)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_test,___IFD(___RETN,9,1,0x3fL),53)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_test,___IFD(___RETN,9,1,0x3fL),54)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_test,___IFD(___RETN,9,1,0x3fL),55)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_test,___IFD(___RETN,9,1,0x3fL),56)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL),57)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL),58)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL),59)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL),60)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL),61)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL),62)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL),63)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL),64)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_test,___IFD(___RETN,5,1,0x1fL),65)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_xchg,___REF_SYM(205,___S___x86_23_x86_2d_xchg),___REF_FAL,48,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_xchg,3,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_xchg,___IFD(___RETI,8,0,0x3f0fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_xchg,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_xchg,___IFD(___RETI,1,4,0x3f1L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_xchg,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_xchg,___IFD(___RETI,1,4,0x3f1L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_xchg,___IFD(___RETI,8,1,0x3f1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_xchg,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_xchg,___IFD(___RETN,9,1,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_xchg,___IFD(___RETN,9,1,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_xchg,___IFD(___RETN,9,1,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_xchg,___IFD(___RETN,9,1,0x5fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_xchg,___IFD(___RETI,2,4,0x3f3L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_xchg,___OFD(___RETI,12,2,0x3f03fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_xchg,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_xchg,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_xchg,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_xchg,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_xchg,___IFD(___RETI,2,4,0x3f3L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_xchg,___OFD(___RETI,12,2,0x3f03fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_xchg,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_xchg,___OFD(___RETI,12,12,0x3f083L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_xchg,___IFD(___RETN,9,5,0x2fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_xchg,___IFD(___RETI,2,4,0x3f3L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_xchg,___IFD(___RETN,9,1,0xdfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_xchg,___IFD(___RETI,2,4,0x3f3L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_xchg,___OFD(___RETI,12,2,0x3f03fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_xchg,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_xchg,___IFD(___RETN,9,2,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_xchg,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_xchg,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_xchg,___IFD(___RETN,9,1,0xffL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_xchg,___IFD(___RETN,9,1,0xdfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_xchg,___IFD(___RETN,9,1,0xdfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_xchg,___IFD(___RETN,9,1,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_xchg,___IFD(___RETN,9,1,0xffL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_xchg,___IFD(___RETN,9,1,0xffL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_xchg,___IFD(___RETN,9,1,0xffL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_xchg,___IFD(___RETN,9,1,0xffL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_xchg,___IFD(___RETN,9,1,0xffL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_xchg,___IFD(___RETN,9,1,0xffL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_xchg,___IFD(___RETN,9,1,0xffL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_xchg,___IFD(___RETN,9,1,0xffL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_xchg,___IFD(___RETN,9,1,0xffL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_xchg,___IFD(___RETN,9,1,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_xchg,___IFD(___RETN,9,1,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_xchg,___IFD(___RETN,9,1,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_xchg,___IFD(___RETI,8,8,0x3f00L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_xchg,3,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_xchg,___IFD(___RETI,8,0,0x3f0fL),2)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_xchg,___IFD(___RETN,5,0,0xfL),3)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_xchg,___IFD(___RETI,1,4,0x3f1L),4)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_xchg,___IFD(___RETN,5,0,0xfL),5)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_xchg,___IFD(___RETI,1,4,0x3f1L),6)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_xchg,___IFD(___RETI,8,1,0x3f1fL),7)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_xchg,___IFD(___RETN,5,1,0x1fL),8)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_xchg,___IFD(___RETN,9,1,0x3fL),9)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_xchg,___IFD(___RETN,9,1,0x3fL),10)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_xchg,___IFD(___RETN,9,1,0x7fL),11)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_xchg,___IFD(___RETN,9,1,0x5fL),12)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_xchg,___IFD(___RETI,2,4,0x3f3L),13)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_xchg,___OFD(___RETI,12,2,0x3f03fL),14)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_xchg,___IFD(___RETN,9,2,0x3fL),15)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_xchg,___IFD(___RETN,9,2,0x3fL),16)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_xchg,___IFD(___RETN,9,2,0x3fL),17)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_xchg,___IFD(___RETN,9,2,0x3fL),18)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_xchg,___IFD(___RETI,2,4,0x3f3L),19)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_xchg,___OFD(___RETI,12,2,0x3f03fL),20)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_xchg,___IFD(___RETN,9,2,0x3fL),21)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_xchg,___OFD(___RETI,12,12,0x3f083L),22)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_xchg,___IFD(___RETN,9,5,0x2fL),23)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_xchg,___IFD(___RETI,2,4,0x3f3L),24)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_xchg,___IFD(___RETN,9,1,0xdfL),25)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_xchg,___IFD(___RETI,2,4,0x3f3L),26)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_xchg,___OFD(___RETI,12,2,0x3f03fL),27)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_xchg,___IFD(___RETN,9,2,0x3fL),28)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_xchg,___IFD(___RETN,9,2,0x7fL),29)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_xchg,___IFD(___RETN,9,2,0x3fL),30)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_xchg,___IFD(___RETN,9,2,0x3fL),31)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_xchg,___IFD(___RETN,9,1,0xffL),32)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_xchg,___IFD(___RETN,9,1,0xdfL),33)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_xchg,___IFD(___RETN,9,1,0xdfL),34)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_xchg,___IFD(___RETN,9,1,0x7fL),35)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_xchg,___IFD(___RETN,9,1,0xffL),36)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_xchg,___IFD(___RETN,9,1,0xffL),37)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_xchg,___IFD(___RETN,9,1,0xffL),38)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_xchg,___IFD(___RETN,9,1,0xffL),39)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_xchg,___IFD(___RETN,9,1,0xffL),40)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_xchg,___IFD(___RETN,9,1,0xffL),41)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_xchg,___IFD(___RETN,9,1,0xffL),42)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_xchg,___IFD(___RETN,9,1,0xffL),43)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_xchg,___IFD(___RETN,9,1,0xffL),44)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_xchg,___IFD(___RETN,9,1,0x3fL),45)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_xchg,___IFD(___RETN,9,1,0x3fL),46)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_xchg,___IFD(___RETN,9,1,0x3fL),47)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_xchg,___IFD(___RETI,8,8,0x3f00L),48)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_mul,___REF_SYM(138,___S___x86_23_x86_2d_mul),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_mul,3,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_mul,___IFD(___RETI,3,4,0x3f7L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_mul,3,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_mul,___IFD(___RETI,3,4,0x3f7L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_imul,___REF_SYM(96,___S___x86_23_x86_2d_imul),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_imul,5,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_imul,___IFD(___RETI,4,4,0x3f7L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_imul,5,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_imul,___IFD(___RETI,4,4,0x3f7L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_div,___REF_SYM(62,___S___x86_23_x86_2d_div),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_div,3,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_div,___IFD(___RETI,3,4,0x3f7L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_div,3,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_div,___IFD(___RETI,3,4,0x3f7L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_idiv,___REF_SYM(72,___S___x86_23_x86_2d_idiv),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_idiv,3,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_idiv,___IFD(___RETI,3,4,0x3f7L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_idiv,3,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_idiv,___IFD(___RETI,3,4,0x3f7L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_multiply_2d_divide,___REF_SYM(139,___S___x86_23_x86_2d_multiply_2d_divide),___REF_FAL,62,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_multiply_2d_divide,6,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_multiply_2d_divide,___OFD(___RETI,12,3,0x3f07fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETI,1,4,0x3f1L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x5fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETI,1,4,0x3f1L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETI,8,1,0x3f1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,5,1,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETI,3,4,0x3f7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x5fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETI,3,4,0x3f7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_multiply_2d_divide,___OFD(___RETI,12,3,0x3f07fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x7dL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x7dL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_multiply_2d_divide,___OFD(___RETI,12,12,0x3f007L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_multiply_2d_divide,___OFD(___RETI,12,12,0x3f003L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_multiply_2d_divide,___OFD(___RETI,12,12,0x3f001L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x5fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0xffL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0xffL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0xffL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0xffL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x14fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETI,3,4,0x3f7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x5fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x5fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x5fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x5fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x5fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x5fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x5fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x5fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x5fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x5fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x5fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x5fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x5fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x5fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x5fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x5fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x5fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x5fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x5fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x5fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x7fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_multiply_2d_divide,6,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_multiply_2d_divide,___OFD(___RETI,12,3,0x3f07fL),2)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x7fL),3)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x7fL),4)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x7fL),5)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x7fL),6)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x7fL),7)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETI,1,4,0x3f1L),8)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x5fL),9)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETI,1,4,0x3f1L),10)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETI,8,1,0x3f1fL),11)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,5,1,0x1fL),12)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,5,1,0x1fL),13)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,5,1,0x1fL),14)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,5,1,0x1fL),15)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETI,3,4,0x3f7L),16)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x5fL),17)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETI,3,4,0x3f7L),18)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_multiply_2d_divide,___OFD(___RETI,12,3,0x3f07fL),19)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x7fL),20)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x7dL),21)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x7dL),22)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_multiply_2d_divide,___OFD(___RETI,12,12,0x3f007L),23)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_multiply_2d_divide,___OFD(___RETI,12,12,0x3f003L),24)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_multiply_2d_divide,___OFD(___RETI,12,12,0x3f001L),25)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x5fL),26)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x7fL),27)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x7fL),28)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x7fL),29)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x7fL),30)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0xffL),31)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0xffL),32)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0xffL),33)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0xffL),34)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x14fL),35)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETI,3,4,0x3f7L),36)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x5fL),37)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x5fL),38)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x5fL),39)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x5fL),40)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x5fL),41)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x5fL),42)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x5fL),43)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x5fL),44)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x5fL),45)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x5fL),46)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x5fL),47)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x5fL),48)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x5fL),49)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x5fL),50)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x5fL),51)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x5fL),52)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x5fL),53)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x5fL),54)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x5fL),55)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x5fL),56)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x7fL),57)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x7fL),58)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x7fL),59)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x7fL),60)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x7fL),61)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_multiply_2d_divide,___IFD(___RETN,9,3,0x7fL),62)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_movzx,___REF_SYM(137,___S___x86_23_x86_2d_movzx),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_movzx,4,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_movzx,___IFD(___RETI,3,4,0x3f3L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_movzx,4,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_movzx,___IFD(___RETI,3,4,0x3f3L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_movsx,___REF_SYM(136,___S___x86_23_x86_2d_movsx),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_movsx,4,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_movsx,___IFD(___RETI,3,4,0x3f3L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_movsx,4,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_movsx,___IFD(___RETI,3,4,0x3f3L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_move_2d_extended,___REF_SYM(135,___S___x86_23_x86_2d_move_2d_extended),___REF_FAL,58,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_move_2d_extended,5,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_move_2d_extended,___OFD(___RETI,12,2,0x3f03fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,5,2,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x67L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_move_2d_extended,___OFD(___RETI,12,12,0x3f043L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,5,2,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,5,2,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x2fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x2fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x2fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x2fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x2fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_move_2d_extended,5,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_move_2d_extended,___OFD(___RETI,12,2,0x3f03fL),2)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL),3)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL),4)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL),5)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL),6)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL),7)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL),8)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL),9)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL),10)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL),11)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL),12)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL),13)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL),14)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL),15)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL),16)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL),17)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL),18)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL),19)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL),20)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL),21)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL),22)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL),23)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL),24)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL),25)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL),26)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,5,2,0x1fL),27)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL),28)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL),29)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x7fL),30)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x67L),31)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_move_2d_extended,___OFD(___RETI,12,12,0x3f043L),32)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL),33)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL),34)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL),35)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,5,2,0x1fL),36)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL),37)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL),38)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,5,2,0x1fL),39)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL),40)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL),41)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL),42)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL),43)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL),44)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x2fL),45)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x2fL),46)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x2fL),47)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x2fL),48)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x2fL),49)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL),50)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL),51)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL),52)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL),53)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL),54)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL),55)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL),56)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL),57)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_move_2d_extended,___IFD(___RETN,9,2,0x3fL),58)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_bt,___REF_SYM(9,___S___x86_23_x86_2d_bt),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_bt,4,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_bt,___IFD(___RETI,3,4,0x3f3L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_bt,4,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_bt,___IFD(___RETI,3,4,0x3f3L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_bts,___REF_SYM(12,___S___x86_23_x86_2d_bts),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_bts,4,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_bts,___IFD(___RETI,3,4,0x3f3L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_bts,4,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_bts,___IFD(___RETI,3,4,0x3f3L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_btr,___REF_SYM(11,___S___x86_23_x86_2d_btr),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_btr,4,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_btr,___IFD(___RETI,3,4,0x3f3L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_btr,4,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_btr,___IFD(___RETI,3,4,0x3f3L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_btc,___REF_SYM(10,___S___x86_23_x86_2d_btc),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_btc,4,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_btc,___IFD(___RETI,3,4,0x3f3L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_btc,4,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_btc,___IFD(___RETI,3,4,0x3f3L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_bit_2d_op,___REF_SYM(8,___S___x86_23_x86_2d_bit_2d_op),___REF_FAL,75,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_bit_2d_op,5,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_bit_2d_op,___OFD(___RETI,12,2,0x3f03fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x2fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x2fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETI,2,4,0x3f3L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_bit_2d_op,___OFD(___RETI,12,2,0x3f03fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x2fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x37L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_bit_2d_op,___OFD(___RETI,12,12,0x3f003L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x37L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x2fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x2fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x2fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x2fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x2fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x2fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x2fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETI,2,4,0x3f3L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_bit_2d_op,5,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_bit_2d_op,___OFD(___RETI,12,2,0x3f03fL),2)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL),3)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL),4)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL),5)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL),6)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL),7)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL),8)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL),9)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL),10)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL),11)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL),12)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL),13)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL),14)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x2fL),15)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x2fL),16)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETI,2,4,0x3f3L),17)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_bit_2d_op,___OFD(___RETI,12,2,0x3f03fL),18)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL),19)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL),20)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x7fL),21)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x7fL),22)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x7fL),23)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x7fL),24)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x7fL),25)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x7fL),26)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x7fL),27)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x7fL),28)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x7fL),29)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL),30)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL),31)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x2fL),32)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL),33)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x37L),34)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_bit_2d_op,___OFD(___RETI,12,12,0x3f003L),35)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x37L),36)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL),37)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL),38)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL),39)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL),40)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL),41)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL),42)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x2fL),43)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x2fL),44)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x2fL),45)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x2fL),46)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x2fL),47)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x2fL),48)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x2fL),49)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL),50)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETI,2,4,0x3f3L),51)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL),52)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL),53)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL),54)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL),55)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x7fL),56)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x7fL),57)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL),58)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x7fL),59)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x7fL),60)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x7fL),61)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL),62)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL),63)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL),64)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL),65)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL),66)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL),67)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL),68)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL),69)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL),70)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL),71)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL),72)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL),73)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL),74)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_bit_2d_op,___IFD(___RETN,9,2,0x3fL),75)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_cmova,___REF_SYM(21,___S___x86_23_x86_2d_cmova),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_cmova,4,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cmova,___IFD(___RETI,3,4,0x3f7L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_cmova,4,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cmova,___IFD(___RETI,3,4,0x3f7L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_cmovae,___REF_SYM(22,___S___x86_23_x86_2d_cmovae),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_cmovae,4,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cmovae,___IFD(___RETI,3,4,0x3f7L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_cmovae,4,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cmovae,___IFD(___RETI,3,4,0x3f7L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_cmovb,___REF_SYM(23,___S___x86_23_x86_2d_cmovb),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_cmovb,4,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cmovb,___IFD(___RETI,3,4,0x3f7L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_cmovb,4,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cmovb,___IFD(___RETI,3,4,0x3f7L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_cmovbe,___REF_SYM(24,___S___x86_23_x86_2d_cmovbe),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_cmovbe,4,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cmovbe,___IFD(___RETI,3,4,0x3f7L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_cmovbe,4,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cmovbe,___IFD(___RETI,3,4,0x3f7L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_cmovc,___REF_SYM(25,___S___x86_23_x86_2d_cmovc),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_cmovc,4,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cmovc,___IFD(___RETI,3,4,0x3f7L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_cmovc,4,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cmovc,___IFD(___RETI,3,4,0x3f7L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_cmove,___REF_SYM(27,___S___x86_23_x86_2d_cmove),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_cmove,4,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cmove,___IFD(___RETI,3,4,0x3f7L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_cmove,4,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cmove,___IFD(___RETI,3,4,0x3f7L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_cmovg,___REF_SYM(28,___S___x86_23_x86_2d_cmovg),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_cmovg,4,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cmovg,___IFD(___RETI,3,4,0x3f7L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_cmovg,4,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cmovg,___IFD(___RETI,3,4,0x3f7L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_cmovge,___REF_SYM(29,___S___x86_23_x86_2d_cmovge),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_cmovge,4,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cmovge,___IFD(___RETI,3,4,0x3f7L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_cmovge,4,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cmovge,___IFD(___RETI,3,4,0x3f7L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_cmovl,___REF_SYM(30,___S___x86_23_x86_2d_cmovl),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_cmovl,4,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cmovl,___IFD(___RETI,3,4,0x3f7L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_cmovl,4,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cmovl,___IFD(___RETI,3,4,0x3f7L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_cmovle,___REF_SYM(31,___S___x86_23_x86_2d_cmovle),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_cmovle,4,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cmovle,___IFD(___RETI,3,4,0x3f7L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_cmovle,4,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cmovle,___IFD(___RETI,3,4,0x3f7L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_cmovna,___REF_SYM(32,___S___x86_23_x86_2d_cmovna),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_cmovna,4,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cmovna,___IFD(___RETI,3,4,0x3f7L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_cmovna,4,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cmovna,___IFD(___RETI,3,4,0x3f7L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_cmovnae,___REF_SYM(33,___S___x86_23_x86_2d_cmovnae),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_cmovnae,4,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cmovnae,___IFD(___RETI,3,4,0x3f7L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_cmovnae,4,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cmovnae,___IFD(___RETI,3,4,0x3f7L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_cmovnb,___REF_SYM(34,___S___x86_23_x86_2d_cmovnb),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_cmovnb,4,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cmovnb,___IFD(___RETI,3,4,0x3f7L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_cmovnb,4,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cmovnb,___IFD(___RETI,3,4,0x3f7L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_cmovnbe,___REF_SYM(35,___S___x86_23_x86_2d_cmovnbe),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_cmovnbe,4,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cmovnbe,___IFD(___RETI,3,4,0x3f7L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_cmovnbe,4,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cmovnbe,___IFD(___RETI,3,4,0x3f7L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_cmovnc,___REF_SYM(36,___S___x86_23_x86_2d_cmovnc),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_cmovnc,4,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cmovnc,___IFD(___RETI,3,4,0x3f7L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_cmovnc,4,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cmovnc,___IFD(___RETI,3,4,0x3f7L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_cmovne,___REF_SYM(37,___S___x86_23_x86_2d_cmovne),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_cmovne,4,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cmovne,___IFD(___RETI,3,4,0x3f7L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_cmovne,4,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cmovne,___IFD(___RETI,3,4,0x3f7L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_cmovng,___REF_SYM(38,___S___x86_23_x86_2d_cmovng),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_cmovng,4,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cmovng,___IFD(___RETI,3,4,0x3f7L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_cmovng,4,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cmovng,___IFD(___RETI,3,4,0x3f7L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_cmovnge,___REF_SYM(39,___S___x86_23_x86_2d_cmovnge),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_cmovnge,4,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cmovnge,___IFD(___RETI,3,4,0x3f7L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_cmovnge,4,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cmovnge,___IFD(___RETI,3,4,0x3f7L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_cmovnl,___REF_SYM(40,___S___x86_23_x86_2d_cmovnl),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_cmovnl,4,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cmovnl,___IFD(___RETI,3,4,0x3f7L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_cmovnl,4,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cmovnl,___IFD(___RETI,3,4,0x3f7L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_cmovnle,___REF_SYM(41,___S___x86_23_x86_2d_cmovnle),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_cmovnle,4,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cmovnle,___IFD(___RETI,3,4,0x3f7L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_cmovnle,4,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cmovnle,___IFD(___RETI,3,4,0x3f7L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_cmovno,___REF_SYM(42,___S___x86_23_x86_2d_cmovno),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_cmovno,4,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cmovno,___IFD(___RETI,3,4,0x3f7L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_cmovno,4,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cmovno,___IFD(___RETI,3,4,0x3f7L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_cmovnp,___REF_SYM(43,___S___x86_23_x86_2d_cmovnp),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_cmovnp,4,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cmovnp,___IFD(___RETI,3,4,0x3f7L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_cmovnp,4,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cmovnp,___IFD(___RETI,3,4,0x3f7L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_cmovns,___REF_SYM(44,___S___x86_23_x86_2d_cmovns),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_cmovns,4,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cmovns,___IFD(___RETI,3,4,0x3f7L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_cmovns,4,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cmovns,___IFD(___RETI,3,4,0x3f7L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_cmovnz,___REF_SYM(45,___S___x86_23_x86_2d_cmovnz),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_cmovnz,4,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cmovnz,___IFD(___RETI,3,4,0x3f7L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_cmovnz,4,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cmovnz,___IFD(___RETI,3,4,0x3f7L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_cmovo,___REF_SYM(46,___S___x86_23_x86_2d_cmovo),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_cmovo,4,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cmovo,___IFD(___RETI,3,4,0x3f7L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_cmovo,4,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cmovo,___IFD(___RETI,3,4,0x3f7L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_cmovp,___REF_SYM(47,___S___x86_23_x86_2d_cmovp),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_cmovp,4,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cmovp,___IFD(___RETI,3,4,0x3f7L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_cmovp,4,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cmovp,___IFD(___RETI,3,4,0x3f7L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_cmovpe,___REF_SYM(48,___S___x86_23_x86_2d_cmovpe),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_cmovpe,4,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cmovpe,___IFD(___RETI,3,4,0x3f7L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_cmovpe,4,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cmovpe,___IFD(___RETI,3,4,0x3f7L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_cmovpo,___REF_SYM(49,___S___x86_23_x86_2d_cmovpo),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_cmovpo,4,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cmovpo,___IFD(___RETI,3,4,0x3f7L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_cmovpo,4,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cmovpo,___IFD(___RETI,3,4,0x3f7L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_cmovs,___REF_SYM(50,___S___x86_23_x86_2d_cmovs),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_cmovs,4,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cmovs,___IFD(___RETI,3,4,0x3f7L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_cmovs,4,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cmovs,___IFD(___RETI,3,4,0x3f7L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_cmovz,___REF_SYM(51,___S___x86_23_x86_2d_cmovz),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_cmovz,4,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cmovz,___IFD(___RETI,3,4,0x3f7L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_cmovz,4,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cmovz,___IFD(___RETI,3,4,0x3f7L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_cmovcc,___REF_SYM(26,___S___x86_23_x86_2d_cmovcc),___REF_FAL,45,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_cmovcc,6,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cmovcc,___OFD(___RETI,12,3,0x3f07fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0xffL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0x5fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0x4bL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cmovcc,___OFD(___RETI,12,12,0x3f003L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0xffL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0xffL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0xffL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0xefL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0xefL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0xefL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0xefL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0xefL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0x7fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_cmovcc,6,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cmovcc,___OFD(___RETI,12,3,0x3f07fL),2)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0x7fL),3)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0x7fL),4)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0x7fL),5)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0x7fL),6)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0x7fL),7)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0x7fL),8)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0x7fL),9)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0x7fL),10)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0x7fL),11)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0x7fL),12)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0x7fL),13)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0x7fL),14)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0x7fL),15)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0xffL),16)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0x7fL),17)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0x7fL),18)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0x7fL),19)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0x7fL),20)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0x7fL),21)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0x3fL),22)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0x3fL),23)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0x3fL),24)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0x5fL),25)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0x4bL),26)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cmovcc,___OFD(___RETI,12,12,0x3f003L),27)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0x7fL),28)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0xffL),29)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0xffL),30)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0xffL),31)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0xefL),32)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0xefL),33)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0xefL),34)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0xefL),35)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0xefL),36)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0x7fL),37)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0x7fL),38)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0x7fL),39)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0x7fL),40)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0x7fL),41)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0x7fL),42)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0x7fL),43)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0x7fL),44)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_cmovcc,___IFD(___RETN,9,3,0x7fL),45)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_popcnt,___REF_SYM(158,___S___x86_23_x86_2d_popcnt),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_popcnt,4,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_popcnt,___IFD(___RETI,3,4,0x3f3L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_popcnt,4,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_popcnt,___IFD(___RETI,3,4,0x3f3L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_lzcnt,___REF_SYM(126,___S___x86_23_x86_2d_lzcnt),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_lzcnt,4,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_lzcnt,___IFD(___RETI,3,4,0x3f3L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_lzcnt,4,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_lzcnt,___IFD(___RETI,3,4,0x3f3L),2)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_count,___REF_SYM(53,___S___x86_23_x86_2d_count),___REF_FAL,47,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_count,5,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_count,___OFD(___RETI,12,2,0x3f03fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_count,___IFD(___RETN,5,2,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x27L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_count,___OFD(___RETI,12,12,0x3f003L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x7fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x6fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x6fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x6fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x6fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x6fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x3fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x3fL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_count,5,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_count,___OFD(___RETI,12,2,0x3f03fL),2)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x3fL),3)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x3fL),4)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x3fL),5)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x3fL),6)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x3fL),7)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x3fL),8)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x3fL),9)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x3fL),10)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x3fL),11)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x3fL),12)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x3fL),13)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x3fL),14)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x3fL),15)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x7fL),16)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x3fL),17)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x3fL),18)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x3fL),19)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x3fL),20)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x3fL),21)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x3fL),22)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x3fL),23)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x3fL),24)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x3fL),25)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_count,___IFD(___RETN,5,2,0x1fL),26)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x3fL),27)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x27L),28)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_count,___OFD(___RETI,12,12,0x3f003L),29)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x3fL),30)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x7fL),31)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x7fL),32)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x7fL),33)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x6fL),34)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x6fL),35)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x6fL),36)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x6fL),37)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x6fL),38)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x3fL),39)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x3fL),40)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x3fL),41)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x3fL),42)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x3fL),43)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x3fL),44)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x3fL),45)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x3fL),46)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_count,___IFD(___RETN,9,2,0x3fL),47)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_in_2d_imm,___REF_SYM(98,___S___x86_23_x86_2d_in_2d_imm),___REF_FAL,20,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_in_2d_imm,3,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_in_2d_imm,___IFD(___RETI,8,0,0x3f0fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_in_2d_imm,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_in_2d_imm,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_in_2d_imm,___IFD(___RETN,5,0,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_in_2d_imm,___IFD(___RETN,5,0,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_in_2d_imm,___IFD(___RETN,5,0,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_in_2d_imm,___IFD(___RETN,5,0,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_in_2d_imm,___IFD(___RETN,5,0,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_in_2d_imm,___IFD(___RETN,5,0,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_in_2d_imm,___IFD(___RETN,5,0,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_in_2d_imm,___IFD(___RETN,5,0,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_in_2d_imm,___IFD(___RETN,5,0,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_in_2d_imm,___IFD(___RETN,5,0,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_in_2d_imm,___IFD(___RETN,5,0,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_in_2d_imm,___IFD(___RETN,9,5,0x37L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_in_2d_imm,___OFD(___RETI,12,12,0x3f003L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_in_2d_imm,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_in_2d_imm,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_in_2d_imm,___IFD(___RETN,5,0,0xfL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_in_2d_imm,3,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_in_2d_imm,___IFD(___RETI,8,0,0x3f0fL),2)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_in_2d_imm,___IFD(___RETN,5,0,0xfL),3)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_in_2d_imm,___IFD(___RETN,5,0,0xfL),4)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_in_2d_imm,___IFD(___RETN,5,0,0x1fL),5)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_in_2d_imm,___IFD(___RETN,5,0,0x1fL),6)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_in_2d_imm,___IFD(___RETN,5,0,0x1fL),7)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_in_2d_imm,___IFD(___RETN,5,0,0x1fL),8)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_in_2d_imm,___IFD(___RETN,5,0,0x1fL),9)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_in_2d_imm,___IFD(___RETN,5,0,0x1fL),10)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_in_2d_imm,___IFD(___RETN,5,0,0x1fL),11)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_in_2d_imm,___IFD(___RETN,5,0,0x1fL),12)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_in_2d_imm,___IFD(___RETN,5,0,0x1fL),13)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_in_2d_imm,___IFD(___RETN,5,0,0x1fL),14)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_in_2d_imm,___IFD(___RETN,5,0,0x1fL),15)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_in_2d_imm,___IFD(___RETN,9,5,0x37L),16)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_in_2d_imm,___OFD(___RETI,12,12,0x3f003L),17)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_in_2d_imm,___IFD(___RETN,5,0,0xfL),18)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_in_2d_imm,___IFD(___RETN,5,0,0xfL),19)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_in_2d_imm,___IFD(___RETN,5,0,0xfL),20)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_in_2d_dx,___REF_SYM(97,___S___x86_23_x86_2d_in_2d_dx),___REF_FAL,18,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_in_2d_dx,2,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_in_2d_dx,___IFD(___RETI,8,0,0x3f07L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_in_2d_dx,___IFD(___RETN,5,0,0x7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_in_2d_dx,___IFD(___RETN,5,0,0x7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_in_2d_dx,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_in_2d_dx,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_in_2d_dx,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_in_2d_dx,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_in_2d_dx,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_in_2d_dx,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_in_2d_dx,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_in_2d_dx,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_in_2d_dx,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_in_2d_dx,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_in_2d_dx,___IFD(___RETI,8,8,0x3f03L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_in_2d_dx,___IFD(___RETN,5,0,0x7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_in_2d_dx,___IFD(___RETN,5,0,0x7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_in_2d_dx,___IFD(___RETN,5,0,0x7L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_in_2d_dx,2,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_in_2d_dx,___IFD(___RETI,8,0,0x3f07L),2)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_in_2d_dx,___IFD(___RETN,5,0,0x7L),3)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_in_2d_dx,___IFD(___RETN,5,0,0x7L),4)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_in_2d_dx,___IFD(___RETN,5,0,0xfL),5)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_in_2d_dx,___IFD(___RETN,5,0,0xfL),6)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_in_2d_dx,___IFD(___RETN,5,0,0xfL),7)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_in_2d_dx,___IFD(___RETN,5,0,0xfL),8)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_in_2d_dx,___IFD(___RETN,5,0,0xfL),9)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_in_2d_dx,___IFD(___RETN,5,0,0xfL),10)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_in_2d_dx,___IFD(___RETN,5,0,0xfL),11)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_in_2d_dx,___IFD(___RETN,5,0,0xfL),12)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_in_2d_dx,___IFD(___RETN,5,0,0xfL),13)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_in_2d_dx,___IFD(___RETN,5,0,0xfL),14)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_in_2d_dx,___IFD(___RETI,8,8,0x3f03L),15)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_in_2d_dx,___IFD(___RETN,5,0,0x7L),16)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_in_2d_dx,___IFD(___RETN,5,0,0x7L),17)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_in_2d_dx,___IFD(___RETN,5,0,0x7L),18)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_out_2d_imm,___REF_SYM(156,___S___x86_23_x86_2d_out_2d_imm),___REF_FAL,20,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_out_2d_imm,3,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_out_2d_imm,___IFD(___RETI,8,0,0x3f0fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_out_2d_imm,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_out_2d_imm,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_out_2d_imm,___IFD(___RETN,5,0,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_out_2d_imm,___IFD(___RETN,5,0,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_out_2d_imm,___IFD(___RETN,5,0,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_out_2d_imm,___IFD(___RETN,5,0,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_out_2d_imm,___IFD(___RETN,5,0,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_out_2d_imm,___IFD(___RETN,5,0,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_out_2d_imm,___IFD(___RETN,5,0,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_out_2d_imm,___IFD(___RETN,5,0,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_out_2d_imm,___IFD(___RETN,5,0,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_out_2d_imm,___IFD(___RETN,5,0,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_out_2d_imm,___IFD(___RETN,5,0,0x1fL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_out_2d_imm,___IFD(___RETN,9,5,0x3bL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_out_2d_imm,___OFD(___RETI,12,12,0x3f003L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_out_2d_imm,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_out_2d_imm,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_out_2d_imm,___IFD(___RETN,5,0,0xfL))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_out_2d_imm,3,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_out_2d_imm,___IFD(___RETI,8,0,0x3f0fL),2)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_out_2d_imm,___IFD(___RETN,5,0,0xfL),3)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_out_2d_imm,___IFD(___RETN,5,0,0xfL),4)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_out_2d_imm,___IFD(___RETN,5,0,0x1fL),5)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_out_2d_imm,___IFD(___RETN,5,0,0x1fL),6)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_out_2d_imm,___IFD(___RETN,5,0,0x1fL),7)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_out_2d_imm,___IFD(___RETN,5,0,0x1fL),8)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_out_2d_imm,___IFD(___RETN,5,0,0x1fL),9)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_out_2d_imm,___IFD(___RETN,5,0,0x1fL),10)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_out_2d_imm,___IFD(___RETN,5,0,0x1fL),11)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_out_2d_imm,___IFD(___RETN,5,0,0x1fL),12)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_out_2d_imm,___IFD(___RETN,5,0,0x1fL),13)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_out_2d_imm,___IFD(___RETN,5,0,0x1fL),14)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_out_2d_imm,___IFD(___RETN,5,0,0x1fL),15)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_out_2d_imm,___IFD(___RETN,9,5,0x3bL),16)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_out_2d_imm,___OFD(___RETI,12,12,0x3f003L),17)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_out_2d_imm,___IFD(___RETN,5,0,0xfL),18)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_out_2d_imm,___IFD(___RETN,5,0,0xfL),19)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_out_2d_imm,___IFD(___RETN,5,0,0xfL),20)
 ,___DEF_LBL_INTRO(___H___x86_23_x86_2d_out_2d_dx,___REF_SYM(155,___S___x86_23_x86_2d_out_2d_dx),___REF_FAL,18,0)
-,___DEF_LBL_PROC(___H___x86_23_x86_2d_out_2d_dx,2,-1)
-,___DEF_LBL_RET(___H___x86_23_x86_2d_out_2d_dx,___IFD(___RETI,8,0,0x3f07L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_out_2d_dx,___IFD(___RETN,5,0,0x7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_out_2d_dx,___IFD(___RETN,5,0,0x7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_out_2d_dx,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_out_2d_dx,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_out_2d_dx,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_out_2d_dx,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_out_2d_dx,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_out_2d_dx,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_out_2d_dx,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_out_2d_dx,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_out_2d_dx,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_out_2d_dx,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_out_2d_dx,___IFD(___RETI,8,8,0x3f03L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_out_2d_dx,___IFD(___RETN,5,0,0x7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_out_2d_dx,___IFD(___RETN,5,0,0x7L))
-,___DEF_LBL_RET(___H___x86_23_x86_2d_out_2d_dx,___IFD(___RETN,5,0,0x7L))
+,___DEF_LBL_PROC_AT(___H___x86_23_x86_2d_out_2d_dx,2,-1,1)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_out_2d_dx,___IFD(___RETI,8,0,0x3f07L),2)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_out_2d_dx,___IFD(___RETN,5,0,0x7L),3)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_out_2d_dx,___IFD(___RETN,5,0,0x7L),4)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_out_2d_dx,___IFD(___RETN,5,0,0xfL),5)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_out_2d_dx,___IFD(___RETN,5,0,0xfL),6)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_out_2d_dx,___IFD(___RETN,5,0,0xfL),7)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_out_2d_dx,___IFD(___RETN,5,0,0xfL),8)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_out_2d_dx,___IFD(___RETN,5,0,0xfL),9)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_out_2d_dx,___IFD(___RETN,5,0,0xfL),10)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_out_2d_dx,___IFD(___RETN,5,0,0xfL),11)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_out_2d_dx,___IFD(___RETN,5,0,0xfL),12)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_out_2d_dx,___IFD(___RETN,5,0,0xfL),13)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_out_2d_dx,___IFD(___RETN,5,0,0xfL),14)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_out_2d_dx,___IFD(___RETI,8,8,0x3f03L),15)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_out_2d_dx,___IFD(___RETN,5,0,0x7L),16)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_out_2d_dx,___IFD(___RETN,5,0,0x7L),17)
+,___DEF_LBL_RET_AT(___H___x86_23_x86_2d_out_2d_dx,___IFD(___RETN,5,0,0x7L),18)
 ___END_LBL
 
 ___BEGIN_OFD

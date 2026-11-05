@@ -606,6 +606,28 @@ function FixupFile(fso, inFile, outFile, fixupDictionary)
     while (!inFileObject.AtEndOfStream)
     {
         var line = inFileObject.ReadLine();
+        // The header template is an ordered source manifest. Expand before
+        // substitutions; installed consumers still receive one flat header.
+        var fragment = line.match(/^#include "(_gambit\/[a-z_]+\.h\.in)"$/);
+        if (fragment != null)
+        {
+            var part = fso.OpenTextFile(fso.GetParentFolderName(inFile) + "\\" + fragment[1]);
+            while (!part.AtEndOfStream)
+            {
+                FixupLine(part.ReadLine());
+            }
+            part.close();
+        }
+        else
+        {
+            FixupLine(line);
+        }
+    }
+    inFileObject.close();
+    outFileObject.close();
+
+    function FixupLine(line)
+    {
         var m = line.match(re);
         if (m != null)
         {
@@ -617,8 +639,6 @@ function FixupFile(fso, inFile, outFile, fixupDictionary)
         }
         outFileObject.WriteLine(line);
     }
-    inFileObject.close();
-    outFileObject.close();
 }
 
 // Return the list of source files corresponding to a macro

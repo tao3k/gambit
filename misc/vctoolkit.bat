@@ -64,7 +64,7 @@ echo #endif                                   >> include\gambit.h
 echo #ifndef ___BOOL                          >> include\gambit.h
 echo #define ___BOOL int                      >> include\gambit.h
 echo #endif                                   >> include\gambit.h
-type include\gambit.h.in                      >> include\gambit.h
+for /f "tokens=2" %%f in (include\gambit.h.in) do type include\%%~f >> include\gambit.h
 
 cd lib
 

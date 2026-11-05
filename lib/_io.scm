@@ -2981,7 +2981,12 @@
                      psettings1
                      #!optional
                      (psettings2 (macro-absent-obj)))
-         (let* ((init1
+         ;; The peer-shared FIFOs, buffer cursors, close state and wait
+         ;; predicates form one ownership domain. Both endpoints receive
+         ;; its mutex at construction, before either endpoint is published.
+         ;; Existing port operations and condvar waits use this same guard.
+         (let* ((mutex (macro-make-port-mutex))
+                (init1
                  (or (macro-psettings-init psettings1)
                      ',empty-vect))
                 (port1
@@ -2989,7 +2994,7 @@
                   init1
                   0
                   (,##vect-length init1)
-                  psettings1))
+                  psettings1 mutex))
                 (port2
                  (if (##eq? psettings2 (macro-absent-obj))
                      (,##make-vect-port
@@ -3010,7 +3015,8 @@
                                (macro-psettings-direction-set!
                                 psettings1
                                 (macro-direction-in))))
-                        psettings1))
+                        psettings1)
+                      mutex)
                      (let ((init2
                             (or (macro-psettings-init psettings2)
                                 ',empty-vect)))
@@ -3018,7 +3024,7 @@
                         init2
                         0
                         (,##vect-length init2)
-                        psettings2)))))
+                        psettings2 mutex)))))
            (let ((wbuf1 (,macro-vect-port-wbuf port1))
                  (wbuf2 (,macro-vect-port-wbuf port2))
                  (whi1 (,macro-vect-port-whi port1))
@@ -3344,7 +3350,8 @@
    buffering:
    capacity:))
 
-(define-prim (##make-vector-port src start end psettings)
+(define-prim (##make-vector-port src start end psettings
+                                  #!optional (mutex #f))
 
   (define chunk-size 16)
 
@@ -3355,7 +3362,7 @@
          (vector-fifo
           (##subvector->fifo src start end chunk-size))
          (mutex
-          (macro-make-port-mutex))
+          (or mutex (macro-make-port-mutex)))
          (rkind
           (if (##fx= direction (macro-direction-out))
               (macro-none-kind)
@@ -3587,7 +3594,8 @@
    output-readtable:
    readtable:))
 
-(define-prim (##make-string-port src start end psettings)
+(define-prim (##make-string-port src start end psettings
+                                  #!optional (mutex #f))
 
   (define chunk-size 32)
 
@@ -3598,7 +3606,7 @@
          (string-fifo
           (##substring->fifo src start end chunk-size))
          (mutex
-          (macro-make-port-mutex))
+          (or mutex (macro-make-port-mutex)))
          (rkind
           (if (##fx= direction (macro-direction-out))
               (macro-none-kind)
@@ -3782,7 +3790,8 @@
    output-readtable:
    readtable:))
 
-(define-prim (##make-u8vector-port src start end psettings)
+(define-prim (##make-u8vector-port src start end psettings
+                                  #!optional (mutex #f))
 
   (define chunk-size 64)
 
@@ -3793,7 +3802,7 @@
          (u8vector-fifo
           (##subu8vector->fifo src start end chunk-size))
          (mutex
-          (macro-make-port-mutex))
+          (or mutex (macro-make-port-mutex)))
          (rkind
           (if (##fx= direction (macro-direction-out))
               (macro-none-kind)
@@ -5069,7 +5078,7 @@
   `(macro-case-target
     ((C)
      (##c-code
-      "___ps->type_cache[___CHAR_INPUT_PORT_TYPE_CACHE] = ___ARG1;"
+      "___ps->context->type_cache[___CHAR_INPUT_PORT_TYPE_CACHE] = ___ARG1;"
       (##structure-type ,port)))
     (else
      #f)))
@@ -5078,7 +5087,7 @@
   `(macro-case-target
     ((C)
      (##c-code
-      "___ps->type_cache[___CHAR_OUTPUT_PORT_TYPE_CACHE] = ___ARG1;"
+      "___ps->context->type_cache[___CHAR_OUTPUT_PORT_TYPE_CACHE] = ___ARG1;"
       (##structure-type ,port)))
     (else
      #f)))

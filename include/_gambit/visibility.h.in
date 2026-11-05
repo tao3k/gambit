@@ -1,0 +1,76 @@
+/*---------------------------------------------------------------------------*/
+
+/* Visibility directives. */
+
+#ifndef ___HIDDEN
+#define ___HIDDEN static
+#endif
+
+#ifndef ___LOCAL
+#define ___LOCAL static
+#endif
+
+#ifdef _MSC_VER
+#define ___USE_DECLSPEC
+#endif
+
+#ifdef __WATCOMC__
+#define ___USE_DECLSPEC
+#endif
+
+#ifdef ___USE_DECLSPEC
+#define ___EXPORT_FUNC(type,name)__declspec(dllexport) type name
+#define ___EXPORT_DATA(type,name)__declspec(dllexport) type name
+#define ___IMPORT_FUNC(type,name)__declspec(dllimport) type name
+#define ___IMPORT_DATA(type,name)__declspec(dllimport) type name
+#endif
+
+#ifndef ___EXPORT_FUNC
+#define ___EXPORT_FUNC(type,name)type name
+#endif
+
+#ifndef ___EXPORT_DATA
+#define ___EXPORT_DATA(type,name)type name
+#endif
+
+#ifndef ___IMPORT_FUNC
+#define ___IMPORT_FUNC(type,name)extern type name
+#endif
+
+#ifndef ___IMPORT_DATA
+#define ___IMPORT_DATA(type,name)extern type name
+#endif
+
+#define ___EXP_FUNC(type,name)type name
+#define ___EXP_DATA(type,name)type name
+#define ___IMP_FUNC(type,name)extern type name
+#define ___IMP_DATA(type,name)extern type name
+
+#ifdef ___SHARED
+#ifdef ___LIBRARY
+#undef ___EXP_FUNC
+#define ___EXP_FUNC(type,name)___EXPORT_FUNC(type,name)
+#undef ___EXP_DATA
+#define ___EXP_DATA(type,name)___EXPORT_DATA(type,name)
+#endif
+#ifndef ___PRIMAL
+#undef ___IMP_FUNC
+#define ___IMP_FUNC(type,name)___IMPORT_FUNC(type,name)
+#undef ___IMP_DATA
+#define ___IMP_DATA(type,name)___IMPORT_DATA(type,name)
+#endif
+#endif
+
+#ifndef ___OS_WIN32
+#define ___CAN_IMPORT_EXPORTED
+#endif
+
+#ifndef ___CAN_IMPORT_EXPORTED
+#ifdef ___SHARED
+#ifndef ___PRIMAL
+#undef ___BIND_LATE
+#define ___BIND_LATE
+#endif
+#endif
+#endif
+

@@ -355,13 +355,7 @@ default-random-source
   (define (get-rtlib-mapping filename)
 
     (define (symbol-table->list st)
-      (concatenate
-       (map (lambda (s)
-              (let loop ((s s) (lst '()))
-                (if (symbol? s)
-                    (loop (##symbol-interned? s) (cons s lst))
-                    (reverse lst))))
-            (vector->list st))))
+      (vector->list st))
 
     (define (hidden-id? id)
       (let ((str (symbol->string id)))

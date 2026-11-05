@@ -1,0 +1,814 @@
+/*---------------------------------------------------------------------------*/
+
+#define ___USE_RC_ALLOCATION_FOR_FOREIGN
+
+#ifdef ___USE_RC_ALLOCATION_FOR_FOREIGN
+
+#define ___CPLUSPLUS_ASSIGN_NEW(var,type) \
+do { \
+     void *___ptr = ___EXT(___alloc_rc) (___PSP sizeof (type)); \
+     if (___ptr == 0) \
+       var = 0; \
+     else \
+       var = new (___ptr) type; \
+   } while (0)
+#define ___CPLUSPLUS_ASSIGN_NEW_WITH_INIT(var,type,init) \
+do { \
+     void *___ptr = ___EXT(___alloc_rc) (___PSP sizeof (type)); \
+     if (___ptr == 0) \
+       var = 0; \
+     else \
+       var = new (___ptr) type (init); \
+   } while (0)
+#define ___CPLUSPLUS_DELETE_STRUCT(name,ptr) \
+do { \
+     ___EXT(___release_rc) (ptr); \
+   } while (0)
+#define ___CPLUSPLUS_DELETE_UNION(name,ptr) \
+do { \
+     ___EXT(___release_rc) (ptr); \
+   } while (0)
+#define ___CPLUSPLUS_DELETE_TYPE(name,ptr) \
+do { \
+     ___CAST(name*,ptr)->~name (); \
+     ___EXT(___release_rc) (ptr); \
+   } while (0)
+
+#define ___C_ASSIGN_NEW(var,type) \
+do { \
+     var = ___CAST(type*,___EXT(___alloc_rc) (___PSP sizeof (type))); \
+   } while (0)
+#define ___C_ASSIGN_NEW_WITH_INIT(var,type,init) \
+do { \
+     if ((var = ___CAST(type*,___EXT(___alloc_rc) (___PSP sizeof (type)))) != 0) \
+       *___CAST(type*,var) = init; \
+   } while (0)
+#define ___C_DELETE_STRUCT(name,ptr) \
+do { \
+     ___EXT(___release_rc) (ptr); \
+   } while (0)
+#define ___C_DELETE_UNION(name,ptr) \
+do { \
+     ___EXT(___release_rc) (ptr); \
+   } while (0)
+#define ___C_DELETE_TYPE(name,ptr) \
+do { \
+     ___EXT(___release_rc) (ptr); \
+   } while (0)
+
+#else
+
+#define ___CPLUSPLUS_ASSIGN_NEW(var,type) \
+do { \
+     try { var = new type; } catch (std::bad_alloc) { var = 0; } \
+   } while (0)
+#define ___CPLUSPLUS_ASSIGN_NEW_WITH_INIT(var,type,init) \
+do { \
+     try { var = new type (init); } catch (std::bad_alloc) { var = 0; } \
+   } while (0)
+#define ___CPLUSPLUS_DELETE_STRUCT(name,ptr) \
+do { \
+     delete ___CAST(struct name*,ptr); \
+   } while (0)
+#define ___CPLUSPLUS_DELETE_UNION(name,ptr) \
+do { \
+     delete ___CAST(union name*,ptr); \
+   } while (0)
+#define ___CPLUSPLUS_DELETE_TYPE(name,ptr) \
+do { \
+     delete ___CAST(name*,ptr); \
+   } while (0)
+
+#define ___C_ASSIGN_NEW(var,type) \
+do { \
+     var = ___CAST(type*,___ALLOC_MEM(sizeof (type))); \
+   } while (0)
+#define ___C_ASSIGN_NEW_WITH_INIT(var,type,init) \
+do { \
+     if ((var = ___CAST(type*,___ALLOC_MEM(sizeof (type)))) != 0) \
+       *___CAST(type*,var) = init; \
+   } while (0)
+#define ___C_DELETE_STRUCT(name,ptr) \
+do { \
+     ___FREE_MEM(ptr); \
+   } while (0)
+#define ___C_DELETE_UNION(name,ptr) \
+do { \
+     ___FREE_MEM(ptr); \
+   } while (0)
+#define ___C_DELETE_TYPE(name,ptr) \
+do { \
+     ___FREE_MEM(ptr); \
+   } while (0)
+
+#endif
+
+#ifdef ___USE_CPLUSPLUS_NEW_DELETE
+
+#define ___ASSIGN_NEW(var,type) \
+___CPLUSPLUS_ASSIGN_NEW(var,type)
+#define ___ASSIGN_NEW_WITH_INIT(var,type,init) \
+___CPLUSPLUS_ASSIGN_NEW_WITH_INIT(var,type,init)
+#define ___DELETE_STRUCT(name,ptr) ___CPLUSPLUS_DELETE_STRUCT(name,ptr)
+#define ___DELETE_UNION(name,ptr) ___CPLUSPLUS_DELETE_UNION(name,ptr)
+#define ___DELETE_TYPE(name,ptr) ___CPLUSPLUS_DELETE_TYPE(name,ptr)
+
+#else
+
+#define ___ASSIGN_NEW(var,type) \
+___C_ASSIGN_NEW(var,type)
+#define ___ASSIGN_NEW_WITH_INIT(var,type,init) \
+___C_ASSIGN_NEW_WITH_INIT(var,type,init)
+#define ___DELETE_STRUCT(name,ptr) ___C_DELETE_STRUCT(name,ptr)
+#define ___DELETE_UNION(name,ptr) ___C_DELETE_UNION(name,ptr)
+#define ___DELETE_TYPE(name,ptr) ___C_DELETE_TYPE(name,ptr)
+
+#endif
+
+#ifdef ___USE_CPLUSPLUS_CLEANUP
+
+#define ___BEGIN_CLEANUP(cleanup) \
+{ struct ___cleanup { ~___cleanup () { cleanup; } } ___cleanup_object;
+#define ___END_CLEANUP(cleanup) \
+}
+
+#else
+
+#define ___BEGIN_CLEANUP(cleanup) \
+{
+#define ___END_CLEANUP(cleanup) \
+cleanup; }
+
+#endif
+
+#ifdef ___USE_SETJMP
+
+#define ___BEGIN_TRY \
+{ ___jmpbuf_struct ___jbuf, *___old_catcher = ___ps->catcher; \
+___ps->catcher = &___jbuf; ___err = ___SETJMP(___jbuf.buf); \
+if (___err!=0) ___err = ___ps->longjmp_err; \
+if (___err==___FIX(___NO_ERR)) {
+#define ___END_TRY } ___ps->catcher = ___old_catcher; }
+#define ___THROW(e)do { ___ps->longjmp_err = e; ___LONGJMP1(___ps->catcher->buf); } while (0)
+#define ___ON_THROW(stat1,stat2) \
+___ON_THROW_AUX(___processor_state ___ps=___PSTATE;,stat1,stat2)
+
+#else
+
+#define ___BEGIN_TRY { ___err = ___FIX(___NO_ERR); try {
+#define ___END_TRY } catch (___throw_struct ts) { ___err = ts.err; } }
+#define ___THROW(e)do { ___throw_struct ts; ts.err = e; throw (ts); } while (0)
+#define ___ON_THROW(stat1,stat2) \
+___ON_THROW_AUX(,stat1,stat2)
+
+#endif
+
+#define ___ON_THROW_AUX(decl,stat1,stat2) \
+do { \
+     ___SCMOBJ ___err; decl \
+     ___BEGIN_TRY stat1; ___END_TRY \
+     if (___err != ___FIX(___NO_ERR)) stat2; \
+   } while (0)
+
+#define ___RELEASE_POINTER ___EXT(___release_pointer)
+
+#define ___DEF_RELEASE_FN_STRUCT(name,id) \
+___HIDDEN ___SCMOBJ id \
+   ___P((void *___x), \
+        (___x) \
+void *___x;) \
+{ ___DELETE_STRUCT(name,___x); return ___FIX(___NO_ERR); }
+
+#define ___DEF_RELEASE_FN_UNION(name,id) \
+___HIDDEN ___SCMOBJ id \
+   ___P((void *___x), \
+        (___x) \
+void *___x;) \
+{ ___DELETE_UNION(name,___x); return ___FIX(___NO_ERR); }
+
+#define ___DEF_RELEASE_FN_TYPE(name,id) \
+___HIDDEN ___SCMOBJ id \
+   ___P((void *___x), \
+        (___x) \
+void *___x;) \
+{ ___DELETE_TYPE(name,___x); return ___FIX(___NO_ERR); }
+
+#define ___STOC3(f,s,c,i)___err=___EXT(f)(___PSP s,c,i)
+#define ___STOC4(f,s,c,t,i)___err=___EXT(f)(___PSP s,c,t,i)
+#define ___CTOS3(f,c,s,i)___err=___EXT(f)(___ps,c,s,i)
+#define ___CTOS5(f,c,t,r,s,i)___err=___EXT(f)(___ps,c,t,r,s,i)
+#define ___IF_STOC3(f,s,c,i)if ((___STOC3(f,s,c,i))==___FIX(___NO_ERR))
+#define ___IF_STOC4(f,s,c,t,i)if ((___STOC4(f,s,c,t,i))==___FIX(___NO_ERR))
+#define ___IF_CTOS3(f,c,s,i)if ((___CTOS3(f,c,s,i))==___FIX(___NO_ERR))
+#define ___IF_CTOS5(f,c,t,r,s,i)if ((___CTOS5(f,c,t,r,s,i))==___FIX(___NO_ERR))
+
+/* One activation-owned root span precedes every collecting conversion.
+ * Root flags describe generated raw SCMOBJ inputs, never GC addresses. */
+#define ___SFUN_ROOT_ARG(i,arg) if (___err==___FIX(___NO_ERR)) {___err=___EXT(___sfun_arg)(___ps,___sfun_bank,i,arg);___sfun_rooted[(i)-1]=1;}
+#define ___BEGIN_SFUN_BODY
+#define ___END_SFUN_BODY
+
+#define ___BEGIN_SFUN_VOID(proc,roots) ___processor_state ___ps=___PSTATE;volatile ___SCMOBJ ___marker=___FAL;void *volatile ___sfun_bank=0;void *___sfun_new=0;unsigned char ___sfun_rooted[___NARGS+1];int ___sfun_i;___SCMOBJ ___err;___SCMOBJ ___errdata=___FAL;___SCMOBJ ___errhandler=___FAL;for (___sfun_i=0;___sfun_i<___NARGS+1;___sfun_i++) ___sfun_rooted[___sfun_i]=0;___BEGIN_TRY ___err=___EXT(___begin_sfun)(___ps,___NARGS,proc,&___sfun_new);___sfun_bank=___sfun_new;roots if (___err==___FIX(___NO_ERR)) {___SCMOBJ ___new_marker;___err=___EXT(___sfun_marker)(___ps,___sfun_bank,&___new_marker);if (___err==___FIX(___NO_ERR)) {___marker=___new_marker;
+#define ___SFUN_CALL_VOID if (___err==___FIX(___NO_ERR)) ___err=___EXT(___call_sfun)(___ps,___sfun_bank);
+#define ___SFUN_SET_RESULT_VOID /* no result to set */
+#define ___SFUN_ERROR_VOID while ((___err!=___FIX(___NO_ERR))&&(___err!=___FIX(___UNWIND_C_STACK))) {___ps->temp1=___err;___ps->temp2=___errdata;___ps->temp3=___marker;___ps->temp4=___errhandler;___err=___EXT(___call) (___PSP 0,___ps->handler_sfun_conv_error,___marker);
+#define ___END_SFUN_VOID } } } ___END_TRY if (___sfun_bank!=0) ___EXT(___end_sfun)(___ps,___sfun_bank);___EXT(___propagate_error) (___PSP ___err);
+
+#define ___BEGIN_SFUN_SCMOBJ(proc,roots) ___processor_state ___ps=___PSTATE;volatile ___SCMOBJ ___marker=___FAL;void *volatile ___sfun_bank=0;void *___sfun_new=0;unsigned char ___sfun_rooted[___NARGS+1];int ___sfun_i;___SCMOBJ ___result;___SCMOBJ ___err;___SCMOBJ ___errdata=___FAL;___SCMOBJ ___errhandler=___FAL;for (___sfun_i=0;___sfun_i<___NARGS+1;___sfun_i++) ___sfun_rooted[___sfun_i]=0;___BEGIN_TRY ___err=___EXT(___begin_sfun)(___ps,___NARGS,proc,&___sfun_new);___sfun_bank=___sfun_new;roots if (___err==___FIX(___NO_ERR)) {___SCMOBJ ___new_marker;___err=___EXT(___sfun_marker)(___ps,___sfun_bank,&___new_marker);if (___err==___FIX(___NO_ERR)) {___marker=___new_marker;
+#define ___SFUN_CALL_SCMOBJ if (___err==___FIX(___NO_ERR)) ___err=___EXT(___call_sfun)(___ps,___sfun_bank);
+#define ___SFUN_SET_RESULT_SCMOBJ ___result = ___SFUN_RESULT;
+#define ___SFUN_ERROR_SCMOBJ while ((___err!=___FIX(___NO_ERR))&&(___err!=___FIX(___UNWIND_C_STACK))) {___ps->temp1=___err;___ps->temp2=___errdata;___ps->temp3=___marker;___ps->temp4=___errhandler;___err=___EXT(___call) (___PSP 0,___ps->handler_sfun_conv_error,___marker);
+#define ___END_SFUN_SCMOBJ } } } ___END_TRY if (___sfun_bank!=0) ___EXT(___end_sfun)(___ps,___sfun_bank);___EXT(___propagate_error) (___PSP ___err);
+
+#define ___BEGIN_SFUN(proc,roots,decl)___processor_state ___ps=___PSTATE;volatile ___SCMOBJ ___marker=___FAL;void *volatile ___sfun_bank=0;void *___sfun_new=0;unsigned char ___sfun_rooted[___NARGS+1];int ___sfun_i;decl;___SCMOBJ ___err;___SCMOBJ ___errdata=___FAL;___SCMOBJ ___errhandler=___FAL;for (___sfun_i=0;___sfun_i<___NARGS+1;___sfun_i++) ___sfun_rooted[___sfun_i]=0;___BEGIN_TRY ___err=___EXT(___begin_sfun)(___ps,___NARGS,proc,&___sfun_new);___sfun_bank=___sfun_new;roots if (___err==___FIX(___NO_ERR)) {___SCMOBJ ___new_marker;___err=___EXT(___sfun_marker)(___ps,___sfun_bank,&___new_marker);if (___err==___FIX(___NO_ERR)) {___marker=___new_marker;
+#define ___SFUN_CALL if (___err==___FIX(___NO_ERR) && (___err=___EXT(___call_sfun)(___ps,___sfun_bank))==___FIX(___NO_ERR))
+#define ___SFUN_SET_RESULT /* done in conversion function */
+#define ___SFUN_ERROR while ((___err!=___FIX(___NO_ERR))&&(___err!=___FIX(___UNWIND_C_STACK))) {___ps->temp1=___err;___ps->temp2=___errdata;___ps->temp3=___marker;___ps->temp4=___errhandler;if ((___err=___EXT(___call) (___PSP 0,___ps->handler_sfun_conv_error,___marker))==___FIX(___NO_ERR))
+#define ___END_SFUN } } } ___END_TRY if (___sfun_bank!=0) ___EXT(___end_sfun)(___ps,___sfun_bank);___EXT(___propagate_error) (___PSP ___err);
+
+#define ___BEGIN_SFUN_ARG(i,arg)___SCMOBJ arg;
+#define ___END_SFUN_ARG(i)
+#define ___BEGIN_SFUN_ARG_SCMOBJ(i)
+#define ___END_SFUN_ARG_SCMOBJ(i)
+#define ___SFUN_ARG(i,arg) if (___err==___FIX(___NO_ERR) && !___sfun_rooted[(i)-1]) ___err=___EXT(___sfun_arg)(___ps,___sfun_bank,i,arg);
+#define ___SFUN_RESULT ___PSR1
+
+#define ___BEGIN_SFUN_SCMOBJ_TO_S8(s,c)___STOC3(___SCMOBJ_to_S8,s,&c,___RETURN_POS);
+#define ___END_SFUN_SCMOBJ_TO_S8(s,c)
+#define ___BEGIN_SFUN_SCMOBJ_TO_U8(s,c)___STOC3(___SCMOBJ_to_U8,s,&c,___RETURN_POS);
+#define ___END_SFUN_SCMOBJ_TO_U8(s,c)
+#define ___BEGIN_SFUN_SCMOBJ_TO_S16(s,c)___STOC3(___SCMOBJ_to_S16,s,&c,___RETURN_POS);
+#define ___END_SFUN_SCMOBJ_TO_S16(s,c)
+#define ___BEGIN_SFUN_SCMOBJ_TO_U16(s,c)___STOC3(___SCMOBJ_to_U16,s,&c,___RETURN_POS);
+#define ___END_SFUN_SCMOBJ_TO_U16(s,c)
+#define ___BEGIN_SFUN_SCMOBJ_TO_S32(s,c)___STOC3(___SCMOBJ_to_S32,s,&c,___RETURN_POS);
+#define ___END_SFUN_SCMOBJ_TO_S32(s,c)
+#define ___BEGIN_SFUN_SCMOBJ_TO_U32(s,c)___STOC3(___SCMOBJ_to_U32,s,&c,___RETURN_POS);
+#define ___END_SFUN_SCMOBJ_TO_U32(s,c)
+#define ___BEGIN_SFUN_SCMOBJ_TO_S64(s,c)___STOC3(___SCMOBJ_to_S64,s,&c,___RETURN_POS);
+#define ___END_SFUN_SCMOBJ_TO_S64(s,c)
+#define ___BEGIN_SFUN_SCMOBJ_TO_U64(s,c)___STOC3(___SCMOBJ_to_U64,s,&c,___RETURN_POS);
+#define ___END_SFUN_SCMOBJ_TO_U64(s,c)
+#define ___BEGIN_SFUN_SCMOBJ_TO_F32(s,c)___STOC3(___SCMOBJ_to_F32,s,&c,___RETURN_POS);
+#define ___END_SFUN_SCMOBJ_TO_F32(s,c)
+#define ___BEGIN_SFUN_SCMOBJ_TO_F64(s,c)___STOC3(___SCMOBJ_to_F64,s,&c,___RETURN_POS);
+#define ___END_SFUN_SCMOBJ_TO_F64(s,c)
+#define ___BEGIN_SFUN_SCMOBJ_TO_CHAR(s,c)___STOC3(___SCMOBJ_to_CHAR,s,&c,___RETURN_POS);
+#define ___END_SFUN_SCMOBJ_TO_CHAR(s,c)
+#define ___BEGIN_SFUN_SCMOBJ_TO_SCHAR(s,c)___STOC3(___SCMOBJ_to_SCHAR,s,&c,___RETURN_POS);
+#define ___END_SFUN_SCMOBJ_TO_SCHAR(s,c)
+#define ___BEGIN_SFUN_SCMOBJ_TO_UCHAR(s,c)___STOC3(___SCMOBJ_to_UCHAR,s,&c,___RETURN_POS);
+#define ___END_SFUN_SCMOBJ_TO_UCHAR(s,c)
+#define ___BEGIN_SFUN_SCMOBJ_TO_ISO_8859_1(s,c)___STOC3(___SCMOBJ_to_ISO_8859_1,s,&c,___RETURN_POS);
+#define ___END_SFUN_SCMOBJ_TO_ISO_8859_1(s,c)
+#define ___BEGIN_SFUN_SCMOBJ_TO_UCS_2(s,c)___STOC3(___SCMOBJ_to_UCS_2,s,&c,___RETURN_POS);
+#define ___END_SFUN_SCMOBJ_TO_UCS_2(s,c)
+#define ___BEGIN_SFUN_SCMOBJ_TO_UCS_4(s,c)___STOC3(___SCMOBJ_to_UCS_4,s,&c,___RETURN_POS);
+#define ___END_SFUN_SCMOBJ_TO_UCS_4(s,c)
+#define ___BEGIN_SFUN_SCMOBJ_TO_WCHAR(s,c)___STOC3(___SCMOBJ_to_WCHAR,s,&c,___RETURN_POS);
+#define ___END_SFUN_SCMOBJ_TO_WCHAR(s,c)
+#define ___BEGIN_SFUN_SCMOBJ_TO_SIZE_T(s,c)___STOC3(___SCMOBJ_to_SIZE_T,s,&c,___RETURN_POS);
+#define ___END_SFUN_SCMOBJ_TO_SIZE_T(s,c)
+#define ___BEGIN_SFUN_SCMOBJ_TO_SSIZE_T(s,c)___STOC3(___SCMOBJ_to_SSIZE_T,s,&c,___RETURN_POS);
+#define ___END_SFUN_SCMOBJ_TO_SSIZE_T(s,c)
+#define ___BEGIN_SFUN_SCMOBJ_TO_PTRDIFF_T(s,c)___STOC3(___SCMOBJ_to_PTRDIFF_T,s,&c,___RETURN_POS);
+#define ___END_SFUN_SCMOBJ_TO_PTRDIFF_T(s,c)
+#define ___BEGIN_SFUN_SCMOBJ_TO_SHORT(s,c)___STOC3(___SCMOBJ_to_SHORT,s,&c,___RETURN_POS);
+#define ___END_SFUN_SCMOBJ_TO_SHORT(s,c)
+#define ___BEGIN_SFUN_SCMOBJ_TO_USHORT(s,c)___STOC3(___SCMOBJ_to_USHORT,s,&c,___RETURN_POS);
+#define ___END_SFUN_SCMOBJ_TO_USHORT(s,c)
+#define ___BEGIN_SFUN_SCMOBJ_TO_INT(s,c)___STOC3(___SCMOBJ_to_INT,s,&c,___RETURN_POS);
+#define ___END_SFUN_SCMOBJ_TO_INT(s,c)
+#define ___BEGIN_SFUN_SCMOBJ_TO_UINT(s,c)___STOC3(___SCMOBJ_to_UINT,s,&c,___RETURN_POS);
+#define ___END_SFUN_SCMOBJ_TO_UINT(s,c)
+#define ___BEGIN_SFUN_SCMOBJ_TO_LONG(s,c)___STOC3(___SCMOBJ_to_LONG,s,&c,___RETURN_POS);
+#define ___END_SFUN_SCMOBJ_TO_LONG(s,c)
+#define ___BEGIN_SFUN_SCMOBJ_TO_ULONG(s,c)___STOC3(___SCMOBJ_to_ULONG,s,&c,___RETURN_POS);
+#define ___END_SFUN_SCMOBJ_TO_ULONG(s,c)
+#define ___BEGIN_SFUN_SCMOBJ_TO_FLOAT(s,c)___STOC3(___SCMOBJ_to_FLOAT,s,&c,___RETURN_POS);
+#define ___END_SFUN_SCMOBJ_TO_FLOAT(s,c)
+#define ___BEGIN_SFUN_SCMOBJ_TO_DOUBLE(s,c)___STOC3(___SCMOBJ_to_DOUBLE,s,&c,___RETURN_POS);
+#define ___END_SFUN_SCMOBJ_TO_DOUBLE(s,c)
+#define ___BEGIN_SFUN_SCMOBJ_TO_STRUCT(n,s,c,t)___STOC4(___SCMOBJ_to_STRUCT,s,&c,t,___RETURN_POS);
+#define ___END_SFUN_SCMOBJ_TO_STRUCT(n,s,c,t)
+#define ___BEGIN_SFUN_SCMOBJ_TO_UNION(n,s,c,t)___STOC4(___SCMOBJ_to_UNION,s,&c,t,___RETURN_POS);
+#define ___END_SFUN_SCMOBJ_TO_UNION(n,s,c,t)
+#define ___BEGIN_SFUN_SCMOBJ_TO_TYPE(n,s,c,t)___STOC4(___SCMOBJ_to_TYPE,s,&c,t,___RETURN_POS);
+#define ___END_SFUN_SCMOBJ_TO_TYPE(n,s,c,t)
+#define ___BEGIN_SFUN_SCMOBJ_TO_POINTER(s,c,t)___STOC4(___SCMOBJ_to_POINTER,s,&c,t,___RETURN_POS);
+#define ___END_SFUN_SCMOBJ_TO_POINTER(s,c,t)
+#define ___BEGIN_SFUN_SCMOBJ_TO_NONNULLPOINTER(s,c,t)___STOC4(___SCMOBJ_to_NONNULLPOINTER,s,&c,t,___RETURN_POS);
+#define ___END_SFUN_SCMOBJ_TO_NONNULLPOINTER(s,c,t)
+#define ___BEGIN_SFUN_SCMOBJ_TO_FUNCTION(s,cnv,c)___STOC4(___SCMOBJ_to_FUNCTION,s,___CAST(void*,cnv),&c,___RETURN_POS);
+#define ___END_SFUN_SCMOBJ_TO_FUNCTION(s,cnv,c)
+#define ___BEGIN_SFUN_SCMOBJ_TO_NONNULLFUNCTION(s,cnv,c)___STOC4(___SCMOBJ_to_NONNULLFUNCTION,s,___CAST(void*,cnv),&c,___RETURN_POS);
+#define ___END_SFUN_SCMOBJ_TO_NONNULLFUNCTION(s,cnv,c)
+#define ___BEGIN_SFUN_SCMOBJ_TO_BOOL(s,c)___STOC3(___SCMOBJ_to_BOOL,s,&c,___RETURN_POS);
+#define ___END_SFUN_SCMOBJ_TO_BOOL(s,c)
+#define ___BEGIN_SFUN_SCMOBJ_TO_CHARSTRING(s,c)___STOC3(___SCMOBJ_to_CHARSTRING,s,&c,___RETURN_POS);
+#define ___END_SFUN_SCMOBJ_TO_CHARSTRING(s,c)
+#define ___BEGIN_SFUN_SCMOBJ_TO_NONNULLCHARSTRING(s,c)___STOC3(___SCMOBJ_to_NONNULLCHARSTRING,s,&c,___RETURN_POS);
+#define ___END_SFUN_SCMOBJ_TO_NONNULLCHARSTRING(s,c)
+#define ___BEGIN_SFUN_SCMOBJ_TO_NONNULLCHARSTRINGLIST(s,c)___STOC3(___SCMOBJ_to_NONNULLCHARSTRINGLIST,s,&c,___RETURN_POS);
+#define ___END_SFUN_SCMOBJ_TO_NONNULLCHARSTRINGLIST(s,c)
+#define ___BEGIN_SFUN_SCMOBJ_TO_ISO_8859_1STRING(s,c)___STOC3(___SCMOBJ_to_ISO_8859_1STRING,s,&c,___RETURN_POS);
+#define ___END_SFUN_SCMOBJ_TO_ISO_8859_1STRING(s,c)
+#define ___BEGIN_SFUN_SCMOBJ_TO_NONNULLISO_8859_1STRING(s,c)___STOC3(___SCMOBJ_to_NONNULLISO_8859_1STRING,s,&c,___RETURN_POS);
+#define ___END_SFUN_SCMOBJ_TO_NONNULLISO_8859_1STRING(s,c)
+#define ___BEGIN_SFUN_SCMOBJ_TO_NONNULLISO_8859_1STRINGLIST(s,c)___STOC3(___SCMOBJ_to_NONNULLISO_8859_1STRINGLIST,s,&c,___RETURN_POS);
+#define ___END_SFUN_SCMOBJ_TO_NONNULLISO_8859_1STRINGLIST(s,c)
+#define ___BEGIN_SFUN_SCMOBJ_TO_UTF_8STRING(s,c)___STOC3(___SCMOBJ_to_UTF_8STRING,s,&c,___RETURN_POS);
+#define ___END_SFUN_SCMOBJ_TO_UTF_8STRING(s,c)
+#define ___BEGIN_SFUN_SCMOBJ_TO_NONNULLUTF_8STRING(s,c)___STOC3(___SCMOBJ_to_NONNULLUTF_8STRING,s,&c,___RETURN_POS);
+#define ___END_SFUN_SCMOBJ_TO_NONNULLUTF_8STRING(s,c)
+#define ___BEGIN_SFUN_SCMOBJ_TO_NONNULLUTF_8STRINGLIST(s,c)___STOC3(___SCMOBJ_to_NONNULLUTF_8STRINGLIST,s,&c,___RETURN_POS);
+#define ___END_SFUN_SCMOBJ_TO_NONNULLUTF_8STRINGLIST(s,c)
+#define ___BEGIN_SFUN_SCMOBJ_TO_UTF_16STRING(s,c)___STOC3(___SCMOBJ_to_UTF_16STRING,s,&c,___RETURN_POS);
+#define ___END_SFUN_SCMOBJ_TO_UTF_16STRING(s,c)
+#define ___BEGIN_SFUN_SCMOBJ_TO_NONNULLUTF_16STRING(s,c)___STOC3(___SCMOBJ_to_NONNULLUTF_16STRING,s,&c,___RETURN_POS);
+#define ___END_SFUN_SCMOBJ_TO_NONNULLUTF_16STRING(s,c)
+#define ___BEGIN_SFUN_SCMOBJ_TO_NONNULLUTF_16STRINGLIST(s,c)___STOC3(___SCMOBJ_to_NONNULLUTF_16STRINGLIST,s,&c,___RETURN_POS);
+#define ___END_SFUN_SCMOBJ_TO_NONNULLUTF_16STRINGLIST(s,c)
+#define ___BEGIN_SFUN_SCMOBJ_TO_UCS_2STRING(s,c)___STOC3(___SCMOBJ_to_UCS_2STRING,s,&c,___RETURN_POS);
+#define ___END_SFUN_SCMOBJ_TO_UCS_2STRING(s,c)
+#define ___BEGIN_SFUN_SCMOBJ_TO_NONNULLUCS_2STRING(s,c)___STOC3(___SCMOBJ_to_NONNULLUCS_2STRING,s,&c,___RETURN_POS);
+#define ___END_SFUN_SCMOBJ_TO_NONNULLUCS_2STRING(s,c)
+#define ___BEGIN_SFUN_SCMOBJ_TO_NONNULLUCS_2STRINGLIST(s,c)___STOC3(___SCMOBJ_to_NONNULLUCS_2STRINGLIST,s,&c,___RETURN_POS);
+#define ___END_SFUN_SCMOBJ_TO_NONNULLUCS_2STRINGLIST(s,c)
+#define ___BEGIN_SFUN_SCMOBJ_TO_UCS_4STRING(s,c)___STOC3(___SCMOBJ_to_UCS_4STRING,s,&c,___RETURN_POS);
+#define ___END_SFUN_SCMOBJ_TO_UCS_4STRING(s,c)
+#define ___BEGIN_SFUN_SCMOBJ_TO_NONNULLUCS_4STRING(s,c)___STOC3(___SCMOBJ_to_NONNULLUCS_4STRING,s,&c,___RETURN_POS);
+#define ___END_SFUN_SCMOBJ_TO_NONNULLUCS_4STRING(s,c)
+#define ___BEGIN_SFUN_SCMOBJ_TO_NONNULLUCS_4STRINGLIST(s,c)___STOC3(___SCMOBJ_to_NONNULLUCS_4STRINGLIST,s,&c,___RETURN_POS);
+#define ___END_SFUN_SCMOBJ_TO_NONNULLUCS_4STRINGLIST(s,c)
+#define ___BEGIN_SFUN_SCMOBJ_TO_WCHARSTRING(s,c)___STOC3(___SCMOBJ_to_WCHARSTRING,s,&c,___RETURN_POS);
+#define ___END_SFUN_SCMOBJ_TO_WCHARSTRING(s,c)
+#define ___BEGIN_SFUN_SCMOBJ_TO_NONNULLWCHARSTRING(s,c)___STOC3(___SCMOBJ_to_NONNULLWCHARSTRING,s,&c,___RETURN_POS);
+#define ___END_SFUN_SCMOBJ_TO_NONNULLWCHARSTRING(s,c)
+#define ___BEGIN_SFUN_SCMOBJ_TO_NONNULLWCHARSTRINGLIST(s,c)___STOC3(___SCMOBJ_to_NONNULLWCHARSTRINGLIST,s,&c,___RETURN_POS);
+#define ___END_SFUN_SCMOBJ_TO_NONNULLWCHARSTRINGLIST(s,c)
+#define ___BEGIN_SFUN_SCMOBJ_TO_VARIANT(s,c)___STOC3(___SCMOBJ_to_VARIANT,s,&c,___RETURN_POS);
+#define ___END_SFUN_SCMOBJ_TO_VARIANT(s,c)
+
+#define ___BEGIN_SFUN_S8_TO_SCMOBJ(c,s,i)___IF_CTOS3(___S8_to_SCMOBJ,c,&s,i){
+#define ___END_SFUN_S8_TO_SCMOBJ(c,s,i)}
+#define ___BEGIN_SFUN_U8_TO_SCMOBJ(c,s,i)___IF_CTOS3(___U8_to_SCMOBJ,c,&s,i){
+#define ___END_SFUN_U8_TO_SCMOBJ(c,s,i)}
+#define ___BEGIN_SFUN_S16_TO_SCMOBJ(c,s,i)___IF_CTOS3(___S16_to_SCMOBJ,c,&s,i){
+#define ___END_SFUN_S16_TO_SCMOBJ(c,s,i)}
+#define ___BEGIN_SFUN_U16_TO_SCMOBJ(c,s,i)___IF_CTOS3(___U16_to_SCMOBJ,c,&s,i){
+#define ___END_SFUN_U16_TO_SCMOBJ(c,s,i)}
+#define ___BEGIN_SFUN_S32_TO_SCMOBJ(c,s,i)___IF_CTOS3(___S32_to_SCMOBJ,c,&s,i){
+#define ___END_SFUN_S32_TO_SCMOBJ(c,s,i)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_SFUN_U32_TO_SCMOBJ(c,s,i)___IF_CTOS3(___U32_to_SCMOBJ,c,&s,i){
+#define ___END_SFUN_U32_TO_SCMOBJ(c,s,i)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_SFUN_S64_TO_SCMOBJ(c,s,i)___IF_CTOS3(___S64_to_SCMOBJ,c,&s,i){
+#define ___END_SFUN_S64_TO_SCMOBJ(c,s,i)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_SFUN_U64_TO_SCMOBJ(c,s,i)___IF_CTOS3(___U64_to_SCMOBJ,c,&s,i){
+#define ___END_SFUN_U64_TO_SCMOBJ(c,s,i)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_SFUN_F32_TO_SCMOBJ(c,s,i)___IF_CTOS3(___F32_to_SCMOBJ,c,&s,i){
+#define ___END_SFUN_F32_TO_SCMOBJ(c,s,i)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_SFUN_F64_TO_SCMOBJ(c,s,i)___IF_CTOS3(___F64_to_SCMOBJ,c,&s,i){
+#define ___END_SFUN_F64_TO_SCMOBJ(c,s,i)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_SFUN_CHAR_TO_SCMOBJ(c,s,i)___IF_CTOS3(___CHAR_to_SCMOBJ,c,&s,i){
+#define ___END_SFUN_CHAR_TO_SCMOBJ(c,s,i)}
+#define ___BEGIN_SFUN_SCHAR_TO_SCMOBJ(c,s,i)___IF_CTOS3(___SCHAR_to_SCMOBJ,c,&s,i){
+#define ___END_SFUN_SCHAR_TO_SCMOBJ(c,s,i)}
+#define ___BEGIN_SFUN_UCHAR_TO_SCMOBJ(c,s,i)___IF_CTOS3(___UCHAR_to_SCMOBJ,c,&s,i){
+#define ___END_SFUN_UCHAR_TO_SCMOBJ(c,s,i)}
+#define ___BEGIN_SFUN_ISO_8859_1_TO_SCMOBJ(c,s,i)___IF_CTOS3(___ISO_8859_1_to_SCMOBJ,c,&s,i){
+#define ___END_SFUN_ISO_8859_1_TO_SCMOBJ(c,s,i)}
+#define ___BEGIN_SFUN_UCS_2_TO_SCMOBJ(c,s,i)___IF_CTOS3(___UCS_2_to_SCMOBJ,c,&s,i){
+#define ___END_SFUN_UCS_2_TO_SCMOBJ(c,s,i)}
+#define ___BEGIN_SFUN_UCS_4_TO_SCMOBJ(c,s,i)___IF_CTOS3(___UCS_4_to_SCMOBJ,c,&s,i){
+#define ___END_SFUN_UCS_4_TO_SCMOBJ(c,s,i)}
+#define ___BEGIN_SFUN_WCHAR_TO_SCMOBJ(c,s,i)___IF_CTOS3(___WCHAR_to_SCMOBJ,c,&s,i){
+#define ___END_SFUN_WCHAR_TO_SCMOBJ(c,s,i)}
+#define ___BEGIN_SFUN_SIZE_T_TO_SCMOBJ(c,s,i)___IF_CTOS3(___SIZE_T_to_SCMOBJ,c,&s,i){
+#define ___END_SFUN_SIZE_T_TO_SCMOBJ(c,s,i)}
+#define ___BEGIN_SFUN_SSIZE_T_TO_SCMOBJ(c,s,i)___IF_CTOS3(___SSIZE_T_to_SCMOBJ,c,&s,i){
+#define ___END_SFUN_SSIZE_T_TO_SCMOBJ(c,s,i)}
+#define ___BEGIN_SFUN_PTRDIFF_T_TO_SCMOBJ(c,s,i)___IF_CTOS3(___PTRDIFF_T_to_SCMOBJ,c,&s,i){
+#define ___END_SFUN_PTRDIFF_T_TO_SCMOBJ(c,s,i)}
+#define ___BEGIN_SFUN_SHORT_TO_SCMOBJ(c,s,i)___IF_CTOS3(___SHORT_to_SCMOBJ,c,&s,i){
+#define ___END_SFUN_SHORT_TO_SCMOBJ(c,s,i)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_SFUN_USHORT_TO_SCMOBJ(c,s,i)___IF_CTOS3(___USHORT_to_SCMOBJ,c,&s,i){
+#define ___END_SFUN_USHORT_TO_SCMOBJ(c,s,i)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_SFUN_INT_TO_SCMOBJ(c,s,i)___IF_CTOS3(___INT_to_SCMOBJ,c,&s,i){
+#define ___END_SFUN_INT_TO_SCMOBJ(c,s,i)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_SFUN_UINT_TO_SCMOBJ(c,s,i)___IF_CTOS3(___UINT_to_SCMOBJ,c,&s,i){
+#define ___END_SFUN_UINT_TO_SCMOBJ(c,s,i)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_SFUN_LONG_TO_SCMOBJ(c,s,i)___IF_CTOS3(___LONG_to_SCMOBJ,c,&s,i){
+#define ___END_SFUN_LONG_TO_SCMOBJ(c,s,i)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_SFUN_ULONG_TO_SCMOBJ(c,s,i)___IF_CTOS3(___ULONG_to_SCMOBJ,c,&s,i){
+#define ___END_SFUN_ULONG_TO_SCMOBJ(c,s,i)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_SFUN_FLOAT_TO_SCMOBJ(c,s,i)___IF_CTOS3(___FLOAT_to_SCMOBJ,c,&s,i){
+#define ___END_SFUN_FLOAT_TO_SCMOBJ(c,s,i)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_SFUN_DOUBLE_TO_SCMOBJ(c,s,i)___IF_CTOS3(___DOUBLE_to_SCMOBJ,c,&s,i){
+#define ___END_SFUN_DOUBLE_TO_SCMOBJ(c,s,i)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_SFUN_STRUCT_TO_SCMOBJ(n,c,t,r,s,i)___IF_CTOS5(___STRUCT_to_SCMOBJ,(void*)c,t,r,&s,i){
+#define ___END_SFUN_STRUCT_TO_SCMOBJ(n,c,t,r,s,i)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_SFUN_UNION_TO_SCMOBJ(n,c,t,r,s,i)___IF_CTOS5(___UNION_to_SCMOBJ,(void*)c,t,r,&s,i){
+#define ___END_SFUN_UNION_TO_SCMOBJ(n,c,t,r,s,i)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_SFUN_TYPE_TO_SCMOBJ(n,c,t,r,s,i)___IF_CTOS5(___TYPE_to_SCMOBJ,(void*)c,t,r,&s,i){
+#define ___END_SFUN_TYPE_TO_SCMOBJ(n,c,t,r,s,i)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_SFUN_POINTER_TO_SCMOBJ(c,t,r,s,i)___IF_CTOS5(___POINTER_to_SCMOBJ,(void*)c,t,r,&s,i){
+#define ___END_SFUN_POINTER_TO_SCMOBJ(c,t,r,s,i)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_SFUN_NONNULLPOINTER_TO_SCMOBJ(c,t,r,s,i)___IF_CTOS5(___NONNULLPOINTER_to_SCMOBJ,(void*)c,t,r,&s,i){
+#define ___END_SFUN_NONNULLPOINTER_TO_SCMOBJ(c,t,r,s,i)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_SFUN_FUNCTION_TO_SCMOBJ(c,s,i)___IF_CTOS3(___FUNCTION_to_SCMOBJ,___CAST(void*,c),&s,i){
+#define ___END_SFUN_FUNCTION_TO_SCMOBJ(c,s,i)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_SFUN_NONNULLFUNCTION_TO_SCMOBJ(c,s,i)___IF_CTOS3(___NONNULLFUNCTION_to_SCMOBJ,___CAST(void*,c),&s,i){
+#define ___END_SFUN_NONNULLFUNCTION_TO_SCMOBJ(c,s,i)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_SFUN_BOOL_TO_SCMOBJ(c,s,i)___IF_CTOS3(___BOOL_to_SCMOBJ,c,&s,i){
+#define ___END_SFUN_BOOL_TO_SCMOBJ(c,s,i)}
+#define ___BEGIN_SFUN_CHARSTRING_TO_SCMOBJ(c,s,i)___IF_CTOS3(___CHARSTRING_to_SCMOBJ,c,&s,i){
+#define ___END_SFUN_CHARSTRING_TO_SCMOBJ(c,s,i)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_SFUN_NONNULLCHARSTRING_TO_SCMOBJ(c,s,i)___IF_CTOS3(___NONNULLCHARSTRING_to_SCMOBJ,c,&s,i){
+#define ___END_SFUN_NONNULLCHARSTRING_TO_SCMOBJ(c,s,i)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_SFUN_NONNULLCHARSTRINGLIST_TO_SCMOBJ(c,s,i)___IF_CTOS3(___NONNULLCHARSTRINGLIST_to_SCMOBJ,c,&s,i){
+#define ___END_SFUN_NONNULLCHARSTRINGLIST_TO_SCMOBJ(c,s,i)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_SFUN_ISO_8859_1STRING_TO_SCMOBJ(c,s,i)___IF_CTOS3(___ISO_8859_1STRING_to_SCMOBJ,c,&s,i){
+#define ___END_SFUN_ISO_8859_1STRING_TO_SCMOBJ(c,s,i)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_SFUN_NONNULLISO_8859_1STRING_TO_SCMOBJ(c,s,i)___IF_CTOS3(___NONNULLISO_8859_1STRING_to_SCMOBJ,c,&s,i){
+#define ___END_SFUN_NONNULLISO_8859_1STRING_TO_SCMOBJ(c,s,i)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_SFUN_NONNULLISO_8859_1STRINGLIST_TO_SCMOBJ(c,s,i)___IF_CTOS3(___NONNULLISO_8859_1STRINGLIST_to_SCMOBJ,c,&s,i){
+#define ___END_SFUN_NONNULLISO_8859_1STRINGLIST_TO_SCMOBJ(c,s,i)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_SFUN_UTF_8STRING_TO_SCMOBJ(c,s,i)___IF_CTOS3(___UTF_8STRING_to_SCMOBJ,c,&s,i){
+#define ___END_SFUN_UTF_8STRING_TO_SCMOBJ(c,s,i)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_SFUN_NONNULLUTF_8STRING_TO_SCMOBJ(c,s,i)___IF_CTOS3(___NONNULLUTF_8STRING_to_SCMOBJ,c,&s,i){
+#define ___END_SFUN_NONNULLUTF_8STRING_TO_SCMOBJ(c,s,i)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_SFUN_NONNULLUTF_8STRINGLIST_TO_SCMOBJ(c,s,i)___IF_CTOS3(___NONNULLUTF_8STRINGLIST_to_SCMOBJ,c,&s,i){
+#define ___END_SFUN_NONNULLUTF_8STRINGLIST_TO_SCMOBJ(c,s,i)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_SFUN_UTF_16STRING_TO_SCMOBJ(c,s,i)___IF_CTOS3(___UTF_16STRING_to_SCMOBJ,c,&s,i){
+#define ___END_SFUN_UTF_16STRING_TO_SCMOBJ(c,s,i)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_SFUN_NONNULLUTF_16STRING_TO_SCMOBJ(c,s,i)___IF_CTOS3(___NONNULLUTF_16STRING_to_SCMOBJ,c,&s,i){
+#define ___END_SFUN_NONNULLUTF_16STRING_TO_SCMOBJ(c,s,i)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_SFUN_NONNULLUTF_16STRINGLIST_TO_SCMOBJ(c,s,i)___IF_CTOS3(___NONNULLUTF_16STRINGLIST_to_SCMOBJ,c,&s,i){
+#define ___END_SFUN_NONNULLUTF_16STRINGLIST_TO_SCMOBJ(c,s,i)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_SFUN_UCS_2STRING_TO_SCMOBJ(c,s,i)___IF_CTOS3(___UCS_2STRING_to_SCMOBJ,c,&s,i){
+#define ___END_SFUN_UCS_2STRING_TO_SCMOBJ(c,s,i)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_SFUN_NONNULLUCS_2STRING_TO_SCMOBJ(c,s,i)___IF_CTOS3(___NONNULLUCS_2STRING_to_SCMOBJ,c,&s,i){
+#define ___END_SFUN_NONNULLUCS_2STRING_TO_SCMOBJ(c,s,i)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_SFUN_NONNULLUCS_2STRINGLIST_TO_SCMOBJ(c,s,i)___IF_CTOS3(___NONNULLUCS_2STRINGLIST_to_SCMOBJ,c,&s,i){
+#define ___END_SFUN_NONNULLUCS_2STRINGLIST_TO_SCMOBJ(c,s,i)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_SFUN_UCS_4STRING_TO_SCMOBJ(c,s,i)___IF_CTOS3(___UCS_4STRING_to_SCMOBJ,c,&s,i){
+#define ___END_SFUN_UCS_4STRING_TO_SCMOBJ(c,s,i)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_SFUN_NONNULLUCS_4STRING_TO_SCMOBJ(c,s,i)___IF_CTOS3(___NONNULLUCS_4STRING_to_SCMOBJ,c,&s,i){
+#define ___END_SFUN_NONNULLUCS_4STRING_TO_SCMOBJ(c,s,i)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_SFUN_NONNULLUCS_4STRINGLIST_TO_SCMOBJ(c,s,i)___IF_CTOS3(___NONNULLUCS_4STRINGLIST_to_SCMOBJ,c,&s,i){
+#define ___END_SFUN_NONNULLUCS_4STRINGLIST_TO_SCMOBJ(c,s,i)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_SFUN_WCHARSTRING_TO_SCMOBJ(c,s,i)___IF_CTOS3(___WCHARSTRING_to_SCMOBJ,c,&s,i){
+#define ___END_SFUN_WCHARSTRING_TO_SCMOBJ(c,s,i)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_SFUN_NONNULLWCHARSTRING_TO_SCMOBJ(c,s,i)___IF_CTOS3(___NONNULLWCHARSTRING_to_SCMOBJ,c,&s,i){
+#define ___END_SFUN_NONNULLWCHARSTRING_TO_SCMOBJ(c,s,i)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_SFUN_NONNULLWCHARSTRINGLIST_TO_SCMOBJ(c,s,i)___IF_CTOS3(___NONNULLWCHARSTRINGLIST_to_SCMOBJ,c,&s,i){
+#define ___END_SFUN_NONNULLWCHARSTRINGLIST_TO_SCMOBJ(c,s,i)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_SFUN_VARIANT_TO_SCMOBJ(c,s,i)___IF_CTOS3(___VARIANT_to_SCMOBJ,c,&s,i){
+#define ___END_SFUN_VARIANT_TO_SCMOBJ(c,s,i)___EXT(___release_scmobj)(s);}
+
+
+#define ___SFUN_CAST_AND_DEREF(type,arg)(*___CAST(type,arg))
+#define ___SFUN_CAST(type,arg)___CAST(type,arg)
+
+#define ___BEGIN_SFUN_COPY_STRUCT(n,r,arg){ void *r; ___ASSIGN_NEW_WITH_INIT(r,struct n,arg);
+#define ___END_SFUN_COPY_STRUCT(n,r,arg)}
+#define ___BEGIN_SFUN_COPY_UNION(n,r,arg){ void *r; ___ASSIGN_NEW_WITH_INIT(r,union n,arg);
+#define ___END_SFUN_COPY_UNION(n,r,arg)}
+#define ___BEGIN_SFUN_COPY_TYPE(n,r,arg){ void *r; ___ASSIGN_NEW_WITH_INIT(r,n,arg);
+#define ___END_SFUN_COPY_TYPE(n,r,arg)}
+
+#define ___CFUN_CAST_AND_DEREF(type,arg)(*___CAST(type,arg))
+#define ___CFUN_CAST(type,arg)___CAST(type,arg)
+
+#define ___CFUN_ASSIGN(r,val)r = val;
+#define ___CFUN_ASSIGN_STRUCT(n,r,val)___ASSIGN_NEW_WITH_INIT(r,struct n,val);
+#define ___CFUN_ASSIGN_UNION(n,r,val)___ASSIGN_NEW_WITH_INIT(r,union n,val);
+#define ___CFUN_ASSIGN_TYPE(n,r,val)___ASSIGN_NEW_WITH_INIT(r,n,val);
+#define ___CFUN_ASSIGN_POINTER(r,val)r = val;
+#define ___CFUN_ASSIGN_NONNULLPOINTER(r,val)r = val;
+#define ___CFUN_ASSIGN_FUNCTION(r,val)r = val;
+#define ___CFUN_ASSIGN_NONNULLFUNCTION(r,val)r = val;
+
+#define ___BEGIN_CFUN_CTX ___SET_STK(-___FRAME_STACK_RA,___R0) ___W_ALL {
+#define ___END_CFUN_CTX } ___R_ALL
+
+#define ___BEGIN_CFUN_DEF(cproc) \
+___HIDDEN void cproc ___P((___processor_state ___ps), () \
+___processor_state ___ps;) {
+#define ___END_CFUN_DEF ___ps->temp1 = ___FIX(___NO_ERR); }
+
+#define ___R_ALL_INL ___CFUN_SELECT(___R_ALL,)
+#define ___W_ALL_INL ___CFUN_SELECT(___W_ALL,)
+
+#define ___BEGIN_CFUN_VOID(cproc) ___BEGIN_CFUN(cproc,)
+#define ___END_CFUN_VOID ___END_CFUN
+
+#define ___BEGIN_CFUN_SCMOBJ(cproc) ___BEGIN_CFUN(cproc,___SCMOBJ ___result)
+#define ___END_CFUN_SCMOBJ ___END_CFUN
+
+#define ___BEGIN_CFUN(cproc,decl) \
+___CFUN_SELECT(___BEGIN_CFUN_CTX,___BEGIN_CFUN_DEF(cproc)) \
+___SCMOBJ ___err=___FIX(___NO_ERR); \
+___SCMOBJ ___errdata=___FAL; \
+___SCMOBJ ___errhandler=___FAL; \
+decl;
+#define ___END_CFUN \
+___CFUN_SELECT(___END_CFUN_CTX,___END_CFUN_DEF)
+
+#define ___CFUN_CONV_ERROR_EXIT_INL \
+___ps->temp3=___LBL(0); \
+___JUMPEXTPRM(___SET_NARGS(___NARGS),___ps->handler_cfun_conv_error)
+
+#define ___CFUN_CONV_ERROR_EXIT_OOL \
+___SET_NARGS(___NARGS) return;
+
+#define ___CFUN_CONV_ERROR \
+if ((___err!=___FIX(___NO_ERR))&&(___err!=___FIX(___UNWIND_C_STACK))) { \
+  ___ps->temp1=___err; \
+  ___ps->temp2=___errdata; \
+  ___ps->temp4=___errhandler; \
+  ___CFUN_SELECT(___CFUN_CONV_ERROR_EXIT_INL,___CFUN_CONV_ERROR_EXIT_OOL) \
+}
+
+#define ___CFUN_OOL(cproc) \
+___BEGIN_CFUN_CTX \
+cproc (___ps); \
+___END_CFUN_CTX \
+ if (___ps->temp1 != ___FIX(___NO_ERR)) { \
+  ___ps->temp3=___LBL(0); \
+  ___JUMPEXTPRM(___NOTHING,___ps->handler_cfun_conv_error) \
+}
+
+#define ___BEGIN_CFUN_BODY
+#define ___END_CFUN_BODY ___AT_END
+#define ___BEGIN_CFUN_BODY_CLEANUP ___W_ALL_INL ___BEGIN_TRY
+#define ___END_CFUN_BODY_CLEANUP ___AT_END ___END_TRY ___R_ALL_INL
+
+#define ___BEGIN_CFUN_VOIDold ___BEGIN_CFUN_CTX ___SCMOBJ ___err=___FIX(___NO_ERR);___SCMOBJ ___errdata=___FAL;___SCMOBJ ___errhandler=___FAL;
+#define ___CFUN_SET_RESULT_VOID ___CFUN_RESULT = ___VOID;
+#define ___CFUN_ERROR_VOID ___CFUN_CONV_ERROR
+#define ___CFUN_ERROR_CLEANUP_VOID ___CFUN_CONV_ERROR ___EXT(___propagate_error) (___PSP ___err);
+#define ___END_CFUN_VOIDold ___END_CFUN_CTX
+
+#define ___BEGIN_CFUN_SCMOBJold ___BEGIN_CFUN_CTX ___SCMOBJ ___err=___FIX(___NO_ERR);___SCMOBJ ___result;___SCMOBJ ___errdata=___FAL;___SCMOBJ ___errhandler=___FAL;
+#define ___CFUN_SET_RESULT_SCMOBJ ___CFUN_RESULT = ___result;
+#define ___CFUN_ERROR_SCMOBJ ___CFUN_CONV_ERROR
+#define ___CFUN_ERROR_CLEANUP_SCMOBJ ___CFUN_CONV_ERROR ___EXT(___propagate_error) (___PSP ___err);
+#define ___END_CFUN_SCMOBJold ___END_CFUN_CTX
+
+#define ___BEGIN_CFUNold(decl) ___BEGIN_CFUN_CTX ___SCMOBJ ___err=___FIX(___NO_ERR);___SCMOBJ ___errdata=___FAL;___SCMOBJ ___errhandler=___FAL;decl;
+#define ___CFUN_SET_RESULT /* done in conversion function */
+#define ___CFUN_ERROR ___CFUN_CONV_ERROR
+#define ___CFUN_ERROR_CLEANUP ___CFUN_CONV_ERROR ___EXT(___propagate_error) (___PSP ___err);
+#define ___END_CFUNold ___END_CFUN_CTX
+
+#define ___BEGIN_CFUN_ARG(i,decl)decl;
+#define ___END_CFUN_ARG(i)
+#define ___BEGIN_CFUN_ARG_SCMOBJ(i)
+#define ___END_CFUN_ARG_SCMOBJ(i)
+#define ___CFUN_ARG(i)___PSSTK((i-___FRAME_SPACE(___NARGS+1)))
+#define ___CFUN_RESULT ___PSR1
+
+#define ___BEGIN_CFUN_SCMOBJ_TO_S8(s,c,i)___IF_STOC3(___SCMOBJ_to_S8,s,&c,i){
+#define ___END_CFUN_SCMOBJ_TO_S8(s,c,i)}
+#define ___BEGIN_CFUN_SCMOBJ_TO_U8(s,c,i)___IF_STOC3(___SCMOBJ_to_U8,s,&c,i){
+#define ___END_CFUN_SCMOBJ_TO_U8(s,c,i)}
+#define ___BEGIN_CFUN_SCMOBJ_TO_S16(s,c,i)___IF_STOC3(___SCMOBJ_to_S16,s,&c,i){
+#define ___END_CFUN_SCMOBJ_TO_S16(s,c,i)}
+#define ___BEGIN_CFUN_SCMOBJ_TO_U16(s,c,i)___IF_STOC3(___SCMOBJ_to_U16,s,&c,i){
+#define ___END_CFUN_SCMOBJ_TO_U16(s,c,i)}
+#define ___BEGIN_CFUN_SCMOBJ_TO_S32(s,c,i)___IF_STOC3(___SCMOBJ_to_S32,s,&c,i){
+#define ___END_CFUN_SCMOBJ_TO_S32(s,c,i)}
+#define ___BEGIN_CFUN_SCMOBJ_TO_U32(s,c,i)___IF_STOC3(___SCMOBJ_to_U32,s,&c,i){
+#define ___END_CFUN_SCMOBJ_TO_U32(s,c,i)}
+#define ___BEGIN_CFUN_SCMOBJ_TO_S64(s,c,i)___IF_STOC3(___SCMOBJ_to_S64,s,&c,i){
+#define ___END_CFUN_SCMOBJ_TO_S64(s,c,i)}
+#define ___BEGIN_CFUN_SCMOBJ_TO_U64(s,c,i)___IF_STOC3(___SCMOBJ_to_U64,s,&c,i){
+#define ___END_CFUN_SCMOBJ_TO_U64(s,c,i)}
+#define ___BEGIN_CFUN_SCMOBJ_TO_F32(s,c,i)___IF_STOC3(___SCMOBJ_to_F32,s,&c,i){
+#define ___END_CFUN_SCMOBJ_TO_F32(s,c,i)}
+#define ___BEGIN_CFUN_SCMOBJ_TO_F64(s,c,i)___IF_STOC3(___SCMOBJ_to_F64,s,&c,i){
+#define ___END_CFUN_SCMOBJ_TO_F64(s,c,i)}
+#define ___BEGIN_CFUN_SCMOBJ_TO_CHAR(s,c,i)___IF_STOC3(___SCMOBJ_to_CHAR,s,&c,i){
+#define ___END_CFUN_SCMOBJ_TO_CHAR(s,c,i)}
+#define ___BEGIN_CFUN_SCMOBJ_TO_SCHAR(s,c,i)___IF_STOC3(___SCMOBJ_to_SCHAR,s,&c,i){
+#define ___END_CFUN_SCMOBJ_TO_SCHAR(s,c,i)}
+#define ___BEGIN_CFUN_SCMOBJ_TO_UCHAR(s,c,i)___IF_STOC3(___SCMOBJ_to_UCHAR,s,&c,i){
+#define ___END_CFUN_SCMOBJ_TO_UCHAR(s,c,i)}
+#define ___BEGIN_CFUN_SCMOBJ_TO_ISO_8859_1(s,c,i)___IF_STOC3(___SCMOBJ_to_ISO_8859_1,s,&c,i){
+#define ___END_CFUN_SCMOBJ_TO_ISO_8859_1(s,c,i)}
+#define ___BEGIN_CFUN_SCMOBJ_TO_UCS_2(s,c,i)___IF_STOC3(___SCMOBJ_to_UCS_2,s,&c,i){
+#define ___END_CFUN_SCMOBJ_TO_UCS_2(s,c,i)}
+#define ___BEGIN_CFUN_SCMOBJ_TO_UCS_4(s,c,i)___IF_STOC3(___SCMOBJ_to_UCS_4,s,&c,i){
+#define ___END_CFUN_SCMOBJ_TO_UCS_4(s,c,i)}
+#define ___BEGIN_CFUN_SCMOBJ_TO_WCHAR(s,c,i)___IF_STOC3(___SCMOBJ_to_WCHAR,s,&c,i){
+#define ___END_CFUN_SCMOBJ_TO_WCHAR(s,c,i)}
+#define ___BEGIN_CFUN_SCMOBJ_TO_SIZE_T(s,c,i)___IF_STOC3(___SCMOBJ_to_SIZE_T,s,&c,i){
+#define ___END_CFUN_SCMOBJ_TO_SIZE_T(s,c,i)}
+#define ___BEGIN_CFUN_SCMOBJ_TO_SSIZE_T(s,c,i)___IF_STOC3(___SCMOBJ_to_SSIZE_T,s,&c,i){
+#define ___END_CFUN_SCMOBJ_TO_SSIZE_T(s,c,i)}
+#define ___BEGIN_CFUN_SCMOBJ_TO_PTRDIFF_T(s,c,i)___IF_STOC3(___SCMOBJ_to_PTRDIFF_T,s,&c,i){
+#define ___END_CFUN_SCMOBJ_TO_PTRDIFF_T(s,c,i)}
+#define ___BEGIN_CFUN_SCMOBJ_TO_SHORT(s,c,i)___IF_STOC3(___SCMOBJ_to_SHORT,s,&c,i){
+#define ___END_CFUN_SCMOBJ_TO_SHORT(s,c,i)}
+#define ___BEGIN_CFUN_SCMOBJ_TO_USHORT(s,c,i)___IF_STOC3(___SCMOBJ_to_USHORT,s,&c,i){
+#define ___END_CFUN_SCMOBJ_TO_USHORT(s,c,i)}
+#define ___BEGIN_CFUN_SCMOBJ_TO_INT(s,c,i)___IF_STOC3(___SCMOBJ_to_INT,s,&c,i){
+#define ___END_CFUN_SCMOBJ_TO_INT(s,c,i)}
+#define ___BEGIN_CFUN_SCMOBJ_TO_UINT(s,c,i)___IF_STOC3(___SCMOBJ_to_UINT,s,&c,i){
+#define ___END_CFUN_SCMOBJ_TO_UINT(s,c,i)}
+#define ___BEGIN_CFUN_SCMOBJ_TO_LONG(s,c,i)___IF_STOC3(___SCMOBJ_to_LONG,s,&c,i){
+#define ___END_CFUN_SCMOBJ_TO_LONG(s,c,i)}
+#define ___BEGIN_CFUN_SCMOBJ_TO_ULONG(s,c,i)___IF_STOC3(___SCMOBJ_to_ULONG,s,&c,i){
+#define ___END_CFUN_SCMOBJ_TO_ULONG(s,c,i)}
+#define ___BEGIN_CFUN_SCMOBJ_TO_LONGLONG(s,c,i)___IF_STOC3(___SCMOBJ_to_LONGLONG,s,&c,i){
+#define ___END_CFUN_SCMOBJ_TO_LONGLONG(s,c,i)}
+#define ___BEGIN_CFUN_SCMOBJ_TO_ULONGLONG(s,c,i)___IF_STOC3(___SCMOBJ_to_ULONGLONG,s,&c,i){
+#define ___END_CFUN_SCMOBJ_TO_ULONGLONG(s,c,i)}
+#define ___BEGIN_CFUN_SCMOBJ_TO_FLOAT(s,c,i)___IF_STOC3(___SCMOBJ_to_FLOAT,s,&c,i){
+#define ___END_CFUN_SCMOBJ_TO_FLOAT(s,c,i)}
+#define ___BEGIN_CFUN_SCMOBJ_TO_DOUBLE(s,c,i)___IF_STOC3(___SCMOBJ_to_DOUBLE,s,&c,i){
+#define ___END_CFUN_SCMOBJ_TO_DOUBLE(s,c,i)}
+#define ___BEGIN_CFUN_SCMOBJ_TO_STRUCT(n,s,c,t,i)___IF_STOC4(___SCMOBJ_to_STRUCT,s,(void**)&c,t,i){
+#define ___END_CFUN_SCMOBJ_TO_STRUCT(n,s,c,t,i)}
+#define ___BEGIN_CFUN_SCMOBJ_TO_UNION(n,s,c,t,i)___IF_STOC4(___SCMOBJ_to_UNION,s,(void**)&c,t,i){
+#define ___END_CFUN_SCMOBJ_TO_UNION(n,s,c,t,i)}
+#define ___BEGIN_CFUN_SCMOBJ_TO_TYPE(n,s,c,t,i)___IF_STOC4(___SCMOBJ_to_TYPE,s,(void**)&c,t,i){
+#define ___END_CFUN_SCMOBJ_TO_TYPE(n,s,c,t,i)}
+#define ___BEGIN_CFUN_SCMOBJ_TO_POINTER(s,c,t,i)___IF_STOC4(___SCMOBJ_to_POINTER,s,(void**)&c,t,i){
+#define ___END_CFUN_SCMOBJ_TO_POINTER(s,c,t,i)}
+#define ___BEGIN_CFUN_SCMOBJ_TO_NONNULLPOINTER(s,c,t,i)___IF_STOC4(___SCMOBJ_to_NONNULLPOINTER,s,(void**)&c,t,i){
+#define ___END_CFUN_SCMOBJ_TO_NONNULLPOINTER(s,c,t,i)}
+#define ___BEGIN_CFUN_SCMOBJ_TO_FUNCTION(s,cnv,c,i)___IF_STOC4(___SCMOBJ_to_FUNCTION,s,(void*)cnv,(void**)&c,i){
+#define ___END_CFUN_SCMOBJ_TO_FUNCTION(s,cnv,c,i)___EXT(___release_function)(c);}
+#define ___BEGIN_CFUN_SCMOBJ_TO_NONNULLFUNCTION(s,cnv,c,i)___IF_STOC4(___SCMOBJ_to_NONNULLFUNCTION,s,(void*)cnv,(void**)&c,i){
+#define ___END_CFUN_SCMOBJ_TO_NONNULLFUNCTION(s,cnv,c,i)___EXT(___release_function)(c);}
+#define ___BEGIN_CFUN_SCMOBJ_TO_BOOL(s,c,i)___IF_STOC3(___SCMOBJ_to_BOOL,s,&c,i){
+#define ___END_CFUN_SCMOBJ_TO_BOOL(s,c,i)}
+#define ___BEGIN_CFUN_SCMOBJ_TO_CHARSTRING(s,c,i)___IF_STOC3(___SCMOBJ_to_CHARSTRING,s,&c,i){
+#define ___END_CFUN_SCMOBJ_TO_CHARSTRING(s,c,i)___EXT(___release_string)(c);}
+#define ___BEGIN_CFUN_SCMOBJ_TO_NONNULLCHARSTRING(s,c,i)___IF_STOC3(___SCMOBJ_to_NONNULLCHARSTRING,s,&c,i){
+#define ___END_CFUN_SCMOBJ_TO_NONNULLCHARSTRING(s,c,i)___EXT(___release_string)(c);}
+#define ___BEGIN_CFUN_SCMOBJ_TO_NONNULLCHARSTRINGLIST(s,c,i)___IF_STOC3(___SCMOBJ_to_NONNULLCHARSTRINGLIST,s,&c,i){
+#define ___END_CFUN_SCMOBJ_TO_NONNULLCHARSTRINGLIST(s,c,i)___EXT(___release_string_list)(c);}
+#define ___BEGIN_CFUN_SCMOBJ_TO_ISO_8859_1STRING(s,c,i)___IF_STOC3(___SCMOBJ_to_ISO_8859_1STRING,s,&c,i){
+#define ___END_CFUN_SCMOBJ_TO_ISO_8859_1STRING(s,c,i)___EXT(___release_string)(c);}
+#define ___BEGIN_CFUN_SCMOBJ_TO_NONNULLISO_8859_1STRING(s,c,i)___IF_STOC3(___SCMOBJ_to_NONNULLISO_8859_1STRING,s,&c,i){
+#define ___END_CFUN_SCMOBJ_TO_NONNULLISO_8859_1STRING(s,c,i)___EXT(___release_string)(c);}
+#define ___BEGIN_CFUN_SCMOBJ_TO_NONNULLISO_8859_1STRINGLIST(s,c,i)___IF_STOC3(___SCMOBJ_to_NONNULLISO_8859_1STRINGLIST,s,&c,i){
+#define ___END_CFUN_SCMOBJ_TO_NONNULLISO_8859_1STRINGLIST(s,c,i)___EXT(___release_string_list)(c);}
+#define ___BEGIN_CFUN_SCMOBJ_TO_UTF_8STRING(s,c,i)___IF_STOC3(___SCMOBJ_to_UTF_8STRING,s,&c,i){
+#define ___END_CFUN_SCMOBJ_TO_UTF_8STRING(s,c,i)___EXT(___release_string)(c);}
+#define ___BEGIN_CFUN_SCMOBJ_TO_NONNULLUTF_8STRING(s,c,i)___IF_STOC3(___SCMOBJ_to_NONNULLUTF_8STRING,s,&c,i){
+#define ___END_CFUN_SCMOBJ_TO_NONNULLUTF_8STRING(s,c,i)___EXT(___release_string)(c);}
+#define ___BEGIN_CFUN_SCMOBJ_TO_NONNULLUTF_8STRINGLIST(s,c,i)___IF_STOC3(___SCMOBJ_to_NONNULLUTF_8STRINGLIST,s,&c,i){
+#define ___END_CFUN_SCMOBJ_TO_NONNULLUTF_8STRINGLIST(s,c,i)___EXT(___release_string_list)(c);}
+#define ___BEGIN_CFUN_SCMOBJ_TO_UTF_16STRING(s,c,i)___IF_STOC3(___SCMOBJ_to_UTF_16STRING,s,&c,i){
+#define ___END_CFUN_SCMOBJ_TO_UTF_16STRING(s,c,i)___EXT(___release_string)(c);}
+#define ___BEGIN_CFUN_SCMOBJ_TO_NONNULLUTF_16STRING(s,c,i)___IF_STOC3(___SCMOBJ_to_NONNULLUTF_16STRING,s,&c,i){
+#define ___END_CFUN_SCMOBJ_TO_NONNULLUTF_16STRING(s,c,i)___EXT(___release_string)(c);}
+#define ___BEGIN_CFUN_SCMOBJ_TO_NONNULLUTF_16STRINGLIST(s,c,i)___IF_STOC3(___SCMOBJ_to_NONNULLUTF_16STRINGLIST,s,&c,i){
+#define ___END_CFUN_SCMOBJ_TO_NONNULLUTF_16STRINGLIST(s,c,i)___EXT(___release_string_list)(c);}
+#define ___BEGIN_CFUN_SCMOBJ_TO_UCS_2STRING(s,c,i)___IF_STOC3(___SCMOBJ_to_UCS_2STRING,s,&c,i){
+#define ___END_CFUN_SCMOBJ_TO_UCS_2STRING(s,c,i)___EXT(___release_string)(c);}
+#define ___BEGIN_CFUN_SCMOBJ_TO_NONNULLUCS_2STRING(s,c,i)___IF_STOC3(___SCMOBJ_to_NONNULLUCS_2STRING,s,&c,i){
+#define ___END_CFUN_SCMOBJ_TO_NONNULLUCS_2STRING(s,c,i)___EXT(___release_string)(c);}
+#define ___BEGIN_CFUN_SCMOBJ_TO_NONNULLUCS_2STRINGLIST(s,c,i)___IF_STOC3(___SCMOBJ_to_NONNULLUCS_2STRINGLIST,s,&c,i){
+#define ___END_CFUN_SCMOBJ_TO_NONNULLUCS_2STRINGLIST(s,c,i)___EXT(___release_string_list)(c);}
+#define ___BEGIN_CFUN_SCMOBJ_TO_UCS_4STRING(s,c,i)___IF_STOC3(___SCMOBJ_to_UCS_4STRING,s,&c,i){
+#define ___END_CFUN_SCMOBJ_TO_UCS_4STRING(s,c,i)___EXT(___release_string)(c);}
+#define ___BEGIN_CFUN_SCMOBJ_TO_NONNULLUCS_4STRING(s,c,i)___IF_STOC3(___SCMOBJ_to_NONNULLUCS_4STRING,s,&c,i){
+#define ___END_CFUN_SCMOBJ_TO_NONNULLUCS_4STRING(s,c,i)___EXT(___release_string)(c);}
+#define ___BEGIN_CFUN_SCMOBJ_TO_NONNULLUCS_4STRINGLIST(s,c,i)___IF_STOC3(___SCMOBJ_to_NONNULLUCS_4STRINGLIST,s,&c,i){
+#define ___END_CFUN_SCMOBJ_TO_NONNULLUCS_4STRINGLIST(s,c,i)___EXT(___release_string_list)(c);}
+#define ___BEGIN_CFUN_SCMOBJ_TO_WCHARSTRING(s,c,i)___IF_STOC3(___SCMOBJ_to_WCHARSTRING,s,&c,i){
+#define ___END_CFUN_SCMOBJ_TO_WCHARSTRING(s,c,i)___EXT(___release_string)(c);}
+#define ___BEGIN_CFUN_SCMOBJ_TO_NONNULLWCHARSTRING(s,c,i)___IF_STOC3(___SCMOBJ_to_NONNULLWCHARSTRING,s,&c,i){
+#define ___END_CFUN_SCMOBJ_TO_NONNULLWCHARSTRING(s,c,i)___EXT(___release_string)(c);}
+#define ___BEGIN_CFUN_SCMOBJ_TO_NONNULLWCHARSTRINGLIST(s,c,i)___IF_STOC3(___SCMOBJ_to_NONNULLWCHARSTRINGLIST,s,&c,i){
+#define ___END_CFUN_SCMOBJ_TO_NONNULLWCHARSTRINGLIST(s,c,i)___EXT(___release_string_list)(c);}
+#define ___BEGIN_CFUN_SCMOBJ_TO_VARIANT(s,c,i)___IF_STOC3(___SCMOBJ_to_VARIANT,s,&c,i){
+#define ___END_CFUN_SCMOBJ_TO_VARIANT(s,c,i)___EXT(___release_variant)(c);}
+
+#define ___BEGIN_CFUN_S8_TO_SCMOBJ(c,s)___CTOS3(___S8_to_SCMOBJ,c,&s,___RETURN_POS);
+#define ___END_CFUN_S8_TO_SCMOBJ(c,s)
+#define ___BEGIN_CFUN_U8_TO_SCMOBJ(c,s)___CTOS3(___U8_to_SCMOBJ,c,&s,___RETURN_POS);
+#define ___END_CFUN_U8_TO_SCMOBJ(c,s)
+#define ___BEGIN_CFUN_S16_TO_SCMOBJ(c,s)___CTOS3(___S16_to_SCMOBJ,c,&s,___RETURN_POS);
+#define ___END_CFUN_S16_TO_SCMOBJ(c,s)
+#define ___BEGIN_CFUN_U16_TO_SCMOBJ(c,s)___CTOS3(___U16_to_SCMOBJ,c,&s,___RETURN_POS);
+#define ___END_CFUN_U16_TO_SCMOBJ(c,s)
+#define ___BEGIN_CFUN_S32_TO_SCMOBJ(c,s)___IF_CTOS3(___S32_to_SCMOBJ,c,&s,___RETURN_POS){
+#define ___END_CFUN_S32_TO_SCMOBJ(c,s)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_CFUN_U32_TO_SCMOBJ(c,s)___IF_CTOS3(___U32_to_SCMOBJ,c,&s,___RETURN_POS){
+#define ___END_CFUN_U32_TO_SCMOBJ(c,s)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_CFUN_S64_TO_SCMOBJ(c,s)___IF_CTOS3(___S64_to_SCMOBJ,c,&s,___RETURN_POS){
+#define ___END_CFUN_S64_TO_SCMOBJ(c,s)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_CFUN_U64_TO_SCMOBJ(c,s)___IF_CTOS3(___U64_to_SCMOBJ,c,&s,___RETURN_POS){
+#define ___END_CFUN_U64_TO_SCMOBJ(c,s)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_CFUN_F32_TO_SCMOBJ(c,s)___IF_CTOS3(___F32_to_SCMOBJ,c,&s,___RETURN_POS){
+#define ___END_CFUN_F32_TO_SCMOBJ(c,s)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_CFUN_F64_TO_SCMOBJ(c,s)___IF_CTOS3(___F64_to_SCMOBJ,c,&s,___RETURN_POS){
+#define ___END_CFUN_F64_TO_SCMOBJ(c,s)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_CFUN_CHAR_TO_SCMOBJ(c,s)___CTOS3(___CHAR_to_SCMOBJ,c,&s,___RETURN_POS);
+#define ___END_CFUN_CHAR_TO_SCMOBJ(c,s)
+#define ___BEGIN_CFUN_SCHAR_TO_SCMOBJ(c,s)___CTOS3(___SCHAR_to_SCMOBJ,c,&s,___RETURN_POS);
+#define ___END_CFUN_SCHAR_TO_SCMOBJ(c,s)
+#define ___BEGIN_CFUN_UCHAR_TO_SCMOBJ(c,s)___CTOS3(___UCHAR_to_SCMOBJ,c,&s,___RETURN_POS);
+#define ___END_CFUN_UCHAR_TO_SCMOBJ(c,s)
+#define ___BEGIN_CFUN_ISO_8859_1_TO_SCMOBJ(c,s)___CTOS3(___ISO_8859_1_to_SCMOBJ,c,&s,___RETURN_POS);
+#define ___END_CFUN_ISO_8859_1_TO_SCMOBJ(c,s)
+#define ___BEGIN_CFUN_UCS_2_TO_SCMOBJ(c,s)___CTOS3(___UCS_2_to_SCMOBJ,c,&s,___RETURN_POS);
+#define ___END_CFUN_UCS_2_TO_SCMOBJ(c,s)
+#define ___BEGIN_CFUN_UCS_4_TO_SCMOBJ(c,s)___CTOS3(___UCS_4_to_SCMOBJ,c,&s,___RETURN_POS);
+#define ___END_CFUN_UCS_4_TO_SCMOBJ(c,s)
+#define ___BEGIN_CFUN_WCHAR_TO_SCMOBJ(c,s)___CTOS3(___WCHAR_to_SCMOBJ,c,&s,___RETURN_POS);
+#define ___END_CFUN_WCHAR_TO_SCMOBJ(c,s)
+#define ___BEGIN_CFUN_SIZE_T_TO_SCMOBJ(c,s)___CTOS3(___SIZE_T_to_SCMOBJ,c,&s,___RETURN_POS);
+#define ___END_CFUN_SIZE_T_TO_SCMOBJ(c,s)
+#define ___BEGIN_CFUN_SSIZE_T_TO_SCMOBJ(c,s)___CTOS3(___SSIZE_T_to_SCMOBJ,c,&s,___RETURN_POS);
+#define ___END_CFUN_SSIZE_T_TO_SCMOBJ(c,s)
+#define ___BEGIN_CFUN_PTRDIFF_T_TO_SCMOBJ(c,s)___CTOS3(___PTRDIFF_T_to_SCMOBJ,c,&s,___RETURN_POS);
+#define ___END_CFUN_PTRDIFF_T_TO_SCMOBJ(c,s)
+#define ___BEGIN_CFUN_SHORT_TO_SCMOBJ(c,s)___IF_CTOS3(___SHORT_to_SCMOBJ,c,&s,___RETURN_POS){
+#define ___END_CFUN_SHORT_TO_SCMOBJ(c,s)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_CFUN_USHORT_TO_SCMOBJ(c,s)___IF_CTOS3(___USHORT_to_SCMOBJ,c,&s,___RETURN_POS){
+#define ___END_CFUN_USHORT_TO_SCMOBJ(c,s)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_CFUN_INT_TO_SCMOBJ(c,s)___IF_CTOS3(___INT_to_SCMOBJ,c,&s,___RETURN_POS){
+#define ___END_CFUN_INT_TO_SCMOBJ(c,s)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_CFUN_UINT_TO_SCMOBJ(c,s)___IF_CTOS3(___UINT_to_SCMOBJ,c,&s,___RETURN_POS){
+#define ___END_CFUN_UINT_TO_SCMOBJ(c,s)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_CFUN_LONG_TO_SCMOBJ(c,s)___IF_CTOS3(___LONG_to_SCMOBJ,c,&s,___RETURN_POS){
+#define ___END_CFUN_LONG_TO_SCMOBJ(c,s)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_CFUN_ULONG_TO_SCMOBJ(c,s)___IF_CTOS3(___ULONG_to_SCMOBJ,c,&s,___RETURN_POS){
+#define ___END_CFUN_ULONG_TO_SCMOBJ(c,s)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_CFUN_LONGLONG_TO_SCMOBJ(c,s)___IF_CTOS3(___LONGLONG_to_SCMOBJ,c,&s,___RETURN_POS){
+#define ___END_CFUN_LONGLONG_TO_SCMOBJ(c,s)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_CFUN_ULONGLONG_TO_SCMOBJ(c,s)___IF_CTOS3(___ULONGLONG_to_SCMOBJ,c,&s,___RETURN_POS){
+#define ___END_CFUN_ULONGLONG_TO_SCMOBJ(c,s)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_CFUN_FLOAT_TO_SCMOBJ(c,s)___IF_CTOS3(___FLOAT_to_SCMOBJ,c,&s,___RETURN_POS){
+#define ___END_CFUN_FLOAT_TO_SCMOBJ(c,s)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_CFUN_DOUBLE_TO_SCMOBJ(c,s)___IF_CTOS3(___DOUBLE_to_SCMOBJ,c,&s,___RETURN_POS){
+#define ___END_CFUN_DOUBLE_TO_SCMOBJ(c,s)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_CFUN_STRUCT_TO_SCMOBJ(n,c,t,r,s)___IF_CTOS5(___STRUCT_to_SCMOBJ,(void*)c,t,r,&s,___RETURN_POS){
+#define ___END_CFUN_STRUCT_TO_SCMOBJ(n,c,t,r,s)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_CFUN_UNION_TO_SCMOBJ(n,c,t,r,s)___IF_CTOS5(___UNION_to_SCMOBJ,(void*)c,t,r,&s,___RETURN_POS){
+#define ___END_CFUN_UNION_TO_SCMOBJ(n,c,t,r,s)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_CFUN_TYPE_TO_SCMOBJ(n,c,t,r,s)___IF_CTOS5(___TYPE_to_SCMOBJ,(void*)c,t,r,&s,___RETURN_POS){
+#define ___END_CFUN_TYPE_TO_SCMOBJ(n,c,t,r,s)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_CFUN_POINTER_TO_SCMOBJ(c,t,r,s)___IF_CTOS5(___POINTER_to_SCMOBJ,(void*)c,t,r,&s,___RETURN_POS){
+#define ___END_CFUN_POINTER_TO_SCMOBJ(c,t,r,s)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_CFUN_NONNULLPOINTER_TO_SCMOBJ(c,t,r,s)___IF_CTOS5(___NONNULLPOINTER_to_SCMOBJ,(void*)c,t,r,&s,___RETURN_POS){
+#define ___END_CFUN_NONNULLPOINTER_TO_SCMOBJ(c,t,r,s)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_CFUN_FUNCTION_TO_SCMOBJ(c,s)___IF_CTOS3(___FUNCTION_to_SCMOBJ,___CAST(void*,c),&s,___RETURN_POS){
+#define ___END_CFUN_FUNCTION_TO_SCMOBJ(c,s)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_CFUN_NONNULLFUNCTION_TO_SCMOBJ(c,s)___IF_CTOS3(___NONNULLFUNCTION_to_SCMOBJ,___CAST(void*,c),&s,___RETURN_POS){
+#define ___END_CFUN_NONNULLFUNCTION_TO_SCMOBJ(c,s)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_CFUN_BOOL_TO_SCMOBJ(c,s)___CTOS3(___BOOL_to_SCMOBJ,c,&s,___RETURN_POS);
+#define ___END_CFUN_BOOL_TO_SCMOBJ(c,s)
+#define ___BEGIN_CFUN_CHARSTRING_TO_SCMOBJ(c,s)___IF_CTOS3(___CHARSTRING_to_SCMOBJ,c,&s,___RETURN_POS){
+#define ___END_CFUN_CHARSTRING_TO_SCMOBJ(c,s)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_CFUN_NONNULLCHARSTRING_TO_SCMOBJ(c,s)___IF_CTOS3(___NONNULLCHARSTRING_to_SCMOBJ,c,&s,___RETURN_POS){
+#define ___END_CFUN_NONNULLCHARSTRING_TO_SCMOBJ(c,s)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_CFUN_NONNULLCHARSTRINGLIST_TO_SCMOBJ(c,s)___IF_CTOS3(___NONNULLCHARSTRINGLIST_to_SCMOBJ,c,&s,___RETURN_POS){
+#define ___END_CFUN_NONNULLCHARSTRINGLIST_TO_SCMOBJ(c,s)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_CFUN_ISO_8859_1STRING_TO_SCMOBJ(c,s)___IF_CTOS3(___ISO_8859_1STRING_to_SCMOBJ,c,&s,___RETURN_POS){
+#define ___END_CFUN_ISO_8859_1STRING_TO_SCMOBJ(c,s)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_CFUN_NONNULLISO_8859_1STRING_TO_SCMOBJ(c,s)___IF_CTOS3(___NONNULLISO_8859_1STRING_to_SCMOBJ,c,&s,___RETURN_POS){
+#define ___END_CFUN_NONNULLISO_8859_1STRING_TO_SCMOBJ(c,s)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_CFUN_NONNULLISO_8859_1STRINGLIST_TO_SCMOBJ(c,s)___IF_CTOS3(___NONNULLISO_8859_1STRINGLIST_to_SCMOBJ,c,&s,___RETURN_POS){
+#define ___END_CFUN_NONNULLISO_8859_1STRINGLIST_TO_SCMOBJ(c,s)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_CFUN_UTF_8STRING_TO_SCMOBJ(c,s)___IF_CTOS3(___UTF_8STRING_to_SCMOBJ,c,&s,___RETURN_POS){
+#define ___END_CFUN_UTF_8STRING_TO_SCMOBJ(c,s)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_CFUN_NONNULLUTF_8STRING_TO_SCMOBJ(c,s)___IF_CTOS3(___NONNULLUTF_8STRING_to_SCMOBJ,c,&s,___RETURN_POS){
+#define ___END_CFUN_NONNULLUTF_8STRING_TO_SCMOBJ(c,s)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_CFUN_NONNULLUTF_8STRINGLIST_TO_SCMOBJ(c,s)___IF_CTOS3(___NONNULLUTF_8STRINGLIST_to_SCMOBJ,c,&s,___RETURN_POS){
+#define ___END_CFUN_NONNULLUTF_8STRINGLIST_TO_SCMOBJ(c,s)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_CFUN_UTF_16STRING_TO_SCMOBJ(c,s)___IF_CTOS3(___UTF_16STRING_to_SCMOBJ,c,&s,___RETURN_POS){
+#define ___END_CFUN_UTF_16STRING_TO_SCMOBJ(c,s)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_CFUN_NONNULLUTF_16STRING_TO_SCMOBJ(c,s)___IF_CTOS3(___NONNULLUTF_16STRING_to_SCMOBJ,c,&s,___RETURN_POS){
+#define ___END_CFUN_NONNULLUTF_16STRING_TO_SCMOBJ(c,s)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_CFUN_NONNULLUTF_16STRINGLIST_TO_SCMOBJ(c,s)___IF_CTOS3(___NONNULLUTF_16STRINGLIST_to_SCMOBJ,c,&s,___RETURN_POS){
+#define ___END_CFUN_NONNULLUTF_16STRINGLIST_TO_SCMOBJ(c,s)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_CFUN_UCS_2STRING_TO_SCMOBJ(c,s)___IF_CTOS3(___UCS_2STRING_to_SCMOBJ,c,&s,___RETURN_POS){
+#define ___END_CFUN_UCS_2STRING_TO_SCMOBJ(c,s)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_CFUN_NONNULLUCS_2STRING_TO_SCMOBJ(c,s)___IF_CTOS3(___NONNULLUCS_2STRING_to_SCMOBJ,c,&s,___RETURN_POS){
+#define ___END_CFUN_NONNULLUCS_2STRING_TO_SCMOBJ(c,s)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_CFUN_NONNULLUCS_2STRINGLIST_TO_SCMOBJ(c,s)___IF_CTOS3(___NONNULLUCS_2STRINGLIST_to_SCMOBJ,c,&s,___RETURN_POS){
+#define ___END_CFUN_NONNULLUCS_2STRINGLIST_TO_SCMOBJ(c,s)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_CFUN_UCS_4STRING_TO_SCMOBJ(c,s)___IF_CTOS3(___UCS_4STRING_to_SCMOBJ,c,&s,___RETURN_POS){
+#define ___END_CFUN_UCS_4STRING_TO_SCMOBJ(c,s)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_CFUN_NONNULLUCS_4STRING_TO_SCMOBJ(c,s)___IF_CTOS3(___NONNULLUCS_4STRING_to_SCMOBJ,c,&s,___RETURN_POS){
+#define ___END_CFUN_NONNULLUCS_4STRING_TO_SCMOBJ(c,s)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_CFUN_NONNULLUCS_4STRINGLIST_TO_SCMOBJ(c,s)___IF_CTOS3(___NONNULLUCS_4STRINGLIST_to_SCMOBJ,c,&s,___RETURN_POS){
+#define ___END_CFUN_NONNULLUCS_4STRINGLIST_TO_SCMOBJ(c,s)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_CFUN_WCHARSTRING_TO_SCMOBJ(c,s)___IF_CTOS3(___WCHARSTRING_to_SCMOBJ,c,&s,___RETURN_POS){
+#define ___END_CFUN_WCHARSTRING_TO_SCMOBJ(c,s)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_CFUN_NONNULLWCHARSTRING_TO_SCMOBJ(c,s)___IF_CTOS3(___NONNULLWCHARSTRING_to_SCMOBJ,c,&s,___RETURN_POS){
+#define ___END_CFUN_NONNULLWCHARSTRING_TO_SCMOBJ(c,s)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_CFUN_NONNULLWCHARSTRINGLIST_TO_SCMOBJ(c,s)___IF_CTOS3(___NONNULLWCHARSTRINGLIST_to_SCMOBJ,c,&s,___RETURN_POS){
+#define ___END_CFUN_NONNULLWCHARSTRINGLIST_TO_SCMOBJ(c,s)___EXT(___release_scmobj)(s);}
+#define ___BEGIN_CFUN_VARIANT_TO_SCMOBJ(c,s)___IF_CTOS3(___VARIANT_to_SCMOBJ,c,&s,___RETURN_POS){
+#define ___END_CFUN_VARIANT_TO_SCMOBJ(c,s)___EXT(___release_scmobj)(s);}
+

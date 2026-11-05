@@ -1,0 +1,78 @@
+/*---------------------------------------------------------------------------*/
+
+/* Labels and switches */
+
+#define ___NOT(x)!x
+#define ___AND(x,y)(x&&y)
+
+#define ___MLBL(n)___lp+((n)*___LABEL_SIZE*___WS)
+#define ___LBL(n)___start+((___PH_LBL0-___HOST_LBL0+n)*___LABEL_SIZE*___WS)
+#define ___DEF_SLBL(n,lbl)___DEF_SW(n)___DEF_GLBL(lbl)
+#define ___DEF_GLBL(lbl)lbl:___AM_HERE_PS
+#define ___GOTO(lbl)goto lbl;
+#define ___IF_GOTO(test,lbl)if (test) ___GOTO(lbl)
+#define ___JUMPINT(nargs,prc,lbl)___SM(___GOTO(lbl),{nargs ___JUMP(prc)})
+#define ___JUMPEXTPRM(nargs,val){nargs ___JUMPEXT(val)}
+#define ___JUMPEXTNOTSAFE(nargs,val) \
+{nargs ___SELF=val; \
+___JUMPEXT(___LABEL_ENTRY_GET(___SELF))}
+#define ___JUMPPRM(nargs,val){nargs ___JUMP(val)}
+#ifdef ___DONT_INLINE_JUMPS
+#define ___JUMPRET(val)___JUMP(val)
+#else
+#define ___JUMPRET(val)___JUMPFAST(val)
+#endif
+
+#define ___JUMPNOTSAFE(nargs,val) \
+{nargs ___SELF=val; \
+___JUMP(___LABEL_ENTRY_GET(___SELF))}
+
+#define ___JUMPSAFE(nargs,val) ___JUMPNOTSAFE(nargs,val) /***************/
+
+#define ___JUMPGENNOTSAFE(nargs,val)___JUMPNOTSAFE(nargs,val)
+#define ___JUMPGLONOTSAFE(nargs,i,glo)___JUMPNOTSAFE(nargs,___GLO(i,glo))
+#define ___JUMPGENSAFE(nargs,val) \
+{nargs ___SELF=val; \
+if (___EXPECT_TRUE(___PROCEDUREP(___SELF))) \
+  ___JUMP(___LABEL_ENTRY_GET(___SELF)) \
+___ps->temp1=___SELF;___JUMPEXTPRM(___NOTHING,___ps->handler_not_proc)}
+#define ___JUMPGLOSAFE(nargs,i,glo) \
+{nargs ___SELF=___GLO(i,glo); \
+if (___EXPECT_TRUE(___PROCEDUREP(___SELF))) \
+  ___JUMP(___LABEL_ENTRY_GET(___SELF)) \
+___ps->temp4=(___WORD)&___GLOSTRUCT(i,glo);___JUMPEXTPRM(___NOTHING,___ps->handler_not_proc_glo)}
+
+#ifdef ___NOT_SAFE_CALLS
+#undef ___JUMPGENSAFE
+#undef ___JUMPGLOSAFE
+#define ___JUMPGENSAFE(nargs,val)___JUMPGENNOTSAFE(nargs,val)
+#define ___JUMPGLOSAFE(nargs,i,glo)___JUMPGLONOTSAFE(nargs,i,glo)
+#endif
+
+#ifdef ___SAFE_CALLS
+#undef ___JUMPGENNOTSAFE
+#undef ___JUMPGLONOTSAFE
+#define ___JUMPGENNOTSAFE(nargs,val)___JUMPGENSAFE(nargs,val)
+#define ___JUMPGLONOTSAFE(nargs,i,glo)___JUMPGLOSAFE(nargs,i,glo)
+#endif
+
+#define ___BEGIN_SWITCH(x) switch (x) {
+#define ___SWITCH_CASE_GOTO(obj,lbl) case (obj): ___GOTO(lbl)
+#define ___END_SWITCH }
+
+#define ___BEGIN_SWITCH_FIXNUM(x) { ___SCMOBJ ___sw = (x); \
+if (___EXPECT_TRUE(___FIXNUMP(___sw))) switch(___INT(___sw)) {
+#define ___SWITCH_FIXNUM_CASE_GOTO(obj,lbl) case (___INT(obj)): ___GOTO(lbl)
+#define ___END_SWITCH_FIXNUM }}
+
+#define ___BEGIN_SWITCH_CHAR(x) { ___SCMOBJ ___sw = (x); \
+if (___EXPECT_TRUE(___CHARP(___sw))) switch(___ORD(___sw)) {
+#define ___SWITCH_CHAR_CASE_GOTO(obj,lbl) case (___ORD(obj)): ___GOTO(lbl)
+#define ___END_SWITCH_CHAR }}
+
+#define ___BEGIN_SWITCH_SYMKEY(x,mod,guard) { ___SCMOBJ ___sw = (x); \
+if (___EXPECT_TRUE(guard(___sw))) switch(___INT(___SYMKEY_HASH_FIELD(___sw)) & ((mod)-1)) {
+#define ___SWITCH_SYMKEY_CASE(hash) case (hash):
+#define ___SWITCH_SYMKEY_CASE_GOTO(obj,lbl) ___IF_GOTO(___EQP(___sw,obj),lbl)
+#define ___END_SWITCH_SYMKEY }}
+

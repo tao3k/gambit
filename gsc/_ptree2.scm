@@ -2923,6 +2923,19 @@
               (car numbered-typs)
               (convert (cdr numbered-typs)))))))
 
+    ;; Before the first collecting conversion or marker allocation, every raw
+    ;; Scheme argument is registered in the owning root domain. Converted
+    ;; non-Scheme arguments retain the existing still-object conversion holds.
+    (define (root-arguments)
+      (apply string-append
+        (map (lambda (numbered-typ)
+               (if (scmobj-type? (car numbered-typ))
+                   (string-append c-id-prefix "SFUN_ROOT_ARG("
+                                  (number->string (cdr numbered-typ)) ","
+                                  (c-argument #f numbered-typ) ")")
+                   ""))
+             (number-from-1 param-typs))))
+
     (c-preproc-define
 
       (string-append c-id-prefix "NARGS")
@@ -2938,7 +2951,7 @@
           (if sfun?
             (string-append
              "BEGIN_SFUN_VOID("
-             sfun?
+             sfun? "," (root-arguments)
              ")")
             (string-append
              "BEGIN_CFUN_VOID("
@@ -2970,7 +2983,7 @@
                     (if sfun?
                       (string-append
                        "BEGIN_SFUN_SCMOBJ("
-                       sfun?
+                       sfun? "," (root-arguments)
                        ")")
                       (string-append
                        "BEGIN_CFUN_SCMOBJ("
@@ -2980,7 +2993,7 @@
                       (if sfun?
                         (string-append
                           "BEGIN_SFUN("
-                          sfun?
+                          sfun? "," (root-arguments)
                           ",")
                         (string-append
                           "BEGIN_CFUN("

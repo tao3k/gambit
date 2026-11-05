@@ -185,7 +185,7 @@
     (targ-emit
       (targ-adjust-stack (targ-align-frame (+ fs targ-frame-reserve))))
 
-    (let ((code (list 'append (c-proc-body c-proc))))
+    (let ((code (list 'opaque-c (c-proc-body c-proc))))
       (if targ-inline-c-proc? ;; should C code be inlined?
 
           ;; put C code inline with compiled Scheme code
@@ -280,13 +280,13 @@
   (targ-emit-label lbl 'proc (vector nb-parms nb-closed)))
 
 (define (targ-emit-label-return lbl fs link gc-map label-descr)
-  (targ-emit-label lbl 'return (vector 'normal fs link gc-map)))
+  (targ-emit-label lbl 'return (targ-make-frame-spec 'normal fs link gc-map)))
 
 (define (targ-emit-label-return-task lbl fs link gc-map label-descr)
-  (targ-emit-label lbl 'return (vector 'task fs link gc-map)))
+  (targ-emit-label lbl 'return (targ-make-frame-spec 'task fs link gc-map)))
 
 (define (targ-emit-label-return-internal lbl fs link gc-map label-descr)
-  (targ-emit-label lbl 'return (vector 'internal fs link gc-map)))
+  (targ-emit-label lbl 'return (targ-make-frame-spec 'internal fs link gc-map)))
 
 ;; Add a label to the code stream
 
@@ -3227,15 +3227,28 @@
          (list "BOOLEAN" (generator opnds #f sn))))
      prim)))
 
+(define (targ-primitive-safety-check prim proc-safe?)
+  ;; The ## operations with C inliners specify their own argument checking.
+  ;; Their inlining does not require an unsafe caller.
+  ;; Specialization of ordinary procedures to unchecked ## operations remains
+  ;; guarded by the safety declaration in _prims.scm.
+  (let ((name (proc-obj-name prim)))
+    (cond ((and (>= (string-length name) 2)
+                (char=? (string-ref name 0) #\#)
+                (char=? (string-ref name 1) #\#))
+           (lambda (env) #t))
+          ((procedure? proc-safe?)
+           proc-safe?)
+          (else
+           (lambda (env)
+             (or proc-safe?
+                 (not (safe? env))))))))
+
 (define (targ-setup-test-proc proc-safe? args-flo? optimizable? generator)
   (lambda (prim)
     (proc-obj-testable?-set!
      prim
-     (if (procedure? proc-safe?)
-         proc-safe?
-         (lambda (env)
-           (or proc-safe?
-               (not (safe? env))))))
+     (targ-primitive-safety-check prim proc-safe?))
     (proc-obj-test-set!
      prim
      (vector
@@ -3304,11 +3317,7 @@
   (lambda (prim)
     (proc-obj-inlinable?-set!
       prim
-      (if (procedure? proc-safe?)
-          proc-safe?
-          (lambda (env)
-            (or proc-safe?
-                (not (safe? env))))))
+      (targ-primitive-safety-check prim proc-safe?))
     (proc-obj-inline-set!
       prim
       (lambda (opnds loc sn)
@@ -3334,11 +3343,7 @@
   (lambda (prim)
     (proc-obj-inlinable?-set!
       prim
-      (if (procedure? proc-safe?)
-          proc-safe?
-          (lambda (env)
-            (or proc-safe?
-                (not (safe? env))))))
+      (targ-primitive-safety-check prim proc-safe?))
     (proc-obj-inline-set!
       prim
       (lambda (opnds loc sn)
@@ -4199,10 +4204,10 @@
                                        "}")))
                   (if (null? rev-args)
                     (begin
-                      (targ-emit (cons 'append lst1))
+                      (targ-emit (cons 'opaque-c lst1))
                       (if loc
                         (targ-emit (targ-loc loc '("RESULT"))))
-                      (targ-emit (cons 'append (reverse lst2))))
+                      (targ-emit (cons 'opaque-c (reverse lst2))))
                     (let ((arg (car rev-args)))
                       (loop (- i 1)
                             (cdr rev-args)
@@ -4250,6 +4255,20 @@
            (targ-end-of-block-checks poll? fs)
            (targ-emit (targ-adjust-stack fs))
            (targ-emit-jump-inline "THREAD_RESTORE" safe? nb-args)
+           (targ-rd-fp)
+           (targ-wr-fp)
+           (targ-wr-reg 0)
+           (targ-wr-reg (+ (targ-nb-arg-regs) 1))
+           #t))))
+
+(targ-jump-inline "##thread-park!"
+  (lambda (nb-args poll? safe?)
+    (and (< 1 nb-args)
+         (< nb-args 6)
+         (let ((fs (frame-size targ-proc-exit-frame)))
+           (targ-end-of-block-checks poll? fs)
+           (targ-emit (targ-adjust-stack fs))
+           (targ-emit-jump-inline "THREAD_PARK" safe? nb-args)
            (targ-rd-fp)
            (targ-wr-fp)
            (targ-wr-reg 0)

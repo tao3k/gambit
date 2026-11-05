@@ -5,6 +5,8 @@
 #ifndef ___C_INTF_H
 #define ___C_INTF_H
 
+extern ___SCMOBJ ___make_sfun_stack_marker_root(___processor_state, ___SCMOBJ*, const ___SCMOBJ*);
+
 
 /*---------------------------------------------------------------------------*/
 

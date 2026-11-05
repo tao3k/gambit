@@ -1,0 +1,140 @@
+/*---------------------------------------------------------------------------*/
+
+/* Dependencies on language (i.e. C++, ANSI-C, and K&R C). */
+
+#ifndef __has_builtin
+#define __has_builtin(x) 0
+#endif
+
+#ifndef __has_attribute
+#define __has_attribute(x) 0
+#endif
+
+#ifdef __cplusplus
+
+#define ___BEGIN_C_LINKAGE extern "C" {
+#define ___END_C_LINKAGE }
+
+/*
+ * Define ___BOOL as "bool" or "int", according to what is supported
+ * by the compiler (this is determined by the configure script) unless
+ * it is defined elsewhere.
+ */
+
+#ifndef ___BOOL
+#define ___BOOL @CONF_BOOL@
+#endif
+
+#define ___USE_CPLUSPLUS_NEW_DELETE
+#define ___USE_CPLUSPLUS_CLEANUP
+
+#else
+
+#define ___BEGIN_C_LINKAGE
+#define ___END_C_LINKAGE
+
+#ifndef ___BOOL
+#define ___BOOL int
+#endif
+
+#undef ___USE_SETJMP
+#define ___USE_SETJMP
+
+#endif
+
+
+#ifdef ___FORCE_KR
+
+#define ___P(ansi,kr)kr
+#define ___PVOID ()
+
+#else
+
+#define ___P(ansi,kr)ansi
+#ifdef __cplusplus
+#define ___PVOID ()
+#else
+#define ___PVOID (void)
+#endif
+
+#endif
+
+
+#ifdef ___USE_SETJMP
+
+#ifdef ___DONT_HAVE_SETJMP_H
+
+/*
+ * If the header file "setjmp.h" is not available then the symbol
+ * ___DONT_HAVE_SETJMP_H must be defined (for example on the compiler's
+ * command line).  In this case we assume that setjmp is defined as
+ * a macro.
+ */
+
+#undef ___CAN_IMPORT_SETJMP_DYNAMICALLY
+#define ___CAN_IMPORT_SETJMP_DYNAMICALLY
+
+#else
+
+/*
+ * If the header file "setjmp.h" is available then we can use the C
+ * preprocessor to check if setjmp is a macro (otherwise it has to be
+ * a function).  If it is a macro then we can't get a pointer to it!
+ */
+
+#include <setjmp.h>
+
+#if __has_builtin(builtin_setjmp) || (defined(__GNUC__) && ___GNUC_VERSION > 500000)
+#undef ___USE_builtin_setjmp
+#define ___USE_builtin_setjmp
+#endif
+
+#ifdef ___DONT_USE_builtin_setjmp
+#undef ___USE_builtin_setjmp
+#endif
+
+#ifdef ___USE_builtin_setjmp
+#define ___SETJMP(jmpbuf)__builtin_setjmp (jmpbuf)
+#define ___LONGJMP1(jmpbuf)__builtin_longjmp (jmpbuf,1)
+#else
+#define ___SETJMP(jmpbuf)setjmp (jmpbuf)
+#define ___LONGJMP1(jmpbuf)longjmp (jmpbuf,1)
+#endif
+
+#if defined(setjmp) || defined(___USE_builtin_setjmp)
+#undef ___CAN_IMPORT_SETJMP_DYNAMICALLY
+#define ___CAN_IMPORT_SETJMP_DYNAMICALLY
+#endif
+
+#endif
+
+#endif
+
+#if defined(___TRUST_C_TCO)
+#if __has_attribute(musttail)
+#define ___PROPER_TAIL_CALL(call) __attribute__((musttail)) return call
+#else
+#define ___PROPER_TAIL_CALL(call) return call
+#endif
+#endif
+
+#ifdef ___PROPER_TAIL_CALL
+#define ___TAIL_CALL_VOID(call) ___PROPER_TAIL_CALL(call)
+#define ___TAIL_CALL_NONVOID(call) ___PROPER_TAIL_CALL(call)
+#else
+#define ___TAIL_CALL_VOID(call) do { call; return; } while (0)
+#define ___TAIL_CALL_NONVOID(call) return call
+#endif
+
+#undef ___USE_PROPER_TAIL_CALL_EXCLUSIVELY_TO_EXIT_HOST
+#undef ___USE_TAIL_CALL_TO_EXIT_HOST
+
+#if !defined(___CENTRALIZED_TRAMPOLINE) && defined(___USE_SETJMP) && (defined(___PROPER_TAIL_CALL) || !defined(__llvm__))
+#define ___USE_TAIL_CALL_TO_EXIT_HOST
+#endif
+
+#if defined(___PROPER_TAIL_CALL) && defined(___USE_TAIL_CALL_TO_EXIT_HOST) && !defined(___SUPPORT_MULTIPLE_C_COMPILERS)
+#define ___USE_PROPER_TAIL_CALL_EXCLUSIVELY_TO_EXIT_HOST
+#endif
+
+

@@ -32,7 +32,7 @@ jobs:
       uses: msys2/setup-msys2@v2
       with:
         update: true
-        install: "autoconf git make tar texinfo mingw-w64-${{ matrix.arch }}-gcc mingw-w64-${{ matrix.arch }}-make mingw-w64-${{ matrix.arch }}-libwinpthread-git"
+        install: "autoconf git make tar texinfo mingw-w64-${{ matrix.arch }}-gcc mingw-w64-${{ matrix.arch }}-libwinpthread-git"
         msystem: ${{ matrix.msystem }}
 
     - name: Build
@@ -173,8 +173,10 @@ jobs:
     - name: Install Dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install texinfo autoconf2.69
+        sudo apt-get install texinfo autoconf2.69 automake pkg-config
         sudo ln -s -f `which autoconf2.69` `which autoconf`
+        aclocal
+        autoconf
 
     - name: Build and Test with C compiler
       run: |
