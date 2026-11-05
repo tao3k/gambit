@@ -70,47 +70,34 @@ mandir = @mandir@
 
 .SUFFIXES:
 
-HEADER_TEMPLATES = _gambit/header_begin.h.in \
-  _gambit/platform.h.in \
-  _gambit/compiler.h.in \
-  _gambit/configuration.h.in \
-  _gambit/language.h.in \
-  _gambit/math.h.in \
-  _gambit/signals.h.in \
-  _gambit/visibility.h.in \
-  _gambit/code_generation.h.in \
-  _gambit/integer_representation.h.in \
-  _gambit/value_types.h.in \
-  _gambit/object_tags.h.in \
-  _gambit/utilities.h.in \
-  _gambit/object_access.h.in \
-  _gambit/gvm_operations.h.in \
-  _gambit/stack_operations.h.in \
-  _gambit/gvm_registers.h.in \
-  _gambit/temporary_roots.h.in \
-  _gambit/labels.h.in \
-  _gambit/module_generation.h.in \
-  _gambit/foreign_abi.h.in \
-  _gambit/foreign_conversion.h.in \
-  _gambit/declarations_begin.h.in \
-  _gambit/native_platform.h.in \
-  _gambit/native_types.h.in \
-  _gambit/activity_log.h.in \
-  _gambit/processor_os.h.in \
-  _gambit/memory_state.h.in \
-  _gambit/runtime_forwards.h.in \
-  _gambit/synchronization.h.in \
-  _gambit/processor_state.h.in \
-  _gambit/label_types.h.in \
-  _gambit/module_state.h.in \
-  _gambit/write_authority.h.in \
-  _gambit/vm_state.h.in \
-  _gambit/setup_parameters.h.in \
-  _gambit/global_state.h.in \
-  _gambit/runtime_protocols.h.in \
-  _gambit/declarations_end.h.in \
-  _gambit/header_end.h.in
-HEADER_CONFIG = include/gambit.h:include/_gambit/header_begin.h.in:include/_gambit/platform.h.in:include/_gambit/compiler.h.in:include/_gambit/configuration.h.in:include/_gambit/language.h.in:include/_gambit/math.h.in:include/_gambit/signals.h.in:include/_gambit/visibility.h.in:include/_gambit/code_generation.h.in:include/_gambit/integer_representation.h.in:include/_gambit/value_types.h.in:include/_gambit/object_tags.h.in:include/_gambit/utilities.h.in:include/_gambit/object_access.h.in:include/_gambit/gvm_operations.h.in:include/_gambit/stack_operations.h.in:include/_gambit/gvm_registers.h.in:include/_gambit/temporary_roots.h.in:include/_gambit/labels.h.in:include/_gambit/module_generation.h.in:include/_gambit/foreign_abi.h.in:include/_gambit/foreign_conversion.h.in:include/_gambit/declarations_begin.h.in:include/_gambit/native_platform.h.in:include/_gambit/native_types.h.in:include/_gambit/activity_log.h.in:include/_gambit/processor_os.h.in:include/_gambit/memory_state.h.in:include/_gambit/runtime_forwards.h.in:include/_gambit/synchronization.h.in:include/_gambit/processor_state.h.in:include/_gambit/label_types.h.in:include/_gambit/module_state.h.in:include/_gambit/write_authority.h.in:include/_gambit/vm_state.h.in:include/_gambit/setup_parameters.h.in:include/_gambit/global_state.h.in:include/_gambit/runtime_protocols.h.in:include/_gambit/declarations_end.h.in:include/_gambit/header_end.h.in
+# The ordered source manifest is the only maintained module inventory.
+AWK = @AWK@
+HEADER_TEMPLATES := $(shell $(AWK) '\
+  { sub(/\r$$/, ""); \
+    if ($$0 !~ /^\#include "_gambit\/[a-z_]+\.h\.in"$$/) { bad=1; exit 1; } \
+    name=$$0; sub(/^\#include "/, "", name); sub(/"$$/, "", name); \
+    if (seen[tolower(name)]++) { bad=1; exit 1; } parts[++count]=name; } \
+  END { if (!bad && count) for (i=1; i<=count; i++) printf "%s%s", (i==1 ? "" : " "), parts[i]; }' \
+  "$(srcdirpfx)gambit.h.in")
+ifeq ($(strip $(HEADER_TEMPLATES)),)
+$(error Invalid or empty ordered header manifest: $(srcdirpfx)gambit.h.in)
+endif
+header_space := $(subst x, ,x)
+HEADER_INPUTS = $(subst $(header_space),:,$(addprefix include/,$(HEADER_TEMPLATES)))
+
+# config.status renders; this target alone publishes the public header.
+# A successful check stamp absorbs input timestamp changes without changing
+# consumers' header timestamps when the effective output is identical.
+define CONFIGURE_GAMBIT_HEADER
+set -e; tmp="gambit.h.tmp.$$$$"; \
+trap 'rm -f "$$tmp"' 0 1 2 15; \
+(cd $(rootfromhere) && ./config.status --file="include/$$tmp:$(HEADER_INPUTS)"); \
+if test -f gambit.h; then \
+  status=0; cmp -s "$$tmp" gambit.h || status=$$?; \
+  case $$status in 0) rm -f "$$tmp";; 1) mv -f "$$tmp" gambit.h;; *) exit $$status;; esac; \
+else mv -f "$$tmp" gambit.h; fi; \
+touch stamp-gambit
+endef
 
 RCFILES = makefile.in gambit.h.in config.h.in stamp-release.h $(HEADER_TEMPLATES)
 
@@ -228,7 +215,7 @@ bootclean-post bootclean-post-nonrec: distclean-post-nonrec
 realclean-pre: bootclean-pre
 
 realclean-post realclean-post-nonrec: bootclean-post-nonrec
-	rm -f gambit.h gambit-not*.h config.h makefile
+	rm -f gambit.h gambit-not*.h stamp-gambit config.h makefile
 
 rc-setup-pre:
 	$(RC) add $(RCFILES)
@@ -368,8 +355,14 @@ stamp:
 	        mv -f stamp.h.new stamp.h; \
 	    fi; \
 	else \
-	    echo "Gambit is not being built from a Git clone. Creating empty stamp.h." && \
-	    echo > stamp.h; \
+	    echo > stamp.h.new && \
+	    if cmp -s stamp.h.new stamp.h; then \
+	        rm -f stamp.h.new; \
+	        echo "Non-Git stamp.h unchanged from previous build"; \
+	    else \
+	        mv -f stamp.h.new stamp.h; \
+	        echo "Gambit is not being built from a Git clone. Creating empty stamp.h."; \
+	    fi; \
 	fi
 
 stamp-release:
@@ -408,8 +401,11 @@ stamp-release:
 makefile: makefile.in $(rootfromhere)/config.status
 	cd $(rootfromhere) && CONFIG_FILES=$(herefromroot)/$@ CONFIG_HEADERS= ./config.status
 
-gambit.h: gambit.h.in $(HEADER_TEMPLATES) $(rootfromhere)/config.status
-	cd $(rootfromhere) && CONFIG_FILES='$(HEADER_CONFIG)' CONFIG_HEADERS= ./config.status
+stamp-gambit: $(srcdirpfx)gambit.h.in $(addprefix $(srcdirpfx),$(HEADER_TEMPLATES)) $(rootfromhere)/config.status
+	@$(CONFIGURE_GAMBIT_HEADER)
+
+gambit.h: | stamp-gambit
+	@if test ! -f $@; then $(CONFIGURE_GAMBIT_HEADER) fi
 
 # Tell versions [3.59,3.63) of GNU make not to export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
