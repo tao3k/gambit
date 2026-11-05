@@ -47,6 +47,7 @@
 #define ___SUPCOUNT 7
 #define ___SUBCOUNT 3
 #define ___HOST_LAYOUT ___HOST_LAYOUT_PROCEDURES
+#define ___SHARED_PROCEDURE_DISPATCH 1
 #define ___LBLCOUNT 24
 #define ___MODDESCR ___REF_SUB(0)
 #include "gambit.h"
@@ -186,8 +187,8 @@ ___BEGIN_M_SW
 #undef ___PW_ALL
 #define ___PW_ALL ___W_R1
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(1)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___t_2d_cpu_2d_utils_23_)
 ___END_P_HLBL
 ___BEGIN_P_SW
@@ -211,8 +212,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_R1
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(1)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0_c_23_safe_2d_car)
 ___END_P_HLBL
 ___BEGIN_P_SW
@@ -242,8 +243,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_R1
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(1)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0_c_23_safe_2d_cdr)
 ___END_P_HLBL
 ___BEGIN_P_SW
@@ -273,8 +274,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_HEAP ___W_R1 ___W_R2
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(2)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0_c_23_flip)
 ___DEF_P_HLBL(___L1_c_23_flip)
 ___END_P_HLBL
@@ -303,8 +304,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_R1
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(1)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0_c_23_in_2d_range_3f_)
 ___END_P_HLBL
 ___BEGIN_P_SW
@@ -334,8 +335,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(5)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0_c_23_count)
 ___DEF_P_HLBL(___L1_c_23_count)
 ___DEF_P_HLBL(___L2_c_23_count)
@@ -416,8 +417,8 @@ ___END_P_COD
 #undef ___PW_ALL
 #define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(6)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0_c_23_filter)
 ___DEF_P_HLBL(___L1_c_23_filter)
 ___DEF_P_HLBL(___L2_c_23_filter)
@@ -483,29 +484,29 @@ ___END_M_COD
 
 ___BEGIN_LBL
  ___DEF_LBL_INTRO(___H___t_2d_cpu_2d_utils_23_,___REF_SYM(1,___S___t_2d_cpu_2d_utils_23_),___REF_FAL,1,0)
-,___DEF_LBL_PROC(___H___t_2d_cpu_2d_utils_23_,0,-1)
+,___DEF_LBL_PROC_AT(___H___t_2d_cpu_2d_utils_23_,0,-1,1)
 ,___DEF_LBL_INTRO(___H_c_23_safe_2d_car,___REF_SYM(6,___S_c_23_safe_2d_car),___REF_FAL,1,0)
-,___DEF_LBL_PROC(___H_c_23_safe_2d_car,1,-1)
+,___DEF_LBL_PROC_AT(___H_c_23_safe_2d_car,1,-1,1)
 ,___DEF_LBL_INTRO(___H_c_23_safe_2d_cdr,___REF_SYM(7,___S_c_23_safe_2d_cdr),___REF_FAL,1,0)
-,___DEF_LBL_PROC(___H_c_23_safe_2d_cdr,1,-1)
+,___DEF_LBL_PROC_AT(___H_c_23_safe_2d_cdr,1,-1,1)
 ,___DEF_LBL_INTRO(___H_c_23_flip,___REF_SYM(4,___S_c_23_flip),___REF_FAL,2,0)
-,___DEF_LBL_PROC(___H_c_23_flip,1,-1)
-,___DEF_LBL_RET(___H_c_23_flip,___IFD(___RETI,0,0,0x3fL))
+,___DEF_LBL_PROC_AT(___H_c_23_flip,1,-1,1)
+,___DEF_LBL_RET_AT(___H_c_23_flip,___IFD(___RETI,0,0,0x3fL),2)
 ,___DEF_LBL_INTRO(___H_c_23_in_2d_range_3f_,___REF_SYM(5,___S_c_23_in_2d_range_3f_),___REF_FAL,1,0)
-,___DEF_LBL_PROC(___H_c_23_in_2d_range_3f_,3,-1)
+,___DEF_LBL_PROC_AT(___H_c_23_in_2d_range_3f_,3,-1,1)
 ,___DEF_LBL_INTRO(___H_c_23_count,___REF_SYM(2,___S_c_23_count),___REF_FAL,5,0)
-,___DEF_LBL_PROC(___H_c_23_count,3,-1)
-,___DEF_LBL_RET(___H_c_23_count,___IFD(___RETN,5,0,0xfL))
-,___DEF_LBL_RET(___H_c_23_count,___IFD(___RETI,0,0,0x3fL))
-,___DEF_LBL_RET(___H_c_23_count,___IFD(___RETI,8,0,0x3f0fL))
-,___DEF_LBL_RET(___H_c_23_count,___IFD(___RETN,1,0,0x1L))
+,___DEF_LBL_PROC_AT(___H_c_23_count,3,-1,1)
+,___DEF_LBL_RET_AT(___H_c_23_count,___IFD(___RETN,5,0,0xfL),2)
+,___DEF_LBL_RET_AT(___H_c_23_count,___IFD(___RETI,0,0,0x3fL),3)
+,___DEF_LBL_RET_AT(___H_c_23_count,___IFD(___RETI,8,0,0x3f0fL),4)
+,___DEF_LBL_RET_AT(___H_c_23_count,___IFD(___RETN,1,0,0x1L),5)
 ,___DEF_LBL_INTRO(___H_c_23_filter,___REF_SYM(3,___S_c_23_filter),___REF_FAL,6,0)
-,___DEF_LBL_PROC(___H_c_23_filter,2,-1)
-,___DEF_LBL_RET(___H_c_23_filter,___IFD(___RETN,5,0,0x7L))
-,___DEF_LBL_RET(___H_c_23_filter,___IFD(___RETI,0,0,0x3fL))
-,___DEF_LBL_RET(___H_c_23_filter,___IFD(___RETI,8,0,0x3f07L))
-,___DEF_LBL_RET(___H_c_23_filter,___IFD(___RETN,5,0,0x5L))
-,___DEF_LBL_RET(___H_c_23_filter,___IFD(___RETI,1,0,0x3f1L))
+,___DEF_LBL_PROC_AT(___H_c_23_filter,2,-1,1)
+,___DEF_LBL_RET_AT(___H_c_23_filter,___IFD(___RETN,5,0,0x7L),2)
+,___DEF_LBL_RET_AT(___H_c_23_filter,___IFD(___RETI,0,0,0x3fL),3)
+,___DEF_LBL_RET_AT(___H_c_23_filter,___IFD(___RETI,8,0,0x3f07L),4)
+,___DEF_LBL_RET_AT(___H_c_23_filter,___IFD(___RETN,5,0,0x5L),5)
+,___DEF_LBL_RET_AT(___H_c_23_filter,___IFD(___RETI,1,0,0x3f1L),6)
 ___END_LBL
 
 ___BEGIN_MOD_PRM

@@ -5947,6 +5947,8 @@
 "c#targ-cast-to-fixnum32"
 "c#targ-ceiling-log2"
 "c#targ-cell-set!"
+"c#targ-cfg-host-name"
+"c#targ-cfg-host-plan?"
 "c#targ-check-conditions"
 "c#targ-closure-space"
 "c#targ-code"
@@ -5959,6 +5961,7 @@
 "c#targ-compilation-unit-host-layout"
 "c#targ-compilation-unit-label-count"
 "c#targ-compilation-unit-procedures"
+"c#targ-compilation-unit-return-host"
 "c#targ-define-count"
 "c#targ-define-prefix"
 "c#targ-denominator"
@@ -5978,6 +5981,7 @@
 "c#targ-display-no-line-info-c-string-tail"
 "c#targ-display-prefixed"
 "c#targ-display-prefixed-c-id"
+"c#targ-dominant-procedure"
 "c#targ-dump"
 "c#targ-dump-bigfixnum"
 "c#targ-dump-bignum"
@@ -6137,7 +6141,10 @@
 "c#targ-op"
 "c#targ-opnd"
 "c#targ-opnd*"
+"c#targ-plan-cfg-hosts"
 "c#targ-plan-compilation-unit"
+"c#targ-plan-procedure-hosts"
+"c#targ-plan-return-host"
 "c#targ-pop-pcontext"
 "c#targ-prim-info"
 "c#targ-primitive-safety-check"
@@ -6149,6 +6156,7 @@
 "c#targ-ref-lbl-goto"
 "c#targ-ref-lbl-val"
 "c#targ-res-op"
+"c#targ-return-host-name"
 "c#targ-round-up-to-multiple-of"
 "c#targ-rsrc-demanded?"
 "c#targ-rsrc-demanders"
@@ -8543,6 +8551,7 @@
 "offsets"
 "ok"
 "old"
+"opaque-c"
 "open-binary-input-file"
 "open-binary-output-file"
 "open-directory"
@@ -14780,6 +14789,8 @@
 "c#targ-c-unsigned-long"
 "c#targ-ceiling-log2"
 "c#targ-cell-set!"
+"c#targ-cfg-host-name"
+"c#targ-cfg-host-plan?"
 "c#targ-check-conditions"
 "c#targ-closure-space"
 "c#targ-cns-objs"
@@ -14789,6 +14800,7 @@
 "c#targ-code-args"
 "c#targ-code-list"
 "c#targ-code-seq"
+"c#targ-compilation-unit-return-host"
 "c#targ-continuation-space"
 "c#targ-cpxnum-space"
 "c#targ-current-filename"
@@ -14814,6 +14826,7 @@
 "c#targ-display-no-line-info-c-string-tail"
 "c#targ-display-prefixed"
 "c#targ-display-prefixed-c-id"
+"c#targ-dominant-procedure"
 "c#targ-dump"
 "c#targ-dump-bigfixnum"
 "c#targ-dump-bignum"
@@ -14920,6 +14933,7 @@
 "c#targ-iflonum?"
 "c#targ-imag-part"
 "c#targ-in-macro-definition?"
+"c#targ-indexed-host-layout?"
 "c#targ-inexact-+0"
 "c#targ-inexact-+1"
 "c#targ-inexact-+1/2"
@@ -14991,7 +15005,10 @@
 "c#targ-opnd"
 "c#targ-opnd*"
 "c#targ-pair-space"
+"c#targ-plan-cfg-hosts"
 "c#targ-plan-compilation-unit"
+"c#targ-plan-procedure-hosts"
+"c#targ-plan-return-host"
 "c#targ-pop-pcontext"
 "c#targ-port"
 "c#targ-prc-objs"
@@ -15025,6 +15042,7 @@
 "c#targ-ref-lbl-goto"
 "c#targ-ref-lbl-val"
 "c#targ-res-op"
+"c#targ-return-host-name"
 "c#targ-round-up-to-multiple-of"
 "c#targ-rsrc-demanded?"
 "c#targ-rsrc-not-demanded?"
@@ -16258,6 +16276,7 @@
 "log"
 "magnitude"
 "main"
+"make-parameter"
 "make-polar"
 "make-rectangular"
 "make-table"
@@ -18605,7 +18624,6 @@
 "make-f64vector"
 "make-list"
 "make-mutex"
-"make-parameter"
 "make-promise"
 "make-random-source"
 "make-root-thread"
@@ -25944,6 +25962,8 @@ ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_c_2d_unsigned_2d_long,___G_c_23_targ_2d_c_2
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_cast_2d_to_2d_fixnum32,___G_c_23_targ_2d_cast_2d_to_2d_fixnum32)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_ceiling_2d_log2,___G_c_23_targ_2d_ceiling_2d_log2)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_cell_2d_set_21_,___G_c_23_targ_2d_cell_2d_set_21_)
+___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_cfg_2d_host_2d_name,___G_c_23_targ_2d_cfg_2d_host_2d_name)
+___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_cfg_2d_host_2d_plan_3f_,___G_c_23_targ_2d_cfg_2d_host_2d_plan_3f_)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_check_2d_conditions,___G_c_23_targ_2d_check_2d_conditions)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_closure_2d_space,___G_c_23_targ_2d_closure_2d_space)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_cns_2d_objs,___G_c_23_targ_2d_cns_2d_objs)
@@ -25958,6 +25978,7 @@ ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_compactness,___G_c_23_targ_2d_compactness)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_compilation_2d_unit_2d_host_2d_layout,___G_c_23_targ_2d_compilation_2d_unit_2d_host_2d_layout)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_compilation_2d_unit_2d_label_2d_count,___G_c_23_targ_2d_compilation_2d_unit_2d_label_2d_count)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_compilation_2d_unit_2d_procedures,___G_c_23_targ_2d_compilation_2d_unit_2d_procedures)
+___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_compilation_2d_unit_2d_return_2d_host,___G_c_23_targ_2d_compilation_2d_unit_2d_return_2d_host)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_continuation_2d_space,___G_c_23_targ_2d_continuation_2d_space)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_cpxnum_2d_space,___G_c_23_targ_2d_cpxnum_2d_space)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_current_2d_filename,___G_c_23_targ_2d_current_2d_filename)
@@ -25986,6 +26007,7 @@ ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_display_2d_no_2d_line_2d_info_2d_c_2d_strin
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_display_2d_no_2d_line_2d_info_2d_c_2d_string_2d_tail,___G_c_23_targ_2d_display_2d_no_2d_line_2d_info_2d_c_2d_string_2d_tail)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_display_2d_prefixed,___G_c_23_targ_2d_display_2d_prefixed)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_display_2d_prefixed_2d_c_2d_id,___G_c_23_targ_2d_display_2d_prefixed_2d_c_2d_id)
+___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_dominant_2d_procedure,___G_c_23_targ_2d_dominant_2d_procedure)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_dump,___G_c_23_targ_2d_dump)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_dump_2d_bigfixnum,___G_c_23_targ_2d_dump_2d_bigfixnum)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_dump_2d_bignum,___G_c_23_targ_2d_dump_2d_bignum)
@@ -26103,6 +26125,7 @@ ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_ifjump_2d_simp_2d_u,___G_c_23_targ_2d_ifjum
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_iflonum_3f_,___G_c_23_targ_2d_iflonum_3f_)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_imag_2d_part,___G_c_23_targ_2d_imag_2d_part)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_in_2d_macro_2d_definition_3f_,___G_c_23_targ_2d_in_2d_macro_2d_definition_3f_)
+___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_indexed_2d_host_2d_layout_3f_,___G_c_23_targ_2d_indexed_2d_host_2d_layout_3f_)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_inexact_2d__2b_0,___G_c_23_targ_2d_inexact_2d__2b_0)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_inexact_2d__2b_1,___G_c_23_targ_2d_inexact_2d__2b_1)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_inexact_2d__2b_1_2f_2,___G_c_23_targ_2d_inexact_2d__2b_1_2f_2)
@@ -26198,7 +26221,10 @@ ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_op,___G_c_23_targ_2d_op)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_opnd,___G_c_23_targ_2d_opnd)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_opnd_2a_,___G_c_23_targ_2d_opnd_2a_)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_pair_2d_space,___G_c_23_targ_2d_pair_2d_space)
+___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_plan_2d_cfg_2d_hosts,___G_c_23_targ_2d_plan_2d_cfg_2d_hosts)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_plan_2d_compilation_2d_unit,___G_c_23_targ_2d_plan_2d_compilation_2d_unit)
+___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_plan_2d_procedure_2d_hosts,___G_c_23_targ_2d_plan_2d_procedure_2d_hosts)
+___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_plan_2d_return_2d_host,___G_c_23_targ_2d_plan_2d_return_2d_host)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_pop_2d_pcontext,___G_c_23_targ_2d_pop_2d_pcontext)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_port,___G_c_23_targ_2d_port)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_prc_2d_objs,___G_c_23_targ_2d_prc_2d_objs)
@@ -26233,6 +26259,7 @@ ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_real_2d_part,___G_c_23_targ_2d_real_2d_part
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_ref_2d_lbl_2d_goto,___G_c_23_targ_2d_ref_2d_lbl_2d_goto)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_ref_2d_lbl_2d_val,___G_c_23_targ_2d_ref_2d_lbl_2d_val)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_res_2d_op,___G_c_23_targ_2d_res_2d_op)
+___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_return_2d_host_2d_name,___G_c_23_targ_2d_return_2d_host_2d_name)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_round_2d_up_2d_to_2d_multiple_2d_of,___G_c_23_targ_2d_round_2d_up_2d_to_2d_multiple_2d_of)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_rsrc_2d_demanded_3f_,___G_c_23_targ_2d_rsrc_2d_demanded_3f_)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_rsrc_2d_demanders,___G_c_23_targ_2d_rsrc_2d_demanders)
@@ -28837,6 +28864,7 @@ ___DEF_OLD_SYM_GLO(___S_odd_3f_,___G_odd_3f_)
 ___DEF_OLD_SYM_GLO(___S_offsets,___G_offsets)
 ___DEF_OLD_SYM_GLO(___S_ok,___G_ok)
 ___DEF_OLD_SYM_GLO(___S_old,___G_old)
+___DEF_OLD_SYM_GLO(___S_opaque_2d_c,___G_opaque_2d_c)
 ___DEF_OLD_SYM_GLO(___S_open_2d_binary_2d_input_2d_file,___G_open_2d_binary_2d_input_2d_file)
 ___DEF_OLD_SYM_GLO(___S_open_2d_binary_2d_output_2d_file,___G_open_2d_binary_2d_output_2d_file)
 ___DEF_OLD_SYM_GLO(___S_open_2d_directory,___G_open_2d_directory)

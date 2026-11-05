@@ -1741,11 +1741,21 @@ ___module_struct *module;)
    * problems later.
    */
 
-  if (module->sizeof_module_struct != sizeof(___module_struct) ||
+  if (module->sizeof_module_struct != ___MODULE_STRUCT_SIZE_STAMP(module->flags) ||
       module->sizeof_global_state_struct != sizeof(___global_state_struct) ||
       module->sizeof_virtual_machine_state_struct != sizeof(___virtual_machine_state_struct) ||
       module->sizeof_processor_state_struct != sizeof(___processor_state_struct))
     return ___FIX(___MODULE_INCOMPATIBILITY_ERR);
+
+  if (module->flags & ___USES_INDEXED_HOST_ENTRIES)
+    {
+#ifndef ___SUPPORT_LABEL_VALUES
+      return ___FIX(___MODULE_INCOMPATIBILITY_ERR);
+#else
+      if (!(module->flags & ___USES_INDIRECT_GOTO))
+        return ___FIX(___MODULE_INCOMPATIBILITY_ERR);
+#endif
+    }
 
   lblcount = module->lblcount;
 
@@ -1949,7 +1959,7 @@ ___module_struct *module;)
               fixrefs (module, ___SUBTYPED_TO(lbl, ___LABEL_INFO), 1);
 
 #ifdef ___SUPPORT_LABEL_VALUES
-              if (hlbl_ptr != 0)
+              if (hlbl_ptr != 0 && !(flags & ___USES_INDEXED_HOST_ENTRIES))
                 hlbl_ptr++; /* skip INTRO label */
 #endif
             }
@@ -1968,17 +1978,32 @@ ___module_struct *module;)
 
                   if (___LABEL_HOST_GET(lbl) != current_host)
                     {
-                      ___ps->context->pc = ___FIX(0); /* special marker indicating that */
-                                             /* we want the goto labels */
-
+                      ___WORD saved_pc = ___ps->context->pc;
                       current_host = ___LABEL_HOST_GET(lbl);
+                      if ((flags & ___USES_INDEXED_HOST_ENTRIES) && current_host == 0)
+                        return module_fixup_result(module,___FIX(___MODULE_INCOMPATIBILITY_ERR));
+                      ___ps->context->pc = ___FIX(0); /* request goto labels */
                       current_host (___ps);
                       hlbl_ptr = ___CAST(void**,___ps->context->pc);
-                      hlbl_ptr++; /* skip INTRO label */
+                      if (flags & ___USES_INDEXED_HOST_ENTRIES)
+                        ___ps->context->pc = saved_pc;
+                      else
+                        hlbl_ptr++; /* skip INTRO label */
                     }
 
-                  ___LABEL_HOST_LABEL_SET(lbl,
-                                          ___CAST_VOIDSTAR_TO_FAKEVOIDSTAR(*hlbl_ptr++));
+                  if (flags & ___USES_INDEXED_HOST_ENTRIES)
+                    {
+                      ___UWORD index = ___CAST(___UWORD,___LABEL_HOST_LABEL_GET(lbl));
+                      if (hlbl_ptr == 0 || index == 0 ||
+                          index > ___CAST(___UWORD,hlbl_ptr[0]) ||
+                          hlbl_ptr[index] == 0)
+                        return module_fixup_result(module,___FIX(___MODULE_INCOMPATIBILITY_ERR));
+                      ___LABEL_HOST_LABEL_SET(lbl,
+                                              ___CAST_VOIDSTAR_TO_FAKEVOIDSTAR(hlbl_ptr[index]));
+                    }
+                  else
+                    ___LABEL_HOST_LABEL_SET(lbl,
+                                            ___CAST_VOIDSTAR_TO_FAKEVOIDSTAR(*hlbl_ptr++));
                 }
 #endif
 

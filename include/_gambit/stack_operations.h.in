@@ -66,6 +66,17 @@
 #define ___DEF_P_HLBL(id)___SM(___NOTHING,___DEF_HLBL(id))
 #define ___END_P_HLBL ___SM(___NOTHING,___END_HLBL)
 
+#ifdef ___INDEXED_HOST_ENTRIES
+#ifdef ___SINGLE_HOST
+#error "Indexed host entries require procedure hosts"
+#endif
+#define ___BEGIN_P_HLBL_AT(count) ___BEGIN_INDEXED_HLBL(count)
+#define ___DEF_P_HLBL_INTRO_AT
+#else
+#define ___BEGIN_P_HLBL_AT(count) ___BEGIN_P_HLBL
+#define ___DEF_P_HLBL_INTRO_AT ___DEF_P_HLBL_INTRO
+#endif
+
 #define ___BEGIN_P_SW ___SM(___NOTHING,___BEGIN_SW)
 #define ___END_P_SW ___SM(___NOTHING,___END_SW)
 
@@ -168,12 +179,20 @@ ___EXT(___register_host_entry) (___PSP ___start, ___MODULE_NAME, __FILE__, __LIN
 
 #define ___USES_INDIRECT_GOTO 1
 #define ___SETUP_FIXUP_DONE   2
+#define ___USES_INDEXED_HOST_ENTRIES 4
 
 #ifdef ___USE_LABEL_VALUES
 
+#ifdef ___INDEXED_HOST_ENTRIES
+#define ___MODULE_FLAGS (___USES_INDIRECT_GOTO | ___USES_INDEXED_HOST_ENTRIES)
+#else
 #define ___MODULE_FLAGS ___USES_INDIRECT_GOTO
+#endif
 
 #define ___BEGIN_HLBL static void *___hlbltbl[]={
+/* Count slot, physical entries, and the existing trailing sentinel. */
+#define ___BEGIN_INDEXED_HLBL(count) \
+static void *___hlbltbl[(count)+2]={___CAST(void*,___CAST(___UWORD,count)),
 #define ___DEF_HLBL_INTRO 0,
 #define ___DEF_HLBL(id)&&id,
 #define ___END_HLBL \
@@ -192,8 +211,21 @@ goto *___LABEL_HOST_LABEL_GET(___pc);
 
 #ifdef ___INLINE_JUMPS
 
+#if defined(___SHARED_PROCEDURE_DISPATCH) && \
+    ___HOST_LAYOUT == ___HOST_LAYOUT_PROCEDURES
+/* Keep one indirect dispatch per procedure host. Direct label jumps and
+   the ordinary path to the host epilogue do not use this entry. */
+#define ___END_SW \
+goto ___jumpext; \
+___shared_jump: \
+if (___EXPECT_FALSE(___LABEL_HOST_GET(___pc) != ___HOST_PROC)) \
+  goto ___jumpext; \
+goto *___LABEL_HOST_LABEL_GET(___pc); \
+___jumpext:
+#else
 #define ___END_SW \
 ___jumpext:
+#endif
 
 #define ___JUMP(dest)___JUMPFAST(dest)
 
@@ -211,15 +243,23 @@ ___jumpext:
 
 #define ___JUMPEXT(dest){___pc=dest;goto ___jumpext;}
 
+#if defined(___SHARED_PROCEDURE_DISPATCH) && defined(___INLINE_JUMPS) && \
+    ___HOST_LAYOUT == ___HOST_LAYOUT_PROCEDURES
+#define ___JUMPFAST(dest){___pc=dest;goto ___shared_jump;}
+#else
 #define ___JUMPFAST(dest) \
 {___pc=dest; \
  if (___EXPECT_FALSE(___LABEL_HOST_GET(___pc) != ___HOST_PROC)) \
    goto ___jumpext; \
  goto *___LABEL_HOST_LABEL_GET(___pc); \
 }
+#endif
 
 #else
 
+#ifdef ___INDEXED_HOST_ENTRIES
+#error "Indexed host entries require indirect goto"
+#endif
 #define ___MODULE_FLAGS 0
 
 #define ___BEGIN_HLBL

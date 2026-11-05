@@ -34,6 +34,7 @@
 #define ___SUPCOUNT 1
 #define ___SUBCOUNT 3
 #define ___HOST_LAYOUT ___HOST_LAYOUT_PROCEDURES
+#define ___SHARED_PROCEDURE_DISPATCH 1
 #define ___LBLCOUNT 2
 #define ___MODDESCR ___REF_SUB(0)
 #include "gambit.h"
@@ -105,8 +106,8 @@ ___BEGIN_M_SW
 #undef ___PW_ALL
 #define ___PW_ALL ___W_R1
 ___BEGIN_P_COD
-___BEGIN_P_HLBL
-___DEF_P_HLBL_INTRO
+___BEGIN_P_HLBL_AT(1)
+___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___assert_23_)
 ___END_P_HLBL
 ___BEGIN_P_SW
@@ -124,7 +125,7 @@ ___END_M_COD
 
 ___BEGIN_LBL
  ___DEF_LBL_INTRO(___H___assert_23_,___REF_SYM(1,___S___assert_23_),___REF_FAL,1,0)
-,___DEF_LBL_PROC(___H___assert_23_,0,-1)
+,___DEF_LBL_PROC_AT(___H___assert_23_,0,-1,1)
 ___END_LBL
 
 ___BEGIN_MOD_PRM

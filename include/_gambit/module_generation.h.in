@@ -1370,10 +1370,16 @@ ___PSDKR) { ___PSGET
 #define ___MODULE_DESCR_THUNK         4
 #define ___MODULE_DESCR_MODULE_STRUCT 5
 
+/* A negative size binds the descriptor to indexed host entry fixup.
+ * Older setup code compares this field to the positive structure size. */
+#define ___MODULE_STRUCT_SIZE_STAMP(flags) \
+(((flags) & ___USES_INDEXED_HOST_ENTRIES) ? \
+ -___CAST(int,sizeof(___module_struct)) : ___CAST(int,sizeof(___module_struct)))
+
 #define ___BEGIN_MOD_SYM_KEY ___LOCAL ___module_struct ___module_descr = { \
   ___VERSION, \
   ___MODULE_KIND, \
-  sizeof(___module_struct), \
+  ___MODULE_STRUCT_SIZE_STAMP(___MODULE_FLAGS), \
   sizeof(___global_state_struct), \
   sizeof(___virtual_machine_state_struct), \
   sizeof(___processor_state_struct), \

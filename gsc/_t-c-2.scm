@@ -185,7 +185,7 @@
     (targ-emit
       (targ-adjust-stack (targ-align-frame (+ fs targ-frame-reserve))))
 
-    (let ((code (list 'append (c-proc-body c-proc))))
+    (let ((code (list 'opaque-c (c-proc-body c-proc))))
       (if targ-inline-c-proc? ;; should C code be inlined?
 
           ;; put C code inline with compiled Scheme code
@@ -4204,10 +4204,10 @@
                                        "}")))
                   (if (null? rev-args)
                     (begin
-                      (targ-emit (cons 'append lst1))
+                      (targ-emit (cons 'opaque-c lst1))
                       (if loc
                         (targ-emit (targ-loc loc '("RESULT"))))
-                      (targ-emit (cons 'append (reverse lst2))))
+                      (targ-emit (cons 'opaque-c (reverse lst2))))
                     (let ((arg (car rev-args)))
                       (loop (- i 1)
                             (cdr rev-args)

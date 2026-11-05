@@ -72,8 +72,9 @@ ___LOCAL ___label_struct ___lbltbl[]={
   ___LABEL_ZERO_FILL \
 }
 
-#define ___DEF_LBL_PROC(id,nbp,nbc) \
-{ ___LABEL_PLACEHOLDER1(0) \
+#define ___DEF_LBL_PROC(id,nbp,nbc) ___DEF_INDEXED_LBL_PROC(id,nbp,nbc,0)
+#define ___DEF_INDEXED_LBL_PROC(id,nbp,nbc,index) \
+{ ___LABEL_PLACEHOLDER1(___CAST(___FAKEVOIDSTAR,___CAST(___UWORD,index))) \
   ___CAST_HOST_TO_FAKEHOST(___SM(___MH_PROC,id)), \
   ___PRD(nbp,nbc), \
   0 \
@@ -81,14 +82,23 @@ ___LOCAL ___label_struct ___lbltbl[]={
   ___LABEL_ZERO_FILL \
 }
 
-#define ___DEF_LBL_RET(id,frm) \
-{ ___LABEL_PLACEHOLDER1(0) \
+#define ___DEF_LBL_RET(id,frm) ___DEF_INDEXED_LBL_RET(id,frm,0)
+#define ___DEF_INDEXED_LBL_RET(id,frm,index) \
+{ ___LABEL_PLACEHOLDER1(___CAST(___FAKEVOIDSTAR,___CAST(___UWORD,index))) \
   ___CAST_HOST_TO_FAKEHOST(___SM(___MH_PROC,id)), \
   ___MAKE_HD(0,___sRETURN,___PERM), \
   frm \
   ___LABEL_PLACEHOLDER2(0) \
   ___LABEL_ZERO_FILL \
 }
+
+#ifdef ___INDEXED_HOST_ENTRIES
+#define ___DEF_LBL_PROC_AT(id,nbp,nbc,index) ___DEF_INDEXED_LBL_PROC(id,nbp,nbc,index)
+#define ___DEF_LBL_RET_AT(id,frm,index) ___DEF_INDEXED_LBL_RET(id,frm,index)
+#else
+#define ___DEF_LBL_PROC_AT(id,nbp,nbc,index) ___DEF_LBL_PROC(id,nbp,nbc)
+#define ___DEF_LBL_RET_AT(id,frm,index) ___DEF_LBL_RET(id,frm)
+#endif
 
 #define ___END_LBL \
 ___PADDING_LBL};
