@@ -26,6 +26,13 @@ extern ___BOOL ___garbage_collect ___P((___PSD ___SIZE_TS requested_words_still)
 #include "c_intf.h"
 #include "actlog.h"
 
+#ifdef ___GAMBIT_DEV_RESTORE_PROBE
+#include "../tests/smp/gc/restore-collective-probe.h"
+#define ___DEV_RESTORE_INSIDE_BARRIER() ___dev_restore_inside_barrier(___ps);
+#else
+#define ___DEV_RESTORE_INSIDE_BARRIER()
+#endif
+
 
 /*---------------------------------------------------------------------------*/
 
@@ -512,6 +519,7 @@ do { \
      int loops_left = SYNC_GET_MSG_SPIN_TIMEOUT; \
      while ((expr) == SYNC_WAITING) \
        { \
+         ___DEV_RESTORE_INSIDE_BARRIER() \
          WASTE_TIME(); \
          if (--loops_left == 0) \
            { \
@@ -667,11 +675,12 @@ ___sync_op_struct *sop_ptr;)
        */
       if (sop.op == OP_SET_PROCESSOR_COUNT)
         {
-          ___vms->processor_count = sop.arg[0];
           if (___vms->lifecycle != 0)
             {
               ___vm_lifecycle *r=___vms->lifecycle;
               ___MUTEX_LOCK(r->gate);
+              ___vms->processor_count = sop.arg[0];
+              ++r->membership_epoch;
               if (r->resize_phase==___RESIZE_PREPARING) {
                 int i;
                 for(i=r->first;i<r->target;i++)r->launches[i].entry=___LAUNCH_RUN;
@@ -680,6 +689,8 @@ ___sync_op_struct *sop_ptr;)
               ___MUTEX_UNLOCK(r->gate);
               ___lifecycle_members_open(___vms);
             }
+          else
+            ___vms->processor_count = sop.arg[0];
         }
     }
   else
@@ -933,7 +944,7 @@ static ___SCMOBJ rollback_resize(___processor_state ps,___vm_lifecycle *r)
     release_startup_root(&r->slots[i]);
     if(r->slots[i].phase>=___RESIZE_INITIALIZED &&
        !___lifecycle_cleanup_pstate(___PSTATE_FROM_PROCESSOR_ID(i,vm))) {
-      r->resize_phase=___RESIZE_RETAINED;return ___FIX(___UNKNOWN_ERR);
+      resize_phase(r,___RESIZE_RETAINED);return ___FIX(___UNKNOWN_ERR);
     }
   }
   ___refund_resize(ps,r);resize_phase(r,___RESIZE_IDLE);return r->result;
@@ -967,7 +978,8 @@ enum resize_cut { RESIZE_BEGIN, RESIZE_CAPACITY_NEEDED, RESIZE_CAPACITY_RESULT,
 
 ___SCMOBJ ___vm_resize_pstate(___processor_state ___ps,
                              const ___SCMOBJ *thunk_root,
-                             ___WORD target_processor_count)
+                             ___WORD target_processor_count,
+                             int managed_startup)
 {
   ___SCMOBJ err=___FIX(___NO_ERR);
 #ifndef ___SINGLE_THREADED_VMS
@@ -977,7 +989,9 @@ ___SCMOBJ ___vm_resize_pstate(___processor_state ___ps,
   ___sync_op_struct sop = {0,{0,0}};
   if(id==0 && r) {
     r->result=___FIX(___NO_ERR);r->refusal=0;
-    if(r->resize_phase==___RESIZE_RETAINED)r->result=___FIX(___UNKNOWN_ERR);
+    if(r->resize_phase==___RESIZE_RETAINED ||
+       (target_processor_count!=initial && r->membership_epoch==___MAX_FIX))
+      r->result=___FIX(___UNKNOWN_ERR);
     else {
       r->first=initial;r->target=target_processor_count;
       vm->mem.target_processor_count_=target_processor_count;
@@ -1033,6 +1047,8 @@ ___SCMOBJ ___vm_resize_pstate(___processor_state ___ps,
             ___resize_launch *launch=&r->launches[i];
             memset(launch,0,sizeof(*launch));
             launch->vm=vm;launch->id=i;launch->generation=r->generation;
+            launch->managed_startup=managed_startup;
+            launch->startup_phase=___STARTUP_PENDING;
             launch->entry=___LAUNCH_PARKED;launch->native_live=1;
             launch->thread.start_fn=start_processor_execution;
             launch->thread.data_ptr=launch;launch->thread.data_scmobj=___FAL;
@@ -1064,7 +1080,9 @@ ___SCMOBJ ___vm_resize_pstate(___processor_state ___ps,
     if(id==0) {
       enum ___handoff_status disposition=___HANDOFF_READY;
       for(i=target_processor_count;i<initial;i++) {
-        enum ___handoff_status current=___WORD_LOAD_ACQUIRE(&r->requests[i])
+        ___resize_launch *launch=&r->launches[i];
+        enum ___handoff_status current=(___WORD_LOAD_ACQUIRE(&r->requests[i]) ||
+          (launch->managed_startup && launch->startup_phase==___STARTUP_PENDING))
           ?___HANDOFF_BUSY:___lifecycle_can_handoff(___PSTATE_FROM_PROCESSOR_ID(i,vm));
         if(current>disposition)disposition=current;
       }
@@ -1146,14 +1164,24 @@ ___sync_op_struct *sop_ptr;)
   switch (sop_ptr->op)
     {
     case OP_VM_RESIZE:
-      sop_ptr->arg[0] = ___vm_resize_pstate (___ps, ___CAST(const ___SCMOBJ*,sop_ptr->arg[0]), sop_ptr->arg[1]);
+      {
+        ___WORD target=sop_ptr->arg[1];
+        int managed=target<0;
+        sop_ptr->arg[0]=___vm_resize_pstate(
+          ___ps,___CAST(const ___SCMOBJ*,sop_ptr->arg[0]),
+          managed ? -target : target,managed);
 #ifndef ___SINGLE_THREADED_VMS
-      /* arg[1] is the consumed target; return retry disposition in that
-       * same existing slot. ___sync_op_struct has exactly two arguments. */
-      sop_ptr->arg[1]=___VMSTATE_FROM_PSTATE(___ps)->lifecycle->refusal;
+        {
+          ___vm_lifecycle *r=___VMSTATE_FROM_PSTATE(___ps)->lifecycle;
+          /* This participant is still in the collective. No successor
+           * resize can publish before it records the membership ticket. */
+          sop_ptr->arg[1]=sop_ptr->arg[0]==___FIX(___NO_ERR)
+            ? r->membership_epoch : (r && r->refusal ? -1 : 0);
+        }
 #else
-      sop_ptr->arg[1]=0;
+        sop_ptr->arg[1]=0;
 #endif
+      }
       break;
 
     case OP_GARBAGE_COLLECT:
@@ -1296,6 +1324,43 @@ ___sync_op_struct *sop_ptr;)
 }
 
 
+static ___SCMOBJ current_vm_resize_request(___PSD ___SCMOBJ thunk,
+                                          int target_processor_count,
+                                          int managed)
+{
+  ___PSGET
+  ___sync_op_struct sop = {0,{0,0}};
+  ___SCMOBJ ___err;
+  void *root;
+  const ___SCMOBJ *cell;
+  ___WORD target;
+  if (target_processor_count<1) return ___FIX(___UNKNOWN_ERR);
+#ifdef ___SINGLE_THREADED_VMS
+  if (managed && target_processor_count!=1) return ___FIX(___UNKNOWN_ERR);
+#endif
+  if (target_processor_count>___MAX_PROCESSORS) target_processor_count=___MAX_PROCESSORS;
+  target=managed ? -target_processor_count : target_processor_count;
+  root=___alloc_rc(___PSP 0);
+  if (root==0) return ___FIX(___HEAP_OVERFLOW_ERR);
+  ___set_data_rc(root,thunk);
+  cell=___borrow_rc_root(___ps,root);
+  if (cell==0) { ___release_rc(root); return ___FIX(___UNKNOWN_ERR); }
+  sop.op=OP_VM_RESIZE; sop.arg[0]=___CAST(___WORD,cell); sop.arg[1]=target;
+  ___BEGIN_TRY
+  on_all_processors(___PSP &sop);
+  if(sop.arg[1]==-1) {
+    /* Exactly one retry follows a complete GC and owner-effect return. An
+     * actually live affine resource still refuses without membership change. */
+    ___garbage_collect(___PSP 0);
+    sop.op=OP_VM_RESIZE;sop.arg[0]=___CAST(___WORD,cell);sop.arg[1]=target;
+    on_all_processors(___PSP &sop);
+  }
+  ___END_TRY
+  ___return_rc_root(root); ___release_rc(root);
+  if (___err!=___FIX(___NO_ERR)) ___throw_error(___PSP ___err);
+  return managed && sop.arg[0]==___FIX(___NO_ERR) ? ___FIX(sop.arg[1]) : sop.arg[0];
+}
+
 ___EXP_FUNC(___SCMOBJ,___current_vm_resize)
    ___P((___PSD ___SCMOBJ thunk, int target_processor_count),
         (___PSV thunk,target_processor_count)
@@ -1304,31 +1369,81 @@ ___SCMOBJ thunk;
 int target_processor_count;)
 {
   ___PSGET
-  ___sync_op_struct sop = {0,{0,0}};
-  ___SCMOBJ ___err;
-  void *root;
-  const ___SCMOBJ *cell;
-  if (target_processor_count<1) return ___FIX(___UNKNOWN_ERR);
-  if (target_processor_count>___MAX_PROCESSORS) target_processor_count=___MAX_PROCESSORS;
-  root=___alloc_rc(___PSP 0);
-  if (root==0) return ___FIX(___HEAP_OVERFLOW_ERR);
-  ___set_data_rc(root,thunk);
-  cell=___borrow_rc_root(___ps,root);
-  if (cell==0) { ___release_rc(root); return ___FIX(___UNKNOWN_ERR); }
-  sop.op=OP_VM_RESIZE; sop.arg[0]=___CAST(___WORD,cell); sop.arg[1]=target_processor_count;
-  ___BEGIN_TRY
-  on_all_processors(___PSP &sop);
-  if(sop.arg[1]) {
-    /* Exactly one retry follows a complete GC and owner-effect return. An
-     * actually live affine resource still refuses without membership change. */
-    ___garbage_collect(___PSP 0);
-    sop.op=OP_VM_RESIZE;sop.arg[0]=___CAST(___WORD,cell);sop.arg[1]=target_processor_count;
-    on_all_processors(___PSP &sop);
+  return current_vm_resize_request(___PSP thunk,target_processor_count,0);
+}
+
+___SCMOBJ ___current_vm_resize_ticket(___PSD ___SCMOBJ thunk, int target)
+{
+  ___PSGET
+  return current_vm_resize_request(___PSP thunk,target,1);
+}
+
+/* This is a nonblocking read. The Scheme waiter holds no native lease and
+ * can service ordinary sync interrupts while yielding. */
+___SCMOBJ ___startup_ready_status(___PSD ___SCMOBJ ticket)
+{
+  ___PSGET
+#ifndef ___SINGLE_THREADED_VMS
+  ___virtual_machine_state vm=___VMSTATE_FROM_PSTATE(___ps);
+  ___vm_lifecycle *r=vm->lifecycle;
+  ___SCMOBJ result=___FIX(___NO_ERR);
+  int i;
+  if (!r || !___FIXNUMP(ticket)) return ___FIX(___UNKNOWN_ERR);
+  ___MUTEX_LOCK(r->gate);
+  if (___INT(ticket)!=r->membership_epoch || r->resize_phase==___RESIZE_RETAINED)
+    result=___FIX(___UNKNOWN_ERR);
+  else
+    for (i=1;i<vm->processor_count;i++) {
+      ___resize_launch *launch=&r->launches[i];
+      if (launch->vm!=vm || launch->id!=i || launch->entry!=___LAUNCH_RUN ||
+          !___WORD_LOAD_ACQUIRE(&launch->native_live) ||
+          ___WORD_LOAD_ACQUIRE(&launch->uncertain) ||
+          ___WORD_LOAD_ACQUIRE(&launch->data_closed) ||
+          launch->startup_phase==___STARTUP_RETURNED ||
+          (launch->startup_phase==___STARTUP_PENDING && !launch->managed_startup)) {
+        result=___FIX(___UNKNOWN_ERR);
+        break;
+      }
+      if (launch->startup_phase==___STARTUP_PENDING) result=___FAL;
+    }
+  ___MUTEX_UNLOCK(r->gate);
+  return result;
+#else
+  return ticket==___FIX(0) ? ___FIX(___NO_ERR) : ___FIX(___UNKNOWN_ERR);
+#endif
+}
+
+___SCMOBJ ___startup_ready(___PSDNC)
+{
+  ___PSGET
+#ifndef ___SINGLE_THREADED_VMS
+  ___virtual_machine_state vm=___VMSTATE_FROM_PSTATE(___ps);
+  ___vm_lifecycle *r=vm->lifecycle;
+  int id=___PROCESSOR_ID(___ps,vm);
+  ___activation_record *activation;
+  ___resize_launch *launch;
+  ___SCMOBJ result=___FAL;
+  if (!r || id<=0 || id>=___MAX_PROCESSORS) return ___FAL;
+  activation=r->activations[id];
+  if (!activation || activation->owner!=___ps ||
+      activation->kind!=___ACTIVATION_STARTUP || !___activation_marker_live(activation))
+    return ___FAL;
+  ___MUTEX_LOCK(r->gate);
+  launch=&r->launches[id];
+  if (id<vm->processor_count && launch->vm==vm && launch->id==id &&
+      launch->generation==activation->startup_generation &&
+      launch->entry==___LAUNCH_RUN && launch->startup_phase==___STARTUP_PENDING &&
+      ___WORD_LOAD_ACQUIRE(&launch->native_live) &&
+      !___WORD_LOAD_ACQUIRE(&launch->uncertain) &&
+      !___WORD_LOAD_ACQUIRE(&launch->data_closed)) {
+    launch->startup_phase=___STARTUP_READY;
+    result=___TRU;
   }
-  ___END_TRY
-  ___return_rc_root(root); ___release_rc(root);
-  if (___err!=___FIX(___NO_ERR)) ___throw_error(___PSP ___err);
-  return sop.arg[0];
+  ___MUTEX_UNLOCK(r->gate);
+  return result;
+#else
+  return ___FAL;
+#endif
 }
 
 
@@ -3611,6 +3726,10 @@ static ___SCMOBJ run_startup_root(___processor_state ___ps, void *root,
                                  const ___SCMOBJ *cell)
 {
   ___SCMOBJ ___err, temporary;
+  ___virtual_machine_state vm=___VMSTATE_FROM_PSTATE(___ps);
+  ___vm_lifecycle *life=vm->lifecycle;
+  int id=___PROCESSOR_ID(___ps,vm);
+  ___resize_launch *launch=&life->launches[id];
   volatile ___SCMOBJ marker=___FAL;
   void *volatile owner=root;
   ___ps->context->r[0]=___GSTATE->handler_break;
@@ -3621,12 +3740,16 @@ static ___SCMOBJ run_startup_root(___processor_state ___ps, void *root,
       marker=temporary;
       /* The record was created for this exact rooted startup. Public SFUN
        * and ___run entries never acquire this terminal capability. */
-      ___VMSTATE_FROM_PSTATE(___ps)->lifecycle->activations[
-        ___PROCESSOR_ID(___ps,___VMSTATE_FROM_PSTATE(___ps))]->kind=___ACTIVATION_STARTUP;
+      ___activation_record *activation=life->activations[id];
+      activation->startup_generation=launch->generation;
+      activation->kind=___ACTIVATION_STARTUP;
       release_startup_activation_root(___ps,owner); owner=0;
       ___err=___call(___PSP 0,___VECTORELEM(marker,0),marker);
     }
   ___END_TRY
+  ___MUTEX_LOCK(life->gate);
+  launch->startup_phase=___STARTUP_RETURNED;
+  ___MUTEX_UNLOCK(life->gate);
   if (marker!=___FAL) ___kill_sfun_stack_marker(marker);
   if (owner!=0) release_startup_activation_root(___ps,owner);
   return ___err;
@@ -5542,44 +5665,28 @@ ___HIDDEN ___SCMOBJ setup_command_line_arguments ___PVOID
 }
 
 
-___HIDDEN void setup_kernel_handlers ___PVOID
+___HIDDEN ___SCMOBJ setup_kernel_handlers ___PVOID
 {
-  ___SCMOBJ ___start;
+  ___SCMOBJ labels[___KERNEL_ROLE_COUNT] = {0};
+  int i, j;
 
-#define ___PH_LBL0 1
+  ___kernel_role_labels(labels);
 
-  /*
-   * The label numbers must match those in the procedure
-   * "##kernel-handlers" in the file "_kernel.scm".
-   */
+  for (i=0; i<___KERNEL_ROLE_COUNT; ++i)
+    {
+      if (labels[i]==0)
+        return ___FIX(___MODULE_INCOMPATIBILITY_ERR);
+      for (j=0; j<i; ++j)
+        if (labels[i]==labels[j])
+          return ___FIX(___MODULE_INCOMPATIBILITY_ERR);
+    }
 
-  ___start = ___PRMCELL(___G__23__23_kernel_2d_handlers.prm);
+#define ___PUBLISH_KERNEL_ROLE(field) \
+  ___GSTATE->field = labels[___KERNEL_ROLE_ ## field];
+  ___KERNEL_ROLES(___PUBLISH_KERNEL_ROLE)
+#undef ___PUBLISH_KERNEL_ROLE
 
-  ___GSTATE->handler_sfun_conv_error = ___LBL(0);
-  ___GSTATE->handler_cfun_conv_error = ___LBL(1);
-  ___GSTATE->handler_stack_limit     = ___LBL(2);
-  ___GSTATE->handler_heap_limit      = ___LBL(3);
-  ___GSTATE->handler_not_proc        = ___LBL(4);
-  ___GSTATE->handler_not_proc_glo    = ___LBL(5);
-  ___GSTATE->handler_wrong_nargs     = ___LBL(6);
-  ___GSTATE->handler_get_rest        = ___LBL(7);
-  ___GSTATE->handler_get_key         = ___LBL(8);
-  ___GSTATE->handler_get_key_rest    = ___LBL(9);
-  ___GSTATE->handler_force           = ___LBL(10);
-  ___GSTATE->handler_return_to_c     = ___LBL(11);
-  ___GSTATE->handler_break           = ___LBL(12);
-  ___GSTATE->internal_return         = ___LBL(13);
-
-  /*
-   * The label numbers must match those in the procedure
-   * "##dynamic-env-bind" in the file "_kernel.scm".
-   */
-
-  ___start = ___PRMCELL(___G__23__23_dynamic_2d_env_2d_bind.prm);
-
-  ___GSTATE->dynamic_env_bind_return = ___LBL(1);
-
-#undef ___PH_LBL0
+  return ___FIX(___NO_ERR);
 }
 
 
@@ -6719,7 +6826,8 @@ ___setup_params_struct *setup_params;)
        * Setup kernel handlers.
        */
 
-      setup_kernel_handlers ();
+      if ((err = setup_kernel_handlers ()) != ___FIX(___NO_ERR))
+        break;
 
       /*
        * Create list of command line arguments (for ##command-line).

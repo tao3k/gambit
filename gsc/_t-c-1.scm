@@ -1308,9 +1308,8 @@
 (define (targ-cfg-host-plan? plan)
   (and plan (eq? (vector-ref plan 0) 'cfg)))
 
-;; Only the dominant procedure is eligible by default. An explicit #t also admits
-;; the experimental single return-host split.
-(define targ-indexed-host-layout? (make-parameter 'cfg))
+;; Internal experiment switch, scoped to one compilation request.
+(define targ-indexed-host-layout? (make-parameter #f))
 
 (define (targ-plan-procedure-hosts obj)
   ;; User-authored C can refer to host-local state and labels outside
@@ -1319,45 +1318,72 @@
   (let ((code (stretchable-vector->list (vector-ref (cadr obj) 0))))
     (and (every? (lambda (node) (not (and (pair? node) (eq? (car node) 'opaque-c)))) code)
          (or (targ-plan-cfg-hosts obj)
-             (and (eq? (targ-indexed-host-layout?) #t)
-                  (targ-plan-return-host obj))))))
+             (targ-plan-return-host obj)))))
 
-(define (targ-dominant-procedure procs)
-  ;; Compare logical entry counts before making any placement decisions.
-  ;; If there is no strict majority, no one procedure dominates the unit.
-  (let loop ((rest procs) (total 0) (best #f) (largest 0))
-    (if (null? rest)
-        (and (> largest (- total largest)) best)
-        (let ((entries (length (vector-ref (cadar rest) 1))))
-          (if (> entries largest)
-              (loop (cdr rest) (+ total entries) (car rest) entries)
-              (loop (cdr rest) (+ total entries) best largest))))))
+(define (targ-plan-c-scope c-decls c-procs c-inits c-objs)
+  ;; Preserve compiler-produced function boundaries instead of conflating
+  ;; them with opaque user declarations. A role is provenance, not permission
+  ;; to move code across hosts or to ignore callback/root/label dependencies.
+  (let loop ((rest c-decls) (decls '()) (functions '()))
+    (cond ((null? rest)
+           (vector (reverse decls) (reverse functions) c-procs c-inits c-objs))
+          ((and (pair? (car rest)) (eq? (caar rest) 'c-function-decl))
+           (loop (cdr rest) decls (cons (car rest) functions)))
+          (else (loop (cdr rest) (cons (car rest) decls) functions)))))
 
 (define (targ-plan-compilation-unit procs label-count c-decls c-procs c-inits c-objs)
-  (let* ((configured? (or (pair? c-decls) (pair? c-procs)
-                          (pair? c-inits) (pair? c-objs)))
-         (mode (targ-indexed-host-layout?))
-         (eligible
-          (cond (configured? '())
-                ((eq? mode #t) procs)
-                ((eq? mode 'cfg)
-                 (let ((dominant (targ-dominant-procedure procs)))
-                   (if dominant (list dominant) '())))
-                (else '()))))
+  (let* ((scope (targ-plan-c-scope c-decls c-procs c-inits c-objs))
+         (raw-decls (vector-ref scope 0))
+         ;; The declaration author certifies the complete unit, including raw
+         ;; procedure bodies, for whole GVM procedures as physical hosts.
+         ;; Outlining individual blocks inside such units is a separate proof.
+         (declared? (and (pair? raw-decls)
+                         (every? (lambda (x)
+                                   (and (pair? x)
+                                        (eq? (car x) 'c-procedure-host-decl)
+                                        (string? (cdr x))))
+                                 raw-decls)
+                         (null? c-inits)
+                         (null? c-objs)
+                         (or (null? c-procs) (not targ-inline-c-proc?))))
+         (configured? (and (not declared?)
+                           (or (pair? c-decls) (pair? c-procs)
+                               (pair? c-inits) (pair? c-objs)))))
     (vector (if configured? 'configured 'procedures)
             procs
             label-count
-            (let loop ((rest eligible))
-              (if (null? rest)
-                  '()
-                  (let ((split (targ-plan-procedure-hosts (car rest))))
-                    (if split
-                        (cons (cons (car rest) split) (loop (cdr rest)))
-                        (loop (cdr rest)))))))))
+            (and (not configured?)
+                 (not declared?)
+                 (targ-indexed-host-layout?)
+                 (let ((placements (make-table 'test: eq?)))
+                   (for-each
+                    (lambda (proc)
+                      (let ((split (targ-plan-procedure-hosts proc)))
+                        (if split (table-set! placements proc split))))
+                    procs)
+                   placements))
+            scope)))
+
+(define (targ-report-c-scope unit)
+  ;; Reuse the ordinary verbose diagnostic port. Do not put audit comments
+  ;; in generated C: adding a line can change user C's __LINE__ expansion.
+  (if targ-info-port
+      (let ((scope (targ-compilation-unit-c-scope unit)))
+        (display "Foreign C scope: declarations=" targ-info-port)
+        (display (length (vector-ref scope 0)) targ-info-port)
+        (display " out-of-line-functions=" targ-info-port)
+        (display (length (vector-ref scope 1)) targ-info-port)
+        (display " procedures=" targ-info-port)
+        (display (length (vector-ref scope 2)) targ-info-port)
+        (display " initializers=" targ-info-port)
+        (display (length (vector-ref scope 3)) targ-info-port)
+        (display " objects=" targ-info-port)
+        (display (length (vector-ref scope 4)) targ-info-port)
+        (newline targ-info-port))))
 
 (define (targ-compilation-unit-return-host unit obj)
-  (let ((entry (assq obj (vector-ref unit 3))))
-    (and entry (cdr entry))))
+  (let ((placements (vector-ref unit 3)))
+    (and placements (table-ref placements obj #f))))
 
 (define (targ-return-host-name host)
   (list 'append host "_return_host"))
@@ -1365,6 +1391,7 @@
 (define (targ-compilation-unit-host-layout unit) (vector-ref unit 0))
 (define (targ-compilation-unit-procedures unit) (vector-ref unit 1))
 (define (targ-compilation-unit-label-count unit) (vector-ref unit 2))
+(define (targ-compilation-unit-c-scope unit) (vector-ref unit 4))
 
 (define (targ-heap-dump filename c-decls c-inits c-objs module-descr linker-name c-procs)
   (let* ((sym-list
@@ -1431,10 +1458,9 @@
       (case (targ-compilation-unit-host-layout unit)
         ((procedures) '("HOST_LAYOUT_PROCEDURES"))
         (else '("HOST_LAYOUT_CONFIGURED"))))
-    (if (eq? (targ-compilation-unit-host-layout unit) 'procedures)
-        (targ-macro-definition '("SHARED_PROCEDURE_DISPATCH") 1))
-    (if (pair? (vector-ref unit 3))
+    (if (and (vector-ref unit 3) (> (table-length (vector-ref unit 3)) 0))
         (targ-macro-definition '("INDEXED_HOST_ENTRIES") 1))
+    (targ-report-c-scope unit)
     (targ-define-count "LBLCOUNT" (targ-compilation-unit-label-count unit))
     (targ-define-count "OFDCOUNT" ofd-count)
     (targ-macro-definition '("MODDESCR") (targ-heap-ref-obj module-descr))
@@ -2096,6 +2122,44 @@
             (else        1))))
     (targ-vector-like-object def-name id chunk-name elems convert cycle)))
 
+;; Resolve from this module's relocated label table, using the same numbered
+;; label object that supplies the procedure/return descriptor above its body.
+(define (targ-dump-kernel-role-bindings objs)
+  (let ((bindings
+         (let loop ((objs objs) (result '()))
+           (if (null? objs)
+               (reverse result)
+               (let* ((p (cdar objs))
+                      (base (cdr (caddr p))))
+                 (let collect ((roles (vector-ref (car p) 5)) (result result))
+                   (if (null? roles)
+                       (loop (cdr objs) result)
+                       (collect
+                        (cdr roles)
+                        (cons (cons (caar roles)
+                                    (+ base (cdr (targ-lbl-num (cdar roles)))))
+                              result)))))))))
+    (if (pair? bindings)
+        (begin
+          (targ-display "void ___kernel_role_labels(___SCMOBJ *labels) {")
+          (targ-line)
+          (targ-display "  if (___lp == 0) return;")
+          (targ-line)
+          (let loop ((rest bindings) (seen '()))
+            (if (pair? rest)
+                (let ((name (caar rest)))
+                  (if (member name seen)
+                      (compiler-internal-error "duplicate kernel entry role" name))
+                  (targ-display "  labels[___KERNEL_ROLE_")
+                  (targ-display name)
+                  (targ-display "] = ___MLBL(")
+                  (targ-display (cdar rest))
+                  (targ-display ");")
+                  (targ-line)
+                  (loop (cdr rest) (cons name seen)))))
+          (targ-display "}")
+          (targ-line)))))
+
 (define (targ-dump-prc unit c-objs c-decls ofd-count)
   (let ((objs (targ-compilation-unit-procedures unit)))
 
@@ -2228,6 +2292,8 @@
      objs))
 
   (targ-code* '("END_LBL"))
+
+  (targ-dump-kernel-role-bindings objs)
 
   (targ-line)
 
@@ -2419,6 +2485,10 @@
     (define (resource-set op1 op2 element?)
       (targ-define-prefix (cons op1 "ALL"))
       (set! targ-in-macro-definition? #t)
+      (if (eq? op2 'd-)
+          ;; D_ALL is expanded once by the selected physical C host. Scheme
+          ;; procedures can share that host, so they cannot declare this local.
+          (targ-display " ___WORD ___demand_attempt=0;"))
       (let loop ((i 0))
         (if (< i nb-res)
           (if (element? i)
@@ -2641,7 +2711,8 @@
         ((bigfix)      (two-heads "BIGFIX"    (car tail) (cdr tail)))
         ((gcmap)       (two-heads "GCMAP"     (car tail) (cdr tail)))
         ((seq)         (targ-code-seq tail))
-        ((append opaque-c) (targ-code-append tail))
+        ((append opaque-c c-function-decl) (targ-code-append tail))
+        ((c-procedure-host-decl) (targ-code tail))
         ((cell)        (targ-code tail))
         ((prc)         (one-head "PRC" tail))
         (else          (one-head head tail))))
