@@ -108,56 +108,126 @@ ___HIDDEN void census_array(___collector_worker *work, ___WORD *start, ___WORD n
 }
 
 ___HIDDEN int census_frame_descriptor(___collector_worker *work, ___WORD *top,
-                                     ___WORD ra, ___frame_descriptor *d)
+                                     ___WORD ra, int carry,
+                                     ___WORD *logical_past,
+                                     ___frame_descriptor *d,
+                                     ___SIZE_TS *half_words_out)
 {
-  ___processor_state ___ps=work->carrier;
   ___gc_census *c=work->census;
-  ___msection *section;
-  ___UWORD address=___CAST(___UWORD,top),first;
-  int i=find_msection(the_msections,top);
-  if(i<0 || i>=the_msections->nb_sections)goto invalid;
-  section=the_msections->sections[i];first=___CAST(___UWORD,section->base+c->source_offset);
-  if(address<first || address-first>=(___MSECTION_SIZE>>1)*___WS)goto invalid;
-  *d=___decode_frame_descriptor(___LABEL_DESCR_GET(ra==___GSTATE->internal_return?
-      ___FP_STK(top,___RETI_RA):ra),ra==___GSTATE->internal_return);
-  if(d->fs<=0 || d->link<0 || d->link>=d->fs ||
-     ___FRAME_SPACE(d->fs)>(___MSECTION_SIZE>>1)-(address-first)/___WS)goto invalid;
-  return 1;
-invalid:c->failed=1;return 0;
+  if (read_source_stack_frame(work,top,c->source_offset,logical_past,
+                              &ra,carry,d,half_words_out,0)) return 1;
+  c->failed=1;
+  return 0;
 }
 
 ___HIDDEN void census_capture(___collector_worker *work, ___WORD *cell)
 {
   ___gc_census *c=work->census;
   ___WORD cf=*cell,ra=0;
+  ___WORD *logical_past=0;
   int carry=0;
+  /* Each recorded segment supplies its own bound. Reuse it only while
+   * traversing that segment, and independently admit a raw break target. */
   while(___FIXNUMP(cf) && cf!=___END_OF_CONT_MARKER && !c->failed) {
-    ___WORD *top=___CAST(___WORD*,cf),*base,next;
+    ___WORD *top=___CAST(___WORD*,cf),*base,*known_break,next;
     ___frame_descriptor d;
-    if(!carry)ra=___FP_STK(top,-___FRAME_STACK_RA);
-    if(!census_frame_descriptor(work,top,ra,&d))return;
-    base=top+___FRAME_SPACE(d.fs);next=___FP_STK(base,d.link+1);
+    ___SIZE_TS half_words=0,words;
+    int at_break;
+    if(!read_source_stack_frame(work,top,c->source_offset,logical_past,&ra,carry,&d,
+                                &half_words,&known_break)) {c->failed=1;return;}
+    words=___FRAME_SPACE(d.fs);
+    base=top+words;next=___FP_STK(base,d.link+1);
+    if(!source_break_agrees(base,known_break,next)) {c->failed=1;return;}
     if(___FIXNUMP(next)) {
-      if(next==___END_OF_CONT_MARKER) {c->failed=1;return;}
       cf=___TAG(___UNTAG_AS(next,___tFIXNUM),___tSUBTYPED);break;
     }
-    if(!census_claim(work,top,___FRAME_SPACE(d.fs),d.fs+___FRAME_EXTRA_SLOTS+1,1))return;
+    at_break=next==___GSTATE->handler_break;
+    if(at_break && half_words-words<=___BREAK_FRAME_NEXT) {
+      c->failed=1;return;
+    }
+    if(!census_claim(work,top,words,d.fs+___FRAME_EXTRA_SLOTS+1,1))return;
     mark_frame(work,base,&d);
-    if(next==___GSTATE->handler_break) {
-      cf=___FP_STK(base,-___BREAK_FRAME_NEXT);carry=0;
-    } else {cf=___CAST(___WORD,base);ra=next;carry=1;}
+    if(at_break) {
+      cf=___FP_STK(base,-___BREAK_FRAME_NEXT);carry=0;logical_past=0;
+    } else {cf=___CAST(___WORD,base);ra=next;carry=1;logical_past=known_break;}
   }
   if(cf!=___END_OF_CONT_MARKER && !c->failed)census_array(work,&cf,1);
 }
 
-___HIDDEN void census_continuation(___collector_worker *work, ___execution_context *context)
+/* Admit the frozen owner's stack_msection_ and its source-parity claim.
+ * find_msection plus numeric containment is not ownership: another carrier's
+ * active stack can contain the same addresses. Returns 0 when the grant is
+ * stored, 1 when a valid shape is owned by someone else, 2 when the source
+ * is malformed. Frame words are not loaded. */
+___HIDDEN int capture_continuation_source
+ (___root_member *member, ___SIZE_TS source_offset, ___gc_resume_space *resume)
 {
-  ___WORD *top=context->fp,ra=0;
-  int carry=0;
-  while(top!=context->stack_break && !work->census->failed) {
+  ___processor_state owner;
+  ___execution_context *context;
+  ___msection *section;
+  section_claim *claim;
+  ___WORD *fp, *brk, *half_base, *half_past, *cell=0, *scan=0;
+  ___SIZE_TS length=0;
+  int shape=0;
+  if(member==0 || resume==0) return 2;
+  owner=member->owner;
+  context=member->context;
+  if(owner==0 || context==0 || owner->context!=context) return 2;
+  section=owner->mem.stack_msection_;
+  fp=context->fp;
+  brk=context->stack_break;
+  if(section==0 || section->base==0) return 2;
+  half_base=section->base+source_offset;
+  half_past=half_base+(___MSECTION_SIZE>>1);
+  /* Geometry, the first frame load and later copy share fp. A cursor
+   * below the half is not admitted by checking the half base while
+   * storing the raw pointer. */
+  scan=fp;
+  if(fp && ___gc_stack_span_words(half_base,half_past,fp,brk,
+       ___FIRST_BREAK_FRAME_SPACE,&length)) {
+    cell=___gc_stack_first_read_cell(fp);
+    shape=___gc_stack_cell_inside(fp,length,cell);
+  }
+  claim=section_claim_at(section,source_offset);
+  if(shape && claim->stack_state==STACK_ACTIVE &&
+     claim->stack_owner!=0 && claim->stack_owner!=owner) return 1;
+  if(!shape || claim->stack_state!=STACK_ACTIVE || claim->stack_owner!=owner)
+    return 2;
+  resume->context=context;
+  resume->owner=owner;
+  resume->source_section=section;
+  resume->source_fp=fp;
+  resume->source_break=brk;
+  resume->source_half=source_offset;
+  resume->source_words=length;
+  resume->copy_admitted=0;
+  return 0;
+}
+
+___HIDDEN void census_continuation(___collector_worker *work, ___root_member *member,
+                                   ___gc_resume_space *resume, ___SIZE_TS source_offset)
+{
+  ___WORD *top,*logical_past,ra=0;
+  int carry=0,gate;
+  if(work==0 || member==0 || member->owner==0 || resume==0) {
+    rc_contract_error("Continuation source stack is malformed at census entry");
+    return;
+  }
+  gate=capture_continuation_source(member,source_offset,resume);
+  if(gate!=0) {
+    if(work->census) work->census->failed=1;
+    rc_contract_error(gate==1
+      ? "Continuation source stack is owned by another carrier"
+      : "Continuation source stack is malformed at census entry");
+    return;
+  }
+  /* Same coordinate capture_continuation_source stored. Exact end stops
+   * on it; a frame that would pass it fails in the descriptor first. */
+  logical_past=resume->source_break;
+  top=resume->source_fp;
+  while(top!=logical_past && !work->census->failed) {
     ___frame_descriptor d;___WORD *base,next;
-    if(!carry)ra=___FP_STK(top,-___FRAME_STACK_RA);
-    if(!census_frame_descriptor(work,top,ra,&d))return;
+    if(!census_frame_descriptor(work,top,ra,carry,logical_past,&d,0))return;
     base=top+___FRAME_SPACE(d.fs);next=___FP_STK(base,d.link+1);
     mark_frame(work,base,&d);
     top=base;ra=next;carry=1;
@@ -223,7 +293,7 @@ ___HIDDEN int plan_copy_round(___processor_state ps)
     mark_global_variables(___PSP &m->globals);
     mark_registers(work, m->context);mark_saved(work, m->context);
     mark_type_cache(work, m->context);mark_processor_scmobj(work, m->context);
-    census_continuation(work,m->context);
+    census_continuation(work,m,&round->resume[i],c->source_offset);
     base=___CAST(___WORD*,m->owner->mem.still_objs_);
     while(base) {
       if(base[___STILL_REFCOUNT]!=0) {___WORD value=___SUBTYPED_FROM_BODY(base+___STILL_BODY);census_array(work,&value,1);}
@@ -241,16 +311,63 @@ ___HIDDEN int plan_copy_round(___processor_state ps)
   /* Threshold markers each charge at least MSECTION_CHUNK successful words.
    * Large requests are isolated events, not part of the small no-fit bound. */
   if(!___gc_copy_section_bound(w,c->small_words,c->small_max,c->large_count,
-       capacity,___MSECTION_CHUNK,&k) ||
-     !___gc_copy_plan_fits(n,k,the_msections->nb_sections))goto refuse;
+       capacity,___MSECTION_CHUNK,&k))goto refuse;
+  /* Root sections and the copy range are distinct list slots. When the
+   * certificate is only short of mapped sections, grow to n+k before
+   * refusing. A soft-limit collection then does not become heap overflow
+   * while one more section would hold the same plan. */
+  if(the_msections==0 || !___gc_copy_plan_fits(n,k,the_msections->nb_sections)) {
+    ___SIZE_TS max_heap;
+    int need;
+    /* n and k are signed counts. Refuse before the addition when the sum
+     * is not representable; a later positive test cannot undo that overflow. */
+    if(n<0 || k<0 || k>INT_MAX-n)goto refuse;
+    need=n+k;
+    max_heap=___GSTATE->setup_params.max_heap;
+    if(need>0 && max_heap==0)
+      adjust_msections(&the_msections, need);
+    else if(need>0) {
+      /* Byte cap, word size and still words share one remaining-section
+       * count. Subtract still usage only after it fits in the cap. */
+      ___SIZE_TS cap=max_heap>>___LWS;
+      ___SIZE_TS still=occupied_words_still;
+      if(still>=0 && still<=cap &&
+         (___SIZE_TS)need<=(cap-still)/___MSECTION_SIZE)
+        adjust_msections(&the_msections, need);
+    }
+    if(the_msections==0 || !___gc_copy_plan_fits(n,k,the_msections->nb_sections))
+      goto refuse;
+  }
   section=the_msections->head;
   for(i=0;i<n;i++) {
-    ___gc_resume_space *r=&round->resume[i];___execution_context *context=round->members[i].context;
-    ___SIZE_TS length=context->stack_break+___FIRST_BREAK_FRAME_SPACE-context->fp;
-    if(!section || length<0 || length>(___MSECTION_SIZE>>1)-___MSECTION_FUDGE ||
+    ___gc_resume_space *r=&round->resume[i];
+    ___root_member *m=&round->members[i];
+    ___execution_context *context=m->context;
+    ___WORD *fp, *brk, *half_base, *half_past, *cell;
+    ___SIZE_TS length=0;
+    section_claim *claim;
+    /* The census gate already stored this owner's stack. Do not replace it
+     * with find_msection: a foreign active stack can contain fp. */
+    if(!section || m->owner==0 || !context || r->source_section==0 ||
+       r->source_section!=m->owner->mem.stack_msection_ ||
+       r->owner!=m->owner || r->context!=context ||
+       r->source_half!=c->source_offset)goto refuse;
+    fp=context->fp;brk=context->stack_break;
+    if(r->source_fp!=fp || r->source_break!=brk)goto refuse;
+    half_base=r->source_section->base+r->source_half;
+    half_past=half_base+(___MSECTION_SIZE>>1);
+    cell=___gc_stack_first_read_cell(fp);
+    claim=section_claim_at(r->source_section,r->source_half);
+    if(claim->stack_state!=STACK_ACTIVE || claim->stack_owner!=m->owner ||
+       !___gc_stack_span_words(half_base,half_past,fp,brk,
+          ___FIRST_BREAK_FRAME_SPACE,&length) ||
+       length!=r->source_words ||
+       !___gc_stack_cell_inside(fp,length,cell) ||
+       length>(___MSECTION_SIZE>>1)-___MSECTION_FUDGE ||
        (i>=w && restore_loan_words(length)<___MSECTION_FUDGE+2))goto refuse;
-    r->stack_section=section;r->context=context;r->owner=round->members[i].owner;
-    r->epoch=round->epoch;r->accepted=r->restored=r->loan_used=0;
+    r->stack_section=section;r->context=context;r->owner=m->owner;
+    r->epoch=round->epoch;
+    r->accepted=r->restored=r->loan_used=r->copy_admitted=0;
     section=section->next;
   }
   g->copy_first=section;

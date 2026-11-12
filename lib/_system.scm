@@ -8,7 +8,7 @@
 
 ;;; System procedures
 
-(##include "~~lib/gambit/char/char#.scm") ;; for char-set equality and hashing
+(##include "~~lib/gambit/char/char-set#.scm") ;; for char-set equality and hashing
 
 (macro-case-target
 
@@ -1396,7 +1396,11 @@ else
     else
       {
         ___BOOL overflow = 0;
+#ifdef ___GAMBIT_DEV_RESTORE_PROBE
+        ___hp += ___dev_restore_census_provisional(___ps,___hp,(___SIZE_TS)words,"system-gchash-provisional");
+#else
         ___hp += words;
+#endif
         if (___hp > ___ps->heap_limit)
           {
             ___FRAME_STORE_RA(___R0)
@@ -1406,14 +1410,26 @@ else
             ___SET_R0(___FRAME_FETCH_RA)
           }
         else
-          ___hp -= words;
+          {
+            ___hp -= words;
+#ifdef ___GAMBIT_DEV_RESTORE_PROBE
+            ___dev_restore_note_cursor(___ps,___hp);
+#endif
+          }
         if (overflow)
           result = ___FIX(___HEAP_OVERFLOW_ERR);
         else
           {
             result = ___SUBTYPED_FROM_START(___hp);
+#ifdef ___GAMBIT_DEV_RESTORE_PROBE
+            ___dev_restore_census_other(___ps,___hp,"system-gchash-header");
+#endif
             ___SUBTYPED_HEADER_SET(result, ___MAKE_HD_WORDS(n, ___sWEAK));
+#ifdef ___GAMBIT_DEV_RESTORE_PROBE
+            ___hp += ___dev_restore_census_direct(___ps,___hp,(___SIZE_TS)words,"system-gchash-commit");
+#else
             ___hp += words;
+#endif
           }
       }
   }
@@ -1675,50 +1691,87 @@ end-of-code
 (define-prim (##gc-hash-table-for-each proc gcht)
   (##declare (not interrupts-enabled))
   (if (##gc-hash-table? gcht)
-    (let loop ((i (macro-gc-hash-table-key0)))
-      (if (##fx< i (##gc-hash-table-length gcht))
-        (let ((key (##gc-hash-table-field-ref gcht i)))
-          (if (and (##not (##eq? key (macro-unused-obj)))
-                   (##not (##eq? key (macro-deleted-obj))))
-            (proc key (##gc-hash-table-field-ref gcht (##fx+ i 1))))
-          (let ()
-            (##declare (interrupts-enabled))
-            (loop (##fx+ i 2))))
-        (##void)))
-    (##void)))
+      (let ((result
+             (begin
+               ;; Bit 8 counts a suspended physical cursor. A lookup may
+               ;; rehash only while this count is zero.
+               (macro-gc-hash-table-flags-set!
+                gcht
+                (##fx+ (macro-gc-hash-table-flags gcht) 256))
+               (let loop ((i (macro-gc-hash-table-key0)))
+                 (if (##fx< i (##gc-hash-table-length gcht))
+                     (let ((key (##gc-hash-table-field-ref gcht i)))
+                       (if (and (##not (##eq? key (macro-unused-obj)))
+                                (##not (##eq? key (macro-deleted-obj))))
+                           (proc key
+                                 (##gc-hash-table-field-ref gcht (##fx+ i 1))))
+                       (let ()
+                         (##declare (interrupts-enabled))
+                         (loop (##fx+ i 2))))
+                     (##void))))))
+        (macro-gc-hash-table-flags-set!
+         gcht
+         (##fx- (macro-gc-hash-table-flags gcht) 256))
+        result)
+      (##void)))
 
 (define-prim (##gc-hash-table-search proc gcht)
   (##declare (not interrupts-enabled))
   (if (##gc-hash-table? gcht)
-    (let loop ((i (macro-gc-hash-table-key0)))
-      (if (##fx< i (##gc-hash-table-length gcht))
-        (let ((key (##gc-hash-table-field-ref gcht i)))
-          (or (and (##not (##eq? key (macro-unused-obj)))
-                   (##not (##eq? key (macro-deleted-obj)))
-                   (proc key (##gc-hash-table-field-ref gcht (##fx+ i 1))))
-              (let ()
-                (##declare (interrupts-enabled))
-                (loop (##fx+ i 2)))))
-        #f))
-    #f))
+      (let ((result
+             (begin
+               (macro-gc-hash-table-flags-set!
+                gcht
+                (##fx+ (macro-gc-hash-table-flags gcht) 256))
+               (let loop ((i (macro-gc-hash-table-key0)))
+                 (if (##fx< i (##gc-hash-table-length gcht))
+                     (let ((key (##gc-hash-table-field-ref gcht i)))
+                       (or (and (##not (##eq? key (macro-unused-obj)))
+                                (##not (##eq? key (macro-deleted-obj)))
+                                (proc key
+                                      (##gc-hash-table-field-ref
+                                       gcht
+                                       (##fx+ i 1))))
+                           (let ()
+                             (##declare (interrupts-enabled))
+                             (loop (##fx+ i 2)))))
+                     #f)))))
+        (macro-gc-hash-table-flags-set!
+         gcht
+         (##fx- (macro-gc-hash-table-flags gcht) 256))
+        result)
+      #f))
 
 (define-prim (##gc-hash-table-foldl f base proc gcht)
   (##declare (not interrupts-enabled))
   (if (##gc-hash-table? gcht)
-    (let loop ((i (macro-gc-hash-table-key0)) (base base))
-      (if (##fx< i (##gc-hash-table-length gcht))
-        (let ((key (##gc-hash-table-field-ref gcht i)))
-          (if (and (##not (##eq? key (macro-unused-obj)))
-                   (##not (##eq? key (macro-deleted-obj))))
-            (let ((new-base
-                   (f base (proc key (##gc-hash-table-field-ref gcht (##fx+ i 1))))))
-              (##declare (interrupts-enabled))
-              (loop (##fx+ i 2) new-base))
-            (let ()
-              (##declare (interrupts-enabled))
-              (loop (##fx+ i 2) base))))
-        base))
-    base))
+      (let ((result
+             (begin
+               (macro-gc-hash-table-flags-set!
+                gcht
+                (##fx+ (macro-gc-hash-table-flags gcht) 256))
+               (let loop ((i (macro-gc-hash-table-key0)) (base base))
+                 (if (##fx< i (##gc-hash-table-length gcht))
+                     (let ((key (##gc-hash-table-field-ref gcht i)))
+                       (if (and (##not (##eq? key (macro-unused-obj)))
+                                (##not (##eq? key (macro-deleted-obj))))
+                           (let ((new-base
+                                  (f base
+                                     (proc key
+                                           (##gc-hash-table-field-ref
+                                            gcht
+                                            (##fx+ i 1))))))
+                             (##declare (interrupts-enabled))
+                             (loop (##fx+ i 2) new-base))
+                           (let ()
+                             (##declare (interrupts-enabled))
+                             (loop (##fx+ i 2) base))))
+                     base)))))
+        (macro-gc-hash-table-flags-set!
+         gcht
+         (##fx- (macro-gc-hash-table-flags gcht) 256))
+        result)
+      base))
 
 (define-prim (##make-table-aux
               #!optional

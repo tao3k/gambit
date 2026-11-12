@@ -11,6 +11,15 @@ ___SCMOBJ key;)
   int probe2;
   int step2;
   ___SCMOBJ obj;
+  ___SCMOBJ moved;
+
+  /* Bit 8 of the flags integer counts suspended for-each/search/fold
+   * cursors. Scheme increments it around those walks. A read may rebuild
+   * address placement only while that count is zero. */
+  moved = ___GCHASHTABLE_FLAGS_FIELD(ht);
+  if (!___FIXZEROP(___FIXAND(moved, ___FIX(___GCHASHTABLE_FLAG_KEY_MOVED)))
+      && (___INT(moved) >> 8) == 0)
+    gc_hash_table_rehash_in_situ(ht);
 
   size2 = ___INT(___GCHASHTABLELENGTH(ht)) - ___GCHASHTABLE_KEY0;
   ___GCHASHTABLE_HASH_STEP(probe2, step2, key, size2>>1);
@@ -39,10 +48,8 @@ ___SCMOBJ key;)
   if (!___FIXZEROP(___FIXAND(___GCHASHTABLE_FLAGS_FIELD(ht),
                              ___FIX(___GCHASHTABLE_FLAG_KEY_MOVED))))
     {
-      /* An ordinary probe already missed. References are current, but their
-       * address-based placement may be stale. A read cannot acquire layout
-       * write authority: preserve the slots of a suspended for-each/search/
-       * fold cursor, even when its visitor performs a lookup after GC. */
+      /* The probe missed while a for-each/search/fold cursor is suspended.
+       * Slot order must stay put until that walk returns. */
       int i;
       for (i=0; i<size2; i+=2)
         if (___EQP(___FIELD(WEAK, ht, i+___GCHASHTABLE_KEY0), key))

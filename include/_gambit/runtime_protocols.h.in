@@ -1204,6 +1204,60 @@ ___IMP_FUNC(___BOOL,___garbage_collect)
    ___P((___PSD
          ___SIZE_TS requested_words_still),
         ());
+/* Generated write groups share one admission and mapped-retry protocol. */
+___IMP_FUNC(int,___handler_spill_backed)
+   ___P((___processor_state ps, ___WORD *fp), ());
+___IMP_FUNC(int,___group_demand_resume_view)
+   ___P((___processor_state ps, ___WORD group_point,
+         ___WORD **hp, ___WORD **fp), ());
+___IMP_FUNC(int,___group_demand_arm)
+   ___P((___processor_state ps, ___WORD *hp, ___WORD *fp,
+         ___SIZE_TS stack_words, ___SIZE_TS heap_words,
+         ___WORD group_point, ___WORD *attempt_out), ());
+/* One out-of-line entry keeps generated groups from duplicating the protocol. */
+___IMP_FUNC(int,___group_demand_enter)
+   ___P((___processor_state ps, ___WORD **hp, ___WORD **fp,
+         ___SIZE_TS stack_words, ___SIZE_TS heap_words,
+         ___WORD group_point, ___WORD *attempt_out), ());
+___IMP_FUNC(int,___group_demand_granted)
+   ___P((___processor_state ps, ___WORD group_point, ___WORD attempt,
+         ___WORD *hp, ___WORD *fp), ());
+___IMP_FUNC(void,___group_demand_commit)
+   ___P((___processor_state ps, ___WORD group_point, ___WORD attempt), ());
+int ___stack_adjust_fits(___processor_state ps, ___WORD *fp, ___SIZE_TS delta);
+static inline int
+___group_demand_enter_fitting_stack
+   (___processor_state ps, ___WORD **hp, ___WORD **fp,
+    ___SIZE_TS stack_words, ___SIZE_TS heap_words,
+    ___WORD group_point, ___WORD *attempt_out)
+{
+  if (heap_words==0 && ps && ps->context && hp && *hp && fp && *fp &&
+      ps->context->hp==*hp && ps->context->fp==*fp &&
+      (stack_words<=0 || ___stack_adjust_fits(ps, *fp, stack_words))) {
+    if (attempt_out) *attempt_out=0;
+    return 1;
+  }
+  return ___group_demand_enter(ps,hp,fp,stack_words,heap_words,group_point,attempt_out);
+}
+static inline void
+___group_demand_commit_attempt
+   (___processor_state ps, ___WORD group_point, ___WORD attempt)
+{
+  if (attempt!=0)
+    ___group_demand_commit(ps, group_point, attempt);
+}
+#define ___group_demand_enter ___group_demand_enter_fitting_stack
+#define ___group_demand_commit ___group_demand_commit_attempt
+___IMP_FUNC(int,___group_demand_before)
+   ___P((___processor_state ps, ___WORD *fp), ());
+___IMP_FUNC(void,___group_demand_after)
+   ___P((___processor_state ps, int overflow), ());
+___IMP_FUNC(int,___group_demand_blocked)
+   ___P((___processor_state ps), ());
+___IMP_FUNC(void,___group_demand_retire)
+   ___P((___processor_state ps), ());
+___IMP_FUNC(void,___group_demand_fail)
+   ___P((___processor_state ps), ());
 ___IMP_FUNC(___SCMOBJ,___setup_vmstate)
    ___P((___virtual_machine_state ___vms),
         ());
