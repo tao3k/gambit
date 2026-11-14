@@ -3356,7 +3356,12 @@ case "$target_os" in
 #define ___SCRIPT_LINE 0
 #define ___MAX_CHR 0x10ffff
 #define ___VOIDSTAR_WIDTH ___LONG_WIDTH
-#include "gambit.h.in"
+_ACEOF
+
+           sed -n 's/^#include "\(.*\)"$/\1/p' "$srcdir/include/gambit.h.in" |
+             while IFS= read -r header; do cat "$srcdir/include/$header"; done >>conftest.$ac_ext
+
+           cat >>conftest.$ac_ext <<_ACEOF
 
 ___BEGIN_MOD1
 ___END_MOD1
@@ -3850,11 +3855,11 @@ AC_SUBST(RTLIB_COND_EXPAND_FEATURES)
 AC_SUBST(BUILD_TARGETS)
 
 AC_PROG_MAKE_SET
+AC_PROG_AWK
 
 AC_CONFIG_FILES( \
 makefile \
 include/makefile \
-include/gambit.h \
 lib/makefile \
 lib/module-common.mk \
 $RTLIBMAKEFILES \
@@ -3912,6 +3917,10 @@ prebuilt/windows/makefile \
 prebuilt/windows/build-phase2 \
 githooks/makefile \
 )
+dnl Keep one header publication owner; the Make target derives every input
+dnl from include/gambit.h.in and compares output before replacing it.
+AC_CONFIG_COMMANDS([include/gambit.h],
+  [(cd include && ${MAKE-make} gambit.h) || exit $?])
 AC_OUTPUT
 
 if test "$ENABLE_MARCH" = "no_enable_march"; then

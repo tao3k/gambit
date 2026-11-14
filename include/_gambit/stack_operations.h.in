@@ -1,0 +1,304 @@
+/*---------------------------------------------------------------------------*/
+
+/* Stack manipulation */
+
+#define ___SET_FP(fp)___fp=(fp);
+
+#define ___FP_AFTER(fp1,fp2)((fp1) < (fp2))
+#define ___FP_PUSH(fp,val)*--fp=(val);
+#define ___FP_POP(fp)*fp++
+#define ___FP_STK(fp,fpo)fp[-(fpo)]
+#define ___FP_SET_STK(fp,fpo,val)fp[-(fpo)]=(val);
+#define ___FP_ADJFP(fp,fpa)fp-=(fpa);
+
+#define ___PUSH(val)___FP_PUSH(___fp,val)
+#define ___POP ___FP_POP(___fp)
+#define ___STK(fpo)___FP_STK(___fp,fpo)
+#define ___SET_STK(fpo,val)___FP_SET_STK(___fp,fpo,val)
+#define ___ADJFP(fpa)___FP_ADJFP(___fp,fpa)
+#define ___PSSTK(fpo)___FP_STK(___PSFP,fpo)
+#define ___PSADJFP(fpa)___FP_ADJFP(___PSFP,fpa)
+
+#ifdef ___SINGLE_VM
+#define ___GLOCELL_IN_VM(vm,x)x
+#define ___GLOCELL(x)x
+#else
+#if defined(___INCLUDED_FROM_MEM) || \
+    (defined(___GLOCOUNT) && defined(__ATOMIC_ACQUIRE) && \
+     defined(__ATOMIC_RELEASE) && !defined(___ORDERED_WORD_FORCE_LEGACY))
+#define ___GLOCELL_IN_VM(vm,x)(*___global_cell_address((vm),(x)))
+#else
+#define ___GLOCELL_IN_VM(vm,x)(*___EXT(___global_cell)((vm),(x)))
+#endif
+#define ___GLOCELL(x)___GLOCELL_IN_VM(___VMSTATE_FROM_PSTATE(___ps),x)
+#endif
+
+#define ___PRMCELL(x)___WORD_LOAD_ACQUIRE(&(x))
+
+#define ___PRM(i,glo)___EXT(___primitive_ref)(___ps,&___GLOSTRUCT(i,glo))
+#define ___GLO(i,glo)___WORD_LOAD_ACQUIRE(&___GLOCELL(___GLOSTRUCT(i,glo).val))
+#define ___SET_GLO(i,glo,x)___EXT(___store_global)(___ps,&___GLOSTRUCT(i,glo),x);
+#ifdef ___BIND_LATE
+#define ___GLOSTRUCT(i,glo)(*___CAST(___glo_struct*,___glotbl[i]))
+#else
+#define ___GLOSTRUCT(i,glo)glo
+#endif
+
+#define ___HOST_PROC ___SM(___MH_PROC,___PH_PROC)
+#define ___HOST_LBL0 ___SM(1,___PH_LBL0)
+
+#define ___BEGIN_M_COD ___SM(___BEGIN_COD,___NOTHING)
+#define ___END_M_COD ___SM(___END_COD,___NOTHING)
+
+#define ___BEGIN_M_HLBL ___SM(___BEGIN_HLBL,___NOTHING)
+#define ___DEF_M_HLBL_INTRO ___SM(___DEF_HLBL_INTRO,___NOTHING)
+#define ___DEF_M_HLBL(id)___SM(___DEF_HLBL(id),___NOTHING)
+#define ___END_M_HLBL ___SM(___END_HLBL,___NOTHING)
+
+#define ___BEGIN_M_SW ___SM(___BEGIN_SW,___NOTHING)
+#define ___END_M_SW ___SM(___END_SW,___NOTHING)
+
+#define ___BEGIN_P_COD ___SM(___NOTHING,___BEGIN_COD)
+#define ___END_P_COD ___SM(___NOTHING,___END_COD)
+
+#define ___BEGIN_P_HLBL ___SM(___NOTHING,___BEGIN_HLBL)
+#define ___DEF_P_HLBL_INTRO ___SM(___NOTHING,___DEF_HLBL_INTRO)
+#define ___DEF_P_HLBL(id)___SM(___NOTHING,___DEF_HLBL(id))
+#define ___END_P_HLBL ___SM(___NOTHING,___END_HLBL)
+
+#ifdef ___INDEXED_HOST_ENTRIES
+#ifdef ___SINGLE_HOST
+#error "Indexed host entries require procedure hosts"
+#endif
+#define ___BEGIN_P_HLBL_AT(count) ___BEGIN_INDEXED_HLBL(count)
+#define ___DEF_P_HLBL_INTRO_AT
+#else
+#define ___BEGIN_P_HLBL_AT(count) ___BEGIN_P_HLBL
+#define ___DEF_P_HLBL_INTRO_AT ___DEF_P_HLBL_INTRO
+#endif
+
+#define ___BEGIN_P_SW ___SM(___NOTHING,___BEGIN_SW)
+#define ___END_P_SW ___SM(___NOTHING,___END_SW)
+
+#define ___D_ALL ___SM(___MD_ALL,___PD_ALL)
+#define ___R_ALL ___SM(___MR_ALL,___PR_ALL)
+#define ___W_ALL ___SM(___MW_ALL,___PW_ALL)
+
+#define ___BEGIN_COD \
+___HIDDEN void ___GNUC_HOST_FUNCTION_ATTRIBUTES ___HOST_PROC ___P((___processor_state ___ps),(___ps) \
+___processor_state ___ps;) { \
+___virtual_machine_state const ___binding_vm = ___ps->context->binding_view.vm; \
+___WORD ___pc; { ___WORD ___start, ___temp; \
+___S32 ___s32_temp; /*******************/ \
+___U32 ___u32_temp; /*******************/ \
+___S64 ___s64_temp; /*******************/ \
+___U64 ___u64_temp; /*******************/ \
+___D_ALL
+
+#define ___END_COD \
+___ps->context->pc = ___pc; \
+___W_ALL } \
+___EXIT_HOST(); \
+}
+
+#ifndef ___USE_TAIL_CALL_TO_EXIT_HOST
+
+#define ___EXIT_HOST() /* fallthrough to end of host */
+
+#else
+
+#ifdef ___USE_PROPER_TAIL_CALL_EXCLUSIVELY_TO_EXIT_HOST
+
+#define ___EXIT_HOST() ___TAIL_CALL_VOID(___CALL_LABEL_HOST(___pc,___ps))
+
+#else
+
+#define ___USE_UNWIND_C_STACK_TO_TRAMPOLINE
+
+#define ___EXIT_HOST() \
+do { \
+  ___IF_C_STACK_TRIPPED(___c_stack_ptr) \
+    ___EXT(___unwind_c_stack_to_trampoline) (___PSPNC); \
+  ___TAIL_CALL_VOID(___CALL_LABEL_HOST(___pc,___ps)); \
+} while (0)
+
+#define ___C_STACK_PTR_DECL(id) \
+___WORD ___c_stack_ptr_temp; \
+___WORD *id = &___c_stack_ptr_temp;
+
+#define ___SETUP_C_STACK_TRIP(id) \
+___C_STACK_PTR_DECL(id) \
+___ps->c_stack_trip = id
+
+#define ___IF_C_STACK_TRIPPED(id) \
+___C_STACK_PTR_DECL(id) \
+if (___CAST(___U32,id-___ps->c_stack_trip+___C_STACK_TRIP_DIST) >= 2*___C_STACK_TRIP_DIST)
+
+#ifndef ___C_STACK_TRIP_DIST
+#define ___C_STACK_TRIP_DIST 2048
+#endif
+
+#endif
+
+#endif
+
+#define ___CALL_LABEL_HOST(pc,ps) ___LABEL_HOST_GET(pc)(ps)
+
+#ifdef ___DEBUG_CTRL_FLOW_HISTORY
+
+#define ___CTRL_FLOW_HISTORY_LENGTH 1024
+
+#define ___AM_HERE \
+do { ___processor_state ___ps = ___PSTATE; ___AM_HERE_PS } while (0)
+
+#define ___AM_HERE_PS \
+{ int ___i = ___ps->ctrl_flow_history_index; \
+  ___source_location *___ptr = ___ps->ctrl_flow_history+___i; \
+  ___ptr->file = __FILE__; \
+  ___ptr->line = __LINE__; \
+  ___ps->ctrl_flow_history_index = (___i+1) % ___CTRL_FLOW_HISTORY_LENGTH; \
+}
+
+#else
+
+#define ___AM_HERE
+#define ___AM_HERE_PS
+
+#endif
+
+#ifdef ___DEBUG_HOST_CHANGES
+
+#define ___REGISTER_HOST_ENTRY \
+___EXT(___register_host_entry) (___PSP ___start, ___MODULE_NAME, __FILE__, __LINE__);
+
+#else
+
+#define ___REGISTER_HOST_ENTRY
+
+#endif
+
+#define ___USES_INDIRECT_GOTO 1
+#define ___SETUP_FIXUP_DONE   2
+#define ___USES_INDEXED_HOST_ENTRIES 4
+
+#ifdef ___USE_LABEL_VALUES
+
+#ifdef ___INDEXED_HOST_ENTRIES
+#define ___MODULE_FLAGS (___USES_INDIRECT_GOTO | ___USES_INDEXED_HOST_ENTRIES)
+#else
+#define ___MODULE_FLAGS ___USES_INDIRECT_GOTO
+#endif
+
+#define ___BEGIN_HLBL static void *___hlbltbl[]={
+/* Count slot, physical entries, and the existing trailing sentinel. */
+#define ___BEGIN_INDEXED_HLBL(count) \
+static void *___hlbltbl[(count)+2]={___CAST(void*,___CAST(___UWORD,count)),
+#define ___DEF_HLBL_INTRO 0,
+#define ___DEF_HLBL(id)&&id,
+#define ___END_HLBL \
+0}; \
+___pc=___ps->context->pc; ___R_ALL ___start=___MLBL(___HOST_LBL0); \
+if (___EXPECT_FALSE(___pc == ___FIX(0))) { \
+  ___ps->context->pc = ___CAST(___WORD,___hlbltbl); \
+  return; \
+}
+
+#define ___BEGIN_SW \
+___REGISTER_HOST_ENTRY \
+goto *___LABEL_HOST_LABEL_GET(___pc);
+
+#define ___DEF_SW(n)
+
+#ifdef ___INLINE_JUMPS
+
+#if defined(___SHARED_PROCEDURE_DISPATCH) && \
+    ___HOST_LAYOUT == ___HOST_LAYOUT_PROCEDURES
+/* Keep one indirect dispatch per procedure host. Direct label jumps and
+   the ordinary path to the host epilogue do not use this entry. */
+#define ___END_SW \
+goto ___jumpext; \
+___shared_jump: \
+if (___EXPECT_FALSE(___LABEL_HOST_GET(___pc) != ___HOST_PROC)) \
+  goto ___jumpext; \
+goto *___LABEL_HOST_LABEL_GET(___pc); \
+___jumpext:
+#else
+#define ___END_SW \
+___jumpext:
+#endif
+
+#define ___JUMP(dest)___JUMPFAST(dest)
+
+#else
+
+#define ___END_SW \
+___jump: \
+if (___EXPECT_TRUE(___LABEL_HOST_GET(___pc) == ___HOST_PROC)) \
+  goto *___LABEL_HOST_LABEL_GET(___pc); \
+___jumpext:
+
+#define ___JUMP(dest){___pc=dest;goto ___jump;}
+
+#endif
+
+#define ___JUMPEXT(dest){___pc=dest;goto ___jumpext;}
+
+#if defined(___SHARED_PROCEDURE_DISPATCH) && defined(___INLINE_JUMPS) && \
+    ___HOST_LAYOUT == ___HOST_LAYOUT_PROCEDURES
+#define ___JUMPFAST(dest){___pc=dest;goto ___shared_jump;}
+#else
+#define ___JUMPFAST(dest) \
+{___pc=dest; \
+ if (___EXPECT_FALSE(___LABEL_HOST_GET(___pc) != ___HOST_PROC)) \
+   goto ___jumpext; \
+ goto *___LABEL_HOST_LABEL_GET(___pc); \
+}
+#endif
+
+#else
+
+#ifdef ___INDEXED_HOST_ENTRIES
+#error "Indexed host entries require indirect goto"
+#endif
+#define ___MODULE_FLAGS 0
+
+#define ___BEGIN_HLBL
+#define ___DEF_HLBL_INTRO
+#define ___DEF_HLBL(id)
+#define ___END_HLBL ___pc=___ps->context->pc; ___R_ALL ___start=___MLBL(___HOST_LBL0);
+
+#define ___BEGIN_SW \
+___REGISTER_HOST_ENTRY \
+___jump: \
+switch((___pc-=___start)/(___LABEL_SIZE*___WS)) \
+{
+
+#define ___DEF_SW(n)case ___PH_LBL0-___HOST_LBL0+n:
+
+#define ___END_SW \
+}___pc+=___start;___jumpext:
+
+#define ___JUMP(dest){___pc=dest;goto ___jump;}
+#define ___JUMPEXT(dest){___pc=dest;goto ___jumpext;}
+#define ___JUMPFAST(dest)___JUMP(dest)
+
+#endif
+
+#define ___BEGIN_P_SLBL ___SM(___NOTHING,___BEGIN_SLBL)
+#define ___DEF_P_SLBL(id)
+#define ___END_P_SLBL ___SM(___NOTHING,___END_SLBL)
+
+#define ___REGISTER
+
+#define ___PSHEAP ___ps->context->hp
+#define ___D_HEAP ___REGISTER ___WORD *___hp;
+#define ___R_HEAP ___R_HEAP_EXPR;
+#define ___W_HEAP ___W_HEAP_EXPR;
+#define ___R_HEAP_EXPR ___hp=___PSHEAP
+#define ___W_HEAP_EXPR ___PSHEAP=___hp
+
+#define ___PSFP ___ps->context->fp
+#define ___D_FP ___REGISTER ___WORD *___fp;
+#define ___R_FP ___SET_FP(___PSFP)
+#define ___W_FP ___PSFP=___fp;
+

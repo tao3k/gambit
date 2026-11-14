@@ -8,6 +8,32 @@
 /*---------------------------------------------------------------------------*/
 
 
+#define ___KERNEL_ROLES(X) \
+  X(handler_sfun_conv_error) \
+  X(handler_cfun_conv_error) \
+  X(handler_stack_limit) \
+  X(handler_heap_limit) \
+  X(handler_not_proc) \
+  X(handler_not_proc_glo) \
+  X(handler_wrong_nargs) \
+  X(handler_get_rest) \
+  X(handler_get_key) \
+  X(handler_get_key_rest) \
+  X(handler_force) \
+  X(handler_return_to_c) \
+  X(handler_break) \
+  X(internal_return) \
+  X(dynamic_env_bind_return)
+
+enum {
+#define ___KERNEL_ROLE_ENUM(field) ___KERNEL_ROLE_ ## field,
+  ___KERNEL_ROLES(___KERNEL_ROLE_ENUM)
+#undef ___KERNEL_ROLE_ENUM
+  ___KERNEL_ROLE_COUNT
+};
+
+extern void ___kernel_role_labels(___SCMOBJ *labels);
+
 extern ___SCMOBJ ___os_load_object_file
    ___P((___SCMOBJ path,
          ___SCMOBJ modname),
@@ -58,6 +84,10 @@ extern void barrier_sync_noop
 extern void service_sync_op
    ___P((___PSDNC),
         ());
+
+extern ___SCMOBJ ___current_vm_resize_ticket(___PSD ___SCMOBJ thunk, int target);
+extern ___SCMOBJ ___startup_ready_status(___PSD ___SCMOBJ ticket);
+extern ___SCMOBJ ___startup_ready(___PSDNC);
 
 
 #ifdef ___SINGLE_THREADED_VMS

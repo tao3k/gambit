@@ -1,0 +1,319 @@
+/*---------------------------------------------------------------------------*/
+
+/*
+ * Thread system inlined operations.
+ */
+
+#ifdef ___USE_POSIX_THREAD_SYSTEM
+
+#ifndef ___DONT_HAVE_PTHREAD_H
+#include <pthread.h>
+#endif
+
+#define ___MUTEX pthread_mutex_t
+#define ___MUTEX_DECL(id) ___MUTEX id;
+#define ___MUTEX_INIT_STATIC PTHREAD_MUTEX_INITIALIZER
+#define ___MUTEX_INIT(mut) (pthread_mutex_init (&mut, NULL) == 0)
+#define ___MUTEX_DESTROY(mut) (pthread_mutex_destroy (&mut) == 0)
+#define ___MUTEX_LOCK(mut) (pthread_mutex_lock (&mut) == 0)
+#define ___MUTEX_UNLOCK(mut) (pthread_mutex_unlock (&mut) == 0)
+
+#define ___CONDVAR pthread_cond_t
+#define ___CONDVAR_DECL(id) ___CONDVAR id;
+#define ___CONDVAR_INIT_STATIC PTHREAD_COND_INITIALIZER
+#define ___CONDVAR_INIT(cv) (pthread_cond_init (&cv, NULL) == 0)
+#define ___CONDVAR_DESTROY(cv) (pthread_cond_destroy (&cv) == 0)
+#define ___CONDVAR_WAIT(cv,mut) (pthread_cond_wait (&cv, &mut) == 0)
+#define ___CONDVAR_SIGNAL(cv) (pthread_cond_signal (&cv) == 0)
+#define ___CONDVAR_BROADCAST(cv) (pthread_cond_broadcast (&cv) == 0)
+
+#define ___THREAD_ID (pthread_self())
+
+#endif
+
+
+#ifdef ___USE_WIN32_THREAD_SYSTEM
+
+#define ___MUTEX CRITICAL_SECTION
+#define ___MUTEX_DECL(id) ___MUTEX id;
+#define ___MUTEX_INIT_STATIC NULL
+#define ___MUTEX_INIT(mut) InitializeCriticalSection (&mut)
+#define ___MUTEX_DESTROY(mut) DeleteCriticalSection (&mut)
+#define ___MUTEX_LOCK(mut) EnterCriticalSection (&mut)
+#define ___MUTEX_UNLOCK(mut) LeaveCriticalSection (&mut)
+
+#ifdef ___HAVE_CONDITION_VARIABLE
+
+#define ___CONDVAR CONDITION_VARIABLE
+#define ___CONDVAR_DECL(id) ___CONDVAR id;
+#define ___CONDVAR_INIT_STATIC CONDITION_VARIABLE_INIT
+#define ___CONDVAR_INIT(cv) InitializeConditionVariable (&cv)
+#define ___CONDVAR_DESTROY(cv)
+#define ___CONDVAR_WAIT(cv,mut) SleepConditionVariableCS (&cv, &mut, INFINITE)
+#define ___CONDVAR_SIGNAL(cv) WakeConditionVariable (&cv)
+#define ___CONDVAR_BROADCAST(cv) WakeAllConditionVariable (&cv)
+
+#else
+
+/*
+ * The type CONDITION_VARIABLE is not available. Use busy waiting.
+ */
+
+#define ___CONDVAR int
+#define ___CONDVAR_DECL(id) ___CONDVAR id;
+#define ___CONDVAR_INIT_STATIC 0
+#define ___CONDVAR_INIT(cv) cv = 0
+#define ___CONDVAR_DESTROY(cv)
+#define ___CONDVAR_WAIT(cv,mut) do { ___MUTEX_UNLOCK(mut); ___MUTEX_LOCK(mut); } while (0)
+#define ___CONDVAR_SIGNAL(cv)
+#define ___CONDVAR_BROADCAST(cv)
+
+#endif
+
+#define ___THREAD_ID (GetCurrentThreadId())
+
+#endif
+
+
+#ifndef ___USE_POSIX_THREAD_SYSTEM
+#ifndef ___USE_WIN32_THREAD_SYSTEM
+
+#define ___MUTEX int
+#define ___MUTEX_DECL(id)
+#define ___MUTEX_INIT_STATIC 0
+#define ___MUTEX_INIT(mut)
+#define ___MUTEX_DESTROY(mut)
+#define ___MUTEX_LOCK(mut)
+#define ___MUTEX_UNLOCK(mut)
+
+#define ___CONDVAR int
+#define ___CONDVAR_DECL(id)
+#define ___CONDVAR_INIT_STATIC 0
+#define ___CONDVAR_INIT(cv)
+#define ___CONDVAR_DESTROY(cv)
+#define ___CONDVAR_WAIT(cv,mut)
+#define ___CONDVAR_SIGNAL(cv)
+
+#define ___THREAD_ID 0
+
+#endif
+#endif
+
+
+#if ___WS == 4
+#ifdef __GCC_HAVE_SYNC_COMPARE_AND_SWAP_4
+#define ___USE_sync_builtins
+#endif
+#else
+#if ___WS == 8
+#ifdef __GCC_HAVE_SYNC_COMPARE_AND_SWAP_8
+#define ___USE_sync_builtins
+#endif
+#endif
+#endif
+
+
+#ifndef ___USE_sync_builtins
+#ifdef ___USE_WIN32_THREAD_SYSTEM
+#define ___USE_WIN32_sync
+#else
+#ifdef ___USE_POSIX_THREAD_SYSTEM
+#define ___USE_emulated_sync
+#else
+#define ___USE_sequential_sync
+#endif
+#endif
+#endif
+
+
+#ifdef ___USE_sync_builtins
+
+
+#define ___COMPARE_AND_SWAP_WORD(p,oldval,newval) \
+__sync_val_compare_and_swap(p,oldval,newval)
+
+#define ___FETCH_AND_ADD_WORD(p,val) \
+__sync_fetch_and_add(p,val)
+
+#define ___FETCH_AND_CLEAR_WORD(p) \
+__sync_fetch_and_and(p,0)
+
+#define ___SHARED_MEMORY_BARRIER() \
+__sync_synchronize()
+
+#endif
+
+
+#ifdef ___USE_WIN32_sync
+
+
+#define ___COMPARE_AND_SWAP_WORD(p,oldval,newval) \
+___CAST(___WORD,InterlockedCompareExchangePointer(___CAST(void**,p),___CAST(void*,newval),___CAST(void*,oldval)))
+
+#if ___WS == 4
+#define ___FETCH_AND_ADD_WORD(p,val) \
+(InterlockedAdd(___CAST(volatile LONG*,p),val)-(val))
+#define ___FETCH_AND_CLEAR_WORD(p) \
+InterlockedAnd(___CAST(volatile LONG*,p),0)
+#else
+#define ___FETCH_AND_ADD_WORD(p,val) \
+(InterlockedAdd64(___CAST(volatile LONGLONG*,p),val)-(val))
+#define ___FETCH_AND_CLEAR_WORD(p) \
+InterlockedAnd64(___CAST(volatile LONGLONG*,p),0)
+#endif
+
+#define ___SHARED_MEMORY_BARRIER() \
+MemoryBarrier()
+
+#endif
+
+
+#ifdef ___USE_emulated_sync
+
+
+#define ___COMPARE_AND_SWAP_WORD(p,oldval,newval) \
+___EXT(___emulated_compare_and_swap_word)(p,oldval,newval)
+
+#define ___FETCH_AND_ADD_WORD(p,val) \
+___EXT(___emulated_fetch_and_add_word)(p,val)
+
+#define ___FETCH_AND_CLEAR_WORD(p) \
+___EXT(___emulated_fetch_and_clear_word)(p)
+
+#define ___SHARED_MEMORY_BARRIER() \
+___EXT(___emulated_shared_memory_barrier)()
+
+#endif
+
+
+#ifdef ___USE_sequential_sync
+
+
+#define ___COMPARE_AND_SWAP_WORD(p,oldval,newval) \
+((___ps->temp1 = *(p)) == (oldval) && (*(p) = (newval)), ___ps->temp1)
+
+#define ___FETCH_AND_ADD_WORD(p,val) \
+((*(p) += (val)) - (val))
+
+#define ___FETCH_AND_CLEAR_WORD(p) \
+(___ps->temp1 = *(p), *(p) = 0, ___ps->temp1)
+
+#define ___SHARED_MEMORY_BARRIER()
+
+#endif
+
+
+#ifdef ___CPU_x86
+#ifdef __GNUC__
+#ifndef ___CPU_RELAX
+#define ___CPU_RELAX() __asm__ __volatile__ ("rep;nop")
+#endif
+#endif
+#endif
+
+#ifndef ___CPU_RELAX
+#define ___CPU_RELAX()
+#endif
+
+
+/* Ordered word service. Scheme lock words keep their object layout; every
+ * concurrent access uses this service, never a volatile polling load. GCC and
+ * Clang atomics operate on naturally aligned word storage. Other supported
+ * backends conservatively refine these orders to the existing full RMW/mutex
+ * operations. Plain access is restricted to the no-thread backend or exclusive
+ * initialization / physically stopped GC relocation. */
+#if defined(__ATOMIC_ACQUIRE) && defined(__ATOMIC_RELEASE) && \
+    !defined(___ORDERED_WORD_FORCE_LEGACY)
+#define ___ORDERED_WORD_NATIVE 1
+#define ___WORD_LOAD_ACQUIRE(p) __atomic_load_n(p,__ATOMIC_ACQUIRE)
+#define ___WORD_LOAD_RELAXED(p) __atomic_load_n(p,__ATOMIC_RELAXED)
+#define ___WORD_STORE_RELEASE(p,v) __atomic_store_n(p,v,__ATOMIC_RELEASE)
+#define ___WORD_STORE_RELAXED(p,v) __atomic_store_n(p,v,__ATOMIC_RELAXED)
+#define ___WORD_FETCH_ADD_RELAXED(p,v) __atomic_fetch_add(p,v,__ATOMIC_RELAXED)
+#define ___WORD_FETCH_ADD_RELEASE(p,v) __atomic_fetch_add(p,v,__ATOMIC_RELEASE)
+#define ___WORD_CAS_ACQUIRE(p,expected,v) \
+__atomic_compare_exchange_n(p,&(expected),v,0,__ATOMIC_ACQUIRE,__ATOMIC_RELAXED)
+#else
+#define ___ORDERED_WORD_NATIVE 0
+#ifdef ___USE_sequential_sync
+#define ___WORD_LOAD_ACQUIRE(p) (*(p))
+#define ___WORD_LOAD_RELAXED(p) (*(p))
+#define ___WORD_STORE_RELEASE(p,v) (*(p)=(v))
+#define ___WORD_STORE_RELAXED(p,v) (*(p)=(v))
+/* Ticket locks are erased for the no-thread system. */
+#define ___WORD_FETCH_ADD_RELAXED(p,v) ___FETCH_AND_ADD_WORD(p,v)
+#define ___WORD_FETCH_ADD_RELEASE(p,v) ___FETCH_AND_ADD_WORD(p,v)
+#define ___WORD_CAS_ACQUIRE(p,expected,v) \
+(___COMPARE_AND_SWAP_WORD(p,expected,v)==(expected))
+#else
+#define ___WORD_LOAD_ACQUIRE(p) ___COMPARE_AND_SWAP_WORD(p,0,0)
+#define ___WORD_LOAD_RELAXED(p) ___WORD_LOAD_ACQUIRE(p)
+#define ___WORD_FETCH_ADD_RELAXED(p,v) ___FETCH_AND_ADD_WORD(p,v)
+#define ___WORD_FETCH_ADD_RELEASE(p,v) ___FETCH_AND_ADD_WORD(p,v)
+#define ___WORD_CAS_ACQUIRE(p,expected,v) \
+(___COMPARE_AND_SWAP_WORD(p,expected,v)==(expected))
+#define ___WORD_STORE_RELEASE(p,v) \
+do { \
+  ___VOLATILE ___WORD *___ordered_p = (p); \
+  ___WORD ___ordered_v = (v); \
+  ___WORD ___ordered_old = ___WORD_LOAD_ACQUIRE(___ordered_p); \
+  ___WORD ___ordered_seen; \
+  while ((___ordered_seen = ___COMPARE_AND_SWAP_WORD \
+           (___ordered_p,___ordered_old,___ordered_v)) != ___ordered_old) \
+    ___ordered_old = ___ordered_seen; \
+} while (0)
+#define ___WORD_STORE_RELAXED(p,v) ___WORD_STORE_RELEASE(p,v)
+#endif
+#endif
+
+typedef struct ___thread_struct
+  {
+    void (*start_fn) ___P((struct ___thread_struct *self),());
+
+    void *data_ptr;
+    ___SCMOBJ data_scmobj;
+
+#ifdef ___USE_POSIX_THREAD_SYSTEM
+
+    pthread_t thread_id;
+
+#endif
+
+#ifdef ___USE_WIN32_THREAD_SYSTEM
+
+    HANDLE thread_handle;
+    DWORD thread_id;
+
+#endif
+  } ___thread;
+
+
+typedef struct ___ticketlock_struct
+  {
+    ___VOLATILE ___WORD current_ticket;
+    ___VOLATILE ___WORD next_ticket;
+  } ___ticketlock_struct;
+
+
+#define ___TICKETLOCK_HISTORY_LENGTH 65536
+
+typedef struct ___ticketlock_location
+  {
+    ___WORD * ___VOLATILE id;
+    ___VOLATILE int lock_op;
+    ___VOLATILE ___source_location location;
+  } ___ticketlock_location;
+
+
+typedef struct ___mask_interrupts_state_struct
+  {
+    ___sigset_type sigset[3]; /* increase if other interrupts are added */
+  } ___mask_interrupts_state;
+
+
+typedef ___mask_interrupts_state ___mask_all_interrupts_state;
+typedef ___mask_interrupts_state ___mask_user_interrupts_state;
+typedef ___mask_interrupts_state ___mask_heartbeat_interrupts_state;
+typedef ___mask_interrupts_state ___mask_child_interrupts_state;
+
+

@@ -1,0 +1,784 @@
+/*---------------------------------------------------------------------------*/
+
+/* Object representation */
+
+#ifdef ___SUPPORT_LOWLEVEL_EXEC
+#define ___REFERENCE_TO_BODY (-1)
+#define ___LABEL_LOWLEVEL_CODE 1
+#else
+#define ___REFERENCE_TO_BODY 1
+#endif
+
+#define ___BODY0(obj)(___UNTAG(obj)+___REFERENCE_TO_BODY)
+#define ___BODY0_AS(obj,tag)(___UNTAG_AS(obj,tag)+___REFERENCE_TO_BODY)
+#define ___BODY0_FROM_HP()(___hp+___SUBTYPED_BODY)
+
+#ifdef ___USE_HANDLES
+#define ___PAIR_BODY     2
+#define ___SUBTYPED_BODY 2
+#define ___VECTOR_BODY   2
+#define ___FLONUM_BODY   2
+#define ___BODY(obj)___CAST(___WORD*,___BODY0(obj)[-2])
+#define ___BODY_AS(obj,tag)___CAST(___WORD*,___BODY0_AS(obj,tag)[-2])
+#else
+#define ___PAIR_BODY     1
+#define ___SUBTYPED_BODY 1
+#define ___VECTOR_BODY   1
+#define ___FLONUM_BODY   1
+#define ___BODY(obj)___BODY0(obj)
+#define ___BODY_AS(obj,tag)___BODY0_AS(obj,tag)
+#endif
+
+#define ___ALIGNUP(x,mult) \
+___CAST(___WORD*,(___CAST(___WORD,x)+((mult)-1))&~((mult)-1))
+
+#define ___ALLOC(n) ___hp += (n)
+
+#if ___WORD_WIDTH == 32
+
+#define ___ALLOC_ALIGN64(n) \
+___hp = ___CAST(___WORD*, (___CAST(___WORD,___hp) + (((n)<<___LWS) + 7)) & ~7)
+
+#else
+
+#define ___ALLOC_ALIGN64(n) ___ALLOC(n)
+
+#endif
+
+#define ___BEGIN_ALLOC_PAIR()___hp[0] = ___MAKE_HD_WORDS(___PAIR_SIZE,___sPAIR)
+#define ___ADD_PAIR_ELEM(i,val)___hp[(i)+___PAIR_BODY] = val
+#define ___END_ALLOC_PAIR()___ALLOC(___PAIR_SIZE+___PAIR_BODY)
+#define ___GET_PAIR()___PAIR_FROM_END(___hp)
+
+#define ___BEGIN_ALLOC_SUBTYPED(hd)___hp[0] = hd
+#define ___ADD_SUBTYPED_ELEM(i,val)___hp[(i)+___SUBTYPED_BODY] = val
+#define ___END_ALLOC_SUBTYPED(n)___ALLOC((n)+___SUBTYPED_BODY)
+#define ___GET_SUBTYPED(n)___SUBTYPED_FROM_END(___hp,n)
+
+#define ___BEGIN_ALLOC_VECTOR_EXPR(n)___hp[0] = ___MAKE_HD_WORDS(n,___sVECTOR)
+#define ___ADD_VECTOR_ELEM_EXPR(i,val)___hp[(i)+___VECTOR_BODY] = val
+#define ___END_ALLOC_VECTOR_EXPR(n)___ALLOC((n)+___VECTOR_BODY)
+
+#define ___BEGIN_ALLOC_VECTOR(n)___BEGIN_ALLOC_VECTOR_EXPR(n);
+#define ___ADD_VECTOR_ELEM(i,val)___ADD_VECTOR_ELEM_EXPR(i,val);
+#define ___END_ALLOC_VECTOR(n)___END_ALLOC_VECTOR_EXPR(n);
+#define ___GET_VECTOR(n)___VECTOR_FROM_END(___hp,n)
+
+#define ___GET_FLONUM()___FLONUM_FROM_END(___hp)
+
+#define ___PAIR_FROM(ptr,n) \
+___TAG(___CAST(___WORD*,ptr) - (___REFERENCE_TO_BODY+(n)), ___tPAIR)
+#define ___PAIR_FROM_START(ptr)___PAIR_FROM(ptr,-___PAIR_BODY)
+#define ___PAIR_FROM_END(ptr)___PAIR_FROM(ptr,___PAIR_SIZE)
+#define ___PAIR_FROM_BODY(ptr)___PAIR_FROM(ptr,0)
+#define ___PAIR_TO(obj,n) \
+(___UNTAG_AS(obj,___tPAIR) + (___REFERENCE_TO_BODY+(n)))
+#define ___PAIR_TO_START(obj)___PAIR_TO(obj,-___PAIR_BODY)
+#define ___PAIR_TO_END(obj)___PAIR_TO(obj,___PAIR_SIZE)
+#define ___PAIR_TO_BODY(obj)___PAIR_TO(obj,0)
+
+#define ___SUBTYPED_FROM(ptr,n) \
+___TAG(___CAST(___WORD*,ptr) - (___REFERENCE_TO_BODY+(n)), ___tSUBTYPED)
+#define ___SUBTYPED_FROM_START(ptr)___SUBTYPED_FROM(ptr,-___SUBTYPED_BODY)
+#define ___SUBTYPED_FROM_END(ptr,n)___SUBTYPED_FROM(ptr,n)
+#define ___SUBTYPED_FROM_BODY(ptr)___SUBTYPED_FROM(ptr,0)
+#define ___SUBTYPED_TO(obj,n) \
+(___UNTAG_AS(obj,___tSUBTYPED) + (___REFERENCE_TO_BODY+(n)))
+#define ___SUBTYPED_TO_START(obj)___SUBTYPED_TO(obj,-___SUBTYPED_BODY)
+#define ___SUBTYPED_TO_END(obj,n)___SUBTYPED_TO(obj,n)
+#define ___SUBTYPED_TO_BODY(obj)___SUBTYPED_TO(obj,0)
+
+#define ___FLONUM_FROM(ptr,n) \
+___TAG(___CAST(___WORD*,ptr) - (___REFERENCE_TO_BODY+(n)), ___tFLONUM)
+#define ___FLONUM_FROM_START(ptr)___FLONUM_FROM(ptr,-___FLONUM_BODY)
+#define ___FLONUM_FROM_END(ptr)___FLONUM_FROM(ptr,___FLONUM_SIZE)
+#define ___FLONUM_FROM_BODY(ptr)___FLONUM_FROM(ptr,0)
+#define ___FLONUM_TO(obj,n) \
+(___UNTAG_AS(obj,___tFLONUM) + (___REFERENCE_TO_BODY+(n)))
+#define ___FLONUM_TO_START(obj)___FLONUM_TO(obj,-___FLONUM_BODY)
+#define ___FLONUM_TO_END(obj)___FLONUM_TO(obj,___FLONUM_SIZE)
+#define ___FLONUM_TO_BODY(obj)___FLONUM_TO(obj,0)
+
+#define ___VECTOR_FROM(ptr,n) \
+___TAG(___CAST(___WORD*,ptr) - (___REFERENCE_TO_BODY+(n)), ___tVECTOR)
+#define ___VECTOR_FROM_START(ptr)___VECTOR_FROM(ptr,-___VECTOR_BODY)
+#define ___VECTOR_FROM_END(ptr,n)___VECTOR_FROM(ptr,n)
+#define ___VECTOR_FROM_BODY(ptr)___VECTOR_FROM(ptr,0)
+#define ___VECTOR_TO(obj,n) \
+(___UNTAG_AS(obj,___tVECTOR) + (___REFERENCE_TO_BODY+(n)))
+#define ___VECTOR_TO_START(obj)___VECTOR_TO(obj,-___VECTOR_BODY)
+#define ___VECTOR_TO_END(obj,n)___VECTOR_TO(obj,n)
+#define ___VECTOR_TO_BODY(obj)___VECTOR_TO(obj,0)
+
+#define ___TAG(ptr,tag)(___CAST(___WORD,ptr)+(tag))
+#define ___UNTAG(obj)___CAST(___WORD*,(obj)&~___TMASK)
+#define ___UNTAG_AS(obj,tag)___CAST(___WORD*,(obj)-(tag))
+
+#define ___TYP(x)((x)&___TMASK)
+#define ___TESTMASK(x,mask,val)(((___CAST_U32(x)-(val))&(mask))==0)
+#define ___TESTTYPE(x,typ)___TESTMASK(x,___TMASK,typ)
+
+#define ___TESTHEADERTAG(x,s)(((x)&___SMASK)==((s)<<___HTB))
+#define ___TESTSUBTYPETAG(x,s)___TESTHEADERTAG(___SUBTYPED_HEADER(x),s)
+#define ___TESTSUBTYPE(x,s)(___TESTTYPE(___temp=(x),___tSUBTYPED)&&___TESTSUBTYPETAG(___temp,(s)))
+#define ___TESTLENGTHSUBTYPETAG(x,bytes,s)((___SUBTYPED_HEADER(x)&___LSMASK)==___MAKE_HD(bytes,s,0))
+#define ___TESTLENGTHSUBTYPE(x,bytes,s)(___TESTTYPE(___temp=(x),___tSUBTYPED)&&___TESTLENGTHSUBTYPETAG(___temp,bytes,s))
+
+#define ___HEADER(obj)___BODY0(obj)[-1]
+#define ___HEADER_SET(obj,head)___HEADER(obj) = head
+
+#define ___SUBTYPED_HEADER(obj)___SUBTYPED_TO_BODY(obj)[-1]
+#define ___SUBTYPED_HEADER_SET(obj,head)___SUBTYPED_TO_BODY(obj)[-1] = head
+
+#define ___VECTOR_HEADER(obj)___VECTOR_TO_BODY(obj)[-1]
+#define ___VECTOR_HEADER_SET(obj,head)___VECTOR_TO_BODY(obj)[-1] = head
+
+#define ___MAKE_HD(bytes,subtype,tag)(((bytes)<<___LF)+((subtype)<<___HTB)+(tag))
+#define ___HD_TYP(head)((head)&___HTMASK)
+#define ___HD_BYTES(head)(___CAST(___UWORD,head)>>___LF)
+#define ___HD_WORDS(head)(((___CAST(___UWORD,head)+((___WS-1)<<___LF)))>>(___LF+___LWS))
+#define ___HD_FIELDS(head)(___CAST(___UWORD,head)>>(___LF+___LWS))
+
+#if ___LWS >= ___TB_FIXNUM
+#define ___HD_FIELDS_FIX(head)(___CAST(___UWORD,head)>>(___LF+___LWS-___TB_FIXNUM))
+#else
+#define ___HD_FIELDS_FIX(head)___FIX(___HD_FIELDS(head))
+#endif
+
+#define ___HD_SUBTYPE(head)((head)>>___HTB&((1<<___SB)-1))
+
+#define ___FIELD(type,obj,i)(*(___BODY_AS(obj,___t ## type)+i))
+
+#define ___WORDS(bytes)(((bytes)+___WS-1)>>___LWS)
+
+#define ___MAKE_HD_BYTES(bytes,subtype)___MAKE_HD(bytes,subtype,___MOVABLE0)
+#define ___MAKE_HD_WORDS(words,subtype)___MAKE_HD(((words)<<___LWS),subtype,___MOVABLE0)
+
+/* Flonum boxing and unboxing */
+
+#ifdef ___NAN_BOXING
+
+#define ___FLO_CONST(sub,hi,lo) \
+___DOUBLE_BIAS_ADD((___CAST(___U64,___CAST(___U32,hi))<<32) + ___CAST(___U64,___CAST(___U32,lo)))
+
+#define ___F64UNBOX(x) ___F64_FROM_U64(___DOUBLE_BIAS_SUB(x))
+#define ___F64UNBOXI(x) ___F64UNBOX(x)
+
+#define ___F64BOX(x) ___DOUBLE_BIAS_ADD(___F64_TO_U64(x))
+
+#else
+
+#define ___MEM_ALLOCATED_FLONUM_GET(obj) *___CAST(___F64*,___BODY_AS(obj,___tFLONUM))
+#define ___MEM_ALLOCATED_FLONUM_SET(obj,val) ___MEM_ALLOCATED_FLONUM_GET(obj) = val
+
+#define ___MEM_ALLOCATED_FLONUM_ALLOC(val) \
+(___ALLOC_ALIGN64(1+___FLONUM_SIZE), \
+ ___hp[-(1+___FLONUM_SIZE)] = ___MAKE_HD_WORDS(___FLONUM_SIZE,___sFLONUM), \
+ *___CAST(___F64*,___hp-___FLONUM_SIZE) = (val), \
+ ___GET_FLONUM())
+
+#if ___FLONUM_SELF_TAGGING_TAGS > 0
+
+#if ___FLONUM_SELF_TAGGING_TAGS == 1
+
+#define ___SELF_TAGGED_FLONUM_OFFSET (6*2 + 1)
+#define ___SELF_TAGGED_FLONUM_SHIFT1 58
+#define ___SELF_TAGGED_FLONUM_SHIFT2 1
+
+#define ___SELF_TAGGED_FLONUM(x)___TESTMASK(x,7,6)
+
+#elif ___FLONUM_SELF_TAGGING_TAGS == 2
+
+#define ___SELF_TAGGED_FLONUM_OFFSET (2*2 + 1)
+#define ___SELF_TAGGED_FLONUM_SHIFT1 59
+#define ___SELF_TAGGED_FLONUM_SHIFT2 1
+
+#define ___SELF_TAGGED_FLONUM(x)___TESTMASK(x,3,2)
+
+#elif ___FLONUM_SELF_TAGGING_TAGS == 3
+
+#define ___SELF_TAGGED_FLONUM_OFFSET 3
+#define ___SELF_TAGGED_FLONUM_SHIFT1 60
+#define ___SELF_TAGGED_FLONUM_SHIFT2 0
+
+#ifdef ___USE_HAS_TAG_IN_SET
+#define ___SELF_TAGGED_FLONUM(x) ___HAS_TAG_IN_SET(x, ((1<<3)|(1<<6)|(1<<7)))
+#else
+#define ___SELF_TAGGED_FLONUM(x) (((x)&2) && !___TESTTYPE(x,___tFLONUM))
+#endif
+
+#else
+
+#define ___SELF_TAGGED_FLONUM_OFFSET 3
+#define ___SELF_TAGGED_FLONUM_SHIFT1 60
+#define ___SELF_TAGGED_FLONUM_SHIFT2 0
+
+#define ___SELF_TAGGED_FLONUM(x) ((x)&2)
+
+#endif
+
+#if ___FLONUM_SELF_TAGGING_TAGS <= 2
+#define ___MEM_ALLOCATED_FLONUM_GIVEN_FLONUM(x)((x)&1)
+#else
+#define ___MEM_ALLOCATED_FLONUM_GIVEN_FLONUM(x)___TESTTYPE(x,___tFLONUM)
+#endif
+
+#define ___FLO_CONST(sub,hi,lo) \
+(___SELF_TAGGED_FLONUM(((___CAST(___U32,hi)>>(___SELF_TAGGED_FLONUM_SHIFT1-32))+___SELF_TAGGED_FLONUM_OFFSET)>>___SELF_TAGGED_FLONUM_SHIFT2) \
+ ? ___CAST(___WORD,___ROTR64(___ROTR64((___CAST(___U64,___CAST(___U32,hi))<<32) + ___CAST(___U64,___CAST(___U32,lo)),___SELF_TAGGED_FLONUM_SHIFT1)+___SELF_TAGGED_FLONUM_OFFSET,___SELF_TAGGED_FLONUM_SHIFT2)) \
+ : sub)
+
+#define ___F64UNBOX(x) \
+({___U64 ___u64_x = ___CAST(___U64,x); \
+  ___EXPECT_FALSE(___MEM_ALLOCATED_FLONUM_GIVEN_FLONUM(___u64_x)) \
+  ? ___MEM_ALLOCATED_FLONUM_GET(___u64_x) \
+  : (___u64_x = ___ROTL64(___u64_x, ___SELF_TAGGED_FLONUM_SHIFT2)-___SELF_TAGGED_FLONUM_OFFSET, \
+     ___F64_FROM_U64(___ROTL64(___u64_x, ___SELF_TAGGED_FLONUM_SHIFT1)));})
+
+#define ___F64UNBOXI(x) \
+({___U64 ___u64_x = ___CAST(___U64,x); \
+  ___u64_x = ___ROTL64(___u64_x, ___SELF_TAGGED_FLONUM_SHIFT2)-___SELF_TAGGED_FLONUM_OFFSET; \
+  ___F64_FROM_U64(___ROTL64(___u64_x, ___SELF_TAGGED_FLONUM_SHIFT1));})
+
+#define ___F64BOX(x) \
+({___U64 ___u64_x = ___F64_TO_U64_FOR_SELF_TAGGING(x); \
+  ___EXPECT_TRUE(___SELF_TAGGED_FLONUM(___u64_x)) \
+  ? ___CAST(___WORD,___u64_x) \
+  : ___MEM_ALLOCATED_FLONUM_ALLOC(x);})
+
+#define ___F64_TO_U64_FOR_SELF_TAGGING(x) \
+({___U64 ___u64_x = ___F64_TO_U64(x); \
+  ___u64_x = ___ROTR64(___u64_x, ___SELF_TAGGED_FLONUM_SHIFT1)+___SELF_TAGGED_FLONUM_OFFSET; \
+  ___ROTR64(___u64_x, ___SELF_TAGGED_FLONUM_SHIFT2);})
+
+#else
+
+#define ___SELF_TAGGED_FLONUM(x) 0
+
+#define ___FLO_CONST(sub,hi,lo) sub
+
+#define ___F64UNBOX(x) ___MEM_ALLOCATED_FLONUM_GET(x)
+#define ___F64UNBOXI(x) ___F64UNBOX(x)
+#define ___F64BOX(x) ___MEM_ALLOCATED_FLONUM_ALLOC(x)
+
+#endif
+
+#endif
+
+#define ___FLO(i,hi,lo) ___FLO_CONST(___SUB(i),hi,lo)
+#define ___REF_FLO(i,hi,lo) ___REF_SUB(i)
+
+#define ___D_F64(x)___F64 x;
+#define ___SET_F64(x,y)x=y;
+
+/* Bignum representation */
+
+#define ___BIG_FBASE_WIDTH 8
+
+#if ___FIX_WIDTH == 30
+#define ___BIG_MBASE_WIDTH 16
+#else
+#define ___BIG_MBASE_WIDTH 32
+#endif
+
+#ifndef ___BUILTIN_64BIT_INT_TYPE
+#define ___BIG_ABASE_WIDTH 32
+#else
+#define ___BIG_ABASE_WIDTH 64
+#endif
+
+#define ___BIG_ADIGIT_WIDTH ___FIX(___BIG_ABASE_WIDTH)
+#define ___BIG_MDIGIT_WIDTH ___FIX(___BIG_MBASE_WIDTH)
+#define ___BIG_FDIGIT_WIDTH ___FIX(___BIG_FBASE_WIDTH)
+
+#if ___BIG_ABASE_WIDTH == 32
+
+#define ___BIGAFETCH(base,i) ___FETCH_U32(base,i)
+#define ___BIGAFETCHSIGNED(base,i) ___FETCH_S32(base,i)
+#define ___BIGASTORE(base,i,val) ___STORE_U32(base,i,val)
+#define ___BIGASTORESIGNED(base,i,val) ___STORE_S32(base,i,val)
+#define ___BIGALENGTH(vect) ___U32VECTORLENGTH(vect)
+#define ___BIGADIGIT ___U32
+#define ___BIGADIGITSIGNED ___S32
+#define ___BIGASHRINK(x,y) ___U32VECTORSHRINK(x,y)
+#define ___BIGATEMP ___u32_temp
+
+#else
+
+#define ___BIGAFETCH(base,i) ___FETCH_U64(base,i)
+#define ___BIGAFETCHSIGNED(base,i) ___FETCH_S64(base,i)
+#define ___BIGASTORE(base,i,val) ___STORE_U64(base,i,val)
+#define ___BIGASTORESIGNED(base,i,val) ___STORE_S64(base,i,val)
+#define ___BIGALENGTH(vect) ___U64VECTORLENGTH(vect)
+#define ___BIGADIGIT ___U64
+#define ___BIGADIGITSIGNED ___S64
+#define ___BIGASHRINK(x,y) ___U64VECTORSHRINK(x,y)
+#define ___BIGATEMP ___u64_temp
+
+#endif
+
+#define ___BIG_ABASE_MIN_1 (~___CAST(___BIGADIGIT,0))
+
+#if ___BIG_ABASE_WIDTH == 32
+
+#define ___S32UNBOX(x) \
+(___FIXNUMP(___temp=(x)) \
+ ? ___INT(___temp) \
+ : ___BIGAFETCHSIGNED(___BODY_AS(___temp,___tSUBTYPED),0))
+
+#define ___U32UNBOX(x) \
+(___FIXNUMP(___temp=(x)) \
+ ? ___CAST_U32(___INT(___temp)) \
+ : ___BIGAFETCH(___BODY_AS(___temp,___tSUBTYPED),0))
+
+#define ___S64UNBOX(x) \
+(___FIXNUMP(___temp=(x)) \
+ ? ___S64_from_SM32(___INT(___temp)) \
+ : (___HD_BYTES(___SUBTYPED_HEADER(___temp)) == (1<<2) \
+    ? ___S64_from_SM32(___BIGAFETCHSIGNED(___BODY_AS(___temp,___tSUBTYPED),0)) \
+    : ___S64_from_SM32_UM32(___BIGAFETCHSIGNED(___BODY_AS(___temp,___tSUBTYPED),1),___BIGAFETCH(___BODY_AS(___temp,___tSUBTYPED),0))))
+
+#define ___U64UNBOX(x) \
+(___FIXNUMP(___temp=(x)) \
+ ? ___U64_from_UM32(___CAST_U32(___INT(___temp))) \
+ : (___HD_BYTES(___SUBTYPED_HEADER(___temp)) == (1<<2) \
+    ? ___U64_from_UM32(___BIGAFETCH(___BODY_AS(___temp,___tSUBTYPED),0)) \
+    : ___U64_from_UM32_UM32(___BIGAFETCH(___BODY_AS(___temp,___tSUBTYPED),1),___BIGAFETCH(___BODY_AS(___temp,___tSUBTYPED),0))))
+
+#if ___FIX_WIDTH == 30
+
+#define ___S32BOX(x) \
+(___s32_temp=(x), \
+ (___s32_temp >= ___MIN_FIX && ___s32_temp <= ___MAX_FIX \
+  ? ___FIX(___s32_temp) \
+  : (___ALLOC(1+___WORDS(1<<2)), \
+     ___hp[-(1+___WORDS(1<<2))] = ___MAKE_HD_BYTES(1<<2,___sBIGNUM), \
+     ___BIGASTORESIGNED(___hp,-1,___s32_temp), \
+     ___GET_SUBTYPED(___WORDS(1<<2)))))
+
+#define ___U32BOX(x) \
+(___u32_temp=(x), \
+ (___u32_temp <= ___CAST_U32(___MAX_FIX) \
+  ? ___FIX(___u32_temp) \
+  : (___CAST_S32(___u32_temp) < 0 \
+     ? (___ALLOC(1+___WORDS(2<<2)), \
+        ___hp[-(1+___WORDS(2<<2))] = ___MAKE_HD_BYTES(2<<2,___sBIGNUM), \
+        ___BIGASTORE(___hp,-2,___u32_temp), \
+        ___BIGASTORE(___hp,-1,0), \
+        ___GET_SUBTYPED(___WORDS(2<<2))) \
+     : (___ALLOC(1+___WORDS(1<<2)), \
+        ___hp[-(1+___WORDS(1<<2))] = ___MAKE_HD_BYTES(1<<2,___sBIGNUM), \
+        ___BIGASTORE(___hp,-1,___u32_temp), \
+        ___GET_SUBTYPED(___WORDS(1<<2))))))
+
+#define ___S64BOX(x) \
+(___s64_temp=(x), \
+ (((___s32_temp = ___CAST_S32(___S64_lo32(___s64_temp)))>>31) \
+  == ___S64_hi32(___s64_temp) \
+  ? (___s32_temp >= ___MIN_FIX && ___s32_temp <= ___MAX_FIX \
+     ? ___FIX(___s32_temp) \
+     : (___ALLOC(1+___WORDS(1<<2)), \
+        ___hp[-(1+___WORDS(1<<2))] = ___MAKE_HD_BYTES(1<<2,___sBIGNUM), \
+        ___BIGASTORE(___hp,-1,___s32_temp), \
+        ___GET_SUBTYPED(___WORDS(1<<2)))) \
+  : (___ALLOC(1+___WORDS(2<<2)), \
+     ___hp[-(1+___WORDS(2<<2))] = ___MAKE_HD_BYTES(2<<2,___sBIGNUM), \
+     ___BIGASTORE(___hp,-2,___s32_temp), \
+     ___BIGASTORESIGNED(___hp,-1,___S64_hi32(___s64_temp)), \
+     ___GET_SUBTYPED(___WORDS(2<<2)))))
+
+#define ___U64BOX(x) \
+(___u64_temp=(x), \
+ (___CAST_S32(___U64_hi32(___u64_temp)) < 0 \
+  ? (___ALLOC(1+___WORDS(3<<2)), \
+     ___hp[-(1+___WORDS(3<<2))] = ___MAKE_HD_BYTES(3<<2,___sBIGNUM), \
+     ___BIGASTORE(___hp,-3,___U64_lo32(___u64_temp)), \
+     ___BIGASTORE(___hp,-2,___U64_hi32(___u64_temp)), \
+     ___BIGASTORE(___hp,-1,0), \
+     ___GET_SUBTYPED(___WORDS(3<<2))) \
+  : (((___u32_temp = ___U64_lo32(___u64_temp)) & (___CAST_U32(1)<<31)) \
+     == ___U64_hi32(___u64_temp) \
+     ? (___u32_temp <= ___MAX_FIX \
+        ? ___FIX(___u32_temp) \
+        : (___ALLOC(1+___WORDS(1<<2)), \
+           ___hp[-(1+___WORDS(1<<2))] = ___MAKE_HD_BYTES(1<<2,___sBIGNUM), \
+           ___BIGASTORE(___hp,-1,___u32_temp), \
+           ___GET_SUBTYPED(___WORDS(1<<2)))) \
+     : (___ALLOC(1+___WORDS(2<<2)), \
+        ___hp[-(1+___WORDS(2<<2))] = ___MAKE_HD_BYTES(2<<2,___sBIGNUM), \
+        ___BIGASTORE(___hp,-2,___u32_temp), \
+        ___BIGASTORESIGNED(___hp,-1,___S64_hi32(___u64_temp)), \
+        ___GET_SUBTYPED(___WORDS(2<<2))))))
+
+#else
+
+#define ___S32BOX(x) ___FIX(___FW(x))
+#define ___U32BOX(x) ___FIX(___UFW(x))
+
+#define ___S64BOX(x) \
+(___s64_temp=(x), \
+ (___s64_temp >= ___MIN_FIX && ___s64_temp <= ___MAX_FIX \
+  ? ___FIX(___s64_temp) \
+  : ((___CAST_S32(___S64_lo32(___s64_temp))>>31) == ___S64_hi32(___s64_temp) \
+     ? (___ALLOC(1+___WORDS(1<<2)), \
+        ___hp[-(1+___WORDS(1<<2))] = ___MAKE_HD_BYTES(1<<2,___sBIGNUM), \
+        ___BIGASTORE(___hp,-1,___S64_lo32(___s64_temp)), \
+        ___GET_SUBTYPED(___WORDS(1<<2))) \
+     : (___ALLOC(1+___WORDS(2<<2)), \
+        ___hp[-(1+___WORDS(2<<2))] = ___MAKE_HD_BYTES(2<<2,___sBIGNUM), \
+        ___BIGASTORE(___hp,-2,___S64_lo32(___s64_temp)), \
+        ___BIGASTORESIGNED(___hp,-1,___S64_hi32(___s64_temp)), \
+        ___GET_SUBTYPED(___WORDS(2<<2))))))
+
+#define ___U64BOX(x) \
+(___u64_temp=(x), \
+ (___u64_temp <= ___CAST_U64(___MAX_FIX) \
+  ? ___FIX(___u64_temp) \
+  : (___CAST_S64(___u64_temp) < 0 \
+     ? (___ALLOC(1+___WORDS(3<<2)), \
+        ___hp[-(1+___WORDS(3<<2))] = ___MAKE_HD_BYTES(3<<2,___sBIGNUM), \
+        ___BIGASTORE(___hp,-3,___U64_lo32(___u64_temp)), \
+        ___BIGASTORE(___hp,-2,___U64_hi32(___u64_temp)), \
+        ___BIGASTORE(___hp,-1,0), \
+        ___GET_SUBTYPED(___WORDS(3<<2))) \
+     : ((___U64_lo32(___u64_temp) & (___CAST_U32(1)<<31)) == ___U64_hi32(___u64_temp) \
+        ? (___ALLOC(1+___WORDS(1<<2)), \
+           ___hp[-(1+___WORDS(1<<2))] = ___MAKE_HD_BYTES(1<<2,___sBIGNUM), \
+           ___BIGASTORE(___hp,-1,___S64_lo32(___u64_temp)), \
+           ___GET_SUBTYPED(___WORDS(1<<2))) \
+        : (___ALLOC(1+___WORDS(2<<2)), \
+           ___hp[-(1+___WORDS(2<<2))] = ___MAKE_HD_BYTES(2<<2,___sBIGNUM), \
+           ___BIGASTORE(___hp,-2,___S64_lo32(___u64_temp)), \
+           ___BIGASTORESIGNED(___hp,-1,___S64_hi32(___u64_temp)), \
+           ___GET_SUBTYPED(___WORDS(2<<2)))))))
+
+#endif
+
+#else
+
+#define ___S32UNBOX(x) \
+(___FIXNUMP(___temp=(x)) \
+ ? ___INT(___temp) \
+ : ___CAST_S32(___U64_lo32(___BIGAFETCH(___BODY_AS(___temp,___tSUBTYPED),0))))
+
+#define ___U32UNBOX(x) \
+(___FIXNUMP(___temp=(x)) \
+ ? ___CAST_U32(___INT(___temp)) \
+ : ___U64_lo32(___BIGAFETCH(___BODY_AS(___temp,___tSUBTYPED),0)))
+
+#define ___S64UNBOX(x) \
+(___FIXNUMP(___temp=(x)) \
+ ? ___INT(___temp) \
+ : ___BIGAFETCHSIGNED(___BODY_AS(___temp,___tSUBTYPED),0))
+
+#define ___U64UNBOX(x) \
+(___FIXNUMP(___temp=(x)) \
+ ? ___CAST_U64(___INT(___temp)) \
+ : ___BIGAFETCH(___BODY_AS(___temp,___tSUBTYPED),0))
+
+#if ___FIX_WIDTH == 30
+
+#define ___S32BOX(x) \
+(___s32_temp=(x), \
+ (___s32_temp >= ___MIN_FIX && ___s32_temp <= ___MAX_FIX \
+  ? ___FIX(___s32_temp) \
+  : (___ALLOC_ALIGN64(1+___WORDS(1<<3)), \
+     ___hp[-(1+___WORDS(1<<3))] = ___MAKE_HD_BYTES(1<<3,___sBIGNUM), \
+     ___BIGASTORESIGNED(___hp,-1,___S64_from_SM32(___s32_temp)), \
+     ___GET_SUBTYPED(___WORDS(1<<3)))))
+
+#define ___U32BOX(x) \
+(___u32_temp=(x), \
+ (___u32_temp <= ___CAST_U32(___MAX_FIX) \
+  ? ___FIX(___u32_temp) \
+  : (___ALLOC_ALIGN64(1+___WORDS(1<<3)), \
+     ___hp[-(1+___WORDS(1<<3))] = ___MAKE_HD_BYTES(1<<3,___sBIGNUM), \
+     ___BIGASTORE(___hp,-1,___U64_from_UM32(___u32_temp)), \
+     ___GET_SUBTYPED(___WORDS(1<<3)))))
+
+#else
+
+#define ___S32BOX(x) ___FIX(___FW(x))
+#define ___U32BOX(x) ___FIX(___UFW(x))
+
+#endif
+
+#define ___S64BOX(x) \
+(___s64_temp=(x), \
+ (___s64_temp >= ___MIN_FIX && ___s64_temp <= ___MAX_FIX \
+  ? ___FIX(___s64_temp) \
+  : (___ALLOC_ALIGN64(1+___WORDS(1<<3)), \
+     ___hp[-(1+___WORDS(1<<3))] = ___MAKE_HD_BYTES(1<<3,___sBIGNUM), \
+     ___BIGASTORESIGNED(___hp,-1,___s64_temp), \
+     ___GET_SUBTYPED(___WORDS(1<<3)))))
+
+#define ___U64BOX(x) \
+(___u64_temp=(x), \
+ (___u64_temp <= ___CAST_U64(___MAX_FIX) \
+  ? ___FIX(___u64_temp) \
+  : (___CAST_S64(___u64_temp) < 0 \
+     ? (___ALLOC_ALIGN64(1+___WORDS(2<<3)), \
+        ___hp[-(1+___WORDS(2<<3))] = ___MAKE_HD_BYTES(2<<3,___sBIGNUM), \
+        ___BIGASTORE(___hp,-2,___u64_temp), \
+        ___BIGASTORE(___hp,-1,0), \
+        ___GET_SUBTYPED(___WORDS(2<<3))) \
+     : (___ALLOC_ALIGN64(1+___WORDS(1<<3)), \
+        ___hp[-(1+___WORDS(1<<3))] = ___MAKE_HD_BYTES(1<<3,___sBIGNUM), \
+        ___BIGASTORE(___hp,-1,___u64_temp), \
+        ___GET_SUBTYPED(___WORDS(1<<3))))))
+
+#endif
+
+#if ___BIG_ABASE_WIDTH == 32
+
+#if ___WORD_WIDTH == 32
+
+#define ___BIGFROMFIX(x) \
+(___ALLOC(1+___WORDS(1<<2)), \
+ ___hp[-(1+___WORDS(1<<2))] = ___MAKE_HD_BYTES(1<<2,___sBIGNUM), \
+ ___BIGASTORESIGNED(___hp,-1,___INT(x)), \
+ ___GET_SUBTYPED(___WORDS(1<<2)))
+
+#else
+
+#define ___BIGFROMFIX(x) \
+(___ALLOC(1+___WORDS(2<<2)), \
+ ___hp[-(1+___WORDS(2<<2))] = ___MAKE_HD_BYTES(2<<2,___sBIGNUM), \
+ ___BIGASTORE(___hp,-2,___S64_lo32(___INT(x))), \
+ ___BIGASTORESIGNED(___hp,-1,___S64_hi32(___INT(x))), \
+ ___GET_SUBTYPED(___WORDS(2<<2)))
+
+#endif
+
+#else
+
+#define ___BIGFROMFIX(x) \
+(___ALLOC_ALIGN64(1+___WORDS(1<<3)), \
+ ___hp[-(1+___WORDS(1<<3))] = ___MAKE_HD_BYTES(1<<3,___sBIGNUM), \
+ ___BIGASTORESIGNED(___hp,-1,___CAST(___BIGADIGIT,___INT(x))), \
+ ___GET_SUBTYPED(___WORDS(1<<3)))
+
+#endif
+
+#define ___BIGALESSP(x,y,i) \
+(___BIGAFETCH(___BODY_AS(x,___tSUBTYPED),(i)>>___TB_FIXNUM) \
+ < (___BIGAFETCH(___BODY_AS(y,___tSUBTYPED),(i)>>___TB_FIXNUM)))
+
+#define ___BIGAEQP(x,y,i) \
+(___BIGAFETCH(___BODY_AS(x,___tSUBTYPED),(i)>>___TB_FIXNUM) \
+ == (___BIGAFETCH(___BODY_AS(y,___tSUBTYPED),(i)>>___TB_FIXNUM)))
+
+#define ___BIGAONESP(x,i) \
+(___BIGAFETCH(___BODY_AS(x,___tSUBTYPED),(i)>>___TB_FIXNUM) == ___BIG_ABASE_MIN_1)
+
+#define ___BIGAZEROP(x,i) \
+(___BIGAFETCH(___BODY_AS(x,___tSUBTYPED),(i)>>___TB_FIXNUM) == 0)
+
+#define ___BIGANEGATIVEP(x,i) \
+(___BIGAFETCHSIGNED(___BODY_AS(x,___tSUBTYPED),(i)>>___TB_FIXNUM) < 0)
+
+#define ___BIGTOFIX(x) \
+(___BIGATEMP=___BIGAFETCH(___BODY_AS(x,___tSUBTYPED),0), \
+ (___BIGATEMP == ___CAST(___BIGADIGIT,___INT(___FIX(___BIGATEMP))) ? ___FIX(___BIGATEMP) : ___FAL))
+
+
+#define ___BIGACAT(x,i,hi,j,lo,k,divider) \
+___BIGATEMP=((___BIGADIGIT)___BIGAFETCH(___BODY_AS(hi,___tSUBTYPED),(j)>>___TB_FIXNUM) << ___INT(divider)) | \
+            ((___BIGADIGIT)___BIGAFETCH(___BODY_AS(lo,___tSUBTYPED),(k)>>___TB_FIXNUM) >> (___BIG_ABASE_WIDTH - ___INT(divider))); \
+___BIGASTORE(___BODY_AS(x,___tSUBTYPED),(i)>>___TB_FIXNUM,(___BIGADIGIT)___BIGATEMP);
+
+#define ___BIGAAND(x,i,y,j) \
+___BIGATEMP= ___BIGAFETCH(___BODY_AS(x,___tSUBTYPED),(i)>>___TB_FIXNUM) & ___BIGAFETCH(___BODY_AS(y,___tSUBTYPED),(j)>>___TB_FIXNUM); \
+___BIGASTORE(___BODY_AS(x,___tSUBTYPED),(i)>>___TB_FIXNUM,(___BIGADIGIT)___BIGATEMP);
+
+#define ___BIGAANDC1(x,i,y,j) \
+___BIGATEMP= ~___BIGAFETCH(___BODY_AS(x,___tSUBTYPED),(i)>>___TB_FIXNUM) & ___BIGAFETCH(___BODY_AS(y,___tSUBTYPED),(j)>>___TB_FIXNUM); \
+___BIGASTORE(___BODY_AS(x,___tSUBTYPED),(i)>>___TB_FIXNUM,(___BIGADIGIT)___BIGATEMP);
+
+#define ___BIGAANDC2(x,i,y,j) \
+___BIGATEMP= ___BIGAFETCH(___BODY_AS(x,___tSUBTYPED),(i)>>___TB_FIXNUM) & ~___BIGAFETCH(___BODY_AS(y,___tSUBTYPED),(j)>>___TB_FIXNUM); \
+___BIGASTORE(___BODY_AS(x,___tSUBTYPED),(i)>>___TB_FIXNUM,(___BIGADIGIT)___BIGATEMP);
+
+#define ___BIGAEQV(x,i,y,j) \
+___BIGATEMP= ~(___BIGAFETCH(___BODY_AS(x,___tSUBTYPED),(i)>>___TB_FIXNUM) ^ ___BIGAFETCH(___BODY_AS(y,___tSUBTYPED),(j)>>___TB_FIXNUM)); \
+___BIGASTORE(___BODY_AS(x,___tSUBTYPED),(i)>>___TB_FIXNUM,(___BIGADIGIT)___BIGATEMP);
+
+#define ___BIGAIOR(x,i,y,j) \
+___BIGATEMP= ___BIGAFETCH(___BODY_AS(x,___tSUBTYPED),(i)>>___TB_FIXNUM) | ___BIGAFETCH(___BODY_AS(y,___tSUBTYPED),(j)>>___TB_FIXNUM); \
+___BIGASTORE(___BODY_AS(x,___tSUBTYPED),(i)>>___TB_FIXNUM,(___BIGADIGIT)___BIGATEMP);
+
+#define ___BIGANAND(x,i,y,j) \
+___BIGATEMP= ~(___BIGAFETCH(___BODY_AS(x,___tSUBTYPED),(i)>>___TB_FIXNUM) & ___BIGAFETCH(___BODY_AS(y,___tSUBTYPED),(j)>>___TB_FIXNUM)); \
+___BIGASTORE(___BODY_AS(x,___tSUBTYPED),(i)>>___TB_FIXNUM,(___BIGADIGIT)___BIGATEMP);
+
+#define ___BIGANOR(x,i,y,j) \
+___BIGATEMP= ~(___BIGAFETCH(___BODY_AS(x,___tSUBTYPED),(i)>>___TB_FIXNUM) | ___BIGAFETCH(___BODY_AS(y,___tSUBTYPED),(j)>>___TB_FIXNUM)); \
+___BIGASTORE(___BODY_AS(x,___tSUBTYPED),(i)>>___TB_FIXNUM,(___BIGADIGIT)___BIGATEMP);
+
+#define ___BIGANOT(x,i) \
+___BIGATEMP= ~___BIGAFETCH(___BODY_AS(x,___tSUBTYPED),(i)>>___TB_FIXNUM); \
+___BIGASTORE(___BODY_AS(x,___tSUBTYPED),(i)>>___TB_FIXNUM,(___BIGADIGIT)___BIGATEMP);
+
+#define ___BIGAORC1(x,i,y,j) \
+___BIGATEMP= ~___BIGAFETCH(___BODY_AS(x,___tSUBTYPED),(i)>>___TB_FIXNUM) | ___BIGAFETCH(___BODY_AS(y,___tSUBTYPED),(j)>>___TB_FIXNUM); \
+___BIGASTORE(___BODY_AS(x,___tSUBTYPED),(i)>>___TB_FIXNUM,(___BIGADIGIT)___BIGATEMP);
+
+#define ___BIGAORC2(x,i,y,j) \
+___BIGATEMP= ___BIGAFETCH(___BODY_AS(x,___tSUBTYPED),(i)>>___TB_FIXNUM) | ~___BIGAFETCH(___BODY_AS(y,___tSUBTYPED),(j)>>___TB_FIXNUM); \
+___BIGASTORE(___BODY_AS(x,___tSUBTYPED),(i)>>___TB_FIXNUM,(___BIGADIGIT)___BIGATEMP);
+
+#define ___BIGAXOR(x,i,y,j) \
+___BIGATEMP= ___BIGAFETCH(___BODY_AS(x,___tSUBTYPED),(i)>>___TB_FIXNUM) ^ ___BIGAFETCH(___BODY_AS(y,___tSUBTYPED),(j)>>___TB_FIXNUM); \
+___BIGASTORE(___BODY_AS(x,___tSUBTYPED),(i)>>___TB_FIXNUM,(___BIGADIGIT)___BIGATEMP);
+
+
+#define ___BIGNEGATIVEP(x) \
+(___BIGAFETCHSIGNED(___BODY_AS(x,___tSUBTYPED),___FIXSUB(___BIGALENGTH(x),___FIX_1)>>___TB_FIXNUM) < 0)
+
+#define ___BIGACOPY(result,i,y,j) \
+___BIGASTORE(___BODY_AS(result,___tSUBTYPED),(i)>>___TB_FIXNUM, \
+___BIGAFETCH(___BODY_AS(y,___tSUBTYPED),(j)>>___TB_FIXNUM));
+
+#define ___BIGAINC(x,i) \
+(___BIGATEMP = (___BIGADIGIT)___BIGAFETCH(___BODY_AS(x,___tSUBTYPED),(i)>>___TB_FIXNUM)+(___BIGADIGIT) 1, \
+ ___BIGASTORE(___BODY_AS(x,___tSUBTYPED),(i)>>___TB_FIXNUM,(___BIGADIGIT)___BIGATEMP), \
+(___BIGATEMP == 0 ? ___FIX_1 : ___FIX_0))
+
+#define ___BIGADEC(x,i) \
+(___BIGATEMP = (___BIGADIGIT)___BIGAFETCH(___BODY_AS(x,___tSUBTYPED),(i)>>___TB_FIXNUM)-(___BIGADIGIT) 1, \
+ ___BIGASTORE(___BODY_AS(x,___tSUBTYPED),(i)>>___TB_FIXNUM,(___BIGADIGIT)___BIGATEMP), \
+(___BIGATEMP == ___BIG_ABASE_MIN_1 ? ___FIX_1 : ___FIX_0))
+
+#define ___BIGAADD(result,i,y,j,carry) \
+(carry ? (___BIGATEMP=(___BIGADIGIT)___BIGAFETCH(___BODY_AS(result,___tSUBTYPED),___INT(i))+ \
+                      (___BIGADIGIT)___BIGAFETCH(___BODY_AS(     y,___tSUBTYPED),___INT(j))+ \
+                      (___BIGADIGIT) 1, \
+          ((___BIGADIGIT) ___BIGATEMP <= (___BIGADIGIT)___BIGAFETCH(___BODY_AS(result,___tSUBTYPED),___INT(i)) \
+           ? \
+           (___BIGASTORE(___BODY_AS(result,___tSUBTYPED),___INT(i),(___BIGADIGIT)___BIGATEMP), ___FIX_1) \
+           : \
+           (___BIGASTORE(___BODY_AS(result,___tSUBTYPED),___INT(i),(___BIGADIGIT)___BIGATEMP), ___FIX_0))) \
+         : \
+         (___BIGATEMP=(___BIGADIGIT)___BIGAFETCH(___BODY_AS(result,___tSUBTYPED),___INT(i))+ \
+                      (___BIGADIGIT)___BIGAFETCH(___BODY_AS(     y,___tSUBTYPED),___INT(j)), \
+          ((___BIGADIGIT) ___BIGATEMP < (___BIGADIGIT)___BIGAFETCH(___BODY_AS(result,___tSUBTYPED),___INT(i)) \
+           ? \
+           (___BIGASTORE(___BODY_AS(result,___tSUBTYPED),___INT(i),(___BIGADIGIT)___BIGATEMP), ___FIX_1) \
+           : \
+           (___BIGASTORE(___BODY_AS(result,___tSUBTYPED),___INT(i),(___BIGADIGIT)___BIGATEMP), ___FIX_0))))
+
+#define ___BIGASUB(result,i,y,j,borrow) \
+(borrow ? (___BIGATEMP=(___BIGADIGIT)___BIGAFETCH(___BODY_AS(result,___tSUBTYPED),___INT(i))- \
+                       (___BIGADIGIT)___BIGAFETCH(___BODY_AS(     y,___tSUBTYPED),___INT(j))- \
+                       (___BIGADIGIT) 1, \
+           ((___BIGADIGIT) ___BIGATEMP >= (___BIGADIGIT)___BIGAFETCH(___BODY_AS(result,___tSUBTYPED),___INT(i)) \
+            ? \
+            (___BIGASTORE(___BODY_AS(result,___tSUBTYPED),___INT(i),(___BIGADIGIT)___BIGATEMP), ___FIX_1) \
+            : \
+            (___BIGASTORE(___BODY_AS(result,___tSUBTYPED),___INT(i),(___BIGADIGIT)___BIGATEMP), ___FIX_0))) \
+          : \
+          (___BIGATEMP=(___BIGADIGIT)___BIGAFETCH(___BODY_AS(result,___tSUBTYPED),___INT(i))- \
+                       (___BIGADIGIT)___BIGAFETCH(___BODY_AS(     y,___tSUBTYPED),___INT(j)), \
+           ((___BIGADIGIT) ___BIGATEMP > (___BIGADIGIT)___BIGAFETCH(___BODY_AS(result,___tSUBTYPED),___INT(i)) \
+            ? \
+            (___BIGASTORE(___BODY_AS(result,___tSUBTYPED),___INT(i),(___BIGADIGIT)___BIGATEMP), ___FIX_1) \
+            : \
+            (___BIGASTORE(___BODY_AS(result,___tSUBTYPED),___INT(i),(___BIGADIGIT)___BIGATEMP), ___FIX_0))))
+
+#if ___BIG_MBASE_WIDTH == 16
+
+#ifdef ___BIG_ENDIAN
+
+#if ___BIG_ABASE_WIDTH == 64
+#define ___BIG_END_MFLIP(x)((x)^___FIX(3))
+#else
+#define ___BIG_END_MFLIP(x)((x)^___FIX(1))
+#endif
+#else
+#define ___BIG_END_MFLIP(x)(x)
+#endif
+
+#define ___BIGMLENGTH(v) ___U16VECTORLENGTH(v)
+#define ___BIGMFETCH(base,i) ___FETCH_U16(base,i)
+#define ___BIGMSTORE(base,i,val) ___STORE_U16(base,i,val)
+#define ___BIGMDIGIT ___U16
+#define ___BIGMDOUBLEDIGIT ___U32
+
+#else
+
+#ifdef ___BIG_ENDIAN
+#define ___BIG_END_MFLIP(x)((x)^___FIX(1))
+#else
+#define ___BIG_END_MFLIP(x)(x)
+#endif
+
+#define ___BIGMLENGTH(v) ___U32VECTORLENGTH(v)
+#define ___BIGMFETCH(base,i) ___FETCH_U32(base,i)
+#define ___BIGMSTORE(base,i,val) ___STORE_U32(base,i,val)
+#define ___BIGMDIGIT ___U32
+#define ___BIGMDOUBLEDIGIT ___U64
+
+#endif
+
+#define ___BIG_MBASE ((___BIGMDOUBLEDIGIT)1 << ___BIG_MBASE_WIDTH)
+
+#define ___BIGMREF(x,j) \
+___FIX(___BIGMFETCH(___BODY_AS(x,___tSUBTYPED),___BIG_END_MFLIP(j)>>___TB_FIXNUM))
+
+#define ___BIGMSET(result,i,carry) \
+___BIGMSTORE(___BODY_AS(result,___tSUBTYPED),___BIG_END_MFLIP(i)>>___TB_FIXNUM,___INT(carry));
+
+#define ___BIGMMUL(result,i,y,j,multiplier,carry) \
+     (___temp=(___BIGMDOUBLEDIGIT)___BIGMFETCH(___BODY_AS(result,___tSUBTYPED),___INT(___BIG_END_MFLIP(i))) \
+      + (___BIGMDOUBLEDIGIT)___BIGMFETCH(___BODY_AS(y,___tSUBTYPED),___INT(___BIG_END_MFLIP(j))) \
+      * (___BIGMDOUBLEDIGIT)___INT(multiplier) \
+      + (___BIGMDOUBLEDIGIT)___INT(carry), \
+      ___BIGMSTORE(___BODY_AS(result,___tSUBTYPED),___INT(___BIG_END_MFLIP(i)),(___BIGMDIGIT)___temp), \
+      ___FIX((___BIGMDOUBLEDIGIT)___temp >> ___BIG_MBASE_WIDTH))
+
+#define ___BIGMDIV(u,i,v,k,q,borrow) \
+     (___temp = (___BIGMDOUBLEDIGIT)___BIGMFETCH(___BODY_AS(u,___tSUBTYPED),___INT(___BIG_END_MFLIP(i))) \
+                -(___BIGMDOUBLEDIGIT)___BIGMFETCH(___BODY_AS(v,___tSUBTYPED),___INT(___BIG_END_MFLIP(k))) \
+                 * (___BIGMDOUBLEDIGIT)___INT(q) \
+                 + (___BIGMDOUBLEDIGIT)___INT(borrow),\
+      ___BIGMSTORE(___BODY_AS(u,___tSUBTYPED),___INT(___BIG_END_MFLIP(i)),((___BIGMDIGIT) ___temp)), \
+      ___temp >>= ___BIG_MBASE_WIDTH, \
+      (___temp > 0 ? ___FIX(___temp - ___BIG_MBASE) : ___FIX(___temp)))
+
+
+#define ___BIGMQUO(u,j,v) \
+___FIX((((___BIGMDOUBLEDIGIT)___BIGMFETCH(___BODY_AS(u,___tSUBTYPED),___INT(___BIG_END_MFLIP(j))) << ___BIG_MBASE_WIDTH) \
++___BIGMFETCH(___BODY_AS(u,___tSUBTYPED),___INT(___BIG_END_MFLIP(j-___FIX(1)))))/___INT(v))
+
+
+#define ___BIGMREM(u,j,v,q) \
+___FIX((((___BIGMDOUBLEDIGIT)___BIGMFETCH(___BODY_AS(u,___tSUBTYPED),___INT(___BIG_END_MFLIP(j))) << ___BIG_MBASE_WIDTH) \
++___BIGMFETCH(___BODY_AS(u,___tSUBTYPED),___INT(___BIG_END_MFLIP(j-___FIX(1))))) \
+-((___BIGMDOUBLEDIGIT)___INT(v)*(___BIGMDOUBLEDIGIT)___INT(q)))
+
+#define ___BIGMTESTP(q,v,r,u) \
+(((___BIGMDOUBLEDIGIT)___INT(v)*___INT(q))>((___BIGMDOUBLEDIGIT)___INT(r) << ___BIG_MBASE_WIDTH) +___INT(u))
+
+
+
+
+#ifdef ___BIG_ENDIAN
+
+#if ___BIG_ABASE_WIDTH == 64
+#define ___BIG_END_FFLIP(x)((x)^___FIX(7))
+#else
+#define ___BIG_END_FFLIP(x)((x)^___FIX(3))
+#endif
+
+#else
+
+#define ___BIG_END_FFLIP(x)(x)
+
+#endif
+
+#define ___BIGFREF(x,j)___U8VECTORREF(x,___BIG_END_FFLIP(j))
+
+#define ___BIGFSET(result,i,carry)___U8VECTORSET(result,___BIG_END_FFLIP(i),carry)
+
+#define ___BIGFLENGTH(x)___U8VECTORLENGTH(x)
+

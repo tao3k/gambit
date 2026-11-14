@@ -5,6 +5,14 @@
 #ifndef ___MEM_H
 #define ___MEM_H
 
+#include "lifecycle.h"
+
+extern ___BOOL ___binding_context_admit ___P((___processor_state ps), ());
+extern void ___binding_context_close ___P((___processor_state ps), ());
+
+
+
+
 
 /*
  * Memory allocation parameters:
@@ -31,9 +39,9 @@
  * these cases occur, the assignment of space for the heap and stack
  * is adjusted.  If there is less than or equal to ___MSECTION_WASTE
  * words of space left, a garbage collection is triggered.
- * ___MSECTION_FUDGE must be >=
- * ___MAX_NB_FRAME_SLOTS+1+___SUBTYPED_BODY (which is the size of
- * the largest continuation frame).
+ * ___MSECTION_FUDGE must be >= ___LARGEST_CONTINUATION_FRAME, the
+ * largest continuation frame (___MAX_NB_FRAME_SLOTS+1+___SUBTYPED_BODY).
+ * That capacity is separate from the generated frame ABI macro.
  *
  * ___MSECTION_BIGGEST is the size in words beyond which an object will
  * be allocated as a still object.  It must be <= ___MSECTION_FUDGE.
@@ -64,7 +72,11 @@
 #define ___MAX_NB_ARGS          8192
 #define ___MAX_NB_FRAME_SLOTS   8192
 #define ___MSECTION_SIZE        131072
-#define ___MSECTION_FUDGE       (___MAX_NB_FRAME_SLOTS+1+___SUBTYPED_BODY)
+/* A native rest handler can cross the poll limit by one pair before it
+ * snapshots its raw arguments. Keyword defaults can add formal slots. */
+#define ___REST_PARAM_RESERVE   (___MAX_NB_ARGS+___MAX_NB_PARMS+___VECTOR_BODY+___PAIR_SIZE+___PAIR_BODY)
+#define ___LARGEST_CONTINUATION_FRAME (___MAX_NB_FRAME_SLOTS+1+___SUBTYPED_BODY)
+#define ___MSECTION_FUDGE       ((___REST_PARAM_RESERVE > ___LARGEST_CONTINUATION_FRAME) ? ___REST_PARAM_RESERVE : ___LARGEST_CONTINUATION_FRAME)
 #define ___MSECTION_WASTE       (___MSECTION_FUDGE/16)
 #define ___MSECTION_BIGGEST     255
 #define ___MSECTION_CHUNK       ___MSECTION_BIGGEST
@@ -97,6 +109,22 @@ extern ___SCMOBJ ___setup_mem_vmstate
 
 extern ___SCMOBJ ___setup_mem ___PVOID;
 
+/* Called by the coordinator while the old member set is stopped. These
+ * operations never collect, invoke Scheme, or publish execution members. */
+extern ___SCMOBJ ___reserve_vm_resize
+   ___P((___processor_state ___ps), ());
+extern void ___rollback_vm_resize
+   ___P((___processor_state ___ps), ());
+extern ___BOOL ___isolate_aborted_resize
+   ___P((___processor_state ___ps), ());
+extern ___BOOL ___can_retire_pstate
+   ___P((___processor_state ___ps), ());
+extern void ___transfer_retired_still
+   ___P((___processor_state from, ___processor_state to), ());
+
+extern ___BOOL ___prepare_pstate_cleanup
+   ___P((___processor_state ps), ());
+
 extern void ___cleanup_mem_pstate
    ___P((___processor_state ___ps),
         ());
@@ -107,6 +135,13 @@ extern void ___cleanup_mem_vmstate
 
 extern void ___cleanup_mem ___PVOID;
 
+
+/* setup excludes public runtime imports; its lifecycle still retires groups. */
+extern void ___group_demand_retire
+   ___P((___processor_state ps), ());
+
+extern int ___heap_alloc_fits
+   ___P((___processor_state ps, ___WORD *hp, ___SIZE_TS words), ());
 
 extern ___BOOL ___garbage_collect_pstate
    ___P((___processor_state ___ps,
@@ -137,6 +172,28 @@ extern ___WORD ___stack_overflow_undo_if_possible
    ___P((___PSDNC),
         ());
 
+extern ___WORD ___restore_stack_break_frame
+   ___P((___processor_state ___ps, ___WORD *top, ___WORD **stack_cursor),
+        ());
+
+extern ___WORD ___continuation_next_stack
+   ___P((___processor_state ___ps, ___SCMOBJ cont),
+        ());
+
+enum ___raw_frame_operation
+{
+  ___RAW_FRAME_RET,
+  ___RAW_FRAME_FS,
+  ___RAW_FRAME_LINK,
+  ___RAW_FRAME_LIVE,
+  ___RAW_FRAME_REF,
+  ___RAW_FRAME_SET
+};
+
+extern ___SCMOBJ ___access_raw_continuation_frame
+   ___P((___processor_state ___ps, ___SCMOBJ raw, enum ___raw_frame_operation op,
+         ___SCMOBJ index, ___SCMOBJ value),
+        ());
 
 #ifdef ___DEBUG_HEAP_LIMIT
 
@@ -194,7 +251,9 @@ extern ___SCMOBJ ___make_symkey_from_scheme_string
          unsigned int subtype),
         ());
 
-extern void ___for_each_symkey
+extern ___SCMOBJ ___symkey_table_view(___SCMOBJ view, unsigned int subtype);
+
+extern ___BOOL ___for_each_symkey
    ___P((unsigned int subtype,
          void (*visit) (___SCMOBJ symkey, void *data),
          void *data),
@@ -216,9 +275,11 @@ extern ___SCMOBJ ___find_global_var_bound_to
 
 #endif
 
-extern void ___glo_list_setup ___PVOID;
+extern ___SCMOBJ ___glo_list_setup ___PVOID;
 
-extern void ___glo_list_add
+extern void ___glo_list_open ___PVOID;
+
+extern ___SCMOBJ ___glo_list_add
    ___P((___glo_struct *glo),
         ());
 

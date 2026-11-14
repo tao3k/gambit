@@ -1,0 +1,368 @@
+/*---------------------------------------------------------------------------*/
+
+/* SANITY CHECKS AND SETTING OF DEFAULT OPTIONS */
+
+/*
+ * Verify that the byte order endianness is known.
+ */
+
+#ifdef ___BIG_ENDIAN
+#ifdef ___LITTLE_ENDIAN
+#error "Define either ___BIG_ENDIAN or ___LITTLE_ENDIAN"
+#endif
+#else
+#ifndef ___LITTLE_ENDIAN
+#error "Define either ___BIG_ENDIAN or ___LITTLE_ENDIAN"
+#endif
+#endif
+
+/*
+ * Generate a single host C procedure or multiple C host
+ * procedures (default) per Scheme module?
+ */
+
+#ifndef ___SINGLE_HOST_LIMIT
+#define ___SINGLE_HOST_LIMIT @CONF_SINGLE_HOST_LIMIT@
+#endif
+
+#ifndef ___OPTIMIZED_MODULE_LIMIT
+#define ___OPTIMIZED_MODULE_LIMIT @CONF_OPTIMIZED_MODULE_LIMIT@
+#endif
+
+/* The completed Scheme producer owns physical host layout. The configured
+ * policy remains available to bootstrap sources and embedded-C units whose
+ * host assumptions have not been replaced. These are protocol tags, not a
+ * control-point or performance threshold. */
+#define ___HOST_LAYOUT_CONFIGURED 0
+#define ___HOST_LAYOUT_PROCEDURES 1
+#ifndef ___HOST_LAYOUT
+#define ___HOST_LAYOUT ___HOST_LAYOUT_CONFIGURED
+#endif
+#if defined(___SINGLE_HOST) && defined(___MULTIPLE_HOSTS)
+#error "Define either ___SINGLE_HOST or ___MULTIPLE_HOSTS"
+#endif
+#if ___HOST_LAYOUT == ___HOST_LAYOUT_PROCEDURES
+#undef ___SINGLE_HOST
+#ifndef ___MULTIPLE_HOSTS
+#define ___MULTIPLE_HOSTS
+#endif
+#elif ___HOST_LAYOUT != ___HOST_LAYOUT_CONFIGURED
+#error "Unknown producer host layout"
+#endif
+
+#ifdef ___SINGLE_HOST
+#ifdef ___MULTIPLE_HOSTS
+#error "Define either ___SINGLE_HOST or ___MULTIPLE_HOSTS"
+#endif
+/* downgrade to multiple C host procedures when single-host limit is exceeded */
+#if defined(___LBLCOUNT) && ___SINGLE_HOST_LIMIT > 0 && ___LBLCOUNT > ___SINGLE_HOST_LIMIT
+#undef ___SINGLE_HOST
+#undef ___MULTIPLE_HOSTS
+#define ___MULTIPLE_HOSTS
+#endif
+#else
+#ifndef ___MULTIPLE_HOSTS
+#define ___MULTIPLE_HOSTS
+#endif
+#endif
+
+#ifndef ___GNUC_HOST_FUNCTION_ATTRIBUTES
+#if !__clang__ && ___GNUC_VERSION >= 400000
+/* downgrade optimization level when optimized-module limit is exceeded */
+#if defined(___LBLCOUNT) && ___OPTIMIZED_MODULE_LIMIT > 0 && ___LBLCOUNT > ___OPTIMIZED_MODULE_LIMIT
+#define ___GNUC_HOST_FUNCTION_ATTRIBUTES @CONF_GNUC_HOST_FUNCTION_ATTRIBUTES_UNOPTIMIZED_MODULE@
+#else
+#define ___GNUC_HOST_FUNCTION_ATTRIBUTES @CONF_GNUC_HOST_FUNCTION_ATTRIBUTES_OPTIMIZED_MODULE@
+#endif
+#else
+#define ___GNUC_HOST_FUNCTION_ATTRIBUTES
+#endif
+#endif
+
+/*
+ * Compiling for dynamic loading or not (default).
+ */
+
+#ifdef ___DYNAMIC
+#ifdef ___NONDYNAMIC
+#error "Define either ___DYNAMIC or ___NONDYNAMIC"
+#endif
+#else
+#ifndef ___NONDYNAMIC
+#define ___NONDYNAMIC
+#endif
+#endif
+
+/*
+ * Define symbols appropriate for dynamic loading.
+ */
+
+#ifdef ___DYNAMIC
+#undef ___LIBRARY
+#define ___LIBRARY
+#undef ___SHARED
+#define ___SHARED
+#undef ___BIND_LATE
+#define ___BIND_LATE
+#endif
+
+/*
+ * Compiling to produce a library or an application with a "main" (default
+ * unless compiling a flat link file).
+ */
+
+#ifdef ___LIBRARY
+#ifdef ___APPLICATION
+#error "Define either ___LIBRARY or ___APPLICATION"
+#endif
+#else
+#ifndef ___APPLICATION
+#ifdef ___FLAT_LINKFILE
+#define ___LIBRARY
+#else
+#define ___APPLICATION
+#endif
+#endif
+#endif
+
+/*
+ * Compiling to produce a shared-library or not (default).
+ */
+
+#ifdef ___SHARED
+#ifdef ___NONSHARED
+#error "Define either ___SHARED or ___NONSHARED"
+#endif
+#else
+#ifndef ___NONSHARED
+#define ___NONSHARED
+#endif
+#endif
+
+/*
+ * Select binding time for global variables, symbols, and keywords.
+ * Early binding (default) produces faster code because it directly
+ * accesses the resource.  Late binding does an indirection at run
+ * time.
+ */
+
+#ifdef ___BIND_LATE
+#ifdef ___BIND_EARLY
+#error "Define either ___BIND_LATE or ___BIND_EARLY"
+#endif
+#else
+#ifndef ___BIND_EARLY
+#define ___BIND_EARLY
+#endif
+#endif
+
+/*
+ * Range and size of Scheme characters.
+ *
+ * ___MAX_CHR must be 0xff, 0xffff or 0x10ffff.  The value 0xff is
+ * appropriate when text is limited to the ISO-8859-1 subset of
+ * Unicode.  The value 0xffff is for when text is limited to the BMP
+ * (Basic Multilingual Plane) subset of Unicode.  The value 0x10ffff
+ * allows all Unicode characters in text.  Note that the number of
+ * bytes per character in a string depends on ___MAX_CHR as follows:
+ *
+ *   ___MAX_CHR = 0xff      =>  1 byte per character
+ *   ___MAX_CHR = 0xffff    =>  2 bytes per character
+ *   ___MAX_CHR = 0x10ffff  =>  4 bytes per character
+ *
+ * If in doubt just do
+ *
+ *  #define ___MAX_CHR 0x10ffff
+ *
+ */
+
+#ifndef ___MAX_CHR
+#define ___MAX_CHR @CONF_MAX_CHR@
+#endif
+
+/*
+ * Number of registers in the virtual machine.  These definitions must
+ * agree with those in the file "gsc/_t-c-1.scm".  All Scheme sources
+ * must be recompiled if these definitions are changed.
+ *
+ * ___NB_GVM_REGS = total number of registers available
+ *                  3 <= ___NB_GVM_REGS <= 25
+ * ___NB_ARG_REGS = maximum number of arguments passed in registers
+ *                  1 <= ___NB_ARG_REGS <= min( 12, ___NB_GVM_REGS-2 )
+ */
+
+#ifndef ___NB_GVM_REGS
+#define ___NB_GVM_REGS 5
+#endif
+
+#ifndef ___NB_ARG_REGS
+#define ___NB_ARG_REGS 3
+#endif
+
+/*
+ * Determine if label values (a gcc extension to C) should be supported.
+ */
+
+#ifdef ___NOT_SUPPORT_LABEL_VALUES
+#ifdef ___SUPPORT_LABEL_VALUES
+#error "Define either ___SUPPORT_LABEL_VALUES or ___NOT_SUPPORT_LABEL_VALUES"
+#endif
+#else
+#ifndef ___SUPPORT_LABEL_VALUES
+#define ___SUPPORT_LABEL_VALUES
+#endif
+#endif
+
+/*
+ * Determine if label values should be used.
+ */
+
+#ifndef ___SUPPORT_LABEL_VALUES
+
+#undef ___USE_LABEL_VALUES
+#undef ___NOT_USE_LABEL_VALUES
+#define ___NOT_USE_LABEL_VALUES
+
+#else
+
+#ifdef ___USE_LABEL_VALUES
+#ifdef ___NOT_USE_LABEL_VALUES
+#error "Define either ___USE_LABEL_VALUES or ___NOT_USE_LABEL_VALUES"
+#endif
+#else
+#ifndef ___NOT_USE_LABEL_VALUES
+#ifdef __GNUC__
+#if __llvm__ && !__clang__ && ___GNUC_VERSION < 405000
+/* Avoid possible LLVM GCC bug with label values */
+#define ___NOT_USE_LABEL_VALUES
+#else
+#define ___USE_LABEL_VALUES
+#endif
+#else
+#define ___NOT_USE_LABEL_VALUES
+#endif
+#endif
+#endif
+
+#endif
+
+#ifdef ___INLINE_JUMPS
+#ifdef ___DONT_INLINE_JUMPS
+#error "Define either ___INLINE_JUMPS or ___DONT_INLINE_JUMPS"
+#endif
+#else
+#ifndef ___DONT_INLINE_JUMPS
+#if __llvm__ || __clang__
+#define ___DONT_INLINE_JUMPS
+#endif
+#endif
+#endif
+
+/*
+ * Allow multiple Gambit VM instances or not?
+ */
+
+#ifndef ___SINGLE_VM
+#ifndef ___MULTIPLE_VMS
+#define @CONF_SINGLE_MULTIPLE_VMS@
+#endif
+#endif
+
+#ifdef ___SINGLE_VM
+#ifdef ___MULTIPLE_VMS
+#error "Define either ___SINGLE_VM or ___MULTIPLE_VMS"
+#endif
+#endif
+
+/*
+ * Are Gambit VM instances single or multiple threaded at the OS
+ * level?  In other words, is it allowed for multiple OS threads to be
+ * running in a given VM instance?
+ */
+
+#ifndef ___SINGLE_THREADED_VMS
+#ifndef ___MULTIPLE_THREADED_VMS
+#define @CONF_SINGLE_MULTIPLE_THREADED_VMS@
+#endif
+#endif
+
+#ifdef ___SINGLE_THREADED_VMS
+#ifdef ___MULTIPLE_THREADED_VMS
+#error "Define either ___SINGLE_THREADED_VMS or ___MULTIPLE_THREADED_VMS"
+#endif
+#endif
+
+/*
+ * Determine the maximum number of OS threads (processors) that can be
+ * running in a given VM instance.
+ */
+
+#ifndef ___MAX_PROCESSORS
+#ifdef ___SINGLE_THREADED_VMS
+#define ___MAX_PROCESSORS 1
+#else
+#define ___MAX_PROCESSORS @CONF_MAX_PROCESSORS@
+#endif
+#endif
+
+/*
+ * Determine which thread system is being used.  This needs to be
+ * known by this header file to allow the definition of macros which
+ * expand to calls to thread system specific functions, thus avoiding
+ * the overhead of a function call (which could be significant for
+ * some basic operations such as ___MUTEX_LOCK and ___MUTEX_UNLOCK).
+ */
+
+#ifndef ___USE_NO_THREAD_SYSTEM
+
+#ifndef ___USE_POSIX_THREAD_SYSTEM
+#ifndef ___USE_WIN32_THREAD_SYSTEM
+#define @CONF_THREAD_SYSTEM@
+#endif
+#endif
+
+#ifdef ___USE_POSIX_THREAD_SYSTEM
+#ifdef ___USE_WIN32_THREAD_SYSTEM
+#error "Define either ___USE_POSIX_THREAD_SYSTEM or ___USE_WIN32_THREAD_SYSTEM"
+#endif
+#endif
+
+#endif
+
+/*
+ * Determine which thread local storage class keyword to use.  The
+ * configure script normally determines this because it depends on
+ * many factors (the compiler, the version and the OS).  It is
+ * normally __thread on gcc and __declspec(thread) on WIN32.
+ */
+
+#ifndef ___NO_THREAD_LOCAL_STORAGE_CLASS
+#ifndef ___THREAD_LOCAL_STORAGE_CLASS
+#define @CONF_THREAD_LOCAL_STORAGE_CLASS@
+#endif
+#endif
+
+/*
+ * Determine if the WIN32 CONDITION_VARIABLE type is available.
+ */
+
+#ifdef ___USE_WIN32_THREAD_SYSTEM
+#ifndef ___HAVE_CONDITION_VARIABLE
+#ifndef ___DONT_HAVE_CONDITION_VARIABLE
+#define @CONF_HAVE_CONDITION_VARIABLE@
+#endif
+#endif
+#endif
+
+
+/*
+ * Determine if an activity log should be kept or not.
+ */
+
+#ifndef ___NO_ACTIVITY_LOG
+#ifndef ___ACTIVITY_LOG
+#define @CONF_ACTIVITY_LOG@
+#endif
+#endif
+
+

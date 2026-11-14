@@ -1,0 +1,1544 @@
+/*---------------------------------------------------------------------------*/
+
+#define ___PRC(i)___start+((i-___HOST_LBL0)*___LABEL_SIZE*___WS)
+
+#define ___SET_NARGS(n)___ps->na=n;
+
+#define ___IF_NARGS_EQ(n,code)if (___EXPECT_TRUE(___ps->na==n)) {code} else
+
+#define ___WRONG_NARGS(lbl,nb_req,nb_opt,nb_key) \
+{___ps->temp1=___LBL(lbl); \
+___JUMPEXTPRM(___NOTHING,___ps->handler_wrong_nargs)}
+
+#define ___GET_REST(lbl,nb_req,nb_opt,nb_key) \
+if (___ps->na>=0){___ps->temp1=___LBL(lbl); \
+___JUMPEXTPRM(___NOTHING,___ps->handler_get_rest)}
+
+#define ___GET_KEY(lbl,nb_req,nb_opt,nb_key,key_descr) \
+if (___ps->na>=0){___ps->temp1=___LBL(lbl);___ps->temp2=nb_req+nb_opt; \
+___ps->temp3=key_descr;___JUMPEXTPRM(___NOTHING,___ps->handler_get_key)}
+
+#define ___GET_REST_KEY(lbl,nb_req,nb_opt,nb_key,key_descr) \
+if (___ps->na>=0){___ps->temp1=___LBL(lbl);___ps->temp2=nb_req+nb_opt; \
+___ps->temp3=key_descr;___ps->temp4=1; \
+___JUMPEXTPRM(___NOTHING,___ps->handler_get_key_rest)}
+
+#define ___GET_KEY_REST(lbl,nb_req,nb_opt,nb_key,key_descr) \
+if (___ps->na>=0){___ps->temp1=___LBL(lbl);___ps->temp2=nb_req+nb_opt; \
+___ps->temp3=key_descr;___ps->temp4=0; \
+___JUMPEXTPRM(___NOTHING,___ps->handler_get_key_rest)}
+
+#define ___BOOLEAN(x)(x)?___TRU:___FAL
+#define ___EXPR(x)x;
+
+#ifdef ___SUPPORT_LOWLEVEL_EXEC
+
+#ifdef ___CPU_x86
+
+/* Useful to have constant bit pattern in low 16 bits of pstate */
+#define ___PSTATE_ALIGN_MULTIPLIER (1<<16)
+#define ___PSTATE_ALIGN_MODULUS    0x8888
+
+#ifdef ___CPU_x86_32
+
+#define ___CLO_LOWLEVEL_TRAMPOLINE_SIZE 2
+#define ___CLO_LOWLEVEL_TRAMPOLINE_SETUP(ptr,lbl) \
+do { \
+     /* generate x86-32 instruction: call lbl */ \
+     ___WORD dist = ___CAST(___WORD, \
+                            ___CAST(___UWORD,lbl) - \
+                            (___CAST(___UWORD,ptr) + ___WS + ___tSUBTYPED + 5)); \
+     (ptr)[___LABEL_LOWLEVEL_CODE] = (0xe8L << (8*___tSUBTYPED)) \
+                                     + (dist << (8*(___tSUBTYPED+1))); \
+     (ptr)[___LABEL_LOWLEVEL_CODE+1] = (dist >> (8*(___WS-(___tSUBTYPED+1)))); \
+   } while (0)
+
+#define ___LABEL_LOWLEVEL_TRAMPOLINE_SIZE 1
+#define ___LABEL_LOWLEVEL_TRAMPOLINE_SETUP(ptr) \
+do { \
+     /* generate x86-32 instruction: call *-4(%ecx) */ \
+     (ptr)[___LABEL_LOWLEVEL_CODE] = 0xfc51ff << (8*___tSUBTYPED); \
+   } while (0)
+
+#endif
+
+#ifdef ___CPU_x86_64
+
+#define ___CLO_LOWLEVEL_TRAMPOLINE_SIZE 1
+#define ___CLO_LOWLEVEL_TRAMPOLINE_SETUP(ptr,lbl) \
+do { \
+     /* generate x86-64 instruction: call *-15(%rip) */ \
+     (ptr)[___LABEL_LOWLEVEL_CODE] = 0xfffffff115ffL << (8*___tSUBTYPED); \
+   } while (0)
+
+#define ___LABEL_LOWLEVEL_TRAMPOLINE_SIZE 1
+#define ___LABEL_LOWLEVEL_TRAMPOLINE_SETUP(ptr) \
+do { \
+     /* generate x86-64 instruction: call *-8(%rcx) */ \
+     (ptr)[___LABEL_LOWLEVEL_CODE] = 0xf851ff << (8*___tSUBTYPED); \
+   } while (0)
+
+#endif
+
+#endif
+
+#ifdef ___CPU_arm
+
+#define ___CLO_LOWLEVEL_TRAMPOLINE_SIZE 2
+#define ___CLO_LOWLEVEL_TRAMPOLINE_SETUP(ptr,lbl) \
+do { \
+     /* generate ARM THUMB2 instructions: mov r4,pc ; ldr pc,[r4,#-8] */ \
+     (ptr)[___LABEL_LOWLEVEL_CODE] = 0xf854467cL; \
+     (ptr)[___LABEL_LOWLEVEL_CODE+1] = 0x0000fc08L; \
+   } while (0)
+
+#define ___LABEL_LOWLEVEL_TRAMPOLINE_SIZE 1
+#define ___LABEL_LOWLEVEL_TRAMPOLINE_SETUP(ptr) \
+do { \
+     /* generate ARM THUMB2 instructions: ldr r7,[r5] ; blx r7 */ \
+     (ptr)[___LABEL_LOWLEVEL_CODE] = 0x47b8682fL; \
+   } while (0)
+
+#endif
+
+#ifdef ___CPU_riscv
+
+#if __riscv_xlen == 64
+
+#define ___CLO_LOWLEVEL_TRAMPOLINE_SIZE 2
+#define ___CLO_LOWLEVEL_TRAMPOLINE_SETUP(ptr,lbl) \
+do { \
+     /* XXX generate RISC-V instructions: auipc s6, 0x0; ld s6, -16(s6); jr s6 */ \
+     (ptr)[___LABEL_LOWLEVEL_CODE] = 0xff0b3b0300000b17L; \
+     (ptr)[___LABEL_LOWLEVEL_CODE+1] = 0x000b0067; \
+   } while (0)
+
+#define ___LABEL_LOWLEVEL_TRAMPOLINE_SIZE 1
+#define ___LABEL_LOWLEVEL_TRAMPOLINE_SETUP(ptr) \
+do { \
+     /* generate RISC-V instructions: ld s7, 0(s10); jalr s7 */ \
+     (ptr)[___LABEL_LOWLEVEL_CODE] = 0x000b80e7000d3b83L; \
+   } while (0)
+
+#else
+
+#define ___CLO_LOWLEVEL_TRAMPOLINE_SIZE 3
+#define ___CLO_LOWLEVEL_TRAMPOLINE_SETUP(ptr,lbl) \
+do { \
+     /* generate RISC-V instructions: auipc s6, 0x0; lw s6, -8(s6); jr s6 */ \
+     (ptr)[___LABEL_LOWLEVEL_CODE] = 0x00000b17; \
+     (ptr)[___LABEL_LOWLEVEL_CODE+1] = 0xff8b2b03; \
+     (ptr)[___LABEL_LOWLEVEL_CODE+2] = 0x000b0067; \
+   } while (0)
+
+#define ___LABEL_LOWLEVEL_TRAMPOLINE_SIZE 2
+#define ___LABEL_LOWLEVEL_TRAMPOLINE_SETUP(ptr) \
+do { \
+     /* generate RISC-V instructions: lw s7, 0(s10); jalr s7 */ \
+     (ptr)[___LABEL_LOWLEVEL_CODE] = 0x000d2b83; \
+     (ptr)[___LABEL_LOWLEVEL_CODE+1] = 0x000b80e7; \
+   } while (0)
+
+#endif
+
+#endif
+
+#endif
+
+#ifdef ___CLO_LOWLEVEL_TRAMPOLINE_SIZE
+#ifdef ___SUPPORT_LABEL_VALUES
+#define ___UNALIGNED_LABEL_SIZE (4+___LABEL_LOWLEVEL_TRAMPOLINE_SIZE)
+#else
+#define ___UNALIGNED_LABEL_SIZE (3+___LABEL_LOWLEVEL_TRAMPOLINE_SIZE)
+#endif
+#else
+#define ___UNALIGNED_LABEL_SIZE 4
+#define ___CLO_LOWLEVEL_TRAMPOLINE_SIZE 0
+#define ___CLO_LOWLEVEL_TRAMPOLINE_SETUP(ptr,lbl)
+#endif
+
+#ifdef ___USE_ALIGNED_LABEL_SIZE
+#if ___UNALIGNED_LABEL_SIZE <= 4
+#define ___LABEL_SIZE 4
+#else
+#define ___LABEL_SIZE 8
+#endif
+#else
+#define ___LABEL_SIZE ___UNALIGNED_LABEL_SIZE
+#endif
+
+#define ___CLO_FREEVARS (1+___CLO_LOWLEVEL_TRAMPOLINE_SIZE)
+
+#define ___ALLOC_CLO(n)(___BEGIN_ALLOC_SUBTYPED(___MAKE_HD_WORDS(n+___CLO_FREEVARS,___sPROCEDURE)),___END_ALLOC_SUBTYPED(n+___CLO_FREEVARS),___GET_SUBTYPED(n+___CLO_FREEVARS))
+#define ___BEGIN_SETUP_CLO(n,clo,lbl) \
+{___WORD *___ptr=___BODY0_AS(clo,___tSUBTYPED); \
+___ptr[___LABEL_ENTRY_OR_DESCR]=___LBL(lbl); \
+___CLO_LOWLEVEL_TRAMPOLINE_SETUP(___ptr,___LBL(lbl));
+#define ___ADD_CLO_ELEM(i,val)___ptr[i+___CLO_FREEVARS]=(val);
+#define ___END_SETUP_CLO(n) }
+#define ___CLO(x,y)___BODY_AS(x,___tSUBTYPED)[y+(___CLO_FREEVARS-1)]
+#define ___SET_CLO(x,y,z)___BODY_AS(x,___tSUBTYPED)[y+(___CLO_FREEVARS-1)]=z;
+
+#define ___CLOSURESIZE(x)___HD_FIELDS(___SUBTYPED_HEADER(x))-___CLO_LOWLEVEL_TRAMPOLINE_SIZE
+#define ___CLOSURELENGTH(x)___FIX(___CLOSURESIZE(x))
+#define ___CLOSURECODE(x)___CLO(x,-___CLO_LOWLEVEL_TRAMPOLINE_SIZE)
+#define ___CLOSUREREF(x,y)___CLO(x,___INT(y))
+#define ___CLOSURESET(x,y,z)___SET_CLO(x,___INT(y),z)
+
+#define ___BEGIN_ALLOC_LIST(n,last)___ALLOC_PAIR(last,___NUL)
+#define ___ADD_LIST_ELEM(i,val)___ALLOC_PAIR(val,___GET_PAIR())
+#define ___END_ALLOC_LIST(n)
+#define ___GET_LIST(n)___GET_PAIR()
+
+#define ___BEGIN_ALLOC_STRING(n) \
+___BEGIN_ALLOC_SUBTYPED(___MAKE_HD_BYTES(n<<___LCS,___sSTRING));
+#define ___ADD_STRING_ELEM_RAW(i,val)___STORE_C(___BODY0_FROM_HP(),i,val);
+#define ___ADD_STRING_ELEM(i,val)___ADD_STRING_ELEM_RAW(i,___ORD(val))
+#define ___END_ALLOC_STRING(n)___ALLOC(___WORDS(n<<___LCS)+1);
+#define ___GET_STRING(n)___GET_SUBTYPED(___WORDS(n<<___LCS))
+
+#define ___BEGIN_ALLOC_S8VECTOR(n) \
+___BEGIN_ALLOC_SUBTYPED(___MAKE_HD_BYTES(n,___sS8VECTOR));
+#define ___ADD_S8VECTOR_ELEM_RAW(i,val)___STORE_S8(___BODY0_FROM_HP(),i,val);
+#define ___ADD_S8VECTOR_ELEM(i,val)___ADD_S8VECTOR_ELEM_RAW(i,___INT(val))
+#define ___END_ALLOC_S8VECTOR(n)___ALLOC(___WORDS(n)+1);
+#define ___GET_S8VECTOR(n)___GET_SUBTYPED(___WORDS(n))
+
+#define ___BEGIN_ALLOC_U8VECTOR(n) \
+___BEGIN_ALLOC_SUBTYPED(___MAKE_HD_BYTES(n,___sU8VECTOR));
+#define ___ADD_U8VECTOR_ELEM_RAW(i,val)___STORE_U8(___BODY0_FROM_HP(),i,val);
+#define ___ADD_U8VECTOR_ELEM(i,val)___ADD_U8VECTOR_ELEM_RAW(i,___INT(val))
+#define ___END_ALLOC_U8VECTOR(n)___ALLOC(___WORDS(n)+1);
+#define ___GET_U8VECTOR(n)___GET_SUBTYPED(___WORDS(n))
+
+#define ___BEGIN_ALLOC_S16VECTOR(n) \
+___BEGIN_ALLOC_SUBTYPED(___MAKE_HD_BYTES(n<<1,___sS16VECTOR));
+#define ___ADD_S16VECTOR_ELEM_RAW(i,val)___STORE_S16(___BODY0_FROM_HP(),i,val);
+#define ___ADD_S16VECTOR_ELEM(i,val)___ADD_S16VECTOR_ELEM_RAW(i,___INT(val))
+#define ___END_ALLOC_S16VECTOR(n)___ALLOC(___WORDS(n<<1)+1);
+#define ___GET_S16VECTOR(n)___GET_SUBTYPED(___WORDS(n<<1))
+
+#define ___BEGIN_ALLOC_U16VECTOR(n) \
+___BEGIN_ALLOC_SUBTYPED(___MAKE_HD_BYTES(n<<1,___sU16VECTOR));
+#define ___ADD_U16VECTOR_ELEM_RAW(i,val)___STORE_U16(___BODY0_FROM_HP(),i,val);
+#define ___ADD_U16VECTOR_ELEM(i,val)___ADD_U16VECTOR_ELEM_RAW(i,___INT(val))
+#define ___END_ALLOC_U16VECTOR(n)___ALLOC(___WORDS(n<<1)+1);
+#define ___GET_U16VECTOR(n)___GET_SUBTYPED(___WORDS(n<<1))
+
+#define ___BEGIN_ALLOC_S32VECTOR(n) \
+___BEGIN_ALLOC_SUBTYPED(___MAKE_HD_BYTES(n<<2,___sS32VECTOR));
+#define ___ADD_S32VECTOR_ELEM_RAW(i,val)___STORE_S32(___BODY0_FROM_HP(),i,val);
+#define ___ADD_S32VECTOR_ELEM(i,val)___ADD_S32VECTOR_ELEM_RAW(i,___S32UNBOX(val))
+#define ___END_ALLOC_S32VECTOR(n)___ALLOC(___WORDS(n<<2)+1);
+#define ___GET_S32VECTOR(n)___GET_SUBTYPED(___WORDS(n<<2))
+
+#define ___BEGIN_ALLOC_U32VECTOR(n) \
+___BEGIN_ALLOC_SUBTYPED(___MAKE_HD_BYTES(n<<2,___sU32VECTOR));
+#define ___ADD_U32VECTOR_ELEM_RAW(i,val)___STORE_U32(___BODY0_FROM_HP(),i,val);
+#define ___ADD_U32VECTOR_ELEM(i,val)___ADD_U32VECTOR_ELEM_RAW(i,___U32UNBOX(val))
+#define ___END_ALLOC_U32VECTOR(n)___ALLOC(___WORDS(n<<2)+1);
+#define ___GET_U32VECTOR(n)___GET_SUBTYPED(___WORDS(n<<2))
+
+#if ___WORD_WIDTH == 32
+
+#define ___BEGIN_ALLOC_S64VECTOR(n) \
+{___WORD *___ptr = (___WORD*)((___WORD)(___hp+2)&~7); \
+___ptr[-1]=___MAKE_HD_BYTES(n<<3,___sS64VECTOR);
+#define ___ADD_S64VECTOR_ELEM_RAW(i,val)___STORE_S64(___ptr,i,val);
+#define ___ADD_S64VECTOR_ELEM(i,val)___ADD_S64VECTOR_ELEM_RAW(i,___S64UNBOX(val))
+#define ___END_ALLOC_S64VECTOR(n)___ALLOC(___WORDS(n<<3)+2);}
+#define ___GET_S64VECTOR(n)___TAG((((___WORD*)((___WORD)(___hp-___WORDS(n<<3))&~7))-___REFERENCE_TO_BODY),___tSUBTYPED)
+
+#define ___BEGIN_ALLOC_U64VECTOR(n) \
+{___WORD *___ptr = (___WORD*)((___WORD)(___hp+2)&~7); \
+___ptr[-1]=___MAKE_HD_BYTES(n<<3,___sU64VECTOR);
+#define ___ADD_U64VECTOR_ELEM_RAW(i,val)___STORE_U64(___ptr,i,val);
+#define ___ADD_U64VECTOR_ELEM(i,val)___ADD_U64VECTOR_ELEM_RAW(i,___U64UNBOX(val))
+#define ___END_ALLOC_U64VECTOR(n)___ALLOC(___WORDS(n<<3)+2);}
+#define ___GET_U64VECTOR(n)___TAG((((___WORD*)((___WORD)(___hp-___WORDS(n<<3))&~7))-___REFERENCE_TO_BODY),___tSUBTYPED)
+
+#else
+
+#define ___BEGIN_ALLOC_S64VECTOR(n) \
+___BEGIN_ALLOC_SUBTYPED(___MAKE_HD_BYTES(n<<3,___sS64VECTOR));
+#define ___ADD_S64VECTOR_ELEM_RAW(i,val)___STORE_S64(___BODY0_FROM_HP(),i,val);
+#define ___ADD_S64VECTOR_ELEM(i,val)___ADD_S64VECTOR_ELEM_RAW(i,___S64UNBOX(val))
+#define ___END_ALLOC_S64VECTOR(n)___ALLOC(___WORDS(n<<3)+1);
+#define ___GET_S64VECTOR(n)___GET_SUBTYPED(___WORDS(n<<3))
+
+#define ___BEGIN_ALLOC_U64VECTOR(n) \
+___BEGIN_ALLOC_SUBTYPED(___MAKE_HD_BYTES(n<<3,___sU64VECTOR));
+#define ___ADD_U64VECTOR_ELEM_RAW(i,val)___STORE_U64(___BODY0_FROM_HP(),i,val);
+#define ___ADD_U64VECTOR_ELEM(i,val)___ADD_U64VECTOR_ELEM_RAW(i,___U64UNBOX(val))
+#define ___END_ALLOC_U64VECTOR(n)___ALLOC(___WORDS(n<<3)+1);
+#define ___GET_U64VECTOR(n)___GET_SUBTYPED(___WORDS(n<<3))
+
+#endif
+
+#define ___BEGIN_ALLOC_F32VECTOR(n) \
+___BEGIN_ALLOC_SUBTYPED(___MAKE_HD_BYTES(n<<2,___sF32VECTOR));
+#ifdef ___F32
+#define ___ADD_F32VECTOR_ELEM(i,val)((___F32*)___BODY0_FROM_HP())[i]=(val);
+#else
+#define ___ADD_F32VECTOR_ELEM(i,val);
+#endif
+#define ___END_ALLOC_F32VECTOR(n)___ALLOC(___WORDS(n<<2)+1);
+#define ___GET_F32VECTOR(n)___GET_SUBTYPED(___WORDS(n<<2))
+
+#if ___WORD_WIDTH == 32
+
+#define ___BEGIN_ALLOC_F64VECTOR(n) \
+{___WORD *___ptr = (___WORD*)((___WORD)(___hp+2)&~7); \
+___ptr[-1]=___MAKE_HD_BYTES(n<<3,___sF64VECTOR);
+#define ___ADD_F64VECTOR_ELEM(i,val)((___F64*)___ptr)[i]=(val);
+#define ___END_ALLOC_F64VECTOR(n)___ALLOC(___WORDS(n<<3)+2);}
+#define ___GET_F64VECTOR(n)___TAG((((___WORD*)((___WORD)(___hp-___WORDS(n<<3))&~7))-___REFERENCE_TO_BODY),___tSUBTYPED)
+
+#else
+
+#define ___BEGIN_ALLOC_F64VECTOR(n) \
+___BEGIN_ALLOC_SUBTYPED(___MAKE_HD_BYTES(n<<3,___sF64VECTOR));
+#define ___ADD_F64VECTOR_ELEM(i,val)((___F64*)___BODY0_FROM_HP())[i]=(val);
+#define ___END_ALLOC_F64VECTOR(n)___ALLOC(___WORDS(n<<3)+1);
+#define ___GET_F64VECTOR(n)___GET_SUBTYPED(___WORDS(n<<3))
+
+#endif
+
+#define ___BEGIN_ALLOC_STRUCTURE(n) \
+___BEGIN_ALLOC_SUBTYPED(___MAKE_HD_WORDS(n,___sSTRUCTURE));
+#define ___ADD_STRUCTURE_ELEM(i,val)___ADD_SUBTYPED_ELEM(i,val);
+#define ___END_ALLOC_STRUCTURE(n)___END_ALLOC_SUBTYPED(n);
+#define ___GET_STRUCTURE(n)___GET_SUBTYPED(n)
+
+#define ___BEGIN_ALLOC_VALUES(n) \
+___BEGIN_ALLOC_SUBTYPED(___MAKE_HD_WORDS(n,___sBOXVALUES));
+#define ___ADD_VALUES_ELEM(i,val)___ADD_SUBTYPED_ELEM(i,val);
+#define ___END_ALLOC_VALUES(n)___END_ALLOC_SUBTYPED(n);
+#define ___GET_VALUES(n)___GET_SUBTYPED(n)
+
+#define ___NB_INTRS 6
+#define ___INTR_SYNC_OP    0
+#define ___INTR_TERMINATE  1
+#define ___INTR_HEARTBEAT  2
+#define ___INTR_USER       3
+#define ___INTR_GC         4
+#define ___INTR_OTHER      5
+
+#define ___INTERRUPT_FLAGS() (___ps->intr_flag[0]|___ps->intr_flag[1]|___ps->intr_flag[2]|___ps->intr_flag[3]|___ps->intr_flag[4]|___ps->intr_flag[5])
+
+#define ___INTERRUPT_AFTER_MASKING(flags) \
+((flags) & ___ps->intr_enabled & ~___ps->intr_mask)
+
+#define ___INTERRUPT_REQ(flags) \
+(___INTERRUPT_AFTER_MASKING(flags) != ___FIX(0))
+
+#define ___STACK_TRIP_ON_IF_INTERRUPT_REQ() \
+if (___INTERRUPT_REQ(___INTERRUPT_FLAGS())) \
+  ___STACK_TRIP_ON()
+
+#define ___INTERRUPT_MASK_SET(mask) \
+do { \
+  ___ps->intr_mask = (mask); \
+  ___STACK_TRIP_ON_IF_INTERRUPT_REQ(); \
+} while (0)
+
+#define ___STACK_TRIP_ON()___ps->stack_trip = ___ps->context->stack_start
+#define ___STACK_TRIP_OFF()___ps->stack_trip = ___ps->context->stack_limit
+#define ___STACK_TRIPPED (___fp < ___ps->stack_trip)
+
+#ifdef ___HEARTBEAT_USING_POLL_COUNTDOWN
+#define ___HEARTBEAT_INTERVAL_ENDED (___ps->heartbeat_countdown-- <= 0)
+#define ___POLL_TRIGGER ___HEARTBEAT_INTERVAL_ENDED || ___STACK_TRIPPED
+#else
+#define ___POLL_TRIGGER ___STACK_TRIPPED
+#endif
+
+#ifdef ___DEBUG_STACK_LIMIT
+
+#define ___POLL(n)                    \
+if (___EXPECT_FALSE(___POLL_TRIGGER)) \
+{___ps->temp1=___LBL(n); \
+___ps->poll_location.file=__FILE__; \
+___ps->poll_location.line=__LINE__; \
+___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit) \
+}
+
+#else
+
+#define ___POLL(n)                    \
+if (___EXPECT_FALSE(___POLL_TRIGGER)) \
+{___ps->temp1=___LBL(n); \
+___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit) \
+}
+
+#endif
+
+#define ___TASK_PUSH(i)
+#define ___TASK_POP(n)
+
+#ifdef ___DEBUG_HEAP_LIMIT
+
+#define ___CHECK_HEAP(n,m)                    \
+if (___EXPECT_FALSE(___hp>___ps->heap_limit)) \
+{___ps->temp1=___LBL(n); \
+___ps->check_heap_location.file=__FILE__; \
+___ps->check_heap_location.line=__LINE__; \
+___JUMPEXTPRM(___NOTHING,___ps->handler_heap_limit) \
+}
+
+#else
+
+#define ___CHECK_HEAP(n,m)                    \
+if (___EXPECT_FALSE(___hp>___ps->heap_limit)) \
+{___ps->temp1=___LBL(n); \
+___JUMPEXTPRM(___NOTHING,___ps->handler_heap_limit) \
+}
+
+#endif
+
+#ifdef ___NAN_BOXING
+#define ___CHECK_HEAP_FLO(n,m)
+#else
+#define ___CHECK_HEAP_FLO(n,m)___CHECK_HEAP(n,m)
+#endif
+
+#define ___FORCE1(n,src) \
+if (___TESTTYPE(___temp=(src),___tSUBTYPED)&&___SUBTYPE(___temp)==___FIX(___sPROMISE)){___ps->temp2=___temp;___pc=___PROMISE_STATE_FIELD(___temp);___temp=___VECTORELEM(___pc,0); if (___temp==___pc){___ps->temp1=___LBL(n);___JUMPEXTPRM(___NOTHING,___ps->handler_force);
+#define ___FORCE2 ___temp=___ps->temp2;}}
+#define ___FORCE3 ___temp
+
+#define ___MODULE_KIND 0
+#define ___LINKFILE_KIND 1
+
+#define ___CLIBEXT(f)f
+#define ___EXT(f)f
+
+#ifdef ___BIND_LATE
+
+#ifndef ___CAN_IMPORT_CLIB_DYNAMICALLY
+#undef ___CLIBEXT
+#define ___CLIBEXT(f)(___GSTATE->f)
+#undef ___LOCAL_GSTATE
+#define ___LOCAL_GSTATE
+#endif
+
+#ifndef ___CAN_IMPORT_SETJMP_DYNAMICALLY
+#undef ___SETJMP
+#define ___SETJMP(x)(___GSTATE->setjmp) (x)
+#endif
+
+#ifndef ___CAN_IMPORT_DYNAMICALLY
+#undef ___EXT
+#define ___EXT(f)(___GSTATE->f)
+#undef ___LOCAL_GSTATE
+#define ___LOCAL_GSTATE
+#endif
+
+#endif
+
+#ifdef ___LOCAL_GSTATE
+
+#define ___GSTATE ___local_gstate
+
+#define ___GSTATEDECL ___LOCAL ___global_state ___local_gstate;
+#define ___SET_LOCAL_GSTATE(gs) ___local_gstate = gs;
+
+#else
+
+#ifdef ___PSTATE_ALIGN_MULTIPLIER
+#define ___GSTATE ___CAST(___global_state,___ALIGNUP(&___gstate0,___PSTATE_ALIGN_MULTIPLIER))
+#else
+#define ___GSTATE (&___gstate0)
+#endif
+
+#define ___GSTATEDECL ___IMP_DATA(___global_state_struct,___gstate0);
+#define ___SET_LOCAL_GSTATE(gs)
+
+#endif
+
+#ifdef ___SINGLE_THREADED_VMS
+
+/* Use direct access to the only pstate */
+
+#define ___GET_REAL_PSTATE() (&___GSTATE->vmstate0.aligned_pstate[0].pstate)
+#define ___SET_REAL_PSTATE(ps)
+
+#else
+
+/*
+ * Some target platforms have linkers that don't allow referencing a
+ * thread local storage variable from another dynamically linked file.
+ * This happens on OS X when using clang (but not when using FSF gcc).
+ * This issue can be avoided by having the dynamically linked file
+ * call the ___get_tls_ptr in the Gambit runtime system which accesses
+ * the thread local storage.  However, doing this slows down access to
+ * the processor state, which needs to be as fast as possible.
+ *
+ * The presence of this issue for the C compiler being used could be
+ * determined by ifdefs or the configure script.  However, this would
+ * prevent dynamically loading code compiled by a different C
+ * compiler.  For example, the Gambit runtime system and interpreter
+ * could have been compiled by FSF gcc and a file dynamically loaded by
+ * the interpreter could have been compiled by clang.  This situation
+ * is common when Gambit is installed using a prebuilt installer
+ * (typically built with FSF gcc) and the user's platform is
+ * configured with a different C compiler (for example Xcode's clang
+ * on OS X).
+ *
+ * The current solution is to assume that thread local storage
+ * variables cannot be referenced from another dynamically linked
+ * file.  If it is known that the C compilers being used don't have
+ * this issue, then the --enable-dynamic-tls option should be passed
+ * to the configure script, i.e.:
+ *
+ *   ./configure --enable-dynamic-tls
+ */
+
+#ifdef ___THREAD_LOCAL_STORAGE_CLASS
+
+extern ___THREAD_LOCAL_STORAGE_CLASS void *___tls_ptr;
+
+#ifndef ___DYNAMIC_TLS
+
+#undef ___DEFINE_THREAD_LOCAL_STORAGE_GETTER_SETTER
+#define ___DEFINE_THREAD_LOCAL_STORAGE_GETTER_SETTER
+
+#ifdef ___SHARED
+#ifndef ___PRIMAL
+#undef ___USE_THREAD_LOCAL_STORAGE_GETTER_SETTER
+#define ___USE_THREAD_LOCAL_STORAGE_GETTER_SETTER
+#endif
+#endif
+
+#endif
+
+#else
+
+#undef ___DEFINE_THREAD_LOCAL_STORAGE_GETTER_SETTER
+#define ___DEFINE_THREAD_LOCAL_STORAGE_GETTER_SETTER
+
+#undef ___USE_THREAD_LOCAL_STORAGE_GETTER_SETTER
+#define ___USE_THREAD_LOCAL_STORAGE_GETTER_SETTER
+
+#endif
+
+#ifdef ___USE_THREAD_LOCAL_STORAGE_GETTER_SETTER
+
+/* Use thread local storage getter/setter */
+
+#define ___GET_REAL_PSTATE() ___CAST(___processor_state,___EXT(___get_tls_ptr) ())
+#define ___SET_REAL_PSTATE(ps) ___set_tls_ptr(___CAST(void*,ps))
+
+#else
+
+/* Use thread local storage class */
+
+#define ___GET_REAL_PSTATE() ___CAST(___processor_state,___tls_ptr)
+#define ___SET_REAL_PSTATE(ps) ___tls_ptr = ___CAST(void*,ps)
+
+#endif
+
+#endif
+
+#ifndef ___SUPPORT_PSTATE_BIND
+
+#define ___GET_PSTATE() ___GET_REAL_PSTATE()
+
+#else
+
+#define ___GET_PSTATE() ___GET_REAL_PSTATE()->pstate_binding
+#define ___BEGIN_PSTATE_BIND(ps) \
+do { \
+  ___processor_state ___old_pstate = ___GET_REAL_PSTATE()->pstate_binding; \
+  ___GET_REAL_PSTATE()->pstate_binding = ps
+#define ___END_PSTATE_BIND() \
+  ___GET_REAL_PSTATE()->pstate_binding = ___old_pstate; \
+} while (0)
+
+#endif
+
+#ifndef ___DEFINE_THREAD_LOCAL_STORAGE_GETTER_SETTER
+
+/*
+ * ___GET_PSTATE is probably fast, so it is acceptable to get the processor
+ * state pointer at the top of every function that needs to access the
+ * processor state.
+ */
+
+#define ___PSGET ___processor_state ___ps = ___PSTATE;
+
+#define ___PSDNC
+#define ___PSVNC
+
+#define ___PSD
+#define ___PSV
+#define ___PSDKR
+
+#define ___PSANC(ps)
+#define ___PSA(ps)
+
+#else
+
+/*
+ * ___GET_PSTATE is probably slow, so the processor state pointer will be
+ * propagated from one function to its callees when possible.
+ */
+
+#define ___PSGET
+
+#define ___PSDNC ___processor_state ___ps
+#define ___PSVNC ___ps
+
+#define ___PSD ___PSDNC,
+#define ___PSV ___PSVNC,
+#define ___PSDKR ___PSDNC;
+
+#define ___PSANC(ps) ps
+#define ___PSA(ps) ps,
+
+#endif
+
+#define ___PSPNC ___PSANC(___PSVNC)
+#define ___PSP ___PSA(___PSVNC)
+
+#ifdef ___SINGLE_THREADED_VMS
+#ifdef ___SUPPORT_LOWLEVEL_EXEC
+#define ___VMSTATE_FROM_PSTATE(ps) \
+  ___CAST(___virtual_machine_state,___CAST(___aligned_lowlevel_processor_state_struct*,ps)-1)
+#else
+#define ___VMSTATE_FROM_PSTATE(ps) \
+___CAST(___virtual_machine_state,ps)
+#endif
+#else
+#define ___VMSTATE_FROM_PSTATE(ps) ps->vmstate
+#endif
+
+#define ___PSTATE ___GET_PSTATE()
+
+#ifdef ___SINGLE_VM
+#define ___VMSTATE (&___GSTATE->vmstate0)
+#else
+#define ___VMSTATE ___VMSTATE_FROM_PSTATE(___PSTATE)
+#endif
+
+#ifdef ___BIND_LATE
+
+#define ___NEED_SYM(sym)
+#define ___NEED_KEY(key)
+#define ___NEED_GLO(glo)
+
+#define ___BEGIN_SYM ___LOCAL ___UTF_8STRING ___sym_names[]={
+#define ___DEF_SYM(i,sym,str)str,
+#define ___END_SYM 0};
+
+#define ___DEF_MOD_SYM(i,sym,str)
+
+#define ___BEGIN_KEY ___LOCAL ___UTF_8STRING ___key_names[]={
+#define ___DEF_KEY(i,key,str)str,
+#define ___END_KEY 0};
+
+#define ___DEF_MOD_KEY(i,key,str)
+
+#define ___BEGIN_GLO ___LOCAL ___UTF_8STRING ___glo_names[]={
+#define ___DEF_GLO(i,str)str,
+#define ___END_GLO 0};
+
+#define ___BEGIN_OLD_KEY
+#define ___DEF_OLD_KEY(key)
+#define ___END_OLD_KEY
+
+#define ___BEGIN_OLD_SYM_GLO
+#define ___DEF_OLD_SYM_GLO(sym,glo)
+#define ___END_OLD_SYM_GLO
+
+#define ___BEGIN_NEW_KEY
+#define ___DEF_NEW_KEY(prevkey,key,str,hash)
+#define ___END_NEW_KEY
+
+#define ___BEGIN_NEW_SYM_GLO
+#define ___DEF_NEW_SYM_GLO_SUP(prevsym,sym,str,hash,glo)
+#define ___DEF_NEW_SYM_GLO(prevsym,sym,str,hash,glo)
+#define ___END_NEW_SYM_GLO(prevsym,prevkey)___LINKFILE_DESCR(0,0)
+
+#define ___DEF_SUB_NSTR(id,n)
+#define ___NSTR0
+#define ___NSTR1(a)
+#define ___NSTR2(a,b)
+#define ___NSTR3(a,b,c)
+#define ___NSTR4(a,b,c,d)
+#define ___NSTR5(a,b,c,d,e)
+#define ___NSTR6(a,b,c,d,e,f)
+#define ___NSTR7(a,b,c,d,e,f,g)
+#define ___NSTR8(a,b,c,d,e,f,g,h)
+
+#else
+
+#define ___NEED_SYM(sym)___IMP_DATA(___symkey_struct,sym);
+#define ___NEED_KEY(key)___IMP_DATA(___symkey_struct,key);
+#define ___NEED_GLO(glo)___IMP_DATA(___glo_struct,glo);
+
+#ifndef ___IMPORTED_ADR_IS_CONST
+
+#define ___BEGIN_SYM ___LOCAL ___FAKEWORD ___symtbl[___SYMCOUNT];
+#define ___DEF_SYM(i,sym,str)
+#define ___END_SYM
+
+#define ___DEF_MOD_SYM(i,sym,str)___symtbl[i]=(___FAKEWORD)(sym);
+
+#define ___BEGIN_KEY ___LOCAL ___FAKEWORD ___keytbl[___KEYCOUNT];
+#define ___DEF_KEY(i,key,str)
+#define ___END_KEY
+
+#define ___DEF_MOD_KEY(i,key,str)___keytbl[i]=(___FAKEWORD)(key);
+
+#else
+
+#define ___BEGIN_SYM ___LOCAL ___FAKEWORD ___symtbl[]={
+#define ___DEF_SYM(i,sym,str)(___FAKEWORD)(sym),
+#define ___END_SYM 0};
+
+#define ___DEF_MOD_SYM(i,sym,str)
+
+#define ___BEGIN_KEY ___LOCAL ___FAKEWORD ___keytbl[]={
+#define ___DEF_KEY(i,key,str)(___FAKEWORD)(key),
+#define ___END_KEY 0};
+
+#define ___DEF_MOD_KEY(i,key,str)
+
+#endif
+
+#define ___BEGIN_GLO
+#define ___DEF_GLO(i,str)
+#define ___END_GLO
+
+#define ___BEGIN_OLD_KEY
+#define ___DEF_OLD_KEY(key)
+#define ___END_OLD_KEY
+
+#define ___BEGIN_OLD_SYM_GLO
+#define ___DEF_OLD_SYM_GLO(sym,glo)
+#define ___END_OLD_SYM_GLO
+
+#define ___BEGIN_NEW_KEY
+#define ___DEF_NEW_KEY(prevkey,key,str,hash) \
+___EXP_DATA(___symkey_struct,key)={(___FAKEWORD)prevkey,(___FAKEWORD)str,0,0,0 ___PADDING};
+#define ___END_NEW_KEY
+
+#define ___BEGIN_NEW_SYM_GLO
+#define ___DEF_NEW_SYM_GLO_SUP(prevsym,sym,str,hash,glo) \
+___EXP_DATA(___glo_struct,glo) = {___UNB2, ___FIX(hash), 0}; \
+___EXP_DATA(___symkey_struct,sym)={(___FAKEWORD)prevsym,(___FAKEWORD)str,0,0,(___FAKEWORD)&glo ___PADDING};
+#define ___DEF_NEW_SYM_GLO(prevsym,sym,str,hash,glo) \
+___EXP_DATA(___glo_struct,glo) = {___UNB1, ___FIX(hash), 0}; \
+___EXP_DATA(___symkey_struct,sym)={(___FAKEWORD)prevsym,(___FAKEWORD)str,0,0,(___FAKEWORD)&glo ___PADDING};
+#define ___END_NEW_SYM_GLO(prevsym,prevkey)___LINKFILE_DESCR(prevsym,prevkey)
+
+#define ___DEF_SUB_NSTR(id,n) ___DEF_SUB_STR(id,n)
+#define ___NSTR0 ___STR0
+#define ___NSTR1(a) ___STR1(a)
+#define ___NSTR2(a,b) ___STR2(a,b)
+#define ___NSTR3(a,b,c) ___STR3(a,b,c)
+#define ___NSTR4(a,b,c,d) ___STR4(a,b,c,d)
+#define ___NSTR5(a,b,c,d,e) ___STR5(a,b,c,d,e)
+#define ___NSTR6(a,b,c,d,e,f) ___STR6(a,b,c,d,e,f)
+#define ___NSTR7(a,b,c,d,e,f,g) ___STR7(a,b,c,d,e,f,g)
+#define ___NSTR8(a,b,c,d,e,f,g,h) ___STR8(a,b,c,d,e,f,g,h)
+
+#endif
+
+#define ___BEGIN_CNS \
+___LOCAL ___WORD ___cnstbl[]={
+#define ___DEF_CNS(car,cdr)___MAKE_HD((___PAIR_SIZE<<___LWS),___sPAIR,___PERM),cdr,car
+#define ___END_CNS ___PADDING};
+
+#define ___BEGIN_SUB \
+___LOCAL ___FAKEWORD ___subtbl[]={
+#define ___DEF_SUB(id)___CAST_WORDSTAR_TO_FAKEWORD(id)
+#define ___END_SUB };
+
+#define ___DEF_SUB_VEC(id,n) \
+___LOCAL ___WORD id[]={___MAKE_HD((n<<___LWS),___sVECTOR,___PERM)
+
+#define ___DEF_SUB_STRUCT(id,n) \
+___LOCAL ___WORD id[]={___MAKE_HD((n<<___LWS),___sSTRUCTURE,___PERM)/*****************/
+
+#define ___DEF_SUB_STRUCTURE(id,n) \
+___LOCAL ___WORD id[]={___MAKE_HD((n<<___LWS),___sSTRUCTURE,___PERM)
+
+#define ___DEF_SUB_BOX(id,n) \
+___LOCAL ___WORD id[]={___MAKE_HD((n<<___LWS),___sBOXVALUES,___PERM)
+
+#define ___DEF_SUB_SYM(id,name,hash) \
+___LOCAL ___WORD id[]={___MAKE_HD((___SYMBOL_SIZE<<___LWS),___sSYMBOL,___PERM),name,hash,___FAL,0 ___PADDING};
+
+#define ___DEF_SUB_KEY(id,name,hash) \
+___LOCAL ___WORD id[]={___MAKE_HD((___KEYWORD_SIZE<<___LWS),___sKEYWORD,___PERM),name,hash,___FAL ___PADDING};
+
+#define ___DEF_SUB_STR(id,n) \
+___LOCAL ___WORD id[]={___MAKE_HD((n<<___LCS),___sSTRING,___PERM)
+
+#define ___DEF_SUB_RAT(id,num,den) \
+___LOCAL ___WORD id[]={___MAKE_HD((___RATNUM_SIZE<<___LWS),___sRATNUM,___PERM),num,den ___PADDING};
+
+#define ___DEF_SUB_FLO(id,hi,lo) \
+___LOCAL ___WORD id[]={___MAKE_HD((___FLONUM_SIZE<<___LWS),___sFLONUM,___PERM) \
+___F64VEC1(hi,lo)___F64VEC0
+
+#define ___DEF_SUB_CPX(id,real,imag) \
+___LOCAL ___WORD id[]={___MAKE_HD((___CPXNUM_SIZE<<___LWS),___sCPXNUM,___PERM),real,imag ___PADDING};
+
+#define ___DEF_SUB_S8VEC(id,n) \
+___LOCAL ___WORD id[]={___MAKE_HD(n,___sS8VECTOR,___PERM)
+
+#define ___DEF_SUB_U8VEC(id,n) \
+___LOCAL ___WORD id[]={___MAKE_HD(n,___sU8VECTOR,___PERM)
+
+#define ___DEF_SUB_S16VEC(id,n) \
+___LOCAL ___WORD id[]={___MAKE_HD((n<<1),___sS16VECTOR,___PERM)
+
+#define ___DEF_SUB_U16VEC(id,n) \
+___LOCAL ___WORD id[]={___MAKE_HD((n<<1),___sU16VECTOR,___PERM)
+
+#define ___DEF_SUB_S32VEC(id,n) \
+___LOCAL ___WORD id[]={___MAKE_HD((n<<2),___sS32VECTOR,___PERM)
+
+#define ___DEF_SUB_U32VEC(id,n) \
+___LOCAL ___WORD id[]={___MAKE_HD((n<<2),___sU32VECTOR,___PERM)
+
+#define ___DEF_SUB_S64VEC(id,n) \
+___LOCAL ___WORD id[]={___MAKE_HD((n<<3),___sS64VECTOR,___PERM)
+
+#define ___DEF_SUB_U64VEC(id,n) \
+___LOCAL ___WORD id[]={___MAKE_HD((n<<3),___sU64VECTOR,___PERM)
+
+#define ___DEF_SUB_F32VEC(id,n) \
+___LOCAL ___WORD id[]={___MAKE_HD((n<<2),___sF32VECTOR,___PERM)
+
+#define ___DEF_SUB_F64VEC(id,n) \
+___LOCAL ___WORD id[]={___MAKE_HD((n<<3),___sF64VECTOR,___PERM)
+
+#if ___WORD_WIDTH == 32
+
+#ifdef ___BIG_ENDIAN
+
+#define ___P4U8(a,b,c,d)((((((___UWORD)___CAST_U8(a)<<8)+(___UWORD)___CAST_U8(b))<<8)+(___UWORD)___CAST_U8(c))<<8)+(___WORD)___CAST_U8(d)
+
+#define ___P2U16(a,b)((___UWORD)___CAST_U16(a)<<16)+(___WORD)___CAST_U16(b)
+
+#define ___P1U32(a)a
+
+#define ___P1U64(hi,lo)hi,lo
+
+#else
+
+#define ___P4U8(d,c,b,a)((((((___UWORD)___CAST_U8(a)<<8)+(___UWORD)___CAST_U8(b))<<8)+(___UWORD)___CAST_U8(c))<<8)+(___WORD)___CAST_U8(d)
+
+#define ___P2U16(b,a)((___UWORD)___CAST_U16(a)<<16)+(___WORD)___CAST_U16(b)
+
+#define ___P1U32(a)a
+
+#define ___P1U64(hi,lo)lo,hi
+
+#endif
+
+#define ___S8VEC0 ___PADDING};
+#define ___S8VEC1(a),___P4U8(a,0,0,0) ___PADDING};
+#define ___S8VEC2(a,b),___P4U8(a,b,0,0) ___PADDING};
+#define ___S8VEC3(a,b,c),___P4U8(a,b,c,0) ___PADDING};
+#define ___S8VEC4(a,b,c,d),___P4U8(a,b,c,d) ___PADDING};
+#define ___S8VEC5(a,b,c,d,e),___P4U8(a,b,c,d),___P4U8(e,0,0,0) ___PADDING};
+#define ___S8VEC6(a,b,c,d,e,f),___P4U8(a,b,c,d),___P4U8(e,f,0,0) ___PADDING};
+#define ___S8VEC7(a,b,c,d,e,f,g),___P4U8(a,b,c,d),___P4U8(e,f,g,0) ___PADDING};
+#define ___S8VEC8(a,b,c,d,e,f,g,h),___P4U8(a,b,c,d),___P4U8(e,f,g,h)
+
+#define ___U8VEC0 ___PADDING};
+#define ___U8VEC1(a),___P4U8(a,0,0,0) ___PADDING};
+#define ___U8VEC2(a,b),___P4U8(a,b,0,0) ___PADDING};
+#define ___U8VEC3(a,b,c),___P4U8(a,b,c,0) ___PADDING};
+#define ___U8VEC4(a,b,c,d),___P4U8(a,b,c,d) ___PADDING};
+#define ___U8VEC5(a,b,c,d,e),___P4U8(a,b,c,d),___P4U8(e,0,0,0) ___PADDING};
+#define ___U8VEC6(a,b,c,d,e,f),___P4U8(a,b,c,d),___P4U8(e,f,0,0) ___PADDING};
+#define ___U8VEC7(a,b,c,d,e,f,g),___P4U8(a,b,c,d),___P4U8(e,f,g,0) ___PADDING};
+#define ___U8VEC8(a,b,c,d,e,f,g,h),___P4U8(a,b,c,d),___P4U8(e,f,g,h)
+
+#define ___S16VEC0 ___PADDING};
+#define ___S16VEC1(a),___P2U16(a,0) ___PADDING};
+#define ___S16VEC2(a,b),___P2U16(a,b) ___PADDING};
+#define ___S16VEC3(a,b,c),___P2U16(a,b),___P2U16(c,0) ___PADDING};
+#define ___S16VEC4(a,b,c,d),___P2U16(a,b),___P2U16(c,d)
+
+#define ___U16VEC0 ___PADDING};
+#define ___U16VEC1(a),___P2U16(a,0) ___PADDING};
+#define ___U16VEC2(a,b),___P2U16(a,b) ___PADDING};
+#define ___U16VEC3(a,b,c),___P2U16(a,b),___P2U16(c,0) ___PADDING};
+#define ___U16VEC4(a,b,c,d),___P2U16(a,b),___P2U16(c,d)
+
+#define ___S32VEC0 ___PADDING};
+#define ___S32VEC1(a),___P1U32(a) ___PADDING};
+#define ___S32VEC2(a,b),___P1U32(a),___P1U32(b)
+
+#define ___U32VEC0 ___PADDING};
+#define ___U32VEC1(a),___P1U32(a) ___PADDING};
+#define ___U32VEC2(a,b),___P1U32(a),___P1U32(b)
+
+#else
+
+#ifdef ___BIG_ENDIAN
+
+#define ___P8U8(a,b,c,d,e,f,g,h)___CAST(___WORD,(((((((((((((___CAST(___UWORD,___CAST_U8(a))<<8)+___CAST(___UWORD,___CAST_U8(b)))<<8)+___CAST(___UWORD,___CAST_U8(c)))<<8)+___CAST(___UWORD,___CAST_U8(d)))<<8)+___CAST(___UWORD,___CAST_U8(e)))<<8)+___CAST(___UWORD,___CAST_U8(f)))<<8)+___CAST(___UWORD,___CAST_U8(g)))<<8)+___CAST(___UWORD,___CAST_U8(h)))
+
+#define ___P4U16(a,b,c,d)___CAST(___WORD,(((((___CAST(___UWORD,___CAST_U16(a))<<16)+___CAST(___UWORD,___CAST_U16(b)))<<16)+___CAST(___UWORD,___CAST_U16(c)))<<16)+___CAST(___UWORD,___CAST_U16(d)))
+
+#define ___P2U32(a,b)___CAST(___WORD,(___CAST(___UWORD,___CAST_U32(a))<<32)+___CAST(___UWORD,___CAST_U32(b)))
+
+#else
+
+#define ___P8U8(h,g,f,e,d,c,b,a)___CAST(___WORD,(((((((((((((___CAST(___UWORD,___CAST_U8(a))<<8)+___CAST(___UWORD,___CAST_U8(b)))<<8)+___CAST(___UWORD,___CAST_U8(c)))<<8)+___CAST(___UWORD,___CAST_U8(d)))<<8)+___CAST(___UWORD,___CAST_U8(e)))<<8)+___CAST(___UWORD,___CAST_U8(f)))<<8)+___CAST(___UWORD,___CAST_U8(g)))<<8)+___CAST(___UWORD,___CAST_U8(h)))
+
+#define ___P4U16(d,c,b,a)___CAST(___WORD,(((((___CAST(___UWORD,___CAST_U16(a))<<16)+___CAST(___UWORD,___CAST_U16(b)))<<16)+___CAST(___UWORD,___CAST_U16(c)))<<16)+___CAST(___UWORD,___CAST_U16(d)))
+
+#define ___P2U32(b,a)___CAST(___WORD,(___CAST(___UWORD,___CAST_U32(a))<<32)+___CAST(___UWORD,___CAST_U32(b)))
+
+#endif
+
+#define ___P1U64(hi,lo)___CAST(___WORD,(___CAST(___UWORD,hi)<<32)+___CAST(___UWORD,___CAST_U32(lo)))
+
+#define ___S8VEC0 ___PADDING};
+#define ___S8VEC1(a),___P8U8(a,0,0,0,0,0,0,0) ___PADDING};
+#define ___S8VEC2(a,b),___P8U8(a,b,0,0,0,0,0,0) ___PADDING};
+#define ___S8VEC3(a,b,c),___P8U8(a,b,c,0,0,0,0,0) ___PADDING};
+#define ___S8VEC4(a,b,c,d),___P8U8(a,b,c,d,0,0,0,0) ___PADDING};
+#define ___S8VEC5(a,b,c,d,e),___P8U8(a,b,c,d,e,0,0,0) ___PADDING};
+#define ___S8VEC6(a,b,c,d,e,f),___P8U8(a,b,c,d,e,f,0,0) ___PADDING};
+#define ___S8VEC7(a,b,c,d,e,f,g),___P8U8(a,b,c,d,e,f,g,0) ___PADDING};
+#define ___S8VEC8(a,b,c,d,e,f,g,h),___P8U8(a,b,c,d,e,f,g,h)
+
+#define ___U8VEC0 ___PADDING};
+#define ___U8VEC1(a),___P8U8(a,0,0,0,0,0,0,0) ___PADDING};
+#define ___U8VEC2(a,b),___P8U8(a,b,0,0,0,0,0,0) ___PADDING};
+#define ___U8VEC3(a,b,c),___P8U8(a,b,c,0,0,0,0,0) ___PADDING};
+#define ___U8VEC4(a,b,c,d),___P8U8(a,b,c,d,0,0,0,0) ___PADDING};
+#define ___U8VEC5(a,b,c,d,e),___P8U8(a,b,c,d,e,0,0,0) ___PADDING};
+#define ___U8VEC6(a,b,c,d,e,f),___P8U8(a,b,c,d,e,f,0,0) ___PADDING};
+#define ___U8VEC7(a,b,c,d,e,f,g),___P8U8(a,b,c,d,e,f,g,0) ___PADDING};
+#define ___U8VEC8(a,b,c,d,e,f,g,h),___P8U8(a,b,c,d,e,f,g,h)
+
+#define ___S16VEC0 ___PADDING};
+#define ___S16VEC1(a),___P4U16(a,0,0,0) ___PADDING};
+#define ___S16VEC2(a,b),___P4U16(a,b,0,0) ___PADDING};
+#define ___S16VEC3(a,b,c),___P4U16(a,b,c,0) ___PADDING};
+#define ___S16VEC4(a,b,c,d),___P4U16(a,b,c,d)
+
+#define ___U16VEC0 ___PADDING};
+#define ___U16VEC1(a),___P4U16(a,0,0,0) ___PADDING};
+#define ___U16VEC2(a,b),___P4U16(a,b,0,0) ___PADDING};
+#define ___U16VEC3(a,b,c),___P4U16(a,b,c,0) ___PADDING};
+#define ___U16VEC4(a,b,c,d),___P4U16(a,b,c,d)
+
+#define ___S32VEC0 ___PADDING};
+#define ___S32VEC1(a),___P2U32(a,0) ___PADDING};
+#define ___S32VEC2(a,b),___P2U32(a,b)
+
+#define ___U32VEC0 ___PADDING};
+#define ___U32VEC1(a),___P2U32(a,0) ___PADDING};
+#define ___U32VEC2(a,b),___P2U32(a,b)
+
+#endif
+
+#define ___S64VEC0 ___PADDING_64};
+#define ___S64VEC1(hi,lo),___P1U64(hi,lo)
+
+#define ___U64VEC0 ___PADDING_64};
+#define ___U64VEC1(hi,lo),___P1U64(hi,lo)
+
+#define ___STR0 ___CS_SELECT( \
+___U8VEC0, \
+___U16VEC0, \
+___U32VEC0)
+
+#define ___STR1(a)___CS_SELECT( \
+___U8VEC1(a), \
+___U16VEC1(a), \
+___U32VEC1(a))
+
+#define ___STR2(a,b)___CS_SELECT( \
+___U8VEC2(a,b), \
+___U16VEC2(a,b), \
+___U32VEC2(a,b)___U32VEC0)
+
+#define ___STR3(a,b,c)___CS_SELECT( \
+___U8VEC3(a,b,c), \
+___U16VEC3(a,b,c), \
+___U32VEC2(a,b)___U32VEC1(c))
+
+#define ___STR4(a,b,c,d)___CS_SELECT( \
+___U8VEC4(a,b,c,d), \
+___U16VEC4(a,b,c,d)___U16VEC0, \
+___U32VEC2(a,b)___U32VEC2(c,d)___U32VEC0)
+
+#define ___STR5(a,b,c,d,e)___CS_SELECT( \
+___U8VEC5(a,b,c,d,e), \
+___U16VEC4(a,b,c,d)___U16VEC1(e), \
+___U32VEC2(a,b)___U32VEC2(c,d)___U32VEC1(e))
+
+#define ___STR6(a,b,c,d,e,f)___CS_SELECT( \
+___U8VEC6(a,b,c,d,e,f), \
+___U16VEC4(a,b,c,d)___U16VEC2(e,f), \
+___U32VEC2(a,b)___U32VEC2(c,d)___U32VEC2(e,f)___U32VEC0)
+
+#define ___STR7(a,b,c,d,e,f,g)___CS_SELECT( \
+___U8VEC7(a,b,c,d,e,f,g), \
+___U16VEC4(a,b,c,d)___U16VEC3(e,f,g), \
+___U32VEC2(a,b)___U32VEC2(c,d)___U32VEC2(e,f)___U32VEC1(g))
+
+#define ___STR8(a,b,c,d,e,f,g,h)___CS_SELECT( \
+___U8VEC8(a,b,c,d,e,f,g,h), \
+___U16VEC4(a,b,c,d)___U16VEC4(e,f,g,h), \
+___U32VEC2(a,b)___U32VEC2(c,d)___U32VEC2(e,f)___U32VEC2(g,h))
+
+#if ___BIG_ABASE_WIDTH == 32
+
+#define ___DEF_SUB_BIG(id,n) \
+___LOCAL ___WORD id[]={___MAKE_HD((n<<2),___sBIGNUM,___PERM)
+
+#define ___BIG0 ___U32VEC0
+#define ___BIG1(a)___U32VEC1(a)
+#define ___BIG2(a,b)___U32VEC2(a,b)
+
+#else
+
+#define ___DEF_SUB_BIG(id,n) \
+___LOCAL ___WORD id[]={___MAKE_HD((((n+1)>>1)<<3),___sBIGNUM,___PERM)
+
+#define ___BIG0 ___U64VEC0
+#define ___BIG1(a)___BIG2(a,(___WORD)((a) & -0x80000000)?-1:0)___U64VEC0
+#define ___BIG2(a,b)___U64VEC1(b,a)
+
+#endif
+
+#define ___DEF_SUB_BIGFIX(id,n)___DEF_SUB_BIG(id,n)
+
+#define ___BIGFIX0 ___BIG0
+#define ___BIGFIX1(a)___BIG1(a)
+#define ___BIGFIX2(a,b)___BIG2(a,b)
+
+#define ___F32VEC0 ___U32VEC0
+#define ___F32VEC1(a)___U32VEC1(a)
+#define ___F32VEC2(a,b)___U32VEC2(a,b)
+
+#define ___F64VEC0 ___U64VEC0
+#ifdef ___CRAY_FP_FORMAT
+#define ___F64VEC1(hi,lo)___U64VEC1( \
+((hi&0x7ff00000==0)?hi: \
+((hi&0x80000000)+((hi>>4)&0x7ff0000)+0x3c028000+((hi>>5)&0x7fff))), \
+((hi&0x7ff00000==0)?0: \
+(((hi<<27)&0xf8000000)|((lo>>5)&0x7ffffff))))
+#else
+#define ___F64VEC1(hi,lo)___U64VEC1(hi,lo)
+#endif
+
+#define ___VEC0 ___PADDING};
+#define ___VEC1(a),a
+
+/* Continuation frame structures. */
+
+#define ___IFD_FS_WIDTH 5
+#define ___OFD_FS_WIDTH 14
+#define ___KIND_WIDTH 2
+
+#define ___RETN 1
+#define ___RETI 2
+#define ___RETT 3
+
+#define ___CEILING_DIV(n,m)(((n)+(m)-1)/(m))
+#define ___ROUND_TO_MULT(n,m)(___CEILING_DIV(n,m)*(m))
+#define ___BREAK_FRAME_NEXT 1
+#define ___BREAK_FRAME_SPACE ___ROUND_TO_MULT(1,___FRAME_ALIGN)
+#define ___FIRST_BREAK_FRAME_STACK_MSECTION 2
+#define ___FIRST_BREAK_FRAME_STACK_BREAK    3
+#define ___FIRST_BREAK_FRAME_SPACE ___ROUND_TO_MULT(3,___FRAME_ALIGN)
+
+#define ___FRAME_SPACE(n)___ROUND_TO_MULT((n)+___FRAME_RESERVE,___FRAME_ALIGN)
+#define ___FRAME_RESERVE 3
+#define ___FRAME_ALIGN 4
+
+#ifdef ___OFDCOUNT
+#define ___OFDTBL ___ofdtbl,sizeof(___ofdtbl)/sizeof(___WORD)
+#else
+#define ___OFDCOUNT 0
+#define ___OFDTBL 0,0
+#endif
+
+#define ___BEGIN_OFD \
+___LOCAL ___WORD ___ofdtbl[]={
+#define ___END_OFD ___PADDING};
+
+#define ___DEF_OFD(kind,fs,link)(link<<16)+(fs<<___KIND_WIDTH)+kind
+#define ___OFD_KIND(x)((x)&((1<<___KIND_WIDTH)-1))
+#define ___OFD_FS(x)(((x)>>___KIND_WIDTH)&((1<<___OFD_FS_WIDTH)-1))
+#define ___OFD_LINK(x)(((x)>>(___OFD_FS_WIDTH+___KIND_WIDTH))&((1<<___OFD_FS_WIDTH)-1))
+
+#define ___GCMAP0
+#define ___GCMAP1(a),a
+#if ___WORD_WIDTH == 32
+#define ___GCMAP2(a,b),a,b
+#else
+#define ___GCMAP2(a,b),___CAST(___WORD,(___CAST(___UWORD,b)<<32)+___CAST(___UWORD,___CAST_U32(a)))
+#endif
+
+#define ___IFD(kind,fs,link,gcmap)(gcmap<<(2*___IFD_FS_WIDTH+___KIND_WIDTH))+(link<<(___IFD_FS_WIDTH+___KIND_WIDTH))+(fs<<___KIND_WIDTH)+kind
+#define ___OFD(kind,fs,link,gcmap)___IFD(kind,0,0,0)
+#define ___IS_IFD(x)((x)&((1<<___KIND_WIDTH)-1))
+
+#define ___IFD_KIND(x)((x)&((1<<___KIND_WIDTH)-1))
+#define ___IFD_FS(x)(((x)>>___KIND_WIDTH)&((1<<___IFD_FS_WIDTH)-1))
+#define ___IFD_LINK(x)(((x)>>(___IFD_FS_WIDTH+___KIND_WIDTH))&((1<<___IFD_FS_WIDTH)-1))
+#define ___IFD_GCMAP(x)(((x)>>(2*___IFD_FS_WIDTH+___KIND_WIDTH))&((1<<(32-(2*___IFD_FS_WIDTH+___KIND_WIDTH)))-1))
+
+#define ___RETI_CFS_TO_FS(fs) \
+___ROUND_TO_MULT(fs,___FRAME_ALIGN)+___FRAME_SPACE(___NB_GVM_REGS+1)-___FRAME_RESERVE
+
+/* One decoded frame contract for stack roots, heap frames and restoration.
+ * Input descriptors are trusted, live module metadata. This decoder neither
+ * validates an arbitrary pointer nor extends the lifetime of its module.
+ */
+typedef struct ___frame_descriptor_struct
+  {
+    int kind;
+    int stored_fs;
+    int fs;
+    int link;
+    ___WORD gcmap;
+    ___WORD *nextgcmap;
+  } ___frame_descriptor;
+
+#if defined(__GNUC__) || defined(__clang__)
+#define ___FRAME_INLINE static __inline__
+#elif defined(_MSC_VER)
+#define ___FRAME_INLINE static __inline
+#elif defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L
+#define ___FRAME_INLINE static inline
+#else
+#define ___FRAME_INLINE static
+#endif
+
+___FRAME_INLINE ___frame_descriptor ___decode_frame_descriptor
+   ___P((___WORD descr, int internal),
+        (descr, internal)
+___WORD descr;
+int internal;)
+{
+  ___frame_descriptor frame;
+
+  if (___IS_IFD(descr))
+    {
+      frame.kind = ___IFD_KIND(descr);
+      frame.stored_fs = ___IFD_FS(descr);
+      frame.link = ___IFD_LINK(descr);
+      frame.gcmap = ___IFD_GCMAP(descr);
+      frame.nextgcmap = 0;
+    }
+  else
+    {
+      ___WORD *table = ___CAST(___WORD*,descr);
+      ___WORD header = *table++;
+      frame.kind = ___OFD_KIND(header);
+      frame.stored_fs = ___OFD_FS(header);
+      frame.link = ___OFD_LINK(header);
+      frame.gcmap = *table++;
+      frame.nextgcmap = table;
+    }
+
+  frame.fs = internal ? ___RETI_CFS_TO_FS(frame.stored_fs) : frame.stored_fs;
+  return frame;
+}
+
+/* Physical root coordinates are one-based.  nextgcmap starts AFTER the first
+ * word, so slot WORD_WIDTH+1 uses nextgcmap[0].  Cast before shifting: a live
+ * root at the native sign bit is valid metadata, not a signed-int mask.
+ */
+___FRAME_INLINE int ___frame_slot_live
+   ___P((const ___frame_descriptor *frame, int slot),
+        (frame, slot)
+const ___frame_descriptor *frame;
+int slot;)
+{
+  int bit;
+  ___UWORD word;
+
+  if (slot <= 0 || slot > frame->fs)
+    return 0;
+  bit = slot - 1;
+  word = ___CAST(___UWORD,
+           bit < ___WORD_WIDTH
+           ? frame->gcmap
+           : frame->nextgcmap[(bit >> ___LOG_WORD_WIDTH) - 1]);
+  return ___CAST(int, (word >> (bit & (___WORD_WIDTH-1))) & 1);
+}
+
+/* Borrowed, nonallocating scan state.  It never outlives the descriptor's
+ * module or crosses a safepoint.  Runs preserve mark_array's bulk marking.
+ */
+typedef struct ___frame_root_cursor_struct
+  {
+    ___UWORD bits;
+    const ___WORD *next;
+    int slot;
+    int fs;
+    int excluded_slot; /* structural link has a separate traversal contract */
+  } ___frame_root_cursor;
+
+___FRAME_INLINE ___frame_root_cursor ___frame_root_begin
+   ___P((const ___frame_descriptor *frame),
+        (frame)
+const ___frame_descriptor *frame;)
+{
+  ___frame_root_cursor cursor;
+  cursor.bits = ___CAST(___UWORD, frame->gcmap);
+  cursor.next = frame->nextgcmap;
+  cursor.slot = 1;
+  cursor.fs = frame->fs;
+  cursor.excluded_slot = 0;
+  return cursor;
+}
+
+___FRAME_INLINE ___frame_root_cursor ___frame_ordinary_root_begin
+   ___P((const ___frame_descriptor *frame), (frame)
+const ___frame_descriptor *frame;)
+{
+  ___frame_root_cursor cursor = ___frame_root_begin(frame);
+  cursor.excluded_slot = frame->link+1;
+  return cursor;
+}
+
+___FRAME_INLINE void ___frame_root_advance
+   ___P((___frame_root_cursor *cursor),
+        (cursor)
+___frame_root_cursor *cursor;)
+{
+  cursor->bits >>= 1;
+  cursor->slot++;
+  if (cursor->slot <= cursor->fs &&
+      ((cursor->slot-1) & (___WORD_WIDTH-1)) == 0)
+    cursor->bits = ___CAST(___UWORD, *cursor->next++);
+}
+
+___FRAME_INLINE int ___frame_root_next_run
+   ___P((___frame_root_cursor *cursor, int *first, int *past),
+        (cursor, first, past)
+___frame_root_cursor *cursor;
+int *first;
+int *past;)
+{
+  while (cursor->slot <= cursor->fs &&
+         (!(cursor->bits & 1) || cursor->slot == cursor->excluded_slot))
+    ___frame_root_advance (cursor);
+  if (cursor->slot > cursor->fs)
+    return 0;
+  *first = cursor->slot;
+  do
+    ___frame_root_advance (cursor);
+  while (cursor->slot <= cursor->fs && (cursor->bits & 1) &&
+         cursor->slot != cursor->excluded_slot);
+  *past = cursor->slot;
+  return 1;
+}
+
+#undef ___FRAME_INLINE
+
+/* Existing generated/native entry points are mechanical projections only. */
+#define ___RETI_GET_CFS(ra,fs_arg) \
+{ ___frame_descriptor ___fd = ___decode_frame_descriptor(___LABEL_DESCR_GET(ra),0); \
+fs_arg = ___fd.stored_fs; }
+
+#define ___RETI_GET_FS(ra,fs_arg) \
+{ ___frame_descriptor ___fd = ___decode_frame_descriptor(___LABEL_DESCR_GET(ra),1); \
+fs_arg = ___fd.fs; }
+
+#define ___RETN_GET_FS(ra,fs_arg) \
+{ ___frame_descriptor ___fd = ___decode_frame_descriptor(___LABEL_DESCR_GET(ra),0); \
+fs_arg = ___fd.fs; }
+
+#define ___RETI_GET_FS_LINK(ra,fs_arg,link_arg) \
+{ ___frame_descriptor ___fd = ___decode_frame_descriptor(___LABEL_DESCR_GET(ra),1); \
+fs_arg = ___fd.fs; link_arg = ___fd.link; }
+
+#define ___RETN_GET_FS_LINK(ra,fs_arg,link_arg) \
+{ ___frame_descriptor ___fd = ___decode_frame_descriptor(___LABEL_DESCR_GET(ra),0); \
+fs_arg = ___fd.fs; link_arg = ___fd.link; }
+
+#define ___RETI_GET_FS_LINK_GCMAP(ra,fs_arg,link_arg,firstgcmap_arg,nextgcmap_arg) \
+{ ___frame_descriptor ___fd = ___decode_frame_descriptor(___LABEL_DESCR_GET(ra),1); \
+fs_arg = ___fd.fs; link_arg = ___fd.link; \
+firstgcmap_arg = ___fd.gcmap; nextgcmap_arg = ___fd.nextgcmap; }
+
+#define ___RETN_GET_FS_LINK_GCMAP(ra,fs_arg,link_arg,firstgcmap_arg,nextgcmap_arg) \
+{ ___frame_descriptor ___fd = ___decode_frame_descriptor(___LABEL_DESCR_GET(ra),0); \
+fs_arg = ___fd.fs; link_arg = ___fd.link; \
+firstgcmap_arg = ___fd.gcmap; nextgcmap_arg = ___fd.nextgcmap; }
+
+/* Procedure descriptor structures. */
+
+#define ___NBPARMS_WIDTH 12
+
+#define ___PRD(nbparms,nbclosed) \
+___MAKE_HD(((nbclosed+1)<<___NBPARMS_WIDTH)+nbparms,___sPROCEDURE,___PERM)
+#define ___PRD_NBPARMS(x)(((x)>>(___SB+___HTB))&((1<<___NBPARMS_WIDTH)-1))
+#define ___PRD_NBCLOSED(x)((((x)>>(___SB+___HTB+___NBPARMS_WIDTH))&((1<<___NBPARMS_WIDTH)-1))-1)
+
+#ifdef ___GLOCOUNT
+#ifdef ___BIND_LATE
+#define ___GLODECL ___LOCAL ___FAKEWORD ___glotbl[___GLOCOUNT];
+#define ___GLOTBL ___glotbl,___GLOCOUNT,___SUPCOUNT,___glo_names
+#else
+#define ___GLODECL
+#define ___GLOTBL 0,0,0,0
+#endif
+#else
+#define ___GLOCOUNT 0
+#define ___GLODECL
+#define ___GLOTBL 0,0,0,0
+#endif
+
+#ifdef ___SYMCOUNT
+#ifdef ___BIND_LATE
+#define ___SYMDECL ___LOCAL ___FAKEWORD ___symtbl[___SYMCOUNT];
+#define ___SYMTBL ___symtbl,___SYMCOUNT,___sym_names
+#else
+#define ___SYMDECL
+#define ___SYMTBL ___symtbl,___SYMCOUNT,0
+#endif
+#else
+#define ___SYMCOUNT 0
+#define ___SYMDECL
+#define ___SYMTBL 0,0,0
+#endif
+
+#ifdef ___KEYCOUNT
+#ifdef ___BIND_LATE
+#define ___KEYDECL ___LOCAL ___FAKEWORD ___keytbl[___KEYCOUNT];
+#define ___KEYTBL ___keytbl,___KEYCOUNT,___key_names
+#else
+#define ___KEYDECL
+#define ___KEYTBL ___keytbl,___KEYCOUNT,0
+#endif
+#else
+#define ___KEYCOUNT 0
+#define ___KEYDECL
+#define ___KEYTBL 0,0,0
+#endif
+
+#ifdef ___LBLCOUNT
+#define ___LBLTBL &___lp,___lbltbl,___LBLCOUNT
+#else
+#define ___LBLCOUNT 0
+#define ___LBLTBL 0,0,0
+#endif
+
+#ifdef ___CNSCOUNT
+#define ___CNSTBL ___cnstbl,___CNSCOUNT
+#else
+#define ___CNSCOUNT 0
+#define ___CNSTBL 0,0
+#endif
+
+#ifdef ___SUBCOUNT
+#define ___SUBTBL ___subtbl,___SUBCOUNT
+#else
+#define ___SUBCOUNT 0
+#define ___SUBTBL 0,0
+#endif
+
+#define ___BEGIN_MOD_PRM ___LOCAL ___WORD ___setup_mod ___P((___processor_state ___ps),(___ps) ___processor_state ___ps;) {
+#define ___DEF_MOD_PRM(i,glo,n)___EXT(___bind_primitive)(___ps,&___GLOSTRUCT(i,glo),___MLBL(n));
+#define ___END_MOD_PRM return ___FIX(___NO_ERR); }
+
+#define ___BEGIN_MOD_C_INIT ___LOCAL ___WORD ___init_mod \
+   ___P((___PSDNC), \
+        (___PSVNC) \
+___PSDKR) { ___PSGET
+#define ___END_MOD_C_INIT
+
+#define ___BEGIN_MOD_GLO
+#define ___DEF_MOD_GLO(i,glo,n)___SET_GLO(i,glo,___MLBL(n))
+#define ___END_MOD_GLO return ___FIX(___NO_ERR); }
+
+#define ___MODULE_DESCR_SUPPLY_MODS   0
+#define ___MODULE_DESCR_DEMAND_MODS   1
+#define ___MODULE_DESCR_META_INFO     2
+#define ___MODULE_DESCR_FLAGS         3
+#define ___MODULE_DESCR_THUNK         4
+#define ___MODULE_DESCR_MODULE_STRUCT 5
+
+/* A negative size binds the descriptor to indexed host entry fixup.
+ * Older setup code compares this field to the positive structure size. */
+#define ___MODULE_STRUCT_SIZE_STAMP(flags) \
+(((flags) & ___USES_INDEXED_HOST_ENTRIES) ? \
+ -___CAST(int,sizeof(___module_struct)) : ___CAST(int,sizeof(___module_struct)))
+
+#define ___BEGIN_MOD_SYM_KEY ___LOCAL ___module_struct ___module_descr = { \
+  ___VERSION, \
+  ___MODULE_KIND, \
+  ___MODULE_STRUCT_SIZE_STAMP(___MODULE_FLAGS), \
+  sizeof(___global_state_struct), \
+  sizeof(___virtual_machine_state_struct), \
+  sizeof(___processor_state_struct), \
+  ___MODULE_NAME, \
+  ___MODULE_FLAGS, \
+  ___GLOTBL, \
+  ___SYMTBL, \
+  ___KEYTBL, \
+  ___LBLTBL, \
+  ___OFDTBL, \
+  ___CNSTBL, \
+  ___SUBTBL, \
+  ___setup_mod, \
+  ___init_mod, \
+  ___SCRIPT_LINE, \
+  0,\
+  ___MODDESCR, \
+  ___MODULE_FIXUP_PRIVATE \
+}; \
+___BEGIN_C_LINKAGE \
+___EXP_FUNC(___mod_or_lnk,___LINKER_ID) \
+   ___P((___global_state ___gs), \
+        (___gs) \
+___global_state ___gs;) \
+{ \
+  ___SET_LOCAL_GSTATE(___gs)
+#define ___END_MOD_SYM_KEY \
+  return (___mod_or_lnk)&___module_descr; \
+} \
+___END_C_LINKAGE
+
+#ifdef ___LIBRARY
+
+#define ___MAIN_PROC
+
+#else
+
+#ifdef ___OS_WIN32
+#ifdef _WINDOWS
+
+#define ___MAIN_PROC \
+___IMP_FUNC(int,___winmain) \
+  ___P((HINSTANCE hInstance, \
+        HINSTANCE hPrevInstance, \
+        LPSTR lpCmdLine, \
+        int nCmdShow, \
+        ___mod_or_lnk (*linker)(___global_state), \
+        char *script_line), \
+       ()); \
+int WINAPI WinMain ___P((HINSTANCE hInstance, \
+                         HINSTANCE hPrevInstance, \
+                         LPSTR lpCmdLine, \
+                         int nCmdShow), \
+                        (hInstance, \
+                         hPrevInstance, \
+                         lpCmdLine, \
+                         nCmdShow) \
+HINSTANCE hInstance; \
+HINSTANCE hPrevInstance; \
+LPSTR lpCmdLine; \
+int nCmdShow;) \
+{ \
+  return ___winmain \
+           (hInstance, \
+            hPrevInstance, \
+            lpCmdLine, \
+            nCmdShow, \
+            ___LINKER_ID, \
+            ___SCRIPT_LINE); \
+}
+
+#endif
+#endif
+
+#ifndef ___MAIN_PROC
+#ifdef _UNICODE
+
+#define ___MAIN_PROC \
+___IMP_FUNC(int,___main_UCS_2) \
+  ___P((int argc, \
+        ___UCS_2STRING argv[], \
+        ___mod_or_lnk (*linker)(___global_state), \
+        char *script_line), \
+       ()); \
+int wmain ___P((int argc, \
+                wchar_t *argv[]), \
+               (argc, \
+                argv) \
+int argc; \
+wchar_t *argv[];) \
+{ \
+  return ___main_UCS_2 \
+           (argc, \
+            argv, \
+            ___LINKER_ID, \
+            ___SCRIPT_LINE); \
+}
+
+#else
+
+#define ___MAIN_PROC \
+___IMP_FUNC(int,___main_char) \
+  ___P((int argc, \
+        char *argv[], \
+        ___mod_or_lnk (*linker)(___global_state), \
+        char *script_line), \
+       ()); \
+int main ___P((int argc, \
+               char *argv[]), \
+              (argc, \
+               argv) \
+int argc; \
+char *argv[];) \
+{ \
+  return ___main_char \
+           (argc, \
+            argv, \
+            ___LINKER_ID, \
+            ___SCRIPT_LINE); \
+}
+
+#endif
+#endif
+
+#endif
+
+#define ___LINKFILE_DESCR(sym_list,key_list) \
+___LOCAL ___linkfile_struct ___linkfile_descr = { \
+  ___VERSION, \
+  ___LINKFILE_KIND, \
+  ___LINKFILE_NAME, \
+  sym_list, \
+  key_list, \
+  ___linkertbl, \
+}; \
+___BEGIN_C_LINKAGE \
+___EXP_FUNC(___mod_or_lnk,___LINKER_ID) \
+   ___P((___global_state ___gs), \
+        (___gs) \
+___global_state ___gs;) \
+{ \
+  ___SET_LOCAL_GSTATE(___gs) \
+  return (___mod_or_lnk)&___linkfile_descr; \
+} \
+___END_C_LINKAGE \
+___MAIN_PROC
+
+#define ___BEGIN_OLD_LNK
+#define ___DEF_OLD_LNK(id)___BEGIN_C_LINKAGE ___IMP_FUNC(___mod_or_lnk,id) \
+___P((___global_state ___gs),()); ___END_C_LINKAGE
+#define ___END_OLD_LNK
+
+#define ___BEGIN_NEW_LNK
+#define ___DEF_NEW_LNK(id)___BEGIN_C_LINKAGE ___mod_or_lnk id \
+___P((___global_state ___gs),()); ___END_C_LINKAGE
+#define ___END_NEW_LNK
+
+#define ___BEGIN_LNK ___LOCAL ___linkinfo ___linkertbl[]={
+#define ___DEF_LNK(id){ ___CAST(___mod_or_lnk,id), ___FIX(1) }
+#define ___DEF_LNK_NOPRELOAD(id){ ___CAST(___mod_or_lnk,id), ___FIX(0) }
+#define ___END_LNK , { 0, ___FIX(0) }};
+

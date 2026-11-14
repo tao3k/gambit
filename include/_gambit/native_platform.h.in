@@ -1,0 +1,248 @@
+#ifdef _MSC_VER
+#ifdef ___DYNAMIC
+int _fltused; /* needed if floating-point used. */
+#endif
+#endif
+
+#ifdef __BORLANDC__
+#ifdef __WIN32__
+#ifndef ___OS_WIN32
+#define ___OS_WIN32
+#endif
+#endif
+#ifdef ___SHARED
+#define _RTLDLL
+#endif
+#endif
+
+#ifdef ___OS_WIN32
+
+#ifndef _WIN32_WINNT
+#define _WIN32_WINNT 0x0600
+#endif
+
+#ifndef ___DONT_HAVE_WINSOCK2_H
+#include <winsock2.h>
+#endif
+
+#ifndef ___DONT_HAVE_WINDOWS_H
+#include <windows.h>
+#endif
+
+#endif
+
+#ifdef ___USE_CPLUSPLUS_NEW_DELETE
+
+#ifndef ___DONT_HAVE_NEW
+#include <new>
+#endif
+
+#endif
+
+typedef struct ___source_location
+  {
+    int line;
+    char *file;
+  } ___source_location;
+
+#ifdef ___USE_SETJMP
+
+typedef struct ___jmpbuf_struct
+  {
+    jmp_buf buf;
+  } ___jmpbuf_struct;
+
+#else
+
+typedef struct ___throw_struct
+  {
+    ___SCMOBJ err;
+  } ___throw_struct;
+
+#endif
+
+typedef void *___VARIANT; /* not yet implemented */
+
+#ifdef ___BUILTIN_64BIT_INT_TYPE
+
+/*
+ * If the symbol ___BUILTIN_64BIT_INT_TYPE is defined then the data
+ * types ___S64 and ___U64 are builtin integer types.
+ */
+
+#define ___S64_from_SM32(val) \
+___CAST_S64(___CAST_S32(val))
+
+#define ___S64_from_SM32_UM32(hi32,lo32) \
+((___CAST_S64(___CAST_S32(hi32)) << 32) + ___CAST_S64(___CAST_U32(lo32)))
+
+#define ___S64_from_LONGLONG(val) \
+___CAST_S64(val)
+
+#define ___S64_to_LONGLONG(val) \
+___CAST(___LONGLONG,val)
+
+#define ___S64_fits_in_width(val,width) \
+((((val) >> ((width)-1)) == 0) || (((val) >> ((width)-1)) == -1))
+
+#define ___S64_hi32(val)___CAST_S32((val) >> 32)
+#define ___S64_lo32(val)___CAST_U32(val)
+
+#define ___U64_from_UM32(val) \
+___CAST_U64(___CAST_U32(val))
+
+#define ___U64_from_UM32_UM32(hi32,lo32) \
+((___CAST_U64(___CAST_U32(hi32)) << 32) + ___CAST_U64(___CAST_U32(lo32)))
+
+#define ___U64_from_ULONGLONG(val) \
+___CAST_U64(val)
+
+#define ___U64_to_ULONGLONG(val) \
+___CAST(___ULONGLONG,val)
+
+#define ___U64_fits_in_width(val,width) \
+(((val) >> (width)) == 0)
+
+#define ___U64_mul_UM32_UM32(x,y) \
+(___CAST_U64(___CAST_U32(x)) * ___CAST_U32(y))
+
+#define ___U64_add_U64_U64(x,y) \
+(___CAST_U64(x) + ___CAST_U64(y))
+
+#define ___U64_hi32(val)___CAST_U32((val) >> 32)
+#define ___U64_lo32(val)___CAST_U32(val)
+
+#else
+
+/*
+ * If the symbol ___BUILTIN_64BIT_INT_TYPE is not defined then the
+ * data types ___S64 and ___U64 are structures.
+ */
+
+typedef struct
+  {
+#ifdef ___BIG_ENDIAN
+    ___S32 hi32;
+    ___U32 lo32;
+#else
+    ___U32 lo32;
+    ___S32 hi32;
+#endif
+  } ___S64;
+
+typedef struct
+  {
+#ifdef ___BIG_ENDIAN
+    ___U32 hi32;
+    ___U32 lo32;
+#else
+    ___U32 lo32;
+    ___U32 hi32;
+#endif
+  } ___U64;
+
+#define ___S64_from_SM32(val) \
+___EXT(___S64_from_SM32_fn) (val)
+
+#define ___S64_from_SM32_UM32(hi32,lo32) \
+___EXT(___S64_from_SM32_UM32_fn) (hi32,lo32)
+
+#define ___S64_from_LONGLONG(val) \
+___EXT(___S64_from_LONGLONG_fn) (val)
+
+#define ___S64_to_LONGLONG(val) \
+___EXT(___S64_to_LONGLONG_fn) (val)
+
+#define ___S64_fits_in_width(val,width) \
+___EXT(___S64_fits_in_width_fn) (val,width)
+
+#define ___S64_hi32(val)val.hi32
+#define ___S64_lo32(val)val.lo32
+
+#define ___U64_from_UM32(val) \
+___EXT(___U64_from_UM32_fn) (val)
+
+#define ___U64_from_UM32_UM32(hi32,lo32) \
+___EXT(___U64_from_UM32_UM32_fn) (hi32,lo32)
+
+#define ___U64_from_ULONGLONG(val) \
+___EXT(___U64_from_ULONGLONG_fn) (val)
+
+#define ___U64_to_ULONGLONG(val) \
+___EXT(___U64_to_ULONGLONG_fn) (val)
+
+#define ___U64_fits_in_width(val,width) \
+___EXT(___U64_fits_in_width_fn) (val,width)
+
+#define ___U64_mul_UM32_UM32(x,y) \
+___EXT(___U64_mul_UM32_UM32_fn) (x,y)
+
+#define ___U64_add_U64_U64(x,y) \
+___EXT(___U64_add_U64_U64_fn) (x,y)
+
+#define ___U64_hi32(val)val.hi32
+#define ___U64_lo32(val)val.lo32
+
+#endif
+
+/* Symbol/keyword structure */
+
+typedef ___FAKEWORD ___symkey_struct[5+___PADDING_SIZE];
+
+/* Global variable structure */
+
+#if ___MAX_PROCESSORS <= 2
+#define ___GLO_SUBLIST_COUNT ___MAX_PROCESSORS
+#else
+#define ___GLO_SUBLIST_COUNT (___MAX_PROCESSORS*4)
+#endif
+
+typedef struct ___glo_struct
+  {
+    ___WORD val;
+    ___WORD prm;
+    struct ___glo_struct* next;
+#ifdef ___SINGLE_VM
+    ___SCMOBJ primitive_value; /* VM-owned override, not shared image code */
+    ___WORD primitive_set;
+#endif
+  } ___glo_struct;
+
+/* Identity indices do not bound or describe a VM's physical root storage.
+ * Page width follows the one-word primitive-presence representation. */
+typedef struct ___global_slot_page_struct {
+  ___SIZE_T key;
+  struct ___global_slot_page_struct *next;
+  ___WORD primitive_set;
+  ___SCMOBJ ordinary[___WORD_WIDTH], primitive[___WORD_WIDTH];
+} ___global_slot_page;
+typedef struct ___global_slot_directory_struct {
+  ___SIZE_T capacity;
+  struct ___global_slot_directory_struct *retired;
+  ___global_slot_page *entries[1];
+} ___global_slot_directory;
+typedef struct ___global_slot_store_struct {
+  ___global_slot_directory *directory;
+  ___global_slot_page *pages;
+  ___SIZE_T count;
+  ___SCMOBJ unbound;
+} ___global_slot_store;
+
+/* Context binding authority borrows the existing VM store. Directory growth
+ * is acquired at the read, so module admission adds no host-switch cache. */
+typedef struct ___binding_view_struct {
+  struct ___virtual_machine_state_struct *vm;
+} ___binding_view;
+
+typedef struct ___glo_sublist_struct
+  {
+    ___glo_struct* head;
+    ___glo_struct* tail;
+  } ___glo_sublist_struct;
+
+typedef struct ___glo_list_struct
+  {
+    ___SIZE_T count;    /* number of global variables */
+    ___glo_sublist_struct sublist[___GLO_SUBLIST_COUNT];
+  } ___glo_list_struct;
+

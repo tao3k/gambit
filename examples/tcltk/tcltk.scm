@@ -120,79 +120,7 @@ char *cmd;)
   return ___CAST(char*,Tcl_GetStringResult(tcl_interp));
 }
 
-/*
- * The routine scheme_call_cmd is called by Tcl when a Scheme
- * procedure is being called.  The client_data parameter points to a
- * reference counted object which contains a vector containing the
- * Scheme procedure to call (this indirection is required because the
- * Scheme procedure may be a MOVABLE object).  The parameters argc and
- * argv specify the arguments to pass to the Scheme procedure.  The
- * Scheme procedure receives these arguments as strings and must
- * return a string result or the value #f.
- */
-
-char *tcltk_call ___P((___SCMOBJ vect, char **args),());
-
-___HIDDEN int scheme_call_cmd
-   ___P((ClientData client_data,
-         Tcl_Interp *interp,
-         int argc,
-         const char **argv),
-        (client_data,
-         interp,
-         argc,
-         argv)
-ClientData client_data;
-Tcl_Interp *interp;
-int argc;
-const char **argv;)
-{
-  char *result = tcltk_call (___EXT(___data_rc) (___CAST(void*,client_data)),
-                             ___CAST(char**,argv+1));
-
-  /*
-   * Propagate result to Tcl.
-   */
-
-  if (result == NULL)
-    {
-      Tcl_SetResult (interp,
-                     "",
-                     TCL_STATIC);
-    }
-  else
-    {
-      /*
-       * The resulting C string was dynamically allocated by
-       * Gambit's C interface.  We have to ensure it is
-       * deallocated by a call to ___release_string by Tcl
-       * when it no longer needs the string.
-       */
-
-      Tcl_SetResult (interp,
-                     result,
-                     ___CAST(Tcl_FreeProc*,___EXT(___release_string)));
-    }
-
-  return TCL_OK;
-}
-
-/*
- * The routine scheme_delete_cmd is called by Tcl when a Tcl command
- * bound to a Scheme procedure is being deleted.  The client_data
- * parameter points to a reference counted object which contains the
- * Scheme procedure.  This object needs to be released so that the
- * garbage collector can reclaim the Scheme procedure it contains.
- */
-
-___HIDDEN void scheme_delete_cmd
-   ___P((ClientData client_data),
-        (client_data)
-ClientData client_data;)
-{
-  ___EXT(___release_scmobj) (___EXT(___data_rc) (___CAST(void*,client_data)));
-  ___EXT(___release_rc) (___CAST(void*,client_data));
-}
+#include "command.h"
 
 c-declare-end
 )
@@ -218,9 +146,17 @@ c-declare-end
 ; Scheme procedure contained in "vect" is being called by Tcl with
 ; the list of arguments "args", which is a list of strings.
 
-(c-define (##tcltk-call vect args)
-          (scheme-object nonnull-char-string-list) char-string "tcltk_call" ""
-  (let ((proc (##vector-ref vect 0)))
+; The RC identity stays pinned by scheme_call_cmd through every allocating
+; argument conversion and nested callback. Read its GC-updated payload only
+; after entering Scheme; no unrooted Scheme value crosses that C boundary.
+(define ##tcltk-command-payload
+  (c-lambda ((pointer void)) scheme-object
+    "___result=___EXT(___data_rc)(___arg1);"))
+
+(c-define (##tcltk-call root args)
+          ((pointer void) nonnull-char-string-list) char-string "tcltk_call" ""
+  (let* ((vect (##tcltk-command-payload root))
+         (proc (##vector-ref vect 0)))
     (let ((result (##apply proc args)))
       (if (##string? result)
           result
@@ -290,55 +226,7 @@ c-declare-end
             scheme-object
             #<<c-lambda-end
 
-  if (tcl_interp == NULL)
-    ___result = ___FAL;
-  else
-    {
-      void *cd = ___EXT(___alloc_rc) (0);
-
-      /*
-       * "cd" is the client data that will be passed to
-       * scheme_call_cmd and scheme_delete_cmd.  It is a reference
-       * counted object that contains a ___STILL Scheme vector
-       * containing the Scheme procedure.  The routine
-       * scheme_delete_cmd is responsible for releasing "cd" and the
-       * Scheme vector.
-       */
-
-      if (cd == NULL)
-        ___result = ___FAL;
-      else
-        {
-          /*
-           * Setup the client data.
-           */
-
-          ___SCMOBJ vect = ___EXT(___make_vector) (___ps, 1, ___FAL);
-
-          if (___FIXNUMP(vect))
-            {
-              ___EXT(___release_rc) (cd);
-              ___result = ___FAL;
-            }
-          else
-            {
-              ___VECTORELEM(vect,0) = ___arg2;
-              ___EXT(___set_data_rc) (cd, vect);
-
-              /*
-               * Create the Tcl command.
-               */
-
-              ___result = ___BOOLEAN (Tcl_CreateCommand
-                                        (tcl_interp,
-                                         ___arg1,
-                                         scheme_call_cmd,
-                                         ___CAST(ClientData,cd),
-                                         scheme_delete_cmd)
-                                      != NULL);
-            }
-        }
-    }
+  ___result = ___BOOLEAN (scheme_create_cmd (___ps,tcl_interp,___arg1,___arg2));
 
 c-lambda-end
 ))

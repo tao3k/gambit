@@ -1,0 +1,186 @@
+/* Processor structure */
+
+/* Scheme execution roots are owned by the VM, not the native carrier.
+ * This storage step keeps the existing synchronous binding and collector.
+ * It does not authorize live rebinding or independent context retirement. */
+typedef struct ___execution_context_struct
+  {
+    ___WORD *stack_limit;
+    ___WORD *fp;
+    ___WORD *stack_start;
+    ___WORD *stack_break;
+
+    ___WORD *hp;
+
+    ___WORD r[___NB_GVM_REGS]; /* GVM registers */
+
+    ___WORD pc;
+
+    ___WORD saved[3]; /* Scheme objects protected from GC */
+
+    ___WORD type_cache[2];
+#define ___CHAR_INPUT_PORT_TYPE_CACHE  0
+#define ___CHAR_OUTPUT_PORT_TYPE_CACHE 1
+
+    ___WORD processor_scmobj[___SUBTYPED_BODY+___PROCESSOR_SIZE+___PADDING_SIZE]; /* Scheme processor object */
+    ___binding_view binding_view; /* VM identity only; no address/value cache */
+  } ___execution_context;
+
+typedef struct ___processor_state_struct
+  {
+    ___WORD * ___VOLATILE stack_trip; /* place first for fast access */
+    ___execution_context *context; /* VM-owned execution roots */
+    ___WORD *heap_limit; /* existing allocator capacity guard */
+    ___WORD na; /* existing call-arity guard */
+
+    /* these handlers are duplicated from the global state for quick access */
+
+    ___WORD handler_sfun_conv_error;
+    ___WORD handler_cfun_conv_error;
+    ___WORD handler_stack_limit;
+    ___WORD handler_heap_limit;
+    ___WORD handler_not_proc;
+    ___WORD handler_not_proc_glo;
+    ___WORD handler_wrong_nargs;
+    ___WORD handler_get_rest;
+    ___WORD handler_get_key;
+    ___WORD handler_get_key_rest;
+    ___WORD handler_force;
+    ___WORD handler_return_to_c;
+    ___WORD handler_break;
+    ___WORD internal_return;
+    ___WORD dynamic_env_bind_return;
+
+    ___WORD temp1;
+    ___WORD temp2;
+    ___WORD temp3;
+    ___WORD temp4;
+
+    ___F64 f64_temp1;
+    ___F64 f64_temp2;
+
+    ___WORD intr_enabled; /* global interrupt enable */
+    ___WORD intr_mask; /* 1 bit means interrupt disabled */
+    ___VOLATILE ___WORD intr_flag[___NB_INTRS];
+
+    /* queue of procedural interrupts */
+    ___procedural_interrupt_header * ___VOLATILE procedural_interrupts_head;
+    ___procedural_interrupt_header * ___VOLATILE procedural_interrupts_tail;
+    ___MUTEX_DECL(procedural_interrupts_mut)
+
+
+#ifdef ___USE_UNWIND_C_STACK_TO_TRAMPOLINE
+    ___WORD *c_stack_trip;
+#endif
+
+#ifdef ___ACTIVITY_LOG
+    ___pstate_actlog actlog; /* activity log state */
+#endif
+
+    ___pstate_os os; /* OS specific state */
+
+    ___pstate_mem mem; /* memory management state */
+
+#ifdef ___DEBUG_CTRL_FLOW_HISTORY
+    unsigned int ctrl_flow_history_index;
+    ___source_location ctrl_flow_history[___CTRL_FLOW_HISTORY_LENGTH];
+#endif
+
+#ifdef ___DEBUG_STACK_LIMIT
+    ___source_location poll_location;
+    ___source_location stack_limit_location;
+#endif
+
+#ifdef ___DEBUG_HEAP_LIMIT
+    ___source_location check_heap_location;
+    ___source_location heap_limit_location;
+#endif
+
+#ifdef ___HEARTBEAT_USING_POLL_COUNTDOWN
+    int heartbeat_interval;
+    int heartbeat_countdown;
+#endif
+
+#ifdef ___USE_SETJMP
+    ___jmpbuf_struct *catcher;
+    ___SCMOBJ longjmp_err;
+#endif
+
+#ifndef ___SINGLE_THREADED_VMS
+
+    /* this processor's VM */
+    ___virtual_machine_state vmstate;
+
+    /* this processor's OS thread */
+    ___thread os_thread;
+
+    /* for implementation of on_all_processors */
+    ___WORD sync_id0; /* atomic published stamp; same field name */
+    ___sync_op_struct sync_op0;
+    ___WORD sync_id1; /* atomic published stamp; same field name */
+    ___sync_op_struct sync_op1;
+    ___WORD sync_id2; /* atomic published stamp; same field name */
+    ___sync_op_struct sync_op2;
+    ___MUTEX_DECL(sync_mut)
+    ___CONDVAR_DECL(sync_cv)
+
+#endif
+
+#ifdef ___SUPPORT_PSTATE_BIND
+    ___processor_state pstate_binding;
+#endif
+    struct ___collector_worker_struct *collector; /* current private work authority */
+
+  } ___processor_state_struct;
+
+#ifdef ___SUPPORT_LOWLEVEL_EXEC
+
+typedef struct ___lowlevel_processor_state_struct
+  {
+    ___WORD entry_pc; /* transient bridge target; context remains its root */
+    ___WORD saved_r1; /* x86 address scratch aliases the GVM r1 register */
+    ___WORD *return_sp;
+    ___WORD *return_handler;
+  } ___lowlevel_processor_state_struct;
+
+typedef struct ___aligned_lowlevel_processor_state_struct
+  {
+#ifdef ___PSTATE_ALIGN_MODULUS
+    /*
+     * pad so that the structure will be of a size that is a multiple
+     * of ___PSTATE_ALIGN_MODULUS
+     */
+    ___WORD padding[(___PSTATE_ALIGN_MODULUS
+#ifdef ___SUPPORT_LOWLEVEL_EXEC
+                     - sizeof(___lowlevel_processor_state_struct)
+#endif
+                    ) >> ___LWS];
+#endif
+    ___lowlevel_processor_state_struct llpstate;
+  } ___aligned_lowlevel_processor_state_struct;
+
+#endif
+
+typedef struct ___aligned_processor_state_struct
+  {
+#ifdef ___SUPPORT_LOWLEVEL_EXEC
+    ___aligned_lowlevel_processor_state_struct aligned_llpstate;
+#endif
+
+    ___processor_state_struct pstate;
+
+#if ___MAX_PROCESSORS > 1
+#ifdef ___PSTATE_ALIGN_MULTIPLIER
+    /*
+     * pad so that ___aligned_processor_state_struct is a size that is
+     * a multiple of ___PSTATE_ALIGN_MULTIPLIER
+     */
+    char padding[___PSTATE_ALIGN_MULTIPLIER -
+                 (___PSTATE_ALIGN_MODULUS + sizeof(___processor_state_struct))
+                 % ___PSTATE_ALIGN_MULTIPLIER];
+#endif
+#endif
+  } ___aligned_processor_state_struct;
+
+typedef void (*___host) ___P((___processor_state ___ps),());
+

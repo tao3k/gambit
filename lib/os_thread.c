@@ -495,19 +495,23 @@ ___SCMOBJ ___thread_create
         (thread)
 ___thread *thread;)
 {
+  ___SCMOBJ initialized=thread_init_common(thread);
+  if (initialized!=___FIX(___NO_ERR)) return initialized;
+
 #ifdef ___USE_POSIX_THREAD_SYSTEM
 
   pthread_t thread_id;
+  int error;
 
-  if (pthread_create (&thread_id,
+  if ((error=pthread_create (&thread_id,
                       NULL,
                       start_pthread_thread,
-                      ___CAST(void*,thread)) != 0)
-    return err_code_from_errno ();
+                      ___CAST(void*,thread))) != 0)
+    return ___FIX(___ERRNO_ERR(error));
 
   thread->thread_id = thread_id;
 
-  return thread_init_common (thread);
+  return ___FIX(___NO_ERR);
 
 #endif
 
@@ -529,7 +533,7 @@ ___thread *thread;)
   thread->thread_handle = thread_handle;
   thread->thread_id = thread_id;
 
-  return thread_init_common (thread);
+  return ___FIX(___NO_ERR);
 
 #endif
 
@@ -550,8 +554,8 @@ ___thread *thread;)
 {
 #ifdef ___USE_POSIX_THREAD_SYSTEM
 
-  if (pthread_join (thread->thread_id, NULL) != 0)
-    return err_code_from_errno ();
+  int error=pthread_join(thread->thread_id,NULL);
+  if (error!=0) return ___FIX(___ERRNO_ERR(error));
 
   return ___FIX(___NO_ERR);
 
@@ -711,6 +715,8 @@ ___processor_state ___ps;)
 
 #ifdef ___USE_emulated_sync
 
+#include <stdatomic.h>
+#include <string.h>
 
 ___WORD ___emulated_compare_and_swap_word
    ___P((___VOLATILE ___WORD *ptr,
@@ -756,7 +762,16 @@ ___WORD val;)
 
   temp = *ptr;
 
-  *ptr += val;
+  /* Word operations preserve the encoded ticket/tag bit pattern modulo2^W,
+   * independently of a compiler signed-overflow option. */
+  {
+    ___UWORD bits = ___CAST(___UWORD,temp) + ___CAST(___UWORD,val);
+    ___WORD next;
+    /* C23 two's-complement representation; do not narrow an out-of-range
+     * unsigned value through an implementation-defined signed conversion. */
+    memcpy(&next,&bits,sizeof next);
+    *ptr = next;
+  }
 
   ___MUTEX_UNLOCK(*mut_ptr);
 
@@ -787,10 +802,10 @@ ___VOLATILE ___WORD *ptr;)
 
 void ___emulated_shared_memory_barrier ___PVOID
 {
-  /*
-   * It is impossible to emulate a memory barrier portably, so just
-   * hope for the best...
-   */
+  /* This is an ordering fence, not thread quiescence or a cure for racing
+   * ordinary accesses. Ordered word publication still uses the same source
+   * mutex through the existing CAS/RMW service. */
+  atomic_thread_fence(memory_order_seq_cst);
 }
 
 

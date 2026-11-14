@@ -1,0 +1,79 @@
+/* Module structure */
+
+typedef struct ___module_struct
+  {
+    int version;
+    int kind;
+    int sizeof_module_struct;
+    int sizeof_global_state_struct;
+    int sizeof_virtual_machine_state_struct;
+    int sizeof_processor_state_struct;
+    ___UTF_8STRING name;
+    int flags;
+    ___FAKEWORD *glotbl; int glocount; int supcount;
+    ___UTF_8STRING *glo_names;
+    ___FAKEWORD *symtbl; int symcount;
+    ___UTF_8STRING *sym_names;
+    ___FAKEWORD *keytbl; int keycount;
+    ___UTF_8STRING *key_names;
+    ___WORD *lp;
+    ___label_struct *lbltbl; int lblcount;
+    ___WORD *ofdtbl; int ofd_length;
+    ___WORD *cnstbl; int cnscount;
+    ___FAKEWORD *subtbl; int subcount;
+    ___WORD (*setup_mod) ___P((___processor_state ps), ());
+    ___WORD (*init_mod) ___P((___PSDNC),());
+    ___UTF_8STRING script_line;
+    struct ___module_struct *next;
+    ___SCMOBJ moddescr; /* module descriptor */
+    ___WORD fixup_state; /* shared fixup ownership, guarded by global_gate */
+  } ___module_struct;
+
+/* Linkfile structure */
+
+typedef struct ___linkinfo_struct
+  {
+    union ___mod_or_lnk_union *mol;
+    ___SCMOBJ flags;
+  } ___linkinfo;
+
+typedef struct ___linkfile_struct
+  {
+    int version;
+    int kind;
+    ___UTF_8STRING name;
+    ___FAKEWORD *sym_list;
+    ___FAKEWORD *key_list;
+    ___linkinfo *linkertbl;
+  } ___linkfile_struct;
+
+/* Module or linkfile structure */
+
+typedef union ___mod_or_lnk_union
+  {
+    ___module_struct module;
+    ___linkfile_struct linkfile;
+  } *___mod_or_lnk;
+
+/* Program startup information structure */
+
+typedef struct ___program_startup_info_struct
+  {
+    ___UCS_2STRING *argv;
+    ___UCS_2STRING script_line;
+
+#ifdef ___OS_WIN32
+
+    HINSTANCE hInstance;
+    HINSTANCE hPrevInstance;
+    LPSTR lpCmdLine;
+    int nCmdShow;
+
+#endif
+  } ___program_startup_info_struct;
+
+
+#define ___MODULE_FIXUP_PRIVATE 0
+#define ___MODULE_FIXUP_CLAIMED 1
+#define ___MODULE_FIXUP_READY 2
+#define ___MODULE_FIXUP_REFUSED 3

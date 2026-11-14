@@ -382,7 +382,8 @@
      c-inits
      (map (lambda (x) (cons (car x) (targ-use-obj (cdr x)))) c-objs)
      module-descr
-     linker-name)
+     linker-name
+     c-procs)
 
     (targ-heap-end!)
 
@@ -1134,7 +1135,265 @@
 ;; These routines write out the C code that represents the Scheme objects
 ;; contained in the compilation module.
 
-(define (targ-heap-dump filename c-decls c-inits c-objs module-descr linker-name)
+;; The compiler unit plan is made only after semantic scanning has assigned
+;; all control points and FrameSpecs. It owns physical host placement, not
+;; Scheme control or root analysis. A procedure is the natural physical host
+;; for Scheme-only code; no module-size threshold or compiler flag selects it.
+;; Embedded C retains the configured layout until its host assumptions have
+;; an explicit contract. Lists and FrameSpecs in this private plan are read-only.
+;; The first admissible split is a return block with no local edges.
+;; The preceding global jump terminates, and POLL names the next entry.
+;; Only register moves may precede POLL in the moved block.
+(define (targ-plan-return-host obj)
+  (let* ((info (cadr obj))
+         (code (keep (lambda (x) x) (stretchable-vector->list (vector-ref info 0)))))
+    (define (operation x)
+      (and (pair? x) (car x)))
+    (define (return-label x)
+      (and (eq? (operation x) 'label)
+           (eq? (targ-lbl-val? (cdr x)) 'return)
+           (not (targ-lbl-goto? (cdr x)))
+           (cdr x)))
+    (let loop ((rest code) (before '()))
+      (if (and (pair? rest) (pair? (cdr rest)))
+          (let ((label (return-label (car rest))))
+            (or (and label
+                     (pair? before)
+                     (equal? (operation (car before)) "JUMPGLOSAFE")
+                     (let scan ((tail (cdr rest)) (block (list (car rest))))
+                       (and (pair? tail)
+                            (let ((op (operation (car tail))))
+                              (cond
+                               ((and (eq? op 'set-r)
+                                     (member (operation (caddar tail)) '(r "STK")))
+                                (scan (cdr tail) (cons (car tail) block)))
+                               ((and (equal? op "POLL")
+                                     (pair? (cdr tail))
+                                     (return-label (cadr tail))
+                                     (eq? (cadar tail) (targ-lbl-num (cdadr tail))))
+                                (vector label (reverse (cons (car tail) block))
+                                        (append (reverse before) (cdr tail))
+                                        (cdadr tail)))
+                               (else #f))))))
+                (loop (cdr rest) (cons (car rest) before))))
+          #f))))
+
+;; Prototype placement over structured instructions. Keep every local
+;; label reference and possible fallthrough in a component. Four hosts
+;; reproduce the native cost control; this is not a default policy.
+(define (targ-plan-cfg-hosts obj)
+  (let* ((info (cadr obj))
+         (code (stretchable-vector->list (vector-ref info 0)))
+         (blocks
+          (list->vector
+           (let split ((rest code) (block '()) (result '()))
+             (cond ((null? rest) (reverse (cons (reverse block) result)))
+                   ((and (pair? (car rest)) (eq? (caar rest) 'label))
+                    (split (cdr rest) (list (car rest)) (cons (reverse block) result)))
+                   (else (split (cdr rest) (cons (car rest) block) result))))))
+         (count (vector-length blocks))
+         (parents (make-vector count))
+         (labels (make-table 'test: eq?))
+         (owners (make-table 'test: eq?))
+         (groups (make-table 'test: eqv?))
+         (depth 0))
+    (define (find index)
+      (let ((parent (vector-ref parents index)))
+        (if (= index parent) index
+            (let ((root (find parent)))
+              (vector-set! parents index root)
+              root))))
+    (define (join left right)
+      (vector-set! parents (find left) (find right)))
+    (define (visit node index)
+      (if (pair? node)
+          (if (eq? (car node) 'glbl)
+              (let ((target (table-ref labels (cadr node) #f)))
+                (if target (join index target)))
+              (if (not (memq (car node) '(label line cell)))
+                  (begin (visit (car node) index) (visit (cdr node) index))))))
+    (let initialize ((index 0))
+      (if (< index count)
+          (begin
+            (vector-set! parents index index)
+            (let ((block (vector-ref blocks index)))
+              (if (> index 0)
+                  (table-set! labels (targ-lbl-num (cdar block)) index)))
+            (initialize (+ index 1)))))
+    (let connect ((index 0))
+      (if (< index count)
+          (let ((last #f) (argument-branch? #f))
+            (for-each
+             (lambda (node)
+               (if (and (pair? node) (not (memq (car node) '(label line))))
+                   (begin
+                     (visit node index)
+                     (set! last (car node))
+                     (cond
+                      ((equal? last "IF_NARGS_EQ")
+                       (set! argument-branch? #t))
+                      ((member last '("IF" "BEGIN_SWITCH" "BEGIN_SWITCH_FIXNUM"
+                                      "BEGIN_SWITCH_CHAR" "BEGIN_SWITCH_SYMKEY"))
+                       (set! depth (+ depth 1)))
+                      ((member last '("END_IF" "END_SWITCH" "END_SWITCH_FIXNUM"
+                                      "END_SWITCH_CHAR" "END_SWITCH_SYMKEY"))
+                       (set! depth (- depth 1)))))))
+             (vector-ref blocks index))
+            (if (and (< (+ index 1) count)
+                     (or argument-branch?
+                         (not (= depth 0))
+                         (not (member last '("GOTO" "JUMPGLOSAFE" "JUMPGLONOTSAFE"
+                                             "JUMPRET" "JUMPPRM" "JUMPGENSAFE"
+                                             "JUMPGENNOTSAFE" "JUMPEXTPRM" "JUMPEXT")))))
+                (join index (+ index 1)))
+            (connect (+ index 1)))))
+    (let collect ((index 0))
+      (if (< index count)
+          (let ((root (find index)))
+            (table-set! groups root (cons index (table-ref groups root '())))
+            (collect (+ index 1)))))
+    (let* ((weighted
+            (sort-list
+             (map (lambda (entry)
+                    (let ((indices (cdr entry)))
+                      (cons (apply + (map (lambda (i) (length (vector-ref blocks i))) indices))
+                            indices)))
+                  (table->list groups))
+             (lambda (a b) (> (car a) (car b)))))
+           (bins (make-vector 4 '()))
+           (weights (make-vector 4 0))
+           (block-hosts (make-vector count #f)))
+      (and (= depth 0)
+           (>= (length weighted) 4)
+           (begin
+             (for-each
+              (lambda (group)
+                (let lightest ((index 1) (best 0))
+                  (if (= index 4)
+                      (begin
+                        (vector-set! bins best (append (cdr group) (vector-ref bins best)))
+                        (for-each (lambda (block) (vector-set! block-hosts block best))
+                                  (cdr group))
+                        (vector-set! weights best (+ (car group) (vector-ref weights best))))
+                      (lightest (+ index 1)
+                                (if (< (vector-ref weights index) (vector-ref weights best))
+                                    index best)))))
+              weighted)
+             (let ((host-entries (make-vector 4 '())))
+               (for-each
+                (lambda (label)
+                  (let ((index (vector-ref block-hosts
+                                           (table-ref labels (targ-lbl-num label)))))
+                    (vector-set! host-entries index
+                                 (cons label (vector-ref host-entries index)))))
+                (vector-ref info 1))
+               (let emit-plan ((index 0) (result '()))
+                 (if (= index 4)
+                     (and (every? pair? (map (lambda (host) (vector-ref host 0)) result))
+                          (vector 'cfg (reverse result) owners))
+                     (let* ((indices (sort-list (vector-ref bins index) <))
+                            (pieces (apply append (map (lambda (i) (vector-ref blocks i)) indices)))
+                            (entries (reverse (vector-ref host-entries index))))
+                       (let bind ((rest entries) (slot 1))
+                         (if (pair? rest)
+                             (begin
+                               (table-set! owners (car rest) (cons index slot))
+                               (bind (cdr rest) (+ slot 1)))))
+                       (emit-plan (+ index 1) (cons (vector entries pieces) result)))))))))))
+
+(define (targ-cfg-host-name host index)
+  (if (= index 0) host
+      (list 'append host "_cfg_" (number->string index))))
+
+(define (targ-cfg-host-plan? plan)
+  (and plan (eq? (vector-ref plan 0) 'cfg)))
+
+;; Internal experiment switch, scoped to one compilation request.
+(define targ-indexed-host-layout? (make-parameter #f))
+
+(define (targ-plan-procedure-hosts obj)
+  ;; User-authored C can refer to host-local state and labels outside
+  ;; the structured edge graph. Ordinary append nodes also carry
+  ;; compiler-owned constructs such as DEF_GLBL and remain eligible.
+  (let ((code (stretchable-vector->list (vector-ref (cadr obj) 0))))
+    (and (every? (lambda (node) (not (and (pair? node) (eq? (car node) 'opaque-c)))) code)
+         (or (targ-plan-cfg-hosts obj)
+             (targ-plan-return-host obj)))))
+
+(define (targ-plan-c-scope c-decls c-procs c-inits c-objs)
+  ;; Preserve compiler-produced function boundaries instead of conflating
+  ;; them with opaque user declarations. A role is provenance, not permission
+  ;; to move code across hosts or to ignore callback/root/label dependencies.
+  (let loop ((rest c-decls) (decls '()) (functions '()))
+    (cond ((null? rest)
+           (vector (reverse decls) (reverse functions) c-procs c-inits c-objs))
+          ((and (pair? (car rest)) (eq? (caar rest) 'c-function-decl))
+           (loop (cdr rest) decls (cons (car rest) functions)))
+          (else (loop (cdr rest) (cons (car rest) decls) functions)))))
+
+(define (targ-plan-compilation-unit procs label-count c-decls c-procs c-inits c-objs)
+  (let* ((scope (targ-plan-c-scope c-decls c-procs c-inits c-objs))
+         (raw-decls (vector-ref scope 0))
+         ;; The declaration author certifies the complete unit, including raw
+         ;; procedure bodies, for whole GVM procedures as physical hosts.
+         ;; Outlining individual blocks inside such units is a separate proof.
+         (declared? (and (pair? raw-decls)
+                         (every? (lambda (x)
+                                   (and (pair? x)
+                                        (eq? (car x) 'c-procedure-host-decl)
+                                        (string? (cdr x))))
+                                 raw-decls)
+                         (null? c-inits)
+                         (null? c-objs)
+                         (or (null? c-procs) (not targ-inline-c-proc?))))
+         (configured? (and (not declared?)
+                           (or (pair? c-decls) (pair? c-procs)
+                               (pair? c-inits) (pair? c-objs)))))
+    (vector (if configured? 'configured 'procedures)
+            procs
+            label-count
+            (and (not configured?)
+                 (not declared?)
+                 (targ-indexed-host-layout?)
+                 (let ((placements (make-table 'test: eq?)))
+                   (for-each
+                    (lambda (proc)
+                      (let ((split (targ-plan-procedure-hosts proc)))
+                        (if split (table-set! placements proc split))))
+                    procs)
+                   placements))
+            scope)))
+
+(define (targ-report-c-scope unit)
+  ;; Reuse the ordinary verbose diagnostic port. Do not put audit comments
+  ;; in generated C: adding a line can change user C's __LINE__ expansion.
+  (if targ-info-port
+      (let ((scope (targ-compilation-unit-c-scope unit)))
+        (display "Foreign C scope: declarations=" targ-info-port)
+        (display (length (vector-ref scope 0)) targ-info-port)
+        (display " out-of-line-functions=" targ-info-port)
+        (display (length (vector-ref scope 1)) targ-info-port)
+        (display " procedures=" targ-info-port)
+        (display (length (vector-ref scope 2)) targ-info-port)
+        (display " initializers=" targ-info-port)
+        (display (length (vector-ref scope 3)) targ-info-port)
+        (display " objects=" targ-info-port)
+        (display (length (vector-ref scope 4)) targ-info-port)
+        (newline targ-info-port))))
+
+(define (targ-compilation-unit-return-host unit obj)
+  (let ((placements (vector-ref unit 3)))
+    (and placements (table-ref placements obj #f))))
+
+(define (targ-return-host-name host)
+  (list 'append host "_return_host"))
+
+(define (targ-compilation-unit-host-layout unit) (vector-ref unit 0))
+(define (targ-compilation-unit-procedures unit) (vector-ref unit 1))
+(define (targ-compilation-unit-label-count unit) (vector-ref unit 2))
+(define (targ-compilation-unit-c-scope unit) (vector-ref unit 4))
+
+(define (targ-heap-dump filename c-decls c-inits c-objs module-descr linker-name c-procs)
   (let* ((sym-list
           (targ-sort (table->list targ-sym-objs) symbol->string))
          (key-list
@@ -1147,8 +1406,11 @@
           (ordered-table->list targ-sub-objs))
          (prc-list
           (queue->list targ-prc-objs))
+         (unit
+          (targ-plan-compilation-unit prc-list targ-lbl-alloc
+                                      c-decls c-procs c-inits c-objs))
          (prm-list
-          (targ-extract-primitives prc-list))
+          (targ-extract-primitives (targ-compilation-unit-procedures unit)))
          (sym-rsrc
           (map targ-sym-rsrc sym-list))
          (key-rsrc
@@ -1192,7 +1454,14 @@
     (targ-define-count "SUPCOUNT" (length (keep targ-glo-supplied? glo-list)))
     (targ-define-count "CNSCOUNT" (length cns-list))
     (targ-define-count "SUBCOUNT" (length sub-list))
-    (targ-define-count "LBLCOUNT" targ-lbl-alloc)
+    (targ-macro-definition '("HOST_LAYOUT")
+      (case (targ-compilation-unit-host-layout unit)
+        ((procedures) '("HOST_LAYOUT_PROCEDURES"))
+        (else '("HOST_LAYOUT_CONFIGURED"))))
+    (if (and (vector-ref unit 3) (> (table-length (vector-ref unit 3)) 0))
+        (targ-macro-definition '("INDEXED_HOST_ENTRIES") 1))
+    (targ-report-c-scope unit)
+    (targ-define-count "LBLCOUNT" (targ-compilation-unit-label-count unit))
     (targ-define-count "OFDCOUNT" ofd-count)
     (targ-macro-definition '("MODDESCR") (targ-heap-ref-obj module-descr))
     (targ-display "#include \"gambit.h\"")
@@ -1201,7 +1470,9 @@
     (targ-dump-sym-key-glo-comp sym-list key-list glo-list)
     (targ-dump-cns cns-list)
     (targ-dump-sub sub-list)
-    (targ-dump-prc prc-list c-objs c-decls ofd-count)
+    (targ-dump-prc unit c-objs c-decls ofd-count)
+    (if (not (= (targ-compilation-unit-label-count unit) targ-lbl-alloc))
+        (compiler-internal-error "physical host emission added control points"))
     (targ-dump-mod prm-list c-inits sym-list key-list)
     (targ-end-dump)))
 
@@ -1851,7 +2122,46 @@
             (else        1))))
     (targ-vector-like-object def-name id chunk-name elems convert cycle)))
 
-(define (targ-dump-prc objs c-objs c-decls ofd-count)
+;; Resolve from this module's relocated label table, using the same numbered
+;; label object that supplies the procedure/return descriptor above its body.
+(define (targ-dump-kernel-role-bindings objs)
+  (let ((bindings
+         (let loop ((objs objs) (result '()))
+           (if (null? objs)
+               (reverse result)
+               (let* ((p (cdar objs))
+                      (base (cdr (caddr p))))
+                 (let collect ((roles (vector-ref (car p) 5)) (result result))
+                   (if (null? roles)
+                       (loop (cdr objs) result)
+                       (collect
+                        (cdr roles)
+                        (cons (cons (caar roles)
+                                    (+ base (cdr (targ-lbl-num (cdar roles)))))
+                              result)))))))))
+    (if (pair? bindings)
+        (begin
+          (targ-display "void ___kernel_role_labels(___SCMOBJ *labels) {")
+          (targ-line)
+          (targ-display "  if (___lp == 0) return;")
+          (targ-line)
+          (let loop ((rest bindings) (seen '()))
+            (if (pair? rest)
+                (let ((name (caar rest)))
+                  (if (member name seen)
+                      (compiler-internal-error "duplicate kernel entry role" name))
+                  (targ-display "  labels[___KERNEL_ROLE_")
+                  (targ-display name)
+                  (targ-display "] = ___MLBL(")
+                  (targ-display (cdar rest))
+                  (targ-display ");")
+                  (targ-line)
+                  (loop (cdr rest) (cons name seen)))))
+          (targ-display "}")
+          (targ-line)))))
+
+(define (targ-dump-prc unit c-objs c-decls ofd-count)
+  (let ((objs (targ-compilation-unit-procedures unit)))
 
   (if (pair? objs)
     (begin
@@ -1896,7 +2206,9 @@
 
   (targ-line)
 
-  (for-each targ-dump-cod objs)
+  (for-each (lambda (obj)
+              (targ-dump-cod obj (targ-compilation-unit-return-host unit obj)))
+            objs)
 
   (targ-code* '("END_M_SW"))
 
@@ -1930,44 +2242,58 @@
                            (targ-heap-ref-obj proc-info)
                            (length val-lbls)
                            (if c-name c-name 0)))
-         (for-each
-          (lambda (lbl)
-            (let ((class (vector-ref lbl 2))
-                  (info (vector-ref lbl 3)))
-              (targ-display ",")
-              (targ-code*
-               (case class
-                 ((proc)
-                  (let ((nb-params (vector-ref info 0))
-                        (nb-closed (vector-ref info 1)))
-                    (list "DEF_LBL_PROC"
-                          host
-                          nb-params
-                          nb-closed)))
-                 ((return)
-                  (let ((kind (vector-ref info 0))
-                        (fs (vector-ref info 1))
-                        (link (vector-ref info 2))
-                        (gc-map (vector-ref info 3)))
-                    (list
-                     "DEF_LBL_RET"
-                     host
-                     (list
-                      (if (targ-out-of-line-frame? kind fs) "OFD" "IFD")
-                      (case kind
-                        ((internal) '("RETI"))
-                        ((task)     '("RETT"))
-                        (else       '("RETN")))
-                      fs
-                      link
-                      (targ-c-hex gc-map)))))
-                 (else
-                  (compiler-internal-error
-                   "targ-dump-prc, unknown label type"))))))
-          val-lbls)))
+         (let ((emit-labels (lambda (split)
+           (let loop ((labels val-lbls) (slot 1))
+           (if (pair? labels)
+               (let* ((lbl (car labels))
+                      (class (vector-ref lbl 2))
+                      (info (vector-ref lbl 3))
+                      (cfg? (targ-cfg-host-plan? split))
+                      (entry (and cfg? (table-ref (vector-ref split 2) lbl)))
+                      (moved? (and split (not cfg?) (eq? lbl (vector-ref split 0))))
+                      (physical-host (cond (cfg? (targ-cfg-host-name host (car entry)))
+                                           (moved? (targ-return-host-name host))
+                                           (else host)))
+                      (physical-slot (cond (cfg? (cdr entry)) (moved? 1) (else slot))))
+                 (targ-display ",")
+                 (targ-code*
+                  (case class
+                    ((proc)
+                     (let ((nb-params (vector-ref info 0))
+                           (nb-closed (vector-ref info 1)))
+                       (list "DEF_LBL_PROC_AT"
+                             physical-host
+                             nb-params
+                             nb-closed
+                             physical-slot)))
+                    ((return)
+                     (let ((kind (targ-frame-spec-kind info))
+                           (fs (targ-frame-spec-stored-fs info))
+                           (link (targ-frame-spec-link info))
+                           (gc-map (targ-frame-spec-gc-map info)))
+                       (list
+                        "DEF_LBL_RET_AT"
+                        physical-host
+                        (list
+                         (if (targ-frame-spec-out-of-line? info) "OFD" "IFD")
+                         (case kind
+                           ((internal) '("RETI"))
+                           ((task)     '("RETT"))
+                           (else       '("RETN")))
+                         fs
+                         link
+                         (targ-c-hex gc-map))
+                        physical-slot)))
+                    (else
+                     (compiler-internal-error
+                      "targ-dump-prc, unknown label type"))))
+                 (loop (cdr labels) (if moved? slot (+ slot 1)))))))))
+           (emit-labels (targ-compilation-unit-return-host unit obj)))))
      objs))
 
   (targ-code* '("END_LBL"))
+
+  (targ-dump-kernel-role-bindings objs)
 
   (targ-line)
 
@@ -1984,11 +2310,10 @@
                 (let ((class (vector-ref lbl 2))
                       (info (vector-ref lbl 3)))
                   (if (eq? class 'return)
-                    (let ((kind (vector-ref info 0))
-                          (fs (vector-ref info 1))
-                          (link (vector-ref info 2))
-                          (gc-map (vector-ref info 3)))
-                      (if (targ-out-of-line-frame? kind fs)
+                    (let ((kind (targ-frame-spec-kind info))
+                          (fs (targ-frame-spec-stored-fs info))
+                          (link (targ-frame-spec-link info)))
+                      (if (targ-frame-spec-out-of-line? info)
                         (begin
                           (if (= i 0)
                             (targ-display " ")
@@ -2005,13 +2330,13 @@
                             link))
                           (targ-vector-like-object-body
                            'gcmap
-                           (targ-gc-map-chunks gc-map kind fs)
+                           (targ-frame-spec-chunks info)
                            (lambda (x) (targ-c-hex-u32 x))
                            (quotient targ-max-word-size 4))))))))
               (vector-ref info 1))))
          objs))
       (targ-code* '("END_OFD"))
-      (targ-line))))
+      (targ-line)))))
 
 (define (targ-unique-name proc)
 
@@ -2055,15 +2380,13 @@
             (let ((class (vector-ref lbl 2))
                   (info (vector-ref lbl 3)))
               (if (eq? class 'return)
-                (let ((kind (vector-ref info 0))
-                      (fs (vector-ref info 1)))
-                  (if (targ-out-of-line-frame? kind fs)
-                    (set! n (+ n 1)))))))
+                (if (targ-frame-spec-out-of-line? info)
+                  (set! n (+ n 1))))))
           (vector-ref info 1))))
      objs)
     n))
 
-(define (targ-dump-cod obj)
+(define (targ-dump-cod obj split)
   (let* ((proc (car obj))
          (p (cdr obj))
          (name (proc-obj-name proc))
@@ -2080,18 +2403,20 @@
       (targ-code val)
       (targ-line))
 
-    (def "PH_PROC" host)
+    (define (emit-host physical-host labels pieces next)
+    (def "PH_PROC" physical-host)
     (def "PH_LBL0" (caddr p))
 
     (targ-begin-cod rd-res wr-res
                     "BEGIN_P_COD" 'pd- 'pr- 'pw-
-                    "BEGIN_P_HLBL" "DEF_P_HLBL_INTRO" "DEF_P_HLBL" "END_P_HLBL"
-                    (list obj))
+                    (list "BEGIN_P_HLBL_AT" (length labels))
+                    "DEF_P_HLBL_INTRO_AT" "DEF_P_HLBL" "END_P_HLBL"
+                    (list obj) labels)
 
     (targ-code* '("BEGIN_P_SW"))
 
-    (stretchable-vector-for-each
-      (lambda (x i)
+    (for-each
+      (lambda (x)
         (if x
           (cond ((and (pair? x) (eq? (car x) 'label))
                  (let ((lbl (cdr x)))
@@ -2117,7 +2442,9 @@
                 (else
                  (targ-display "   ")
                  (targ-code* x)))))
-      code)
+      pieces)
+
+    (if next (targ-code* (list "JUMPEXT" (list "LBL" (targ-lbl-num next)))))
 
     (targ-track-source targ-line-number targ-filename)
 
@@ -2127,10 +2454,30 @@
 
     (targ-end-cod "END_P_COD")
 
-    (targ-line)))
+    (targ-line))
+
+    (let ((labels (vector-ref info 1)))
+      (cond
+       ((targ-cfg-host-plan? split)
+        (let loop ((hosts (vector-ref split 1)) (index 0))
+          (if (pair? hosts)
+              (begin
+                (emit-host (targ-cfg-host-name host index)
+                           (vector-ref (car hosts) 0)
+                           (vector-ref (car hosts) 1)
+                           #f)
+                (loop (cdr hosts) (+ index 1))))))
+       (split
+        (emit-host host (keep (lambda (x) (not (eq? x (vector-ref split 0)))) labels)
+                   (vector-ref split 2) #f)
+        (emit-host (targ-return-host-name host) (list (vector-ref split 0))
+                   (vector-ref split 1) (vector-ref split 3)))
+       (else
+        (emit-host host labels (stretchable-vector->list code) #f))))))
 
 (define (targ-begin-cod rd-res wr-res beg decl rd wr
-                        beg-hlbl def-hlbl-intro def-hlbl end-hlbl objs)
+                        beg-hlbl def-hlbl-intro def-hlbl end-hlbl objs
+                        #!optional (selected-labels #f))
   (let ((nb-res
          (max (stretchable-vector-length rd-res)
               (stretchable-vector-length wr-res))))
@@ -2138,6 +2485,10 @@
     (define (resource-set op1 op2 element?)
       (targ-define-prefix (cons op1 "ALL"))
       (set! targ-in-macro-definition? #t)
+      (if (eq? op2 'd-)
+          ;; D_ALL is expanded once by the selected physical C host. Scheme
+          ;; procedures can share that host, so they cannot declare this local.
+          (targ-display " ___WORD ___demand_attempt=0;"))
       (let loop ((i 0))
         (if (< i nb-res)
           (if (element? i)
@@ -2166,7 +2517,7 @@
 
     (targ-code* (list beg))
 
-    (targ-code* (list beg-hlbl))
+    (targ-code* (if (pair? beg-hlbl) beg-hlbl (list beg-hlbl)))
 
     (for-each
      (lambda (obj)
@@ -2175,7 +2526,7 @@
               (name (proc-obj-name proc))
               (unique-name (targ-unique-name proc))
               (info (car p))
-              (val-lbls (vector-ref info 1)))
+              (val-lbls (or selected-labels (vector-ref info 1))))
          (for-each
           (lambda (lbl)
             (if lbl
@@ -2360,7 +2711,8 @@
         ((bigfix)      (two-heads "BIGFIX"    (car tail) (cdr tail)))
         ((gcmap)       (two-heads "GCMAP"     (car tail) (cdr tail)))
         ((seq)         (targ-code-seq tail))
-        ((append)      (targ-code-append tail))
+        ((append opaque-c c-function-decl) (targ-code-append tail))
+        ((c-procedure-host-decl) (targ-code tail))
         ((cell)        (targ-code tail))
         ((prc)         (one-head "PRC" tail))
         (else          (one-head head tail))))

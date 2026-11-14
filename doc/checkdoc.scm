@@ -224,17 +224,7 @@ values
 ))
 
 (define (all-symbols)
-
-  (define (symbol-next x)
-    (##vector-ref x 2))
-
-  (define (f x)
-    (if (symbol? x)
-        (cons x
-              (f (symbol-next x)))
-        '()))
-
-  (apply append (map f (cdr (vector->list (##symbol-table))))))
+  (vector->list (##symbol-table)))
 
 (define (global? x)
   (not (##unbound? (##global-var-ref (##make-global-var x)))))

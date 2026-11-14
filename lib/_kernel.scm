@@ -40,6 +40,58 @@
 #define ___STAMP_HMS ___STAMP_RELEASE_HMS
 #endif
 
+#ifdef ___GAMBIT_DEV_RESTORE_PROBE
+#define ___ALLOC_SCMOBJ_INLINE(type, elem_type, nb_elems, align64) \
+do { \
+  if ((nb_elems) > ___CAST(___WORD, (___LMASK>>___LF) / sizeof (elem_type))) \
+    result = ___FIX(___HEAP_OVERFLOW_ERR); \
+  else \
+    { \
+      ___SIZE_TS bytes = (nb_elems) * sizeof (elem_type); \
+      ___SIZE_TS words = ((bytes + (___WS - 1)) >> ___LWS) + ___SUBTYPED_BODY; \
+      if (___WS == 4 && (align64)) words++; \
+      if (words > ___MSECTION_BIGGEST) \
+        { \
+          ___FRAME_STORE_RA(___R0) \
+          ___W_ALL \
+          result = ___EXT(___alloc_scmobj) (___ps, ___s ## type, bytes); \
+          ___R_ALL \
+          ___SET_R0(___FRAME_FETCH_RA) \
+          if (!___FIXNUMP(result)) \
+            ___still_obj_refcount_dec (result); \
+        } \
+      else \
+        { \
+          ___BOOL overflow = 0; \
+          if (___hp > ___ps->heap_limit) \
+            { \
+              ___FRAME_STORE_RA(___R0) \
+              ___W_ALL \
+              overflow = ___heap_limit (___PSPNC) && ___garbage_collect (___PSP 0); \
+              ___R_ALL \
+              ___SET_R0(___FRAME_FETCH_RA) \
+            } \
+          if (overflow) \
+            result = ___FIX(___HEAP_OVERFLOW_ERR); \
+          else \
+            { \
+              if (___WS == 4 && (align64)) \
+                { \
+                  ___dev_restore_census_other(___ps,___hp,"kernel-inline-align32"); \
+                  ___hp = ___CAST(___WORD*, \
+                                  ___CAST(___WORD,___hp+(___SUBTYPED_BODY+1))&~7) \
+                          - ___SUBTYPED_BODY; \
+                  words--; \
+                } \
+              ___dev_restore_census_other(___ps,___hp,"kernel-inline-header"); \
+              ___hp[___SUBTYPED_BODY-1] = ___MAKE_HD_BYTES(bytes, ___s ## type); \
+              result = ___TAG(&___hp[___SUBTYPED_BODY-1], ___t ## type); \
+              ___hp += ___dev_restore_census_direct(___ps,___hp,(___SIZE_TS)words,"kernel-inline-bump"); \
+            } \
+        } \
+    } \
+  } while (0)
+#else
 #define ___ALLOC_SCMOBJ_INLINE(type, elem_type, nb_elems, align64) \
 do { \
   if ((nb_elems) > ___CAST(___WORD, (___LMASK>>___LF) / sizeof (elem_type))) \
@@ -88,6 +140,7 @@ do { \
         } \
     } \
   } while (0)
+#endif
 
 #define ___INIT_SCMOBJ_INLINE(type, elem_type, unsigned_elem_type, nb_elems, fill) \
 do { \
@@ -147,9 +200,10 @@ c-declare-end
   (##declare (not interrupts-enabled))
 
   (##c-code #<<end-of-code
+/* gambit:kernel-entry handler_sfun_conv_error */
 
    /*
-    * ___LBL(0)
+    * Runtime entry: handler_sfun_conv_error
     *
     * This is the 'Scheme function' conversion error handler.  It is
     * invoked when a data representation conversion error is detected
@@ -176,9 +230,10 @@ end-of-code
 )
 
   (##c-code #<<end-of-code
+/* gambit:kernel-entry handler_cfun_conv_error */
 
    /*
-    * ___LBL(1)
+    * Runtime entry: handler_cfun_conv_error
     *
     * This is the 'C function' conversion error handler.  It is invoked
     * when a data representation conversion error is detected by the
@@ -221,9 +276,10 @@ end-of-code
    (let () (##declare (not warnings)) (0))) ; create a return point
 
   (##c-code #<<end-of-code
+/* gambit:kernel-entry handler_stack_limit */
 
    /*
-    * ___LBL(2)
+    * Runtime entry: handler_stack_limit
     *
     * This is the stack-limit handler.  It is invoked by the ___POLL(n)
     * macro when the stack limit is reached and when an interrupt is received.
@@ -248,9 +304,12 @@ end-of-code
 
 #endif
 
-   /* setup internal return continuation frame */
+   /* Prove the internal return frame before its first store. */
 
    ra = ___ps->temp1;
+
+   if (!___handler_spill_backed (___ps, ___fp))
+     ___group_demand_fail (___ps);
 
    ___RETI_GET_CFS(ra,fs)
 
@@ -265,7 +324,8 @@ end-of-code
 
    /* check why the handler was called */
 
-   if (___FP_AFTER(___fp,___ps->stack_limit)
+   if (___FP_AFTER(___fp,___ps->context->stack_limit)
+       || ___group_demand_before(___ps,___fp)==1
 #ifdef ___CALL_GC_FREQUENTLY
        || --___ps->mem.gc_calls_to_punt_ < 0
 #endif
@@ -278,10 +338,13 @@ end-of-code
        ___FRAME_STORE_RA(___R0)
        ___W_ALL
        overflow = ___stack_limit (___PSPNC) && ___garbage_collect (___PSP 0);
+       ___group_demand_after(___ps, overflow);
        ___R_ALL
        ___SET_R0(___FRAME_FETCH_RA)
 
-       if (overflow)
+       if (___group_demand_blocked(___ps))
+         ___group_demand_fail(___ps);
+       else if (overflow)
          {
            ___COVER_STACK_LIMIT_HANDLER_HEAP_OVERFLOW;
            ___JUMPPRM(___SET_NARGS(0),
@@ -299,9 +362,10 @@ end-of-code
    (let () (##declare (not warnings)) (0))) ; create a return point
 
   (##c-code #<<end-of-code
+/* gambit:kernel-entry handler_heap_limit */
 
    /*
-    * ___LBL(3)
+    * Runtime entry: handler_heap_limit
     *
     * This is the heap-limit handler.  It is invoked by the ___CHECK_HEAP(n,m)
     * macro when the heap pointer reaches the end of the current msection.
@@ -312,9 +376,12 @@ end-of-code
    int fs;
    ___SCMOBJ ra;
 
-   /* setup internal return continuation frame */
+   /* Prove the internal return frame before its first store. */
 
    ra = ___ps->temp1;
+
+   if (!___handler_spill_backed (___ps, ___fp))
+     ___group_demand_fail (___ps);
 
    ___RETI_GET_CFS(ra,fs)
 
@@ -339,9 +406,10 @@ end-of-code
    (let () (##declare (not warnings)) (0))) ; create a return point
 
   (##c-code #<<end-of-code
+/* gambit:kernel-entry handler_not_proc */
 
    /*
-    * ___LBL(4)
+    * Runtime entry: handler_not_proc
     *
     * This is the call to nonprocedure handler.  It is invoked when
     * there is an attempt to call an object that is not a procedure.
@@ -377,9 +445,10 @@ end-of-code
    (let () (##declare (not warnings)) (0))) ; create a return point
 
   (##c-code #<<end-of-code
+/* gambit:kernel-entry handler_not_proc_glo */
 
    /*
-    * ___LBL(5)
+    * Runtime entry: handler_not_proc_glo
     *
     * This is the call to global nonprocedure handler.  It is invoked
     * when there is an attempt to call an object that is not a procedure
@@ -409,7 +478,7 @@ end-of-code
    for (i=0; i<na; i++)
      ___SET_STK(-i,___STK(-(i+1))) /* shift arguments up by one */
 
-   result = ___GLOCELL(___CAST(___glo_struct*,___ps->temp4)->val);
+   result = ___WORD_LOAD_ACQUIRE(&___GLOCELL(___CAST(___glo_struct*,___ps->temp4)->val));
    handler = ___PRMCELL(___G__23__23_apply_2d_with_2d_procedure_2d_check_2d_nary.prm);
 
 #if 0
@@ -450,9 +519,10 @@ end-of-code
    (let () (##declare (not warnings)) (0))) ; create a return point
 
   (##c-code #<<end-of-code
+/* gambit:kernel-entry handler_wrong_nargs */
 
    /*
-    * ___LBL(6)
+    * Runtime entry: handler_wrong_nargs
     *
     * This is the wrong number of arguments handler.  It is invoked when
     * a procedure is called with a number of arguments that it does not
@@ -499,9 +569,10 @@ end-of-code
    (let () (##declare (not warnings)) (0))) ; create a return point
 
   (##c-code #<<end-of-code
+/* gambit:kernel-entry handler_get_rest */
 
    /*
-    * ___LBL(7)
+    * Runtime entry: handler_get_rest
     *
     * This is the rest parameter handler.  It is invoked when a
     * rest parameter must be constructed.
@@ -538,54 +609,138 @@ end-of-code
 
    i = na - np + 1;
 
+   /* The fast path reserves only the pairs it emits. A short interval
+    * writes nothing and pops nothing. The mapped retry frame and the
+    * complete RC span are installed before collection. */
+   ___activation_record *held = 0;
+   ___WORD held_epoch = 0;
+
+   /* The grant compares the processor record. Between safe points the
+    * live cursors stay in registers, so publish them before the test. */
+   ___W_HEAP
+   ___W_FP
+   ___rest_note_attempt_entry(___ps, ___hp, ___fp);
+   if (!___rest_fast_grant_fits(___ps, ___hp, ___fp, i, 1))
+     {
+       ___BOOL overflow;
+       ___SCMOBJ repaired=___ps->temp1;
+       ___WORD *caller;
+       int frame_fs, frame_link;
+
+       ___COVER_REST_PARAM_HANDLER_NEED_TO_GC;
+       if (___rest_attempt_blocked())
+         {
+           ___rest_mark_attempt_cut(___ps, ___hp, ___fp, 1, i);
+           ___ADJFP(-na)
+           ___FP_SET_STK(___fp,-___FRAME_STACK_RA,___R0)
+           ___W_FP
+           ___rest_disarm_attempt();
+           ___JUMPPRM(___SET_NARGS(0),
+                      ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
+         }
+       if (np<1 ||
+           !___rest_root_window(___ps, ___fp, ___ps->temp1, na, 0, 0,
+                                np-1, 0, i, np, 0, &held, &held_epoch))
+         {
+           ___rest_mark_attempt_cut(___ps, ___hp, ___fp, 3, i);
+           ___ADJFP(-na)
+           ___FP_SET_STK(___fp,-___FRAME_STACK_RA,___R0)
+           ___W_FP
+           ___rest_disarm_attempt();
+           ___JUMPPRM(___SET_NARGS(0),
+                      ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
+         }
+       if (___rest_caller_chain(___fp, na, ___R0,
+                                ___ps->context->stack_limit,
+                                ___ps->context->stack_break,
+                                ___ps->internal_return))
+         {
+           ___WORD *parent=___fp+na;
+           ___FP_SET_STK(parent,-___FRAME_STACK_RA,___R0)
+           ___fp=parent;
+           ___W_ALL
+           {
+             /* Collection may recover space already assigned. A new
+              * section is a later grant, not a reason to skip GC. */
+             ___rest_note_before_collect();
+             overflow=___garbage_collect(___PSP 0);
+           }
+           ___R_ALL
+           ___SET_R0(___FRAME_FETCH_RA)
+           if (!overflow)
+             {
+               ___W_ALL
+               if (___heap_limit(___PSPNC))
+                 {
+                   ___rest_note_before_collect();
+             overflow=___garbage_collect(___PSP 0);
+                 }
+               ___R_ALL
+               ___SET_R0(___FRAME_FETCH_RA)
+             }
+           if (overflow ||
+               ___fp<___ps->context->stack_limit+na)
+             {
+               ___rest_mark_attempt_cut(___ps, ___hp, ___fp, 4, i);
+               ___rest_activation_cleanup(___ps, held, ___FIX(1), held_epoch);
+               ___rest_disarm_attempt();
+               ___JUMPPRM(___SET_NARGS(0),
+                          ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
+             }
+           ___ADJFP(na)
+           ___R_HEAP
+         }
+       else if (!___rest_extend_interval(___ps, i, np))
+         {
+           ___rest_mark_attempt_cut(___ps, ___hp, ___fp, 2, i);
+           ___ADJFP(-na)
+           ___FP_SET_STK(___fp,-___FRAME_STACK_RA,___R0)
+           ___W_FP
+           ___rest_activation_cleanup(___ps, held, ___FIX(1), held_epoch);
+           ___rest_disarm_attempt();
+           ___JUMPPRM(___SET_NARGS(0),
+                      ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
+         }
+       else
+         ___R_HEAP
+       ___rest_note_attempt_acquired(___ps, ___hp, ___fp);
+       if (!___rest_reload_window(___ps, ___fp, held, held_epoch, na, 0, 0,
+                                  &repaired) ||
+           !___rest_grant_fits(___ps, ___hp, ___fp, i, np, 1))
+         {
+           ___rest_note_attempt_view(___ps, held, held_epoch, ___fp);
+           ___rest_mark_attempt_cut(___ps, ___hp, ___fp, 1, i);
+           ___ADJFP(-na)
+           ___FP_SET_STK(___fp,-___FRAME_STACK_RA,___R0)
+           ___W_FP
+           ___rest_activation_cleanup(___ps, held, ___FIX(1), held_epoch);
+           ___rest_disarm_attempt();
+           ___JUMPPRM(___SET_NARGS(0),
+                      ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
+         }
+       ___ps->temp1=repaired;
+     }
+
    while (i > 0)
      {
        rest_param_list = ___CONS(___POP,rest_param_list);
+       ___rest_fallback_pops++;
+       ___rest_fallback_pair_writes++;
        i--;
+     }
 
-       if (___hp > ___ps->heap_limit)
+   if (held)
+     {
+       ___WORD *old_hp = ___hp;
+       ___SCMOBJ entered = ___rest_finish_refusal(___ps, held, held_epoch,
+                                                  rest_param_list, &old_hp);
+       if (entered==0)
          {
-            ___BOOL need_to_gc;
-
-            ___COVER_REST_PARAM_HANDLER_HEAP_LIMIT;
-
-            ___W_ALL
-            need_to_gc = ___heap_limit (___PSPNC);
-            ___R_ALL
-
-            if (need_to_gc)
-              {
-                /*
-                 * We need to garbage collect, but before we do we have
-                 * to remove all arguments from the stack so that the GC
-                 * only sees complete continuation frames on the stack.
-                 * The arguments are stored in a heap allocated vector.
-                 */
-
-                ___COVER_REST_PARAM_HANDLER_NEED_TO_GC;
-
-                while (i > 0)
-                  {
-                    rest_param_list = ___CONS(___POP,rest_param_list);
-                    i--;
-                  }
-
-                ___BEGIN_ALLOC_VECTOR(np)
-                i = np - 1;
-                ___ADD_VECTOR_ELEM(i,rest_param_list)
-                while (i > 0)
-                  {
-                    i--;
-                    ___ADD_VECTOR_ELEM(i,___POP)
-                  }
-                ___END_ALLOC_VECTOR(np)
-
-                ___PUSH_ARGS2(___ps->temp1,___GET_VECTOR(np))
-
-                ___JUMPPRM(___SET_NARGS(2),
-                           ___PRMCELL(___G__23__23_rest_2d_param_2d_check_2d_heap.prm))
-              }
-          }
+           ___rest_disarm_attempt();
+           ___JUMPPRM(___SET_NARGS(0),
+                      ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
+         }
+       rest_param_list = entered;
      }
 
    ___COVER_REST_PARAM_HANDLER_NO_NEED_TO_GC;
@@ -594,6 +749,7 @@ end-of-code
 
    ___POP_ARGS_IN_REGS(np) /* load register arguments */
 
+   ___rest_disarm_attempt();
    ___JUMPEXTPRM(___SET_NARGS(-1),___ps->temp1)
 
 end-of-code
@@ -601,9 +757,10 @@ end-of-code
    (let () (##declare (not warnings)) (0))) ; create a return point
 
   (##c-code #<<end-of-code
+/* gambit:kernel-entry handler_get_key */
 
    /*
-    * ___LBL(8)
+    * Runtime entry: handler_get_key
     *
     * This is the keyword parameter handler.  It is invoked when keyword
     * parameters must be processed.
@@ -734,9 +891,10 @@ end-of-code
    (let () (##declare (not warnings)) (0))) ; create a return point
 
   (##c-code #<<end-of-code
+/* gambit:kernel-entry handler_get_key_rest */
 
    /*
-    * ___LBL(9)
+    * Runtime entry: handler_get_key_rest
     *
     * This is the keyword and rest parameter handler.  It is invoked when
     * keyword parameters must be processed and a rest parameter must be
@@ -760,13 +918,11 @@ end-of-code
     * processing.  If the argument processing does not encounter an
     * exceptional situation, the arguments will be overwritten with
     * the formal parameters and the body of the procedure will be
-    * jumped to.  If a heap overflow is detected during the
-    * construction of the rest parameter, then the construction of the
-    * rest parameter is completed and all the parameters including the
-    * keyword parameters are copied to a vector and the procedure
-    * ##rest-param-check-heap will be called to trigger a garbage
-    * collection.  Then the procedure will be returned to with the
-    * processed arguments.
+    * jumped to.  If the owned interval cannot hold the remaining pairs,
+    * the parameter vector and the keyword stack staging, no fallback
+    * store or pop is performed.  The stacked window is rooted,
+    * collected, and either retried against a fresh interval or
+    * reported as overflow.
     */
 
    ___WORD np;          /* number of formal parameters */
@@ -904,61 +1060,145 @@ end-of-code
 
    rest_param_list = ___NUL;
 
+   ___activation_record *held = 0;
+   ___WORD held_epoch = 0;
+
+   {
+     ___WORD staged = 0;
+     ___WORD stack_slots = 0;
+
+     /* Publish the live cursors before comparing them to the record.
+      * Both keyword spellings use this handler's own I and J. */
+     ___W_HEAP
+     ___W_FP
+     ___rest_note_attempt_entry(___ps, ___hp, ___fp);
+     if (!___rest_signed_sum(j, nb_key, &staged) ||
+         !___rest_signed_sum(staged, 1, &stack_slots))
+       {
+         ___rest_disarm_attempt();
+         ___JUMPPRM(___SET_NARGS(0),
+                    ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
+       }
+     if (!___rest_fast_grant_fits(___ps, ___hp, ___fp, i, stack_slots))
+       {
+         ___BOOL overflow;
+         ___SCMOBJ repaired=___ps->temp1;
+         ___WORD *caller;
+         int frame_fs, frame_link;
+
+         ___COVER_KEYWORD_REST_PARAM_HANDLER_NEED_TO_GC;
+         if (___rest_attempt_blocked())
+           {
+             ___rest_mark_attempt_cut(___ps, ___hp, ___fp, 1, i);
+             ___ADJFP(-na)
+             ___FP_SET_STK(___fp,-___FRAME_STACK_RA,___R0)
+             ___W_FP
+             ___rest_disarm_attempt();
+             ___JUMPPRM(___SET_NARGS(0),
+                        ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
+           }
+         if (!___rest_root_window(___ps, ___fp, ___ps->temp1, na, nb_key,
+                                  key_vals, nb_req_opt, j, i, np, 1,
+                                  &held, &held_epoch))
+           {
+             ___rest_mark_attempt_cut(___ps, ___hp, ___fp, 3, i);
+             ___ADJFP(-na)
+             ___FP_SET_STK(___fp,-___FRAME_STACK_RA,___R0)
+             ___W_FP
+             ___rest_disarm_attempt();
+             ___JUMPPRM(___SET_NARGS(0),
+                        ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
+           }
+         if (___rest_caller_chain(___fp, na, ___R0,
+                                  ___ps->context->stack_limit,
+                                  ___ps->context->stack_break,
+                                  ___ps->internal_return))
+           {
+             ___WORD *parent=___fp+na;
+             ___FP_SET_STK(parent,-___FRAME_STACK_RA,___R0)
+             ___fp=parent;
+             ___W_ALL
+             {
+               ___rest_note_before_collect();
+             overflow=___garbage_collect(___PSP 0);
+             }
+             ___R_ALL
+             ___SET_R0(___FRAME_FETCH_RA)
+             if (!overflow)
+               {
+                 ___W_ALL
+                 if (___heap_limit(___PSPNC))
+                   {
+                     ___rest_note_before_collect();
+             overflow=___garbage_collect(___PSP 0);
+                   }
+                 ___R_ALL
+                 ___SET_R0(___FRAME_FETCH_RA)
+               }
+             if (overflow ||
+                 ___fp<___ps->context->stack_limit+na)
+               {
+                 ___rest_mark_attempt_cut(___ps, ___hp, ___fp, 4, i);
+                 ___rest_activation_cleanup(___ps, held, ___FIX(1), held_epoch);
+                 ___rest_disarm_attempt();
+                 ___JUMPPRM(___SET_NARGS(0),
+                            ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
+               }
+             ___ADJFP(na)
+             ___R_HEAP
+           }
+         else if (!___rest_extend_interval(___ps, i, np))
+           {
+             ___rest_mark_attempt_cut(___ps, ___hp, ___fp, 2, i);
+             ___ADJFP(-na)
+             ___FP_SET_STK(___fp,-___FRAME_STACK_RA,___R0)
+             ___W_FP
+             ___rest_activation_cleanup(___ps, held, ___FIX(1), held_epoch);
+             ___rest_disarm_attempt();
+             ___JUMPPRM(___SET_NARGS(0),
+                        ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
+           }
+         else
+           ___R_HEAP
+         ___rest_note_attempt_acquired(___ps, ___hp, ___fp);
+         if (!___rest_reload_window(___ps, ___fp, held, held_epoch, na,
+                                    nb_key, key_vals, &repaired) ||
+             !___rest_grant_fits(___ps, ___hp, ___fp, i, np, stack_slots))
+           {
+             ___rest_note_attempt_view(___ps, held, held_epoch, ___fp);
+             ___rest_mark_attempt_cut(___ps, ___hp, ___fp, 1, i);
+             ___ADJFP(-na)
+             ___FP_SET_STK(___fp,-___FRAME_STACK_RA,___R0)
+             ___W_FP
+             ___rest_activation_cleanup(___ps, held, ___FIX(1), held_epoch);
+             ___rest_disarm_attempt();
+             ___JUMPPRM(___SET_NARGS(0),
+                        ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
+           }
+         ___ps->temp1=repaired;
+       }
+   }
+
    while (i > 0)
      {
        rest_param_list = ___CONS(___POP,rest_param_list);
+       ___rest_fallback_pops++;
+       ___rest_fallback_pair_writes++;
        i--;
+     }
 
-       if (___hp > ___ps->heap_limit)
+   if (held)
+     {
+       ___WORD *old_hp = ___hp;
+       ___SCMOBJ entered = ___rest_finish_refusal(___ps, held, held_epoch,
+                                                  rest_param_list, &old_hp);
+       if (entered==0)
          {
-            ___BOOL need_to_gc;
-
-            ___COVER_KEYWORD_REST_PARAM_HANDLER_HEAP_LIMIT;
-
-            ___W_ALL
-            need_to_gc = ___heap_limit (___PSPNC);
-            ___R_ALL
-
-            if (need_to_gc)
-              {
-                /*
-                 * We need to garbage collect, but before we do we have
-                 * to remove all arguments from the stack so that the GC
-                 * only sees complete continuation frames on the stack.
-                 * The arguments are stored in a heap allocated vector.
-                 */
-
-                ___COVER_KEYWORD_REST_PARAM_HANDLER_NEED_TO_GC;
-
-                /* Finish creating the rest parameter. */
-
-                while (i > 0)
-                  {
-                    rest_param_list = ___CONS(___POP,rest_param_list);
-                    i--;
-                  }
-
-                ___ADJFP(-j)
-
-                for (i=0; i<nb_key; i++) /*push value of all keyword params*/
-                  ___PUSH(key_vals[i])
-
-                ___BEGIN_ALLOC_VECTOR(np)
-                i = np - 1;
-                ___ADD_VECTOR_ELEM(i,rest_param_list)
-                while (i > 0)
-                  {
-                    i--;
-                    ___ADD_VECTOR_ELEM(i,___POP)
-                  }
-                ___END_ALLOC_VECTOR(np)
-
-                ___PUSH_ARGS2(___ps->temp1,___GET_VECTOR(np))
-
-                ___JUMPPRM(___SET_NARGS(2),
-                           ___PRMCELL(___G__23__23_rest_2d_param_2d_check_2d_heap.prm))
-              }
-          }
+           ___rest_disarm_attempt();
+           ___JUMPPRM(___SET_NARGS(0),
+                      ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
+         }
+       rest_param_list = entered;
      }
 
    ___ADJFP(-j)
@@ -972,6 +1212,7 @@ end-of-code
 
    ___POP_ARGS_IN_REGS(np) /* load register arguments */
 
+   ___rest_disarm_attempt();
    ___JUMPEXTPRM(___SET_NARGS(-1),___ps->temp1)
 
 end-of-code
@@ -979,9 +1220,10 @@ end-of-code
    (let () (##declare (not warnings)) (0))) ; create a return point
 
   (##c-code #<<end-of-code
+/* gambit:kernel-entry handler_force */
 
    /*
-    * ___LBL(10)
+    * Runtime entry: handler_force
     *
     * This is the force handler.  It is invoked when a promise is forced.
     */
@@ -1019,9 +1261,10 @@ end-of-code
 
   (let ((stack-marker (##first-argument 0)))
     (##c-code #<<end-of-code
+/* gambit:kernel-entry handler_return_to_c */
 
      /*
-      * ___LBL(11)
+      * Runtime entry: handler_return_to_c
       *
       * This is the return to C handler.  It is invoked when control
       * must return to C (i.e. back from the call to ___call).
@@ -1072,9 +1315,10 @@ end-of-code
     (##first-argument stack-marker))
 
   (##c-code #<<end-of-code
+/* gambit:kernel-entry handler_break */
 
    /*
-    * ___LBL(12)
+    * Runtime entry: handler_break
     *
     * This is the break handler.  It is invoked when a procedure
     * attempts to return to its caller and the caller's stack frame
@@ -1193,51 +1437,7 @@ end-of-code
 
        if (ra1 == ___FAL)
          {
-           /*
-            * The caller's frame must be copied to the top of stack.
-            */
-
-           ra1 = ___FP_STK(fp,-___FRAME_STACK_RA);
-
-           if (ra1 == ___ps->internal_return)
-             {
-               ___SCMOBJ actual_ra = ___FP_STK(fp,___RETI_RA);
-               ___RETI_GET_FS_LINK(actual_ra,fs,link)
-               ___COVER_BREAK_HANDLER_STACK_RETI;
-             }
-           else
-             {
-               ___RETN_GET_FS_LINK(ra1,fs,link)
-               ___COVER_BREAK_HANDLER_STACK_RETN;
-             }
-
-           ___FP_ADJFP(fp,-___FRAME_SPACE(fs)); /* get base of frame */
-
-           for (i=fs; i>0; i--)
-             ___SET_STK(i,___FP_STK(fp,i))
-
-           ra2 = ___STK(link+1);
-
-           if (ra2 == ___ps->handler_break)
-             {
-               /* first frame of that section */
-
-               ___COVER_BREAK_HANDLER_STACK_FIRST_FRAME;
-               ___SET_STK(-___BREAK_FRAME_NEXT,
-                          ___FP_STK(fp,-___BREAK_FRAME_NEXT))
-             }
-           else
-             {
-               /* not the first frame of that section */
-
-               ___COVER_BREAK_HANDLER_STACK_NOT_FIRST_FRAME;
-
-               ___FP_SET_STK(fp,-___FRAME_STACK_RA,ra2)
-               ___SET_STK(-___BREAK_FRAME_NEXT,___CAST(___SCMOBJ,fp))
-               ___SET_STK(link+1,___ps->handler_break)
-             }
-
-           ___ADJFP(___FRAME_SPACE(fs))
+           ra1 = ___restore_stack_break_frame (___ps, fp, &___fp);
          }
      }
    else
@@ -1278,9 +1478,10 @@ end-of-code
    (let () (##declare (not warnings)) (0))) ; create a return point
 
   (##c-code #<<end-of-code
+/* gambit:kernel-entry internal_return */
 
    /*
-    * ___LBL(13)
+    * Runtime entry: internal_return
     *
     * This is the internal return handler.  It is invoked when an
     * internal return point is returned to.
@@ -1366,7 +1567,11 @@ end-of-code
       (let* ((results ; may get bound to a multiple-values object
               (thunk))
              (current-thread
-              (macro-current-thread)))
+              (begin
+                (macro-case-target
+                 ((C) (##c-code "/* gambit:kernel-entry dynamic_env_bind_return */"))
+                 (else))
+                (macro-current-thread))))
         (macro-thread-denv-set! current-thread old-denv)
         (let ((x (macro-env-param-val (macro-denv-local old-denv))))
           (macro-thread-denv-cache1-set! current-thread x)
@@ -1966,15 +2171,20 @@ end-of-code
   (let ((result
          (##c-code #<<end-of-code
 
-          if (___hp > ___ps->heap_limit)
+          if (___hp > ___ps->heap_limit || ___group_demand_before(___ps,___fp)==1
+              || ___group_demand_blocked(___ps))
             {
               ___BOOL overflow;
               ___FRAME_STORE_RA(___R0)
               ___W_ALL
-              overflow = ___heap_limit (___PSPNC) && ___garbage_collect (___PSP 0);
+              if (___group_demand_blocked(___ps))
+                overflow = 1;
+              else
+                overflow = ___heap_limit (___PSPNC) && ___garbage_collect (___PSP 0);
+              ___group_demand_after(___ps, overflow);
               ___R_ALL
               ___SET_R0(___FRAME_FETCH_RA)
-              if (overflow)
+              if (overflow || ___group_demand_blocked(___ps))
                 ___RESULT = ___TRU;
               else
                 ___RESULT = ___FAL;
@@ -1985,9 +2195,7 @@ end-of-code
 end-of-code
 )))
     (if result
-      (begin
-        (##raise-heap-overflow-exception)
-        (##check-heap)))))
+      (##raise-heap-overflow-exception))))
 
 (define-prim (##rest-param-check-heap proc args)
   (##declare (not interrupts-enabled))
@@ -2359,6 +2567,33 @@ end-of-code
 
 end-of-code
 ))
+
+(define ##current-vm-resize-ticket
+  (c-lambda (scheme-object int)
+            scheme-object
+    "___return(___current_vm_resize_ticket(___PSP ___arg1, ___arg2));"))
+
+(define ##startup-ready-status
+  (c-lambda (scheme-object)
+            scheme-object
+    "___return(___startup_ready_status(___PSP ___arg1));"))
+
+(define-prim (##startup-ready!)
+  (##declare (not interrupts-enabled))
+  (##c-code "___RESULT = ___startup_ready(___PSPNC);"))
+
+(define (##current-vm-resize-ready thunk target)
+  (let ((ticket (##current-vm-resize-ticket thunk target)))
+    (if (##fx< ticket 0)
+        ticket
+        (let wait ()
+          ;; Only the exact ticket can settle the request. Yield outside the
+          ;; native gate so collective GC and other interrupts can proceed.
+          (##declare (interrupts-enabled))
+          (let ((status (##startup-ready-status ticket)))
+            (if (##not status)
+                (begin (##thread-yield!) (wait))
+                status))))))
 
 (define ##current-vm-processor-count
   (c-lambda ()
@@ -3191,20 +3426,10 @@ end-of-code
 
        if (ra == ___ps->internal_return)
          ra = ___FIELD(FRAME,frame,___FRAME_RETI_RA);
+       ___RESULT = ra;
      }
    else
-     {
-       /* continuation frame is in the stack */
-
-       ___SCMOBJ *fp = ___CAST(___SCMOBJ*,frame);
-
-       ra = fp[___FRAME_STACK_RA];
-
-       if (ra == ___ps->internal_return)
-         ra = fp[-___RETI_RA];
-     }
-
-   ___RESULT = ra;
+     ___RESULT = ___access_raw_continuation_frame(___ps,frame,___RAW_FRAME_RET,___FAL,___FAL);
 
 end-of-code
 
@@ -3261,22 +3486,10 @@ end-of-code
          ___RETI_GET_FS(___FIELD(FRAME,frame,___FRAME_RETI_RA),fs)
        else
          ___RETN_GET_FS(ra,fs)
+       ___RESULT = ___FIX(fs);
      }
    else
-     {
-       /* continuation frame is in the stack */
-
-       ___SCMOBJ *fp = ___CAST(___SCMOBJ*,frame);
-
-       ra = fp[___FRAME_STACK_RA];
-
-       if (ra == ___ps->internal_return)
-         ___RETI_GET_FS(fp[-___RETI_RA],fs)
-       else
-         ___RETN_GET_FS(ra,fs)
-     }
-
-   ___RESULT = ___FIX(fs);
+     ___RESULT = ___access_raw_continuation_frame(___ps,frame,___RAW_FRAME_FS,___FAL,___FAL);
 
 end-of-code
 
@@ -3320,20 +3533,10 @@ end-of-code
          ___RETI_GET_FS_LINK(___BODY_AS(frame,___tFRAME)[___FRAME_RETI_RA],fs,link)
        else
          ___RETN_GET_FS_LINK(ra,fs,link)
+       ___RESULT = ___FIX(link+1);
      }
    else
-     {
-       /* continuation frame is in the stack */
-
-       ra = ___CAST(___SCMOBJ*,frame)[___FRAME_STACK_RA];
-
-       if (ra == ___ps->internal_return)
-         ___RETI_GET_FS_LINK(___CAST(___SCMOBJ*,frame)[-___RETI_RA],fs,link)
-       else
-         ___RETN_GET_FS_LINK(ra,fs,link)
-     }
-
-   ___RESULT = ___FIX(link+1);
+     ___RESULT = ___access_raw_continuation_frame(___ps,frame,___RAW_FRAME_LINK,___FAL,___FAL);
 
 end-of-code
 
@@ -3345,20 +3548,14 @@ end-of-code
 
    int i = ___INT(___ARG2);
    ___SCMOBJ ra = ___FIELD(FRAME,___ARG1,0);
-   int fs;
-   int link;
-   ___WORD gcmap;
-   ___WORD *nextgcmap = 0;
+   ___frame_descriptor descriptor;
 
    if (ra == ___ps->internal_return)
-     ___RETI_GET_FS_LINK_GCMAP(___BODY_AS(___ARG1,___tFRAME)[___FRAME_RETI_RA],fs,link,gcmap,nextgcmap)
+     descriptor = ___decode_frame_descriptor (___LABEL_DESCR_GET(___BODY_AS(___ARG1,___tFRAME)[___FRAME_RETI_RA]), 1);
    else
-     ___RETN_GET_FS_LINK_GCMAP(ra,fs,link,gcmap,nextgcmap)
+     descriptor = ___decode_frame_descriptor (___LABEL_DESCR_GET(ra), 0);
 
-   if (i > ___WORD_WIDTH)
-     gcmap = nextgcmap[(i-1) >> ___LOG_WORD_WIDTH];
-
-   ___RESULT = ___BOOLEAN(gcmap & (1 << ((i-1) & (___WORD_WIDTH-1))));
+   ___RESULT = ___BOOLEAN(___frame_slot_live (&descriptor, i));
 
 end-of-code
 
@@ -3372,10 +3569,7 @@ end-of-code
    ___SCMOBJ frame = ___CONTINUATION_FRAME_FIELD(___ARG1);
    int i = ___INT(___ARG2);
    ___SCMOBJ ra;
-   int fs;
-   int link;
-   ___WORD gcmap;
-   ___WORD *nextgcmap = 0;
+   ___frame_descriptor descriptor;
 
    if (___TESTTYPE(frame, ___tFRAME))
      {
@@ -3384,28 +3578,13 @@ end-of-code
        ra = ___FIELD(FRAME,frame,0);
 
        if (ra == ___ps->internal_return)
-         ___RETI_GET_FS_LINK_GCMAP(___FIELD(FRAME,frame,___FRAME_RETI_RA),fs,link,gcmap,nextgcmap)
+         descriptor = ___decode_frame_descriptor (___LABEL_DESCR_GET(___FIELD(FRAME,frame,___FRAME_RETI_RA)), 1);
        else
-         ___RETN_GET_FS_LINK_GCMAP(ra,fs,link,gcmap,nextgcmap)
+         descriptor = ___decode_frame_descriptor (___LABEL_DESCR_GET(ra), 0);
+       ___RESULT = ___BOOLEAN(___frame_slot_live (&descriptor, i));
      }
    else
-     {
-       /* continuation frame is in the stack */
-
-       ___SCMOBJ *fp = ___CAST(___SCMOBJ*,frame);
-
-       ra = fp[___FRAME_STACK_RA];
-
-       if (ra == ___ps->internal_return)
-         ___RETI_GET_FS_LINK_GCMAP(fp[-___RETI_RA],fs,link,gcmap,nextgcmap)
-       else
-         ___RETN_GET_FS_LINK_GCMAP(ra,fs,link,gcmap,nextgcmap)
-     }
-
-   if (i > ___WORD_WIDTH)
-     gcmap = nextgcmap[(i-1) >> ___LOG_WORD_WIDTH];
-
-   ___RESULT = ___BOOLEAN(gcmap & (1 << ((i-1) & (___WORD_WIDTH-1))));
+     ___RESULT = ___access_raw_continuation_frame(___ps,frame,___RAW_FRAME_LIVE,___ARG2,___FAL);
 
 end-of-code
 
@@ -3488,21 +3667,7 @@ end-of-code
 #endif
      }
    else
-     {
-       /* continuation frame is in the stack */
-
-       ra = ___CAST(___SCMOBJ*,frame)[___FRAME_STACK_RA];
-
-       if (ra == ___ps->internal_return)
-         ___RETI_GET_FS_LINK(___CAST(___SCMOBJ*,frame)[-___RETI_RA],fs,link)
-       else
-         ___RETN_GET_FS_LINK(ra,fs,link)
-
-       ___RESULT = ___CAST(___SCMOBJ*,frame)[___FRAME_SPACE(fs)-i];  /* what if i==link and frame is first in section???? */
-#if 0
-      if (i == link) ___RESULT = ___FIX(999999);/***********/
-#endif
-     }
+     ___RESULT = ___access_raw_continuation_frame(___ps,frame,___RAW_FRAME_REF,___ARG2,___FAL);
 
 end-of-code
 
@@ -3535,21 +3700,7 @@ end-of-code
        ___BODY_AS(frame,___tFRAME)[fs-i+1] = val;  /* what if i==link and frame is first in section???? */
      }
    else
-     {
-       /* continuation frame is in the stack */
-
-       ra = ___CAST(___SCMOBJ*,frame)[___FRAME_STACK_RA];
-
-       if (ra == ___ps->internal_return)
-         ___RETI_GET_FS_LINK(___CAST(___SCMOBJ*,frame)[-___RETI_RA],fs,link)
-       else
-         ___RETN_GET_FS_LINK(ra,fs,link)
-
-       ___CAST(___SCMOBJ*,frame)[___FRAME_SPACE(fs)-i] = val;  /* what if i==link and frame is first in section???? */
-#if 0
-      if (i == link) ___RESULT = ___FIX(999999);/***********/
-#endif
-     }
+     ___access_raw_continuation_frame(___ps,frame,___RAW_FRAME_SET,___ARG2,val);
 
    ___RESULT = cont;
 
@@ -3600,10 +3751,17 @@ end-of-code
           ___SCMOBJ frame = ___ARG1;
           ___SCMOBJ denv  = ___ARG2;
 
+#ifdef ___GAMBIT_DEV_RESTORE_PROBE
+          ___dev_restore_census_other(___ps,___hp,"kernel-continuation-header");
+#endif
           ___hp[0]=___MAKE_HD_WORDS(___CONTINUATION_SIZE,___sCONTINUATION);
           ___ADD_SUBTYPED_ELEM(0,frame);
           ___ADD_SUBTYPED_ELEM(1,denv);
+#ifdef ___GAMBIT_DEV_RESTORE_PROBE
+          ___hp+=___dev_restore_census_direct(___ps,___hp,(___SIZE_TS)(___CONTINUATION_SIZE+1),"kernel-continuation-bump");
+#else
           ___hp+=___CONTINUATION_SIZE+1;
+#endif
           ___RESULT = ___GET_SUBTYPED(___CONTINUATION_SIZE);
 
 end-of-code
@@ -3622,10 +3780,17 @@ end-of-code
           ___SCMOBJ frame = ___CONTINUATION_FRAME_FIELD(cont);
           ___SCMOBJ denv  = ___CONTINUATION_DENV_FIELD(cont);
 
+#ifdef ___GAMBIT_DEV_RESTORE_PROBE
+          ___dev_restore_census_other(___ps,___hp,"kernel-continuation-header");
+#endif
           ___hp[0]=___MAKE_HD_WORDS(___CONTINUATION_SIZE,___sCONTINUATION);
           ___ADD_SUBTYPED_ELEM(0,frame);
           ___ADD_SUBTYPED_ELEM(1,denv);
+#ifdef ___GAMBIT_DEV_RESTORE_PROBE
+          ___hp+=___dev_restore_census_direct(___ps,___hp,(___SIZE_TS)(___CONTINUATION_SIZE+1),"kernel-continuation-bump");
+#else
           ___hp+=___CONTINUATION_SIZE+1;
+#endif
           ___RESULT = ___GET_SUBTYPED(___CONTINUATION_SIZE);
 
 end-of-code
@@ -3644,7 +3809,7 @@ end-of-code
    ___SCMOBJ frame = ___CONTINUATION_FRAME_FIELD(cont);
    ___SCMOBJ denv  = ___CONTINUATION_DENV_FIELD(cont);
    ___SCMOBJ ra;
-   ___SCMOBJ *fp, frame_ra, next_frame;
+   ___SCMOBJ *fp, next_frame;
    int fs;
    int link;
 
@@ -3678,45 +3843,7 @@ end-of-code
          }
      }
    else
-     {
-       /* continuation frame is in the stack */
-
-       ra = ___CAST(___SCMOBJ*,frame)[___FRAME_STACK_RA];
-
-       if (ra == ___ps->internal_return)
-         ___RETI_GET_FS_LINK(___CAST(___SCMOBJ*,frame)[-___RETI_RA],fs,link)
-       else
-         ___RETN_GET_FS_LINK(ra,fs,link)
-
-       fp = ___CAST(___SCMOBJ*,frame)+___FRAME_SPACE(fs);
-       frame_ra = fp[-link-1];
-
-       if (ra == ___ps->dynamic_env_bind_return)
-         denv = fp[-DYNAMIC_ENV_BIND_DENV];
-
-       if (frame_ra == ___ps->handler_break)
-         {
-           /* first frame of that section */
-
-           next_frame = fp[___BREAK_FRAME_NEXT];
-         }
-       else
-         {
-           /* not the first frame of that section */
-
-           *fp = frame_ra;
-           next_frame = ___CAST(___SCMOBJ,fp);
-         }
-
-       if (next_frame == ___END_OF_CONT_MARKER)
-         ___RESULT = ___FAL;
-       else
-         {
-           ___CONTINUATION_FRAME_FIELD(cont) = next_frame;
-           ___CONTINUATION_DENV_FIELD(cont) = denv;
-           ___RESULT = cont;
-         }
-     }
+     ___RESULT = ___continuation_next_stack(___ps,cont);
 
 end-of-code
 
@@ -3737,13 +3864,13 @@ end-of-code
 
 ;;; Symbols and keywords.
 
+;; These private getters return owned identity vectors, never registry buckets.
+;; Allocation and GC are permitted before the nonallocating capture operation.
 (define-prim (##symbol-table)
-  (##declare (not interrupts-enabled))
-  (##c-code "___RESULT = ___GSTATE->symbol_table;"))
+  (##symkey-table-view #t))
 
 (define-prim (##keyword-table)
-  (##declare (not interrupts-enabled))
-  (##c-code "___RESULT = ___GSTATE->keyword_table;"))
+  (##symkey-table-view #f))
 
 (define-prim (##make-interned-symbol name)
   (##make-interned-symkey name #t))
@@ -3791,18 +3918,36 @@ end-of-code
    name
    symbol?))
 
-(define-prim (##symkey-table-foldl f base symkey-table)
-  (let loop1 ((i (##fx- (##vector-length symkey-table) 1)) ;; skip element 0 = count
-              (result base))
-    (if (##fx> i 0)
-        (let loop2 ((symkey (##vector-ref symkey-table i))
-                    (result result))
-          (if (##mem-allocated? symkey)
-              (loop2 (##c-code "___RESULT = ___SYMKEY_NEXT_FIELD(___ARG1);" symkey) ;; next in bucket
-                     (f result symkey))
-              (loop1 (##fx- i 1)
-                     result)))
-        result)))
+(define-prim (##symkey-table-view symbol?)
+  ;; Allocate/root the destination in Scheme. Registry growth between query
+  ;; and copy only retries; no native buffer or lock survives a collecting call.
+  (let loop ((length
+              (##c-code
+               "___RESULT = ___symkey_table_view (___FAL, ___FALSEP(___ARG1) ? ___sKEYWORD : ___sSYMBOL);"
+               symbol?)))
+    (if (##fx< length 0)
+        (begin
+          (##raise-heap-overflow-exception)
+          (##symkey-table-view symbol?))
+        (let* ((view (##make-vector length #f))
+               (actual
+                (##c-code
+                 "___RESULT = ___symkey_table_view (___ARG1, ___FALSEP(___ARG2) ? ___sKEYWORD : ___sSYMBOL);"
+                 view symbol?)))
+          (cond ((##fx< actual 0)
+                 (##raise-heap-overflow-exception)
+                 (##symkey-table-view symbol?))
+                ((##fx= actual length) view)
+                (else (loop actual)))))))
+
+(define-prim (##symkey-table-foldl f base view)
+  ;; VIEW is a private flat identity snapshot, not a live bucket/NEXT alias.
+  ;; Scheme frames own it across GC, callback escape and multi-shot resumption.
+  (let ((length (##vector-length view)))
+    (let loop ((i 0) (result base))
+      (if (##fx< i length)
+          (loop (##fx+ i 1) (f result (##vector-ref view i)))
+          result))))
 
 (define-prim (##symbol-table-foldl f base)
   (##symkey-table-foldl f base (##symbol-table)))
