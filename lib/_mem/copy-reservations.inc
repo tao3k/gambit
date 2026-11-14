@@ -395,6 +395,14 @@ ___WORD n;)
             ___WORD head;
             int head_typ;
             int subtype;
+            /* A low bit only means the tag test. Unboxed bits whose top
+             * half is not a canonical user pointer are not a root. */
+            {
+              ___UWORD raw = ___CAST(___UWORD, ___MEM_ALLOCATED_CLEAR(obj));
+              ___UWORD top = raw >> 48;
+              if (top != 0 && top != 0xffff)
+                continue;
+            }
 
 #ifdef ENABLE_CONSISTENCY_CHECKS
             if (___DEBUG_SETTINGS_LEVEL(___GSTATE->setup_params.debug_settings) >= 1)
@@ -484,6 +492,7 @@ ___WORD n;)
                 ___gc_copy_release (copy_gate);
                 work->copied_words += words+1;
                 *cell = ___TAG(alloc - ___REFERENCE_TO_BODY, ___TYP(obj));
+                REST_OBS_REPAIR(___ps,cell,obj,*cell,work->arena.epoch);
                 finish_tail(work);
 
                 if (words > 0 && subtype <= ___sBOXVALUES)
@@ -544,6 +553,7 @@ ___WORD n;)
             else if (___TESTTYPE(head_typ, ___FORW))
               {
                 *cell = ___TAG(___UNTAG_AS(head, ___FORW), ___TYP(obj));
+                REST_OBS_REPAIR(___ps,cell,obj,*cell,work->arena.epoch);
               }
 #ifdef ENABLE_CONSISTENCY_CHECKS
             else if (___DEBUG_SETTINGS_LEVEL(___GSTATE->setup_params.debug_settings) >= 1 &&

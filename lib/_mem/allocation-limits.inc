@@ -490,8 +490,11 @@ ___EXP_FUNC(int,___handler_spill_backed)
     rc_contract_error("Handler internal return frame has no backing");
     return 0;
   }
-  if (cursor_has_stack_room(ps, cursor, handler_spill_words()))
+  if (cursor_has_stack_room(ps, cursor, handler_spill_words())) {
+    REST_OBS(REST_BACKING,ps,0,0,0,cursor,handler_spill_words(),1,0,0,0,0,0);
     return 1;
+  }
+  REST_OBS(REST_BACKING,ps,0,0,0,cursor,handler_spill_words(),0,0,0,0,0,0);
   rc_contract_error("Handler internal return frame has no backing");
   return 0;
 }
@@ -632,6 +635,8 @@ ___EXP_FUNC(int,___group_demand_before)
   if (!___owned_stack_span(ps, &lo, &hi) || fp<lo || fp>hi) return 0;
   if (ps->context->stack_limit && ___FP_AFTER(fp, ps->context->stack_limit))
     return 0;
+  REST_OBS(REST_DEMAND,ps,d->activation,d->attempt,d->epoch,
+           fp,lo,hi,ps->context->stack_limit,d->phase,d->stack_words,d->heap_words,0);
   if (d->phase==1) return 1;
   if (d->phase==3 || d->phase==4) return 2;
   return 0;
@@ -648,9 +653,9 @@ ___EXP_FUNC(void,___group_demand_after)
   if (d->activation!=group_demand_activation(ps) || d->attempt==0) return;
   hp=ps->context->hp;
   fp=ps->context->fp;
-  /* Diagnostic only. The handler frame is still installed, so this cursor
-   * is not a grant and is not written back over the unframed caller. */
-  d->saved_fp=fp;
+  /* Diagnostic only. The 84138e91 demand struct has no saved_fp slot.
+   * Do not store one while this object is linked with that layout. */
+  (void)fp;
   (void)hp;
   if (overflow) {
     d->phase=3;
@@ -748,10 +753,17 @@ ___EXP_FUNC(int,___group_demand_enter)
   }
   {
     int granted=___group_demand_granted(ps, group_point, *attempt_out, *hp, *fp);
-    ___group_demand *noted=group_demand_slot(ps);
-    /* Cursor at grant issuance. A later ADJFP in the same group is not
-     * this address; the first store must be observed separately. */
-    if (granted && noted) noted->write_fp=*fp;
+    (void)granted;
+#ifdef ___GAMBIT_REST_OBSERVATION
+    if (granted) {
+      ___group_demand *noted=group_demand_slot(ps);
+      ___WORD *lo=0,*hi=0;
+      int owned=___owned_stack_span(ps,&lo,&hi);
+      if (noted) REST_OBS(REST_GRANT,ps,noted->activation,noted->attempt,noted->epoch,
+               *hp,*fp,noted->stack_words,noted->heap_words,group_point,
+               noted->phase,owned?lo:0,owned?hi:0);
+    }
+#endif
     return granted;
   }
 }
@@ -761,7 +773,8 @@ ___EXP_FUNC(void,___group_demand_note_return_fp)
 {
   ___group_demand *d=group_demand_slot(ps);
   if (!d || !ps) return;
-  d->return_fp=fp;
+  (void)fp;
+  REST_OBS(REST_RETURN_FP,ps,d->activation,d->attempt,0,fp,d->phase,0,0,0,0,0,0);
 }
 
 #ifdef ___DEBUG_HEAP_LIMIT

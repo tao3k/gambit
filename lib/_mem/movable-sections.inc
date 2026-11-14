@@ -3,6 +3,8 @@
 
 /* Allocation of movable objects.  */
 
+#include "_mem/section-claim.inc"
+
 /*
  * 'find_msection (ms, ptr)' finds the position in the 'ms->sections'
  * array of the msection that contains the pointer 'ptr'.  More
@@ -184,7 +186,7 @@ int n;)
         {
           ___msection *s = ___CAST(___msection*,
                                    alloc_mem_aligned_heap
-                                     (___WORDS(___sizeof_msection(___MSECTION_SIZE)),
+                                     (___WORDS(SECTION_BYTES),
                                       1,
                                       0));
 
@@ -216,6 +218,8 @@ int n;)
               s->index = tl->index + 1;
             }
 
+          *section_claim_at(s,0)=(section_claim){0};
+          *section_claim_at(s,___MSECTION_SIZE>>1)=(section_claim){0};
           s->copy_gate=0;
           s->pos = i;
           s->prev = tl;

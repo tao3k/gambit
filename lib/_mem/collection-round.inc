@@ -303,11 +303,34 @@ ___SIZE_TS requested_words_still;)
   BARRIER();
   if (!___root_round_freeze(___ps,&rc_epoch))
     rc_contract_error("Frozen root member admission refused");
+  REST_OBS(REST_GC_BEGIN,___ps,0,0,rc_epoch,
+           ___VMSTATE_FROM_PSTATE(___ps),___ps->context->fp,
+           ___COLLECTION(___vms).epoch,0,0,0,0,0);
+#ifdef ___GAMBIT_REST_OBSERVATION
+  ___rest_observation_note_gc((uint64_t)___VMSTATE_FROM_PSTATE(___ps),
+    (uint64_t)___ps->mem.rc_domain_,(uint64_t)rc_epoch);
+#endif
+#ifdef ___GAMBIT_REST_OBSERVATION
+  rest_observation_emit_parent(1,___ps->context->fp,(uint64_t)rc_epoch,
+    ___COLLECTION(___vms).epoch);
+#endif
+#ifdef ___GAMBIT_DEV_RESTORE_PROBE
+  ___dev_restore_alloc_expire(___ps, rc_epoch);
+#endif
   BARRIER();
   if (___PROCESSOR_ID(___ps,___vms)==0 && !___root_round_publish(___ps))
     rc_contract_error("Frozen root union publication refused");
 
   BARRIER(); /* publishes the one RootTask/worker assignment */
+#if defined(___GC_SLOT_TEST_FROZEN) != defined(___GC_SLOT_TEST_REPAIRED)
+#error "GC slot observation requires both test cuts"
+#endif
+#ifdef ___GC_SLOT_TEST_FROZEN
+  /* Only the coordinator can plan from here. The other members stay at
+   * the decision barrier. No forwarding or parity flip has started. */
+  if (___PROCESSOR_ID(___ps,___vms)==0)
+    ___GC_SLOT_TEST_FROZEN(___ps,rc_epoch);
+#endif
   if(___PROCESSOR_ID(___ps,___vms)==0)
     ___COLLECTION(___vms).decision=plan_copy_round(___ps);
   BARRIER(); /* acquire the one decision; no parity changed */
@@ -349,8 +372,20 @@ ___SIZE_TS requested_words_still;)
   BARRIER();
 
 
+#ifdef ___GC_SLOT_TEST_REPAIRED
+  /* The strong and weak scans have drained. Keep every member out of
+   * continuation restoration and reclamation until the observer returns.
+   * The test callbacks may inspect held slots but must not call Scheme,
+   * allocate managed objects or wait for a member at this barrier. */
+  if (___PROCESSOR_ID(___ps,___vms)==0)
+    ___GC_SLOT_TEST_REPAIRED(___ps,rc_epoch);
+  BARRIER();
+#endif
+
   /* Weak descendants have drained on all W; each physical owner receives
    * either one exclusive worker tail or its own disjoint empty resume span. */
+  if (!___gc_resume_owner_matches(&___RESUME(___vms,worker_id),___ps))
+    rc_contract_error("Restoration grant no longer belongs to its processor context");
   if(active_worker) {
     /* A final large-object section has no execution fudge. A counted fresh
      * small grant restores that reserve before physical owner handoff. */
@@ -375,18 +410,41 @@ ___SIZE_TS requested_words_still;)
       rc_contract_error("Collector tail handoff lacks drained ownership");
   } else if(!___gc_resume_without_arena(&___RESUME(___vms,worker_id),rc_epoch))
     rc_contract_error("Context restoration lacks its physical grant");
+  if (!current_heap_interval_matches(___ps,alloc_heap_ptr))
+    rc_contract_error("Restoration heap interval leaves its destination section");
+  section_claim_at(heap_msection,tospace_offset)->heap_used=1;
   move_continuation(___PSPNC);
-  ___RESUME(___vms,worker_id).restored=1;
+#ifdef ___GAMBIT_DEV_RESTORE_PROBE
+  ___dev_restore_after_reader(___ps, rc_epoch);
+#endif
+  if (___RESUME(___vms,worker_id).copy_admitted)
+    ___RESUME(___vms,worker_id).restored=1;
+  else
+    rc_contract_error("Restored publication requires an admitted continuation copy");
+#ifdef ___GAMBIT_DEV_RESTORE_PROBE
+  if (!___dev_restore_before_barrier(___ps, rc_epoch))
+#endif
   BARRIER();
+#ifdef ___GAMBIT_DEV_RESTORE_PROBE
+  ___dev_restore_after_barrier(___ps, rc_epoch);
+#endif
   /* Process gc hash tables and free unreachable still objects */
 
   if(active_worker) garbage_collect_cleanup_phase(work);
   free_unmarked_still_objs(___PSPNC);
   BARRIER();
   ___ps->collector=0;
+  ___RESUME(___vms,worker_id).source_drained=1;
 
   BARRIER();
 
+
+  /* Restoration and still/weak cleanup are past their old-space reads.
+   * Mutators stay stopped. Retire source claims before resizing can free a
+   * section or a future round can grant that parity as its destination. */
+  if (___PROCESSOR_ID(___ps,___vms)==0 &&
+      !retire_drained_source_claims(___ROOT_UNION(___vms),the_msections,rc_epoch))
+    rc_contract_error("Physical source retirement lacks a drained member");
 
   /* Resize heap */
 
@@ -400,8 +458,15 @@ ___SIZE_TS requested_words_still;)
 
   /* Guarantee heap fudge */
 
-  if (alloc_heap_ptr > alloc_heap_limit - ___MSECTION_FUDGE)
+  if (!current_heap_interval_matches(___ps,alloc_heap_ptr))
+    rc_contract_error("Restoration heap interval changed before refill");
+  if (___gc_resume_heap_needs_refill(alloc_heap_ptr,alloc_heap_limit,___MSECTION_FUDGE))
     next_heap_msection (___ps);
+  /* Refill must leave the same reserve prepare_mem_pstate subtracts. Six is
+   * the witnessed thread-join closure, not a census of every first write. */
+  if (!current_heap_interval_matches(___ps,alloc_heap_ptr) ||
+      !___gc_published_reserve_fits(alloc_heap_ptr,alloc_heap_limit,___MSECTION_FUDGE,6))
+    rc_contract_error("Restoration publication lacks the fudge reserve for a first closure");
 
 
   /* Keep track of bytes allocated by this processor */
@@ -438,6 +503,9 @@ ___SIZE_TS requested_words_still;)
   /* Prepare to continue executing program */
 
   prepare_mem_pstate (___ps);
+#ifdef ___GAMBIT_DEV_RESTORE_PROBE
+  ___dev_restore_alloc_arm(___ps, rc_epoch);
+#endif
 
   reopen_rc_roots (___ps, rc_epoch);
   BARRIER();
@@ -448,6 +516,13 @@ ___SIZE_TS requested_words_still;)
 
   ___ACTLOG_END_PS();
 
+  REST_OBS(REST_GC_END,___ps,0,0,rc_epoch,
+           ___VMSTATE_FROM_PSTATE(___ps),___ps->context->fp,overflow,
+           ___COLLECTION(___vms).epoch,0,0,0,0);
+#ifdef ___GAMBIT_REST_OBSERVATION
+  rest_observation_emit_parent(2,___ps->context->fp,(uint64_t)rc_epoch,
+    ___COLLECTION(___vms).epoch);
+#endif
   return overflow;
 }
 

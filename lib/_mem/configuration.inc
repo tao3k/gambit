@@ -517,5 +517,5 @@
 /* Read-only census adapters. All mutators and root writers are frozen. */
 ___HIDDEN void census_array(___collector_worker*,___WORD*,___WORD);
 ___HIDDEN void census_capture(___collector_worker*,___WORD*);
-___HIDDEN void census_continuation(___collector_worker*,___execution_context*);
+___HIDDEN void census_continuation(___collector_worker*,___root_member*,___gc_resume_space*,___SIZE_TS);
 ___HIDDEN int census_claim(___collector_worker*,___WORD*,___SIZE_TS,___SIZE_TS,int);

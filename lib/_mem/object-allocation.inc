@@ -1,4 +1,4 @@
-#line 1484 ___MEM_SOURCE_FILE
+#line 1491 ___MEM_SOURCE_FILE
 /*---------------------------------------------------------------------------*/
 
 /*
@@ -37,6 +37,9 @@ ___SIZE_TS bytes;)
    * utilization of the cache.
    */
 
+#ifdef ___GAMBIT_DEV_RESTORE_PROBE
+  ___dev_restore_census_native("permanent-scmobj");
+#endif
   ptr = alloc_mem_aligned_perm (words,
                                 8>>___LWS,
                                 (-___PERM_BODY)&((8>>___LWS)-1));
@@ -82,6 +85,7 @@ ___processor_state ___ps;
 int subtype;
 ___SIZE_TS bytes;)
 {
+  ___virtual_machine_state vm = ___VMSTATE_FROM_PSTATE(___ps);
   void *ptr;
   ___WORD *base;
   ___WORD *body;
@@ -108,6 +112,9 @@ ___SIZE_TS bytes;)
        * efficient due to a better utilization of the cache.
        */
 
+#ifdef ___GAMBIT_DEV_RESTORE_PROBE
+      ___dev_restore_census_native("still-scmobj");
+#endif
       if ((ptr = alloc_mem_aligned_heap (words,
                                          8>>___LWS,
                                          (-___STILL_BODY)&((8>>___LWS)-1)))
@@ -162,6 +169,12 @@ ___SIZE_TS bytes;)
         invoke_gc:
 #endif
 
+          /* Native release callbacks have an owner service, not a running
+           * Scheme activation. No nested collective can wait on this round.
+           * Return allocation failure before losing any initialization debt. */
+          if (___ps != ___PSTATE || !___lifecycle_gc_admitted(___ps)
+              || vm->lifecycle->cleanup[___PROCESSOR_ID(___ps,vm)].draining)
+            return ___FIX(___HEAP_OVERFLOW_ERR);
           if (___garbage_collect (___PSP words))
             return ___FIX(___HEAP_OVERFLOW_ERR);
         }
@@ -171,6 +184,9 @@ ___SIZE_TS bytes;)
        * to alloc_mem_aligned_heap.
        */
 
+#ifdef ___GAMBIT_DEV_RESTORE_PROBE
+      ___dev_restore_census_native("still-scmobj");
+#endif
       if ((ptr = alloc_mem_aligned_heap (words,
                                          8>>___LWS,
                                          (-___STILL_BODY)&((8>>___LWS)-1)))

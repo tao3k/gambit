@@ -555,6 +555,16 @@ ___processor_state ___ps;)
 #endif
 }
 
+#ifndef ___SINGLE_THREADED_VMS
+static int barrier_child_answers(___virtual_machine_state vms, int id)
+{
+  ___vm_lifecycle *life;
+  if (id <= 0 || id >= ___MAX_PROCESSORS) return 0;
+  life = vms->lifecycle;
+  if (!life) return 0;
+  return ___WORD_LOAD_ACQUIRE(&life->launches[id].native_live) != 0;
+}
+#endif
 
 ___HIDDEN int barrier_sync_op
    ___P((___PSD
@@ -595,7 +605,7 @@ ___sync_op_struct *sop_ptr;)
    * determine the highest priority operation.
    */
 
-  if (child_id1 < n)
+  if (child_id1 < n && barrier_child_answers(___vms, child_id1))
     {
       int sid1;
       ___sync_op_struct sop1;
@@ -628,7 +638,7 @@ ___sync_op_struct *sop_ptr;)
           sid = sid1;
         }
 
-      if (child_id2 < n)
+      if (child_id2 < n && barrier_child_answers(___vms, child_id2))
         {
           int sid2;
           ___sync_op_struct sop2;
@@ -721,14 +731,14 @@ ___sync_op_struct *sop_ptr;)
    * Propagate winning operation to children processors.
    */
 
-  if (child_id1 < n)
+  if (child_id1 < n && barrier_child_answers(___vms, child_id1))
     {
       ___processor_state child1 = ___PSTATE_FROM_PROCESSOR_ID(child_id1,___vms);
 
       child1->sync_op0 = sop;
       SYNC_SEND_MSG(child1, sync_id0, sid);
 
-      if (child_id2 < n)
+      if (child_id2 < n && barrier_child_answers(___vms, child_id2))
         {
           ___processor_state child2 = ___PSTATE_FROM_PROCESSOR_ID(child_id2,___vms);
 

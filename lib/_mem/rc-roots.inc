@@ -22,8 +22,19 @@ ___UWORD epoch;)
   while (h != &source->head)
     {
       ___rc_header *next=h->next;
+#ifdef ___GAMBIT_REST_OBSERVATION
+      rest_observation_scan_base=(uintptr_t)&h->data;
+      rest_observation_scan_words=1;
+#endif
       mark_array (work, &h->data, 1);
+#ifdef ___GAMBIT_REST_OBSERVATION
+      rest_observation_scan_base=(uintptr_t)(h+1);
+      rest_observation_scan_words=h->root_count;
+#endif
       mark_array (work, ___CAST(___SCMOBJ*,h+1), h->root_count);
+#ifdef ___GAMBIT_REST_OBSERVATION
+      rest_observation_scan_words=0;
+#endif
       h=next;
     }
   source->task.state=___ROOT_SCANNED;

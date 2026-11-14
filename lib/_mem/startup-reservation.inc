@@ -70,7 +70,12 @@ void ___refund_resize(___processor_state ___ps, ___vm_lifecycle *r)
   nb_msections_stacks=r->saved_stacks;
   alloc_msection=r->saved_cursor;
   for (i=r->first;i<r->target;++i)
-    { r->slots[i].stack=0; r->slots[i].heap=0; r->slots[i].phase=___RESIZE_EMPTY; }
+    {
+      ___resize_slot *slot=&r->slots[i];
+      *section_claim_at(slot->stack,tospace_offset)=(section_claim){0};
+      *section_claim_at(slot->heap,tospace_offset)=(section_claim){0};
+      slot->stack=0; slot->heap=0; slot->phase=___RESIZE_EMPTY;
+    }
   /* Newly allocated free sections remain available, not charged to a context. */
   heap_size=compute_heap_size();
 }

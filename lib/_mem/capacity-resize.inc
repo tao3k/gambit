@@ -1,19 +1,55 @@
 #line 6170 ___MEM_SOURCE_FILE
-___HIDDEN void move_continuation
+___HIDDEN ___BOOL move_continuation
    ___P((___PSDNC),
         (___PSVNC)
 ___PSDKR)
 {
   ___PSGET
-
+  ___virtual_machine_state ___vms = ___VMSTATE_FROM_PSTATE(___ps);
+  int id = ___PROCESSOR_ID(___ps,___vms);
+  ___gc_resume_space *r = &___RESUME(___vms,id);
+  ___WORD *source_base, *source_past, *dest_base, *dest_past;
+  ___SIZE_TS length = 0;
   ___WORD *start;
-  ___SIZE_TS length;
   ___WORD *p1;
   ___WORD *p2;
 
-  start = ___ps->context->fp;
-  length = (___ps->context->stack_break + ___FIRST_BREAK_FRAME_SPACE) - start;
+  r->copy_admitted = 0;
+  if (!___gc_resume_owner_matches(r,___ps) || r->context != ___ps->context)
+    { rc_contract_error("Continuation restore has the wrong context"); return 0; }
+  if (r->epoch != ___COLLECTION(___vms).epoch)
+    { rc_contract_error("Continuation restore has a stale epoch"); return 0; }
+  if (___ps->context->fp != r->source_fp ||
+      ___ps->context->stack_break != r->source_break)
+    { rc_contract_error("Continuation source extent changed after preflight"); return 0; }
+  if (!r->source_section || !r->stack_section || stack_msection != r->stack_section)
+    { rc_contract_error("Continuation restore lacks its source or destination section"); return 0; }
+  source_base = r->source_section->base + r->source_half;
+  source_past = source_base + (___MSECTION_SIZE>>1);
+  if (!___gc_stack_span_words(source_base, source_past, r->source_fp, r->source_break,
+        ___FIRST_BREAK_FRAME_SPACE, &length) || length != r->source_words)
+    { rc_contract_error("Continuation source extent leaves its section"); return 0; }
+  {
+    /* Source identity was captured from the owner's stack_msection_. The
+     * carrier's current stack_msection_ is the destination section. */
+    section_claim *claim=section_claim_at(r->source_section, r->source_half);
+    ___WORD *cell=___gc_stack_first_read_cell(r->source_fp);
+    if (claim->stack_state==STACK_ACTIVE && claim->stack_owner!=r->owner)
+      { rc_contract_error("Continuation source stack is owned by another carrier"); return 0; }
+    if (claim->stack_state!=STACK_ACTIVE || claim->stack_owner!=___ps ||
+        r->owner!=___ps || !___gc_stack_cell_inside(r->source_fp, length, cell))
+      { rc_contract_error("Continuation source identity does not match its captured stack"); return 0; }
+  }
+  dest_base = start_of_tospace(r->stack_section);
+  dest_past = dest_base + (___MSECTION_SIZE>>1);
+  /* The admitted stack floor is the destination lower bound. Exact fit
+   * copies every word of that room; one word short copies nothing. */
+  if (r->stack_floor == 0 || r->stack_floor != alloc_stack_limit ||
+      !___gc_stack_span_fits(dest_base, dest_past, r->stack_floor,
+        alloc_stack_ptr, length))
+    { rc_contract_error("Continuation copy extent does not fit its destination"); return 0; }
 
+  start = r->source_fp;
   p1 = start + length;
   p2 = alloc_stack_ptr;
 
@@ -21,14 +57,26 @@ ___PSDKR)
   ___ps->context->stack_break = p2 - ___FIRST_BREAK_FRAME_SPACE;
 
   while (p1 != start)
-    *--p2 = *--p1;
+    {
+#ifdef ___GAMBIT_DEV_RESTORE_PROBE
+      if (p1 == start + 1)
+        ___dev_restore_before_final_read(___ps, r->epoch);
+#endif
+#ifdef ___GC_TEST_BEFORE_FINAL_RESTORE_READ
+      if (p1 == start + 1)
+        ___GC_TEST_BEFORE_FINAL_RESTORE_READ (p1 - 1);
+#endif
+      *--p2 = *--p1;
+    }
 
   alloc_stack_ptr = p2;
 
-  ___FP_SET_STK(alloc_stack_ptr,
-                -___FIRST_BREAK_FRAME_STACK_MSECTION,
-                ___CAST(___WORD,
-                        ___CAST(___msection*,NULL))) /* not a stack section overflow */
+  /* The copied overflow link belongs to the first break, not the active
+   * frame at alloc_stack_ptr.  Restoration replaces its physical ownership
+   * just as capture does; use the same canonical first-break projection. */
+  ___INVALIDATE_STACK_OVERFLOW_UNDO
+  r->copy_admitted = 1;
+  return 1;
 }
 
 

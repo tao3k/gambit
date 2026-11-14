@@ -21,6 +21,8 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include "rest-observation.h"
+#include "_mem/rest-observation.inc"
 
 
 /* Internal source organization; inclusion order is part of the contract.
@@ -29,6 +31,10 @@
 #define ___MEM_SOURCE_FILE __BASE_FILE__
 #else
 #define ___MEM_SOURCE_FILE "mem.c"
+#endif
+
+#ifdef ___GAMBIT_DEV_RESTORE_PROBE
+#include "../tests/smp/gc/restore-collective-probe.h"
 #endif
 
 #include "_mem/configuration.inc"

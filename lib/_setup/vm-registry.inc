@@ -98,6 +98,7 @@ static ___vm_lifecycle *vm_lifecycle_create(___virtual_machine_state vm)
   life=___CAST(___vm_lifecycle*,___ALLOC_MEM(sizeof(*life)));
   if(!life)return 0;
   memset(life,0,sizeof(*life));life->incarnation=++vm_incarnation;
+  life->group_demand_attempt_next=1;
 #ifndef ___SINGLE_THREADED_VMS
 #ifdef ___USE_POSIX_THREAD_SYSTEM
   if(!___MUTEX_INIT(life->gate)){___FREE_MEM(life);return 0;}
@@ -152,6 +153,7 @@ void ___lifecycle_leave(___processor_state ps)
      * before this owner finishes its final metadata write. */
     if(old<4)___binding_context_close(ps);
     if(___lifecycle_cas(&life->entries[id],old,old-2)==old){
+      if(old<4)___group_demand_retire(ps);
       return;
     }
     old=___WORD_LOAD_ACQUIRE(&life->entries[id]);
@@ -170,7 +172,7 @@ ___BOOL ___lifecycle_gc_admitted(___processor_state ps)
 
 ___activation_record *___lifecycle_marker_prepare(___processor_state ps)
 {
-  ___vm_lifecycle *life;___activation_record *record;int id;
+  ___vm_lifecycle *life;___activation_record *record;int id,fresh=0;
   if(!___lifecycle_enter(ps))return 0;
   /* The same admitted cooperative owner owns both its active list and one
    * next-acquisition slot in its RC domain. GC workers never read/write it.
@@ -178,11 +180,17 @@ ___activation_record *___lifecycle_marker_prepare(___processor_state ps)
   record=ps->mem.rc_domain_->idle_activation;
   if(record) {
     if(record->kind!=___ACTIVATION_IDLE || record->owner || record->roots ||
-       record->marker!=___FAL || record->next) {___lifecycle_leave(ps);return 0;}
+       record->marker!=___FAL || record->next ||
+       !___rest_control_clear(record)) {___lifecycle_leave(ps);return 0;}
     ps->mem.rc_domain_->idle_activation=0;
-  } else record=___CAST(___activation_record*,___ALLOC_MEM(sizeof(*record)));
+  } else {
+    record=___CAST(___activation_record*,___ALLOC_MEM(sizeof(*record)));
+    fresh=1;
+  }
   if(!record){___lifecycle_leave(ps);return 0;}
   life=___VMSTATE_FROM_PSTATE(ps)->lifecycle;id=___PROCESSOR_ID(ps,___VMSTATE_FROM_PSTATE(ps));
+  if(fresh)record->rest_retired_epoch=0;
+  ___rest_control_reset(record);
   record->owner=ps;record->marker=___FAL;record->roots=0;record->kind=___ACTIVATION_LEGACY;
   record->next=life->activations[id];life->activations[id]=record;return record;
 }
@@ -198,7 +206,9 @@ void ___lifecycle_marker_abort(___activation_record *record)
      * An unknown/live/revoked activation is never put in this slot. Publish
      * the clean slot before dropping the last lifecycle entry. */
     record->next=0;record->owner=0;record->marker=___FAL;
-    record->roots=0;record->kind=___ACTIVATION_IDLE;
+    record->roots=0;
+    ___rest_control_reset(record);
+    record->kind=___ACTIVATION_IDLE;
     if(ps->mem.rc_domain_->idle_activation==0)
       ps->mem.rc_domain_->idle_activation=record;
     else ___FREE_MEM(record);

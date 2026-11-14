@@ -90,25 +90,62 @@ ___processor_state ___ps;)
 #endif
 
   stack_avail = avail/2;
-  stack_left_before_fudge = (alloc_stack_ptr - alloc_stack_limit)
-                            - ___MSECTION_FUDGE;
+  {
+    ___PTRDIFF_T room = alloc_stack_ptr - alloc_stack_limit;
+    stack_left_before_fudge =
+      room > (___PTRDIFF_T)___MSECTION_FUDGE
+      ? (___SIZE_TS)(room - (___PTRDIFF_T)___MSECTION_FUDGE)
+      : 0;
+  }
 
   ___ps->context->fp = alloc_stack_ptr;
   ___ps->context->stack_limit = alloc_stack_ptr
                        - ((stack_avail < stack_left_before_fudge)
                           ? stack_avail
                           : stack_left_before_fudge);
+  if (alloc_stack_limit &&
+      ___ps->context->stack_limit < alloc_stack_limit+___MSECTION_FUDGE)
+    ___ps->context->stack_limit = alloc_stack_limit+___MSECTION_FUDGE;
 
   heap_avail = avail - stack_avail;
-  heap_left_before_fudge = (alloc_heap_limit - alloc_heap_ptr)
-                           - ___MSECTION_FUDGE;
+  /* A slice shorter than one fudge cannot authorize another full burst.
+   * Replace it once, and only with a section that is not the live stack. */
+  if (heap_msection && stack_msection != heap_msection &&
+      alloc_heap_ptr && alloc_heap_limit &&
+      alloc_heap_ptr >= alloc_heap_start &&
+      alloc_heap_ptr <= alloc_heap_limit &&
+      (___SIZE_TS)(alloc_heap_limit - alloc_heap_ptr) <= (___SIZE_TS)___MSECTION_FUDGE &&
+      compute_free_heap_space_approximately() >= ___MSECTION_SIZE)
+    {
+      ALLOC_MEM_LOCK();
+      next_heap_msection_without_locking (___ps);
+      ALLOC_MEM_UNLOCK();
+    }
+  {
+    ___PTRDIFF_T room = alloc_heap_limit - alloc_heap_ptr;
+    heap_left_before_fudge =
+      room > (___PTRDIFF_T)___MSECTION_FUDGE
+      ? (___SIZE_TS)(room - (___PTRDIFF_T)___MSECTION_FUDGE)
+      : 0;
+  }
 
   ___ps->context->hp = alloc_heap_ptr;
   ___ps->heap_limit = alloc_heap_ptr
                       + ((heap_avail < heap_left_before_fudge)
                          ? heap_avail
                          : heap_left_before_fudge);
-
+  /* The unchecked burst is exactly one fudge. Keep that burst at or
+   * before the hard end. A shorter slice must not publish the cursor
+   * itself as the soft limit. */
+  if (alloc_heap_limit &&
+      alloc_heap_limit > alloc_heap_start+___MSECTION_FUDGE)
+    {
+      ___WORD *soft = alloc_heap_limit-___MSECTION_FUDGE;
+      if (___ps->heap_limit > soft)
+        ___ps->heap_limit = soft;
+    }
+  else if (alloc_heap_ptr && alloc_heap_ptr > alloc_heap_start)
+    ___ps->heap_limit = alloc_heap_ptr-1;
   /* set stack overflow and interrupt detection limit */
 
   ___refresh_interrupts_pstate (___ps);
@@ -559,6 +596,9 @@ ___virtual_machine_state ___vms;)
 
 void ___cleanup_mem ___PVOID
 {
+#ifdef ___GAMBIT_REST_OBSERVATION
+  rest_observation_finish();
+#endif
   if (___GSTATE->mem.global_snapshots!=0)
     rc_contract_error("global snapshot retained at runtime cleanup");
   free_psections ();
