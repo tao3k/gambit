@@ -910,6 +910,7 @@ DASH_Wno_write_strings
 DASH_Wno_unused
 DASH_W
 DASH_Wall
+DASH_ftrack_macro_expansion_0
 DASH_no_cpp_precomp
 DASH_mpc64
 DASH_mieee_with_inexact
@@ -11168,6 +11169,49 @@ $as_echo "$ac_cv_DASH_no_cpp_precomp" >&6; }
 DASH_no_cpp_precomp="$ac_cv_DASH_no_cpp_precomp"
 
 
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether $C_COMPILER accepts -ftrack-macro-expansion=0" >&5
+$as_echo_n "checking whether $C_COMPILER accepts -ftrack-macro-expansion=0... " >&6; }
+if ${ac_cv_DASH_ftrack_macro_expansion_0+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+
+rm -f conftest.$ac_ext
+cat >conftest.$ac_ext <<_ACEOF
+#line $LINENO "configure"
+int
+main ()
+{
+  return 0;
+}
+_ACEOF
+ac_test_CFLAGS=${CFLAGS+set}
+ac_test_CXXFLAGS=${CXXFLAGS+set}
+ac_save_CFLAGS=$CFLAGS
+ac_save_CXXFLAGS=$CXXFLAGS
+CFLAGS="-ftrack-macro-expansion=0"
+CXXFLAGS="-ftrack-macro-expansion=0"
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; then
+  ac_cv_DASH_ftrack_macro_expansion_0=" -ftrack-macro-expansion=0"
+else
+  ac_cv_DASH_ftrack_macro_expansion_0=""
+fi
+if test "$ac_test_CFLAGS" = set; then
+  CFLAGS=$ac_save_CFLAGS
+fi
+if test "$ac_test_CXXFLAGS" = set; then
+  CXXFLAGS=$ac_save_CXXFLAGS
+fi
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_DASH_ftrack_macro_expansion_0" >&5
+$as_echo "$ac_cv_DASH_ftrack_macro_expansion_0" >&6; }
+DASH_ftrack_macro_expansion_0="$ac_cv_DASH_ftrack_macro_expansion_0"
+
+
 
   # debugging options:
   { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether $C_COMPILER accepts -Wall" >&5
@@ -12653,6 +12697,13 @@ DASH_shared="$ac_cv_DASH_shared"
   case "$target_os" in
     darwin*) # avoid the default C preprocessor which is setup for Objective-C
              FLAGS_OBJ_DYN="$FLAGS_OBJ_DYN$DASH_no_cpp_precomp"
+             # Gambit-generated C is macro dense.  GNU GCC's default macro
+             # location tracking causes excessive frontend allocation on
+             # Darwin without changing generated code or diagnostics outside
+             # macro-expansion provenance.
+             if test "$C_COMP_LLVM" != yes; then
+               FLAGS_OBJ_DYN="$FLAGS_OBJ_DYN$DASH_ftrack_macro_expansion_0"
+             fi
              ;;
   esac
 
