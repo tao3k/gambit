@@ -7299,7 +7299,9 @@ ___PSDKR)
               ___FORBID_STACK_OVERFLOW_UNDO(alloc_stack_ptr)
               ___ps->stack_break = alloc_stack_ptr;
 
-              fp = alloc_stack_ptr;
+              /* No frames were moved, so account for the occupied span
+                 using the original section's stack pointer. */
+              fp = prev_alloc_stack_ptr;
 
               break;
             }
