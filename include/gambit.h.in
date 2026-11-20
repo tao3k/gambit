@@ -9536,6 +9536,10 @@ char *argv[];) \
 
 #endif
 
+#ifndef ___LINKFILE_PREPARE
+#define ___LINKFILE_PREPARE() ((void)0)
+#endif
+
 #define ___LINKFILE_DESCR(sym_list,key_list) \
 ___LOCAL ___linkfile_struct ___linkfile_descr = { \
   ___VERSION, \
@@ -9552,6 +9556,7 @@ ___EXP_FUNC(___mod_or_lnk,___LINKER_ID) \
 ___global_state ___gs;) \
 { \
   ___SET_LOCAL_GSTATE(___gs) \
+  ___LINKFILE_PREPARE(); \
   return (___mod_or_lnk)&___linkfile_descr; \
 } \
 ___END_C_LINKAGE \
