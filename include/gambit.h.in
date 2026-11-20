@@ -9433,6 +9433,13 @@ ___global_state ___gs;) \
 } \
 ___END_C_LINKAGE
 
+/* Generated main owns the process; embedded ___setup/___cleanup do not. */
+#ifdef __APPLE__
+#define ___TERMINAL_PROCESS_BEGIN ___dyn_process_set_owner ();
+#else
+#define ___TERMINAL_PROCESS_BEGIN
+#endif
+
 #ifdef ___LIBRARY
 
 #define ___MAIN_PROC
@@ -9516,6 +9523,7 @@ int main ___P((int argc, \
 int argc; \
 char *argv[];) \
 { \
+  ___TERMINAL_PROCESS_BEGIN \
   return ___main_char \
            (argc, \
             argv, \
@@ -9526,6 +9534,10 @@ char *argv[];) \
 #endif
 #endif
 
+#endif
+
+#ifndef ___LINKFILE_PREPARE
+#define ___LINKFILE_PREPARE() ((void)0)
 #endif
 
 #define ___LINKFILE_DESCR(sym_list,key_list) \
@@ -9544,6 +9556,7 @@ ___EXP_FUNC(___mod_or_lnk,___LINKER_ID) \
 ___global_state ___gs;) \
 { \
   ___SET_LOCAL_GSTATE(___gs) \
+  ___LINKFILE_PREPARE(); \
   return (___mod_or_lnk)&___linkfile_descr; \
 } \
 ___END_C_LINKAGE \
@@ -14768,6 +14781,7 @@ ___IMP_FUNC(void,___setup_params_reset)
 ___IMP_FUNC(___SCMOBJ,___setup)
    ___P((___setup_params_struct *setup_params),
         ());
+___IMP_FUNC(void,___dyn_process_set_owner) ___PVOID;
 ___IMP_FUNC(void,___cleanup) ___PVOID;
 ___IMP_FUNC(void,___cleanup_and_exit_process)
    ___P((int status),

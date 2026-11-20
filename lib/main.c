@@ -7,6 +7,7 @@
 #define ___INCLUDED_FROM_MAIN
 #define ___VERSION 409008
 #include "gambit.h"
+#include "os_dyn.h"
 
 #include "os_setup.h"
 #include "os_base.h"
@@ -1360,6 +1361,9 @@ ___mod_or_lnk (*linker)();)
 
   if (e == ___FIX(___NO_ERR))
     {
+#ifdef __APPLE__
+      ___dyn_process_prepare_exit ();
+#endif
       ___cleanup ();
       e = ___FIX(___EXIT_CODE_OK);
     }

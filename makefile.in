@@ -131,6 +131,12 @@ phase3: include-phase3 bin-phase3 lib-phase3 gsi-phase3 gsc-phase3
 
 phase4: include-phase4 bin-phase4 lib-phase4 gsi-phase4 gsc-phase4
 
+# One generated-C admission lane spans library and compiler phase3.
+# Ordinary C and independent preparation still use the caller's jobserver.
+ifneq (,$(findstring darwin,@target_os@))
+gsc-phase3: | lib-phase3
+endif
+
 include-phase1 bin-phase1 lib-phase1 gsi-phase1 gsc-phase1 include-phase2 bin-phase2 lib-phase2 gsi-phase2 gsc-phase2 include-phase3 bin-phase3 lib-phase3 gsi-phase3 gsc-phase3 include-phase4 bin-phase4 lib-phase4 gsi-phase4 gsc-phase4:
 	@target=`echo $@ | sed 's/.*-//'`; \
 	subdir=`echo $@ | sed 's/-phase.*//'`; \

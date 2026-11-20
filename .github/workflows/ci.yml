@@ -4,6 +4,7 @@ on:
   pull_request:
     branches:
       - master
+      - gerbil-patches
   push:
     branches:
       - master

@@ -34,6 +34,27 @@ ___dyn_module ___dyn_mod =
 
 /* Dynamic code loading. */
 
+/* Ownership is distinct from the terminal state: ordinary cleanup can occur
+ * while a standalone process is still running. */
+static int dyn_process_owner = 0;
+static int retain_dyn_modules_until_exit = 0;
+
+___EXP_FUNC(void,___dyn_process_set_owner) ___PVOID
+{
+  dyn_process_owner = 1;
+}
+
+void ___dyn_process_prepare_exit ___PVOID
+{
+  if (dyn_process_owner)
+    retain_dyn_modules_until_exit = 1;
+}
+
+void ___retain_dyn_modules_until_process_exit ___PVOID
+{
+  retain_dyn_modules_until_exit = 1;
+}
+
 
 ___HIDDEN void setup_dynamic_load ___PVOID
 {
@@ -442,7 +463,10 @@ ___HIDDEN void cleanup_dynamic_load ___PVOID
 #endif
 
 #ifdef USE_dlopen
-      dlclose (p->descr);
+#ifdef __APPLE__
+      if (!retain_dyn_modules_until_exit)
+#endif
+        dlclose (p->descr);
 #endif
 
 #ifdef USE_NSLinkModule

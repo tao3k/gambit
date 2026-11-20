@@ -158,7 +158,7 @@ if test "$ENABLE_CPLUSPLUS" = yes; then
 
 fi
 
-PKG_PROG_PKG_CONFIG
+AC_PATH_TOOL([PKG_CONFIG], [pkg-config])
 
 AC_SUBST(C_COMPILER)
 AC_SUBST(C_PREPROC)
@@ -2435,6 +2435,7 @@ if test "$C_COMP_GNUC" = yes; then
 
   # preprocessor options:
   AC_CHECK_C_COMPILER_OPT(-no-cpp-precomp,DASH_no_cpp_precomp)
+  AC_CHECK_C_COMPILER_OPT(-ftrack-macro-expansion=0,DASH_ftrack_macro_expansion_0)
 
   # debugging options:
   AC_CHECK_C_COMPILER_OPT(-Wall,DASH_Wall)
@@ -2576,6 +2577,13 @@ if test "$C_COMP_GNUC" = yes; then
   case "$target_os" in
     darwin*) # avoid the default C preprocessor which is setup for Objective-C
              FLAGS_OBJ_DYN="$FLAGS_OBJ_DYN$DASH_no_cpp_precomp"
+             # Gambit-generated C is macro dense.  GNU GCC's default macro
+             # location tracking causes excessive frontend allocation on
+             # Darwin without changing generated code or diagnostics outside
+             # macro-expansion provenance.
+             if test "$C_COMP_LLVM" != yes; then
+               FLAGS_OBJ_DYN="$FLAGS_OBJ_DYN$DASH_ftrack_macro_expansion_0"
+             fi
              ;;
   esac
 
