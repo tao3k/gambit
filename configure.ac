@@ -3007,6 +3007,15 @@ else
 fi
 
 CORCXXFLAGS_GAMBUILD="$CORCXXFLAGS"
+# Large generated units do not need GCC to retain macro expansion locations.
+# Put the default before user flags and keep explicit gambuild flags authoritative.
+case "$target_os" in
+  linux*)
+    if test -n "$DASH_ftrack_macro_expansion_0"; then
+      CORCXXFLAGS_GAMBUILD="$DASH_ftrack_macro_expansion_0 $CORCXXFLAGS_GAMBUILD"
+    fi
+    ;;
+esac
 LDFLAGS_GAMBUILD="$LDFLAGS"
 
 AC_ARG_ENABLE(corcxxflags-gambuild,
