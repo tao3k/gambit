@@ -4890,6 +4890,9 @@ ___EXP_FUNC(void,___cleanup_and_exit_process)
         (status)
 int status;)
 {
+#ifdef __APPLE__
+  ___retain_dyn_modules_until_process_exit ();
+#endif
   ___cleanup ();
   ___exit_process (status);
 }
@@ -6433,7 +6436,13 @@ ___setup_params_struct *setup_params;)
    */
 
   if (err != ___FIX(___NO_ERR))
-    ___cleanup ();
+    {
+#ifdef __APPLE__
+      if (err > ___FIX(___NO_ERR))
+        ___dyn_process_prepare_exit ();
+#endif
+      ___cleanup ();
+    }
 
   return err;
 }

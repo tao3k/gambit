@@ -1237,7 +1237,10 @@
          (new-key-rsrc
            (targ-difference-rsrc
              key-rsrc
-             old-key-rsrc)))
+             old-key-rsrc))
+         ;; Host-gate the optimization so non-Apple link generation stays on
+         ;; its original path. Generated C still checks the target ABI.
+         (pack-link-names? (eq? (cadr (system-type)) 'apple)))
 
     (targ-start-dump
      filename
@@ -1261,11 +1264,14 @@
     (targ-line)
 
     (targ-dump-linkfile old-mods-and-flags new-mods-and-flags)
+    (if pack-link-names?
+      (targ-dump-packed-link-names new-key-rsrc new-sym-glo-rsrc))
     (targ-dump-sym-key-glo-link
       old-sym-glo-rsrc
       old-key-rsrc
       new-sym-glo-rsrc
-      new-key-rsrc)
+      new-key-rsrc
+      pack-link-names?)
     (targ-end-dump)))
 
 (define (targ-dump-linkfile old-mods-and-flags new-mods-and-flags)
@@ -1550,11 +1556,155 @@
                                        i
                                        (targ-c-id-glo name))))))))
 
+
+;; On 64-bit Darwin, ASCII names can be kept as bytes in the file and
+;; expanded into the normal permanent Scheme string layout on first entry.
+;; Other names and targets retain the existing representation.
+;; Keep each C string within the 4095-byte minimum supported by C99, including
+;; the per-name terminators; longer names use the normal representation.
+(define (targ-packed-link-name? name)
+  (and (<= (string-length name) 4094)
+       (let loop ((i 0))
+         (or (= i (string-length name))
+             (let ((c (char->integer (string-ref name i))))
+               (and (> c 0) (< c 128) (loop (+ i 1))))))))
+
+(define (targ-dump-packed-link-names keys syms)
+  (let* ((resources (append keys syms))
+         (names (map targ-rsrc-name
+                     (keep (lambda (r)
+                             (targ-packed-link-name? (targ-rsrc-name r)))
+                           resources)))
+         (chunks (let loop ((rest names) (chunk '()) (size 0) (result '()))
+                   (cond ((null? rest)
+                          (reverse (if (null? chunk)
+                                     result
+                                     (cons (reverse chunk) result))))
+                         ((> (+ size (string-length (car rest)) 1) 4095)
+                          (loop rest '() 0 (cons (reverse chunk) result)))
+                         (else
+                          (loop (cdr rest) (cons (car rest) chunk)
+                                (+ size (string-length (car rest)) 1)
+                                result)))))
+         (words (let loop ((remaining names) (total 0))
+                  (if (null? remaining)
+                    total
+                    (loop (cdr remaining)
+                          (+ total 1
+                             (quotient (+ (string-length (car remaining)) 1)
+                                       2)))))))
+    (if (pair? names)
+      (begin
+        (targ-display "#if defined(__APPLE__) && !defined(___USE_32_BIT_ADDR) && ___LCS == 2 && ___LWS == 3")
+        (targ-line)
+        (targ-display "#include <pthread.h>")
+        (targ-line)
+        (targ-display "#include <string.h>")
+        (targ-line)
+        (targ-display "static ___WORD ___packed_link_names[")
+        (targ-display words)
+        (targ-display "];")
+        (targ-line)
+        (targ-display "static const unsigned char ___packed_link_bytes[][4096] = {")
+        (targ-line)
+        (for-each
+          (lambda (chunk)
+            (for-each
+              (lambda (name)
+                (targ-display "\"")
+                (let loop ((i 0) (start 0) (line-count 0))
+                  (if (= i (string-length name))
+                    (if (< start i) (targ-display (substring name start i)))
+                    (if (= line-count 256)
+                      (begin
+                        (if (< start i) (targ-display (substring name start i)))
+                        (targ-display "\"")
+                        (targ-line)
+                        (targ-display "\"")
+                        (loop i i 0))
+                      (let ((c (char->integer (string-ref name i))))
+                        (if (and (<= 32 c 126)
+                                 (not (= c 34)) (not (= c 63)) (not (= c 92)))
+                          (loop (+ i 1) start (+ line-count 1))
+                          (begin
+                            (if (< start i) (targ-display (substring name start i)))
+                            (cond ((= c 34) (targ-display "\\\""))
+                                  ((= c 63) (targ-display "\\?"))
+                                  ((= c 92) (targ-display "\\\\"))
+                                  (else
+                                   (targ-display "\\")
+                                   (targ-display (quotient c 64))
+                                   (targ-display (modulo (quotient c 8) 8))
+                                   (targ-display (modulo c 8))))
+                            (loop (+ i 1) (+ i 1) (+ line-count 1))))))))
+                (targ-display "\\000\"")
+                (targ-line))
+              chunk)
+            (targ-display ",")
+            (targ-line))
+          chunks)
+        (targ-display "};")
+        (targ-line)
+        (targ-display "static const unsigned short ___packed_link_counts[] = {")
+        (targ-line)
+        (for-each (lambda (chunk)
+                    (targ-display (length chunk))
+                    (targ-display ",")
+                    (targ-line))
+                  chunks)
+        (targ-display "};")
+        (targ-line)
+        (targ-display "static pthread_once_t ___packed_link_once = PTHREAD_ONCE_INIT;")
+        (targ-line)
+        (targ-display "static void ___restore_link_names(void) {")
+        (targ-line)
+        (targ-display "  ___WORD *out = ___packed_link_names;")
+        (targ-line)
+        (targ-display "  unsigned long i, j;")
+        (targ-line)
+        (targ-display "  for (i = 0; i < ")
+        (targ-display (length chunks))
+        (targ-display "; ++i) {")
+        (targ-line)
+        (targ-display "    const unsigned char *p = ___packed_link_bytes[i];")
+        (targ-line)
+        (targ-display "    for (j = 0; j < ___packed_link_counts[i]; ++j) {")
+        (targ-line)
+        (targ-display "      unsigned long n = 0;")
+        (targ-line)
+        (targ-display "      while (*p) { ___U32 c = *p++; memcpy((unsigned char *)(out + 1) + n++ * sizeof(c), &c, sizeof(c)); }")
+        (targ-line)
+        (targ-display "      ++p;")
+        (targ-line)
+        (targ-display "      out[0] = ___MAKE_HD((n << ___LCS), ___sSTRING, ___PERM);")
+        (targ-line)
+        (targ-display "      out += 1 + ((n + 1) / 2);")
+        (targ-line)
+        (targ-display "    }")
+        (targ-line)
+        (targ-display "  }")
+        (targ-line)
+        (targ-display "}")
+        (targ-line)
+        (targ-display "#ifndef ___LINKFILE_PREPARE")
+        (targ-line)
+        (targ-display "#error packed link names require a matching Gambit header")
+        (targ-line)
+        (targ-display "#endif")
+        (targ-line)
+        (targ-display "#undef ___LINKFILE_PREPARE")
+        (targ-line)
+        (targ-display "#define ___LINKFILE_PREPARE() ((void)pthread_once(&___packed_link_once, ___restore_link_names))")
+        (targ-line)
+        (targ-display "#endif")
+        (targ-line)))))
+
 (define (targ-dump-sym-key-glo-link
           old-sym-glo-rsrc
           old-key-rsrc
           new-sym-glo-rsrc
-          new-key-rsrc)
+          new-key-rsrc
+          pack-link-names?)
 
   (targ-dump-section "BEGIN_OLD_KEY" "END_OLD_KEY" #f old-key-rsrc
     (lambda (i r)
@@ -1569,14 +1719,35 @@
              (glo (targ-c-id-glo name)))
         (targ-code* (list "DEF_OLD_SYM_GLO" sym glo)))))
 
-  (let ((key-count 0) (prev-key 0) (sym-count 0) (prev-sym 0))
+  (let ((key-count 0) (prev-key 0) (sym-count 0) (prev-sym 0)
+        (packed-offset 0))
+
+    (define (dump-name name id)
+      (if (and pack-link-names? (targ-packed-link-name? name))
+        (begin
+          (targ-display "#if defined(__APPLE__) && !defined(___USE_32_BIT_ADDR) && ___LCS == 2 && ___LWS == 3")
+          (targ-line)
+          (targ-display "#define ")
+          (targ-code id)
+          (targ-display " (&___packed_link_names[")
+          (targ-display packed-offset)
+          (targ-display "])")
+          (targ-line)
+          (targ-display "#else")
+          (targ-line)
+          (targ-dump-nstring name id)
+          (targ-display "#endif")
+          (targ-line)
+          (set! packed-offset
+                (+ packed-offset 1 (quotient (+ (string-length name) 1) 2))))
+        (targ-dump-nstring name id)))
 
     (targ-dump-section "BEGIN_NEW_KEY" "END_NEW_KEY" #f new-key-rsrc
       (lambda (i r)
         (let* ((name (targ-rsrc-name r))
                (key (targ-c-id-key name))
                (id (targ-sub-name key-count)))
-          (targ-dump-nstring name id)
+          (dump-name name id)
           (targ-code*
             (list "DEF_NEW_KEY" prev-key key id (targ-hash name)))
           (set! key-count (+ key-count 1))
@@ -1590,7 +1761,7 @@
                (sym (targ-c-id-sym name))
                (glo (targ-c-id-glo name))
                (id (targ-sub-name (+ key-count sym-count))))
-          (targ-dump-nstring name id)
+          (dump-name name id)
           (targ-code*
             (list (if (targ-rsrc-supplied? r)
                     "DEF_NEW_SYM_GLO_SUP"

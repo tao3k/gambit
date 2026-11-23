@@ -2419,16 +2419,17 @@
 
     (let loop ((btq (macro-btq-deq-next thread)))
       (if (##not (##eq? btq thread))
-          (macro-if-btq-next
-           btq
-           next
-           (let ((next-floats (macro-thread-floats next)))
-             (if (##fl< (macro-effective-priority floats)
-                        (macro-effective-priority next-floats))
-                 (macro-effective-priority-set!
-                  floats
-                  (macro-effective-priority next-floats)))))
-          (loop (macro-btq-deq-next btq))))
+          (begin
+            (macro-if-btq-next
+             btq
+             next
+             (let ((next-floats (macro-thread-floats next)))
+               (if (##fl< (macro-effective-priority floats)
+                          (macro-effective-priority next-floats))
+                   (macro-effective-priority-set!
+                    floats
+                    (macro-effective-priority next-floats)))))
+            (loop (macro-btq-deq-next btq)))))
 
     (if (##not (##fl=
                 (macro-temp (macro-thread-floats (macro-current-processor)))
