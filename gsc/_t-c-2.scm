@@ -697,6 +697,22 @@
                   (targ-unboxed-loc->code loc stamp)
                   (list 'append "___F64_FROM_U64(___CAST(___U64," source "))"))))))))
 
+(define (targ-scrub-dirty-unboxed)
+  ;; Overwrite raw IEEE-754 bit spills with ___FAL immediately after
+  ;; ___group_demand_enter succeeds so dead spilled registers/slots cannot
+  ;; leak unboxed doubles into subsequent ___RETI GC root maps.
+  (targ-each-dirty-unboxed
+   (lambda (loc stamp)
+     (cond ((reg? loc)
+            (targ-emit
+             (targ-loc-no-invalidate loc (targ-opnd (make-obj false-object)))))
+           ((stk? loc)
+            (targ-rd-fp)
+            (targ-emit
+             (list "SET_STK"
+                   (- (stk-num loc) targ-proc-fp)
+                   (targ-opnd (make-obj false-object)))))))))
+
 (define (targ-finish-write-group)
   (if targ-proc-demand-lbl
       (let ((plan targ-proc-demand-plan))
@@ -828,6 +844,7 @@
                                          (targ-demand-label-operand pre)
                                          ";___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}"
                                          #\newline))
+                                  (targ-scrub-dirty-unboxed)
                                   (set! targ-proc-demand-lbl pre)
                                   (set! targ-proc-demand-stack-end (+ targ-proc-fp stack))
                                   (set! targ-proc-demand-plan
@@ -1347,11 +1364,12 @@
                (lambda (i var)
                  (let ((raw?
                         (and targ-demand-raw-spills?
-                             (or (let ((s (targ-frame-slot-index var frame)))
-                                   (and s (targ-fp-cache-dirty? (make-stk s))))
-                                 (let ((r (targ-frame-reg-index var frame)))
-                                   (and r (targ-fp-cache-dirty?
-                                           (make-reg r))))))))
+                             (if (< i cfs-after-alignment)
+                                 (targ-fp-cache-dirty? (make-stk (+ i 1)))
+                                 (let ((j (- i cfs-after-alignment)))
+                                   (and (>= j 0)
+                                        (< j (targ-nb-gvm-regs))
+                                        (targ-fp-cache-dirty? (make-reg j))))))))
                    (and (not raw?)
                         (or (frame-live? var frame)
                             (let ((j (- i cfs-after-alignment)))
@@ -4789,6 +4807,7 @@
          (let ((fs (frame-size targ-proc-exit-frame)))
            (targ-end-of-block-checks poll? fs)
            (targ-emit (targ-adjust-stack fs))
+           (targ-finish-write-group)
            (targ-emit-jump-inline "THREAD_SAVE" safe? nb-args)
            (targ-rd-fp)
            (targ-wr-fp)
@@ -4804,6 +4823,7 @@
          (let ((fs (frame-size targ-proc-exit-frame)))
            (targ-end-of-block-checks poll? fs)
            (targ-emit (targ-adjust-stack fs))
+           (targ-finish-write-group)
            (targ-emit-jump-inline "THREAD_RESTORE" safe? nb-args)
            (targ-rd-fp)
            (targ-wr-fp)
@@ -4818,6 +4838,7 @@
          (let ((fs (frame-size targ-proc-exit-frame)))
            (targ-end-of-block-checks poll? fs)
            (targ-emit (targ-adjust-stack fs))
+           (targ-finish-write-group)
            (targ-emit-jump-inline "THREAD_PARK" safe? nb-args)
            (targ-rd-fp)
            (targ-wr-fp)
@@ -4843,6 +4864,7 @@
          (let ((fs (frame-size targ-proc-exit-frame)))
            (targ-end-of-block-checks poll? fs)
            (targ-emit (targ-adjust-stack fs))
+           (targ-finish-write-group)
            (targ-emit-jump-inline "CONTINUATION_CAPTURE" safe? nb-args)
            (targ-rd-fp)
            (targ-wr-fp)
@@ -4857,6 +4879,7 @@
          (let ((fs (frame-size targ-proc-exit-frame)))
            (targ-end-of-block-checks poll? fs)
            (targ-emit (targ-adjust-stack fs))
+           (targ-finish-write-group)
            (targ-emit-jump-inline "CONTINUATION_GRAFT_NO_WINDING" safe? nb-args)
            (targ-rd-fp)
            (targ-wr-fp)
@@ -4870,6 +4893,7 @@
          (let ((fs (frame-size targ-proc-exit-frame)))
            (targ-end-of-block-checks poll? fs)
            (targ-emit (targ-adjust-stack fs))
+           (targ-finish-write-group)
            (targ-emit-jump-inline "CONTINUATION_RETURN_NO_WINDING" safe? nb-args)
            (targ-rd-fp)
            (targ-wr-fp)

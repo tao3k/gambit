@@ -1220,8 +1220,56 @@ ___IMP_FUNC(int,___group_demand_enter)
          ___SIZE_TS stack_words, ___SIZE_TS heap_words,
          ___WORD group_point, ___WORD *attempt_out), ());
 #if defined(___BIND_LATE) && !defined(___CAN_IMPORT_DYNAMICALLY)
-#define ___group_demand_enter(ps,hp,fp,sw,hw,pt,att) \
+#define ___GROUP_DEMAND_ENTER_CALL(ps,hp,fp,sw,hw,pt,att) \
   ___EXT(___group_demand_enter)((ps),(hp),(fp),(sw),(hw),(pt),(att))
+#else
+#define ___GROUP_DEMAND_ENTER_CALL(ps,hp,fp,sw,hw,pt,att) \
+  (___group_demand_enter)((ps),(hp),(fp),(sw),(hw),(pt),(att))
+#endif
+#if !defined(___INCLUDED_FROM_MEM) && (!defined(___LBLCOUNT) || (___LBLCOUNT < 6000)) && \
+    defined(__GNUC__)
+/* Value-based processor-owned byte-range fast-span admission (proved equivalent
+ * to allocation-limits.inc:1179-1197 in CompiledHostRefinementV2.lean & CBMC).
+ * Dereferencing (*hp_ptr/*fp_ptr/*att_ptr) lets GCC fold *(&___hp) back to
+ * register-allocated ___hp/___fp/___demand_attempt on the fast path, keeping
+ * address-taken temporaries confined to the cold slow-path branch. */
+#define ___group_demand_enter(ps,hp_ptr,fp_ptr,sw,hw,pt,att_ptr) \
+  ({ \
+    ___processor_state const ___gd_ps = (ps); \
+    ___WORD *___gd_h = *(hp_ptr); \
+    ___WORD *___gd_f = *(fp_ptr); \
+    ___SIZE_TS const ___gd_sw = (sw); \
+    ___SIZE_TS const ___gd_hw = (hw); \
+    int ___gd_ok = 0; \
+    if (__builtin_expect(___gd_ps != 0 && ___gd_ps->context != 0 && \
+                         ___gd_f != 0 && ___gd_h != 0 && \
+                         ___gd_sw >= 0 && ___gd_hw >= 0, 1)) { \
+      ___UWORD const ___gd_sd = ___CAST(___UWORD, ___gd_f) - ___gd_ps->stack_fast_floor_b; \
+      if (__builtin_expect( \
+            ___gd_sd < ___gd_ps->stack_fast_limit_b && \
+            (___gd_sd / sizeof(___WORD)) >= (___UWORD)___gd_sw && \
+            (___gd_hw == 0 || \
+             ((___CAST(___UWORD, ___gd_h) - ___gd_ps->heap_fast_lo_b) < ___gd_ps->heap_fast_bytes && \
+              ((___gd_ps->heap_fast_bytes - (___CAST(___UWORD, ___gd_h) - ___gd_ps->heap_fast_lo_b)) / sizeof(___WORD)) >= (___UWORD)___gd_hw)), \
+            1)) { \
+        ___gd_ps->context->hp = ___gd_h; \
+        ___gd_ps->context->fp = ___gd_f; \
+        *(att_ptr) = 0; \
+        ___gd_ok = 1; \
+      } \
+    } \
+    if (__builtin_expect(!___gd_ok, 0)) { \
+      ___WORD ___gd_att = *(att_ptr); \
+      ___gd_ok = ___GROUP_DEMAND_ENTER_CALL(___gd_ps, &___gd_h, &___gd_f, ___gd_sw, ___gd_hw, (pt), &___gd_att); \
+      *(hp_ptr) = ___gd_h; \
+      *(fp_ptr) = ___gd_f; \
+      *(att_ptr) = ___gd_att; \
+    } \
+    ___gd_ok; \
+  })
+#elif defined(___BIND_LATE) && !defined(___CAN_IMPORT_DYNAMICALLY)
+#define ___group_demand_enter(ps,hp,fp,sw,hw,pt,att) \
+  ___GROUP_DEMAND_ENTER_CALL((ps),(hp),(fp),(sw),(hw),(pt),(att))
 #endif
 ___IMP_FUNC(int,___group_demand_granted)
    ___P((___processor_state ps, ___WORD group_point, ___WORD attempt,

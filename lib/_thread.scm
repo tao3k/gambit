@@ -1400,6 +1400,33 @@
                (##thread-intr-service! interrupt)
                (##thread-intr-propagate! interrupt))))))
 
+(define-prim (##thread-intr-propagate-locked! interrupt)
+
+  (##declare (not interrupts-enabled))
+
+  ;; Hoisted out of ##thread-intr-propagate! to avoid allocating a closure
+  ;; capturing `thread` on every interrupt propagation.
+  (let ((thread (macro-thread-request-target interrupt)))
+    (if (macro-terminated-thread-given-initialized? thread)
+        #f
+        (let ((last-processor (macro-thread-last-processor thread)))
+          (macro-lock-processor! last-processor)
+          (let ((running?
+                 (##eq? thread
+                        (macro-processor-current-thread last-processor)))
+                (id (macro-processor-id last-processor)))
+            (macro-unlock-processor! last-processor)
+            (if running?
+                id
+                (begin
+                  (let ((tail (macro-thread-interrupts-tail thread)))
+                    (macro-thread-interrupts-tail-set! thread interrupt)
+                    (if (##null? tail)
+                        (macro-thread-interrupts-head-set! thread interrupt)
+                        (##vector-set! tail 0 interrupt)))
+                  (macro-add-thread-to-run-queue-of-current-processor-preferably! thread)
+                  #f)))))))
+
 (define-prim (##thread-intr-propagate! interrupt)
 
   (##declare (not interrupts-enabled))
@@ -1411,26 +1438,7 @@
          (processor
           (##thread-lock-remove-btq-toq!
            thread
-           (lambda (interrupt)
-             (if (macro-terminated-thread-given-initialized? thread)
-                 #f
-                 (let ((last-processor (macro-thread-last-processor thread)))
-                   (macro-lock-processor! last-processor)
-                   (let ((running?
-                          (##eq? thread
-                                 (macro-processor-current-thread last-processor)))
-                         (id (macro-processor-id last-processor)))
-                     (macro-unlock-processor! last-processor)
-                     (if running?
-                         id
-                         (begin
-                           (let ((tail (macro-thread-interrupts-tail thread)))
-                             (macro-thread-interrupts-tail-set! thread interrupt)
-                             (if (##null? tail)
-                                 (macro-thread-interrupts-head-set! thread interrupt)
-                                 (##vector-set! tail 0 interrupt)))
-                           (macro-add-thread-to-run-queue-of-current-processor-preferably! thread)
-                           #f))))))
+           ##thread-intr-propagate-locked!
            interrupt)))
     (if processor
         (##raise-high-level-interrupt processor interrupt))))
@@ -1781,8 +1789,10 @@
             timeout-val)))
 
   (let* ((timeout
-          (##absrel-timeout->timeout
-           (if (##eq? absrel-timeout (macro-absent-obj)) #f absrel-timeout)))
+          (if (or (##not absrel-timeout)
+                  (##eq? absrel-timeout (macro-absent-obj)))
+              #t
+              (##absrel-timeout->timeout absrel-timeout)))
          (joined? (##thread-join-wait! thread timeout)))
     (done thread absrel-timeout timeout-val joined?)))
 
