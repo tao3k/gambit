@@ -28,14 +28,19 @@ void ___rest_observation_adjust_fast(void *fp, intptr_t words);
 void ___rest_observation_pop_fast(void *fp);
 extern int ___rest_observation_active;
 ___END_C_LINKAGE
-#if !defined(___LBLCOUNT) || (___LBLCOUNT < 6000)
-#define ___REST_OBS_STORE(fp,address) ((void)(__builtin_expect(___rest_observation_active,0) && (___rest_observation_store_fast((fp),(address)),0)))
-#define ___REST_OBS_ADJUST(fp,words) ((void)(__builtin_expect(___rest_observation_active,0) && (___rest_observation_adjust_fast((fp),(words)),0)))
-#define ___REST_OBS_POP(fp) ((void)(__builtin_expect(___rest_observation_active,0) && (___rest_observation_pop_fast((fp)),0)))
+#if defined(___BIND_LATE) && !defined(___CAN_IMPORT_DYNAMICALLY)
+#define ___REST_OBS_ACTIVE (*___EXT(___rest_observation_active_ptr))
 #else
-#define ___REST_OBS_STORE(fp,address) ___rest_observation_store_fast((fp),(address))
-#define ___REST_OBS_ADJUST(fp,words) ___rest_observation_adjust_fast((fp),(words))
-#define ___REST_OBS_POP(fp) ___rest_observation_pop_fast((fp))
+#define ___REST_OBS_ACTIVE ___rest_observation_active
+#endif
+#if !defined(___LBLCOUNT) || (___LBLCOUNT < 6000)
+#define ___REST_OBS_STORE(fp,address) ((void)(__builtin_expect(___REST_OBS_ACTIVE,0) && (___EXT(___rest_observation_store_fast)((fp),(address)),0)))
+#define ___REST_OBS_ADJUST(fp,words) ((void)(__builtin_expect(___REST_OBS_ACTIVE,0) && (___EXT(___rest_observation_adjust_fast)((fp),(words)),0)))
+#define ___REST_OBS_POP(fp) ((void)(__builtin_expect(___REST_OBS_ACTIVE,0) && (___EXT(___rest_observation_pop_fast)((fp)),0)))
+#else
+#define ___REST_OBS_STORE(fp,address) ___EXT(___rest_observation_store_fast)((fp),(address))
+#define ___REST_OBS_ADJUST(fp,words) ___EXT(___rest_observation_adjust_fast)((fp),(words))
+#define ___REST_OBS_POP(fp) ___EXT(___rest_observation_pop_fast)((fp))
 #endif
 #else
 #define ___REST_OBS_STORE(fp,address) ((void)0)

@@ -1167,6 +1167,37 @@ typedef struct ___global_state_struct
        ___P((___processor_state ps, ___glo_struct *global, ___SCMOBJ val), ());
     void (*___bind_primitive)
        ___P((___processor_state ps, ___glo_struct *global, ___SCMOBJ code), ());
+    int (*___group_demand_enter)
+       ___P((___processor_state ps, ___WORD **hp, ___WORD **fp,
+             ___SIZE_TS stack_words, ___SIZE_TS heap_words,
+             ___WORD group_point, ___WORD *attempt_out), ());
+    void (*___group_demand_commit)
+       ___P((___processor_state ps, ___WORD group_point, ___WORD attempt), ());
+    ___WORD (*___rest_observation_room)
+       ___P((___processor_state ps), ());
+    ___WORD (*___rest_observation_settled)
+       ___P((___processor_state ps), ());
+    ___WORD (*___rest_observation_last_demand)
+       ___P((___WORD *pending, ___WORD *parameters), ());
+    ___WORD (*___rest_observation_last_entry_room) ___PVOID;
+    void (*___rest_observation_reset_admission) ___PVOID;
+#ifdef ___GAMBIT_REST_OBSERVATION
+    void (*___gate2_group_site)
+       ___P((___processor_state ps, const char *procedure, int label,
+             ___WORD point, ___WORD *fp, int opening), ());
+    void (*___rest_observation_store_fast)
+       ___P((void *fp, void *address), ());
+    void (*___rest_observation_adjust_fast)
+       ___P((void *fp, intptr_t words), ());
+    void (*___rest_observation_pop_fast)
+       ___P((void *fp), ());
+    int *___rest_observation_active_ptr;
+    int (*___rest_observation_open)
+       ___P((const char *path), ());
+    int (*___rest_observation_case)
+       ___P((uint64_t id), ());
+    int (*___rest_observation_case_end) ___PVOID;
+#endif
     ___SCMOBJ (*___alloc_scmobj)
        ___P((___processor_state ___ps,
              int subtype,

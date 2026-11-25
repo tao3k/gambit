@@ -23,6 +23,16 @@
 #include "rc.h"
 #include "lifecycle.h"
 extern ___BOOL ___garbage_collect ___P((___PSD ___SIZE_TS requested_words_still),());
+extern int ___group_demand_enter ___P((___processor_state ps, ___WORD **hp, ___WORD **fp, ___SIZE_TS stack_words, ___SIZE_TS heap_words, ___WORD group_point, ___WORD *attempt_out),());
+extern void ___group_demand_commit ___P((___processor_state ps, ___WORD group_point, ___WORD attempt),());
+extern ___WORD ___rest_observation_room ___P((___processor_state ps),());
+extern ___WORD ___rest_observation_settled ___P((___processor_state ps),());
+extern ___WORD ___rest_observation_last_demand ___P((___WORD *pending, ___WORD *parameters),());
+extern ___WORD ___rest_observation_last_entry_room ___PVOID;
+extern void ___rest_observation_reset_admission ___PVOID;
+#ifdef ___GAMBIT_REST_OBSERVATION
+extern void ___gate2_group_site ___P((___processor_state ps, const char *procedure, int label, ___WORD point, ___WORD *fp, int opening),());
+#endif
 #include "c_intf.h"
 #include "actlog.h"
 
@@ -6386,6 +6396,23 @@ ___HIDDEN void setup_dynamic_linking ___PVOID
   ___GSTATE->___primitive_ref = ___primitive_ref;
   ___GSTATE->___store_primitive = ___store_primitive;
   ___GSTATE->___bind_primitive = ___bind_primitive;
+  ___GSTATE->___group_demand_enter = ___group_demand_enter;
+  ___GSTATE->___group_demand_commit = ___group_demand_commit;
+  ___GSTATE->___rest_observation_room = ___rest_observation_room;
+  ___GSTATE->___rest_observation_settled = ___rest_observation_settled;
+  ___GSTATE->___rest_observation_last_demand = ___rest_observation_last_demand;
+  ___GSTATE->___rest_observation_last_entry_room = ___rest_observation_last_entry_room;
+  ___GSTATE->___rest_observation_reset_admission = ___rest_observation_reset_admission;
+#ifdef ___GAMBIT_REST_OBSERVATION
+  ___GSTATE->___gate2_group_site = ___gate2_group_site;
+  ___GSTATE->___rest_observation_store_fast = ___rest_observation_store_fast;
+  ___GSTATE->___rest_observation_adjust_fast = ___rest_observation_adjust_fast;
+  ___GSTATE->___rest_observation_pop_fast = ___rest_observation_pop_fast;
+  ___GSTATE->___rest_observation_active_ptr = &___rest_observation_active;
+  ___GSTATE->___rest_observation_open = ___rest_observation_open;
+  ___GSTATE->___rest_observation_case = ___rest_observation_case;
+  ___GSTATE->___rest_observation_case_end = ___rest_observation_case_end;
+#endif
 
 
   ___GSTATE->___alloc_scmobj

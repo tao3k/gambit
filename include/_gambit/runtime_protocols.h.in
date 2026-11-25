@@ -1219,21 +1219,43 @@ ___IMP_FUNC(int,___group_demand_enter)
    ___P((___processor_state ps, ___WORD **hp, ___WORD **fp,
          ___SIZE_TS stack_words, ___SIZE_TS heap_words,
          ___WORD group_point, ___WORD *attempt_out), ());
+#if defined(___BIND_LATE) && !defined(___CAN_IMPORT_DYNAMICALLY)
+#define ___group_demand_enter(ps,hp,fp,sw,hw,pt,att) \
+  ___EXT(___group_demand_enter)((ps),(hp),(fp),(sw),(hw),(pt),(att))
+#endif
 ___IMP_FUNC(int,___group_demand_granted)
    ___P((___processor_state ps, ___WORD group_point, ___WORD attempt,
          ___WORD *hp, ___WORD *fp), ());
 ___IMP_FUNC(void,___group_demand_commit)
    ___P((___processor_state ps, ___WORD group_point, ___WORD attempt), ());
+#if defined(___BIND_LATE) && !defined(___CAN_IMPORT_DYNAMICALLY)
+#define ___GROUP_DEMAND_COMMIT_CALL(ps,point,attempt) \
+  ___EXT(___group_demand_commit)((ps),(point),(attempt))
+#else
+#define ___GROUP_DEMAND_COMMIT_CALL(ps,point,attempt) \
+  (___group_demand_commit)((ps),(point),(attempt))
+#endif
 #if !defined(___LBLCOUNT) || (___LBLCOUNT < 6000)
 #ifdef ___GAMBIT_REST_OBSERVATION
 #define ___group_demand_commit(ps,point,attempt) \
-  do { if (__builtin_expect((attempt) != 0 || ___rest_observation_active, 0)) (___group_demand_commit)((ps),(point),(attempt)); } while (0)
+  do { if (__builtin_expect((attempt) != 0 || ___REST_OBS_ACTIVE, 0)) ___GROUP_DEMAND_COMMIT_CALL((ps),(point),(attempt)); } while (0)
 #else
 #define ___group_demand_commit(ps,point,attempt) \
-  do { if (__builtin_expect((attempt) != 0, 0)) (___group_demand_commit)((ps),(point),(attempt)); } while (0)
+  do { if (__builtin_expect((attempt) != 0, 0)) ___GROUP_DEMAND_COMMIT_CALL((ps),(point),(attempt)); } while (0)
 #endif
+#elif defined(___BIND_LATE) && !defined(___CAN_IMPORT_DYNAMICALLY)
+#define ___group_demand_commit(ps,point,attempt) \
+  ___GROUP_DEMAND_COMMIT_CALL((ps),(point),(attempt))
 #endif
 int ___stack_adjust_fits(___processor_state ps, ___WORD *fp, ___SIZE_TS delta);
+___IMP_FUNC(___WORD,___rest_observation_room)
+   ___P((___processor_state ps), ());
+___IMP_FUNC(___WORD,___rest_observation_settled)
+   ___P((___processor_state ps), ());
+___IMP_FUNC(___WORD,___rest_observation_last_demand)
+   ___P((___WORD *pending, ___WORD *parameters), ());
+___IMP_FUNC(___WORD,___rest_observation_last_entry_room) ___PVOID;
+___IMP_FUNC(void,___rest_observation_reset_admission) ___PVOID;
 #ifdef ___GAMBIT_REST_OBSERVATION
 ___IMP_FUNC(void,___gate2_group_site)
   ___P((___processor_state ps, const char *procedure, int label,
@@ -1242,14 +1264,14 @@ ___IMP_FUNC(void,___gate2_fast_done)
   ___P((___processor_state ps, ___WORD point), ());
 #if !defined(___LBLCOUNT) || (___LBLCOUNT < 6000)
 #define ___GATE2_OPEN(ps,proc,label,point,fp) \
-  do { if (__builtin_expect(___rest_observation_active, 0)) ___gate2_group_site(ps,proc,label,point,fp,1); } while (0)
+  do { if (__builtin_expect(___REST_OBS_ACTIVE, 0)) ___EXT(___gate2_group_site)(ps,proc,label,point,fp,1); } while (0)
 #define ___GATE2_ENTER(ps,proc,label,point,fp) \
-  do { if (__builtin_expect(___rest_observation_active, 0)) ___gate2_group_site(ps,proc,label,point,fp,0); } while (0)
+  do { if (__builtin_expect(___REST_OBS_ACTIVE, 0)) ___EXT(___gate2_group_site)(ps,proc,label,point,fp,0); } while (0)
 #else
 #define ___GATE2_OPEN(ps,proc,label,point,fp) \
-  ___gate2_group_site(ps,proc,label,point,fp,1)
+  ___EXT(___gate2_group_site)(ps,proc,label,point,fp,1)
 #define ___GATE2_ENTER(ps,proc,label,point,fp) \
-  ___gate2_group_site(ps,proc,label,point,fp,0)
+  ___EXT(___gate2_group_site)(ps,proc,label,point,fp,0)
 #endif
 #else
 #define ___GATE2_OPEN(ps,proc,label,point,fp) ((void)0)
