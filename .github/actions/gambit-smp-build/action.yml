@@ -17,7 +17,7 @@ runs:
       shell: bash
       run: |
         sudo apt-get update
-        sudo apt-get install -y gcc make texinfo autoconf automake pkg-config time
+        sudo apt-get install -y gcc-14 gcc make texinfo autoconf automake pkg-config time
     - name: Install build prerequisites (macOS)
       if: runner.os == 'macOS'
       shell: bash
@@ -44,7 +44,7 @@ runs:
           TIMEOUT_BIN="$(command -v timeout)"
           ACLOCAL_FLAGS=""
           PROCS="$(nproc)"
-          CC_SELECTED="${INPUT_CC:-$(command -v gcc)}"
+          CC_SELECTED="${INPUT_CC:-$(command -v gcc-14 || command -v gcc)}"
         fi
         test -n "${CC_SELECTED}"
         "${CC_SELECTED}" --version

@@ -19,3 +19,11 @@
 #include "config.h"
 #endif
 
+#if !defined(_WIN32) && !defined(__APPLE__) && \
+    !defined(_POSIX_C_SOURCE) && !defined(_GNU_SOURCE) && \
+    !defined(_DEFAULT_SOURCE) && !defined(_XOPEN_SOURCE)
+/* Under strict -std=c23 on glibc/POSIX hosts without config.h, expose POSIX
+ * declarations such as sigset_t before any standard C header is included. */
+#define _POSIX_C_SOURCE 200809L
+#endif
+

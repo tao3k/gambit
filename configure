@@ -15046,6 +15046,14 @@ rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
 CFLAGS=$gambit_saved_cflags
 FLAGS_OBJ_DYN="$FLAGS_OBJ_DYN $gambit_c23_flag"
 
+# Under strict -std=c23 on Linux/glibc, expose POSIX.1-2008 declarations
+# (such as sigset_t in <signal.h>) even when user/test C files include
+# standard headers before gambit.h without defining HAVE_CONFIG_H.
+case "$target_os" in
+  *linux*)
+    FLAGS_OBJ_DYN="$FLAGS_OBJ_DYN -D_POSIX_C_SOURCE=200809L" ;;
+esac
+
 # Compact diagnostic provenance does not remove semantic macro expansion.
 case "$target_os" in
   darwin*)

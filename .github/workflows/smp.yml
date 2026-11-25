@@ -52,7 +52,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install runtime compilation prerequisites
-        run: sudo apt-get update && sudo apt-get install -y gcc make time
+        run: sudo apt-get update && sudo apt-get install -y gcc-14 gcc make time
       - uses: actions/download-artifact@v4
         with:
           name: gambit-smp-linux-runtime-${{ github.run_id }}-${{ github.run_attempt }}
@@ -83,7 +83,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install runtime compilation prerequisites
-        run: sudo apt-get update && sudo apt-get install -y gcc make time
+        run: sudo apt-get update && sudo apt-get install -y gcc-14 gcc make time
       - uses: actions/download-artifact@v4
         with:
           name: gambit-smp-linux-runtime-${{ github.run_id }}-${{ github.run_attempt }}
