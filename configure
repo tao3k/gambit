@@ -871,6 +871,7 @@ FLAGS_EXE
 FLAGS_LIB
 FLAGS_DYN
 FLAGS_OBJ
+GAMBIT_MACRO_COMPACT_ACCEPTED
 DASH_b
 DASH_OPT_IEEE_NaN_inf_ON
 DASH_OPT_IEEE_comparisons_ON
@@ -6153,7 +6154,7 @@ if test ${enable_optimized_module_limit+y}
 then :
   enableval=$enable_optimized_module_limit; ENABLE_OPTIMIZED_MODULE_LIMIT=$enableval
 else case e in #(
-  e) ENABLE_OPTIMIZED_MODULE_LIMIT=20000 ;;
+  e) ENABLE_OPTIMIZED_MODULE_LIMIT=6000 ;;
 esac
 fi
 
@@ -7603,6 +7604,57 @@ printf '%s\n' "$ac_cv_OS_WIN32" >&6; }
 OS_WIN32="$ac_cv_OS_WIN32"
 
 
+
+# Persist completed observations when the caller selected a standard cache.
+# A later interrupted configure still has no completed configuration receipt.
+cat >confcache <<\_ACEOF
+# This file is a shell script that caches the results of configure
+# tests run on this system so they can be shared between configure
+# scripts and configure runs, see configure's option --config-cache.
+# It is not useful on other systems.  If it contains results you don't
+# want to keep, you may remove or edit it.
+#
+# config.status only pays attention to the cache file if you give it
+# the --recheck option to rerun configure.
+#
+# 'ac_cv_env_foo' variables (set or unset) will be overridden when
+# loading this file, other *unset* 'ac_cv_foo' will be assigned the
+# following values.
+
+_ACEOF
+
+ac_cache_dump |
+  sed '
+     /^ac_cv_env_/b end
+     t clear
+     :clear
+     s/^\([^=]*\)=\(.*[{}].*\)$/test ${\1+y} || &/
+     t end
+     s/^\([^=]*\)=\(.*\)$/\1=${\1=\2}/
+     :end' >>confcache
+if diff "$cache_file" confcache >/dev/null 2>&1; then :; else
+  if test -w "$cache_file"; then
+    if test "x$cache_file" != "x/dev/null"; then
+      { printf '%s\n' "$as_me:${as_lineno-$LINENO}: updating cache $cache_file" >&5
+printf '%s\n' "$as_me: updating cache $cache_file" >&6;}
+      if test ! -f "$cache_file" || test -h "$cache_file"; then
+	cat confcache >"$cache_file"
+      else
+        case $cache_file in #(
+        */* | ?:*)
+	  mv -f confcache "$cache_file"$$ &&
+	  mv -f "$cache_file"$$ "$cache_file" ;; #(
+        *)
+	  mv -f confcache "$cache_file" ;;
+	esac
+      fi
+    fi
+  else
+    { printf '%s\n' "$as_me:${as_lineno-$LINENO}: not updating unwritable cache $cache_file" >&5
+printf '%s\n' "$as_me: not updating unwritable cache $cache_file" >&6;}
+  fi
+fi
+rm -f confcache
 
 ALL_BUILD_FEATURES="unix windows gcc clang visualc cc"
 
@@ -10465,6 +10517,55 @@ fi
 ###############################################################################
 #
 # Determine which thread system to use.
+
+cat >confcache <<\_ACEOF
+# This file is a shell script that caches the results of configure
+# tests run on this system so they can be shared between configure
+# scripts and configure runs, see configure's option --config-cache.
+# It is not useful on other systems.  If it contains results you don't
+# want to keep, you may remove or edit it.
+#
+# config.status only pays attention to the cache file if you give it
+# the --recheck option to rerun configure.
+#
+# 'ac_cv_env_foo' variables (set or unset) will be overridden when
+# loading this file, other *unset* 'ac_cv_foo' will be assigned the
+# following values.
+
+_ACEOF
+
+ac_cache_dump |
+  sed '
+     /^ac_cv_env_/b end
+     t clear
+     :clear
+     s/^\([^=]*\)=\(.*[{}].*\)$/test ${\1+y} || &/
+     t end
+     s/^\([^=]*\)=\(.*\)$/\1=${\1=\2}/
+     :end' >>confcache
+if diff "$cache_file" confcache >/dev/null 2>&1; then :; else
+  if test -w "$cache_file"; then
+    if test "x$cache_file" != "x/dev/null"; then
+      { printf '%s\n' "$as_me:${as_lineno-$LINENO}: updating cache $cache_file" >&5
+printf '%s\n' "$as_me: updating cache $cache_file" >&6;}
+      if test ! -f "$cache_file" || test -h "$cache_file"; then
+	cat confcache >"$cache_file"
+      else
+        case $cache_file in #(
+        */* | ?:*)
+	  mv -f confcache "$cache_file"$$ &&
+	  mv -f "$cache_file"$$ "$cache_file" ;; #(
+        *)
+	  mv -f confcache "$cache_file" ;;
+	esac
+      fi
+    fi
+  else
+    { printf '%s\n' "$as_me:${as_lineno-$LINENO}: not updating unwritable cache $cache_file" >&5
+printf '%s\n' "$as_me: not updating unwritable cache $cache_file" >&6;}
+  fi
+fi
+rm -f confcache
 
 # Check for threading system early, in case this has an impact on
 # other functionality.
@@ -14907,6 +15008,98 @@ DASH_shared="$ac_cv_DASH_shared"
 fi
 fi
 
+# Modern C baseline: keep the existing configure/Make interface.
+if test "$ENABLE_CPLUSPLUS" = yes; then
+  as_fn_error $? "the modern C runtime requires a C23 compiler" "$LINENO" 5
+fi
+gambit_saved_cflags=$CFLAGS
+if test "$C_COMP_VISUALC" = yes; then
+  gambit_c23_flag="/std:clatest"
+else
+  gambit_c23_flag="-std=c23"
+fi
+CFLAGS="$CFLAGS $gambit_c23_flag"
+{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: checking for the modern C23 language contract" >&5
+printf %s "checking for the modern C23 language contract... " >&6; }
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+#if defined(_MSC_VER)
+#if !defined(__STDC_VERSION__) || __STDC_VERSION__ < 201710L
+#error A modern C compiler is required
+#endif
+#elif !defined(__STDC_VERSION__) || __STDC_VERSION__ < 202311L
+#error A C23 compiler is required
+#endif
+int main(void) { return 0; }
+
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"
+then :
+  { printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf '%s\n' "yes" >&6; }
+else case e in #(
+  e) as_fn_error $? "C23 is required" "$LINENO" 5 ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+CFLAGS=$gambit_saved_cflags
+FLAGS_OBJ_DYN="$FLAGS_OBJ_DYN $gambit_c23_flag"
+
+# Compact diagnostic provenance does not remove semantic macro expansion.
+case "$target_os" in
+  darwin*)
+    if test "$C_COMP_GNUC" = yes -a "$C_COMP_CLANG" != yes -a "$C_COMP_LLVM" != yes; then
+      { printf '%s\n' "$as_me:${as_lineno-$LINENO}: checking whether $C_COMPILER accepts -ftrack-macro-expansion=0" >&5
+printf %s "checking whether $C_COMPILER accepts -ftrack-macro-expansion=0... " >&6; }
+if test ${ac_cv_GAMBIT_MACRO_COMPACT_ACCEPTED+y}
+then :
+  printf %s "(cached) " >&6
+else case e in #(
+  e)
+rm -f conftest.$ac_ext
+cat >conftest.$ac_ext <<_ACEOF
+#line $LINENO "configure"
+int
+main ()
+{
+  return 0;
+}
+_ACEOF
+ac_test_CFLAGS=${CFLAGS+set}
+ac_test_CXXFLAGS=${CXXFLAGS+set}
+ac_save_CFLAGS=$CFLAGS
+ac_save_CXXFLAGS=$CXXFLAGS
+CFLAGS="-ftrack-macro-expansion=0 -Werror"
+CXXFLAGS="-ftrack-macro-expansion=0 -Werror"
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; then
+  ac_cv_GAMBIT_MACRO_COMPACT_ACCEPTED=" -ftrack-macro-expansion=0"
+else
+  ac_cv_GAMBIT_MACRO_COMPACT_ACCEPTED=""
+fi
+if test "$ac_test_CFLAGS" = set; then
+  CFLAGS=$ac_save_CFLAGS
+fi
+if test "$ac_test_CXXFLAGS" = set; then
+  CXXFLAGS=$ac_save_CXXFLAGS
+fi
+ ;;
+esac
+fi
+{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: $ac_cv_GAMBIT_MACRO_COMPACT_ACCEPTED" >&5
+printf '%s\n' "$ac_cv_GAMBIT_MACRO_COMPACT_ACCEPTED" >&6; }
+GAMBIT_MACRO_COMPACT_ACCEPTED="$ac_cv_GAMBIT_MACRO_COMPACT_ACCEPTED"
+
+
+      if test "$GAMBIT_MACRO_COMPACT_ACCEPTED" != ""; then
+        FLAGS_OBJ_DYN="$FLAGS_OBJ_DYN -ftrack-macro-expansion=0"
+      fi
+    fi ;;
+esac
 FLAGS_OBJ="$FLAGS_OBJ $FLAGS_OBJ_DYN $FLAGS_OBJ_DYN_LIB_EXE"
 FLAGS_DYN="$FLAGS_DYN $FLAGS_OBJ_DYN $FLAGS_OBJ_DYN_LIB_EXE $FLAGS_DYN_LIB"
 FLAGS_LIB="$FLAGS_LIB $FLAGS_OBJ_DYN_LIB_EXE $FLAGS_DYN_LIB"
@@ -14917,6 +15110,55 @@ DEFS_OBJ="$DEFS_OBJ_DYN_LIB_EXE $DEFS_OBJ"
 DEFS_DYN="$DEFS_OBJ_DYN_LIB_EXE $DEFS_DYN"
 DEFS_LIB="$DEFS_OBJ_DYN_LIB_EXE $DEFS_LIB"
 DEFS_EXE="$DEFS_OBJ_DYN_LIB_EXE $DEFS_EXE"
+
+cat >confcache <<\_ACEOF
+# This file is a shell script that caches the results of configure
+# tests run on this system so they can be shared between configure
+# scripts and configure runs, see configure's option --config-cache.
+# It is not useful on other systems.  If it contains results you don't
+# want to keep, you may remove or edit it.
+#
+# config.status only pays attention to the cache file if you give it
+# the --recheck option to rerun configure.
+#
+# 'ac_cv_env_foo' variables (set or unset) will be overridden when
+# loading this file, other *unset* 'ac_cv_foo' will be assigned the
+# following values.
+
+_ACEOF
+
+ac_cache_dump |
+  sed '
+     /^ac_cv_env_/b end
+     t clear
+     :clear
+     s/^\([^=]*\)=\(.*[{}].*\)$/test ${\1+y} || &/
+     t end
+     s/^\([^=]*\)=\(.*\)$/\1=${\1=\2}/
+     :end' >>confcache
+if diff "$cache_file" confcache >/dev/null 2>&1; then :; else
+  if test -w "$cache_file"; then
+    if test "x$cache_file" != "x/dev/null"; then
+      { printf '%s\n' "$as_me:${as_lineno-$LINENO}: updating cache $cache_file" >&5
+printf '%s\n' "$as_me: updating cache $cache_file" >&6;}
+      if test ! -f "$cache_file" || test -h "$cache_file"; then
+	cat confcache >"$cache_file"
+      else
+        case $cache_file in #(
+        */* | ?:*)
+	  mv -f confcache "$cache_file"$$ &&
+	  mv -f "$cache_file"$$ "$cache_file" ;; #(
+        *)
+	  mv -f confcache "$cache_file" ;;
+	esac
+      fi
+    fi
+  else
+    { printf '%s\n' "$as_me:${as_lineno-$LINENO}: not updating unwritable cache $cache_file" >&5
+printf '%s\n' "$as_me: not updating unwritable cache $cache_file" >&6;}
+  fi
+fi
+rm -f confcache
 
 ###############################################################################
 #
@@ -16185,7 +16427,7 @@ else
 
     LIB_PREFIX="lib"
     LIB_EXTENSION=".a"
-    MAKE_LIBRARY='$(AR) rc $(LIBRARY)$(LIB_VERSION_SUFFIX) $(LIBRARY_OBJECTS) && $(RANLIB) $(LIBRARY)$(LIB_VERSION_SUFFIX)'
+    MAKE_LIBRARY='$(WITNESS_ARCHIVE) $(AR) rc $(LIBRARY)$(LIB_VERSION_SUFFIX) $(LIBRARY_OBJECTS) && $(WITNESS_INDEX) $(RANLIB) $(LIBRARY)$(LIB_VERSION_SUFFIX)'
     MAKE_LIBRARY_FOR_INSTALL=':'
     FIXLIB='$(RANLIB)'
     LINK_FOR_INSTALL=':'
@@ -16801,6 +17043,12 @@ INSTALL_PROGRAM='$(rootfromhere)/install-sh -c -m 755'
 
 
 
+
+
+printf '%s\n' "#define ___RTLIB_COND_EXPAND_FEATURES \"$RTLIB_COND_EXPAND_FEATURES\"" >>confdefs.h
+
+
+printf '%s\n' "#define ___GSC_COMPILATION_OPTIONS \"$COMPILATION_OPTIONS\"" >>confdefs.h
 
 
 

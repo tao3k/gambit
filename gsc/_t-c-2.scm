@@ -23,14 +23,24 @@
 ;; Back end for C language (part 2)
 ;; -----------------------
 
+(define *targ-trace-emit* 'uninitialized)
+
+(define (targ-trace-emit-enabled?)
+  (if (eq? *targ-trace-emit* 'uninitialized)
+      (let ((v (##getenv "GAMBIT_GSC_TRACE_EMIT" #f)))
+        (set! *targ-trace-emit* (and (string? v) (> (string-length v) 0) (not (string=? v "0"))))))
+  *targ-trace-emit*)
+
 (define (targ-scan-procedure obj c-decls-queue)
   (let* ((proc (car obj))
          (p (cdr obj)))
 
-    (display ";; emit-proc ")
-    (write (string->canonical-symbol (proc-obj-name proc)))
-    (newline)
-    (force-output)
+    (if (targ-trace-emit-enabled?)
+      (begin
+        (display ";; emit-proc ")
+        (write (string->canonical-symbol (proc-obj-name proc)))
+        (newline)
+        (force-output)))
 
     (if targ-info-port
       (begin
@@ -115,10 +125,12 @@
     (if targ-info-port
       (newline targ-info-port))
 
-    (display ";; emit-proc-done ")
-    (write (string->canonical-symbol (proc-obj-name proc)))
-    (newline)
-    (force-output)
+    (if (targ-trace-emit-enabled?)
+      (begin
+        (display ";; emit-proc-done ")
+        (write (string->canonical-symbol (proc-obj-name proc)))
+        (newline)
+        (force-output)))
 
     ))
 
@@ -825,7 +837,7 @@
                                 (targ-spill-dirty-unboxed)
                                 (set! targ-demand-raw-spills? #t)
                                 (set! targ-label-reset-fr? #f)
-                                (targ-gen-label-return* pre 'return-internal)
+                                (targ-gen-label-return* pre 'return-demand)
                                 (set! targ-demand-raw-spills? #f)
                                 (set! targ-label-reset-fr? #t)
                                 (targ-reload-dirty-unboxed)
@@ -1304,11 +1316,13 @@
 
     (define (generate fs vars gc-map fallback)
       (let ((label-descr
-             (debug-info-add!
-              targ-debug-info-state
-              targ-proc-instr-node
-              vars
-              frame))
+             (if (eq? kind 'return-demand)
+                 (debug-info-skip! targ-debug-info-state)
+                 (debug-info-add!
+                  targ-debug-info-state
+                  targ-proc-instr-node
+                  vars
+                  frame)))
             (link
              (or (pos-in-list ret-var vars)
                  (and fallback (pos-in-list fallback vars)))))
@@ -1323,7 +1337,7 @@
                (targ-emit-label-return-task lbl fs link gc-map label-descr)
 ;;               (targ-repr-begin-block! 'task-return lbl)
 )
-              ((return-internal)
+              ((return-internal return-demand)
                (targ-emit-label-return-internal lbl fs link gc-map label-descr)
 ;;               (targ-repr-begin-block! 'return-internal lbl)
 )
@@ -1337,7 +1351,7 @@
             (pos-in-list ret-var (frame-slots frame))
             (pos-in-list ret-var (frame-regs frame))))))
 
-    (if (eq? kind 'return-internal)
+    (if (or (eq? kind 'return-internal) (eq? kind 'return-demand))
       (let* ((cfs
               targ-proc-fp)
              (cfs-after-alignment

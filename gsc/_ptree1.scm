@@ -1021,21 +1021,31 @@
     (or (= k 2)
         (and (even? k) (> k 2) (loop (quotient k 2))))))
 
+(define *mx-trace* 'uninitialized)
+
+(define (mx-trace-enabled?)
+  (if (eq? *mx-trace* 'uninitialized)
+      (let ((v (##getenv "GAMBIT_GSC_TRACE_MX" #f)))
+        (set! *mx-trace* (and (string? v) (> (string-length v) 0) (not (string=? v "0"))))))
+  *mx-trace*)
+
 (define (mx-note kind name shape)
-  (set! *mx-count* (+ *mx-count* 1))
-  (let ((key (list kind name shape)))
-    (if (equal? key *mx-last*)
-        (set! *mx-repeat* (+ *mx-repeat* 1))
-        (begin
-          (set! *mx-last* key)
-          (set! *mx-repeat* 1)))
-    (if (or (not (eq? name *mx-name*)) (mx-power2? *mx-repeat*))
-        (begin
-          (set! *mx-name* name)
-          (display "mx ")
-          (write (list *mx-count* *mx-repeat* kind name shape))
-          (newline)
-          (force-output)))))
+  (if (mx-trace-enabled?)
+      (begin
+        (set! *mx-count* (+ *mx-count* 1))
+        (let ((key (list kind name shape)))
+          (if (equal? key *mx-last*)
+              (set! *mx-repeat* (+ *mx-repeat* 1))
+              (begin
+                (set! *mx-last* key)
+                (set! *mx-repeat* 1)))
+          (if (or (not (eq? name *mx-name*)) (mx-power2? *mx-repeat*))
+              (begin
+                (set! *mx-name* name)
+                (display "mx ")
+                (write (list *mx-count* *mx-repeat* kind name shape))
+                (newline)
+                (force-output)))))))
 
 (define (macro-expand source env)
   (let ((code (source-code source)))

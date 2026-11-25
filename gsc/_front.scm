@@ -191,6 +191,16 @@
   (lambda (program)
     program))
 
+(define (front-trace-phase name)
+  (if (with-exception-catcher
+        (lambda (e) #f)
+        (lambda () (getenv "GAMBIT_GSC_TRACE_PHASES" #f)))
+      (begin
+        (display "phase ")
+        (display name)
+        (newline)
+        (force-output))))
+
 (define (compile-frontend-aux
          input
          opts
@@ -214,8 +224,7 @@
               (string-append root (caar target.file-extensions))))
          (v1
           (begin
-            (display "phase read-source\n")
-            (force-output)
+            (front-trace-phase "read-source")
             (if (source? input)
                 (vector #f (sourcify-deep input input))
                 (read-source input #f #t))))
@@ -223,8 +232,7 @@
          (expr (vector-ref v1 1))
          (program
           (begin
-            (display "phase expand\n")
-            (force-output)
+            (front-trace-phase "expand")
             (expand-source (wrap-program expr))))
          (module-ref
           (cond ((assq 'module-ref opts) => cadr)
@@ -240,8 +248,7 @@
               (**compilation-meta-info-add! 'script-line script-line))
           (**compilation-module-ref-set! module-ref)
           (begin
-            (display "phase parse\n")
-            (force-output)
+            (front-trace-phase "parse")
             (parse-program
              program
              (make-global-environment)
@@ -259,8 +266,7 @@
               (c-intf (vector-ref v2 2))
               (parsed-program
                (begin
-                 (display "phase normalize\n")
-                 (force-output)
+                 (front-trace-phase "normalize")
                  (normalize-program lst))))
 
          (let* ((externals (env-externals-ref env))

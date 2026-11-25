@@ -2337,8 +2337,13 @@ do { \
 #define ___TICKETLOCK_LOCK2(next,current) \
 do { \
   ___WORD ___ticket = ___WORD_FETCH_ADD_RELAXED(___CAST(___VOLATILE ___WORD*,&next),___FIX(1)); \
-  while (___WORD_LOAD_ACQUIRE(___CAST(___VOLATILE ___WORD*,&current)) != ___ticket) \
-    ___CPU_RELAX(); \
+  ___WORD ___cur; \
+  while ((___cur = ___WORD_LOAD_ACQUIRE(___CAST(___VOLATILE ___WORD*,&current))) != ___ticket) \
+    { \
+      ___UWORD ___wait = (___CAST(___UWORD,___ticket) - ___CAST(___UWORD,___cur)) >> ___TB; \
+      if (___wait > 16) ___wait = 16; \
+      do { ___CPU_RELAX(); } while (--___wait > 0); \
+    } \
 } while (0)
 
 #define ___TICKETLOCK_TRYLOCK2(next,current,temp) \

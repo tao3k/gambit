@@ -522,7 +522,7 @@ ___virtual_machine_state ___vms;)
 #define SYNC_INIT_MSG(var) ((var) = SYNC_WAITING) /* exclusive construction */
 #define SYNC_ACK_MSG(var) ___WORD_STORE_RELEASE(&(var),SYNC_WAITING)
 
-#define SYNC_GET_MSG_SPIN_TIMEOUT 2000
+#define SYNC_GET_MSG_SPIN_TIMEOUT 1500
 
 #define SYNC_GET_MSG(expr) \
 do { \
@@ -535,8 +535,11 @@ do { \
            { \
              loops_left = SYNC_GET_MSG_SPIN_TIMEOUT; \
              ___MUTEX_LOCK(___ps->sync_mut); \
+             ___WORD_STORE_RELEASE(&___ps->sync_waiters, 1); \
+             ___SHARED_MEMORY_BARRIER(); \
              if ((expr) == SYNC_WAITING) \
                ___sync_wait (___ps); \
+             ___WORD_STORE_RELEASE(&___ps->sync_waiters, 0); \
              ___MUTEX_UNLOCK(___ps->sync_mut); \
            } \
        } \
@@ -544,10 +547,14 @@ do { \
 
 #define SYNC_SEND_MSG(ps,field,val) \
 do { \
-     ___MUTEX_LOCK(ps->sync_mut); \
      ___WORD_STORE_RELEASE(&ps->field,val); \
-     ___MUTEX_UNLOCK(ps->sync_mut); \
-     ___CONDVAR_SIGNAL(ps->sync_cv); \
+     ___SHARED_MEMORY_BARRIER(); \
+     if (___WORD_LOAD_ACQUIRE(&ps->sync_waiters) != 0) \
+       { \
+         ___MUTEX_LOCK(ps->sync_mut); \
+         ___MUTEX_UNLOCK(ps->sync_mut); \
+         ___CONDVAR_SIGNAL(ps->sync_cv); \
+       } \
    } while (0)
 
 
@@ -5144,6 +5151,7 @@ ___processor_state ___ps;)
   SYNC_INIT_MSG(___ps->sync_id0);
   SYNC_INIT_MSG(___ps->sync_id1);
   SYNC_INIT_MSG(___ps->sync_id2);
+  ___WORD_STORE_RELEASE(&___ps->sync_waiters, 0);
 
   return ___FIX(___NO_ERR);
 }

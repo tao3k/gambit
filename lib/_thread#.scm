@@ -1658,33 +1658,37 @@
      ;; acquire low-level lock of mutex
      (macro-lock-mutex! mutex)
 
-     ;; acquire low-level lock of thread
-     (macro-lock-thread! new-owner)
-
      (let ((owner (macro-btq-owner mutex)))
-       (if (and (##eq? owner (macro-mutex-state-not-abandoned))
-                (##not (macro-terminated-thread-given-initialized? new-owner)))
+       (if (##eq? owner (macro-mutex-state-not-abandoned))
            (begin
+             ;; acquire low-level lock of thread only on unlocked fast path
+             (macro-lock-thread! new-owner)
+             (if (##not (macro-terminated-thread-given-initialized? new-owner))
+                 (begin
 
-             ;; Fast path... the mutex's state is unlocked/not-abandoned.
+                   ;; Fast path... the mutex's state is unlocked/not-abandoned.
 
-             ;; thread becomes the mutex's owner
-             (macro-btq-link! mutex new-owner)
+                   ;; thread becomes the mutex's owner
+                   (macro-btq-link! mutex new-owner)
 
-             ;; release low-level lock of thread
-             (macro-unlock-thread! new-owner)
+                   ;; release low-level lock of thread
+                   (macro-unlock-thread! new-owner)
 
-             ;; release low-level lock of mutex
-             (macro-unlock-mutex! mutex)
+                   ;; release low-level lock of mutex
+                   (macro-unlock-mutex! mutex)
 
-             #t) ;; signal success
+                   #t) ;; signal success
+
+                 (begin
+                   (macro-unlock-thread! new-owner)
+                   (##mutex-lock-unlocked-owner-out-of-line! mutex absrel-timeout new-owner))))
 
            (begin
 
              ;; Slow path... the mutex's state is not unlocked/not-abandoned.
 
-             ;; handle this case out of line
-             (##mutex-lock-out-of-line! mutex absrel-timeout new-owner))))))
+             ;; handle this case out of line without locking new-owner
+             (##mutex-lock-unlocked-owner-out-of-line! mutex absrel-timeout new-owner))))))
 
 (##define-macro (macro-mutex-lock-anonymously! mutex absrel-timeout)
   `(let ((mutex ,mutex) (absrel-timeout ,absrel-timeout))

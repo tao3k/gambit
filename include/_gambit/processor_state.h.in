@@ -123,6 +123,7 @@ typedef struct ___processor_state_struct
     ___sync_op_struct sync_op2;
     ___MUTEX_DECL(sync_mut)
     ___CONDVAR_DECL(sync_cv)
+    ___WORD sync_waiters; /* atomic waiter flag for fast-path barrier send */
 
 #endif
 

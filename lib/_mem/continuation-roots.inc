@@ -243,16 +243,83 @@ ___HIDDEN ___msection *lock_source_stack_frame
  (___processor_state ___ps, ___WORD *top, ___SIZE_TS *half_words,
   ___WORD *ra, ___frame_descriptor *frame, ___WORD **known_break)
 {
-  ___msection *section;
+  ___msection *section = 0;
   const section_claim *claim;
+  ___UWORD address = ___CAST(___UWORD,top);
+  ___SIZE_TS off = tospace_offset;
+  ___UWORD half_bytes = ___CAST(___UWORD,___MSECTION_SIZE>>1)*___WS;
+  ___UWORD cur_epoch = ___COLLECTION(___VMSTATE_FROM_PSTATE(___ps)).epoch;
 
-  ALLOC_MEM_LOCK();
-  section=resolve_source_half(the_msections,top,tospace_offset,half_words);
-  if (section) ___gc_copy_acquire(&section->copy_gate);
-  ALLOC_MEM_UNLOCK();
-  if (!section) return 0;
+  if (top && (address & (___WS-1)) == 0 && (off == 0 || off == (___MSECTION_SIZE>>1)))
+    {
+      /* Fast path 1: carrier's own active stack_msection (cannot be freed
+       * while this nonpolling mutator is executing). */
+      ___msection *own = stack_msection;
+      if (own)
+        {
+          ___UWORD first = ___CAST(___UWORD,own->base + off);
+          if ((first & (___WS-1)) == 0 && address >= first && address - first < half_bytes)
+            {
+              section = own;
+              *half_words = (half_bytes - (address - first)) / ___WS;
+              ___gc_copy_acquire(&section->copy_gate);
+            }
+        }
 
-  claim=section_claim_at(section,tospace_offset);
+      /* Fast path 2: processor-private epoch-validated section cache.
+       * adjust_msections never shrinks or frees sections outside STW GC,
+       * and STW GC increments epoch while all mutators are stopped. */
+      if (!section && ___ps->mem.src_stack_cache_epoch_ == cur_epoch &&
+          ___ps->mem.src_stack_cache_offset_ == off)
+        {
+          int ci;
+          for (ci = 0; ci < 4; ci++)
+            {
+              ___msection *cand = ___ps->mem.src_stack_cache_sec_[ci];
+              if (cand)
+                {
+                  ___UWORD first = ___ps->mem.src_stack_cache_base_[ci];
+                  if (address >= first && address - first < half_bytes)
+                    {
+                      section = cand;
+                      *half_words = (half_bytes - (address - first)) / ___WS;
+                      ___gc_copy_acquire(&section->copy_gate);
+                      break;
+                    }
+                }
+            }
+        }
+    }
+
+  if (!section)
+    {
+      ALLOC_MEM_LOCK();
+      section=resolve_source_half(the_msections,top,off,half_words);
+      if (section) ___gc_copy_acquire(&section->copy_gate);
+      ALLOC_MEM_UNLOCK();
+      if (!section) return 0;
+
+      if (___ps->mem.src_stack_cache_epoch_ != cur_epoch ||
+          ___ps->mem.src_stack_cache_offset_ != off)
+        {
+          ___ps->mem.src_stack_cache_sec_[0] = 0;
+          ___ps->mem.src_stack_cache_sec_[1] = 0;
+          ___ps->mem.src_stack_cache_sec_[2] = 0;
+          ___ps->mem.src_stack_cache_sec_[3] = 0;
+          ___ps->mem.src_stack_cache_epoch_ = cur_epoch;
+          ___ps->mem.src_stack_cache_offset_ = off;
+          ___ps->mem.src_stack_cache_next_ = 0;
+        }
+      if (section != stack_msection)
+        {
+          int slot = ___ps->mem.src_stack_cache_next_ & 3;
+          ___ps->mem.src_stack_cache_sec_[slot] = section;
+          ___ps->mem.src_stack_cache_base_[slot] = ___CAST(___UWORD,section->base + off);
+          ___ps->mem.src_stack_cache_next_ = (slot + 1) & 3;
+        }
+    }
+
+  claim=section_claim_at(section,off);
   if (!source_claim_is_live(claim) ||
       !read_admitted_stack_frame(claim,top,*half_words,0,ra,0,frame,known_break))
     {

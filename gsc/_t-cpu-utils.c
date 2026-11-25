@@ -47,8 +47,7 @@
 #define ___SUPCOUNT 7
 #define ___SUBCOUNT 3
 #define ___HOST_LAYOUT ___HOST_LAYOUT_PROCEDURES
-#define ___SHARED_PROCEDURE_DISPATCH 1
-#define ___LBLCOUNT 24
+#define ___LBLCOUNT 28
 #define ___MODDESCR ___REF_SUB(0)
 #include "gambit.h"
 
@@ -141,7 +140,7 @@ ___END_SUB
 
 
 #undef ___MD_ALL
-#define ___MD_ALL ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
+#define ___MD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
 #undef ___MR_ALL
 #define ___MR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
 #undef ___MW_ALL
@@ -157,6 +156,7 @@ ___DEF_M_HLBL(___L0_c_23_safe_2d_cdr)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0_c_23_flip)
 ___DEF_M_HLBL(___L1_c_23_flip)
+___DEF_M_HLBL(___L2_c_23_flip)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0_c_23_in_2d_range_3f_)
 ___DEF_M_HLBL_INTRO
@@ -165,6 +165,7 @@ ___DEF_M_HLBL(___L1_c_23_count)
 ___DEF_M_HLBL(___L2_c_23_count)
 ___DEF_M_HLBL(___L3_c_23_count)
 ___DEF_M_HLBL(___L4_c_23_count)
+___DEF_M_HLBL(___L5_c_23_count)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0_c_23_filter)
 ___DEF_M_HLBL(___L1_c_23_filter)
@@ -172,6 +173,8 @@ ___DEF_M_HLBL(___L2_c_23_filter)
 ___DEF_M_HLBL(___L3_c_23_filter)
 ___DEF_M_HLBL(___L4_c_23_filter)
 ___DEF_M_HLBL(___L5_c_23_filter)
+___DEF_M_HLBL(___L6_c_23_filter)
+___DEF_M_HLBL(___L7_c_23_filter)
 ___END_M_HLBL
 
 ___BEGIN_M_SW
@@ -181,7 +184,7 @@ ___BEGIN_M_SW
 #undef ___PH_LBL0
 #define ___PH_LBL0 1
 #undef ___PD_ALL
-#define ___PD_ALL ___D_R0 ___D_R1
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_R0 ___D_R1
 #undef ___PR_ALL
 #define ___PR_ALL ___R_R0 ___R_R1
 #undef ___PW_ALL
@@ -206,7 +209,7 @@ ___END_P_COD
 #undef ___PH_LBL0
 #define ___PH_LBL0 3
 #undef ___PD_ALL
-#define ___PD_ALL ___D_R0 ___D_R1
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_R0 ___D_R1
 #undef ___PR_ALL
 #define ___PR_ALL ___R_R0 ___R_R1
 #undef ___PW_ALL
@@ -237,7 +240,7 @@ ___END_P_COD
 #undef ___PH_LBL0
 #define ___PH_LBL0 5
 #undef ___PD_ALL
-#define ___PD_ALL ___D_R0 ___D_R1
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_R0 ___D_R1
 #undef ___PR_ALL
 #define ___PR_ALL ___R_R0 ___R_R1
 #undef ___PW_ALL
@@ -268,16 +271,17 @@ ___END_P_COD
 #undef ___PH_LBL0
 #define ___PH_LBL0 7
 #undef ___PD_ALL
-#define ___PD_ALL ___D_HEAP ___D_R0 ___D_R1 ___D_R2
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2
 #undef ___PR_ALL
-#define ___PR_ALL ___R_HEAP ___R_R0 ___R_R1 ___R_R2
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2
 #undef ___PW_ALL
-#define ___PW_ALL ___W_HEAP ___W_R1 ___W_R2
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R1 ___W_R2
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(2)
+___BEGIN_P_HLBL_AT(3)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0_c_23_flip)
 ___DEF_P_HLBL(___L1_c_23_flip)
+___DEF_P_HLBL(___L2_c_23_flip)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0_c_23_flip)
@@ -286,9 +290,14 @@ ___DEF_SLBL(0,___L0_c_23_flip)
 ___DEF_GLBL(___L_c_23_flip)
    ___SET_R2(___CAR(___R1))
    ___SET_R1(___CDR(___R1))
-   ___SET_R1(___CONS(___R1,___R2))
-   ___CHECK_HEAP(1,4096)
+___GATE2_OPEN(___ps,"c#flip",1,___LBL(1),___fp);
 ___DEF_SLBL(1,___L1_c_23_flip)
+___GATE2_ENTER(___ps,"c#flip",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,0,4,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_R1(___CONS(___R1,___R2))
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___CHECK_HEAP(2,4096)
+___DEF_SLBL(2,___L2_c_23_flip)
    ___JUMPRET(___R0)
 ___END_P_SW
 ___END_P_COD
@@ -296,9 +305,9 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H_c_23_in_2d_range_3f_
 #undef ___PH_LBL0
-#define ___PH_LBL0 10
+#define ___PH_LBL0 11
 #undef ___PD_ALL
-#define ___PD_ALL ___D_R0 ___D_R1 ___D_R2 ___D_R3
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_R0 ___D_R1 ___D_R2 ___D_R3
 #undef ___PR_ALL
 #define ___PR_ALL ___R_R0 ___R_R1 ___R_R2 ___R_R3
 #undef ___PW_ALL
@@ -327,21 +336,22 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H_c_23_count
 #undef ___PH_LBL0
-#define ___PH_LBL0 12
+#define ___PH_LBL0 13
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(5)
+___BEGIN_P_HLBL_AT(6)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0_c_23_count)
 ___DEF_P_HLBL(___L1_c_23_count)
 ___DEF_P_HLBL(___L2_c_23_count)
 ___DEF_P_HLBL(___L3_c_23_count)
 ___DEF_P_HLBL(___L4_c_23_count)
+___DEF_P_HLBL(___L5_c_23_count)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0_c_23_count)
@@ -350,12 +360,12 @@ ___DEF_SLBL(0,___L0_c_23_count)
    ___WRONG_NARGS(0,2,1,0)
 ___DEF_GLBL(___L_c_23_count)
    ___IF(___EQP(___R3,___ABSENT))
-   ___GOTO(___L5_c_23_count)
+   ___GOTO(___L6_c_23_count)
    ___END_IF
-   ___GOTO(___L8_c_23_count)
+   ___GOTO(___L9_c_23_count)
 ___DEF_SLBL(1,___L1_c_23_count)
    ___IF(___NOTFALSEP(___R1))
-   ___GOTO(___L7_c_23_count)
+   ___GOTO(___L8_c_23_count)
    ___END_IF
    ___SET_R3(___STK(-4))
    ___SET_R2(___CDR(___STK(-5)))
@@ -365,41 +375,50 @@ ___DEF_SLBL(1,___L1_c_23_count)
    ___POLL(2)
 ___DEF_SLBL(2,___L2_c_23_count)
    ___IF(___NOT(___EQP(___R3,___ABSENT)))
-   ___GOTO(___L8_c_23_count)
-   ___END_IF
-___DEF_GLBL(___L5_c_23_count)
-   ___SET_R3(___PRM_equal_3f_)
-   ___IF(___NULLP(___R2))
    ___GOTO(___L9_c_23_count)
    ___END_IF
 ___DEF_GLBL(___L6_c_23_count)
-   ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
-   ___SET_STK(3,___R2)
-   ___SET_STK(4,___R3)
-   ___SET_R2(___CAR(___R2))
-   ___ADJFP(8)
-   ___POLL(3)
+   ___SET_R3(___PRM_equal_3f_)
+   ___IF(___NULLP(___R2))
+   ___GOTO(___L10_c_23_count)
+   ___END_IF
+___DEF_GLBL(___L7_c_23_count)
+___GATE2_OPEN(___ps,"c#count",3,___LBL(3),___fp);
 ___DEF_SLBL(3,___L3_c_23_count)
+___GATE2_ENTER(___ps,"c#count",3,___LBL(3),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,8,0,___LBL(3),&___demand_attempt)){___ps->temp1=___LBL(3);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R0)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_STK(1,___R3)
+   ___ADJFP(1)
+   ___SET_R2(___CAR(___R2))
+   ___ADJFP(4)
+___group_demand_commit(___ps,___LBL(3),___demand_attempt);
+   ___POLL(4)
+___DEF_SLBL(4,___L4_c_23_count)
    ___SET_R0(___LBL(1))
    ___JUMPGENNOTSAFE(___SET_NARGS(2),___R3)
-___DEF_GLBL(___L7_c_23_count)
+___DEF_GLBL(___L8_c_23_count)
    ___SET_R3(___STK(-4))
    ___SET_R2(___CDR(___STK(-5)))
    ___SET_R1(___STK(-6))
-   ___SET_R0(___LBL(4))
+   ___SET_R0(___LBL(5))
    ___ADJFP(-4)
    ___IF(___EQP(___R3,___ABSENT))
-   ___GOTO(___L5_c_23_count)
-   ___END_IF
-___DEF_GLBL(___L8_c_23_count)
-   ___IF(___NOT(___NULLP(___R2)))
    ___GOTO(___L6_c_23_count)
    ___END_IF
 ___DEF_GLBL(___L9_c_23_count)
+   ___IF(___NOT(___NULLP(___R2)))
+   ___GOTO(___L7_c_23_count)
+   ___END_IF
+___DEF_GLBL(___L10_c_23_count)
    ___SET_R1(___FIX(0L))
    ___JUMPRET(___R0)
-___DEF_SLBL(4,___L4_c_23_count)
+___DEF_SLBL(5,___L5_c_23_count)
    ___SET_R1(___FIXADD(___FIX(1L),___R1))
    ___ADJFP(-4)
    ___JUMPRET(___STK(1))
@@ -409,15 +428,15 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H_c_23_filter
 #undef ___PH_LBL0
-#define ___PH_LBL0 18
+#define ___PH_LBL0 20
 #undef ___PD_ALL
-#define ___PD_ALL ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R4
 #undef ___PR_ALL
 #define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R4
 #undef ___PW_ALL
 #define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(6)
+___BEGIN_P_HLBL_AT(8)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0_c_23_filter)
 ___DEF_P_HLBL(___L1_c_23_filter)
@@ -425,6 +444,8 @@ ___DEF_P_HLBL(___L2_c_23_filter)
 ___DEF_P_HLBL(___L3_c_23_filter)
 ___DEF_P_HLBL(___L4_c_23_filter)
 ___DEF_P_HLBL(___L5_c_23_filter)
+___DEF_P_HLBL(___L6_c_23_filter)
+___DEF_P_HLBL(___L7_c_23_filter)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0_c_23_filter)
@@ -432,12 +453,12 @@ ___DEF_SLBL(0,___L0_c_23_filter)
    ___WRONG_NARGS(0,2,0,0)
 ___DEF_GLBL(___L_c_23_filter)
    ___IF(___NULLP(___R2))
-   ___GOTO(___L8_c_23_filter)
+   ___GOTO(___L10_c_23_filter)
    ___END_IF
-   ___GOTO(___L6_c_23_filter)
+   ___GOTO(___L8_c_23_filter)
 ___DEF_SLBL(1,___L1_c_23_filter)
    ___IF(___NOTFALSEP(___R1))
-   ___GOTO(___L7_c_23_filter)
+   ___GOTO(___L9_c_23_filter)
    ___END_IF
    ___SET_R2(___CDR(___STK(-5)))
    ___SET_R1(___STK(-6))
@@ -446,34 +467,47 @@ ___DEF_SLBL(1,___L1_c_23_filter)
    ___POLL(2)
 ___DEF_SLBL(2,___L2_c_23_filter)
    ___IF(___NULLP(___R2))
-   ___GOTO(___L8_c_23_filter)
-   ___END_IF
-___DEF_GLBL(___L6_c_23_filter)
-   ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
-   ___SET_STK(3,___R2)
-   ___SET_R1(___CAR(___R2))
-   ___ADJFP(8)
-   ___POLL(3)
-___DEF_SLBL(3,___L3_c_23_filter)
-   ___SET_R0(___LBL(1))
-   ___JUMPGENNOTSAFE(___SET_NARGS(1),___STK(-6))
-___DEF_GLBL(___L7_c_23_filter)
-   ___SET_R2(___CDR(___STK(-5)))
-   ___SET_R1(___STK(-6))
-   ___SET_R0(___LBL(4))
-   ___IF(___NOT(___NULLP(___R2)))
-   ___GOTO(___L6_c_23_filter)
+   ___GOTO(___L10_c_23_filter)
    ___END_IF
 ___DEF_GLBL(___L8_c_23_filter)
+___GATE2_OPEN(___ps,"c#filter",3,___LBL(3),___fp);
+___DEF_SLBL(3,___L3_c_23_filter)
+___GATE2_ENTER(___ps,"c#filter",3,___LBL(3),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,8,0,___LBL(3),&___demand_attempt)){___ps->temp1=___LBL(3);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R0)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_R1(___CAR(___R2))
+   ___ADJFP(5)
+___group_demand_commit(___ps,___LBL(3),___demand_attempt);
+   ___POLL(4)
+___DEF_SLBL(4,___L4_c_23_filter)
+   ___SET_R0(___LBL(1))
+   ___JUMPGENNOTSAFE(___SET_NARGS(1),___STK(-6))
+___DEF_GLBL(___L9_c_23_filter)
+   ___SET_R2(___CDR(___STK(-5)))
+   ___SET_R1(___STK(-6))
+   ___SET_R0(___LBL(5))
+   ___IF(___NOT(___NULLP(___R2)))
+   ___GOTO(___L8_c_23_filter)
+   ___END_IF
+___DEF_GLBL(___L10_c_23_filter)
    ___SET_R1(___NUL)
    ___JUMPRET(___R0)
-___DEF_SLBL(4,___L4_c_23_filter)
+___DEF_SLBL(5,___L5_c_23_filter)
    ___SET_R2(___CAR(___STK(-5)))
+___GATE2_OPEN(___ps,"c#filter",6,___LBL(6),___fp);
+___DEF_SLBL(6,___L6_c_23_filter)
+___GATE2_ENTER(___ps,"c#filter",6,___LBL(6),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,0,4,___LBL(6),&___demand_attempt)){___ps->temp1=___LBL(6);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_R1(___CONS(___R2,___R1))
    ___ADJFP(-7)
-   ___CHECK_HEAP(5,4096)
-___DEF_SLBL(5,___L5_c_23_filter)
+___group_demand_commit(___ps,___LBL(6),___demand_attempt);
+   ___CHECK_HEAP(7,4096)
+___DEF_SLBL(7,___L7_c_23_filter)
    ___ADJFP(-1)
    ___JUMPRET(___STK(1))
 ___END_P_SW
@@ -489,24 +523,28 @@ ___BEGIN_LBL
 ,___DEF_LBL_PROC_AT(___H_c_23_safe_2d_car,1,-1,1)
 ,___DEF_LBL_INTRO(___H_c_23_safe_2d_cdr,___REF_SYM(7,___S_c_23_safe_2d_cdr),___REF_FAL,1,0)
 ,___DEF_LBL_PROC_AT(___H_c_23_safe_2d_cdr,1,-1,1)
-,___DEF_LBL_INTRO(___H_c_23_flip,___REF_SYM(4,___S_c_23_flip),___REF_FAL,2,0)
+,___DEF_LBL_INTRO(___H_c_23_flip,___REF_SYM(4,___S_c_23_flip),___REF_FAL,3,0)
 ,___DEF_LBL_PROC_AT(___H_c_23_flip,1,-1,1)
 ,___DEF_LBL_RET_AT(___H_c_23_flip,___IFD(___RETI,0,0,0x3fL),2)
+,___DEF_LBL_RET_AT(___H_c_23_flip,___IFD(___RETI,0,0,0x3fL),3)
 ,___DEF_LBL_INTRO(___H_c_23_in_2d_range_3f_,___REF_SYM(5,___S_c_23_in_2d_range_3f_),___REF_FAL,1,0)
 ,___DEF_LBL_PROC_AT(___H_c_23_in_2d_range_3f_,3,-1,1)
-,___DEF_LBL_INTRO(___H_c_23_count,___REF_SYM(2,___S_c_23_count),___REF_FAL,5,0)
+,___DEF_LBL_INTRO(___H_c_23_count,___REF_SYM(2,___S_c_23_count),___REF_FAL,6,0)
 ,___DEF_LBL_PROC_AT(___H_c_23_count,3,-1,1)
 ,___DEF_LBL_RET_AT(___H_c_23_count,___IFD(___RETN,5,0,0xfL),2)
 ,___DEF_LBL_RET_AT(___H_c_23_count,___IFD(___RETI,0,0,0x3fL),3)
-,___DEF_LBL_RET_AT(___H_c_23_count,___IFD(___RETI,8,0,0x3f0fL),4)
-,___DEF_LBL_RET_AT(___H_c_23_count,___IFD(___RETN,1,0,0x1L),5)
-,___DEF_LBL_INTRO(___H_c_23_filter,___REF_SYM(3,___S_c_23_filter),___REF_FAL,6,0)
+,___DEF_LBL_RET_AT(___H_c_23_count,___IFD(___RETI,0,0,0x3fL),4)
+,___DEF_LBL_RET_AT(___H_c_23_count,___IFD(___RETI,8,0,0x3f0fL),5)
+,___DEF_LBL_RET_AT(___H_c_23_count,___IFD(___RETN,1,0,0x1L),6)
+,___DEF_LBL_INTRO(___H_c_23_filter,___REF_SYM(3,___S_c_23_filter),___REF_FAL,8,0)
 ,___DEF_LBL_PROC_AT(___H_c_23_filter,2,-1,1)
 ,___DEF_LBL_RET_AT(___H_c_23_filter,___IFD(___RETN,5,0,0x7L),2)
 ,___DEF_LBL_RET_AT(___H_c_23_filter,___IFD(___RETI,0,0,0x3fL),3)
-,___DEF_LBL_RET_AT(___H_c_23_filter,___IFD(___RETI,8,0,0x3f07L),4)
-,___DEF_LBL_RET_AT(___H_c_23_filter,___IFD(___RETN,5,0,0x5L),5)
-,___DEF_LBL_RET_AT(___H_c_23_filter,___IFD(___RETI,1,0,0x3f1L),6)
+,___DEF_LBL_RET_AT(___H_c_23_filter,___IFD(___RETI,0,0,0x3fL),4)
+,___DEF_LBL_RET_AT(___H_c_23_filter,___IFD(___RETI,8,0,0x3f07L),5)
+,___DEF_LBL_RET_AT(___H_c_23_filter,___IFD(___RETN,5,0,0x5L),6)
+,___DEF_LBL_RET_AT(___H_c_23_filter,___IFD(___RETI,8,0,0x3f01L),7)
+,___DEF_LBL_RET_AT(___H_c_23_filter,___IFD(___RETI,1,0,0x3f1L),8)
 ___END_LBL
 
 ___BEGIN_MOD_PRM
@@ -514,9 +552,9 @@ ___DEF_MOD_PRM(0,___G___t_2d_cpu_2d_utils_23_,1)
 ___DEF_MOD_PRM(5,___G_c_23_safe_2d_car,3)
 ___DEF_MOD_PRM(6,___G_c_23_safe_2d_cdr,5)
 ___DEF_MOD_PRM(3,___G_c_23_flip,7)
-___DEF_MOD_PRM(4,___G_c_23_in_2d_range_3f_,10)
-___DEF_MOD_PRM(1,___G_c_23_count,12)
-___DEF_MOD_PRM(2,___G_c_23_filter,18)
+___DEF_MOD_PRM(4,___G_c_23_in_2d_range_3f_,11)
+___DEF_MOD_PRM(1,___G_c_23_count,13)
+___DEF_MOD_PRM(2,___G_c_23_filter,20)
 ___END_MOD_PRM
 
 ___BEGIN_MOD_C_INIT
@@ -527,9 +565,9 @@ ___DEF_MOD_GLO(0,___G___t_2d_cpu_2d_utils_23_,1)
 ___DEF_MOD_GLO(5,___G_c_23_safe_2d_car,3)
 ___DEF_MOD_GLO(6,___G_c_23_safe_2d_cdr,5)
 ___DEF_MOD_GLO(3,___G_c_23_flip,7)
-___DEF_MOD_GLO(4,___G_c_23_in_2d_range_3f_,10)
-___DEF_MOD_GLO(1,___G_c_23_count,12)
-___DEF_MOD_GLO(2,___G_c_23_filter,18)
+___DEF_MOD_GLO(4,___G_c_23_in_2d_range_3f_,11)
+___DEF_MOD_GLO(1,___G_c_23_count,13)
+___DEF_MOD_GLO(2,___G_c_23_filter,20)
 ___END_MOD_GLO
 
 ___BEGIN_MOD_SYM_KEY

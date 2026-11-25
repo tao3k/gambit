@@ -287,6 +287,18 @@ ___processor_state ___ps;)
   alloc_heap_start = 0;
   alloc_heap_ptr = 0;
 
+  ___ps->mem.src_stack_cache_sec_[0] = 0;
+  ___ps->mem.src_stack_cache_sec_[1] = 0;
+  ___ps->mem.src_stack_cache_sec_[2] = 0;
+  ___ps->mem.src_stack_cache_sec_[3] = 0;
+  ___ps->mem.src_stack_cache_base_[0] = 0;
+  ___ps->mem.src_stack_cache_base_[1] = 0;
+  ___ps->mem.src_stack_cache_base_[2] = 0;
+  ___ps->mem.src_stack_cache_base_[3] = 0;
+  ___ps->mem.src_stack_cache_epoch_ = ~___CAST(___UWORD,0);
+  ___ps->mem.src_stack_cache_offset_ = 0;
+  ___ps->mem.src_stack_cache_next_ = 0;
+
 #ifndef ___SINGLE_THREADED_VMS
   if (___PROCESSOR_ID(___ps,___vms)>0 && ___vms->lifecycle != 0 &&
       ___vms->lifecycle->resize_phase==___RESIZE_PREPARING)

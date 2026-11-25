@@ -34,7 +34,6 @@
 #define ___SUPCOUNT 1
 #define ___SUBCOUNT 3
 #define ___HOST_LAYOUT ___HOST_LAYOUT_PROCEDURES
-#define ___SHARED_PROCEDURE_DISPATCH 1
 #define ___LBLCOUNT 2
 #define ___MODDESCR ___REF_SUB(0)
 #include "gambit.h"
@@ -82,7 +81,7 @@ ___END_SUB
 
 
 #undef ___MD_ALL
-#define ___MD_ALL ___D_R0 ___D_R1
+#define ___MD_ALL ___WORD ___demand_attempt=0; ___D_R0 ___D_R1
 #undef ___MR_ALL
 #define ___MR_ALL ___R_R0 ___R_R1
 #undef ___MW_ALL
@@ -100,7 +99,7 @@ ___BEGIN_M_SW
 #undef ___PH_LBL0
 #define ___PH_LBL0 1
 #undef ___PD_ALL
-#define ___PD_ALL ___D_R0 ___D_R1
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_R0 ___D_R1
 #undef ___PR_ALL
 #define ___PR_ALL ___R_R0 ___R_R1
 #undef ___PW_ALL

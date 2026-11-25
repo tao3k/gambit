@@ -1,11 +1,9 @@
+(c-declare "#include \"mem.h\"\n#include \"rc.h\"\n#include \"root.h\"")
 ;; Select the scan executor census through the VM's internal atomic request.
 ;; The frozen root population and all native cleanup owners remain unchanged.
 ((c-lambda () void #<<c-end
 ___virtual_machine_state vm = ___VMSTATE_FROM_PSTATE(___ps);
-___WORD count = 1;
-___WORD old = ___gc_atomic_load(&vm->gc_round.requested_workers);
-while (___gc_cas(&vm->gc_round.requested_workers,old,count) != old)
-  old = ___gc_atomic_load(&vm->gc_round.requested_workers);
+___WORD_STORE_RELEASE(&___COLLECTION(vm).requested_workers,1);
 c-end
 ))
 ;;; End-to-end generated frame/ABI control: native suffix, GC, repeated restore.
@@ -77,6 +75,6 @@ c-end
 
 (if (not ((c-lambda () bool #<<c-end
 ___virtual_machine_state vm=___VMSTATE_FROM_PSTATE(___ps);
-___return(vm->gc_round.worker_count==(1) && vm->gc_round.participant_count==vm->processor_count);
+___return(___COLLECTION(vm).worker_count==1 && ___ROOT_UNION(vm)->participants==vm->processor_count);
 c-end
 ))) (error "requested map worker/root split was not observed"))

@@ -322,9 +322,8 @@
 #define ___SUPCOUNT 115
 #define ___SUBCOUNT 150
 #define ___HOST_LAYOUT ___HOST_LAYOUT_PROCEDURES
-#define ___SHARED_PROCEDURE_DISPATCH 1
-#define ___LBLCOUNT 857
-#define ___OFDCOUNT 21
+#define ___LBLCOUNT 999
+#define ___OFDCOUNT 31
 #define ___MODDESCR ___REF_SUB(147)
 #include "gambit.h"
 
@@ -1981,7 +1980,7 @@ ___END_SUB
 
 
 #undef ___MD_ALL
-#define ___MD_ALL ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
+#define ___MD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
 #undef ___MR_ALL
 #define ___MR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
 #undef ___MW_ALL
@@ -2001,16 +2000,19 @@ ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_64bit_2d_mode_3f_)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_64bit_2d_mode_3f_)
 ___DEF_M_HLBL(___L2___riscv_23_riscv_2d_64bit_2d_mode_3f_)
 ___DEF_M_HLBL(___L3___riscv_23_riscv_2d_64bit_2d_mode_3f_)
+___DEF_M_HLBL(___L4___riscv_23_riscv_2d_64bit_2d_mode_3f_)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_word_2d_width)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_word_2d_width)
 ___DEF_M_HLBL(___L2___riscv_23_riscv_2d_word_2d_width)
+___DEF_M_HLBL(___L3___riscv_23_riscv_2d_word_2d_width)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_imm_3f_)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_imm_3f_)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_imm_2d_int)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_imm_2d_int)
+___DEF_M_HLBL(___L2___riscv_23_riscv_2d_imm_2d_int)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_imm_2d_int_3f_)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_imm_2d_int_3f_)
@@ -2019,6 +2021,7 @@ ___DEF_M_HLBL(___L3___riscv_23_riscv_2d_imm_2d_int_3f_)
 ___DEF_M_HLBL(___L4___riscv_23_riscv_2d_imm_2d_int_3f_)
 ___DEF_M_HLBL(___L5___riscv_23_riscv_2d_imm_2d_int_3f_)
 ___DEF_M_HLBL(___L6___riscv_23_riscv_2d_imm_2d_int_3f_)
+___DEF_M_HLBL(___L7___riscv_23_riscv_2d_imm_2d_int_3f_)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_imm_2d_int_2d_type)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_imm_2d_int_2d_type)
@@ -2028,6 +2031,7 @@ ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_imm_2d_int_2d_value)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_imm_2d_lbl)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_imm_2d_lbl)
+___DEF_M_HLBL(___L2___riscv_23_riscv_2d_imm_2d_lbl)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_imm_2d_lbl_3f_)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_imm_2d_lbl_3f_)
@@ -2036,6 +2040,7 @@ ___DEF_M_HLBL(___L3___riscv_23_riscv_2d_imm_2d_lbl_3f_)
 ___DEF_M_HLBL(___L4___riscv_23_riscv_2d_imm_2d_lbl_3f_)
 ___DEF_M_HLBL(___L5___riscv_23_riscv_2d_imm_2d_lbl_3f_)
 ___DEF_M_HLBL(___L6___riscv_23_riscv_2d_imm_2d_lbl_3f_)
+___DEF_M_HLBL(___L7___riscv_23_riscv_2d_imm_2d_lbl_3f_)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_imm_2d_lbl_2d_offset)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_imm_2d_lbl_2d_offset)
@@ -2077,6 +2082,7 @@ ___DEF_M_HLBL(___L30___riscv_23_riscv_2d_imm_2d__3e_instr)
 ___DEF_M_HLBL(___L31___riscv_23_riscv_2d_imm_2d__3e_instr)
 ___DEF_M_HLBL(___L32___riscv_23_riscv_2d_imm_2d__3e_instr)
 ___DEF_M_HLBL(___L33___riscv_23_riscv_2d_imm_2d__3e_instr)
+___DEF_M_HLBL(___L34___riscv_23_riscv_2d_imm_2d__3e_instr)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_listing)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_listing)
@@ -2098,6 +2104,8 @@ ___DEF_M_HLBL(___L16___riscv_23_riscv_2d_listing)
 ___DEF_M_HLBL(___L17___riscv_23_riscv_2d_listing)
 ___DEF_M_HLBL(___L18___riscv_23_riscv_2d_listing)
 ___DEF_M_HLBL(___L19___riscv_23_riscv_2d_listing)
+___DEF_M_HLBL(___L20___riscv_23_riscv_2d_listing)
+___DEF_M_HLBL(___L21___riscv_23_riscv_2d_listing)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_label)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_label)
@@ -2106,6 +2114,7 @@ ___DEF_M_HLBL(___L3___riscv_23_riscv_2d_label)
 ___DEF_M_HLBL(___L4___riscv_23_riscv_2d_label)
 ___DEF_M_HLBL(___L5___riscv_23_riscv_2d_label)
 ___DEF_M_HLBL(___L6___riscv_23_riscv_2d_label)
+___DEF_M_HLBL(___L7___riscv_23_riscv_2d_label)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_db)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_db)
@@ -2166,11 +2175,16 @@ ___DEF_M_HLBL(___L25___riscv_23_riscv_2d_data_2d_elems)
 ___DEF_M_HLBL(___L26___riscv_23_riscv_2d_data_2d_elems)
 ___DEF_M_HLBL(___L27___riscv_23_riscv_2d_data_2d_elems)
 ___DEF_M_HLBL(___L28___riscv_23_riscv_2d_data_2d_elems)
+___DEF_M_HLBL(___L29___riscv_23_riscv_2d_data_2d_elems)
+___DEF_M_HLBL(___L30___riscv_23_riscv_2d_data_2d_elems)
+___DEF_M_HLBL(___L31___riscv_23_riscv_2d_data_2d_elems)
+___DEF_M_HLBL(___L32___riscv_23_riscv_2d_data_2d_elems)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_nop)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_nop)
 ___DEF_M_HLBL(___L2___riscv_23_riscv_2d_nop)
 ___DEF_M_HLBL(___L3___riscv_23_riscv_2d_nop)
+___DEF_M_HLBL(___L4___riscv_23_riscv_2d_nop)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_li)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_li)
@@ -2217,22 +2231,32 @@ ___DEF_M_HLBL(___L41___riscv_23_riscv_2d_li)
 ___DEF_M_HLBL(___L42___riscv_23_riscv_2d_li)
 ___DEF_M_HLBL(___L43___riscv_23_riscv_2d_li)
 ___DEF_M_HLBL(___L44___riscv_23_riscv_2d_li)
+___DEF_M_HLBL(___L45___riscv_23_riscv_2d_li)
+___DEF_M_HLBL(___L46___riscv_23_riscv_2d_li)
+___DEF_M_HLBL(___L47___riscv_23_riscv_2d_li)
+___DEF_M_HLBL(___L48___riscv_23_riscv_2d_li)
+___DEF_M_HLBL(___L49___riscv_23_riscv_2d_li)
+___DEF_M_HLBL(___L50___riscv_23_riscv_2d_li)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_mv)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_mv)
 ___DEF_M_HLBL(___L2___riscv_23_riscv_2d_mv)
 ___DEF_M_HLBL(___L3___riscv_23_riscv_2d_mv)
+___DEF_M_HLBL(___L4___riscv_23_riscv_2d_mv)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_not)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_not)
 ___DEF_M_HLBL(___L2___riscv_23_riscv_2d_not)
 ___DEF_M_HLBL(___L3___riscv_23_riscv_2d_not)
+___DEF_M_HLBL(___L4___riscv_23_riscv_2d_not)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_neg)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_neg)
+___DEF_M_HLBL(___L2___riscv_23_riscv_2d_neg)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_negw)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_negw)
+___DEF_M_HLBL(___L2___riscv_23_riscv_2d_negw)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_sext_2e_w)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_sext_2e_w)
@@ -2240,50 +2264,66 @@ ___DEF_M_HLBL(___L2___riscv_23_riscv_2d_sext_2e_w)
 ___DEF_M_HLBL(___L3___riscv_23_riscv_2d_sext_2e_w)
 ___DEF_M_HLBL(___L4___riscv_23_riscv_2d_sext_2e_w)
 ___DEF_M_HLBL(___L5___riscv_23_riscv_2d_sext_2e_w)
+___DEF_M_HLBL(___L6___riscv_23_riscv_2d_sext_2e_w)
+___DEF_M_HLBL(___L7___riscv_23_riscv_2d_sext_2e_w)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_seqz)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_seqz)
 ___DEF_M_HLBL(___L2___riscv_23_riscv_2d_seqz)
 ___DEF_M_HLBL(___L3___riscv_23_riscv_2d_seqz)
+___DEF_M_HLBL(___L4___riscv_23_riscv_2d_seqz)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_snez)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_snez)
+___DEF_M_HLBL(___L2___riscv_23_riscv_2d_snez)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_sltz)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_sltz)
+___DEF_M_HLBL(___L2___riscv_23_riscv_2d_sltz)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_sgtz)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_sgtz)
+___DEF_M_HLBL(___L2___riscv_23_riscv_2d_sgtz)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_beqz)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_beqz)
+___DEF_M_HLBL(___L2___riscv_23_riscv_2d_beqz)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_bnez)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_bnez)
+___DEF_M_HLBL(___L2___riscv_23_riscv_2d_bnez)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_blez)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_blez)
+___DEF_M_HLBL(___L2___riscv_23_riscv_2d_blez)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_bgez)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_bgez)
+___DEF_M_HLBL(___L2___riscv_23_riscv_2d_bgez)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_bltz)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_bltz)
+___DEF_M_HLBL(___L2___riscv_23_riscv_2d_bltz)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_bgtz)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_bgtz)
+___DEF_M_HLBL(___L2___riscv_23_riscv_2d_bgtz)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_bgt)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_bgt)
+___DEF_M_HLBL(___L2___riscv_23_riscv_2d_bgt)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_ble)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_ble)
+___DEF_M_HLBL(___L2___riscv_23_riscv_2d_ble)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_bgtu)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_bgtu)
+___DEF_M_HLBL(___L2___riscv_23_riscv_2d_bgtu)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_bleu)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_bleu)
+___DEF_M_HLBL(___L2___riscv_23_riscv_2d_bleu)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_j)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_j)
@@ -2297,6 +2337,8 @@ ___DEF_M_HLBL(___L2___riscv_23_riscv_2d_jr)
 ___DEF_M_HLBL(___L3___riscv_23_riscv_2d_jr)
 ___DEF_M_HLBL(___L4___riscv_23_riscv_2d_jr)
 ___DEF_M_HLBL(___L5___riscv_23_riscv_2d_jr)
+___DEF_M_HLBL(___L6___riscv_23_riscv_2d_jr)
+___DEF_M_HLBL(___L7___riscv_23_riscv_2d_jr)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_jalr_2a_)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_jalr_2a_)
@@ -2304,6 +2346,8 @@ ___DEF_M_HLBL(___L2___riscv_23_riscv_2d_jalr_2a_)
 ___DEF_M_HLBL(___L3___riscv_23_riscv_2d_jalr_2a_)
 ___DEF_M_HLBL(___L4___riscv_23_riscv_2d_jalr_2a_)
 ___DEF_M_HLBL(___L5___riscv_23_riscv_2d_jalr_2a_)
+___DEF_M_HLBL(___L6___riscv_23_riscv_2d_jalr_2a_)
+___DEF_M_HLBL(___L7___riscv_23_riscv_2d_jalr_2a_)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_ret)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_ret)
@@ -2311,6 +2355,8 @@ ___DEF_M_HLBL(___L2___riscv_23_riscv_2d_ret)
 ___DEF_M_HLBL(___L3___riscv_23_riscv_2d_ret)
 ___DEF_M_HLBL(___L4___riscv_23_riscv_2d_ret)
 ___DEF_M_HLBL(___L5___riscv_23_riscv_2d_ret)
+___DEF_M_HLBL(___L6___riscv_23_riscv_2d_ret)
+___DEF_M_HLBL(___L7___riscv_23_riscv_2d_ret)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_call)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_call)
@@ -2324,6 +2370,8 @@ ___DEF_M_HLBL(___L8___riscv_23_riscv_2d_call)
 ___DEF_M_HLBL(___L9___riscv_23_riscv_2d_call)
 ___DEF_M_HLBL(___L10___riscv_23_riscv_2d_call)
 ___DEF_M_HLBL(___L11___riscv_23_riscv_2d_call)
+___DEF_M_HLBL(___L12___riscv_23_riscv_2d_call)
+___DEF_M_HLBL(___L13___riscv_23_riscv_2d_call)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_tail)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_tail)
@@ -2337,36 +2385,48 @@ ___DEF_M_HLBL(___L8___riscv_23_riscv_2d_tail)
 ___DEF_M_HLBL(___L9___riscv_23_riscv_2d_tail)
 ___DEF_M_HLBL(___L10___riscv_23_riscv_2d_tail)
 ___DEF_M_HLBL(___L11___riscv_23_riscv_2d_tail)
+___DEF_M_HLBL(___L12___riscv_23_riscv_2d_tail)
+___DEF_M_HLBL(___L13___riscv_23_riscv_2d_tail)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_add)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_add)
+___DEF_M_HLBL(___L2___riscv_23_riscv_2d_add)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_sub)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_sub)
+___DEF_M_HLBL(___L2___riscv_23_riscv_2d_sub)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_sll)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_sll)
+___DEF_M_HLBL(___L2___riscv_23_riscv_2d_sll)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_slt)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_slt)
+___DEF_M_HLBL(___L2___riscv_23_riscv_2d_slt)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_sltu)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_sltu)
+___DEF_M_HLBL(___L2___riscv_23_riscv_2d_sltu)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_xor)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_xor)
+___DEF_M_HLBL(___L2___riscv_23_riscv_2d_xor)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_srl)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_srl)
+___DEF_M_HLBL(___L2___riscv_23_riscv_2d_srl)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_sra)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_sra)
+___DEF_M_HLBL(___L2___riscv_23_riscv_2d_sra)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_or)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_or)
+___DEF_M_HLBL(___L2___riscv_23_riscv_2d_or)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_and)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_and)
+___DEF_M_HLBL(___L2___riscv_23_riscv_2d_and)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_addw)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_addw)
@@ -2374,6 +2434,7 @@ ___DEF_M_HLBL(___L2___riscv_23_riscv_2d_addw)
 ___DEF_M_HLBL(___L3___riscv_23_riscv_2d_addw)
 ___DEF_M_HLBL(___L4___riscv_23_riscv_2d_addw)
 ___DEF_M_HLBL(___L5___riscv_23_riscv_2d_addw)
+___DEF_M_HLBL(___L6___riscv_23_riscv_2d_addw)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_subw)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_subw)
@@ -2381,6 +2442,7 @@ ___DEF_M_HLBL(___L2___riscv_23_riscv_2d_subw)
 ___DEF_M_HLBL(___L3___riscv_23_riscv_2d_subw)
 ___DEF_M_HLBL(___L4___riscv_23_riscv_2d_subw)
 ___DEF_M_HLBL(___L5___riscv_23_riscv_2d_subw)
+___DEF_M_HLBL(___L6___riscv_23_riscv_2d_subw)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_sllw)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_sllw)
@@ -2388,6 +2450,7 @@ ___DEF_M_HLBL(___L2___riscv_23_riscv_2d_sllw)
 ___DEF_M_HLBL(___L3___riscv_23_riscv_2d_sllw)
 ___DEF_M_HLBL(___L4___riscv_23_riscv_2d_sllw)
 ___DEF_M_HLBL(___L5___riscv_23_riscv_2d_sllw)
+___DEF_M_HLBL(___L6___riscv_23_riscv_2d_sllw)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_srlw)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_srlw)
@@ -2395,6 +2458,7 @@ ___DEF_M_HLBL(___L2___riscv_23_riscv_2d_srlw)
 ___DEF_M_HLBL(___L3___riscv_23_riscv_2d_srlw)
 ___DEF_M_HLBL(___L4___riscv_23_riscv_2d_srlw)
 ___DEF_M_HLBL(___L5___riscv_23_riscv_2d_srlw)
+___DEF_M_HLBL(___L6___riscv_23_riscv_2d_srlw)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_sraw)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_sraw)
@@ -2402,6 +2466,7 @@ ___DEF_M_HLBL(___L2___riscv_23_riscv_2d_sraw)
 ___DEF_M_HLBL(___L3___riscv_23_riscv_2d_sraw)
 ___DEF_M_HLBL(___L4___riscv_23_riscv_2d_sraw)
 ___DEF_M_HLBL(___L5___riscv_23_riscv_2d_sraw)
+___DEF_M_HLBL(___L6___riscv_23_riscv_2d_sraw)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_type_2d_r)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_type_2d_r)
@@ -2422,45 +2487,60 @@ ___DEF_M_HLBL(___L15___riscv_23_riscv_2d_type_2d_r)
 ___DEF_M_HLBL(___L16___riscv_23_riscv_2d_type_2d_r)
 ___DEF_M_HLBL(___L17___riscv_23_riscv_2d_type_2d_r)
 ___DEF_M_HLBL(___L18___riscv_23_riscv_2d_type_2d_r)
+___DEF_M_HLBL(___L19___riscv_23_riscv_2d_type_2d_r)
+___DEF_M_HLBL(___L20___riscv_23_riscv_2d_type_2d_r)
+___DEF_M_HLBL(___L21___riscv_23_riscv_2d_type_2d_r)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_jalr)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_jalr)
 ___DEF_M_HLBL(___L2___riscv_23_riscv_2d_jalr)
 ___DEF_M_HLBL(___L3___riscv_23_riscv_2d_jalr)
 ___DEF_M_HLBL(___L4___riscv_23_riscv_2d_jalr)
+___DEF_M_HLBL(___L5___riscv_23_riscv_2d_jalr)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_lb)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_lb)
+___DEF_M_HLBL(___L2___riscv_23_riscv_2d_lb)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_lh)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_lh)
+___DEF_M_HLBL(___L2___riscv_23_riscv_2d_lh)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_lw)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_lw)
+___DEF_M_HLBL(___L2___riscv_23_riscv_2d_lw)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_lbu)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_lbu)
+___DEF_M_HLBL(___L2___riscv_23_riscv_2d_lbu)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_lhu)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_lhu)
+___DEF_M_HLBL(___L2___riscv_23_riscv_2d_lhu)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_addi)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_addi)
+___DEF_M_HLBL(___L2___riscv_23_riscv_2d_addi)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_slti)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_slti)
+___DEF_M_HLBL(___L2___riscv_23_riscv_2d_slti)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_sltiu)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_sltiu)
+___DEF_M_HLBL(___L2___riscv_23_riscv_2d_sltiu)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_xori)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_xori)
+___DEF_M_HLBL(___L2___riscv_23_riscv_2d_xori)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_ori)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_ori)
+___DEF_M_HLBL(___L2___riscv_23_riscv_2d_ori)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_andi)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_andi)
+___DEF_M_HLBL(___L2___riscv_23_riscv_2d_andi)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_slli)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_slli)
@@ -2473,6 +2553,9 @@ ___DEF_M_HLBL(___L7___riscv_23_riscv_2d_slli)
 ___DEF_M_HLBL(___L8___riscv_23_riscv_2d_slli)
 ___DEF_M_HLBL(___L9___riscv_23_riscv_2d_slli)
 ___DEF_M_HLBL(___L10___riscv_23_riscv_2d_slli)
+___DEF_M_HLBL(___L11___riscv_23_riscv_2d_slli)
+___DEF_M_HLBL(___L12___riscv_23_riscv_2d_slli)
+___DEF_M_HLBL(___L13___riscv_23_riscv_2d_slli)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_srli)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_srli)
@@ -2485,6 +2568,9 @@ ___DEF_M_HLBL(___L7___riscv_23_riscv_2d_srli)
 ___DEF_M_HLBL(___L8___riscv_23_riscv_2d_srli)
 ___DEF_M_HLBL(___L9___riscv_23_riscv_2d_srli)
 ___DEF_M_HLBL(___L10___riscv_23_riscv_2d_srli)
+___DEF_M_HLBL(___L11___riscv_23_riscv_2d_srli)
+___DEF_M_HLBL(___L12___riscv_23_riscv_2d_srli)
+___DEF_M_HLBL(___L13___riscv_23_riscv_2d_srli)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_srai)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_srai)
@@ -2498,6 +2584,9 @@ ___DEF_M_HLBL(___L8___riscv_23_riscv_2d_srai)
 ___DEF_M_HLBL(___L9___riscv_23_riscv_2d_srai)
 ___DEF_M_HLBL(___L10___riscv_23_riscv_2d_srai)
 ___DEF_M_HLBL(___L11___riscv_23_riscv_2d_srai)
+___DEF_M_HLBL(___L12___riscv_23_riscv_2d_srai)
+___DEF_M_HLBL(___L13___riscv_23_riscv_2d_srai)
+___DEF_M_HLBL(___L14___riscv_23_riscv_2d_srai)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_lwu)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_lwu)
@@ -2505,6 +2594,7 @@ ___DEF_M_HLBL(___L2___riscv_23_riscv_2d_lwu)
 ___DEF_M_HLBL(___L3___riscv_23_riscv_2d_lwu)
 ___DEF_M_HLBL(___L4___riscv_23_riscv_2d_lwu)
 ___DEF_M_HLBL(___L5___riscv_23_riscv_2d_lwu)
+___DEF_M_HLBL(___L6___riscv_23_riscv_2d_lwu)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_ld)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_ld)
@@ -2512,6 +2602,7 @@ ___DEF_M_HLBL(___L2___riscv_23_riscv_2d_ld)
 ___DEF_M_HLBL(___L3___riscv_23_riscv_2d_ld)
 ___DEF_M_HLBL(___L4___riscv_23_riscv_2d_ld)
 ___DEF_M_HLBL(___L5___riscv_23_riscv_2d_ld)
+___DEF_M_HLBL(___L6___riscv_23_riscv_2d_ld)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_addiw)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_addiw)
@@ -2519,6 +2610,7 @@ ___DEF_M_HLBL(___L2___riscv_23_riscv_2d_addiw)
 ___DEF_M_HLBL(___L3___riscv_23_riscv_2d_addiw)
 ___DEF_M_HLBL(___L4___riscv_23_riscv_2d_addiw)
 ___DEF_M_HLBL(___L5___riscv_23_riscv_2d_addiw)
+___DEF_M_HLBL(___L6___riscv_23_riscv_2d_addiw)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_slliw)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_slliw)
@@ -2533,6 +2625,9 @@ ___DEF_M_HLBL(___L9___riscv_23_riscv_2d_slliw)
 ___DEF_M_HLBL(___L10___riscv_23_riscv_2d_slliw)
 ___DEF_M_HLBL(___L11___riscv_23_riscv_2d_slliw)
 ___DEF_M_HLBL(___L12___riscv_23_riscv_2d_slliw)
+___DEF_M_HLBL(___L13___riscv_23_riscv_2d_slliw)
+___DEF_M_HLBL(___L14___riscv_23_riscv_2d_slliw)
+___DEF_M_HLBL(___L15___riscv_23_riscv_2d_slliw)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_srliw)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_srliw)
@@ -2547,6 +2642,9 @@ ___DEF_M_HLBL(___L9___riscv_23_riscv_2d_srliw)
 ___DEF_M_HLBL(___L10___riscv_23_riscv_2d_srliw)
 ___DEF_M_HLBL(___L11___riscv_23_riscv_2d_srliw)
 ___DEF_M_HLBL(___L12___riscv_23_riscv_2d_srliw)
+___DEF_M_HLBL(___L13___riscv_23_riscv_2d_srliw)
+___DEF_M_HLBL(___L14___riscv_23_riscv_2d_srliw)
+___DEF_M_HLBL(___L15___riscv_23_riscv_2d_srliw)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_sraiw)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_sraiw)
@@ -2562,6 +2660,9 @@ ___DEF_M_HLBL(___L10___riscv_23_riscv_2d_sraiw)
 ___DEF_M_HLBL(___L11___riscv_23_riscv_2d_sraiw)
 ___DEF_M_HLBL(___L12___riscv_23_riscv_2d_sraiw)
 ___DEF_M_HLBL(___L13___riscv_23_riscv_2d_sraiw)
+___DEF_M_HLBL(___L14___riscv_23_riscv_2d_sraiw)
+___DEF_M_HLBL(___L15___riscv_23_riscv_2d_sraiw)
+___DEF_M_HLBL(___L16___riscv_23_riscv_2d_sraiw)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_type_2d_i)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_type_2d_i)
@@ -2631,15 +2732,26 @@ ___DEF_M_HLBL(___L64___riscv_23_riscv_2d_type_2d_i)
 ___DEF_M_HLBL(___L65___riscv_23_riscv_2d_type_2d_i)
 ___DEF_M_HLBL(___L66___riscv_23_riscv_2d_type_2d_i)
 ___DEF_M_HLBL(___L67___riscv_23_riscv_2d_type_2d_i)
+___DEF_M_HLBL(___L68___riscv_23_riscv_2d_type_2d_i)
+___DEF_M_HLBL(___L69___riscv_23_riscv_2d_type_2d_i)
+___DEF_M_HLBL(___L70___riscv_23_riscv_2d_type_2d_i)
+___DEF_M_HLBL(___L71___riscv_23_riscv_2d_type_2d_i)
+___DEF_M_HLBL(___L72___riscv_23_riscv_2d_type_2d_i)
+___DEF_M_HLBL(___L73___riscv_23_riscv_2d_type_2d_i)
+___DEF_M_HLBL(___L74___riscv_23_riscv_2d_type_2d_i)
+___DEF_M_HLBL(___L75___riscv_23_riscv_2d_type_2d_i)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_sb)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_sb)
+___DEF_M_HLBL(___L2___riscv_23_riscv_2d_sb)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_sh)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_sh)
+___DEF_M_HLBL(___L2___riscv_23_riscv_2d_sh)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_sw)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_sw)
+___DEF_M_HLBL(___L2___riscv_23_riscv_2d_sw)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_sd)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_sd)
@@ -2647,6 +2759,7 @@ ___DEF_M_HLBL(___L2___riscv_23_riscv_2d_sd)
 ___DEF_M_HLBL(___L3___riscv_23_riscv_2d_sd)
 ___DEF_M_HLBL(___L4___riscv_23_riscv_2d_sd)
 ___DEF_M_HLBL(___L5___riscv_23_riscv_2d_sd)
+___DEF_M_HLBL(___L6___riscv_23_riscv_2d_sd)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_type_2d_s)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_type_2d_s)
@@ -2673,24 +2786,34 @@ ___DEF_M_HLBL(___L21___riscv_23_riscv_2d_type_2d_s)
 ___DEF_M_HLBL(___L22___riscv_23_riscv_2d_type_2d_s)
 ___DEF_M_HLBL(___L23___riscv_23_riscv_2d_type_2d_s)
 ___DEF_M_HLBL(___L24___riscv_23_riscv_2d_type_2d_s)
+___DEF_M_HLBL(___L25___riscv_23_riscv_2d_type_2d_s)
+___DEF_M_HLBL(___L26___riscv_23_riscv_2d_type_2d_s)
+___DEF_M_HLBL(___L27___riscv_23_riscv_2d_type_2d_s)
+___DEF_M_HLBL(___L28___riscv_23_riscv_2d_type_2d_s)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_beq)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_beq)
+___DEF_M_HLBL(___L2___riscv_23_riscv_2d_beq)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_bne)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_bne)
+___DEF_M_HLBL(___L2___riscv_23_riscv_2d_bne)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_blt)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_blt)
+___DEF_M_HLBL(___L2___riscv_23_riscv_2d_blt)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_bge)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_bge)
+___DEF_M_HLBL(___L2___riscv_23_riscv_2d_bge)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_bltu)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_bltu)
+___DEF_M_HLBL(___L2___riscv_23_riscv_2d_bltu)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_bgeu)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_bgeu)
+___DEF_M_HLBL(___L2___riscv_23_riscv_2d_bgeu)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_type_2d_b)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_type_2d_b)
@@ -2732,18 +2855,25 @@ ___DEF_M_HLBL(___L36___riscv_23_riscv_2d_type_2d_b)
 ___DEF_M_HLBL(___L37___riscv_23_riscv_2d_type_2d_b)
 ___DEF_M_HLBL(___L38___riscv_23_riscv_2d_type_2d_b)
 ___DEF_M_HLBL(___L39___riscv_23_riscv_2d_type_2d_b)
+___DEF_M_HLBL(___L40___riscv_23_riscv_2d_type_2d_b)
+___DEF_M_HLBL(___L41___riscv_23_riscv_2d_type_2d_b)
+___DEF_M_HLBL(___L42___riscv_23_riscv_2d_type_2d_b)
+___DEF_M_HLBL(___L43___riscv_23_riscv_2d_type_2d_b)
+___DEF_M_HLBL(___L44___riscv_23_riscv_2d_type_2d_b)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_lui)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_lui)
 ___DEF_M_HLBL(___L2___riscv_23_riscv_2d_lui)
 ___DEF_M_HLBL(___L3___riscv_23_riscv_2d_lui)
 ___DEF_M_HLBL(___L4___riscv_23_riscv_2d_lui)
+___DEF_M_HLBL(___L5___riscv_23_riscv_2d_lui)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_auipc)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_auipc)
 ___DEF_M_HLBL(___L2___riscv_23_riscv_2d_auipc)
 ___DEF_M_HLBL(___L3___riscv_23_riscv_2d_auipc)
 ___DEF_M_HLBL(___L4___riscv_23_riscv_2d_auipc)
+___DEF_M_HLBL(___L5___riscv_23_riscv_2d_auipc)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_type_2d_u)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_type_2d_u)
@@ -2760,12 +2890,14 @@ ___DEF_M_HLBL(___L11___riscv_23_riscv_2d_type_2d_u)
 ___DEF_M_HLBL(___L12___riscv_23_riscv_2d_type_2d_u)
 ___DEF_M_HLBL(___L13___riscv_23_riscv_2d_type_2d_u)
 ___DEF_M_HLBL(___L14___riscv_23_riscv_2d_type_2d_u)
+___DEF_M_HLBL(___L15___riscv_23_riscv_2d_type_2d_u)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_jal)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_jal)
 ___DEF_M_HLBL(___L2___riscv_23_riscv_2d_jal)
 ___DEF_M_HLBL(___L3___riscv_23_riscv_2d_jal)
 ___DEF_M_HLBL(___L4___riscv_23_riscv_2d_jal)
+___DEF_M_HLBL(___L5___riscv_23_riscv_2d_jal)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_type_2d_j)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_type_2d_j)
@@ -2802,6 +2934,10 @@ ___DEF_M_HLBL(___L31___riscv_23_riscv_2d_type_2d_j)
 ___DEF_M_HLBL(___L32___riscv_23_riscv_2d_type_2d_j)
 ___DEF_M_HLBL(___L33___riscv_23_riscv_2d_type_2d_j)
 ___DEF_M_HLBL(___L34___riscv_23_riscv_2d_type_2d_j)
+___DEF_M_HLBL(___L35___riscv_23_riscv_2d_type_2d_j)
+___DEF_M_HLBL(___L36___riscv_23_riscv_2d_type_2d_j)
+___DEF_M_HLBL(___L37___riscv_23_riscv_2d_type_2d_j)
+___DEF_M_HLBL(___L38___riscv_23_riscv_2d_type_2d_j)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_fence)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_fence)
@@ -2827,24 +2963,29 @@ ___DEF_M_HLBL(___L20___riscv_23_riscv_2d_fence)
 ___DEF_M_HLBL(___L21___riscv_23_riscv_2d_fence)
 ___DEF_M_HLBL(___L22___riscv_23_riscv_2d_fence)
 ___DEF_M_HLBL(___L23___riscv_23_riscv_2d_fence)
+___DEF_M_HLBL(___L24___riscv_23_riscv_2d_fence)
+___DEF_M_HLBL(___L25___riscv_23_riscv_2d_fence)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_fence_2e_i)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_fence_2e_i)
 ___DEF_M_HLBL(___L2___riscv_23_riscv_2d_fence_2e_i)
 ___DEF_M_HLBL(___L3___riscv_23_riscv_2d_fence_2e_i)
 ___DEF_M_HLBL(___L4___riscv_23_riscv_2d_fence_2e_i)
+___DEF_M_HLBL(___L5___riscv_23_riscv_2d_fence_2e_i)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_ecall)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_ecall)
 ___DEF_M_HLBL(___L2___riscv_23_riscv_2d_ecall)
 ___DEF_M_HLBL(___L3___riscv_23_riscv_2d_ecall)
 ___DEF_M_HLBL(___L4___riscv_23_riscv_2d_ecall)
+___DEF_M_HLBL(___L5___riscv_23_riscv_2d_ecall)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___riscv_23_riscv_2d_ebreak)
 ___DEF_M_HLBL(___L1___riscv_23_riscv_2d_ebreak)
 ___DEF_M_HLBL(___L2___riscv_23_riscv_2d_ebreak)
 ___DEF_M_HLBL(___L3___riscv_23_riscv_2d_ebreak)
 ___DEF_M_HLBL(___L4___riscv_23_riscv_2d_ebreak)
+___DEF_M_HLBL(___L5___riscv_23_riscv_2d_ebreak)
 ___END_M_HLBL
 
 ___BEGIN_M_SW
@@ -2854,7 +2995,7 @@ ___BEGIN_M_SW
 #undef ___PH_LBL0
 #define ___PH_LBL0 1
 #undef ___PD_ALL
-#define ___PD_ALL ___D_R0 ___D_R1
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_R0 ___D_R1
 #undef ___PR_ALL
 #define ___PR_ALL ___R_R0 ___R_R1
 #undef ___PW_ALL
@@ -2879,7 +3020,7 @@ ___END_P_COD
 #undef ___PH_LBL0
 #define ___PH_LBL0 3
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R1 ___D_R2 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_FP ___D_R1 ___D_R2 ___D_R4
 #undef ___PR_ALL
 #define ___PR_ALL ___R_FP ___R_R1 ___R_R2 ___R_R4
 #undef ___PW_ALL
@@ -2908,7 +3049,7 @@ ___END_P_COD
 #undef ___PH_LBL0
 #define ___PH_LBL0 6
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_FP ___D_R4
 #undef ___PR_ALL
 #define ___PR_ALL ___R_FP ___R_R4
 #undef ___PW_ALL
@@ -2935,35 +3076,42 @@ ___END_P_COD
 #undef ___PH_LBL0
 #define ___PH_LBL0 9
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R2 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R2 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R2 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R2 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R2 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R2 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(4)
+___BEGIN_P_HLBL_AT(5)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_64bit_2d_mode_3f_)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_64bit_2d_mode_3f_)
 ___DEF_P_HLBL(___L2___riscv_23_riscv_2d_64bit_2d_mode_3f_)
 ___DEF_P_HLBL(___L3___riscv_23_riscv_2d_64bit_2d_mode_3f_)
+___DEF_P_HLBL(___L4___riscv_23_riscv_2d_64bit_2d_mode_3f_)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_64bit_2d_mode_3f_)
    ___IF_NARGS_EQ(1,___NOTHING)
    ___WRONG_NARGS(0,1,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_64bit_2d_mode_3f_)
-   ___SET_STK(1,___R0)
-   ___ADJFP(4)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_riscv#riscv-64bit-mode?",1,___LBL(1),___fp);
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_64bit_2d_mode_3f_)
-   ___SET_R0(___LBL(2))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),129,___G___codegen_23_codegen_2d_context_2d_arch)
+___GATE2_ENTER(___ps,"_riscv#riscv-64bit-mode?",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,4,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R0)
+   ___ADJFP(1)
+   ___ADJFP(3)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___riscv_23_riscv_2d_64bit_2d_mode_3f_)
+   ___SET_R0(___LBL(3))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),129,___G___codegen_23_codegen_2d_context_2d_arch)
+___DEF_SLBL(3,___L3___riscv_23_riscv_2d_64bit_2d_mode_3f_)
    ___SET_R2(___SYM_RV64I)
    ___SET_R0(___STK(-3))
-   ___POLL(3)
-___DEF_SLBL(3,___L3___riscv_23_riscv_2d_64bit_2d_mode_3f_)
+   ___POLL(4)
+___DEF_SLBL(4,___L4___riscv_23_riscv_2d_64bit_2d_mode_3f_)
    ___ADJFP(-4)
    ___JUMPGLONOTSAFE(___SET_NARGS(2),137,___G_eq_3f_)
 ___END_P_SW
@@ -2972,39 +3120,46 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_word_2d_width
 #undef ___PH_LBL0
-#define ___PH_LBL0 14
+#define ___PH_LBL0 15
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(3)
+___BEGIN_P_HLBL_AT(4)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_word_2d_width)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_word_2d_width)
 ___DEF_P_HLBL(___L2___riscv_23_riscv_2d_word_2d_width)
+___DEF_P_HLBL(___L3___riscv_23_riscv_2d_word_2d_width)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_word_2d_width)
    ___IF_NARGS_EQ(1,___NOTHING)
    ___WRONG_NARGS(0,1,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_word_2d_width)
-   ___SET_STK(1,___R0)
-   ___ADJFP(4)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_riscv#riscv-word-width",1,___LBL(1),___fp);
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_word_2d_width)
-   ___SET_R0(___LBL(2))
-   ___JUMPINT(___SET_NARGS(1),___PRC(9),___L___riscv_23_riscv_2d_64bit_2d_mode_3f_)
+___GATE2_ENTER(___ps,"_riscv#riscv-word-width",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,4,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R0)
+   ___ADJFP(1)
+   ___ADJFP(3)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___riscv_23_riscv_2d_word_2d_width)
+   ___SET_R0(___LBL(3))
+   ___JUMPINT(___SET_NARGS(1),___PRC(9),___L___riscv_23_riscv_2d_64bit_2d_mode_3f_)
+___DEF_SLBL(3,___L3___riscv_23_riscv_2d_word_2d_width)
    ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L3___riscv_23_riscv_2d_word_2d_width)
+   ___GOTO(___L4___riscv_23_riscv_2d_word_2d_width)
    ___END_IF
    ___SET_R1(___FIX(64L))
    ___ADJFP(-4)
    ___JUMPRET(___STK(1))
-___DEF_GLBL(___L3___riscv_23_riscv_2d_word_2d_width)
+___DEF_GLBL(___L4___riscv_23_riscv_2d_word_2d_width)
    ___SET_R1(___FIX(32L))
    ___ADJFP(-4)
    ___JUMPRET(___STK(1))
@@ -3014,9 +3169,9 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_imm_3f_
 #undef ___PH_LBL0
-#define ___PH_LBL0 18
+#define ___PH_LBL0 20
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_FP ___D_R4
 #undef ___PR_ALL
 #define ___PR_ALL ___R_FP ___R_R4
 #undef ___PW_ALL
@@ -3041,18 +3196,19 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_imm_2d_int
 #undef ___PH_LBL0
-#define ___PH_LBL0 21
+#define ___PH_LBL0 23
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R1 ___D_R2 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R1 ___D_R2 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R1 ___R_R2 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R1 ___R_R2 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R1 ___W_R2 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(2)
+___BEGIN_P_HLBL_AT(3)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_imm_2d_int)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_imm_2d_int)
+___DEF_P_HLBL(___L2___riscv_23_riscv_2d_imm_2d_int)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_imm_2d_int)
@@ -3060,12 +3216,17 @@ ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_imm_2d_int)
    ___IF_NARGS_EQ(2,___NOTHING)
    ___WRONG_NARGS(0,1,1,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_imm_2d_int)
-   ___SET_STK(1,___R2)
-   ___SET_R2(___R1)
-   ___SET_R1(___STK(1))
-   ___ADJFP(1)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_riscv#riscv-imm-int",1,___LBL(1),___fp);
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_imm_2d_int)
+___GATE2_ENTER(___ps,"_riscv#riscv-imm-int",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,1,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_R2(___R1)
+   ___SET_R1(___STK(0))
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
+___DEF_SLBL(2,___L2___riscv_23_riscv_2d_imm_2d_int)
    ___ADJFP(-1)
    ___JUMPGLONOTSAFE(___SET_NARGS(2),136,___G_cons)
 ___END_P_SW
@@ -3074,15 +3235,15 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_imm_2d_int_3f_
 #undef ___PH_LBL0
-#define ___PH_LBL0 24
+#define ___PH_LBL0 27
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(7)
+___BEGIN_P_HLBL_AT(8)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_imm_2d_int_3f_)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_imm_2d_int_3f_)
@@ -3091,44 +3252,52 @@ ___DEF_P_HLBL(___L3___riscv_23_riscv_2d_imm_2d_int_3f_)
 ___DEF_P_HLBL(___L4___riscv_23_riscv_2d_imm_2d_int_3f_)
 ___DEF_P_HLBL(___L5___riscv_23_riscv_2d_imm_2d_int_3f_)
 ___DEF_P_HLBL(___L6___riscv_23_riscv_2d_imm_2d_int_3f_)
+___DEF_P_HLBL(___L7___riscv_23_riscv_2d_imm_2d_int_3f_)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_imm_2d_int_3f_)
    ___IF_NARGS_EQ(1,___NOTHING)
    ___WRONG_NARGS(0,1,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_imm_2d_int_3f_)
-   ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
-   ___ADJFP(8)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_riscv#riscv-imm-int?",1,___LBL(1),___fp);
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_imm_2d_int_3f_)
-   ___SET_R0(___LBL(2))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),160,___G_pair_3f_)
+___GATE2_ENTER(___ps,"_riscv#riscv-imm-int?",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,8,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R0)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___ADJFP(6)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___riscv_23_riscv_2d_imm_2d_int_3f_)
-   ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L7___riscv_23_riscv_2d_imm_2d_int_3f_)
-   ___END_IF
-   ___SET_R1(___STK(-6))
    ___SET_R0(___LBL(3))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),134,___G_car)
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),160,___G_pair_3f_)
 ___DEF_SLBL(3,___L3___riscv_23_riscv_2d_imm_2d_int_3f_)
-   ___SET_R0(___LBL(4))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),163,___G_symbol_3f_)
-___DEF_SLBL(4,___L4___riscv_23_riscv_2d_imm_2d_int_3f_)
    ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L7___riscv_23_riscv_2d_imm_2d_int_3f_)
+   ___GOTO(___L8___riscv_23_riscv_2d_imm_2d_int_3f_)
    ___END_IF
    ___SET_R1(___STK(-6))
+   ___SET_R0(___LBL(4))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),134,___G_car)
+___DEF_SLBL(4,___L4___riscv_23_riscv_2d_imm_2d_int_3f_)
    ___SET_R0(___LBL(5))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),163,___G_symbol_3f_)
+___DEF_SLBL(5,___L5___riscv_23_riscv_2d_imm_2d_int_3f_)
+   ___IF(___NOT(___NOTFALSEP(___R1)))
+   ___GOTO(___L8___riscv_23_riscv_2d_imm_2d_int_3f_)
+   ___END_IF
+   ___SET_R1(___STK(-6))
+   ___SET_R0(___LBL(6))
    ___ADJFP(-4)
    ___JUMPGLONOTSAFE(___SET_NARGS(1),135,___G_cdr)
-___DEF_SLBL(5,___L5___riscv_23_riscv_2d_imm_2d_int_3f_)
-   ___SET_R0(___STK(-3))
-   ___POLL(6)
 ___DEF_SLBL(6,___L6___riscv_23_riscv_2d_imm_2d_int_3f_)
+   ___SET_R0(___STK(-3))
+   ___POLL(7)
+___DEF_SLBL(7,___L7___riscv_23_riscv_2d_imm_2d_int_3f_)
    ___ADJFP(-4)
    ___JUMPGLONOTSAFE(___SET_NARGS(1),159,___G_number_3f_)
-___DEF_GLBL(___L7___riscv_23_riscv_2d_imm_2d_int_3f_)
+___DEF_GLBL(___L8___riscv_23_riscv_2d_imm_2d_int_3f_)
    ___ADJFP(-8)
    ___JUMPRET(___STK(1))
 ___END_P_SW
@@ -3137,9 +3306,9 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_imm_2d_int_2d_type
 #undef ___PH_LBL0
-#define ___PH_LBL0 32
+#define ___PH_LBL0 36
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_FP ___D_R4
 #undef ___PR_ALL
 #define ___PR_ALL ___R_FP ___R_R4
 #undef ___PW_ALL
@@ -3164,9 +3333,9 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_imm_2d_int_2d_value
 #undef ___PH_LBL0
-#define ___PH_LBL0 35
+#define ___PH_LBL0 39
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_FP ___D_R4
 #undef ___PR_ALL
 #define ___PR_ALL ___R_FP ___R_R4
 #undef ___PW_ALL
@@ -3191,18 +3360,19 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_imm_2d_lbl
 #undef ___PH_LBL0
-#define ___PH_LBL0 38
+#define ___PH_LBL0 42
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R1 ___D_R2 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R1 ___D_R2 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R1 ___R_R2 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R1 ___R_R2 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R1 ___W_R2 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(2)
+___BEGIN_P_HLBL_AT(3)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_imm_2d_lbl)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_imm_2d_lbl)
+___DEF_P_HLBL(___L2___riscv_23_riscv_2d_imm_2d_lbl)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_imm_2d_lbl)
@@ -3210,12 +3380,17 @@ ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_imm_2d_lbl)
    ___IF_NARGS_EQ(2,___NOTHING)
    ___WRONG_NARGS(0,1,1,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_imm_2d_lbl)
-   ___SET_STK(1,___R2)
-   ___SET_R2(___R1)
-   ___SET_R1(___STK(1))
-   ___ADJFP(1)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_riscv#riscv-imm-lbl",1,___LBL(1),___fp);
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_imm_2d_lbl)
+___GATE2_ENTER(___ps,"_riscv#riscv-imm-lbl",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,1,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_R2(___R1)
+   ___SET_R1(___STK(0))
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
+___DEF_SLBL(2,___L2___riscv_23_riscv_2d_imm_2d_lbl)
    ___ADJFP(-1)
    ___JUMPGLONOTSAFE(___SET_NARGS(2),136,___G_cons)
 ___END_P_SW
@@ -3224,15 +3399,15 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_imm_2d_lbl_3f_
 #undef ___PH_LBL0
-#define ___PH_LBL0 41
+#define ___PH_LBL0 46
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(7)
+___BEGIN_P_HLBL_AT(8)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_imm_2d_lbl_3f_)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_imm_2d_lbl_3f_)
@@ -3241,44 +3416,52 @@ ___DEF_P_HLBL(___L3___riscv_23_riscv_2d_imm_2d_lbl_3f_)
 ___DEF_P_HLBL(___L4___riscv_23_riscv_2d_imm_2d_lbl_3f_)
 ___DEF_P_HLBL(___L5___riscv_23_riscv_2d_imm_2d_lbl_3f_)
 ___DEF_P_HLBL(___L6___riscv_23_riscv_2d_imm_2d_lbl_3f_)
+___DEF_P_HLBL(___L7___riscv_23_riscv_2d_imm_2d_lbl_3f_)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_imm_2d_lbl_3f_)
    ___IF_NARGS_EQ(1,___NOTHING)
    ___WRONG_NARGS(0,1,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_imm_2d_lbl_3f_)
-   ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
-   ___ADJFP(8)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_riscv#riscv-imm-lbl?",1,___LBL(1),___fp);
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_imm_2d_lbl_3f_)
-   ___SET_R0(___LBL(2))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),160,___G_pair_3f_)
+___GATE2_ENTER(___ps,"_riscv#riscv-imm-lbl?",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,8,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R0)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___ADJFP(6)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___riscv_23_riscv_2d_imm_2d_lbl_3f_)
-   ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L7___riscv_23_riscv_2d_imm_2d_lbl_3f_)
-   ___END_IF
-   ___SET_R1(___STK(-6))
    ___SET_R0(___LBL(3))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),134,___G_car)
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),160,___G_pair_3f_)
 ___DEF_SLBL(3,___L3___riscv_23_riscv_2d_imm_2d_lbl_3f_)
-   ___SET_R0(___LBL(4))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),140,___G_fixnum_3f_)
-___DEF_SLBL(4,___L4___riscv_23_riscv_2d_imm_2d_lbl_3f_)
    ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L7___riscv_23_riscv_2d_imm_2d_lbl_3f_)
+   ___GOTO(___L8___riscv_23_riscv_2d_imm_2d_lbl_3f_)
    ___END_IF
    ___SET_R1(___STK(-6))
+   ___SET_R0(___LBL(4))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),134,___G_car)
+___DEF_SLBL(4,___L4___riscv_23_riscv_2d_imm_2d_lbl_3f_)
    ___SET_R0(___LBL(5))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),140,___G_fixnum_3f_)
+___DEF_SLBL(5,___L5___riscv_23_riscv_2d_imm_2d_lbl_3f_)
+   ___IF(___NOT(___NOTFALSEP(___R1)))
+   ___GOTO(___L8___riscv_23_riscv_2d_imm_2d_lbl_3f_)
+   ___END_IF
+   ___SET_R1(___STK(-6))
+   ___SET_R0(___LBL(6))
    ___ADJFP(-4)
    ___JUMPGLONOTSAFE(___SET_NARGS(1),135,___G_cdr)
-___DEF_SLBL(5,___L5___riscv_23_riscv_2d_imm_2d_lbl_3f_)
-   ___SET_R0(___STK(-3))
-   ___POLL(6)
 ___DEF_SLBL(6,___L6___riscv_23_riscv_2d_imm_2d_lbl_3f_)
+   ___SET_R0(___STK(-3))
+   ___POLL(7)
+___DEF_SLBL(7,___L7___riscv_23_riscv_2d_imm_2d_lbl_3f_)
    ___ADJFP(-4)
    ___JUMPGLONOTSAFE(___SET_NARGS(1),167,___G_vector_3f_)
-___DEF_GLBL(___L7___riscv_23_riscv_2d_imm_2d_lbl_3f_)
+___DEF_GLBL(___L8___riscv_23_riscv_2d_imm_2d_lbl_3f_)
    ___ADJFP(-8)
    ___JUMPRET(___STK(1))
 ___END_P_SW
@@ -3287,9 +3470,9 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_imm_2d_lbl_2d_offset
 #undef ___PH_LBL0
-#define ___PH_LBL0 49
+#define ___PH_LBL0 55
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_FP ___D_R4
 #undef ___PR_ALL
 #define ___PR_ALL ___R_FP ___R_R4
 #undef ___PW_ALL
@@ -3314,9 +3497,9 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_imm_2d_lbl_2d_label
 #undef ___PH_LBL0
-#define ___PH_LBL0 52
+#define ___PH_LBL0 58
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_FP ___D_R4
 #undef ___PR_ALL
 #define ___PR_ALL ___R_FP ___R_R4
 #undef ___PW_ALL
@@ -3341,15 +3524,15 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_imm_2d__3e_instr
 #undef ___PH_LBL0
-#define ___PH_LBL0 55
+#define ___PH_LBL0 61
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(34)
+___BEGIN_P_HLBL_AT(35)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_imm_2d__3e_instr)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_imm_2d__3e_instr)
@@ -3385,217 +3568,225 @@ ___DEF_P_HLBL(___L30___riscv_23_riscv_2d_imm_2d__3e_instr)
 ___DEF_P_HLBL(___L31___riscv_23_riscv_2d_imm_2d__3e_instr)
 ___DEF_P_HLBL(___L32___riscv_23_riscv_2d_imm_2d__3e_instr)
 ___DEF_P_HLBL(___L33___riscv_23_riscv_2d_imm_2d__3e_instr)
+___DEF_P_HLBL(___L34___riscv_23_riscv_2d_imm_2d__3e_instr)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_imm_2d__3e_instr)
    ___IF_NARGS_EQ(1,___NOTHING)
    ___WRONG_NARGS(0,1,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_imm_2d__3e_instr)
-   ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
-   ___ADJFP(8)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_riscv#riscv-imm->instr",1,___LBL(1),___fp);
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_imm_2d__3e_instr)
-   ___SET_R0(___LBL(2))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),135,___G_cdr)
+___GATE2_ENTER(___ps,"_riscv#riscv-imm->instr",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,8,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R0)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___ADJFP(6)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___riscv_23_riscv_2d_imm_2d__3e_instr)
+   ___SET_R0(___LBL(3))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),135,___G_cdr)
+___DEF_SLBL(3,___L3___riscv_23_riscv_2d_imm_2d__3e_instr)
    ___SET_STK(-5,___R1)
    ___SET_R1(___STK(-6))
-   ___SET_R0(___LBL(3))
+   ___SET_R0(___LBL(4))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),134,___G_car)
-___DEF_SLBL(3,___L3___riscv_23_riscv_2d_imm_2d__3e_instr)
+___DEF_SLBL(4,___L4___riscv_23_riscv_2d_imm_2d__3e_instr)
    ___IF(___EQP(___R1,___SYM_I))
-   ___GOTO(___L42___riscv_23_riscv_2d_imm_2d__3e_instr)
+   ___GOTO(___L43___riscv_23_riscv_2d_imm_2d__3e_instr)
    ___END_IF
    ___IF(___EQP(___R1,___SYM_S))
-   ___GOTO(___L41___riscv_23_riscv_2d_imm_2d__3e_instr)
+   ___GOTO(___L42___riscv_23_riscv_2d_imm_2d__3e_instr)
    ___END_IF
    ___IF(___EQP(___R1,___SYM_B))
-   ___GOTO(___L39___riscv_23_riscv_2d_imm_2d__3e_instr)
+   ___GOTO(___L40___riscv_23_riscv_2d_imm_2d__3e_instr)
    ___END_IF
    ___IF(___EQP(___R1,___SYM_U))
-   ___GOTO(___L38___riscv_23_riscv_2d_imm_2d__3e_instr)
+   ___GOTO(___L39___riscv_23_riscv_2d_imm_2d__3e_instr)
    ___END_IF
    ___IF(___NOT(___EQP(___R1,___SYM_J)))
-   ___GOTO(___L37___riscv_23_riscv_2d_imm_2d__3e_instr)
+   ___GOTO(___L38___riscv_23_riscv_2d_imm_2d__3e_instr)
    ___END_IF
    ___SET_R1(___STK(-5))
-   ___SET_R0(___LBL(4))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),151,___G_fxeven_3f_)
-___DEF_SLBL(4,___L4___riscv_23_riscv_2d_imm_2d__3e_instr)
    ___SET_R0(___LBL(5))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),151,___G_fxeven_3f_)
 ___DEF_SLBL(5,___L5___riscv_23_riscv_2d_imm_2d__3e_instr)
-   ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L34___riscv_23_riscv_2d_imm_2d__3e_instr)
-   ___END_IF
-   ___SET_R1(___SUB(34))
    ___SET_R0(___LBL(6))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),138,___G_error)
-___DEF_SLBL(6,___L6___riscv_23_riscv_2d_imm_2d__3e_instr)
-___DEF_GLBL(___L34___riscv_23_riscv_2d_imm_2d__3e_instr)
-   ___SET_R1(___STK(-5))
-   ___SET_R2(___FIX(1044480L))
-   ___SET_R0(___LBL(7))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),148,___G_fxand)
-___DEF_SLBL(7,___L7___riscv_23_riscv_2d_imm_2d__3e_instr)
-   ___SET_STK(-3,___R1)
-   ___SET_R1(___STK(-5))
-   ___SET_R2(___FIX(2048L))
-   ___SET_R0(___LBL(8))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),148,___G_fxand)
-___DEF_SLBL(8,___L8___riscv_23_riscv_2d_imm_2d__3e_instr)
-   ___SET_R2(___FIX(9L))
-   ___SET_R0(___LBL(9))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),149,___G_fxarithmetic_2d_shift)
-___DEF_SLBL(9,___L9___riscv_23_riscv_2d_imm_2d__3e_instr)
-   ___SET_STK(-6,___R1)
-   ___SET_R1(___STK(-5))
-   ___SET_R2(___FIX(2046L))
-   ___SET_R0(___LBL(10))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),148,___G_fxand)
-___DEF_SLBL(10,___L10___riscv_23_riscv_2d_imm_2d__3e_instr)
-   ___SET_R2(___FIX(20L))
-   ___SET_R0(___LBL(11))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),149,___G_fxarithmetic_2d_shift)
-___DEF_SLBL(11,___L11___riscv_23_riscv_2d_imm_2d__3e_instr)
-   ___SET_STK(-4,___R1)
-   ___SET_R1(___STK(-5))
-   ___SET_R2(___FIX(1048576L))
-   ___SET_R0(___LBL(12))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),148,___G_fxand)
-___DEF_SLBL(12,___L12___riscv_23_riscv_2d_imm_2d__3e_instr)
-   ___SET_R2(___FIX(11L))
-   ___SET_R0(___LBL(13))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),149,___G_fxarithmetic_2d_shift)
-___DEF_SLBL(13,___L13___riscv_23_riscv_2d_imm_2d__3e_instr)
-   ___SET_R3(___R1)
-   ___SET_R2(___STK(-4))
-   ___SET_R1(___STK(-6))
-   ___SET_R0(___LBL(14))
-   ___ADJFP(-3)
-   ___JUMPGLONOTSAFE(___SET_NARGS(4),141,___G_fx_2b_)
-___DEF_SLBL(14,___L14___riscv_23_riscv_2d_imm_2d__3e_instr)
-   ___GOTO(___L36___riscv_23_riscv_2d_imm_2d__3e_instr)
-___DEF_SLBL(15,___L15___riscv_23_riscv_2d_imm_2d__3e_instr)
-___DEF_GLBL(___L35___riscv_23_riscv_2d_imm_2d__3e_instr)
-   ___SET_R1(___STK(-5))
-   ___ADJFP(-4)
-___DEF_GLBL(___L36___riscv_23_riscv_2d_imm_2d__3e_instr)
-   ___SET_R2(___R1)
-   ___SET_R1(___BIGFIX(35,4294967295LL))
-   ___SET_R0(___STK(-3))
-   ___POLL(16)
-___DEF_SLBL(16,___L16___riscv_23_riscv_2d_imm_2d__3e_instr)
-   ___ADJFP(-4)
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),148,___G_fxand)
-___DEF_GLBL(___L37___riscv_23_riscv_2d_imm_2d__3e_instr)
-   ___SET_R2(___STK(-6))
-   ___SET_R1(___SUB(36))
-   ___SET_R0(___LBL(14))
-   ___ADJFP(-4)
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),138,___G_error)
-___DEF_GLBL(___L38___riscv_23_riscv_2d_imm_2d__3e_instr)
-   ___SET_R1(___STK(-5))
-   ___SET_R2(___FIX(4095L))
-   ___SET_R0(___LBL(17))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),148,___G_fxand)
-___DEF_SLBL(17,___L17___riscv_23_riscv_2d_imm_2d__3e_instr)
-   ___SET_R0(___LBL(18))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),153,___G_fxzero_3f_)
-___DEF_SLBL(18,___L18___riscv_23_riscv_2d_imm_2d__3e_instr)
-   ___SET_R0(___LBL(19))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
-___DEF_SLBL(19,___L19___riscv_23_riscv_2d_imm_2d__3e_instr)
+___DEF_SLBL(6,___L6___riscv_23_riscv_2d_imm_2d__3e_instr)
    ___IF(___NOT(___NOTFALSEP(___R1)))
    ___GOTO(___L35___riscv_23_riscv_2d_imm_2d__3e_instr)
    ___END_IF
-   ___SET_R1(___SUB(37))
-   ___SET_R0(___LBL(15))
+   ___SET_R1(___SUB(34))
+   ___SET_R0(___LBL(7))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),138,___G_error)
-___DEF_GLBL(___L39___riscv_23_riscv_2d_imm_2d__3e_instr)
+___DEF_SLBL(7,___L7___riscv_23_riscv_2d_imm_2d__3e_instr)
+___DEF_GLBL(___L35___riscv_23_riscv_2d_imm_2d__3e_instr)
    ___SET_R1(___STK(-5))
-   ___SET_R0(___LBL(20))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),151,___G_fxeven_3f_)
-___DEF_SLBL(20,___L20___riscv_23_riscv_2d_imm_2d__3e_instr)
-   ___SET_R0(___LBL(21))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
-___DEF_SLBL(21,___L21___riscv_23_riscv_2d_imm_2d__3e_instr)
-   ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L40___riscv_23_riscv_2d_imm_2d__3e_instr)
-   ___END_IF
-   ___SET_R1(___SUB(38))
-   ___SET_R0(___LBL(22))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),138,___G_error)
-___DEF_SLBL(22,___L22___riscv_23_riscv_2d_imm_2d__3e_instr)
-___DEF_GLBL(___L40___riscv_23_riscv_2d_imm_2d__3e_instr)
+   ___SET_R2(___FIX(1044480L))
+   ___SET_R0(___LBL(8))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),148,___G_fxand)
+___DEF_SLBL(8,___L8___riscv_23_riscv_2d_imm_2d__3e_instr)
+   ___SET_STK(-3,___R1)
    ___SET_R1(___STK(-5))
    ___SET_R2(___FIX(2048L))
-   ___SET_R0(___LBL(23))
+   ___SET_R0(___LBL(9))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),148,___G_fxand)
-___DEF_SLBL(23,___L23___riscv_23_riscv_2d_imm_2d__3e_instr)
-   ___SET_R2(___FIX(-4L))
-   ___SET_R0(___LBL(24))
+___DEF_SLBL(9,___L9___riscv_23_riscv_2d_imm_2d__3e_instr)
+   ___SET_R2(___FIX(9L))
+   ___SET_R0(___LBL(10))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),149,___G_fxarithmetic_2d_shift)
+___DEF_SLBL(10,___L10___riscv_23_riscv_2d_imm_2d__3e_instr)
+   ___SET_STK(-6,___R1)
+   ___SET_R1(___STK(-5))
+   ___SET_R2(___FIX(2046L))
+   ___SET_R0(___LBL(11))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),148,___G_fxand)
+___DEF_SLBL(11,___L11___riscv_23_riscv_2d_imm_2d__3e_instr)
+   ___SET_R2(___FIX(20L))
+   ___SET_R0(___LBL(12))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),149,___G_fxarithmetic_2d_shift)
+___DEF_SLBL(12,___L12___riscv_23_riscv_2d_imm_2d__3e_instr)
+   ___SET_STK(-4,___R1)
+   ___SET_R1(___STK(-5))
+   ___SET_R2(___FIX(1048576L))
+   ___SET_R0(___LBL(13))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),148,___G_fxand)
+___DEF_SLBL(13,___L13___riscv_23_riscv_2d_imm_2d__3e_instr)
+   ___SET_R2(___FIX(11L))
+   ___SET_R0(___LBL(14))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),149,___G_fxarithmetic_2d_shift)
+___DEF_SLBL(14,___L14___riscv_23_riscv_2d_imm_2d__3e_instr)
+   ___SET_R3(___R1)
+   ___SET_R2(___STK(-4))
+   ___SET_R1(___STK(-6))
+   ___SET_R0(___LBL(15))
+   ___ADJFP(-3)
+   ___JUMPGLONOTSAFE(___SET_NARGS(4),141,___G_fx_2b_)
+___DEF_SLBL(15,___L15___riscv_23_riscv_2d_imm_2d__3e_instr)
+   ___GOTO(___L37___riscv_23_riscv_2d_imm_2d__3e_instr)
+___DEF_SLBL(16,___L16___riscv_23_riscv_2d_imm_2d__3e_instr)
+___DEF_GLBL(___L36___riscv_23_riscv_2d_imm_2d__3e_instr)
+   ___SET_R1(___STK(-5))
+   ___ADJFP(-4)
+___DEF_GLBL(___L37___riscv_23_riscv_2d_imm_2d__3e_instr)
+   ___SET_R2(___R1)
+   ___SET_R1(___BIGFIX(35,4294967295LL))
+   ___SET_R0(___STK(-3))
+   ___POLL(17)
+___DEF_SLBL(17,___L17___riscv_23_riscv_2d_imm_2d__3e_instr)
+   ___ADJFP(-4)
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),148,___G_fxand)
+___DEF_GLBL(___L38___riscv_23_riscv_2d_imm_2d__3e_instr)
+   ___SET_R2(___STK(-6))
+   ___SET_R1(___SUB(36))
+   ___SET_R0(___LBL(15))
+   ___ADJFP(-4)
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),138,___G_error)
+___DEF_GLBL(___L39___riscv_23_riscv_2d_imm_2d__3e_instr)
+   ___SET_R1(___STK(-5))
+   ___SET_R2(___FIX(4095L))
+   ___SET_R0(___LBL(18))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),148,___G_fxand)
+___DEF_SLBL(18,___L18___riscv_23_riscv_2d_imm_2d__3e_instr)
+   ___SET_R0(___LBL(19))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),153,___G_fxzero_3f_)
+___DEF_SLBL(19,___L19___riscv_23_riscv_2d_imm_2d__3e_instr)
+   ___SET_R0(___LBL(20))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
+___DEF_SLBL(20,___L20___riscv_23_riscv_2d_imm_2d__3e_instr)
+   ___IF(___NOT(___NOTFALSEP(___R1)))
+   ___GOTO(___L36___riscv_23_riscv_2d_imm_2d__3e_instr)
+   ___END_IF
+   ___SET_R1(___SUB(37))
+   ___SET_R0(___LBL(16))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),138,___G_error)
+___DEF_GLBL(___L40___riscv_23_riscv_2d_imm_2d__3e_instr)
+   ___SET_R1(___STK(-5))
+   ___SET_R0(___LBL(21))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),151,___G_fxeven_3f_)
+___DEF_SLBL(21,___L21___riscv_23_riscv_2d_imm_2d__3e_instr)
+   ___SET_R0(___LBL(22))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
+___DEF_SLBL(22,___L22___riscv_23_riscv_2d_imm_2d__3e_instr)
+   ___IF(___NOT(___NOTFALSEP(___R1)))
+   ___GOTO(___L41___riscv_23_riscv_2d_imm_2d__3e_instr)
+   ___END_IF
+   ___SET_R1(___SUB(38))
+   ___SET_R0(___LBL(23))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),138,___G_error)
+___DEF_SLBL(23,___L23___riscv_23_riscv_2d_imm_2d__3e_instr)
+___DEF_GLBL(___L41___riscv_23_riscv_2d_imm_2d__3e_instr)
+   ___SET_R1(___STK(-5))
+   ___SET_R2(___FIX(2048L))
+   ___SET_R0(___LBL(24))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),148,___G_fxand)
 ___DEF_SLBL(24,___L24___riscv_23_riscv_2d_imm_2d__3e_instr)
+   ___SET_R2(___FIX(-4L))
+   ___SET_R0(___LBL(25))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),149,___G_fxarithmetic_2d_shift)
+___DEF_SLBL(25,___L25___riscv_23_riscv_2d_imm_2d__3e_instr)
    ___SET_STK(-3,___R1)
    ___SET_R1(___STK(-5))
    ___SET_R2(___FIX(30L))
-   ___SET_R0(___LBL(25))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),148,___G_fxand)
-___DEF_SLBL(25,___L25___riscv_23_riscv_2d_imm_2d__3e_instr)
-   ___SET_R2(___FIX(7L))
    ___SET_R0(___LBL(26))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),149,___G_fxarithmetic_2d_shift)
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),148,___G_fxand)
 ___DEF_SLBL(26,___L26___riscv_23_riscv_2d_imm_2d__3e_instr)
+   ___SET_R2(___FIX(7L))
+   ___SET_R0(___LBL(27))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),149,___G_fxarithmetic_2d_shift)
+___DEF_SLBL(27,___L27___riscv_23_riscv_2d_imm_2d__3e_instr)
    ___SET_STK(-6,___R1)
    ___SET_R1(___STK(-5))
    ___SET_R2(___FIX(2016L))
-   ___SET_R0(___LBL(27))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),148,___G_fxand)
-___DEF_SLBL(27,___L27___riscv_23_riscv_2d_imm_2d__3e_instr)
-   ___SET_R2(___FIX(20L))
    ___SET_R0(___LBL(28))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),149,___G_fxarithmetic_2d_shift)
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),148,___G_fxand)
 ___DEF_SLBL(28,___L28___riscv_23_riscv_2d_imm_2d__3e_instr)
+   ___SET_R2(___FIX(20L))
+   ___SET_R0(___LBL(29))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),149,___G_fxarithmetic_2d_shift)
+___DEF_SLBL(29,___L29___riscv_23_riscv_2d_imm_2d__3e_instr)
    ___SET_STK(-4,___R1)
    ___SET_R1(___STK(-5))
    ___SET_R2(___FIX(4096L))
-   ___SET_R0(___LBL(29))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),148,___G_fxand)
-___DEF_SLBL(29,___L29___riscv_23_riscv_2d_imm_2d__3e_instr)
-   ___SET_R2(___FIX(19L))
-   ___SET_R0(___LBL(13))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),149,___G_fxarithmetic_2d_shift)
-___DEF_GLBL(___L41___riscv_23_riscv_2d_imm_2d__3e_instr)
-   ___SET_R1(___STK(-5))
-   ___SET_R2(___FIX(31L))
    ___SET_R0(___LBL(30))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),148,___G_fxand)
 ___DEF_SLBL(30,___L30___riscv_23_riscv_2d_imm_2d__3e_instr)
-   ___SET_R2(___FIX(7L))
-   ___SET_R0(___LBL(31))
+   ___SET_R2(___FIX(19L))
+   ___SET_R0(___LBL(14))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),149,___G_fxarithmetic_2d_shift)
+___DEF_GLBL(___L42___riscv_23_riscv_2d_imm_2d__3e_instr)
+   ___SET_R1(___STK(-5))
+   ___SET_R2(___FIX(31L))
+   ___SET_R0(___LBL(31))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),148,___G_fxand)
 ___DEF_SLBL(31,___L31___riscv_23_riscv_2d_imm_2d__3e_instr)
+   ___SET_R2(___FIX(7L))
+   ___SET_R0(___LBL(32))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),149,___G_fxarithmetic_2d_shift)
+___DEF_SLBL(32,___L32___riscv_23_riscv_2d_imm_2d__3e_instr)
    ___SET_STK(-6,___R1)
    ___SET_R1(___STK(-5))
    ___SET_R2(___FIX(4064L))
-   ___SET_R0(___LBL(32))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),148,___G_fxand)
-___DEF_SLBL(32,___L32___riscv_23_riscv_2d_imm_2d__3e_instr)
-   ___SET_R2(___FIX(20L))
    ___SET_R0(___LBL(33))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),149,___G_fxarithmetic_2d_shift)
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),148,___G_fxand)
 ___DEF_SLBL(33,___L33___riscv_23_riscv_2d_imm_2d__3e_instr)
+   ___SET_R2(___FIX(20L))
+   ___SET_R0(___LBL(34))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),149,___G_fxarithmetic_2d_shift)
+___DEF_SLBL(34,___L34___riscv_23_riscv_2d_imm_2d__3e_instr)
    ___SET_R2(___R1)
    ___SET_R1(___STK(-6))
-   ___SET_R0(___LBL(14))
+   ___SET_R0(___LBL(15))
    ___ADJFP(-4)
    ___JUMPGLONOTSAFE(___SET_NARGS(2),141,___G_fx_2b_)
-___DEF_GLBL(___L42___riscv_23_riscv_2d_imm_2d__3e_instr)
+___DEF_GLBL(___L43___riscv_23_riscv_2d_imm_2d__3e_instr)
    ___SET_R1(___STK(-5))
    ___SET_R2(___FIX(20L))
-   ___SET_R0(___LBL(14))
+   ___SET_R0(___LBL(15))
    ___ADJFP(-4)
    ___JUMPGLONOTSAFE(___SET_NARGS(2),149,___G_fxarithmetic_2d_shift)
 ___END_P_SW
@@ -3604,15 +3795,15 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_listing
 #undef ___PH_LBL0
-#define ___PH_LBL0 90
+#define ___PH_LBL0 97
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(20)
+___BEGIN_P_HLBL_AT(22)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_listing)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_listing)
@@ -3634,129 +3825,146 @@ ___DEF_P_HLBL(___L16___riscv_23_riscv_2d_listing)
 ___DEF_P_HLBL(___L17___riscv_23_riscv_2d_listing)
 ___DEF_P_HLBL(___L18___riscv_23_riscv_2d_listing)
 ___DEF_P_HLBL(___L19___riscv_23_riscv_2d_listing)
+___DEF_P_HLBL(___L20___riscv_23_riscv_2d_listing)
+___DEF_P_HLBL(___L21___riscv_23_riscv_2d_listing)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_listing)
    ___IF_NARGS_EQ(2,___SET_R3(___NUL))
    ___GET_REST(0,2,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_listing)
-   ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
-   ___SET_STK(3,___R2)
-   ___SET_R2(___R3)
-   ___SET_R1(___LBL(9))
-   ___ADJFP(8)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_riscv#riscv-listing",1,___LBL(1),___fp);
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_listing)
-   ___SET_R0(___LBL(2))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),156,___G_map)
+___GATE2_ENTER(___ps,"_riscv#riscv-listing",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,8,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R0)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_R2(___R3)
+   ___SET_R1(___LBL(10))
+   ___ADJFP(5)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___riscv_23_riscv_2d_listing)
-   ___SET_R2(___SUB(39))
    ___SET_R0(___LBL(3))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),126,___G___asm_23_asm_2d_separated_2d_list)
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),156,___G_map)
 ___DEF_SLBL(3,___L3___riscv_23_riscv_2d_listing)
-   ___SET_STK(-4,___R1)
+   ___SET_R2(___SUB(39))
    ___SET_R0(___LBL(4))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),160,___G_pair_3f_)
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),126,___G___asm_23_asm_2d_separated_2d_list)
 ___DEF_SLBL(4,___L4___riscv_23_riscv_2d_listing)
+   ___SET_STK(-4,___R1)
+   ___SET_R0(___LBL(5))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),160,___G_pair_3f_)
+___DEF_SLBL(5,___L5___riscv_23_riscv_2d_listing)
    ___IF(___NOTFALSEP(___R1))
-   ___GOTO(___L21___riscv_23_riscv_2d_listing)
+   ___GOTO(___L23___riscv_23_riscv_2d_listing)
    ___END_IF
    ___SET_R1(___NUL)
-   ___GOTO(___L20___riscv_23_riscv_2d_listing)
-___DEF_SLBL(5,___L5___riscv_23_riscv_2d_listing)
-___DEF_GLBL(___L20___riscv_23_riscv_2d_listing)
+   ___GOTO(___L22___riscv_23_riscv_2d_listing)
+___DEF_SLBL(6,___L6___riscv_23_riscv_2d_listing)
+___DEF_GLBL(___L22___riscv_23_riscv_2d_listing)
    ___SET_R2(___R1)
    ___SET_R1(___STK(-5))
-   ___SET_R0(___LBL(6))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),136,___G_cons)
-___DEF_SLBL(6,___L6___riscv_23_riscv_2d_listing)
-   ___SET_R2(___R1)
-   ___SET_R1(___CHR(9))
    ___SET_R0(___LBL(7))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),136,___G_cons)
 ___DEF_SLBL(7,___L7___riscv_23_riscv_2d_listing)
    ___SET_R2(___R1)
+   ___SET_R1(___CHR(9))
+   ___SET_R0(___LBL(8))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),136,___G_cons)
+___DEF_SLBL(8,___L8___riscv_23_riscv_2d_listing)
+   ___SET_R2(___R1)
    ___SET_R1(___STK(-6))
    ___SET_R0(___STK(-7))
-   ___POLL(8)
-___DEF_SLBL(8,___L8___riscv_23_riscv_2d_listing)
+   ___POLL(9)
+___DEF_SLBL(9,___L9___riscv_23_riscv_2d_listing)
    ___ADJFP(-8)
    ___JUMPGLONOTSAFE(___SET_NARGS(2),125,___G___asm_23_asm_2d_listing)
-___DEF_GLBL(___L21___riscv_23_riscv_2d_listing)
+___DEF_GLBL(___L23___riscv_23_riscv_2d_listing)
    ___SET_R2(___STK(-4))
    ___SET_R1(___CHR(9))
-   ___SET_R0(___LBL(5))
+   ___SET_R0(___LBL(6))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),136,___G_cons)
-___DEF_SLBL(9,___L9___riscv_23_riscv_2d_listing)
-   ___IF_NARGS_EQ(1,___NOTHING)
-   ___WRONG_NARGS(9,1,0,0)
-   ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
-   ___ADJFP(8)
-   ___POLL(10)
 ___DEF_SLBL(10,___L10___riscv_23_riscv_2d_listing)
-   ___SET_R0(___LBL(11))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),140,___G_fixnum_3f_)
+   ___IF_NARGS_EQ(1,___NOTHING)
+   ___WRONG_NARGS(10,1,0,0)
+___GATE2_OPEN(___ps,"_riscv#riscv-listing",11,___LBL(11),___fp);
 ___DEF_SLBL(11,___L11___riscv_23_riscv_2d_listing)
+___GATE2_ENTER(___ps,"_riscv#riscv-listing",11,___LBL(11),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,8,0,___LBL(11),&___demand_attempt)){___ps->temp1=___LBL(11);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R0)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___ADJFP(6)
+___group_demand_commit(___ps,___LBL(11),___demand_attempt);
+   ___POLL(12)
+___DEF_SLBL(12,___L12___riscv_23_riscv_2d_listing)
+   ___SET_R0(___LBL(13))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),140,___G_fixnum_3f_)
+___DEF_SLBL(13,___L13___riscv_23_riscv_2d_listing)
    ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L22___riscv_23_riscv_2d_listing)
+   ___GOTO(___L24___riscv_23_riscv_2d_listing)
    ___END_IF
    ___SET_R2(___STK(-6))
    ___SET_R1(___SUB(0))
    ___SET_R0(___STK(-7))
-   ___POLL(12)
-___DEF_SLBL(12,___L12___riscv_23_riscv_2d_listing)
+   ___POLL(14)
+___DEF_SLBL(14,___L14___riscv_23_riscv_2d_listing)
    ___ADJFP(-8)
    ___JUMPGLONOTSAFE(___SET_NARGS(2),166,___G_vector_2d_ref)
-___DEF_GLBL(___L22___riscv_23_riscv_2d_listing)
+___DEF_GLBL(___L24___riscv_23_riscv_2d_listing)
    ___SET_R1(___STK(-6))
-   ___SET_R0(___LBL(13))
+   ___SET_R0(___LBL(15))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),160,___G_pair_3f_)
-___DEF_SLBL(13,___L13___riscv_23_riscv_2d_listing)
+___DEF_SLBL(15,___L15___riscv_23_riscv_2d_listing)
+   ___IF(___NOT(___NOTFALSEP(___R1)))
+   ___GOTO(___L27___riscv_23_riscv_2d_listing)
+   ___END_IF
+   ___SET_R1(___STK(-6))
+   ___SET_R0(___LBL(16))
+   ___JUMPINT(___SET_NARGS(1),___PRC(27),___L___riscv_23_riscv_2d_imm_2d_int_3f_)
+___DEF_SLBL(16,___L16___riscv_23_riscv_2d_listing)
    ___IF(___NOT(___NOTFALSEP(___R1)))
    ___GOTO(___L25___riscv_23_riscv_2d_listing)
    ___END_IF
    ___SET_R1(___STK(-6))
-   ___SET_R0(___LBL(14))
-   ___JUMPINT(___SET_NARGS(1),___PRC(24),___L___riscv_23_riscv_2d_imm_2d_int_3f_)
-___DEF_SLBL(14,___L14___riscv_23_riscv_2d_listing)
-   ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L23___riscv_23_riscv_2d_listing)
-   ___END_IF
-   ___SET_R1(___STK(-6))
-   ___SET_R0(___STK(-7))
-   ___POLL(15)
-___DEF_SLBL(15,___L15___riscv_23_riscv_2d_listing)
-   ___ADJFP(-8)
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),135,___G_cdr)
-___DEF_GLBL(___L23___riscv_23_riscv_2d_listing)
-   ___SET_R1(___STK(-6))
-   ___SET_R0(___LBL(16))
-   ___JUMPINT(___SET_NARGS(1),___PRC(41),___L___riscv_23_riscv_2d_imm_2d_lbl_3f_)
-___DEF_SLBL(16,___L16___riscv_23_riscv_2d_listing)
-   ___IF(___NOTFALSEP(___R1))
-   ___GOTO(___L24___riscv_23_riscv_2d_listing)
-   ___END_IF
-   ___SET_R2(___STK(-6))
-   ___SET_R1(___SUB(40))
    ___SET_R0(___STK(-7))
    ___POLL(17)
 ___DEF_SLBL(17,___L17___riscv_23_riscv_2d_listing)
    ___ADJFP(-8)
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),138,___G_error)
-___DEF_GLBL(___L24___riscv_23_riscv_2d_listing)
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),135,___G_cdr)
+___DEF_GLBL(___L25___riscv_23_riscv_2d_listing)
    ___SET_R1(___STK(-6))
    ___SET_R0(___LBL(18))
-   ___ADJFP(-4)
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),135,___G_cdr)
+   ___JUMPINT(___SET_NARGS(1),___PRC(46),___L___riscv_23_riscv_2d_imm_2d_lbl_3f_)
 ___DEF_SLBL(18,___L18___riscv_23_riscv_2d_listing)
-   ___SET_R0(___STK(-3))
+   ___IF(___NOTFALSEP(___R1))
+   ___GOTO(___L26___riscv_23_riscv_2d_listing)
+   ___END_IF
+   ___SET_R2(___STK(-6))
+   ___SET_R1(___SUB(40))
+   ___SET_R0(___STK(-7))
    ___POLL(19)
 ___DEF_SLBL(19,___L19___riscv_23_riscv_2d_listing)
+   ___ADJFP(-8)
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),138,___G_error)
+___DEF_GLBL(___L26___riscv_23_riscv_2d_listing)
+   ___SET_R1(___STK(-6))
+   ___SET_R0(___LBL(20))
+   ___ADJFP(-4)
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),135,___G_cdr)
+___DEF_SLBL(20,___L20___riscv_23_riscv_2d_listing)
+   ___SET_R0(___STK(-3))
+   ___POLL(21)
+___DEF_SLBL(21,___L21___riscv_23_riscv_2d_listing)
    ___ADJFP(-4)
    ___JUMPGLONOTSAFE(___SET_NARGS(1),123,___G___asm_23_asm_2d_label_2d_name)
-___DEF_GLBL(___L25___riscv_23_riscv_2d_listing)
+___DEF_GLBL(___L27___riscv_23_riscv_2d_listing)
    ___SET_R1(___STK(-6))
    ___ADJFP(-8)
    ___JUMPRET(___STK(1))
@@ -3766,15 +3974,15 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_label
 #undef ___PH_LBL0
-#define ___PH_LBL0 111
+#define ___PH_LBL0 120
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(7)
+___BEGIN_P_HLBL_AT(8)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_label)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_label)
@@ -3783,44 +3991,53 @@ ___DEF_P_HLBL(___L3___riscv_23_riscv_2d_label)
 ___DEF_P_HLBL(___L4___riscv_23_riscv_2d_label)
 ___DEF_P_HLBL(___L5___riscv_23_riscv_2d_label)
 ___DEF_P_HLBL(___L6___riscv_23_riscv_2d_label)
+___DEF_P_HLBL(___L7___riscv_23_riscv_2d_label)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_label)
    ___IF_NARGS_EQ(2,___NOTHING)
    ___WRONG_NARGS(0,2,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_label)
-   ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
-   ___SET_STK(3,___R2)
-   ___ADJFP(8)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_riscv#riscv-label",1,___LBL(1),___fp);
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_label)
-   ___SET_R0(___LBL(2))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),122,___G___asm_23_asm_2d_label)
+___GATE2_ENTER(___ps,"_riscv#riscv-label",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,8,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R0)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___ADJFP(5)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___riscv_23_riscv_2d_label)
-   ___SET_R1(___STK(-6))
    ___SET_R0(___LBL(3))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),131,___G___codegen_23_codegen_2d_context_2d_listing_2d_format)
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),122,___G___asm_23_asm_2d_label)
 ___DEF_SLBL(3,___L3___riscv_23_riscv_2d_label)
+   ___SET_R1(___STK(-6))
+   ___SET_R0(___LBL(4))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),131,___G___codegen_23_codegen_2d_context_2d_listing_2d_format)
+___DEF_SLBL(4,___L4___riscv_23_riscv_2d_label)
    ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L7___riscv_23_riscv_2d_label)
+   ___GOTO(___L8___riscv_23_riscv_2d_label)
    ___END_IF
    ___SET_R1(___STK(-5))
-   ___SET_R0(___LBL(4))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),123,___G___asm_23_asm_2d_label_2d_name)
-___DEF_SLBL(4,___L4___riscv_23_riscv_2d_label)
-   ___SET_R2(___SUB(41))
    ___SET_R0(___LBL(5))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),154,___G_list)
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),123,___G___asm_23_asm_2d_label_2d_name)
 ___DEF_SLBL(5,___L5___riscv_23_riscv_2d_label)
+   ___SET_R2(___SUB(41))
+   ___SET_R0(___LBL(6))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),154,___G_list)
+___DEF_SLBL(6,___L6___riscv_23_riscv_2d_label)
    ___SET_R2(___R1)
    ___SET_R1(___STK(-6))
    ___SET_R0(___STK(-7))
-   ___POLL(6)
-___DEF_SLBL(6,___L6___riscv_23_riscv_2d_label)
+   ___POLL(7)
+___DEF_SLBL(7,___L7___riscv_23_riscv_2d_label)
    ___ADJFP(-8)
    ___JUMPGLONOTSAFE(___SET_NARGS(2),125,___G___asm_23_asm_2d_listing)
-___DEF_GLBL(___L7___riscv_23_riscv_2d_label)
+___DEF_GLBL(___L8___riscv_23_riscv_2d_label)
    ___SET_R1(___VOID)
    ___ADJFP(-8)
    ___JUMPRET(___STK(1))
@@ -3830,9 +4047,9 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_db
 #undef ___PH_LBL0
-#define ___PH_LBL0 119
+#define ___PH_LBL0 129
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R2 ___D_R3
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_FP ___D_R2 ___D_R3
 #undef ___PR_ALL
 #define ___PR_ALL ___R_FP ___R_R2 ___R_R3
 #undef ___PW_ALL
@@ -3851,16 +4068,16 @@ ___DEF_GLBL(___L___riscv_23_riscv_2d_db)
    ___SET_R3(___FIX(8L))
    ___POLL(1)
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_db)
-   ___JUMPINT(___SET_NARGS(3),___PRC(149),___L___riscv_23_riscv_2d_data_2d_elems)
+   ___JUMPINT(___SET_NARGS(3),___PRC(159),___L___riscv_23_riscv_2d_data_2d_elems)
 ___END_P_SW
 ___END_P_COD
 
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_d2b
 #undef ___PH_LBL0
-#define ___PH_LBL0 122
+#define ___PH_LBL0 132
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R2 ___D_R3
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_FP ___D_R2 ___D_R3
 #undef ___PR_ALL
 #define ___PR_ALL ___R_FP ___R_R2 ___R_R3
 #undef ___PW_ALL
@@ -3879,16 +4096,16 @@ ___DEF_GLBL(___L___riscv_23_riscv_2d_d2b)
    ___SET_R3(___FIX(16L))
    ___POLL(1)
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_d2b)
-   ___JUMPINT(___SET_NARGS(3),___PRC(149),___L___riscv_23_riscv_2d_data_2d_elems)
+   ___JUMPINT(___SET_NARGS(3),___PRC(159),___L___riscv_23_riscv_2d_data_2d_elems)
 ___END_P_SW
 ___END_P_COD
 
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_dh
 #undef ___PH_LBL0
-#define ___PH_LBL0 125
+#define ___PH_LBL0 135
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R2 ___D_R3
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_FP ___D_R2 ___D_R3
 #undef ___PR_ALL
 #define ___PR_ALL ___R_FP ___R_R2 ___R_R3
 #undef ___PW_ALL
@@ -3907,16 +4124,16 @@ ___DEF_GLBL(___L___riscv_23_riscv_2d_dh)
    ___SET_R3(___FIX(16L))
    ___POLL(1)
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_dh)
-   ___JUMPINT(___SET_NARGS(3),___PRC(149),___L___riscv_23_riscv_2d_data_2d_elems)
+   ___JUMPINT(___SET_NARGS(3),___PRC(159),___L___riscv_23_riscv_2d_data_2d_elems)
 ___END_P_SW
 ___END_P_COD
 
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_ds
 #undef ___PH_LBL0
-#define ___PH_LBL0 128
+#define ___PH_LBL0 138
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R2 ___D_R3
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_FP ___D_R2 ___D_R3
 #undef ___PR_ALL
 #define ___PR_ALL ___R_FP ___R_R2 ___R_R3
 #undef ___PW_ALL
@@ -3935,16 +4152,16 @@ ___DEF_GLBL(___L___riscv_23_riscv_2d_ds)
    ___SET_R3(___FIX(16L))
    ___POLL(1)
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_ds)
-   ___JUMPINT(___SET_NARGS(3),___PRC(149),___L___riscv_23_riscv_2d_data_2d_elems)
+   ___JUMPINT(___SET_NARGS(3),___PRC(159),___L___riscv_23_riscv_2d_data_2d_elems)
 ___END_P_SW
 ___END_P_COD
 
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_d4b
 #undef ___PH_LBL0
-#define ___PH_LBL0 131
+#define ___PH_LBL0 141
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R2 ___D_R3
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_FP ___D_R2 ___D_R3
 #undef ___PR_ALL
 #define ___PR_ALL ___R_FP ___R_R2 ___R_R3
 #undef ___PW_ALL
@@ -3963,16 +4180,16 @@ ___DEF_GLBL(___L___riscv_23_riscv_2d_d4b)
    ___SET_R3(___FIX(32L))
    ___POLL(1)
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_d4b)
-   ___JUMPINT(___SET_NARGS(3),___PRC(149),___L___riscv_23_riscv_2d_data_2d_elems)
+   ___JUMPINT(___SET_NARGS(3),___PRC(159),___L___riscv_23_riscv_2d_data_2d_elems)
 ___END_P_SW
 ___END_P_COD
 
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_dw
 #undef ___PH_LBL0
-#define ___PH_LBL0 134
+#define ___PH_LBL0 144
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R2 ___D_R3
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_FP ___D_R2 ___D_R3
 #undef ___PR_ALL
 #define ___PR_ALL ___R_FP ___R_R2 ___R_R3
 #undef ___PW_ALL
@@ -3991,16 +4208,16 @@ ___DEF_GLBL(___L___riscv_23_riscv_2d_dw)
    ___SET_R3(___FIX(32L))
    ___POLL(1)
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_dw)
-   ___JUMPINT(___SET_NARGS(3),___PRC(149),___L___riscv_23_riscv_2d_data_2d_elems)
+   ___JUMPINT(___SET_NARGS(3),___PRC(159),___L___riscv_23_riscv_2d_data_2d_elems)
 ___END_P_SW
 ___END_P_COD
 
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_dl
 #undef ___PH_LBL0
-#define ___PH_LBL0 137
+#define ___PH_LBL0 147
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R2 ___D_R3
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_FP ___D_R2 ___D_R3
 #undef ___PR_ALL
 #define ___PR_ALL ___R_FP ___R_R2 ___R_R3
 #undef ___PW_ALL
@@ -4019,16 +4236,16 @@ ___DEF_GLBL(___L___riscv_23_riscv_2d_dl)
    ___SET_R3(___FIX(32L))
    ___POLL(1)
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_dl)
-   ___JUMPINT(___SET_NARGS(3),___PRC(149),___L___riscv_23_riscv_2d_data_2d_elems)
+   ___JUMPINT(___SET_NARGS(3),___PRC(159),___L___riscv_23_riscv_2d_data_2d_elems)
 ___END_P_SW
 ___END_P_COD
 
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_d8b
 #undef ___PH_LBL0
-#define ___PH_LBL0 140
+#define ___PH_LBL0 150
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R2 ___D_R3
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_FP ___D_R2 ___D_R3
 #undef ___PR_ALL
 #define ___PR_ALL ___R_FP ___R_R2 ___R_R3
 #undef ___PW_ALL
@@ -4047,16 +4264,16 @@ ___DEF_GLBL(___L___riscv_23_riscv_2d_d8b)
    ___SET_R3(___FIX(64L))
    ___POLL(1)
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_d8b)
-   ___JUMPINT(___SET_NARGS(3),___PRC(149),___L___riscv_23_riscv_2d_data_2d_elems)
+   ___JUMPINT(___SET_NARGS(3),___PRC(159),___L___riscv_23_riscv_2d_data_2d_elems)
 ___END_P_SW
 ___END_P_COD
 
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_dd
 #undef ___PH_LBL0
-#define ___PH_LBL0 143
+#define ___PH_LBL0 153
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R2 ___D_R3
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_FP ___D_R2 ___D_R3
 #undef ___PR_ALL
 #define ___PR_ALL ___R_FP ___R_R2 ___R_R3
 #undef ___PW_ALL
@@ -4075,16 +4292,16 @@ ___DEF_GLBL(___L___riscv_23_riscv_2d_dd)
    ___SET_R3(___FIX(64L))
    ___POLL(1)
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_dd)
-   ___JUMPINT(___SET_NARGS(3),___PRC(149),___L___riscv_23_riscv_2d_data_2d_elems)
+   ___JUMPINT(___SET_NARGS(3),___PRC(159),___L___riscv_23_riscv_2d_data_2d_elems)
 ___END_P_SW
 ___END_P_COD
 
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_dq
 #undef ___PH_LBL0
-#define ___PH_LBL0 146
+#define ___PH_LBL0 156
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R2 ___D_R3
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_FP ___D_R2 ___D_R3
 #undef ___PR_ALL
 #define ___PR_ALL ___R_FP ___R_R2 ___R_R3
 #undef ___PW_ALL
@@ -4103,22 +4320,22 @@ ___DEF_GLBL(___L___riscv_23_riscv_2d_dq)
    ___SET_R3(___FIX(64L))
    ___POLL(1)
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_dq)
-   ___JUMPINT(___SET_NARGS(3),___PRC(149),___L___riscv_23_riscv_2d_data_2d_elems)
+   ___JUMPINT(___SET_NARGS(3),___PRC(159),___L___riscv_23_riscv_2d_data_2d_elems)
 ___END_P_SW
 ___END_P_COD
 
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_data_2d_elems
 #undef ___PH_LBL0
-#define ___PH_LBL0 149
+#define ___PH_LBL0 159
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(29)
+___BEGIN_P_HLBL_AT(33)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_data_2d_elems)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_data_2d_elems)
@@ -4149,22 +4366,34 @@ ___DEF_P_HLBL(___L25___riscv_23_riscv_2d_data_2d_elems)
 ___DEF_P_HLBL(___L26___riscv_23_riscv_2d_data_2d_elems)
 ___DEF_P_HLBL(___L27___riscv_23_riscv_2d_data_2d_elems)
 ___DEF_P_HLBL(___L28___riscv_23_riscv_2d_data_2d_elems)
+___DEF_P_HLBL(___L29___riscv_23_riscv_2d_data_2d_elems)
+___DEF_P_HLBL(___L30___riscv_23_riscv_2d_data_2d_elems)
+___DEF_P_HLBL(___L31___riscv_23_riscv_2d_data_2d_elems)
+___DEF_P_HLBL(___L32___riscv_23_riscv_2d_data_2d_elems)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_data_2d_elems)
    ___IF_NARGS_EQ(3,___NOTHING)
    ___WRONG_NARGS(0,3,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_data_2d_elems)
-   ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
-   ___SET_STK(3,___R3)
-   ___SET_R1(___R2)
-   ___ADJFP(8)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_riscv#riscv-data-elems",1,___LBL(1),___fp);
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_data_2d_elems)
-   ___SET_R0(___LBL(2))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),155,___G_list_2d__3e_vector)
+___GATE2_ENTER(___ps,"_riscv#riscv-data-elems",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,8,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R0)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R3)
+   ___ADJFP(1)
+   ___SET_R1(___R2)
+   ___ADJFP(5)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___riscv_23_riscv_2d_data_2d_elems)
+   ___SET_R0(___LBL(3))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),155,___G_list_2d__3e_vector)
+___DEF_SLBL(3,___L3___riscv_23_riscv_2d_data_2d_elems)
    ___SET_STK(-4,___STK(-7))
    ___SET_STK(-7,___STK(-6))
    ___SET_R2(___R1)
@@ -4172,55 +4401,69 @@ ___DEF_SLBL(2,___L2___riscv_23_riscv_2d_data_2d_elems)
    ___SET_R3(___FIX(0L))
    ___SET_R0(___STK(-4))
    ___ADJFP(-7)
-   ___POLL(3)
-___DEF_SLBL(3,___L3___riscv_23_riscv_2d_data_2d_elems)
-   ___GOTO(___L30___riscv_23_riscv_2d_data_2d_elems)
+   ___POLL(4)
 ___DEF_SLBL(4,___L4___riscv_23_riscv_2d_data_2d_elems)
-___DEF_GLBL(___L29___riscv_23_riscv_2d_data_2d_elems)
+   ___GOTO(___L34___riscv_23_riscv_2d_data_2d_elems)
+___DEF_SLBL(5,___L5___riscv_23_riscv_2d_data_2d_elems)
+___DEF_GLBL(___L33___riscv_23_riscv_2d_data_2d_elems)
    ___SET_R3(___STK(-3))
    ___SET_R2(___STK(-5))
    ___SET_R1(___STK(-6))
    ___SET_R0(___STK(-4))
    ___ADJFP(-7)
-   ___POLL(5)
-___DEF_SLBL(5,___L5___riscv_23_riscv_2d_data_2d_elems)
-___DEF_GLBL(___L30___riscv_23_riscv_2d_data_2d_elems)
-   ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
-   ___SET_STK(3,___R2)
-   ___SET_STK(4,___R3)
-   ___SET_R1(___R2)
-   ___ADJFP(7)
    ___POLL(6)
 ___DEF_SLBL(6,___L6___riscv_23_riscv_2d_data_2d_elems)
-   ___SET_R0(___LBL(7))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),165,___G_vector_2d_length)
+___DEF_GLBL(___L34___riscv_23_riscv_2d_data_2d_elems)
+___GATE2_OPEN(___ps,"_riscv#riscv-data-elems",7,___LBL(7),___fp);
 ___DEF_SLBL(7,___L7___riscv_23_riscv_2d_data_2d_elems)
+___GATE2_ENTER(___ps,"_riscv#riscv-data-elems",7,___LBL(7),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,7,0,___LBL(7),&___demand_attempt)){___ps->temp1=___LBL(7);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R0)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_STK(1,___R3)
+   ___ADJFP(1)
+   ___SET_R1(___R2)
+   ___ADJFP(3)
+___group_demand_commit(___ps,___LBL(7),___demand_attempt);
+   ___POLL(8)
+___DEF_SLBL(8,___L8___riscv_23_riscv_2d_data_2d_elems)
+   ___SET_R0(___LBL(9))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),165,___G_vector_2d_length)
+___DEF_SLBL(9,___L9___riscv_23_riscv_2d_data_2d_elems)
    ___SET_R2(___R1)
    ___SET_R1(___STK(-3))
-   ___SET_R0(___LBL(8))
+   ___SET_R0(___LBL(10))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),143,___G_fx_3c_)
-___DEF_SLBL(8,___L8___riscv_23_riscv_2d_data_2d_elems)
+___DEF_SLBL(10,___L10___riscv_23_riscv_2d_data_2d_elems)
    ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L39___riscv_23_riscv_2d_data_2d_elems)
+   ___GOTO(___L43___riscv_23_riscv_2d_data_2d_elems)
    ___END_IF
    ___SET_R1(___STK(-3))
    ___SET_R2(___FIX(4L))
-   ___SET_R0(___LBL(9))
+   ___SET_R0(___LBL(11))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),141,___G_fx_2b_)
-___DEF_SLBL(9,___L9___riscv_23_riscv_2d_data_2d_elems)
+___DEF_SLBL(11,___L11___riscv_23_riscv_2d_data_2d_elems)
+___GATE2_OPEN(___ps,"_riscv#riscv-data-elems",12,___LBL(12),___fp);
+___DEF_SLBL(12,___L12___riscv_23_riscv_2d_data_2d_elems)
+___GATE2_ENTER(___ps,"_riscv#riscv-data-elems",12,___LBL(12),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,4,0,___LBL(12),&___demand_attempt)){___ps->temp1=___LBL(12);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(-2,___R1)
    ___SET_R1(___STK(-4))
-   ___SET_R0(___LBL(10))
+   ___SET_R0(___LBL(13))
    ___ADJFP(4)
+___group_demand_commit(___ps,___LBL(12),___demand_attempt);
    ___JUMPGLONOTSAFE(___SET_NARGS(1),165,___G_vector_2d_length)
-___DEF_SLBL(10,___L10___riscv_23_riscv_2d_data_2d_elems)
+___DEF_SLBL(13,___L13___riscv_23_riscv_2d_data_2d_elems)
    ___SET_R2(___R1)
    ___SET_R1(___STK(-6))
-   ___SET_R0(___LBL(11))
+   ___SET_R0(___LBL(14))
    ___ADJFP(-4)
    ___JUMPGLONOTSAFE(___SET_NARGS(2),152,___G_fxmin)
-___DEF_SLBL(11,___L11___riscv_23_riscv_2d_data_2d_elems)
+___DEF_SLBL(14,___L14___riscv_23_riscv_2d_data_2d_elems)
    ___SET_STK(-2,___STK(-6))
    ___SET_STK(-6,___STK(-5))
    ___SET_STK(-5,___STK(-4))
@@ -4228,137 +4471,146 @@ ___DEF_SLBL(11,___L11___riscv_23_riscv_2d_data_2d_elems)
    ___SET_R3(___NUL)
    ___SET_R0(___STK(-2))
    ___ADJFP(-5)
-   ___POLL(12)
-___DEF_SLBL(12,___L12___riscv_23_riscv_2d_data_2d_elems)
-   ___GOTO(___L31___riscv_23_riscv_2d_data_2d_elems)
-___DEF_SLBL(13,___L13___riscv_23_riscv_2d_data_2d_elems)
+   ___POLL(15)
+___DEF_SLBL(15,___L15___riscv_23_riscv_2d_data_2d_elems)
+   ___GOTO(___L35___riscv_23_riscv_2d_data_2d_elems)
+___DEF_SLBL(16,___L16___riscv_23_riscv_2d_data_2d_elems)
    ___SET_R3(___R1)
    ___SET_R1(___STK(-7))
    ___SET_R0(___STK(-8))
    ___SET_R2(___STK(-6))
    ___ADJFP(-9)
-   ___POLL(14)
-___DEF_SLBL(14,___L14___riscv_23_riscv_2d_data_2d_elems)
-___DEF_GLBL(___L31___riscv_23_riscv_2d_data_2d_elems)
+   ___POLL(17)
+___DEF_SLBL(17,___L17___riscv_23_riscv_2d_data_2d_elems)
+___DEF_GLBL(___L35___riscv_23_riscv_2d_data_2d_elems)
+___GATE2_OPEN(___ps,"_riscv#riscv-data-elems",18,___LBL(18),___fp);
+___DEF_SLBL(18,___L18___riscv_23_riscv_2d_data_2d_elems)
+___GATE2_ENTER(___ps,"_riscv#riscv-data-elems",18,___LBL(18),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,9,0,___LBL(18),&___demand_attempt)){___ps->temp1=___LBL(18);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
-   ___SET_STK(3,___R2)
-   ___SET_STK(4,___R3)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_STK(1,___R3)
+   ___ADJFP(1)
    ___SET_R2(___R1)
-   ___SET_R1(___STK(3))
-   ___ADJFP(9)
-   ___POLL(15)
-___DEF_SLBL(15,___L15___riscv_23_riscv_2d_data_2d_elems)
-   ___SET_R0(___LBL(16))
+   ___SET_R1(___STK(-1))
+   ___ADJFP(5)
+___group_demand_commit(___ps,___LBL(18),___demand_attempt);
+   ___POLL(19)
+___DEF_SLBL(19,___L19___riscv_23_riscv_2d_data_2d_elems)
+   ___SET_R0(___LBL(20))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),143,___G_fx_3c_)
-___DEF_SLBL(16,___L16___riscv_23_riscv_2d_data_2d_elems)
+___DEF_SLBL(20,___L20___riscv_23_riscv_2d_data_2d_elems)
    ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L32___riscv_23_riscv_2d_data_2d_elems)
+   ___GOTO(___L36___riscv_23_riscv_2d_data_2d_elems)
    ___END_IF
    ___SET_R2(___STK(-6))
    ___SET_R1(___STK(-9))
-   ___SET_R0(___LBL(17))
+   ___SET_R0(___LBL(21))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),166,___G_vector_2d_ref)
-___DEF_SLBL(17,___L17___riscv_23_riscv_2d_data_2d_elems)
+___DEF_SLBL(21,___L21___riscv_23_riscv_2d_data_2d_elems)
    ___SET_STK(-4,___R1)
    ___SET_R3(___STK(-10))
    ___SET_R2(___R1)
    ___SET_R1(___STK(-11))
-   ___SET_R0(___LBL(18))
+   ___SET_R0(___LBL(22))
    ___JUMPGLONOTSAFE(___SET_NARGS(3),121,___G___asm_23_asm_2d_int_2d_le)
-___DEF_SLBL(18,___L18___riscv_23_riscv_2d_data_2d_elems)
+___DEF_SLBL(22,___L22___riscv_23_riscv_2d_data_2d_elems)
    ___SET_R1(___STK(-6))
    ___SET_R2(___FIX(1L))
-   ___SET_R0(___LBL(19))
+   ___SET_R0(___LBL(23))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),141,___G_fx_2b_)
-___DEF_SLBL(19,___L19___riscv_23_riscv_2d_data_2d_elems)
+___DEF_SLBL(23,___L23___riscv_23_riscv_2d_data_2d_elems)
    ___SET_STK(-6,___R1)
    ___SET_R2(___STK(-5))
    ___SET_R1(___STK(-4))
-   ___SET_R0(___LBL(13))
+   ___SET_R0(___LBL(16))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),136,___G_cons)
-___DEF_GLBL(___L32___riscv_23_riscv_2d_data_2d_elems)
+___DEF_GLBL(___L36___riscv_23_riscv_2d_data_2d_elems)
    ___SET_R1(___STK(-11))
-   ___SET_R0(___LBL(20))
+   ___SET_R0(___LBL(24))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),131,___G___codegen_23_codegen_2d_context_2d_listing_2d_format)
-___DEF_SLBL(20,___L20___riscv_23_riscv_2d_data_2d_elems)
+___DEF_SLBL(24,___L24___riscv_23_riscv_2d_data_2d_elems)
    ___IF(___NOTFALSEP(___R1))
-   ___GOTO(___L33___riscv_23_riscv_2d_data_2d_elems)
+   ___GOTO(___L37___riscv_23_riscv_2d_data_2d_elems)
    ___END_IF
    ___ADJFP(-4)
-   ___GOTO(___L29___riscv_23_riscv_2d_data_2d_elems)
-___DEF_GLBL(___L33___riscv_23_riscv_2d_data_2d_elems)
+   ___GOTO(___L33___riscv_23_riscv_2d_data_2d_elems)
+___DEF_GLBL(___L37___riscv_23_riscv_2d_data_2d_elems)
    ___SET_STK(-3,___CHR(9))
    ___SET_R1(___STK(-10))
    ___SET_R2(___FIX(8L))
-   ___SET_R0(___LBL(21))
+   ___SET_R0(___LBL(25))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),145,___G_fx_3d_)
-___DEF_SLBL(21,___L21___riscv_23_riscv_2d_data_2d_elems)
+___DEF_SLBL(25,___L25___riscv_23_riscv_2d_data_2d_elems)
    ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L35___riscv_23_riscv_2d_data_2d_elems)
+   ___GOTO(___L39___riscv_23_riscv_2d_data_2d_elems)
    ___END_IF
    ___SET_R1(___SUB(42))
-   ___GOTO(___L34___riscv_23_riscv_2d_data_2d_elems)
-___DEF_SLBL(22,___L22___riscv_23_riscv_2d_data_2d_elems)
-___DEF_GLBL(___L34___riscv_23_riscv_2d_data_2d_elems)
+   ___GOTO(___L38___riscv_23_riscv_2d_data_2d_elems)
+___DEF_SLBL(26,___L26___riscv_23_riscv_2d_data_2d_elems)
+___DEF_GLBL(___L38___riscv_23_riscv_2d_data_2d_elems)
    ___SET_STK(-6,___R1)
    ___SET_R1(___STK(-5))
-   ___SET_R0(___LBL(23))
+   ___SET_R0(___LBL(27))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),161,___G_reverse)
-___DEF_SLBL(23,___L23___riscv_23_riscv_2d_data_2d_elems)
+___DEF_SLBL(27,___L27___riscv_23_riscv_2d_data_2d_elems)
    ___SET_R2(___SUB(43))
-   ___SET_R0(___LBL(24))
+   ___SET_R0(___LBL(28))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),126,___G___asm_23_asm_2d_separated_2d_list)
-___DEF_SLBL(24,___L24___riscv_23_riscv_2d_data_2d_elems)
+___DEF_SLBL(28,___L28___riscv_23_riscv_2d_data_2d_elems)
    ___SET_R3(___R1)
    ___SET_R2(___CHR(9))
    ___SET_R1(___STK(-6))
-   ___SET_R0(___LBL(25))
+   ___SET_R0(___LBL(29))
    ___ADJFP(-3)
    ___JUMPGLONOTSAFE(___SET_NARGS(4),154,___G_list)
-___DEF_SLBL(25,___L25___riscv_23_riscv_2d_data_2d_elems)
+___DEF_SLBL(29,___L29___riscv_23_riscv_2d_data_2d_elems)
    ___SET_R2(___R1)
    ___SET_R1(___STK(-7))
-   ___SET_R0(___LBL(4))
+   ___SET_R0(___LBL(5))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),125,___G___asm_23_asm_2d_listing)
-___DEF_GLBL(___L35___riscv_23_riscv_2d_data_2d_elems)
+___DEF_GLBL(___L39___riscv_23_riscv_2d_data_2d_elems)
    ___SET_R1(___STK(-10))
    ___SET_R2(___FIX(16L))
-   ___SET_R0(___LBL(26))
+   ___SET_R0(___LBL(30))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),145,___G_fx_3d_)
-___DEF_SLBL(26,___L26___riscv_23_riscv_2d_data_2d_elems)
+___DEF_SLBL(30,___L30___riscv_23_riscv_2d_data_2d_elems)
    ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L36___riscv_23_riscv_2d_data_2d_elems)
+   ___GOTO(___L40___riscv_23_riscv_2d_data_2d_elems)
    ___END_IF
    ___SET_R1(___SUB(44))
-   ___GOTO(___L34___riscv_23_riscv_2d_data_2d_elems)
-___DEF_GLBL(___L36___riscv_23_riscv_2d_data_2d_elems)
+   ___GOTO(___L38___riscv_23_riscv_2d_data_2d_elems)
+___DEF_GLBL(___L40___riscv_23_riscv_2d_data_2d_elems)
    ___SET_R1(___STK(-10))
    ___SET_R2(___FIX(32L))
-   ___SET_R0(___LBL(27))
+   ___SET_R0(___LBL(31))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),145,___G_fx_3d_)
-___DEF_SLBL(27,___L27___riscv_23_riscv_2d_data_2d_elems)
+___DEF_SLBL(31,___L31___riscv_23_riscv_2d_data_2d_elems)
    ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L37___riscv_23_riscv_2d_data_2d_elems)
+   ___GOTO(___L41___riscv_23_riscv_2d_data_2d_elems)
    ___END_IF
    ___SET_R1(___SUB(45))
-   ___GOTO(___L34___riscv_23_riscv_2d_data_2d_elems)
-___DEF_GLBL(___L37___riscv_23_riscv_2d_data_2d_elems)
+   ___GOTO(___L38___riscv_23_riscv_2d_data_2d_elems)
+___DEF_GLBL(___L41___riscv_23_riscv_2d_data_2d_elems)
    ___SET_R1(___STK(-10))
    ___SET_R2(___FIX(64L))
-   ___SET_R0(___LBL(28))
+   ___SET_R0(___LBL(32))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),145,___G_fx_3d_)
-___DEF_SLBL(28,___L28___riscv_23_riscv_2d_data_2d_elems)
+___DEF_SLBL(32,___L32___riscv_23_riscv_2d_data_2d_elems)
    ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L38___riscv_23_riscv_2d_data_2d_elems)
+   ___GOTO(___L42___riscv_23_riscv_2d_data_2d_elems)
    ___END_IF
    ___SET_R1(___SUB(46))
-   ___GOTO(___L34___riscv_23_riscv_2d_data_2d_elems)
-___DEF_GLBL(___L38___riscv_23_riscv_2d_data_2d_elems)
+   ___GOTO(___L38___riscv_23_riscv_2d_data_2d_elems)
+___DEF_GLBL(___L42___riscv_23_riscv_2d_data_2d_elems)
    ___SET_R1(___SUB(47))
-   ___SET_R0(___LBL(22))
+   ___SET_R0(___LBL(26))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),138,___G_error)
-___DEF_GLBL(___L39___riscv_23_riscv_2d_data_2d_elems)
+___DEF_GLBL(___L43___riscv_23_riscv_2d_data_2d_elems)
    ___SET_R1(___VOID)
    ___ADJFP(-8)
    ___JUMPRET(___STK(2))
@@ -4368,35 +4620,43 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_nop
 #undef ___PH_LBL0
-#define ___PH_LBL0 179
+#define ___PH_LBL0 193
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(4)
+___BEGIN_P_HLBL_AT(5)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_nop)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_nop)
 ___DEF_P_HLBL(___L2___riscv_23_riscv_2d_nop)
 ___DEF_P_HLBL(___L3___riscv_23_riscv_2d_nop)
+___DEF_P_HLBL(___L4___riscv_23_riscv_2d_nop)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_nop)
    ___IF_NARGS_EQ(1,___NOTHING)
    ___WRONG_NARGS(0,1,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_nop)
-   ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
-   ___SET_R1(___FIX(0L))
-   ___ADJFP(8)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_riscv#riscv-nop",1,___LBL(1),___fp);
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_nop)
-   ___SET_R0(___LBL(2))
-   ___SET_NARGS(1) ___JUMPINT(___NOTHING,___PRC(21),___L0___riscv_23_riscv_2d_imm_2d_int)
+___GATE2_ENTER(___ps,"_riscv#riscv-nop",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,8,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R0)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_R1(___FIX(0L))
+   ___ADJFP(6)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___riscv_23_riscv_2d_nop)
+   ___SET_R0(___LBL(3))
+   ___SET_NARGS(1) ___JUMPINT(___NOTHING,___PRC(23),___L0___riscv_23_riscv_2d_imm_2d_int)
+___DEF_SLBL(3,___L3___riscv_23_riscv_2d_nop)
    ___SET_STK(-5,___STK(-7))
    ___SET_STK(-7,___STK(-6))
    ___SET_STK(-6,___FIX(0L))
@@ -4404,25 +4664,25 @@ ___DEF_SLBL(2,___L2___riscv_23_riscv_2d_nop)
    ___SET_R3(___FIX(0L))
    ___SET_R1(___FIX(0L))
    ___SET_R0(___STK(-5))
-   ___POLL(3)
-___DEF_SLBL(3,___L3___riscv_23_riscv_2d_nop)
+   ___POLL(4)
+___DEF_SLBL(4,___L4___riscv_23_riscv_2d_nop)
    ___ADJFP(-6)
-   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(575),___L0___riscv_23_riscv_2d_type_2d_i)
+   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(677),___L0___riscv_23_riscv_2d_type_2d_i)
 ___END_P_SW
 ___END_P_COD
 
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_li
 #undef ___PH_LBL0
-#define ___PH_LBL0 184
+#define ___PH_LBL0 199
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(45)
+___BEGIN_P_HLBL_AT(51)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_li)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_li)
@@ -4469,249 +4729,283 @@ ___DEF_P_HLBL(___L41___riscv_23_riscv_2d_li)
 ___DEF_P_HLBL(___L42___riscv_23_riscv_2d_li)
 ___DEF_P_HLBL(___L43___riscv_23_riscv_2d_li)
 ___DEF_P_HLBL(___L44___riscv_23_riscv_2d_li)
+___DEF_P_HLBL(___L45___riscv_23_riscv_2d_li)
+___DEF_P_HLBL(___L46___riscv_23_riscv_2d_li)
+___DEF_P_HLBL(___L47___riscv_23_riscv_2d_li)
+___DEF_P_HLBL(___L48___riscv_23_riscv_2d_li)
+___DEF_P_HLBL(___L49___riscv_23_riscv_2d_li)
+___DEF_P_HLBL(___L50___riscv_23_riscv_2d_li)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_li)
    ___IF_NARGS_EQ(3,___NOTHING)
    ___WRONG_NARGS(0,3,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_li)
-   ___GOTO(___L45___riscv_23_riscv_2d_li)
+   ___GOTO(___L51___riscv_23_riscv_2d_li)
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_li)
    ___SET_R3(___R1)
    ___SET_R2(___STK(-5))
    ___SET_R1(___STK(-6))
-   ___SET_R0(___LBL(42))
-___DEF_GLBL(___L45___riscv_23_riscv_2d_li)
-   ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
-   ___SET_STK(3,___R2)
-   ___SET_R1(___R3)
-   ___ADJFP(8)
-   ___POLL(2)
+   ___SET_R0(___LBL(47))
+___DEF_GLBL(___L51___riscv_23_riscv_2d_li)
+___GATE2_OPEN(___ps,"_riscv#riscv-li",2,___LBL(2),___fp);
 ___DEF_SLBL(2,___L2___riscv_23_riscv_2d_li)
-   ___SET_R0(___LBL(3))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),135,___G_cdr)
+___GATE2_ENTER(___ps,"_riscv#riscv-li",2,___LBL(2),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,8,0,___LBL(2),&___demand_attempt)){___ps->temp1=___LBL(2);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R0)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_R1(___R3)
+   ___ADJFP(5)
+___group_demand_commit(___ps,___LBL(2),___demand_attempt);
+   ___POLL(3)
 ___DEF_SLBL(3,___L3___riscv_23_riscv_2d_li)
+   ___SET_R0(___LBL(4))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),135,___G_cdr)
+___DEF_SLBL(4,___L4___riscv_23_riscv_2d_li)
    ___SET_STK(-4,___R1)
    ___SET_R2(___FIX(2048L))
-   ___SET_R0(___LBL(4))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),115,___G__2b_)
-___DEF_SLBL(4,___L4___riscv_23_riscv_2d_li)
-   ___SET_R2(___FIX(4095L))
    ___SET_R0(___LBL(5))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),133,___G_bitwise_2d_and)
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),115,___G__2b_)
 ___DEF_SLBL(5,___L5___riscv_23_riscv_2d_li)
-   ___SET_R2(___FIX(2048L))
+   ___SET_R2(___FIX(4095L))
    ___SET_R0(___LBL(6))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),116,___G__2d_)
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),133,___G_bitwise_2d_and)
 ___DEF_SLBL(6,___L6___riscv_23_riscv_2d_li)
+   ___SET_R2(___FIX(2048L))
+   ___SET_R0(___LBL(7))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),116,___G__2d_)
+___DEF_SLBL(7,___L7___riscv_23_riscv_2d_li)
    ___SET_STK(-3,___R1)
    ___SET_R1(___STK(-4))
    ___SET_R2(___FIX(2048L))
-   ___SET_R0(___LBL(7))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),115,___G__2b_)
-___DEF_SLBL(7,___L7___riscv_23_riscv_2d_li)
-   ___SET_R2(___FIX(-12L))
    ___SET_R0(___LBL(8))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),132,___G_arithmetic_2d_shift)
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),115,___G__2b_)
 ___DEF_SLBL(8,___L8___riscv_23_riscv_2d_li)
+   ___SET_R2(___FIX(-12L))
+   ___SET_R0(___LBL(9))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),132,___G_arithmetic_2d_shift)
+___DEF_SLBL(9,___L9___riscv_23_riscv_2d_li)
+___GATE2_OPEN(___ps,"_riscv#riscv-li",10,___LBL(10),___fp);
+___DEF_SLBL(10,___L10___riscv_23_riscv_2d_li)
+___GATE2_ENTER(___ps,"_riscv#riscv-li",10,___LBL(10),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,4,0,___LBL(10),&___demand_attempt)){___ps->temp1=___LBL(10);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(-2,___R1)
    ___SET_R1(___STK(-4))
    ___SET_R2(___BIGFIX(48,-2147483648LL))
-   ___SET_R0(___LBL(9))
+   ___SET_R0(___LBL(11))
    ___ADJFP(4)
+___group_demand_commit(___ps,___LBL(10),___demand_attempt);
    ___JUMPGLONOTSAFE(___SET_NARGS(2),118,___G__3e__3d_)
-___DEF_SLBL(9,___L9___riscv_23_riscv_2d_li)
+___DEF_SLBL(11,___L11___riscv_23_riscv_2d_li)
    ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L46___riscv_23_riscv_2d_li)
+   ___GOTO(___L52___riscv_23_riscv_2d_li)
    ___END_IF
    ___SET_R1(___STK(-8))
    ___SET_R2(___BIGFIX(49,2147483647LL))
-   ___SET_R0(___LBL(10))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),117,___G__3c__3d_)
-___DEF_SLBL(10,___L10___riscv_23_riscv_2d_li)
-   ___IF(___NOTFALSEP(___R1))
-   ___GOTO(___L50___riscv_23_riscv_2d_li)
-   ___END_IF
-___DEF_GLBL(___L46___riscv_23_riscv_2d_li)
-   ___SET_R1(___STK(-10))
-   ___SET_R0(___LBL(11))
-   ___JUMPINT(___SET_NARGS(1),___PRC(9),___L___riscv_23_riscv_2d_64bit_2d_mode_3f_)
-___DEF_SLBL(11,___L11___riscv_23_riscv_2d_li)
    ___SET_R0(___LBL(12))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),117,___G__3c__3d_)
 ___DEF_SLBL(12,___L12___riscv_23_riscv_2d_li)
+   ___IF(___NOTFALSEP(___R1))
+   ___GOTO(___L56___riscv_23_riscv_2d_li)
+   ___END_IF
+___DEF_GLBL(___L52___riscv_23_riscv_2d_li)
+   ___SET_R1(___STK(-10))
+   ___SET_R0(___LBL(13))
+   ___JUMPINT(___SET_NARGS(1),___PRC(9),___L___riscv_23_riscv_2d_64bit_2d_mode_3f_)
+___DEF_SLBL(13,___L13___riscv_23_riscv_2d_li)
+   ___SET_R0(___LBL(14))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
+___DEF_SLBL(14,___L14___riscv_23_riscv_2d_li)
    ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L47___riscv_23_riscv_2d_li)
+   ___GOTO(___L53___riscv_23_riscv_2d_li)
    ___END_IF
    ___SET_R1(___SUB(50))
-   ___SET_R0(___LBL(13))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),138,___G_error)
-___DEF_SLBL(13,___L13___riscv_23_riscv_2d_li)
-___DEF_GLBL(___L47___riscv_23_riscv_2d_li)
-   ___SET_R1(___STK(-6))
-   ___SET_R0(___LBL(14))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),128,___G___asm_23_asm_2d_unsigned_2d_lo64)
-___DEF_SLBL(14,___L14___riscv_23_riscv_2d_li)
    ___SET_R0(___LBL(15))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),139,___G_first_2d_set_2d_bit)
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),138,___G_error)
 ___DEF_SLBL(15,___L15___riscv_23_riscv_2d_li)
+___DEF_GLBL(___L53___riscv_23_riscv_2d_li)
+   ___SET_R1(___STK(-6))
+   ___SET_R0(___LBL(16))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),128,___G___asm_23_asm_2d_unsigned_2d_lo64)
+___DEF_SLBL(16,___L16___riscv_23_riscv_2d_li)
+   ___SET_R0(___LBL(17))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),139,___G_first_2d_set_2d_bit)
+___DEF_SLBL(17,___L17___riscv_23_riscv_2d_li)
    ___SET_R2(___R1)
    ___SET_R1(___FIX(12L))
-   ___SET_R0(___LBL(16))
+   ___SET_R0(___LBL(18))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),115,___G__2b_)
-___DEF_SLBL(16,___L16___riscv_23_riscv_2d_li)
+___DEF_SLBL(18,___L18___riscv_23_riscv_2d_li)
    ___SET_STK(-8,___R1)
    ___SET_R2(___FIX(12L))
-   ___SET_R0(___LBL(17))
+   ___SET_R0(___LBL(19))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),116,___G__2d_)
-___DEF_SLBL(17,___L17___riscv_23_riscv_2d_li)
-   ___SET_R0(___LBL(18))
+___DEF_SLBL(19,___L19___riscv_23_riscv_2d_li)
+   ___SET_R0(___LBL(20))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),116,___G__2d_)
-___DEF_SLBL(18,___L18___riscv_23_riscv_2d_li)
+___DEF_SLBL(20,___L20___riscv_23_riscv_2d_li)
    ___SET_R2(___R1)
    ___SET_R1(___STK(-6))
-   ___SET_R0(___LBL(19))
+   ___SET_R0(___LBL(21))
    ___ADJFP(-4)
    ___JUMPGLONOTSAFE(___SET_NARGS(2),132,___G_arithmetic_2d_shift)
-___DEF_SLBL(19,___L19___riscv_23_riscv_2d_li)
-   ___SET_R2(___STK(-4))
-   ___SET_R0(___LBL(20))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),132,___G_arithmetic_2d_shift)
-___DEF_SLBL(20,___L20___riscv_23_riscv_2d_li)
-   ___SET_R0(___LBL(21))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),127,___G___asm_23_asm_2d_signed_2d_lo64)
 ___DEF_SLBL(21,___L21___riscv_23_riscv_2d_li)
+   ___SET_R2(___STK(-4))
+   ___SET_R0(___LBL(22))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),132,___G_arithmetic_2d_shift)
+___DEF_SLBL(22,___L22___riscv_23_riscv_2d_li)
+   ___SET_R0(___LBL(23))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),127,___G___asm_23_asm_2d_signed_2d_lo64)
+___DEF_SLBL(23,___L23___riscv_23_riscv_2d_li)
+___GATE2_OPEN(___ps,"_riscv#riscv-li",24,___LBL(24),___fp);
+___DEF_SLBL(24,___L24___riscv_23_riscv_2d_li)
+___GATE2_ENTER(___ps,"_riscv#riscv-li",24,___LBL(24),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,4,0,___LBL(24),&___demand_attempt)){___ps->temp1=___LBL(24);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(-2,___R1)
    ___SET_R1(___STK(-4))
-   ___SET_R0(___LBL(22))
+   ___SET_R0(___LBL(25))
    ___ADJFP(4)
+___group_demand_commit(___ps,___LBL(24),___demand_attempt);
    ___JUMPGLONOTSAFE(___SET_NARGS(1),116,___G__2d_)
-___DEF_SLBL(22,___L22___riscv_23_riscv_2d_li)
+___DEF_SLBL(25,___L25___riscv_23_riscv_2d_li)
    ___SET_R2(___R1)
    ___SET_R1(___STK(-6))
-   ___SET_R0(___LBL(23))
+   ___SET_R0(___LBL(26))
    ___ADJFP(-4)
    ___JUMPGLONOTSAFE(___SET_NARGS(2),132,___G_arithmetic_2d_shift)
-___DEF_SLBL(23,___L23___riscv_23_riscv_2d_li)
+___DEF_SLBL(26,___L26___riscv_23_riscv_2d_li)
    ___SET_R0(___LBL(1))
-   ___SET_NARGS(1) ___GOTO(___L25___riscv_23_riscv_2d_li)
-___DEF_SLBL(24,___L24___riscv_23_riscv_2d_li)
+   ___SET_NARGS(1) ___GOTO(___L28___riscv_23_riscv_2d_li)
+___DEF_SLBL(27,___L27___riscv_23_riscv_2d_li)
    ___IF(___NOTFALSEP(___R1))
-   ___GOTO(___L49___riscv_23_riscv_2d_li)
+   ___GOTO(___L55___riscv_23_riscv_2d_li)
    ___END_IF
    ___SET_R1(___STK(-9))
-___DEF_GLBL(___L48___riscv_23_riscv_2d_li)
+___DEF_GLBL(___L54___riscv_23_riscv_2d_li)
    ___SET_STK(-8,___STK(-11))
    ___SET_STK(-11,___STK(-10))
    ___SET_STK(-10,___R1)
    ___SET_R1(___STK(-7))
-   ___SET_R0(___LBL(27))
-   ___SET_NARGS(1) ___GOTO(___L25___riscv_23_riscv_2d_li)
-___DEF_SLBL(25,___L25___riscv_23_riscv_2d_li)
+   ___SET_R0(___LBL(31))
+   ___SET_NARGS(1) ___GOTO(___L28___riscv_23_riscv_2d_li)
+___DEF_SLBL(28,___L28___riscv_23_riscv_2d_li)
    ___IF_NARGS_EQ(1,___SET_R2(___SYM_I))
    ___IF_NARGS_EQ(2,___NOTHING)
-   ___WRONG_NARGS(25,1,1,0)
+   ___WRONG_NARGS(28,1,1,0)
+___GATE2_OPEN(___ps,"_riscv#riscv-li",29,___LBL(29),___fp);
+___DEF_SLBL(29,___L29___riscv_23_riscv_2d_li)
+___GATE2_ENTER(___ps,"_riscv#riscv-li",29,___LBL(29),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,1,0,___LBL(29),&___demand_attempt)){___ps->temp1=___LBL(29);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R2)
-   ___SET_R2(___R1)
-   ___SET_R1(___STK(1))
    ___ADJFP(1)
-   ___POLL(26)
-___DEF_SLBL(26,___L26___riscv_23_riscv_2d_li)
+   ___SET_R2(___R1)
+   ___SET_R1(___STK(0))
+___group_demand_commit(___ps,___LBL(29),___demand_attempt);
+   ___POLL(30)
+___DEF_SLBL(30,___L30___riscv_23_riscv_2d_li)
    ___ADJFP(-1)
    ___JUMPGLONOTSAFE(___SET_NARGS(2),136,___G_cons)
-___DEF_GLBL(___L49___riscv_23_riscv_2d_li)
+___DEF_GLBL(___L55___riscv_23_riscv_2d_li)
    ___SET_R1(___FIX(0L))
-   ___GOTO(___L48___riscv_23_riscv_2d_li)
-___DEF_SLBL(27,___L27___riscv_23_riscv_2d_li)
+   ___GOTO(___L54___riscv_23_riscv_2d_li)
+___DEF_SLBL(31,___L31___riscv_23_riscv_2d_li)
    ___SET_R3(___R1)
    ___SET_R2(___STK(-10))
    ___SET_R1(___STK(-9))
    ___SET_R0(___STK(-8))
-   ___POLL(28)
-___DEF_SLBL(28,___L28___riscv_23_riscv_2d_li)
+   ___POLL(32)
+___DEF_SLBL(32,___L32___riscv_23_riscv_2d_li)
    ___ADJFP(-11)
    ___JUMPGENNOTSAFE(___SET_NARGS(4),___STK(5))
-___DEF_GLBL(___L50___riscv_23_riscv_2d_li)
+___DEF_GLBL(___L56___riscv_23_riscv_2d_li)
    ___SET_R1(___STK(-6))
    ___SET_R2(___FIX(1048575L))
-   ___SET_R0(___LBL(29))
+   ___SET_R0(___LBL(33))
    ___ADJFP(-4)
    ___JUMPGLONOTSAFE(___SET_NARGS(2),133,___G_bitwise_2d_and)
-___DEF_SLBL(29,___L29___riscv_23_riscv_2d_li)
+___DEF_SLBL(33,___L33___riscv_23_riscv_2d_li)
    ___SET_STK(-4,___R1)
-   ___SET_R0(___LBL(30))
+   ___SET_R0(___LBL(34))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),168,___G_zero_3f_)
-___DEF_SLBL(30,___L30___riscv_23_riscv_2d_li)
-   ___SET_R0(___LBL(31))
+___DEF_SLBL(34,___L34___riscv_23_riscv_2d_li)
+   ___SET_R0(___LBL(35))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
-___DEF_SLBL(31,___L31___riscv_23_riscv_2d_li)
+___DEF_SLBL(35,___L35___riscv_23_riscv_2d_li)
    ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L51___riscv_23_riscv_2d_li)
+   ___GOTO(___L57___riscv_23_riscv_2d_li)
    ___END_IF
    ___SET_R1(___STK(-4))
    ___SET_R2(___FIX(12L))
-   ___SET_R0(___LBL(32))
+   ___SET_R0(___LBL(36))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),132,___G_arithmetic_2d_shift)
-___DEF_SLBL(32,___L32___riscv_23_riscv_2d_li)
+___DEF_SLBL(36,___L36___riscv_23_riscv_2d_li)
    ___SET_R2(___R1)
    ___SET_R1(___SYM_U)
-   ___SET_R0(___LBL(33))
+   ___SET_R0(___LBL(37))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),136,___G_cons)
-___DEF_SLBL(33,___L33___riscv_23_riscv_2d_li)
+___DEF_SLBL(37,___L37___riscv_23_riscv_2d_li)
    ___SET_R3(___R1)
    ___SET_R2(___STK(-5))
    ___SET_R1(___STK(-6))
-   ___SET_R0(___LBL(34))
-   ___JUMPINT(___SET_NARGS(3),___PRC(745),___L___riscv_23_riscv_2d_lui)
-___DEF_SLBL(34,___L34___riscv_23_riscv_2d_li)
-___DEF_GLBL(___L51___riscv_23_riscv_2d_li)
-   ___SET_R1(___STK(-3))
-   ___SET_R0(___LBL(35))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),168,___G_zero_3f_)
-___DEF_SLBL(35,___L35___riscv_23_riscv_2d_li)
-   ___SET_R0(___LBL(36))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
-___DEF_SLBL(36,___L36___riscv_23_riscv_2d_li)
-   ___IF(___NOTFALSEP(___R1))
-   ___GOTO(___L52___riscv_23_riscv_2d_li)
-   ___END_IF
-   ___GOTO(___L57___riscv_23_riscv_2d_li)
-___DEF_SLBL(37,___L37___riscv_23_riscv_2d_li)
-   ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L55___riscv_23_riscv_2d_li)
-   ___END_IF
-___DEF_GLBL(___L52___riscv_23_riscv_2d_li)
-   ___SET_R1(___STK(-6))
    ___SET_R0(___LBL(38))
-   ___JUMPINT(___SET_NARGS(1),___PRC(9),___L___riscv_23_riscv_2d_64bit_2d_mode_3f_)
+   ___JUMPINT(___SET_NARGS(3),___PRC(874),___L___riscv_23_riscv_2d_lui)
 ___DEF_SLBL(38,___L38___riscv_23_riscv_2d_li)
-   ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L53___riscv_23_riscv_2d_li)
-   ___END_IF
-   ___SET_R1(___PRC(525))
-   ___GOTO(___L54___riscv_23_riscv_2d_li)
-___DEF_GLBL(___L53___riscv_23_riscv_2d_li)
-   ___SET_R1(___PRC(456))
-___DEF_GLBL(___L54___riscv_23_riscv_2d_li)
-   ___SET_STK(-2,___R1)
-   ___SET_R1(___STK(-4))
-   ___SET_R0(___LBL(24))
-   ___ADJFP(4)
+___DEF_GLBL(___L57___riscv_23_riscv_2d_li)
+   ___SET_R1(___STK(-3))
+   ___SET_R0(___LBL(39))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),168,___G_zero_3f_)
 ___DEF_SLBL(39,___L39___riscv_23_riscv_2d_li)
+   ___SET_R0(___LBL(40))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
+___DEF_SLBL(40,___L40___riscv_23_riscv_2d_li)
    ___IF(___NOTFALSEP(___R1))
-   ___GOTO(___L56___riscv_23_riscv_2d_li)
+   ___GOTO(___L58___riscv_23_riscv_2d_li)
    ___END_IF
-___DEF_GLBL(___L55___riscv_23_riscv_2d_li)
+   ___GOTO(___L63___riscv_23_riscv_2d_li)
+___DEF_SLBL(41,___L41___riscv_23_riscv_2d_li)
+   ___IF(___NOT(___NOTFALSEP(___R1)))
+   ___GOTO(___L61___riscv_23_riscv_2d_li)
+   ___END_IF
+___DEF_GLBL(___L58___riscv_23_riscv_2d_li)
+   ___SET_R1(___STK(-6))
+   ___SET_R0(___LBL(42))
+   ___JUMPINT(___SET_NARGS(1),___PRC(9),___L___riscv_23_riscv_2d_64bit_2d_mode_3f_)
+___DEF_SLBL(42,___L42___riscv_23_riscv_2d_li)
+   ___IF(___NOT(___NOTFALSEP(___R1)))
+   ___GOTO(___L59___riscv_23_riscv_2d_li)
+   ___END_IF
+   ___SET_R1(___PRC(617))
+   ___GOTO(___L60___riscv_23_riscv_2d_li)
+___DEF_GLBL(___L59___riscv_23_riscv_2d_li)
+   ___SET_R1(___PRC(531))
+___DEF_GLBL(___L60___riscv_23_riscv_2d_li)
+___GATE2_OPEN(___ps,"_riscv#riscv-li",43,___LBL(43),___fp);
+___DEF_SLBL(43,___L43___riscv_23_riscv_2d_li)
+___GATE2_ENTER(___ps,"_riscv#riscv-li",43,___LBL(43),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,4,0,___LBL(43),&___demand_attempt)){___ps->temp1=___LBL(43);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(-2,___R1)
+   ___SET_R1(___STK(-4))
+   ___SET_R0(___LBL(27))
+   ___ADJFP(4)
+___group_demand_commit(___ps,___LBL(43),___demand_attempt);
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),168,___G_zero_3f_)
+___DEF_SLBL(44,___L44___riscv_23_riscv_2d_li)
+   ___IF(___NOTFALSEP(___R1))
+   ___GOTO(___L62___riscv_23_riscv_2d_li)
+   ___END_IF
+___DEF_GLBL(___L61___riscv_23_riscv_2d_li)
    ___SET_R1(___VOID)
    ___ADJFP(-8)
    ___JUMPRET(___STK(1))
-___DEF_GLBL(___L56___riscv_23_riscv_2d_li)
+___DEF_GLBL(___L62___riscv_23_riscv_2d_li)
    ___SET_R1(___STK(-3))
-   ___SET_R0(___LBL(40))
-   ___SET_NARGS(1) ___JUMPINT(___NOTHING,___PRC(21),___L0___riscv_23_riscv_2d_imm_2d_int)
-___DEF_SLBL(40,___L40___riscv_23_riscv_2d_li)
+   ___SET_R0(___LBL(45))
+   ___SET_NARGS(1) ___JUMPINT(___NOTHING,___PRC(23),___L0___riscv_23_riscv_2d_imm_2d_int)
+___DEF_SLBL(45,___L45___riscv_23_riscv_2d_li)
    ___SET_STK(-4,___STK(-7))
    ___SET_STK(-7,___STK(-6))
    ___SET_STK(-6,___STK(-5))
@@ -4719,28 +5013,33 @@ ___DEF_SLBL(40,___L40___riscv_23_riscv_2d_li)
    ___SET_R1(___STK(-5))
    ___SET_R3(___FIX(0L))
    ___SET_R0(___STK(-4))
-   ___POLL(41)
-___DEF_SLBL(41,___L41___riscv_23_riscv_2d_li)
+   ___POLL(46)
+___DEF_SLBL(46,___L46___riscv_23_riscv_2d_li)
    ___ADJFP(-6)
-   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(575),___L0___riscv_23_riscv_2d_type_2d_i)
-___DEF_GLBL(___L57___riscv_23_riscv_2d_li)
+   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(677),___L0___riscv_23_riscv_2d_type_2d_i)
+___DEF_GLBL(___L63___riscv_23_riscv_2d_li)
    ___SET_R1(___STK(-4))
-   ___SET_R0(___LBL(37))
+   ___SET_R0(___LBL(41))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),168,___G_zero_3f_)
-___DEF_SLBL(42,___L42___riscv_23_riscv_2d_li)
+___DEF_SLBL(47,___L47___riscv_23_riscv_2d_li)
+___GATE2_OPEN(___ps,"_riscv#riscv-li",48,___LBL(48),___fp);
+___DEF_SLBL(48,___L48___riscv_23_riscv_2d_li)
+___GATE2_ENTER(___ps,"_riscv#riscv-li",48,___LBL(48),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,1,0,___LBL(48),&___demand_attempt)){___ps->temp1=___LBL(48);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___STK(-6))
-   ___SET_R3(___STK(-4))
-   ___SET_R2(___STK(-5))
-   ___SET_R1(___STK(-5))
-   ___SET_R0(___LBL(43))
    ___ADJFP(1)
-   ___JUMPINT(___SET_NARGS(4),___PRC(474),___L___riscv_23_riscv_2d_slli)
-___DEF_SLBL(43,___L43___riscv_23_riscv_2d_li)
+   ___SET_R3(___STK(-5))
+   ___SET_R2(___STK(-6))
+   ___SET_R1(___STK(-6))
+   ___SET_R0(___LBL(49))
+___group_demand_commit(___ps,___LBL(48),___demand_attempt);
+   ___JUMPINT(___SET_NARGS(4),___PRC(555),___L___riscv_23_riscv_2d_slli)
+___DEF_SLBL(49,___L49___riscv_23_riscv_2d_li)
    ___SET_R1(___STK(-3))
-   ___SET_R0(___LBL(44))
+   ___SET_R0(___LBL(50))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),168,___G_zero_3f_)
-___DEF_SLBL(44,___L44___riscv_23_riscv_2d_li)
-   ___SET_R0(___LBL(39))
+___DEF_SLBL(50,___L50___riscv_23_riscv_2d_li)
+   ___SET_R0(___LBL(44))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
 ___END_P_SW
 ___END_P_COD
@@ -4748,37 +5047,47 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_mv
 #undef ___PH_LBL0
-#define ___PH_LBL0 230
+#define ___PH_LBL0 251
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(4)
+___BEGIN_P_HLBL_AT(5)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_mv)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_mv)
 ___DEF_P_HLBL(___L2___riscv_23_riscv_2d_mv)
 ___DEF_P_HLBL(___L3___riscv_23_riscv_2d_mv)
+___DEF_P_HLBL(___L4___riscv_23_riscv_2d_mv)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_mv)
    ___IF_NARGS_EQ(3,___NOTHING)
    ___WRONG_NARGS(0,3,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_mv)
-   ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
-   ___SET_STK(3,___R2)
-   ___SET_STK(4,___R3)
-   ___SET_R1(___FIX(0L))
-   ___ADJFP(8)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_riscv#riscv-mv",1,___LBL(1),___fp);
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_mv)
-   ___SET_R0(___LBL(2))
-   ___SET_NARGS(1) ___JUMPINT(___NOTHING,___PRC(21),___L0___riscv_23_riscv_2d_imm_2d_int)
+___GATE2_ENTER(___ps,"_riscv#riscv-mv",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,8,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R0)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_STK(1,___R3)
+   ___ADJFP(1)
+   ___SET_R1(___FIX(0L))
+   ___ADJFP(4)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___riscv_23_riscv_2d_mv)
+   ___SET_R0(___LBL(3))
+   ___SET_NARGS(1) ___JUMPINT(___NOTHING,___PRC(23),___L0___riscv_23_riscv_2d_imm_2d_int)
+___DEF_SLBL(3,___L3___riscv_23_riscv_2d_mv)
    ___SET_STK(-3,___STK(-7))
    ___SET_STK(-7,___STK(-6))
    ___SET_STK(-6,___STK(-5))
@@ -4786,47 +5095,57 @@ ___DEF_SLBL(2,___L2___riscv_23_riscv_2d_mv)
    ___SET_R1(___STK(-4))
    ___SET_R3(___FIX(0L))
    ___SET_R0(___STK(-3))
-   ___POLL(3)
-___DEF_SLBL(3,___L3___riscv_23_riscv_2d_mv)
+   ___POLL(4)
+___DEF_SLBL(4,___L4___riscv_23_riscv_2d_mv)
    ___ADJFP(-6)
-   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(575),___L0___riscv_23_riscv_2d_type_2d_i)
+   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(677),___L0___riscv_23_riscv_2d_type_2d_i)
 ___END_P_SW
 ___END_P_COD
 
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_not
 #undef ___PH_LBL0
-#define ___PH_LBL0 235
+#define ___PH_LBL0 257
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(4)
+___BEGIN_P_HLBL_AT(5)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_not)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_not)
 ___DEF_P_HLBL(___L2___riscv_23_riscv_2d_not)
 ___DEF_P_HLBL(___L3___riscv_23_riscv_2d_not)
+___DEF_P_HLBL(___L4___riscv_23_riscv_2d_not)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_not)
    ___IF_NARGS_EQ(3,___NOTHING)
    ___WRONG_NARGS(0,3,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_not)
-   ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
-   ___SET_STK(3,___R2)
-   ___SET_STK(4,___R3)
-   ___SET_R1(___FIX(-1L))
-   ___ADJFP(8)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_riscv#riscv-not",1,___LBL(1),___fp);
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_not)
-   ___SET_R0(___LBL(2))
-   ___SET_NARGS(1) ___JUMPINT(___NOTHING,___PRC(21),___L0___riscv_23_riscv_2d_imm_2d_int)
+___GATE2_ENTER(___ps,"_riscv#riscv-not",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,8,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R0)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_STK(1,___R3)
+   ___ADJFP(1)
+   ___SET_R1(___FIX(-1L))
+   ___ADJFP(4)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___riscv_23_riscv_2d_not)
+   ___SET_R0(___LBL(3))
+   ___SET_NARGS(1) ___JUMPINT(___NOTHING,___PRC(23),___L0___riscv_23_riscv_2d_imm_2d_int)
+___DEF_SLBL(3,___L3___riscv_23_riscv_2d_not)
    ___SET_STK(-3,___STK(-7))
    ___SET_STK(-7,___STK(-6))
    ___SET_STK(-6,___STK(-5))
@@ -4834,87 +5153,99 @@ ___DEF_SLBL(2,___L2___riscv_23_riscv_2d_not)
    ___SET_R1(___STK(-4))
    ___SET_R3(___FIX(16384L))
    ___SET_R0(___STK(-3))
-   ___POLL(3)
-___DEF_SLBL(3,___L3___riscv_23_riscv_2d_not)
+   ___POLL(4)
+___DEF_SLBL(4,___L4___riscv_23_riscv_2d_not)
    ___ADJFP(-6)
-   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(575),___L0___riscv_23_riscv_2d_type_2d_i)
+   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(677),___L0___riscv_23_riscv_2d_type_2d_i)
 ___END_P_SW
 ___END_P_COD
 
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_neg
 #undef ___PH_LBL0
-#define ___PH_LBL0 240
+#define ___PH_LBL0 263
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R1 ___D_R2
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R1 ___D_R2
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R1 ___R_R2
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R1 ___R_R2
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R1 ___W_R2
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R1 ___W_R2
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(2)
+___BEGIN_P_HLBL_AT(3)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_neg)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_neg)
+___DEF_P_HLBL(___L2___riscv_23_riscv_2d_neg)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_neg)
    ___IF_NARGS_EQ(3,___NOTHING)
    ___WRONG_NARGS(0,3,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_neg)
+___GATE2_OPEN(___ps,"_riscv#riscv-neg",1,___LBL(1),___fp);
+___DEF_SLBL(1,___L1___riscv_23_riscv_2d_neg)
+___GATE2_ENTER(___ps,"_riscv#riscv-neg",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,1,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R1)
+   ___ADJFP(1)
    ___SET_R1(___R2)
    ___SET_R2(___FIX(0L))
-   ___ADJFP(1)
-   ___POLL(1)
-___DEF_SLBL(1,___L1___riscv_23_riscv_2d_neg)
-   ___JUMPINT(___SET_NARGS(4),___PRC(353),___L___riscv_23_riscv_2d_sub)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
+___DEF_SLBL(2,___L2___riscv_23_riscv_2d_neg)
+   ___JUMPINT(___SET_NARGS(4),___PRC(405),___L___riscv_23_riscv_2d_sub)
 ___END_P_SW
 ___END_P_COD
 
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_negw
 #undef ___PH_LBL0
-#define ___PH_LBL0 243
+#define ___PH_LBL0 267
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R1 ___D_R2
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R1 ___D_R2
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R1 ___R_R2
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R1 ___R_R2
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R1 ___W_R2
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R1 ___W_R2
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(2)
+___BEGIN_P_HLBL_AT(3)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_negw)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_negw)
+___DEF_P_HLBL(___L2___riscv_23_riscv_2d_negw)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_negw)
    ___IF_NARGS_EQ(3,___NOTHING)
    ___WRONG_NARGS(0,3,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_negw)
+___GATE2_OPEN(___ps,"_riscv#riscv-negw",1,___LBL(1),___fp);
+___DEF_SLBL(1,___L1___riscv_23_riscv_2d_negw)
+___GATE2_ENTER(___ps,"_riscv#riscv-negw",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,1,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R1)
+   ___ADJFP(1)
    ___SET_R1(___R2)
    ___SET_R2(___FIX(0L))
-   ___ADJFP(1)
-   ___POLL(1)
-___DEF_SLBL(1,___L1___riscv_23_riscv_2d_negw)
-   ___JUMPINT(___SET_NARGS(4),___PRC(387),___L___riscv_23_riscv_2d_subw)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
+___DEF_SLBL(2,___L2___riscv_23_riscv_2d_negw)
+   ___JUMPINT(___SET_NARGS(4),___PRC(449),___L___riscv_23_riscv_2d_subw)
 ___END_P_SW
 ___END_P_COD
 
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_sext_2e_w
 #undef ___PH_LBL0
-#define ___PH_LBL0 246
+#define ___PH_LBL0 271
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(6)
+___BEGIN_P_HLBL_AT(8)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_sext_2e_w)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_sext_2e_w)
@@ -4922,80 +5253,106 @@ ___DEF_P_HLBL(___L2___riscv_23_riscv_2d_sext_2e_w)
 ___DEF_P_HLBL(___L3___riscv_23_riscv_2d_sext_2e_w)
 ___DEF_P_HLBL(___L4___riscv_23_riscv_2d_sext_2e_w)
 ___DEF_P_HLBL(___L5___riscv_23_riscv_2d_sext_2e_w)
+___DEF_P_HLBL(___L6___riscv_23_riscv_2d_sext_2e_w)
+___DEF_P_HLBL(___L7___riscv_23_riscv_2d_sext_2e_w)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_sext_2e_w)
    ___IF_NARGS_EQ(3,___NOTHING)
    ___WRONG_NARGS(0,3,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_sext_2e_w)
-   ___SET_STK(1,___R1)
-   ___SET_STK(2,___R0)
-   ___SET_STK(3,___R2)
-   ___SET_STK(4,___R3)
-   ___SET_R1(___FIX(0L))
-   ___ADJFP(8)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_riscv#riscv-sext.w",1,___LBL(1),___fp);
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_sext_2e_w)
-   ___SET_R0(___LBL(4))
-   ___SET_NARGS(1) ___GOTO(___L2___riscv_23_riscv_2d_sext_2e_w)
+___GATE2_ENTER(___ps,"_riscv#riscv-sext.w",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,8,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R0)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_STK(1,___R3)
+   ___ADJFP(1)
+   ___SET_R1(___FIX(0L))
+   ___ADJFP(4)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___riscv_23_riscv_2d_sext_2e_w)
+   ___SET_R0(___LBL(6))
+   ___SET_NARGS(1) ___GOTO(___L3___riscv_23_riscv_2d_sext_2e_w)
+___DEF_SLBL(3,___L3___riscv_23_riscv_2d_sext_2e_w)
    ___IF_NARGS_EQ(1,___SET_R2(___SYM_I))
    ___IF_NARGS_EQ(2,___NOTHING)
-   ___WRONG_NARGS(2,1,1,0)
+   ___WRONG_NARGS(3,1,1,0)
+___GATE2_OPEN(___ps,"_riscv#riscv-sext.w",4,___LBL(4),___fp);
+___DEF_SLBL(4,___L4___riscv_23_riscv_2d_sext_2e_w)
+___GATE2_ENTER(___ps,"_riscv#riscv-sext.w",4,___LBL(4),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,1,0,___LBL(4),&___demand_attempt)){___ps->temp1=___LBL(4);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R2)
-   ___SET_R2(___R1)
-   ___SET_R1(___STK(1))
    ___ADJFP(1)
-   ___POLL(3)
-___DEF_SLBL(3,___L3___riscv_23_riscv_2d_sext_2e_w)
+   ___SET_R2(___R1)
+   ___SET_R1(___STK(0))
+___group_demand_commit(___ps,___LBL(4),___demand_attempt);
+   ___POLL(5)
+___DEF_SLBL(5,___L5___riscv_23_riscv_2d_sext_2e_w)
    ___ADJFP(-1)
    ___JUMPGLONOTSAFE(___SET_NARGS(2),136,___G_cons)
-___DEF_SLBL(4,___L4___riscv_23_riscv_2d_sext_2e_w)
+___DEF_SLBL(6,___L6___riscv_23_riscv_2d_sext_2e_w)
    ___SET_R3(___R1)
    ___SET_R2(___STK(-4))
    ___SET_R1(___STK(-5))
    ___SET_R0(___STK(-6))
-   ___POLL(5)
-___DEF_SLBL(5,___L5___riscv_23_riscv_2d_sext_2e_w)
+   ___POLL(7)
+___DEF_SLBL(7,___L7___riscv_23_riscv_2d_sext_2e_w)
    ___ADJFP(-7)
-   ___JUMPINT(___SET_NARGS(4),___PRC(525),___L___riscv_23_riscv_2d_addiw)
+   ___JUMPINT(___SET_NARGS(4),___PRC(617),___L___riscv_23_riscv_2d_addiw)
 ___END_P_SW
 ___END_P_COD
 
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_seqz
 #undef ___PH_LBL0
-#define ___PH_LBL0 253
+#define ___PH_LBL0 280
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(4)
+___BEGIN_P_HLBL_AT(5)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_seqz)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_seqz)
 ___DEF_P_HLBL(___L2___riscv_23_riscv_2d_seqz)
 ___DEF_P_HLBL(___L3___riscv_23_riscv_2d_seqz)
+___DEF_P_HLBL(___L4___riscv_23_riscv_2d_seqz)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_seqz)
    ___IF_NARGS_EQ(3,___NOTHING)
    ___WRONG_NARGS(0,3,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_seqz)
-   ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
-   ___SET_STK(3,___R2)
-   ___SET_STK(4,___R3)
-   ___SET_R1(___FIX(1L))
-   ___ADJFP(8)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_riscv#riscv-seqz",1,___LBL(1),___fp);
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_seqz)
-   ___SET_R0(___LBL(2))
-   ___SET_NARGS(1) ___JUMPINT(___NOTHING,___PRC(21),___L0___riscv_23_riscv_2d_imm_2d_int)
+___GATE2_ENTER(___ps,"_riscv#riscv-seqz",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,8,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R0)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_STK(1,___R3)
+   ___ADJFP(1)
+   ___SET_R1(___FIX(1L))
+   ___ADJFP(4)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___riscv_23_riscv_2d_seqz)
+   ___SET_R0(___LBL(3))
+   ___SET_NARGS(1) ___JUMPINT(___NOTHING,___PRC(23),___L0___riscv_23_riscv_2d_imm_2d_int)
+___DEF_SLBL(3,___L3___riscv_23_riscv_2d_seqz)
    ___SET_STK(-3,___STK(-7))
    ___SET_STK(-7,___STK(-6))
    ___SET_STK(-6,___STK(-5))
@@ -5003,444 +5360,533 @@ ___DEF_SLBL(2,___L2___riscv_23_riscv_2d_seqz)
    ___SET_R1(___STK(-4))
    ___SET_R3(___FIX(12288L))
    ___SET_R0(___STK(-3))
-   ___POLL(3)
-___DEF_SLBL(3,___L3___riscv_23_riscv_2d_seqz)
+   ___POLL(4)
+___DEF_SLBL(4,___L4___riscv_23_riscv_2d_seqz)
    ___ADJFP(-6)
-   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(575),___L0___riscv_23_riscv_2d_type_2d_i)
+   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(677),___L0___riscv_23_riscv_2d_type_2d_i)
 ___END_P_SW
 ___END_P_COD
 
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_snez
 #undef ___PH_LBL0
-#define ___PH_LBL0 258
+#define ___PH_LBL0 286
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R1 ___D_R2 ___D_R3
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R1 ___D_R2 ___D_R3
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R1 ___R_R2 ___R_R3
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R1 ___R_R2 ___R_R3
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(2)
+___BEGIN_P_HLBL_AT(3)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_snez)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_snez)
+___DEF_P_HLBL(___L2___riscv_23_riscv_2d_snez)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_snez)
    ___IF_NARGS_EQ(3,___NOTHING)
    ___WRONG_NARGS(0,3,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_snez)
+___GATE2_OPEN(___ps,"_riscv#riscv-snez",1,___LBL(1),___fp);
+___DEF_SLBL(1,___L1___riscv_23_riscv_2d_snez)
+___GATE2_ENTER(___ps,"_riscv#riscv-snez",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,2,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R1)
-   ___SET_STK(2,___R2)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
    ___SET_R2(___R3)
    ___SET_R3(___FIX(12288L))
    ___SET_R1(___FIX(0L))
-   ___ADJFP(2)
-   ___POLL(1)
-___DEF_SLBL(1,___L1___riscv_23_riscv_2d_snez)
-   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(415),___L0___riscv_23_riscv_2d_type_2d_r)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
+___DEF_SLBL(2,___L2___riscv_23_riscv_2d_snez)
+   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(481),___L0___riscv_23_riscv_2d_type_2d_r)
 ___END_P_SW
 ___END_P_COD
 
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_sltz
 #undef ___PH_LBL0
-#define ___PH_LBL0 261
+#define ___PH_LBL0 290
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R1 ___D_R2 ___D_R3
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R1 ___D_R2 ___D_R3
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R1 ___R_R2 ___R_R3
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R1 ___R_R2 ___R_R3
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(2)
+___BEGIN_P_HLBL_AT(3)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_sltz)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_sltz)
+___DEF_P_HLBL(___L2___riscv_23_riscv_2d_sltz)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_sltz)
    ___IF_NARGS_EQ(3,___NOTHING)
    ___WRONG_NARGS(0,3,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_sltz)
+___GATE2_OPEN(___ps,"_riscv#riscv-sltz",1,___LBL(1),___fp);
+___DEF_SLBL(1,___L1___riscv_23_riscv_2d_sltz)
+___GATE2_ENTER(___ps,"_riscv#riscv-sltz",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,2,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R1)
-   ___SET_STK(2,___R2)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
    ___SET_R1(___R3)
    ___SET_R3(___FIX(8192L))
    ___SET_R2(___FIX(0L))
-   ___ADJFP(2)
-   ___POLL(1)
-___DEF_SLBL(1,___L1___riscv_23_riscv_2d_sltz)
-   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(415),___L0___riscv_23_riscv_2d_type_2d_r)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
+___DEF_SLBL(2,___L2___riscv_23_riscv_2d_sltz)
+   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(481),___L0___riscv_23_riscv_2d_type_2d_r)
 ___END_P_SW
 ___END_P_COD
 
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_sgtz
 #undef ___PH_LBL0
-#define ___PH_LBL0 264
+#define ___PH_LBL0 294
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R1 ___D_R2 ___D_R3
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R1 ___D_R2 ___D_R3
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R1 ___R_R2 ___R_R3
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R1 ___R_R2 ___R_R3
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(2)
+___BEGIN_P_HLBL_AT(3)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_sgtz)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_sgtz)
+___DEF_P_HLBL(___L2___riscv_23_riscv_2d_sgtz)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_sgtz)
    ___IF_NARGS_EQ(3,___NOTHING)
    ___WRONG_NARGS(0,3,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_sgtz)
+___GATE2_OPEN(___ps,"_riscv#riscv-sgtz",1,___LBL(1),___fp);
+___DEF_SLBL(1,___L1___riscv_23_riscv_2d_sgtz)
+___GATE2_ENTER(___ps,"_riscv#riscv-sgtz",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,2,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R1)
-   ___SET_STK(2,___R2)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
    ___SET_R2(___R3)
    ___SET_R3(___FIX(8192L))
    ___SET_R1(___FIX(0L))
-   ___ADJFP(2)
-   ___POLL(1)
-___DEF_SLBL(1,___L1___riscv_23_riscv_2d_sgtz)
-   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(415),___L0___riscv_23_riscv_2d_type_2d_r)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
+___DEF_SLBL(2,___L2___riscv_23_riscv_2d_sgtz)
+   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(481),___L0___riscv_23_riscv_2d_type_2d_r)
 ___END_P_SW
 ___END_P_COD
 
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_beqz
 #undef ___PH_LBL0
-#define ___PH_LBL0 267
+#define ___PH_LBL0 298
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R1 ___D_R2 ___D_R3
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R1 ___D_R2 ___D_R3
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R1 ___R_R2 ___R_R3
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R1 ___R_R2 ___R_R3
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(2)
+___BEGIN_P_HLBL_AT(3)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_beqz)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_beqz)
+___DEF_P_HLBL(___L2___riscv_23_riscv_2d_beqz)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_beqz)
    ___IF_NARGS_EQ(3,___NOTHING)
    ___WRONG_NARGS(0,3,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_beqz)
+___GATE2_OPEN(___ps,"_riscv#riscv-beqz",1,___LBL(1),___fp);
+___DEF_SLBL(1,___L1___riscv_23_riscv_2d_beqz)
+___GATE2_ENTER(___ps,"_riscv#riscv-beqz",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,2,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R1)
-   ___SET_STK(2,___R2)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
    ___SET_R2(___R3)
    ___SET_R3(___FIX(0L))
    ___SET_R1(___FIX(0L))
-   ___ADJFP(2)
-   ___POLL(1)
-___DEF_SLBL(1,___L1___riscv_23_riscv_2d_beqz)
-   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(704),___L0___riscv_23_riscv_2d_type_2d_b)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
+___DEF_SLBL(2,___L2___riscv_23_riscv_2d_beqz)
+   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(828),___L0___riscv_23_riscv_2d_type_2d_b)
 ___END_P_SW
 ___END_P_COD
 
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_bnez
 #undef ___PH_LBL0
-#define ___PH_LBL0 270
+#define ___PH_LBL0 302
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R1 ___D_R2 ___D_R3
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R1 ___D_R2 ___D_R3
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R1 ___R_R2 ___R_R3
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R1 ___R_R2 ___R_R3
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(2)
+___BEGIN_P_HLBL_AT(3)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_bnez)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_bnez)
+___DEF_P_HLBL(___L2___riscv_23_riscv_2d_bnez)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_bnez)
    ___IF_NARGS_EQ(3,___NOTHING)
    ___WRONG_NARGS(0,3,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_bnez)
+___GATE2_OPEN(___ps,"_riscv#riscv-bnez",1,___LBL(1),___fp);
+___DEF_SLBL(1,___L1___riscv_23_riscv_2d_bnez)
+___GATE2_ENTER(___ps,"_riscv#riscv-bnez",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,2,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R1)
-   ___SET_STK(2,___R2)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
    ___SET_R2(___R3)
    ___SET_R3(___FIX(4096L))
    ___SET_R1(___FIX(0L))
-   ___ADJFP(2)
-   ___POLL(1)
-___DEF_SLBL(1,___L1___riscv_23_riscv_2d_bnez)
-   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(704),___L0___riscv_23_riscv_2d_type_2d_b)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
+___DEF_SLBL(2,___L2___riscv_23_riscv_2d_bnez)
+   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(828),___L0___riscv_23_riscv_2d_type_2d_b)
 ___END_P_SW
 ___END_P_COD
 
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_blez
 #undef ___PH_LBL0
-#define ___PH_LBL0 273
+#define ___PH_LBL0 306
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R1 ___D_R2 ___D_R3
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R1 ___D_R2 ___D_R3
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R1 ___R_R2 ___R_R3
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R1 ___R_R2 ___R_R3
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(2)
+___BEGIN_P_HLBL_AT(3)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_blez)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_blez)
+___DEF_P_HLBL(___L2___riscv_23_riscv_2d_blez)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_blez)
    ___IF_NARGS_EQ(3,___NOTHING)
    ___WRONG_NARGS(0,3,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_blez)
-   ___SET_STK(1,___R1)
-   ___SET_STK(2,___FIX(0L))
-   ___SET_STK(3,___R2)
-   ___SET_R2(___R3)
-   ___SET_R1(___STK(3))
-   ___SET_R3(___FIX(20480L))
-   ___ADJFP(3)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_riscv#riscv-blez",1,___LBL(1),___fp);
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_blez)
+___GATE2_ENTER(___ps,"_riscv#riscv-blez",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,3,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___FIX(0L))
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_R2(___R3)
+   ___SET_R1(___STK(0))
+   ___SET_R3(___FIX(20480L))
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
+___DEF_SLBL(2,___L2___riscv_23_riscv_2d_blez)
    ___ADJFP(-1)
-   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(704),___L0___riscv_23_riscv_2d_type_2d_b)
+   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(828),___L0___riscv_23_riscv_2d_type_2d_b)
 ___END_P_SW
 ___END_P_COD
 
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_bgez
 #undef ___PH_LBL0
-#define ___PH_LBL0 276
+#define ___PH_LBL0 310
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R1 ___D_R2 ___D_R3
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R1 ___D_R2 ___D_R3
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R1 ___R_R2 ___R_R3
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R1 ___R_R2 ___R_R3
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(2)
+___BEGIN_P_HLBL_AT(3)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_bgez)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_bgez)
+___DEF_P_HLBL(___L2___riscv_23_riscv_2d_bgez)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_bgez)
    ___IF_NARGS_EQ(3,___NOTHING)
    ___WRONG_NARGS(0,3,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_bgez)
+___GATE2_OPEN(___ps,"_riscv#riscv-bgez",1,___LBL(1),___fp);
+___DEF_SLBL(1,___L1___riscv_23_riscv_2d_bgez)
+___GATE2_ENTER(___ps,"_riscv#riscv-bgez",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,2,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R1)
-   ___SET_STK(2,___R2)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
    ___SET_R2(___R3)
    ___SET_R3(___FIX(20480L))
    ___SET_R1(___FIX(0L))
-   ___ADJFP(2)
-   ___POLL(1)
-___DEF_SLBL(1,___L1___riscv_23_riscv_2d_bgez)
-   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(704),___L0___riscv_23_riscv_2d_type_2d_b)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
+___DEF_SLBL(2,___L2___riscv_23_riscv_2d_bgez)
+   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(828),___L0___riscv_23_riscv_2d_type_2d_b)
 ___END_P_SW
 ___END_P_COD
 
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_bltz
 #undef ___PH_LBL0
-#define ___PH_LBL0 279
+#define ___PH_LBL0 314
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R1 ___D_R2 ___D_R3
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R1 ___D_R2 ___D_R3
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R1 ___R_R2 ___R_R3
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R1 ___R_R2 ___R_R3
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(2)
+___BEGIN_P_HLBL_AT(3)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_bltz)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_bltz)
+___DEF_P_HLBL(___L2___riscv_23_riscv_2d_bltz)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_bltz)
    ___IF_NARGS_EQ(3,___NOTHING)
    ___WRONG_NARGS(0,3,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_bltz)
+___GATE2_OPEN(___ps,"_riscv#riscv-bltz",1,___LBL(1),___fp);
+___DEF_SLBL(1,___L1___riscv_23_riscv_2d_bltz)
+___GATE2_ENTER(___ps,"_riscv#riscv-bltz",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,2,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R1)
-   ___SET_STK(2,___R2)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
    ___SET_R2(___R3)
    ___SET_R3(___FIX(16384L))
    ___SET_R1(___FIX(0L))
-   ___ADJFP(2)
-   ___POLL(1)
-___DEF_SLBL(1,___L1___riscv_23_riscv_2d_bltz)
-   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(704),___L0___riscv_23_riscv_2d_type_2d_b)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
+___DEF_SLBL(2,___L2___riscv_23_riscv_2d_bltz)
+   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(828),___L0___riscv_23_riscv_2d_type_2d_b)
 ___END_P_SW
 ___END_P_COD
 
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_bgtz
 #undef ___PH_LBL0
-#define ___PH_LBL0 282
+#define ___PH_LBL0 318
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R1 ___D_R2 ___D_R3
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R1 ___D_R2 ___D_R3
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R1 ___R_R2 ___R_R3
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R1 ___R_R2 ___R_R3
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(2)
+___BEGIN_P_HLBL_AT(3)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_bgtz)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_bgtz)
+___DEF_P_HLBL(___L2___riscv_23_riscv_2d_bgtz)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_bgtz)
    ___IF_NARGS_EQ(3,___NOTHING)
    ___WRONG_NARGS(0,3,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_bgtz)
-   ___SET_STK(1,___R1)
-   ___SET_STK(2,___FIX(0L))
-   ___SET_STK(3,___R2)
-   ___SET_R2(___R3)
-   ___SET_R1(___STK(3))
-   ___SET_R3(___FIX(16384L))
-   ___ADJFP(3)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_riscv#riscv-bgtz",1,___LBL(1),___fp);
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_bgtz)
+___GATE2_ENTER(___ps,"_riscv#riscv-bgtz",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,3,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___FIX(0L))
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_R2(___R3)
+   ___SET_R1(___STK(0))
+   ___SET_R3(___FIX(16384L))
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
+___DEF_SLBL(2,___L2___riscv_23_riscv_2d_bgtz)
    ___ADJFP(-1)
-   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(704),___L0___riscv_23_riscv_2d_type_2d_b)
+   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(828),___L0___riscv_23_riscv_2d_type_2d_b)
 ___END_P_SW
 ___END_P_COD
 
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_bgt
 #undef ___PH_LBL0
-#define ___PH_LBL0 285
+#define ___PH_LBL0 322
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R2 ___D_R3
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R2 ___D_R3
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R2 ___R_R3
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R2 ___R_R3
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R2 ___W_R3
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(2)
+___BEGIN_P_HLBL_AT(3)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_bgt)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_bgt)
+___DEF_P_HLBL(___L2___riscv_23_riscv_2d_bgt)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_bgt)
    ___IF_NARGS_EQ(4,___NOTHING)
    ___WRONG_NARGS(0,4,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_bgt)
+___GATE2_OPEN(___ps,"_riscv#riscv-bgt",1,___LBL(1),___fp);
+___DEF_SLBL(1,___L1___riscv_23_riscv_2d_bgt)
+___GATE2_ENTER(___ps,"_riscv#riscv-bgt",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,1,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R2)
+   ___ADJFP(1)
    ___SET_R2(___R3)
    ___SET_R3(___FIX(16384L))
-   ___ADJFP(1)
-   ___POLL(1)
-___DEF_SLBL(1,___L1___riscv_23_riscv_2d_bgt)
-   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(704),___L0___riscv_23_riscv_2d_type_2d_b)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
+___DEF_SLBL(2,___L2___riscv_23_riscv_2d_bgt)
+   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(828),___L0___riscv_23_riscv_2d_type_2d_b)
 ___END_P_SW
 ___END_P_COD
 
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_ble
 #undef ___PH_LBL0
-#define ___PH_LBL0 288
+#define ___PH_LBL0 326
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R2 ___D_R3
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R2 ___D_R3
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R2 ___R_R3
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R2 ___R_R3
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R2 ___W_R3
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(2)
+___BEGIN_P_HLBL_AT(3)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_ble)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_ble)
+___DEF_P_HLBL(___L2___riscv_23_riscv_2d_ble)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_ble)
    ___IF_NARGS_EQ(4,___NOTHING)
    ___WRONG_NARGS(0,4,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_ble)
+___GATE2_OPEN(___ps,"_riscv#riscv-ble",1,___LBL(1),___fp);
+___DEF_SLBL(1,___L1___riscv_23_riscv_2d_ble)
+___GATE2_ENTER(___ps,"_riscv#riscv-ble",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,1,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R2)
+   ___ADJFP(1)
    ___SET_R2(___R3)
    ___SET_R3(___FIX(20480L))
-   ___ADJFP(1)
-   ___POLL(1)
-___DEF_SLBL(1,___L1___riscv_23_riscv_2d_ble)
-   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(704),___L0___riscv_23_riscv_2d_type_2d_b)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
+___DEF_SLBL(2,___L2___riscv_23_riscv_2d_ble)
+   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(828),___L0___riscv_23_riscv_2d_type_2d_b)
 ___END_P_SW
 ___END_P_COD
 
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_bgtu
 #undef ___PH_LBL0
-#define ___PH_LBL0 291
+#define ___PH_LBL0 330
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R2 ___D_R3
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R2 ___D_R3
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R2 ___R_R3
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R2 ___R_R3
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R2 ___W_R3
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(2)
+___BEGIN_P_HLBL_AT(3)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_bgtu)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_bgtu)
+___DEF_P_HLBL(___L2___riscv_23_riscv_2d_bgtu)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_bgtu)
    ___IF_NARGS_EQ(4,___NOTHING)
    ___WRONG_NARGS(0,4,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_bgtu)
+___GATE2_OPEN(___ps,"_riscv#riscv-bgtu",1,___LBL(1),___fp);
+___DEF_SLBL(1,___L1___riscv_23_riscv_2d_bgtu)
+___GATE2_ENTER(___ps,"_riscv#riscv-bgtu",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,1,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R2)
+   ___ADJFP(1)
    ___SET_R2(___R3)
    ___SET_R3(___FIX(24576L))
-   ___ADJFP(1)
-   ___POLL(1)
-___DEF_SLBL(1,___L1___riscv_23_riscv_2d_bgtu)
-   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(704),___L0___riscv_23_riscv_2d_type_2d_b)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
+___DEF_SLBL(2,___L2___riscv_23_riscv_2d_bgtu)
+   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(828),___L0___riscv_23_riscv_2d_type_2d_b)
 ___END_P_SW
 ___END_P_COD
 
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_bleu
 #undef ___PH_LBL0
-#define ___PH_LBL0 294
+#define ___PH_LBL0 334
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R2 ___D_R3
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R2 ___D_R3
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R2 ___R_R3
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R2 ___R_R3
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R2 ___W_R3
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(2)
+___BEGIN_P_HLBL_AT(3)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_bleu)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_bleu)
+___DEF_P_HLBL(___L2___riscv_23_riscv_2d_bleu)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_bleu)
    ___IF_NARGS_EQ(4,___NOTHING)
    ___WRONG_NARGS(0,4,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_bleu)
+___GATE2_OPEN(___ps,"_riscv#riscv-bleu",1,___LBL(1),___fp);
+___DEF_SLBL(1,___L1___riscv_23_riscv_2d_bleu)
+___GATE2_ENTER(___ps,"_riscv#riscv-bleu",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,1,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R2)
+   ___ADJFP(1)
    ___SET_R2(___R3)
    ___SET_R3(___FIX(28672L))
-   ___ADJFP(1)
-   ___POLL(1)
-___DEF_SLBL(1,___L1___riscv_23_riscv_2d_bleu)
-   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(704),___L0___riscv_23_riscv_2d_type_2d_b)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
+___DEF_SLBL(2,___L2___riscv_23_riscv_2d_bleu)
+   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(828),___L0___riscv_23_riscv_2d_type_2d_b)
 ___END_P_SW
 ___END_P_COD
 
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_j
 #undef ___PH_LBL0
-#define ___PH_LBL0 297
+#define ___PH_LBL0 338
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R2 ___D_R3
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_FP ___D_R2 ___D_R3
 #undef ___PR_ALL
 #define ___PR_ALL ___R_FP ___R_R2 ___R_R3
 #undef ___PW_ALL
@@ -5460,16 +5906,16 @@ ___DEF_GLBL(___L___riscv_23_riscv_2d_j)
    ___SET_R2(___FIX(0L))
    ___POLL(1)
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_j)
-   ___JUMPINT(___SET_NARGS(3),___PRC(773),___L___riscv_23_riscv_2d_jal)
+   ___JUMPINT(___SET_NARGS(3),___PRC(905),___L___riscv_23_riscv_2d_jal)
 ___END_P_SW
 ___END_P_COD
 
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_jal_2a_
 #undef ___PH_LBL0
-#define ___PH_LBL0 300
+#define ___PH_LBL0 341
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R2 ___D_R3
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_FP ___D_R2 ___D_R3
 #undef ___PR_ALL
 #define ___PR_ALL ___R_FP ___R_R2 ___R_R3
 #undef ___PW_ALL
@@ -5489,22 +5935,22 @@ ___DEF_GLBL(___L___riscv_23_riscv_2d_jal_2a_)
    ___SET_R2(___FIX(1L))
    ___POLL(1)
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_jal_2a_)
-   ___JUMPINT(___SET_NARGS(3),___PRC(773),___L___riscv_23_riscv_2d_jal)
+   ___JUMPINT(___SET_NARGS(3),___PRC(905),___L___riscv_23_riscv_2d_jal)
 ___END_P_SW
 ___END_P_COD
 
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_jr
 #undef ___PH_LBL0
-#define ___PH_LBL0 303
+#define ___PH_LBL0 344
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(6)
+___BEGIN_P_HLBL_AT(8)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_jr)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_jr)
@@ -5512,57 +5958,72 @@ ___DEF_P_HLBL(___L2___riscv_23_riscv_2d_jr)
 ___DEF_P_HLBL(___L3___riscv_23_riscv_2d_jr)
 ___DEF_P_HLBL(___L4___riscv_23_riscv_2d_jr)
 ___DEF_P_HLBL(___L5___riscv_23_riscv_2d_jr)
+___DEF_P_HLBL(___L6___riscv_23_riscv_2d_jr)
+___DEF_P_HLBL(___L7___riscv_23_riscv_2d_jr)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_jr)
    ___IF_NARGS_EQ(2,___NOTHING)
    ___WRONG_NARGS(0,2,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_jr)
-   ___SET_STK(1,___R1)
-   ___SET_STK(2,___R0)
-   ___SET_STK(3,___R2)
-   ___SET_R1(___FIX(0L))
-   ___ADJFP(8)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_riscv#riscv-jr",1,___LBL(1),___fp);
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_jr)
-   ___SET_R0(___LBL(4))
-   ___SET_NARGS(1) ___GOTO(___L2___riscv_23_riscv_2d_jr)
+___GATE2_ENTER(___ps,"_riscv#riscv-jr",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,8,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R0)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_R1(___FIX(0L))
+   ___ADJFP(5)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___riscv_23_riscv_2d_jr)
+   ___SET_R0(___LBL(6))
+   ___SET_NARGS(1) ___GOTO(___L3___riscv_23_riscv_2d_jr)
+___DEF_SLBL(3,___L3___riscv_23_riscv_2d_jr)
    ___IF_NARGS_EQ(1,___SET_R2(___SYM_I))
    ___IF_NARGS_EQ(2,___NOTHING)
-   ___WRONG_NARGS(2,1,1,0)
+   ___WRONG_NARGS(3,1,1,0)
+___GATE2_OPEN(___ps,"_riscv#riscv-jr",4,___LBL(4),___fp);
+___DEF_SLBL(4,___L4___riscv_23_riscv_2d_jr)
+___GATE2_ENTER(___ps,"_riscv#riscv-jr",4,___LBL(4),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,1,0,___LBL(4),&___demand_attempt)){___ps->temp1=___LBL(4);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R2)
-   ___SET_R2(___R1)
-   ___SET_R1(___STK(1))
    ___ADJFP(1)
-   ___POLL(3)
-___DEF_SLBL(3,___L3___riscv_23_riscv_2d_jr)
+   ___SET_R2(___R1)
+   ___SET_R1(___STK(0))
+___group_demand_commit(___ps,___LBL(4),___demand_attempt);
+   ___POLL(5)
+___DEF_SLBL(5,___L5___riscv_23_riscv_2d_jr)
    ___ADJFP(-1)
    ___JUMPGLONOTSAFE(___SET_NARGS(2),136,___G_cons)
-___DEF_SLBL(4,___L4___riscv_23_riscv_2d_jr)
+___DEF_SLBL(6,___L6___riscv_23_riscv_2d_jr)
    ___SET_R3(___R1)
    ___SET_R2(___STK(-5))
    ___SET_R1(___FIX(0L))
    ___SET_R0(___STK(-6))
-   ___POLL(5)
-___DEF_SLBL(5,___L5___riscv_23_riscv_2d_jr)
+   ___POLL(7)
+___DEF_SLBL(7,___L7___riscv_23_riscv_2d_jr)
    ___ADJFP(-7)
-   ___JUMPINT(___SET_NARGS(4),___PRC(435),___L___riscv_23_riscv_2d_jalr)
+   ___JUMPINT(___SET_NARGS(4),___PRC(504),___L___riscv_23_riscv_2d_jalr)
 ___END_P_SW
 ___END_P_COD
 
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_jalr_2a_
 #undef ___PH_LBL0
-#define ___PH_LBL0 310
+#define ___PH_LBL0 353
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(6)
+___BEGIN_P_HLBL_AT(8)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_jalr_2a_)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_jalr_2a_)
@@ -5570,57 +6031,72 @@ ___DEF_P_HLBL(___L2___riscv_23_riscv_2d_jalr_2a_)
 ___DEF_P_HLBL(___L3___riscv_23_riscv_2d_jalr_2a_)
 ___DEF_P_HLBL(___L4___riscv_23_riscv_2d_jalr_2a_)
 ___DEF_P_HLBL(___L5___riscv_23_riscv_2d_jalr_2a_)
+___DEF_P_HLBL(___L6___riscv_23_riscv_2d_jalr_2a_)
+___DEF_P_HLBL(___L7___riscv_23_riscv_2d_jalr_2a_)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_jalr_2a_)
    ___IF_NARGS_EQ(2,___NOTHING)
    ___WRONG_NARGS(0,2,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_jalr_2a_)
-   ___SET_STK(1,___R1)
-   ___SET_STK(2,___R0)
-   ___SET_STK(3,___R2)
-   ___SET_R1(___FIX(0L))
-   ___ADJFP(8)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_riscv#riscv-jalr*",1,___LBL(1),___fp);
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_jalr_2a_)
-   ___SET_R0(___LBL(4))
-   ___SET_NARGS(1) ___GOTO(___L2___riscv_23_riscv_2d_jalr_2a_)
+___GATE2_ENTER(___ps,"_riscv#riscv-jalr*",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,8,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R0)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_R1(___FIX(0L))
+   ___ADJFP(5)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___riscv_23_riscv_2d_jalr_2a_)
+   ___SET_R0(___LBL(6))
+   ___SET_NARGS(1) ___GOTO(___L3___riscv_23_riscv_2d_jalr_2a_)
+___DEF_SLBL(3,___L3___riscv_23_riscv_2d_jalr_2a_)
    ___IF_NARGS_EQ(1,___SET_R2(___SYM_I))
    ___IF_NARGS_EQ(2,___NOTHING)
-   ___WRONG_NARGS(2,1,1,0)
+   ___WRONG_NARGS(3,1,1,0)
+___GATE2_OPEN(___ps,"_riscv#riscv-jalr*",4,___LBL(4),___fp);
+___DEF_SLBL(4,___L4___riscv_23_riscv_2d_jalr_2a_)
+___GATE2_ENTER(___ps,"_riscv#riscv-jalr*",4,___LBL(4),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,1,0,___LBL(4),&___demand_attempt)){___ps->temp1=___LBL(4);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R2)
-   ___SET_R2(___R1)
-   ___SET_R1(___STK(1))
    ___ADJFP(1)
-   ___POLL(3)
-___DEF_SLBL(3,___L3___riscv_23_riscv_2d_jalr_2a_)
+   ___SET_R2(___R1)
+   ___SET_R1(___STK(0))
+___group_demand_commit(___ps,___LBL(4),___demand_attempt);
+   ___POLL(5)
+___DEF_SLBL(5,___L5___riscv_23_riscv_2d_jalr_2a_)
    ___ADJFP(-1)
    ___JUMPGLONOTSAFE(___SET_NARGS(2),136,___G_cons)
-___DEF_SLBL(4,___L4___riscv_23_riscv_2d_jalr_2a_)
+___DEF_SLBL(6,___L6___riscv_23_riscv_2d_jalr_2a_)
    ___SET_R3(___R1)
    ___SET_R2(___STK(-5))
    ___SET_R1(___FIX(1L))
    ___SET_R0(___STK(-6))
-   ___POLL(5)
-___DEF_SLBL(5,___L5___riscv_23_riscv_2d_jalr_2a_)
+   ___POLL(7)
+___DEF_SLBL(7,___L7___riscv_23_riscv_2d_jalr_2a_)
    ___ADJFP(-7)
-   ___JUMPINT(___SET_NARGS(4),___PRC(435),___L___riscv_23_riscv_2d_jalr)
+   ___JUMPINT(___SET_NARGS(4),___PRC(504),___L___riscv_23_riscv_2d_jalr)
 ___END_P_SW
 ___END_P_COD
 
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_ret
 #undef ___PH_LBL0
-#define ___PH_LBL0 317
+#define ___PH_LBL0 362
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(6)
+___BEGIN_P_HLBL_AT(8)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_ret)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_ret)
@@ -5628,56 +6104,70 @@ ___DEF_P_HLBL(___L2___riscv_23_riscv_2d_ret)
 ___DEF_P_HLBL(___L3___riscv_23_riscv_2d_ret)
 ___DEF_P_HLBL(___L4___riscv_23_riscv_2d_ret)
 ___DEF_P_HLBL(___L5___riscv_23_riscv_2d_ret)
+___DEF_P_HLBL(___L6___riscv_23_riscv_2d_ret)
+___DEF_P_HLBL(___L7___riscv_23_riscv_2d_ret)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_ret)
    ___IF_NARGS_EQ(1,___NOTHING)
    ___WRONG_NARGS(0,1,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_ret)
-   ___SET_STK(1,___R1)
-   ___SET_STK(2,___R0)
-   ___SET_R1(___FIX(0L))
-   ___ADJFP(8)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_riscv#riscv-ret",1,___LBL(1),___fp);
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_ret)
-   ___SET_R0(___LBL(4))
-   ___SET_NARGS(1) ___GOTO(___L2___riscv_23_riscv_2d_ret)
+___GATE2_ENTER(___ps,"_riscv#riscv-ret",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,8,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R0)
+   ___ADJFP(1)
+   ___SET_R1(___FIX(0L))
+   ___ADJFP(6)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___riscv_23_riscv_2d_ret)
+   ___SET_R0(___LBL(6))
+   ___SET_NARGS(1) ___GOTO(___L3___riscv_23_riscv_2d_ret)
+___DEF_SLBL(3,___L3___riscv_23_riscv_2d_ret)
    ___IF_NARGS_EQ(1,___SET_R2(___SYM_I))
    ___IF_NARGS_EQ(2,___NOTHING)
-   ___WRONG_NARGS(2,1,1,0)
+   ___WRONG_NARGS(3,1,1,0)
+___GATE2_OPEN(___ps,"_riscv#riscv-ret",4,___LBL(4),___fp);
+___DEF_SLBL(4,___L4___riscv_23_riscv_2d_ret)
+___GATE2_ENTER(___ps,"_riscv#riscv-ret",4,___LBL(4),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,1,0,___LBL(4),&___demand_attempt)){___ps->temp1=___LBL(4);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R2)
-   ___SET_R2(___R1)
-   ___SET_R1(___STK(1))
    ___ADJFP(1)
-   ___POLL(3)
-___DEF_SLBL(3,___L3___riscv_23_riscv_2d_ret)
+   ___SET_R2(___R1)
+   ___SET_R1(___STK(0))
+___group_demand_commit(___ps,___LBL(4),___demand_attempt);
+   ___POLL(5)
+___DEF_SLBL(5,___L5___riscv_23_riscv_2d_ret)
    ___ADJFP(-1)
    ___JUMPGLONOTSAFE(___SET_NARGS(2),136,___G_cons)
-___DEF_SLBL(4,___L4___riscv_23_riscv_2d_ret)
+___DEF_SLBL(6,___L6___riscv_23_riscv_2d_ret)
    ___SET_R3(___R1)
    ___SET_R2(___FIX(1L))
    ___SET_R1(___FIX(0L))
    ___SET_R0(___STK(-6))
-   ___POLL(5)
-___DEF_SLBL(5,___L5___riscv_23_riscv_2d_ret)
+   ___POLL(7)
+___DEF_SLBL(7,___L7___riscv_23_riscv_2d_ret)
    ___ADJFP(-7)
-   ___JUMPINT(___SET_NARGS(4),___PRC(435),___L___riscv_23_riscv_2d_jalr)
+   ___JUMPINT(___SET_NARGS(4),___PRC(504),___L___riscv_23_riscv_2d_jalr)
 ___END_P_SW
 ___END_P_COD
 
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_call
 #undef ___PH_LBL0
-#define ___PH_LBL0 324
+#define ___PH_LBL0 371
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(12)
+___BEGIN_P_HLBL_AT(14)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_call)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_call)
@@ -5691,85 +6181,100 @@ ___DEF_P_HLBL(___L8___riscv_23_riscv_2d_call)
 ___DEF_P_HLBL(___L9___riscv_23_riscv_2d_call)
 ___DEF_P_HLBL(___L10___riscv_23_riscv_2d_call)
 ___DEF_P_HLBL(___L11___riscv_23_riscv_2d_call)
+___DEF_P_HLBL(___L12___riscv_23_riscv_2d_call)
+___DEF_P_HLBL(___L13___riscv_23_riscv_2d_call)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_call)
    ___IF_NARGS_EQ(2,___NOTHING)
    ___WRONG_NARGS(0,2,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_call)
-   ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
-   ___SET_STK(3,___R2)
-   ___SET_R1(___R2)
-   ___ADJFP(8)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_riscv#riscv-call",1,___LBL(1),___fp);
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_call)
-   ___SET_R0(___LBL(2))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),135,___G_cdr)
+___GATE2_ENTER(___ps,"_riscv#riscv-call",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,8,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R0)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_R1(___R2)
+   ___ADJFP(5)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___riscv_23_riscv_2d_call)
-   ___SET_R2(___BIGFIX(51,4294963200LL))
    ___SET_R0(___LBL(3))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),148,___G_fxand)
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),135,___G_cdr)
 ___DEF_SLBL(3,___L3___riscv_23_riscv_2d_call)
+   ___SET_R2(___BIGFIX(51,4294963200LL))
+   ___SET_R0(___LBL(4))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),148,___G_fxand)
+___DEF_SLBL(4,___L4___riscv_23_riscv_2d_call)
    ___SET_R2(___R1)
    ___SET_R1(___SYM_U)
-   ___SET_R0(___LBL(4))
+   ___SET_R0(___LBL(5))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),136,___G_cons)
-___DEF_SLBL(4,___L4___riscv_23_riscv_2d_call)
+___DEF_SLBL(5,___L5___riscv_23_riscv_2d_call)
    ___SET_R3(___R1)
    ___SET_R1(___STK(-6))
    ___SET_R2(___FIX(6L))
-   ___SET_R0(___LBL(5))
-   ___JUMPINT(___SET_NARGS(3),___PRC(751),___L___riscv_23_riscv_2d_auipc)
-___DEF_SLBL(5,___L5___riscv_23_riscv_2d_call)
+   ___SET_R0(___LBL(6))
+   ___JUMPINT(___SET_NARGS(3),___PRC(881),___L___riscv_23_riscv_2d_auipc)
+___DEF_SLBL(6,___L6___riscv_23_riscv_2d_call)
    ___SET_STK(-4,___STK(-7))
    ___SET_STK(-7,___STK(-6))
    ___SET_R1(___STK(-5))
-   ___SET_R0(___LBL(6))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),135,___G_cdr)
-___DEF_SLBL(6,___L6___riscv_23_riscv_2d_call)
-   ___SET_R2(___FIX(4095L))
    ___SET_R0(___LBL(7))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),148,___G_fxand)
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),135,___G_cdr)
 ___DEF_SLBL(7,___L7___riscv_23_riscv_2d_call)
-   ___SET_R0(___LBL(10))
-   ___SET_NARGS(1) ___GOTO(___L8___riscv_23_riscv_2d_call)
+   ___SET_R2(___FIX(4095L))
+   ___SET_R0(___LBL(8))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),148,___G_fxand)
 ___DEF_SLBL(8,___L8___riscv_23_riscv_2d_call)
+   ___SET_R0(___LBL(12))
+   ___SET_NARGS(1) ___GOTO(___L9___riscv_23_riscv_2d_call)
+___DEF_SLBL(9,___L9___riscv_23_riscv_2d_call)
    ___IF_NARGS_EQ(1,___SET_R2(___SYM_I))
    ___IF_NARGS_EQ(2,___NOTHING)
-   ___WRONG_NARGS(8,1,1,0)
+   ___WRONG_NARGS(9,1,1,0)
+___GATE2_OPEN(___ps,"_riscv#riscv-call",10,___LBL(10),___fp);
+___DEF_SLBL(10,___L10___riscv_23_riscv_2d_call)
+___GATE2_ENTER(___ps,"_riscv#riscv-call",10,___LBL(10),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,1,0,___LBL(10),&___demand_attempt)){___ps->temp1=___LBL(10);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R2)
-   ___SET_R2(___R1)
-   ___SET_R1(___STK(1))
    ___ADJFP(1)
-   ___POLL(9)
-___DEF_SLBL(9,___L9___riscv_23_riscv_2d_call)
+   ___SET_R2(___R1)
+   ___SET_R1(___STK(0))
+___group_demand_commit(___ps,___LBL(10),___demand_attempt);
+   ___POLL(11)
+___DEF_SLBL(11,___L11___riscv_23_riscv_2d_call)
    ___ADJFP(-1)
    ___JUMPGLONOTSAFE(___SET_NARGS(2),136,___G_cons)
-___DEF_SLBL(10,___L10___riscv_23_riscv_2d_call)
+___DEF_SLBL(12,___L12___riscv_23_riscv_2d_call)
    ___SET_R3(___R1)
    ___SET_R2(___FIX(6L))
    ___SET_R1(___FIX(1L))
    ___SET_R0(___STK(-4))
-   ___POLL(11)
-___DEF_SLBL(11,___L11___riscv_23_riscv_2d_call)
+   ___POLL(13)
+___DEF_SLBL(13,___L13___riscv_23_riscv_2d_call)
    ___ADJFP(-7)
-   ___JUMPINT(___SET_NARGS(4),___PRC(435),___L___riscv_23_riscv_2d_jalr)
+   ___JUMPINT(___SET_NARGS(4),___PRC(504),___L___riscv_23_riscv_2d_jalr)
 ___END_P_SW
 ___END_P_COD
 
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_tail
 #undef ___PH_LBL0
-#define ___PH_LBL0 337
+#define ___PH_LBL0 386
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(12)
+___BEGIN_P_HLBL_AT(14)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_tail)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_tail)
@@ -5783,425 +6288,512 @@ ___DEF_P_HLBL(___L8___riscv_23_riscv_2d_tail)
 ___DEF_P_HLBL(___L9___riscv_23_riscv_2d_tail)
 ___DEF_P_HLBL(___L10___riscv_23_riscv_2d_tail)
 ___DEF_P_HLBL(___L11___riscv_23_riscv_2d_tail)
+___DEF_P_HLBL(___L12___riscv_23_riscv_2d_tail)
+___DEF_P_HLBL(___L13___riscv_23_riscv_2d_tail)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_tail)
    ___IF_NARGS_EQ(2,___NOTHING)
    ___WRONG_NARGS(0,2,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_tail)
-   ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
-   ___SET_STK(3,___R2)
-   ___SET_R1(___R2)
-   ___ADJFP(8)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_riscv#riscv-tail",1,___LBL(1),___fp);
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_tail)
-   ___SET_R0(___LBL(2))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),135,___G_cdr)
+___GATE2_ENTER(___ps,"_riscv#riscv-tail",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,8,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R0)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_R1(___R2)
+   ___ADJFP(5)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___riscv_23_riscv_2d_tail)
-   ___SET_R2(___BIGFIX(51,4294963200LL))
    ___SET_R0(___LBL(3))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),148,___G_fxand)
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),135,___G_cdr)
 ___DEF_SLBL(3,___L3___riscv_23_riscv_2d_tail)
+   ___SET_R2(___BIGFIX(51,4294963200LL))
+   ___SET_R0(___LBL(4))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),148,___G_fxand)
+___DEF_SLBL(4,___L4___riscv_23_riscv_2d_tail)
    ___SET_R2(___R1)
    ___SET_R1(___SYM_U)
-   ___SET_R0(___LBL(4))
+   ___SET_R0(___LBL(5))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),136,___G_cons)
-___DEF_SLBL(4,___L4___riscv_23_riscv_2d_tail)
+___DEF_SLBL(5,___L5___riscv_23_riscv_2d_tail)
    ___SET_R3(___R1)
    ___SET_R1(___STK(-6))
    ___SET_R2(___FIX(6L))
-   ___SET_R0(___LBL(5))
-   ___JUMPINT(___SET_NARGS(3),___PRC(751),___L___riscv_23_riscv_2d_auipc)
-___DEF_SLBL(5,___L5___riscv_23_riscv_2d_tail)
+   ___SET_R0(___LBL(6))
+   ___JUMPINT(___SET_NARGS(3),___PRC(881),___L___riscv_23_riscv_2d_auipc)
+___DEF_SLBL(6,___L6___riscv_23_riscv_2d_tail)
    ___SET_STK(-4,___STK(-7))
    ___SET_STK(-7,___STK(-6))
    ___SET_R1(___STK(-5))
-   ___SET_R0(___LBL(6))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),135,___G_cdr)
-___DEF_SLBL(6,___L6___riscv_23_riscv_2d_tail)
-   ___SET_R2(___FIX(4095L))
    ___SET_R0(___LBL(7))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),148,___G_fxand)
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),135,___G_cdr)
 ___DEF_SLBL(7,___L7___riscv_23_riscv_2d_tail)
-   ___SET_R0(___LBL(10))
-   ___SET_NARGS(1) ___GOTO(___L8___riscv_23_riscv_2d_tail)
+   ___SET_R2(___FIX(4095L))
+   ___SET_R0(___LBL(8))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),148,___G_fxand)
 ___DEF_SLBL(8,___L8___riscv_23_riscv_2d_tail)
+   ___SET_R0(___LBL(12))
+   ___SET_NARGS(1) ___GOTO(___L9___riscv_23_riscv_2d_tail)
+___DEF_SLBL(9,___L9___riscv_23_riscv_2d_tail)
    ___IF_NARGS_EQ(1,___SET_R2(___SYM_I))
    ___IF_NARGS_EQ(2,___NOTHING)
-   ___WRONG_NARGS(8,1,1,0)
+   ___WRONG_NARGS(9,1,1,0)
+___GATE2_OPEN(___ps,"_riscv#riscv-tail",10,___LBL(10),___fp);
+___DEF_SLBL(10,___L10___riscv_23_riscv_2d_tail)
+___GATE2_ENTER(___ps,"_riscv#riscv-tail",10,___LBL(10),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,1,0,___LBL(10),&___demand_attempt)){___ps->temp1=___LBL(10);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R2)
-   ___SET_R2(___R1)
-   ___SET_R1(___STK(1))
    ___ADJFP(1)
-   ___POLL(9)
-___DEF_SLBL(9,___L9___riscv_23_riscv_2d_tail)
+   ___SET_R2(___R1)
+   ___SET_R1(___STK(0))
+___group_demand_commit(___ps,___LBL(10),___demand_attempt);
+   ___POLL(11)
+___DEF_SLBL(11,___L11___riscv_23_riscv_2d_tail)
    ___ADJFP(-1)
    ___JUMPGLONOTSAFE(___SET_NARGS(2),136,___G_cons)
-___DEF_SLBL(10,___L10___riscv_23_riscv_2d_tail)
+___DEF_SLBL(12,___L12___riscv_23_riscv_2d_tail)
    ___SET_R3(___R1)
    ___SET_R2(___FIX(6L))
    ___SET_R1(___FIX(0L))
    ___SET_R0(___STK(-4))
-   ___POLL(11)
-___DEF_SLBL(11,___L11___riscv_23_riscv_2d_tail)
+   ___POLL(13)
+___DEF_SLBL(13,___L13___riscv_23_riscv_2d_tail)
    ___ADJFP(-7)
-   ___JUMPINT(___SET_NARGS(4),___PRC(435),___L___riscv_23_riscv_2d_jalr)
+   ___JUMPINT(___SET_NARGS(4),___PRC(504),___L___riscv_23_riscv_2d_jalr)
 ___END_P_SW
 ___END_P_COD
 
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_add
 #undef ___PH_LBL0
-#define ___PH_LBL0 350
+#define ___PH_LBL0 401
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R1 ___D_R2 ___D_R3
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R1 ___D_R2 ___D_R3
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R1 ___R_R2 ___R_R3
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R1 ___R_R2 ___R_R3
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(2)
+___BEGIN_P_HLBL_AT(3)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_add)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_add)
+___DEF_P_HLBL(___L2___riscv_23_riscv_2d_add)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_add)
    ___IF_NARGS_EQ(4,___NOTHING)
    ___WRONG_NARGS(0,4,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_add)
-   ___SET_STK(1,___R1)
-   ___SET_STK(2,___R2)
-   ___SET_R2(___R3)
-   ___SET_R1(___STK(2))
-   ___SET_R3(___FIX(0L))
-   ___ADJFP(2)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_riscv#riscv-add",1,___LBL(1),___fp);
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_add)
+___GATE2_ENTER(___ps,"_riscv#riscv-add",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,2,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_R2(___R3)
+   ___SET_R1(___STK(0))
+   ___SET_R3(___FIX(0L))
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
+___DEF_SLBL(2,___L2___riscv_23_riscv_2d_add)
    ___ADJFP(-1)
-   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(415),___L0___riscv_23_riscv_2d_type_2d_r)
+   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(481),___L0___riscv_23_riscv_2d_type_2d_r)
 ___END_P_SW
 ___END_P_COD
 
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_sub
 #undef ___PH_LBL0
-#define ___PH_LBL0 353
+#define ___PH_LBL0 405
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R1 ___D_R2 ___D_R3
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R1 ___D_R2 ___D_R3
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R1 ___R_R2 ___R_R3
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R1 ___R_R2 ___R_R3
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(2)
+___BEGIN_P_HLBL_AT(3)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_sub)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_sub)
+___DEF_P_HLBL(___L2___riscv_23_riscv_2d_sub)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_sub)
    ___IF_NARGS_EQ(4,___NOTHING)
    ___WRONG_NARGS(0,4,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_sub)
+___GATE2_OPEN(___ps,"_riscv#riscv-sub",1,___LBL(1),___fp);
+___DEF_SLBL(1,___L1___riscv_23_riscv_2d_sub)
+___GATE2_ENTER(___ps,"_riscv#riscv-sub",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,3,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R1)
-   ___SET_STK(2,___R2)
-   ___SET_STK(3,___R3)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_STK(1,___R3)
+   ___ADJFP(1)
    ___SET_R3(___BIGFIX(52,1073741824LL))
    ___SET_R2(___FIX(51L))
    ___SET_R1(___FIX(0L))
-   ___ADJFP(3)
-   ___POLL(1)
-___DEF_SLBL(1,___L1___riscv_23_riscv_2d_sub)
-   ___SET_NARGS(7) ___JUMPINT(___NOTHING,___PRC(415),___L0___riscv_23_riscv_2d_type_2d_r)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
+___DEF_SLBL(2,___L2___riscv_23_riscv_2d_sub)
+   ___SET_NARGS(7) ___JUMPINT(___NOTHING,___PRC(481),___L0___riscv_23_riscv_2d_type_2d_r)
 ___END_P_SW
 ___END_P_COD
 
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_sll
 #undef ___PH_LBL0
-#define ___PH_LBL0 356
+#define ___PH_LBL0 409
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R1 ___D_R2 ___D_R3
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R1 ___D_R2 ___D_R3
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R1 ___R_R2 ___R_R3
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R1 ___R_R2 ___R_R3
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(2)
+___BEGIN_P_HLBL_AT(3)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_sll)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_sll)
+___DEF_P_HLBL(___L2___riscv_23_riscv_2d_sll)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_sll)
    ___IF_NARGS_EQ(4,___NOTHING)
    ___WRONG_NARGS(0,4,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_sll)
-   ___SET_STK(1,___R1)
-   ___SET_STK(2,___R2)
-   ___SET_R2(___R3)
-   ___SET_R1(___STK(2))
-   ___SET_R3(___FIX(4096L))
-   ___ADJFP(2)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_riscv#riscv-sll",1,___LBL(1),___fp);
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_sll)
+___GATE2_ENTER(___ps,"_riscv#riscv-sll",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,2,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_R2(___R3)
+   ___SET_R1(___STK(0))
+   ___SET_R3(___FIX(4096L))
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
+___DEF_SLBL(2,___L2___riscv_23_riscv_2d_sll)
    ___ADJFP(-1)
-   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(415),___L0___riscv_23_riscv_2d_type_2d_r)
+   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(481),___L0___riscv_23_riscv_2d_type_2d_r)
 ___END_P_SW
 ___END_P_COD
 
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_slt
 #undef ___PH_LBL0
-#define ___PH_LBL0 359
+#define ___PH_LBL0 413
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R1 ___D_R2 ___D_R3
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R1 ___D_R2 ___D_R3
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R1 ___R_R2 ___R_R3
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R1 ___R_R2 ___R_R3
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(2)
+___BEGIN_P_HLBL_AT(3)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_slt)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_slt)
+___DEF_P_HLBL(___L2___riscv_23_riscv_2d_slt)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_slt)
    ___IF_NARGS_EQ(4,___NOTHING)
    ___WRONG_NARGS(0,4,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_slt)
-   ___SET_STK(1,___R1)
-   ___SET_STK(2,___R2)
-   ___SET_R2(___R3)
-   ___SET_R1(___STK(2))
-   ___SET_R3(___FIX(8192L))
-   ___ADJFP(2)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_riscv#riscv-slt",1,___LBL(1),___fp);
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_slt)
+___GATE2_ENTER(___ps,"_riscv#riscv-slt",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,2,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_R2(___R3)
+   ___SET_R1(___STK(0))
+   ___SET_R3(___FIX(8192L))
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
+___DEF_SLBL(2,___L2___riscv_23_riscv_2d_slt)
    ___ADJFP(-1)
-   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(415),___L0___riscv_23_riscv_2d_type_2d_r)
+   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(481),___L0___riscv_23_riscv_2d_type_2d_r)
 ___END_P_SW
 ___END_P_COD
 
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_sltu
 #undef ___PH_LBL0
-#define ___PH_LBL0 362
+#define ___PH_LBL0 417
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R1 ___D_R2 ___D_R3
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R1 ___D_R2 ___D_R3
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R1 ___R_R2 ___R_R3
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R1 ___R_R2 ___R_R3
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(2)
+___BEGIN_P_HLBL_AT(3)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_sltu)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_sltu)
+___DEF_P_HLBL(___L2___riscv_23_riscv_2d_sltu)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_sltu)
    ___IF_NARGS_EQ(4,___NOTHING)
    ___WRONG_NARGS(0,4,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_sltu)
-   ___SET_STK(1,___R1)
-   ___SET_STK(2,___R2)
-   ___SET_R2(___R3)
-   ___SET_R1(___STK(2))
-   ___SET_R3(___FIX(12288L))
-   ___ADJFP(2)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_riscv#riscv-sltu",1,___LBL(1),___fp);
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_sltu)
+___GATE2_ENTER(___ps,"_riscv#riscv-sltu",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,2,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_R2(___R3)
+   ___SET_R1(___STK(0))
+   ___SET_R3(___FIX(12288L))
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
+___DEF_SLBL(2,___L2___riscv_23_riscv_2d_sltu)
    ___ADJFP(-1)
-   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(415),___L0___riscv_23_riscv_2d_type_2d_r)
+   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(481),___L0___riscv_23_riscv_2d_type_2d_r)
 ___END_P_SW
 ___END_P_COD
 
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_xor
 #undef ___PH_LBL0
-#define ___PH_LBL0 365
+#define ___PH_LBL0 421
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R1 ___D_R2 ___D_R3
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R1 ___D_R2 ___D_R3
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R1 ___R_R2 ___R_R3
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R1 ___R_R2 ___R_R3
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(2)
+___BEGIN_P_HLBL_AT(3)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_xor)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_xor)
+___DEF_P_HLBL(___L2___riscv_23_riscv_2d_xor)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_xor)
    ___IF_NARGS_EQ(4,___NOTHING)
    ___WRONG_NARGS(0,4,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_xor)
-   ___SET_STK(1,___R1)
-   ___SET_STK(2,___R2)
-   ___SET_R2(___R3)
-   ___SET_R1(___STK(2))
-   ___SET_R3(___FIX(16384L))
-   ___ADJFP(2)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_riscv#riscv-xor",1,___LBL(1),___fp);
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_xor)
+___GATE2_ENTER(___ps,"_riscv#riscv-xor",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,2,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_R2(___R3)
+   ___SET_R1(___STK(0))
+   ___SET_R3(___FIX(16384L))
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
+___DEF_SLBL(2,___L2___riscv_23_riscv_2d_xor)
    ___ADJFP(-1)
-   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(415),___L0___riscv_23_riscv_2d_type_2d_r)
+   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(481),___L0___riscv_23_riscv_2d_type_2d_r)
 ___END_P_SW
 ___END_P_COD
 
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_srl
 #undef ___PH_LBL0
-#define ___PH_LBL0 368
+#define ___PH_LBL0 425
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R1 ___D_R2 ___D_R3
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R1 ___D_R2 ___D_R3
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R1 ___R_R2 ___R_R3
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R1 ___R_R2 ___R_R3
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(2)
+___BEGIN_P_HLBL_AT(3)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_srl)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_srl)
+___DEF_P_HLBL(___L2___riscv_23_riscv_2d_srl)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_srl)
    ___IF_NARGS_EQ(4,___NOTHING)
    ___WRONG_NARGS(0,4,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_srl)
-   ___SET_STK(1,___R1)
-   ___SET_STK(2,___R2)
-   ___SET_R2(___R3)
-   ___SET_R1(___STK(2))
-   ___SET_R3(___FIX(20480L))
-   ___ADJFP(2)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_riscv#riscv-srl",1,___LBL(1),___fp);
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_srl)
+___GATE2_ENTER(___ps,"_riscv#riscv-srl",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,2,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_R2(___R3)
+   ___SET_R1(___STK(0))
+   ___SET_R3(___FIX(20480L))
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
+___DEF_SLBL(2,___L2___riscv_23_riscv_2d_srl)
    ___ADJFP(-1)
-   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(415),___L0___riscv_23_riscv_2d_type_2d_r)
+   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(481),___L0___riscv_23_riscv_2d_type_2d_r)
 ___END_P_SW
 ___END_P_COD
 
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_sra
 #undef ___PH_LBL0
-#define ___PH_LBL0 371
+#define ___PH_LBL0 429
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R1 ___D_R2 ___D_R3
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R1 ___D_R2 ___D_R3
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R1 ___R_R2 ___R_R3
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R1 ___R_R2 ___R_R3
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(2)
+___BEGIN_P_HLBL_AT(3)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_sra)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_sra)
+___DEF_P_HLBL(___L2___riscv_23_riscv_2d_sra)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_sra)
    ___IF_NARGS_EQ(4,___NOTHING)
    ___WRONG_NARGS(0,4,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_sra)
+___GATE2_OPEN(___ps,"_riscv#riscv-sra",1,___LBL(1),___fp);
+___DEF_SLBL(1,___L1___riscv_23_riscv_2d_sra)
+___GATE2_ENTER(___ps,"_riscv#riscv-sra",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,3,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R1)
-   ___SET_STK(2,___R2)
-   ___SET_STK(3,___R3)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_STK(1,___R3)
+   ___ADJFP(1)
    ___SET_R3(___BIGFIX(52,1073741824LL))
    ___SET_R2(___FIX(51L))
    ___SET_R1(___FIX(20480L))
-   ___ADJFP(3)
-   ___POLL(1)
-___DEF_SLBL(1,___L1___riscv_23_riscv_2d_sra)
-   ___SET_NARGS(7) ___JUMPINT(___NOTHING,___PRC(415),___L0___riscv_23_riscv_2d_type_2d_r)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
+___DEF_SLBL(2,___L2___riscv_23_riscv_2d_sra)
+   ___SET_NARGS(7) ___JUMPINT(___NOTHING,___PRC(481),___L0___riscv_23_riscv_2d_type_2d_r)
 ___END_P_SW
 ___END_P_COD
 
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_or
 #undef ___PH_LBL0
-#define ___PH_LBL0 374
+#define ___PH_LBL0 433
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R1 ___D_R2 ___D_R3
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R1 ___D_R2 ___D_R3
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R1 ___R_R2 ___R_R3
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R1 ___R_R2 ___R_R3
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(2)
+___BEGIN_P_HLBL_AT(3)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_or)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_or)
+___DEF_P_HLBL(___L2___riscv_23_riscv_2d_or)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_or)
    ___IF_NARGS_EQ(4,___NOTHING)
    ___WRONG_NARGS(0,4,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_or)
-   ___SET_STK(1,___R1)
-   ___SET_STK(2,___R2)
-   ___SET_R2(___R3)
-   ___SET_R1(___STK(2))
-   ___SET_R3(___FIX(24576L))
-   ___ADJFP(2)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_riscv#riscv-or",1,___LBL(1),___fp);
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_or)
+___GATE2_ENTER(___ps,"_riscv#riscv-or",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,2,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_R2(___R3)
+   ___SET_R1(___STK(0))
+   ___SET_R3(___FIX(24576L))
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
+___DEF_SLBL(2,___L2___riscv_23_riscv_2d_or)
    ___ADJFP(-1)
-   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(415),___L0___riscv_23_riscv_2d_type_2d_r)
+   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(481),___L0___riscv_23_riscv_2d_type_2d_r)
 ___END_P_SW
 ___END_P_COD
 
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_and
 #undef ___PH_LBL0
-#define ___PH_LBL0 377
+#define ___PH_LBL0 437
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R1 ___D_R2 ___D_R3
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R1 ___D_R2 ___D_R3
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R1 ___R_R2 ___R_R3
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R1 ___R_R2 ___R_R3
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(2)
+___BEGIN_P_HLBL_AT(3)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_and)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_and)
+___DEF_P_HLBL(___L2___riscv_23_riscv_2d_and)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_and)
    ___IF_NARGS_EQ(4,___NOTHING)
    ___WRONG_NARGS(0,4,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_and)
-   ___SET_STK(1,___R1)
-   ___SET_STK(2,___R2)
-   ___SET_R2(___R3)
-   ___SET_R1(___STK(2))
-   ___SET_R3(___FIX(28672L))
-   ___ADJFP(2)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_riscv#riscv-and",1,___LBL(1),___fp);
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_and)
+___GATE2_ENTER(___ps,"_riscv#riscv-and",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,2,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_R2(___R3)
+   ___SET_R1(___STK(0))
+   ___SET_R3(___FIX(28672L))
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
+___DEF_SLBL(2,___L2___riscv_23_riscv_2d_and)
    ___ADJFP(-1)
-   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(415),___L0___riscv_23_riscv_2d_type_2d_r)
+   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(481),___L0___riscv_23_riscv_2d_type_2d_r)
 ___END_P_SW
 ___END_P_COD
 
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_addw
 #undef ___PH_LBL0
-#define ___PH_LBL0 380
+#define ___PH_LBL0 441
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(6)
+___BEGIN_P_HLBL_AT(7)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_addw)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_addw)
@@ -6209,32 +6801,42 @@ ___DEF_P_HLBL(___L2___riscv_23_riscv_2d_addw)
 ___DEF_P_HLBL(___L3___riscv_23_riscv_2d_addw)
 ___DEF_P_HLBL(___L4___riscv_23_riscv_2d_addw)
 ___DEF_P_HLBL(___L5___riscv_23_riscv_2d_addw)
+___DEF_P_HLBL(___L6___riscv_23_riscv_2d_addw)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_addw)
    ___IF_NARGS_EQ(4,___NOTHING)
    ___WRONG_NARGS(0,4,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_addw)
-   ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
-   ___SET_STK(3,___R2)
-   ___SET_STK(4,___R3)
-   ___SET_R1(___STK(0))
-   ___ADJFP(7)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_riscv#riscv-addw",1,___LBL(1),___fp);
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_addw)
-   ___SET_R0(___LBL(2))
-   ___JUMPINT(___SET_NARGS(1),___PRC(9),___L___riscv_23_riscv_2d_64bit_2d_mode_3f_)
+___GATE2_ENTER(___ps,"_riscv#riscv-addw",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,7,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R0)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_STK(1,___R3)
+   ___ADJFP(1)
+   ___SET_R1(___STK(-4))
+   ___ADJFP(3)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___riscv_23_riscv_2d_addw)
    ___SET_R0(___LBL(3))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
+   ___JUMPINT(___SET_NARGS(1),___PRC(9),___L___riscv_23_riscv_2d_64bit_2d_mode_3f_)
 ___DEF_SLBL(3,___L3___riscv_23_riscv_2d_addw)
-   ___IF(___NOTFALSEP(___R1))
-   ___GOTO(___L7___riscv_23_riscv_2d_addw)
-   ___END_IF
-   ___GOTO(___L6___riscv_23_riscv_2d_addw)
+   ___SET_R0(___LBL(4))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
 ___DEF_SLBL(4,___L4___riscv_23_riscv_2d_addw)
-___DEF_GLBL(___L6___riscv_23_riscv_2d_addw)
+   ___IF(___NOTFALSEP(___R1))
+   ___GOTO(___L8___riscv_23_riscv_2d_addw)
+   ___END_IF
+   ___GOTO(___L7___riscv_23_riscv_2d_addw)
+___DEF_SLBL(5,___L5___riscv_23_riscv_2d_addw)
+___DEF_GLBL(___L7___riscv_23_riscv_2d_addw)
    ___SET_STK(-2,___STK(-6))
    ___SET_STK(-6,___STK(-5))
    ___SET_STK(-5,___STK(-4))
@@ -6242,13 +6844,13 @@ ___DEF_GLBL(___L6___riscv_23_riscv_2d_addw)
    ___SET_R3(___FIX(59L))
    ___SET_R2(___FIX(0L))
    ___SET_R0(___STK(-2))
-   ___POLL(5)
-___DEF_SLBL(5,___L5___riscv_23_riscv_2d_addw)
+   ___POLL(6)
+___DEF_SLBL(6,___L6___riscv_23_riscv_2d_addw)
    ___ADJFP(-5)
-   ___SET_NARGS(6) ___JUMPINT(___NOTHING,___PRC(415),___L0___riscv_23_riscv_2d_type_2d_r)
-___DEF_GLBL(___L7___riscv_23_riscv_2d_addw)
+   ___SET_NARGS(6) ___JUMPINT(___NOTHING,___PRC(481),___L0___riscv_23_riscv_2d_type_2d_r)
+___DEF_GLBL(___L8___riscv_23_riscv_2d_addw)
    ___SET_R1(___SUB(50))
-   ___SET_R0(___LBL(4))
+   ___SET_R0(___LBL(5))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),138,___G_error)
 ___END_P_SW
 ___END_P_COD
@@ -6256,15 +6858,15 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_subw
 #undef ___PH_LBL0
-#define ___PH_LBL0 387
+#define ___PH_LBL0 449
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(6)
+___BEGIN_P_HLBL_AT(7)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_subw)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_subw)
@@ -6272,32 +6874,42 @@ ___DEF_P_HLBL(___L2___riscv_23_riscv_2d_subw)
 ___DEF_P_HLBL(___L3___riscv_23_riscv_2d_subw)
 ___DEF_P_HLBL(___L4___riscv_23_riscv_2d_subw)
 ___DEF_P_HLBL(___L5___riscv_23_riscv_2d_subw)
+___DEF_P_HLBL(___L6___riscv_23_riscv_2d_subw)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_subw)
    ___IF_NARGS_EQ(4,___NOTHING)
    ___WRONG_NARGS(0,4,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_subw)
-   ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
-   ___SET_STK(3,___R2)
-   ___SET_STK(4,___R3)
-   ___SET_R1(___STK(0))
-   ___ADJFP(7)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_riscv#riscv-subw",1,___LBL(1),___fp);
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_subw)
-   ___SET_R0(___LBL(2))
-   ___JUMPINT(___SET_NARGS(1),___PRC(9),___L___riscv_23_riscv_2d_64bit_2d_mode_3f_)
+___GATE2_ENTER(___ps,"_riscv#riscv-subw",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,7,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R0)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_STK(1,___R3)
+   ___ADJFP(1)
+   ___SET_R1(___STK(-4))
+   ___ADJFP(3)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___riscv_23_riscv_2d_subw)
    ___SET_R0(___LBL(3))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
+   ___JUMPINT(___SET_NARGS(1),___PRC(9),___L___riscv_23_riscv_2d_64bit_2d_mode_3f_)
 ___DEF_SLBL(3,___L3___riscv_23_riscv_2d_subw)
-   ___IF(___NOTFALSEP(___R1))
-   ___GOTO(___L7___riscv_23_riscv_2d_subw)
-   ___END_IF
-   ___GOTO(___L6___riscv_23_riscv_2d_subw)
+   ___SET_R0(___LBL(4))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
 ___DEF_SLBL(4,___L4___riscv_23_riscv_2d_subw)
-___DEF_GLBL(___L6___riscv_23_riscv_2d_subw)
+   ___IF(___NOTFALSEP(___R1))
+   ___GOTO(___L8___riscv_23_riscv_2d_subw)
+   ___END_IF
+   ___GOTO(___L7___riscv_23_riscv_2d_subw)
+___DEF_SLBL(5,___L5___riscv_23_riscv_2d_subw)
+___DEF_GLBL(___L7___riscv_23_riscv_2d_subw)
    ___SET_STK(-2,___STK(-6))
    ___SET_STK(-6,___STK(-5))
    ___SET_STK(-5,___STK(-4))
@@ -6306,13 +6918,13 @@ ___DEF_GLBL(___L6___riscv_23_riscv_2d_subw)
    ___SET_R2(___FIX(59L))
    ___SET_R1(___FIX(0L))
    ___SET_R0(___STK(-2))
-   ___POLL(5)
-___DEF_SLBL(5,___L5___riscv_23_riscv_2d_subw)
+   ___POLL(6)
+___DEF_SLBL(6,___L6___riscv_23_riscv_2d_subw)
    ___ADJFP(-4)
-   ___SET_NARGS(7) ___JUMPINT(___NOTHING,___PRC(415),___L0___riscv_23_riscv_2d_type_2d_r)
-___DEF_GLBL(___L7___riscv_23_riscv_2d_subw)
+   ___SET_NARGS(7) ___JUMPINT(___NOTHING,___PRC(481),___L0___riscv_23_riscv_2d_type_2d_r)
+___DEF_GLBL(___L8___riscv_23_riscv_2d_subw)
    ___SET_R1(___SUB(50))
-   ___SET_R0(___LBL(4))
+   ___SET_R0(___LBL(5))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),138,___G_error)
 ___END_P_SW
 ___END_P_COD
@@ -6320,15 +6932,15 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_sllw
 #undef ___PH_LBL0
-#define ___PH_LBL0 394
+#define ___PH_LBL0 457
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(6)
+___BEGIN_P_HLBL_AT(7)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_sllw)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_sllw)
@@ -6336,32 +6948,42 @@ ___DEF_P_HLBL(___L2___riscv_23_riscv_2d_sllw)
 ___DEF_P_HLBL(___L3___riscv_23_riscv_2d_sllw)
 ___DEF_P_HLBL(___L4___riscv_23_riscv_2d_sllw)
 ___DEF_P_HLBL(___L5___riscv_23_riscv_2d_sllw)
+___DEF_P_HLBL(___L6___riscv_23_riscv_2d_sllw)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_sllw)
    ___IF_NARGS_EQ(4,___NOTHING)
    ___WRONG_NARGS(0,4,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_sllw)
-   ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
-   ___SET_STK(3,___R2)
-   ___SET_STK(4,___R3)
-   ___SET_R1(___STK(0))
-   ___ADJFP(7)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_riscv#riscv-sllw",1,___LBL(1),___fp);
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_sllw)
-   ___SET_R0(___LBL(2))
-   ___JUMPINT(___SET_NARGS(1),___PRC(9),___L___riscv_23_riscv_2d_64bit_2d_mode_3f_)
+___GATE2_ENTER(___ps,"_riscv#riscv-sllw",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,7,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R0)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_STK(1,___R3)
+   ___ADJFP(1)
+   ___SET_R1(___STK(-4))
+   ___ADJFP(3)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___riscv_23_riscv_2d_sllw)
    ___SET_R0(___LBL(3))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
+   ___JUMPINT(___SET_NARGS(1),___PRC(9),___L___riscv_23_riscv_2d_64bit_2d_mode_3f_)
 ___DEF_SLBL(3,___L3___riscv_23_riscv_2d_sllw)
-   ___IF(___NOTFALSEP(___R1))
-   ___GOTO(___L7___riscv_23_riscv_2d_sllw)
-   ___END_IF
-   ___GOTO(___L6___riscv_23_riscv_2d_sllw)
+   ___SET_R0(___LBL(4))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
 ___DEF_SLBL(4,___L4___riscv_23_riscv_2d_sllw)
-___DEF_GLBL(___L6___riscv_23_riscv_2d_sllw)
+   ___IF(___NOTFALSEP(___R1))
+   ___GOTO(___L8___riscv_23_riscv_2d_sllw)
+   ___END_IF
+   ___GOTO(___L7___riscv_23_riscv_2d_sllw)
+___DEF_SLBL(5,___L5___riscv_23_riscv_2d_sllw)
+___DEF_GLBL(___L7___riscv_23_riscv_2d_sllw)
    ___SET_STK(-2,___STK(-6))
    ___SET_STK(-6,___STK(-5))
    ___SET_STK(-5,___STK(-4))
@@ -6369,13 +6991,13 @@ ___DEF_GLBL(___L6___riscv_23_riscv_2d_sllw)
    ___SET_R3(___FIX(59L))
    ___SET_R2(___FIX(4096L))
    ___SET_R0(___STK(-2))
-   ___POLL(5)
-___DEF_SLBL(5,___L5___riscv_23_riscv_2d_sllw)
+   ___POLL(6)
+___DEF_SLBL(6,___L6___riscv_23_riscv_2d_sllw)
    ___ADJFP(-5)
-   ___SET_NARGS(6) ___JUMPINT(___NOTHING,___PRC(415),___L0___riscv_23_riscv_2d_type_2d_r)
-___DEF_GLBL(___L7___riscv_23_riscv_2d_sllw)
+   ___SET_NARGS(6) ___JUMPINT(___NOTHING,___PRC(481),___L0___riscv_23_riscv_2d_type_2d_r)
+___DEF_GLBL(___L8___riscv_23_riscv_2d_sllw)
    ___SET_R1(___SUB(50))
-   ___SET_R0(___LBL(4))
+   ___SET_R0(___LBL(5))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),138,___G_error)
 ___END_P_SW
 ___END_P_COD
@@ -6383,15 +7005,15 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_srlw
 #undef ___PH_LBL0
-#define ___PH_LBL0 401
+#define ___PH_LBL0 465
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(6)
+___BEGIN_P_HLBL_AT(7)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_srlw)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_srlw)
@@ -6399,32 +7021,42 @@ ___DEF_P_HLBL(___L2___riscv_23_riscv_2d_srlw)
 ___DEF_P_HLBL(___L3___riscv_23_riscv_2d_srlw)
 ___DEF_P_HLBL(___L4___riscv_23_riscv_2d_srlw)
 ___DEF_P_HLBL(___L5___riscv_23_riscv_2d_srlw)
+___DEF_P_HLBL(___L6___riscv_23_riscv_2d_srlw)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_srlw)
    ___IF_NARGS_EQ(4,___NOTHING)
    ___WRONG_NARGS(0,4,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_srlw)
-   ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
-   ___SET_STK(3,___R2)
-   ___SET_STK(4,___R3)
-   ___SET_R1(___STK(0))
-   ___ADJFP(7)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_riscv#riscv-srlw",1,___LBL(1),___fp);
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_srlw)
-   ___SET_R0(___LBL(2))
-   ___JUMPINT(___SET_NARGS(1),___PRC(9),___L___riscv_23_riscv_2d_64bit_2d_mode_3f_)
+___GATE2_ENTER(___ps,"_riscv#riscv-srlw",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,7,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R0)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_STK(1,___R3)
+   ___ADJFP(1)
+   ___SET_R1(___STK(-4))
+   ___ADJFP(3)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___riscv_23_riscv_2d_srlw)
    ___SET_R0(___LBL(3))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
+   ___JUMPINT(___SET_NARGS(1),___PRC(9),___L___riscv_23_riscv_2d_64bit_2d_mode_3f_)
 ___DEF_SLBL(3,___L3___riscv_23_riscv_2d_srlw)
-   ___IF(___NOTFALSEP(___R1))
-   ___GOTO(___L7___riscv_23_riscv_2d_srlw)
-   ___END_IF
-   ___GOTO(___L6___riscv_23_riscv_2d_srlw)
+   ___SET_R0(___LBL(4))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
 ___DEF_SLBL(4,___L4___riscv_23_riscv_2d_srlw)
-___DEF_GLBL(___L6___riscv_23_riscv_2d_srlw)
+   ___IF(___NOTFALSEP(___R1))
+   ___GOTO(___L8___riscv_23_riscv_2d_srlw)
+   ___END_IF
+   ___GOTO(___L7___riscv_23_riscv_2d_srlw)
+___DEF_SLBL(5,___L5___riscv_23_riscv_2d_srlw)
+___DEF_GLBL(___L7___riscv_23_riscv_2d_srlw)
    ___SET_STK(-2,___STK(-6))
    ___SET_STK(-6,___STK(-5))
    ___SET_STK(-5,___STK(-4))
@@ -6432,13 +7064,13 @@ ___DEF_GLBL(___L6___riscv_23_riscv_2d_srlw)
    ___SET_R3(___FIX(59L))
    ___SET_R2(___FIX(20480L))
    ___SET_R0(___STK(-2))
-   ___POLL(5)
-___DEF_SLBL(5,___L5___riscv_23_riscv_2d_srlw)
+   ___POLL(6)
+___DEF_SLBL(6,___L6___riscv_23_riscv_2d_srlw)
    ___ADJFP(-5)
-   ___SET_NARGS(6) ___JUMPINT(___NOTHING,___PRC(415),___L0___riscv_23_riscv_2d_type_2d_r)
-___DEF_GLBL(___L7___riscv_23_riscv_2d_srlw)
+   ___SET_NARGS(6) ___JUMPINT(___NOTHING,___PRC(481),___L0___riscv_23_riscv_2d_type_2d_r)
+___DEF_GLBL(___L8___riscv_23_riscv_2d_srlw)
    ___SET_R1(___SUB(50))
-   ___SET_R0(___LBL(4))
+   ___SET_R0(___LBL(5))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),138,___G_error)
 ___END_P_SW
 ___END_P_COD
@@ -6446,15 +7078,15 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_sraw
 #undef ___PH_LBL0
-#define ___PH_LBL0 408
+#define ___PH_LBL0 473
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(6)
+___BEGIN_P_HLBL_AT(7)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_sraw)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_sraw)
@@ -6462,32 +7094,42 @@ ___DEF_P_HLBL(___L2___riscv_23_riscv_2d_sraw)
 ___DEF_P_HLBL(___L3___riscv_23_riscv_2d_sraw)
 ___DEF_P_HLBL(___L4___riscv_23_riscv_2d_sraw)
 ___DEF_P_HLBL(___L5___riscv_23_riscv_2d_sraw)
+___DEF_P_HLBL(___L6___riscv_23_riscv_2d_sraw)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_sraw)
    ___IF_NARGS_EQ(4,___NOTHING)
    ___WRONG_NARGS(0,4,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_sraw)
-   ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
-   ___SET_STK(3,___R2)
-   ___SET_STK(4,___R3)
-   ___SET_R1(___STK(0))
-   ___ADJFP(7)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_riscv#riscv-sraw",1,___LBL(1),___fp);
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_sraw)
-   ___SET_R0(___LBL(2))
-   ___JUMPINT(___SET_NARGS(1),___PRC(9),___L___riscv_23_riscv_2d_64bit_2d_mode_3f_)
+___GATE2_ENTER(___ps,"_riscv#riscv-sraw",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,7,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R0)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_STK(1,___R3)
+   ___ADJFP(1)
+   ___SET_R1(___STK(-4))
+   ___ADJFP(3)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___riscv_23_riscv_2d_sraw)
    ___SET_R0(___LBL(3))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
+   ___JUMPINT(___SET_NARGS(1),___PRC(9),___L___riscv_23_riscv_2d_64bit_2d_mode_3f_)
 ___DEF_SLBL(3,___L3___riscv_23_riscv_2d_sraw)
-   ___IF(___NOTFALSEP(___R1))
-   ___GOTO(___L7___riscv_23_riscv_2d_sraw)
-   ___END_IF
-   ___GOTO(___L6___riscv_23_riscv_2d_sraw)
+   ___SET_R0(___LBL(4))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
 ___DEF_SLBL(4,___L4___riscv_23_riscv_2d_sraw)
-___DEF_GLBL(___L6___riscv_23_riscv_2d_sraw)
+   ___IF(___NOTFALSEP(___R1))
+   ___GOTO(___L8___riscv_23_riscv_2d_sraw)
+   ___END_IF
+   ___GOTO(___L7___riscv_23_riscv_2d_sraw)
+___DEF_SLBL(5,___L5___riscv_23_riscv_2d_sraw)
+___DEF_GLBL(___L7___riscv_23_riscv_2d_sraw)
    ___SET_STK(-2,___STK(-6))
    ___SET_STK(-6,___STK(-5))
    ___SET_STK(-5,___STK(-4))
@@ -6496,13 +7138,13 @@ ___DEF_GLBL(___L6___riscv_23_riscv_2d_sraw)
    ___SET_R2(___FIX(59L))
    ___SET_R1(___FIX(20480L))
    ___SET_R0(___STK(-2))
-   ___POLL(5)
-___DEF_SLBL(5,___L5___riscv_23_riscv_2d_sraw)
+   ___POLL(6)
+___DEF_SLBL(6,___L6___riscv_23_riscv_2d_sraw)
    ___ADJFP(-4)
-   ___SET_NARGS(7) ___JUMPINT(___NOTHING,___PRC(415),___L0___riscv_23_riscv_2d_type_2d_r)
-___DEF_GLBL(___L7___riscv_23_riscv_2d_sraw)
+   ___SET_NARGS(7) ___JUMPINT(___NOTHING,___PRC(481),___L0___riscv_23_riscv_2d_type_2d_r)
+___DEF_GLBL(___L8___riscv_23_riscv_2d_sraw)
    ___SET_R1(___SUB(50))
-   ___SET_R0(___LBL(4))
+   ___SET_R0(___LBL(5))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),138,___G_error)
 ___END_P_SW
 ___END_P_COD
@@ -6510,15 +7152,15 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_type_2d_r
 #undef ___PH_LBL0
-#define ___PH_LBL0 415
+#define ___PH_LBL0 481
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(19)
+___BEGIN_P_HLBL_AT(22)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_type_2d_r)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_type_2d_r)
@@ -6539,6 +7181,9 @@ ___DEF_P_HLBL(___L15___riscv_23_riscv_2d_type_2d_r)
 ___DEF_P_HLBL(___L16___riscv_23_riscv_2d_type_2d_r)
 ___DEF_P_HLBL(___L17___riscv_23_riscv_2d_type_2d_r)
 ___DEF_P_HLBL(___L18___riscv_23_riscv_2d_type_2d_r)
+___DEF_P_HLBL(___L19___riscv_23_riscv_2d_type_2d_r)
+___DEF_P_HLBL(___L20___riscv_23_riscv_2d_type_2d_r)
+___DEF_P_HLBL(___L21___riscv_23_riscv_2d_type_2d_r)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_type_2d_r)
@@ -6549,143 +7194,163 @@ ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_type_2d_r)
    ___IF_NARGS_EQ(7,___NOTHING)
    ___WRONG_NARGS(0,5,2,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_type_2d_r)
-   ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
-   ___SET_STK(3,___R2)
-   ___SET_STK(4,___R3)
-   ___SET_R1(___STK(-2))
-   ___ADJFP(8)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_riscv#riscv-type-r",1,___LBL(1),___fp);
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_type_2d_r)
-   ___SET_R0(___LBL(2))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),140,___G_fixnum_3f_)
+___GATE2_ENTER(___ps,"_riscv#riscv-type-r",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,8,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R0)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_STK(1,___R3)
+   ___ADJFP(1)
+   ___SET_R1(___STK(-6))
+   ___ADJFP(4)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___riscv_23_riscv_2d_type_2d_r)
-   ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L26___riscv_23_riscv_2d_type_2d_r)
-   ___END_IF
-   ___SET_R1(___STK(-9))
    ___SET_R0(___LBL(3))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),140,___G_fixnum_3f_)
 ___DEF_SLBL(3,___L3___riscv_23_riscv_2d_type_2d_r)
    ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L26___riscv_23_riscv_2d_type_2d_r)
+   ___GOTO(___L29___riscv_23_riscv_2d_type_2d_r)
    ___END_IF
-   ___SET_R1(___STK(-8))
+   ___SET_R1(___STK(-9))
    ___SET_R0(___LBL(4))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),140,___G_fixnum_3f_)
 ___DEF_SLBL(4,___L4___riscv_23_riscv_2d_type_2d_r)
-   ___SET_R0(___LBL(5))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
-___DEF_SLBL(5,___L5___riscv_23_riscv_2d_type_2d_r)
-   ___IF(___NOTFALSEP(___R1))
-   ___GOTO(___L25___riscv_23_riscv_2d_type_2d_r)
+   ___IF(___NOT(___NOTFALSEP(___R1)))
+   ___GOTO(___L29___riscv_23_riscv_2d_type_2d_r)
    ___END_IF
-   ___GOTO(___L19___riscv_23_riscv_2d_type_2d_r)
+   ___SET_R1(___STK(-8))
+   ___SET_R0(___LBL(5))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),140,___G_fixnum_3f_)
+___DEF_SLBL(5,___L5___riscv_23_riscv_2d_type_2d_r)
+   ___SET_R0(___LBL(6))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
 ___DEF_SLBL(6,___L6___riscv_23_riscv_2d_type_2d_r)
-___DEF_GLBL(___L19___riscv_23_riscv_2d_type_2d_r)
-   ___SET_STK(1,___STK(-5))
-   ___SET_R1(___STK(-10))
-   ___SET_R2(___FIX(7L))
-   ___SET_R0(___LBL(7))
-   ___ADJFP(4)
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),149,___G_fxarithmetic_2d_shift)
+   ___IF(___NOTFALSEP(___R1))
+   ___GOTO(___L28___riscv_23_riscv_2d_type_2d_r)
+   ___END_IF
+   ___GOTO(___L22___riscv_23_riscv_2d_type_2d_r)
 ___DEF_SLBL(7,___L7___riscv_23_riscv_2d_type_2d_r)
+___DEF_GLBL(___L22___riscv_23_riscv_2d_type_2d_r)
+___GATE2_OPEN(___ps,"_riscv#riscv-type-r",8,___LBL(8),___fp);
+___DEF_SLBL(8,___L8___riscv_23_riscv_2d_type_2d_r)
+___GATE2_ENTER(___ps,"_riscv#riscv-type-r",8,___LBL(8),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,4,0,___LBL(8),&___demand_attempt)){___ps->temp1=___LBL(8);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___STK(-5))
+   ___ADJFP(1)
+   ___SET_R1(___STK(-11))
+   ___SET_R2(___FIX(7L))
+   ___SET_R0(___LBL(9))
+   ___ADJFP(3)
+___group_demand_commit(___ps,___LBL(8),___demand_attempt);
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),149,___G_fxarithmetic_2d_shift)
+___DEF_SLBL(9,___L9___riscv_23_riscv_2d_type_2d_r)
+___GATE2_OPEN(___ps,"_riscv#riscv-type-r",10,___LBL(10),___fp);
+___DEF_SLBL(10,___L10___riscv_23_riscv_2d_type_2d_r)
+___GATE2_ENTER(___ps,"_riscv#riscv-type-r",10,___LBL(10),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,4,0,___LBL(10),&___demand_attempt)){___ps->temp1=___LBL(10);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(-2,___R1)
    ___SET_STK(-1,___STK(-10))
    ___SET_R1(___STK(-13))
    ___SET_R2(___FIX(15L))
-   ___SET_R0(___LBL(8))
+   ___SET_R0(___LBL(11))
    ___ADJFP(4)
+___group_demand_commit(___ps,___LBL(10),___demand_attempt);
    ___JUMPGLONOTSAFE(___SET_NARGS(2),149,___G_fxarithmetic_2d_shift)
-___DEF_SLBL(8,___L8___riscv_23_riscv_2d_type_2d_r)
+___DEF_SLBL(11,___L11___riscv_23_riscv_2d_type_2d_r)
    ___SET_STK(-11,___R1)
    ___SET_R1(___STK(-16))
    ___SET_R2(___FIX(20L))
-   ___SET_R0(___LBL(9))
+   ___SET_R0(___LBL(12))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),149,___G_fxarithmetic_2d_shift)
-___DEF_SLBL(9,___L9___riscv_23_riscv_2d_type_2d_r)
+___DEF_SLBL(12,___L12___riscv_23_riscv_2d_type_2d_r)
    ___SET_R2(___R1)
    ___SET_R3(___STK(-12))
    ___SET_R1(___STK(-11))
-   ___SET_R0(___LBL(10))
+   ___SET_R0(___LBL(13))
    ___ADJFP(-5)
    ___JUMPGLONOTSAFE(___SET_NARGS(6),141,___G_fx_2b_)
-___DEF_SLBL(10,___L10___riscv_23_riscv_2d_type_2d_r)
+___DEF_SLBL(13,___L13___riscv_23_riscv_2d_type_2d_r)
    ___SET_R2(___R1)
    ___SET_R1(___STK(-11))
-   ___SET_R0(___LBL(11))
+   ___SET_R0(___LBL(14))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),119,___G___asm_23_asm_2d_32_2d_le)
-___DEF_SLBL(11,___L11___riscv_23_riscv_2d_type_2d_r)
+___DEF_SLBL(14,___L14___riscv_23_riscv_2d_type_2d_r)
    ___SET_R1(___STK(-11))
-   ___SET_R0(___LBL(12))
+   ___SET_R0(___LBL(15))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),131,___G___codegen_23_codegen_2d_context_2d_listing_2d_format)
-___DEF_SLBL(12,___L12___riscv_23_riscv_2d_type_2d_r)
+___DEF_SLBL(15,___L15___riscv_23_riscv_2d_type_2d_r)
    ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L24___riscv_23_riscv_2d_type_2d_r)
+   ___GOTO(___L27___riscv_23_riscv_2d_type_2d_r)
    ___END_IF
    ___SET_R1(___STK(-4))
    ___SET_R2(___FIX(0L))
-   ___SET_R0(___LBL(13))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),145,___G_fx_3d_)
-___DEF_SLBL(13,___L13___riscv_23_riscv_2d_type_2d_r)
-   ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L20___riscv_23_riscv_2d_type_2d_r)
-   ___END_IF
-   ___SET_R1(___SUB(53))
-   ___GOTO(___L21___riscv_23_riscv_2d_type_2d_r)
-___DEF_GLBL(___L20___riscv_23_riscv_2d_type_2d_r)
-   ___SET_R1(___SUB(62))
-___DEF_GLBL(___L21___riscv_23_riscv_2d_type_2d_r)
-   ___SET_STK(-4,___R1)
-   ___SET_R1(___STK(-6))
-   ___SET_R2(___FIX(-12L))
-   ___SET_R0(___LBL(14))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),149,___G_fxarithmetic_2d_shift)
-___DEF_SLBL(14,___L14___riscv_23_riscv_2d_type_2d_r)
-   ___SET_R2(___R1)
-   ___SET_R1(___STK(-4))
-   ___SET_R0(___LBL(15))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),166,___G_vector_2d_ref)
-___DEF_SLBL(15,___L15___riscv_23_riscv_2d_type_2d_r)
-   ___SET_STK(-6,___R1)
-   ___SET_R1(___STK(-5))
-   ___SET_R2(___FIX(59L))
    ___SET_R0(___LBL(16))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),145,___G_fx_3d_)
 ___DEF_SLBL(16,___L16___riscv_23_riscv_2d_type_2d_r)
    ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L22___riscv_23_riscv_2d_type_2d_r)
+   ___GOTO(___L23___riscv_23_riscv_2d_type_2d_r)
+   ___END_IF
+   ___SET_R1(___SUB(53))
+   ___GOTO(___L24___riscv_23_riscv_2d_type_2d_r)
+___DEF_GLBL(___L23___riscv_23_riscv_2d_type_2d_r)
+   ___SET_R1(___SUB(62))
+___DEF_GLBL(___L24___riscv_23_riscv_2d_type_2d_r)
+   ___SET_STK(-4,___R1)
+   ___SET_R1(___STK(-6))
+   ___SET_R2(___FIX(-12L))
+   ___SET_R0(___LBL(17))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),149,___G_fxarithmetic_2d_shift)
+___DEF_SLBL(17,___L17___riscv_23_riscv_2d_type_2d_r)
+   ___SET_R2(___R1)
+   ___SET_R1(___STK(-4))
+   ___SET_R0(___LBL(18))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),166,___G_vector_2d_ref)
+___DEF_SLBL(18,___L18___riscv_23_riscv_2d_type_2d_r)
+   ___SET_STK(-6,___R1)
+   ___SET_R1(___STK(-5))
+   ___SET_R2(___FIX(59L))
+   ___SET_R0(___LBL(19))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),145,___G_fx_3d_)
+___DEF_SLBL(19,___L19___riscv_23_riscv_2d_type_2d_r)
+   ___IF(___NOT(___NOTFALSEP(___R1)))
+   ___GOTO(___L25___riscv_23_riscv_2d_type_2d_r)
    ___END_IF
    ___SET_R2(___SUB(71))
-   ___GOTO(___L23___riscv_23_riscv_2d_type_2d_r)
-___DEF_GLBL(___L22___riscv_23_riscv_2d_type_2d_r)
+   ___GOTO(___L26___riscv_23_riscv_2d_type_2d_r)
+___DEF_GLBL(___L25___riscv_23_riscv_2d_type_2d_r)
    ___SET_R2(___SUB(72))
-___DEF_GLBL(___L23___riscv_23_riscv_2d_type_2d_r)
+___DEF_GLBL(___L26___riscv_23_riscv_2d_type_2d_r)
    ___SET_R1(___STK(-6))
-   ___SET_R0(___LBL(17))
+   ___SET_R0(___LBL(20))
    ___ADJFP(-4)
    ___JUMPGLONOTSAFE(___SET_NARGS(2),154,___G_list)
-___DEF_SLBL(17,___L17___riscv_23_riscv_2d_type_2d_r)
+___DEF_SLBL(20,___L20___riscv_23_riscv_2d_type_2d_r)
    ___SET_STK(-2,___STK(-6))
    ___SET_STK(-6,___R1)
    ___SET_R3(___STK(-4))
    ___SET_R2(___STK(-5))
    ___SET_R1(___STK(-2))
    ___SET_R0(___STK(-3))
-   ___POLL(18)
-___DEF_SLBL(18,___L18___riscv_23_riscv_2d_type_2d_r)
+   ___POLL(21)
+___DEF_SLBL(21,___L21___riscv_23_riscv_2d_type_2d_r)
    ___ADJFP(-6)
-   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(90),___L0___riscv_23_riscv_2d_listing)
-___DEF_GLBL(___L24___riscv_23_riscv_2d_type_2d_r)
+   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(97),___L0___riscv_23_riscv_2d_listing)
+___DEF_GLBL(___L27___riscv_23_riscv_2d_type_2d_r)
    ___SET_R1(___VOID)
    ___ADJFP(-12)
    ___JUMPRET(___STK(5))
-___DEF_GLBL(___L25___riscv_23_riscv_2d_type_2d_r)
+___DEF_GLBL(___L28___riscv_23_riscv_2d_type_2d_r)
    ___SET_R1(___SUB(73))
-   ___SET_R0(___LBL(6))
+   ___SET_R0(___LBL(7))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),138,___G_error)
-___DEF_GLBL(___L26___riscv_23_riscv_2d_type_2d_r)
-   ___SET_R0(___LBL(5))
+___DEF_GLBL(___L29___riscv_23_riscv_2d_type_2d_r)
+   ___SET_R0(___LBL(6))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
 ___END_P_SW
 ___END_P_COD
@@ -6693,49 +7358,61 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_jalr
 #undef ___PH_LBL0
-#define ___PH_LBL0 435
+#define ___PH_LBL0 504
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(5)
+___BEGIN_P_HLBL_AT(6)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_jalr)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_jalr)
 ___DEF_P_HLBL(___L2___riscv_23_riscv_2d_jalr)
 ___DEF_P_HLBL(___L3___riscv_23_riscv_2d_jalr)
 ___DEF_P_HLBL(___L4___riscv_23_riscv_2d_jalr)
+___DEF_P_HLBL(___L5___riscv_23_riscv_2d_jalr)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_jalr)
    ___IF_NARGS_EQ(4,___NOTHING)
    ___WRONG_NARGS(0,4,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_jalr)
+___GATE2_OPEN(___ps,"_riscv#riscv-jalr",1,___LBL(1),___fp);
+___DEF_SLBL(1,___L1___riscv_23_riscv_2d_jalr)
+___GATE2_ENTER(___ps,"_riscv#riscv-jalr",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,10,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
-   ___SET_STK(3,___R2)
-   ___SET_STK(4,___R3)
-   ___SET_STK(8,___STK(0))
-   ___SET_STK(9,___R1)
-   ___SET_STK(10,___R2)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_STK(1,___R3)
+   ___ADJFP(1)
+   ___SET_STK(4,___STK(-4))
+   ___ADJFP(4)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
    ___SET_R1(___R3)
    ___SET_R3(___FIX(103L))
    ___SET_R2(___FIX(0L))
-   ___ADJFP(10)
-   ___POLL(1)
-___DEF_SLBL(1,___L1___riscv_23_riscv_2d_jalr)
-   ___SET_R0(___LBL(2))
-   ___SET_NARGS(6) ___JUMPINT(___NOTHING,___PRC(575),___L0___riscv_23_riscv_2d_type_2d_i)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___riscv_23_riscv_2d_jalr)
-   ___SET_R1(___STK(-7))
    ___SET_R0(___LBL(3))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),131,___G___codegen_23_codegen_2d_context_2d_listing_2d_format)
+   ___SET_NARGS(6) ___JUMPINT(___NOTHING,___PRC(677),___L0___riscv_23_riscv_2d_type_2d_i)
 ___DEF_SLBL(3,___L3___riscv_23_riscv_2d_jalr)
+   ___SET_R1(___STK(-7))
+   ___SET_R0(___LBL(4))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),131,___G___codegen_23_codegen_2d_context_2d_listing_2d_format)
+___DEF_SLBL(4,___L4___riscv_23_riscv_2d_jalr)
    ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L5___riscv_23_riscv_2d_jalr)
+   ___GOTO(___L6___riscv_23_riscv_2d_jalr)
    ___END_IF
    ___SET_STK(-2,___STK(-6))
    ___SET_STK(-6,___SUB(74))
@@ -6743,11 +7420,11 @@ ___DEF_SLBL(3,___L3___riscv_23_riscv_2d_jalr)
    ___SET_R2(___STK(-4))
    ___SET_R1(___STK(-5))
    ___SET_R0(___STK(-2))
-   ___POLL(4)
-___DEF_SLBL(4,___L4___riscv_23_riscv_2d_jalr)
+   ___POLL(5)
+___DEF_SLBL(5,___L5___riscv_23_riscv_2d_jalr)
    ___ADJFP(-6)
-   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(90),___L0___riscv_23_riscv_2d_listing)
-___DEF_GLBL(___L5___riscv_23_riscv_2d_jalr)
+   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(97),___L0___riscv_23_riscv_2d_listing)
+___DEF_GLBL(___L6___riscv_23_riscv_2d_jalr)
    ___SET_R1(___VOID)
    ___ADJFP(-8)
    ___JUMPRET(___STK(2))
@@ -6757,384 +7434,461 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_lb
 #undef ___PH_LBL0
-#define ___PH_LBL0 441
+#define ___PH_LBL0 511
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R1 ___D_R2 ___D_R3
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R1 ___D_R2 ___D_R3
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R1 ___R_R2 ___R_R3
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R1 ___R_R2 ___R_R3
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(2)
+___BEGIN_P_HLBL_AT(3)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_lb)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_lb)
+___DEF_P_HLBL(___L2___riscv_23_riscv_2d_lb)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_lb)
    ___IF_NARGS_EQ(4,___NOTHING)
    ___WRONG_NARGS(0,4,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_lb)
+___GATE2_OPEN(___ps,"_riscv#riscv-lb",1,___LBL(1),___fp);
+___DEF_SLBL(1,___L1___riscv_23_riscv_2d_lb)
+___GATE2_ENTER(___ps,"_riscv#riscv-lb",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,2,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R1)
-   ___SET_STK(2,___R2)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
    ___SET_R1(___R3)
    ___SET_R3(___FIX(3L))
    ___SET_R2(___FIX(0L))
-   ___ADJFP(2)
-   ___POLL(1)
-___DEF_SLBL(1,___L1___riscv_23_riscv_2d_lb)
-   ___SET_NARGS(6) ___JUMPINT(___NOTHING,___PRC(575),___L0___riscv_23_riscv_2d_type_2d_i)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
+___DEF_SLBL(2,___L2___riscv_23_riscv_2d_lb)
+   ___SET_NARGS(6) ___JUMPINT(___NOTHING,___PRC(677),___L0___riscv_23_riscv_2d_type_2d_i)
 ___END_P_SW
 ___END_P_COD
 
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_lh
 #undef ___PH_LBL0
-#define ___PH_LBL0 444
+#define ___PH_LBL0 515
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R1 ___D_R2 ___D_R3
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R1 ___D_R2 ___D_R3
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R1 ___R_R2 ___R_R3
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R1 ___R_R2 ___R_R3
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(2)
+___BEGIN_P_HLBL_AT(3)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_lh)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_lh)
+___DEF_P_HLBL(___L2___riscv_23_riscv_2d_lh)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_lh)
    ___IF_NARGS_EQ(4,___NOTHING)
    ___WRONG_NARGS(0,4,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_lh)
+___GATE2_OPEN(___ps,"_riscv#riscv-lh",1,___LBL(1),___fp);
+___DEF_SLBL(1,___L1___riscv_23_riscv_2d_lh)
+___GATE2_ENTER(___ps,"_riscv#riscv-lh",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,2,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R1)
-   ___SET_STK(2,___R2)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
    ___SET_R1(___R3)
    ___SET_R3(___FIX(3L))
    ___SET_R2(___FIX(4096L))
-   ___ADJFP(2)
-   ___POLL(1)
-___DEF_SLBL(1,___L1___riscv_23_riscv_2d_lh)
-   ___SET_NARGS(6) ___JUMPINT(___NOTHING,___PRC(575),___L0___riscv_23_riscv_2d_type_2d_i)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
+___DEF_SLBL(2,___L2___riscv_23_riscv_2d_lh)
+   ___SET_NARGS(6) ___JUMPINT(___NOTHING,___PRC(677),___L0___riscv_23_riscv_2d_type_2d_i)
 ___END_P_SW
 ___END_P_COD
 
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_lw
 #undef ___PH_LBL0
-#define ___PH_LBL0 447
+#define ___PH_LBL0 519
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R1 ___D_R2 ___D_R3
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R1 ___D_R2 ___D_R3
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R1 ___R_R2 ___R_R3
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R1 ___R_R2 ___R_R3
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(2)
+___BEGIN_P_HLBL_AT(3)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_lw)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_lw)
+___DEF_P_HLBL(___L2___riscv_23_riscv_2d_lw)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_lw)
    ___IF_NARGS_EQ(4,___NOTHING)
    ___WRONG_NARGS(0,4,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_lw)
+___GATE2_OPEN(___ps,"_riscv#riscv-lw",1,___LBL(1),___fp);
+___DEF_SLBL(1,___L1___riscv_23_riscv_2d_lw)
+___GATE2_ENTER(___ps,"_riscv#riscv-lw",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,2,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R1)
-   ___SET_STK(2,___R2)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
    ___SET_R1(___R3)
    ___SET_R3(___FIX(3L))
    ___SET_R2(___FIX(8192L))
-   ___ADJFP(2)
-   ___POLL(1)
-___DEF_SLBL(1,___L1___riscv_23_riscv_2d_lw)
-   ___SET_NARGS(6) ___JUMPINT(___NOTHING,___PRC(575),___L0___riscv_23_riscv_2d_type_2d_i)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
+___DEF_SLBL(2,___L2___riscv_23_riscv_2d_lw)
+   ___SET_NARGS(6) ___JUMPINT(___NOTHING,___PRC(677),___L0___riscv_23_riscv_2d_type_2d_i)
 ___END_P_SW
 ___END_P_COD
 
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_lbu
 #undef ___PH_LBL0
-#define ___PH_LBL0 450
+#define ___PH_LBL0 523
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R1 ___D_R2 ___D_R3
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R1 ___D_R2 ___D_R3
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R1 ___R_R2 ___R_R3
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R1 ___R_R2 ___R_R3
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(2)
+___BEGIN_P_HLBL_AT(3)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_lbu)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_lbu)
+___DEF_P_HLBL(___L2___riscv_23_riscv_2d_lbu)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_lbu)
    ___IF_NARGS_EQ(4,___NOTHING)
    ___WRONG_NARGS(0,4,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_lbu)
+___GATE2_OPEN(___ps,"_riscv#riscv-lbu",1,___LBL(1),___fp);
+___DEF_SLBL(1,___L1___riscv_23_riscv_2d_lbu)
+___GATE2_ENTER(___ps,"_riscv#riscv-lbu",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,2,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R1)
-   ___SET_STK(2,___R2)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
    ___SET_R1(___R3)
    ___SET_R3(___FIX(3L))
    ___SET_R2(___FIX(16384L))
-   ___ADJFP(2)
-   ___POLL(1)
-___DEF_SLBL(1,___L1___riscv_23_riscv_2d_lbu)
-   ___SET_NARGS(6) ___JUMPINT(___NOTHING,___PRC(575),___L0___riscv_23_riscv_2d_type_2d_i)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
+___DEF_SLBL(2,___L2___riscv_23_riscv_2d_lbu)
+   ___SET_NARGS(6) ___JUMPINT(___NOTHING,___PRC(677),___L0___riscv_23_riscv_2d_type_2d_i)
 ___END_P_SW
 ___END_P_COD
 
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_lhu
 #undef ___PH_LBL0
-#define ___PH_LBL0 453
+#define ___PH_LBL0 527
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R1 ___D_R2 ___D_R3
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R1 ___D_R2 ___D_R3
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R1 ___R_R2 ___R_R3
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R1 ___R_R2 ___R_R3
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(2)
+___BEGIN_P_HLBL_AT(3)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_lhu)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_lhu)
+___DEF_P_HLBL(___L2___riscv_23_riscv_2d_lhu)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_lhu)
    ___IF_NARGS_EQ(4,___NOTHING)
    ___WRONG_NARGS(0,4,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_lhu)
+___GATE2_OPEN(___ps,"_riscv#riscv-lhu",1,___LBL(1),___fp);
+___DEF_SLBL(1,___L1___riscv_23_riscv_2d_lhu)
+___GATE2_ENTER(___ps,"_riscv#riscv-lhu",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,2,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R1)
-   ___SET_STK(2,___R2)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
    ___SET_R1(___R3)
    ___SET_R3(___FIX(3L))
    ___SET_R2(___FIX(20480L))
-   ___ADJFP(2)
-   ___POLL(1)
-___DEF_SLBL(1,___L1___riscv_23_riscv_2d_lhu)
-   ___SET_NARGS(6) ___JUMPINT(___NOTHING,___PRC(575),___L0___riscv_23_riscv_2d_type_2d_i)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
+___DEF_SLBL(2,___L2___riscv_23_riscv_2d_lhu)
+   ___SET_NARGS(6) ___JUMPINT(___NOTHING,___PRC(677),___L0___riscv_23_riscv_2d_type_2d_i)
 ___END_P_SW
 ___END_P_COD
 
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_addi
 #undef ___PH_LBL0
-#define ___PH_LBL0 456
+#define ___PH_LBL0 531
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R1 ___D_R2 ___D_R3
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R1 ___D_R2 ___D_R3
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R1 ___R_R2 ___R_R3
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R1 ___R_R2 ___R_R3
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(2)
+___BEGIN_P_HLBL_AT(3)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_addi)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_addi)
+___DEF_P_HLBL(___L2___riscv_23_riscv_2d_addi)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_addi)
    ___IF_NARGS_EQ(4,___NOTHING)
    ___WRONG_NARGS(0,4,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_addi)
-   ___SET_STK(1,___R1)
-   ___SET_STK(2,___R2)
-   ___SET_R2(___R3)
-   ___SET_R1(___STK(2))
-   ___SET_R3(___FIX(0L))
-   ___ADJFP(2)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_riscv#riscv-addi",1,___LBL(1),___fp);
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_addi)
+___GATE2_ENTER(___ps,"_riscv#riscv-addi",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,2,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_R2(___R3)
+   ___SET_R1(___STK(0))
+   ___SET_R3(___FIX(0L))
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
+___DEF_SLBL(2,___L2___riscv_23_riscv_2d_addi)
    ___ADJFP(-1)
-   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(575),___L0___riscv_23_riscv_2d_type_2d_i)
+   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(677),___L0___riscv_23_riscv_2d_type_2d_i)
 ___END_P_SW
 ___END_P_COD
 
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_slti
 #undef ___PH_LBL0
-#define ___PH_LBL0 459
+#define ___PH_LBL0 535
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R1 ___D_R2 ___D_R3
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R1 ___D_R2 ___D_R3
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R1 ___R_R2 ___R_R3
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R1 ___R_R2 ___R_R3
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(2)
+___BEGIN_P_HLBL_AT(3)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_slti)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_slti)
+___DEF_P_HLBL(___L2___riscv_23_riscv_2d_slti)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_slti)
    ___IF_NARGS_EQ(4,___NOTHING)
    ___WRONG_NARGS(0,4,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_slti)
-   ___SET_STK(1,___R1)
-   ___SET_STK(2,___R2)
-   ___SET_R2(___R3)
-   ___SET_R1(___STK(2))
-   ___SET_R3(___FIX(8192L))
-   ___ADJFP(2)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_riscv#riscv-slti",1,___LBL(1),___fp);
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_slti)
+___GATE2_ENTER(___ps,"_riscv#riscv-slti",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,2,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_R2(___R3)
+   ___SET_R1(___STK(0))
+   ___SET_R3(___FIX(8192L))
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
+___DEF_SLBL(2,___L2___riscv_23_riscv_2d_slti)
    ___ADJFP(-1)
-   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(575),___L0___riscv_23_riscv_2d_type_2d_i)
+   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(677),___L0___riscv_23_riscv_2d_type_2d_i)
 ___END_P_SW
 ___END_P_COD
 
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_sltiu
 #undef ___PH_LBL0
-#define ___PH_LBL0 462
+#define ___PH_LBL0 539
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R1 ___D_R2 ___D_R3
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R1 ___D_R2 ___D_R3
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R1 ___R_R2 ___R_R3
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R1 ___R_R2 ___R_R3
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(2)
+___BEGIN_P_HLBL_AT(3)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_sltiu)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_sltiu)
+___DEF_P_HLBL(___L2___riscv_23_riscv_2d_sltiu)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_sltiu)
    ___IF_NARGS_EQ(4,___NOTHING)
    ___WRONG_NARGS(0,4,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_sltiu)
-   ___SET_STK(1,___R1)
-   ___SET_STK(2,___R2)
-   ___SET_R2(___R3)
-   ___SET_R1(___STK(2))
-   ___SET_R3(___FIX(12288L))
-   ___ADJFP(2)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_riscv#riscv-sltiu",1,___LBL(1),___fp);
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_sltiu)
+___GATE2_ENTER(___ps,"_riscv#riscv-sltiu",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,2,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_R2(___R3)
+   ___SET_R1(___STK(0))
+   ___SET_R3(___FIX(12288L))
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
+___DEF_SLBL(2,___L2___riscv_23_riscv_2d_sltiu)
    ___ADJFP(-1)
-   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(575),___L0___riscv_23_riscv_2d_type_2d_i)
+   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(677),___L0___riscv_23_riscv_2d_type_2d_i)
 ___END_P_SW
 ___END_P_COD
 
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_xori
 #undef ___PH_LBL0
-#define ___PH_LBL0 465
+#define ___PH_LBL0 543
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R1 ___D_R2 ___D_R3
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R1 ___D_R2 ___D_R3
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R1 ___R_R2 ___R_R3
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R1 ___R_R2 ___R_R3
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(2)
+___BEGIN_P_HLBL_AT(3)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_xori)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_xori)
+___DEF_P_HLBL(___L2___riscv_23_riscv_2d_xori)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_xori)
    ___IF_NARGS_EQ(4,___NOTHING)
    ___WRONG_NARGS(0,4,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_xori)
-   ___SET_STK(1,___R1)
-   ___SET_STK(2,___R2)
-   ___SET_R2(___R3)
-   ___SET_R1(___STK(2))
-   ___SET_R3(___FIX(16384L))
-   ___ADJFP(2)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_riscv#riscv-xori",1,___LBL(1),___fp);
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_xori)
+___GATE2_ENTER(___ps,"_riscv#riscv-xori",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,2,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_R2(___R3)
+   ___SET_R1(___STK(0))
+   ___SET_R3(___FIX(16384L))
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
+___DEF_SLBL(2,___L2___riscv_23_riscv_2d_xori)
    ___ADJFP(-1)
-   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(575),___L0___riscv_23_riscv_2d_type_2d_i)
+   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(677),___L0___riscv_23_riscv_2d_type_2d_i)
 ___END_P_SW
 ___END_P_COD
 
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_ori
 #undef ___PH_LBL0
-#define ___PH_LBL0 468
+#define ___PH_LBL0 547
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R1 ___D_R2 ___D_R3
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R1 ___D_R2 ___D_R3
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R1 ___R_R2 ___R_R3
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R1 ___R_R2 ___R_R3
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(2)
+___BEGIN_P_HLBL_AT(3)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_ori)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_ori)
+___DEF_P_HLBL(___L2___riscv_23_riscv_2d_ori)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_ori)
    ___IF_NARGS_EQ(4,___NOTHING)
    ___WRONG_NARGS(0,4,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_ori)
-   ___SET_STK(1,___R1)
-   ___SET_STK(2,___R2)
-   ___SET_R2(___R3)
-   ___SET_R1(___STK(2))
-   ___SET_R3(___FIX(24576L))
-   ___ADJFP(2)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_riscv#riscv-ori",1,___LBL(1),___fp);
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_ori)
+___GATE2_ENTER(___ps,"_riscv#riscv-ori",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,2,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_R2(___R3)
+   ___SET_R1(___STK(0))
+   ___SET_R3(___FIX(24576L))
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
+___DEF_SLBL(2,___L2___riscv_23_riscv_2d_ori)
    ___ADJFP(-1)
-   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(575),___L0___riscv_23_riscv_2d_type_2d_i)
+   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(677),___L0___riscv_23_riscv_2d_type_2d_i)
 ___END_P_SW
 ___END_P_COD
 
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_andi
 #undef ___PH_LBL0
-#define ___PH_LBL0 471
+#define ___PH_LBL0 551
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R1 ___D_R2 ___D_R3
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R1 ___D_R2 ___D_R3
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R1 ___R_R2 ___R_R3
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R1 ___R_R2 ___R_R3
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(2)
+___BEGIN_P_HLBL_AT(3)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_andi)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_andi)
+___DEF_P_HLBL(___L2___riscv_23_riscv_2d_andi)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_andi)
    ___IF_NARGS_EQ(4,___NOTHING)
    ___WRONG_NARGS(0,4,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_andi)
-   ___SET_STK(1,___R1)
-   ___SET_STK(2,___R2)
-   ___SET_R2(___R3)
-   ___SET_R1(___STK(2))
-   ___SET_R3(___FIX(28672L))
-   ___ADJFP(2)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_riscv#riscv-andi",1,___LBL(1),___fp);
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_andi)
+___GATE2_ENTER(___ps,"_riscv#riscv-andi",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,2,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_R2(___R3)
+   ___SET_R1(___STK(0))
+   ___SET_R3(___FIX(28672L))
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
+___DEF_SLBL(2,___L2___riscv_23_riscv_2d_andi)
    ___ADJFP(-1)
-   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(575),___L0___riscv_23_riscv_2d_type_2d_i)
+   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(677),___L0___riscv_23_riscv_2d_type_2d_i)
 ___END_P_SW
 ___END_P_COD
 
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_slli
 #undef ___PH_LBL0
-#define ___PH_LBL0 474
+#define ___PH_LBL0 555
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(11)
+___BEGIN_P_HLBL_AT(14)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_slli)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_slli)
@@ -7147,78 +7901,100 @@ ___DEF_P_HLBL(___L7___riscv_23_riscv_2d_slli)
 ___DEF_P_HLBL(___L8___riscv_23_riscv_2d_slli)
 ___DEF_P_HLBL(___L9___riscv_23_riscv_2d_slli)
 ___DEF_P_HLBL(___L10___riscv_23_riscv_2d_slli)
+___DEF_P_HLBL(___L11___riscv_23_riscv_2d_slli)
+___DEF_P_HLBL(___L12___riscv_23_riscv_2d_slli)
+___DEF_P_HLBL(___L13___riscv_23_riscv_2d_slli)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_slli)
    ___IF_NARGS_EQ(4,___NOTHING)
    ___WRONG_NARGS(0,4,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_slli)
+___GATE2_OPEN(___ps,"_riscv#riscv-slli",1,___LBL(1),___fp);
+___DEF_SLBL(1,___L1___riscv_23_riscv_2d_slli)
+___GATE2_ENTER(___ps,"_riscv#riscv-slli",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,7,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
-   ___SET_STK(3,___R2)
-   ___SET_STK(4,___R3)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_STK(1,___R3)
+   ___ADJFP(1)
    ___SET_R1(___R3)
    ___SET_R2(___FIX(0L))
-   ___ADJFP(7)
-   ___POLL(1)
-___DEF_SLBL(1,___L1___riscv_23_riscv_2d_slli)
-   ___SET_R0(___LBL(2))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),147,___G_fx_3e__3d_)
+   ___ADJFP(3)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___riscv_23_riscv_2d_slli)
+   ___SET_R0(___LBL(3))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),147,___G_fx_3e__3d_)
+___DEF_SLBL(3,___L3___riscv_23_riscv_2d_slli)
    ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L13___riscv_23_riscv_2d_slli)
+   ___GOTO(___L16___riscv_23_riscv_2d_slli)
    ___END_IF
    ___SET_R1(___STK(-7))
-   ___SET_R0(___LBL(3))
-   ___JUMPINT(___SET_NARGS(1),___PRC(14),___L___riscv_23_riscv_2d_word_2d_width)
-___DEF_SLBL(3,___L3___riscv_23_riscv_2d_slli)
+   ___SET_R0(___LBL(4))
+   ___JUMPINT(___SET_NARGS(1),___PRC(15),___L___riscv_23_riscv_2d_word_2d_width)
+___DEF_SLBL(4,___L4___riscv_23_riscv_2d_slli)
    ___SET_R2(___R1)
    ___SET_R1(___STK(-3))
-   ___SET_R0(___LBL(4))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),143,___G_fx_3c_)
-___DEF_SLBL(4,___L4___riscv_23_riscv_2d_slli)
    ___SET_R0(___LBL(5))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),143,___G_fx_3c_)
 ___DEF_SLBL(5,___L5___riscv_23_riscv_2d_slli)
-   ___IF(___NOTFALSEP(___R1))
-   ___GOTO(___L12___riscv_23_riscv_2d_slli)
-   ___END_IF
-   ___GOTO(___L11___riscv_23_riscv_2d_slli)
+   ___SET_R0(___LBL(6))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
 ___DEF_SLBL(6,___L6___riscv_23_riscv_2d_slli)
-___DEF_GLBL(___L11___riscv_23_riscv_2d_slli)
+   ___IF(___NOTFALSEP(___R1))
+   ___GOTO(___L15___riscv_23_riscv_2d_slli)
+   ___END_IF
+   ___GOTO(___L14___riscv_23_riscv_2d_slli)
+___DEF_SLBL(7,___L7___riscv_23_riscv_2d_slli)
+___DEF_GLBL(___L14___riscv_23_riscv_2d_slli)
+___GATE2_OPEN(___ps,"_riscv#riscv-slli",8,___LBL(8),___fp);
+___DEF_SLBL(8,___L8___riscv_23_riscv_2d_slli)
+___GATE2_ENTER(___ps,"_riscv#riscv-slli",8,___LBL(8),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,4,0,___LBL(8),&___demand_attempt)){___ps->temp1=___LBL(8);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(-2,___STK(-6))
    ___SET_STK(-6,___STK(-5))
    ___SET_R1(___STK(-3))
-   ___SET_R0(___LBL(9))
+   ___SET_R0(___LBL(12))
    ___ADJFP(4)
-   ___SET_NARGS(1) ___GOTO(___L7___riscv_23_riscv_2d_slli)
-___DEF_SLBL(7,___L7___riscv_23_riscv_2d_slli)
+___group_demand_commit(___ps,___LBL(8),___demand_attempt);
+   ___SET_NARGS(1) ___GOTO(___L9___riscv_23_riscv_2d_slli)
+___DEF_SLBL(9,___L9___riscv_23_riscv_2d_slli)
    ___IF_NARGS_EQ(1,___SET_R2(___SYM_I))
    ___IF_NARGS_EQ(2,___NOTHING)
-   ___WRONG_NARGS(7,1,1,0)
+   ___WRONG_NARGS(9,1,1,0)
+___GATE2_OPEN(___ps,"_riscv#riscv-slli",10,___LBL(10),___fp);
+___DEF_SLBL(10,___L10___riscv_23_riscv_2d_slli)
+___GATE2_ENTER(___ps,"_riscv#riscv-slli",10,___LBL(10),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,1,0,___LBL(10),&___demand_attempt)){___ps->temp1=___LBL(10);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R2)
-   ___SET_R2(___R1)
-   ___SET_R1(___STK(1))
    ___ADJFP(1)
-   ___POLL(8)
-___DEF_SLBL(8,___L8___riscv_23_riscv_2d_slli)
+   ___SET_R2(___R1)
+   ___SET_R1(___STK(0))
+___group_demand_commit(___ps,___LBL(10),___demand_attempt);
+   ___POLL(11)
+___DEF_SLBL(11,___L11___riscv_23_riscv_2d_slli)
    ___ADJFP(-1)
    ___JUMPGLONOTSAFE(___SET_NARGS(2),136,___G_cons)
-___DEF_SLBL(9,___L9___riscv_23_riscv_2d_slli)
+___DEF_SLBL(12,___L12___riscv_23_riscv_2d_slli)
    ___SET_R2(___R1)
    ___SET_R1(___STK(-8))
    ___SET_R3(___FIX(4096L))
    ___SET_R0(___STK(-6))
-   ___POLL(10)
-___DEF_SLBL(10,___L10___riscv_23_riscv_2d_slli)
+   ___POLL(13)
+___DEF_SLBL(13,___L13___riscv_23_riscv_2d_slli)
    ___ADJFP(-10)
-   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(575),___L0___riscv_23_riscv_2d_type_2d_i)
-___DEF_GLBL(___L12___riscv_23_riscv_2d_slli)
+   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(677),___L0___riscv_23_riscv_2d_type_2d_i)
+___DEF_GLBL(___L15___riscv_23_riscv_2d_slli)
    ___SET_R1(___SUB(75))
-   ___SET_R0(___LBL(6))
+   ___SET_R0(___LBL(7))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),138,___G_error)
-___DEF_GLBL(___L13___riscv_23_riscv_2d_slli)
-   ___SET_R0(___LBL(5))
+___DEF_GLBL(___L16___riscv_23_riscv_2d_slli)
+   ___SET_R0(___LBL(6))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
 ___END_P_SW
 ___END_P_COD
@@ -7226,15 +8002,15 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_srli
 #undef ___PH_LBL0
-#define ___PH_LBL0 486
+#define ___PH_LBL0 570
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(11)
+___BEGIN_P_HLBL_AT(14)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_srli)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_srli)
@@ -7247,78 +8023,100 @@ ___DEF_P_HLBL(___L7___riscv_23_riscv_2d_srli)
 ___DEF_P_HLBL(___L8___riscv_23_riscv_2d_srli)
 ___DEF_P_HLBL(___L9___riscv_23_riscv_2d_srli)
 ___DEF_P_HLBL(___L10___riscv_23_riscv_2d_srli)
+___DEF_P_HLBL(___L11___riscv_23_riscv_2d_srli)
+___DEF_P_HLBL(___L12___riscv_23_riscv_2d_srli)
+___DEF_P_HLBL(___L13___riscv_23_riscv_2d_srli)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_srli)
    ___IF_NARGS_EQ(4,___NOTHING)
    ___WRONG_NARGS(0,4,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_srli)
+___GATE2_OPEN(___ps,"_riscv#riscv-srli",1,___LBL(1),___fp);
+___DEF_SLBL(1,___L1___riscv_23_riscv_2d_srli)
+___GATE2_ENTER(___ps,"_riscv#riscv-srli",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,7,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
-   ___SET_STK(3,___R2)
-   ___SET_STK(4,___R3)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_STK(1,___R3)
+   ___ADJFP(1)
    ___SET_R1(___R3)
    ___SET_R2(___FIX(0L))
-   ___ADJFP(7)
-   ___POLL(1)
-___DEF_SLBL(1,___L1___riscv_23_riscv_2d_srli)
-   ___SET_R0(___LBL(2))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),147,___G_fx_3e__3d_)
+   ___ADJFP(3)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___riscv_23_riscv_2d_srli)
+   ___SET_R0(___LBL(3))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),147,___G_fx_3e__3d_)
+___DEF_SLBL(3,___L3___riscv_23_riscv_2d_srli)
    ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L13___riscv_23_riscv_2d_srli)
+   ___GOTO(___L16___riscv_23_riscv_2d_srli)
    ___END_IF
    ___SET_R1(___STK(-7))
-   ___SET_R0(___LBL(3))
-   ___JUMPINT(___SET_NARGS(1),___PRC(14),___L___riscv_23_riscv_2d_word_2d_width)
-___DEF_SLBL(3,___L3___riscv_23_riscv_2d_srli)
+   ___SET_R0(___LBL(4))
+   ___JUMPINT(___SET_NARGS(1),___PRC(15),___L___riscv_23_riscv_2d_word_2d_width)
+___DEF_SLBL(4,___L4___riscv_23_riscv_2d_srli)
    ___SET_R2(___R1)
    ___SET_R1(___STK(-3))
-   ___SET_R0(___LBL(4))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),143,___G_fx_3c_)
-___DEF_SLBL(4,___L4___riscv_23_riscv_2d_srli)
    ___SET_R0(___LBL(5))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),143,___G_fx_3c_)
 ___DEF_SLBL(5,___L5___riscv_23_riscv_2d_srli)
-   ___IF(___NOTFALSEP(___R1))
-   ___GOTO(___L12___riscv_23_riscv_2d_srli)
-   ___END_IF
-   ___GOTO(___L11___riscv_23_riscv_2d_srli)
+   ___SET_R0(___LBL(6))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
 ___DEF_SLBL(6,___L6___riscv_23_riscv_2d_srli)
-___DEF_GLBL(___L11___riscv_23_riscv_2d_srli)
+   ___IF(___NOTFALSEP(___R1))
+   ___GOTO(___L15___riscv_23_riscv_2d_srli)
+   ___END_IF
+   ___GOTO(___L14___riscv_23_riscv_2d_srli)
+___DEF_SLBL(7,___L7___riscv_23_riscv_2d_srli)
+___DEF_GLBL(___L14___riscv_23_riscv_2d_srli)
+___GATE2_OPEN(___ps,"_riscv#riscv-srli",8,___LBL(8),___fp);
+___DEF_SLBL(8,___L8___riscv_23_riscv_2d_srli)
+___GATE2_ENTER(___ps,"_riscv#riscv-srli",8,___LBL(8),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,4,0,___LBL(8),&___demand_attempt)){___ps->temp1=___LBL(8);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(-2,___STK(-6))
    ___SET_STK(-6,___STK(-5))
    ___SET_R1(___STK(-3))
-   ___SET_R0(___LBL(9))
+   ___SET_R0(___LBL(12))
    ___ADJFP(4)
-   ___SET_NARGS(1) ___GOTO(___L7___riscv_23_riscv_2d_srli)
-___DEF_SLBL(7,___L7___riscv_23_riscv_2d_srli)
+___group_demand_commit(___ps,___LBL(8),___demand_attempt);
+   ___SET_NARGS(1) ___GOTO(___L9___riscv_23_riscv_2d_srli)
+___DEF_SLBL(9,___L9___riscv_23_riscv_2d_srli)
    ___IF_NARGS_EQ(1,___SET_R2(___SYM_I))
    ___IF_NARGS_EQ(2,___NOTHING)
-   ___WRONG_NARGS(7,1,1,0)
+   ___WRONG_NARGS(9,1,1,0)
+___GATE2_OPEN(___ps,"_riscv#riscv-srli",10,___LBL(10),___fp);
+___DEF_SLBL(10,___L10___riscv_23_riscv_2d_srli)
+___GATE2_ENTER(___ps,"_riscv#riscv-srli",10,___LBL(10),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,1,0,___LBL(10),&___demand_attempt)){___ps->temp1=___LBL(10);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R2)
-   ___SET_R2(___R1)
-   ___SET_R1(___STK(1))
    ___ADJFP(1)
-   ___POLL(8)
-___DEF_SLBL(8,___L8___riscv_23_riscv_2d_srli)
+   ___SET_R2(___R1)
+   ___SET_R1(___STK(0))
+___group_demand_commit(___ps,___LBL(10),___demand_attempt);
+   ___POLL(11)
+___DEF_SLBL(11,___L11___riscv_23_riscv_2d_srli)
    ___ADJFP(-1)
    ___JUMPGLONOTSAFE(___SET_NARGS(2),136,___G_cons)
-___DEF_SLBL(9,___L9___riscv_23_riscv_2d_srli)
+___DEF_SLBL(12,___L12___riscv_23_riscv_2d_srli)
    ___SET_R2(___R1)
    ___SET_R1(___STK(-8))
    ___SET_R3(___FIX(20480L))
    ___SET_R0(___STK(-6))
-   ___POLL(10)
-___DEF_SLBL(10,___L10___riscv_23_riscv_2d_srli)
+   ___POLL(13)
+___DEF_SLBL(13,___L13___riscv_23_riscv_2d_srli)
    ___ADJFP(-10)
-   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(575),___L0___riscv_23_riscv_2d_type_2d_i)
-___DEF_GLBL(___L12___riscv_23_riscv_2d_srli)
+   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(677),___L0___riscv_23_riscv_2d_type_2d_i)
+___DEF_GLBL(___L15___riscv_23_riscv_2d_srli)
    ___SET_R1(___SUB(76))
-   ___SET_R0(___LBL(6))
+   ___SET_R0(___LBL(7))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),138,___G_error)
-___DEF_GLBL(___L13___riscv_23_riscv_2d_srli)
-   ___SET_R0(___LBL(5))
+___DEF_GLBL(___L16___riscv_23_riscv_2d_srli)
+   ___SET_R0(___LBL(6))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
 ___END_P_SW
 ___END_P_COD
@@ -7326,15 +8124,15 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_srai
 #undef ___PH_LBL0
-#define ___PH_LBL0 498
+#define ___PH_LBL0 585
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(12)
+___BEGIN_P_HLBL_AT(15)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_srai)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_srai)
@@ -7348,82 +8146,104 @@ ___DEF_P_HLBL(___L8___riscv_23_riscv_2d_srai)
 ___DEF_P_HLBL(___L9___riscv_23_riscv_2d_srai)
 ___DEF_P_HLBL(___L10___riscv_23_riscv_2d_srai)
 ___DEF_P_HLBL(___L11___riscv_23_riscv_2d_srai)
+___DEF_P_HLBL(___L12___riscv_23_riscv_2d_srai)
+___DEF_P_HLBL(___L13___riscv_23_riscv_2d_srai)
+___DEF_P_HLBL(___L14___riscv_23_riscv_2d_srai)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_srai)
    ___IF_NARGS_EQ(4,___NOTHING)
    ___WRONG_NARGS(0,4,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_srai)
+___GATE2_OPEN(___ps,"_riscv#riscv-srai",1,___LBL(1),___fp);
+___DEF_SLBL(1,___L1___riscv_23_riscv_2d_srai)
+___GATE2_ENTER(___ps,"_riscv#riscv-srai",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,7,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
-   ___SET_STK(3,___R2)
-   ___SET_STK(4,___R3)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_STK(1,___R3)
+   ___ADJFP(1)
    ___SET_R1(___R3)
    ___SET_R2(___FIX(0L))
-   ___ADJFP(7)
-   ___POLL(1)
-___DEF_SLBL(1,___L1___riscv_23_riscv_2d_srai)
-   ___SET_R0(___LBL(2))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),147,___G_fx_3e__3d_)
+   ___ADJFP(3)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___riscv_23_riscv_2d_srai)
+   ___SET_R0(___LBL(3))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),147,___G_fx_3e__3d_)
+___DEF_SLBL(3,___L3___riscv_23_riscv_2d_srai)
    ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L14___riscv_23_riscv_2d_srai)
+   ___GOTO(___L17___riscv_23_riscv_2d_srai)
    ___END_IF
    ___SET_R1(___STK(-7))
-   ___SET_R0(___LBL(3))
-   ___JUMPINT(___SET_NARGS(1),___PRC(14),___L___riscv_23_riscv_2d_word_2d_width)
-___DEF_SLBL(3,___L3___riscv_23_riscv_2d_srai)
+   ___SET_R0(___LBL(4))
+   ___JUMPINT(___SET_NARGS(1),___PRC(15),___L___riscv_23_riscv_2d_word_2d_width)
+___DEF_SLBL(4,___L4___riscv_23_riscv_2d_srai)
    ___SET_R2(___R1)
    ___SET_R1(___STK(-3))
-   ___SET_R0(___LBL(4))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),143,___G_fx_3c_)
-___DEF_SLBL(4,___L4___riscv_23_riscv_2d_srai)
    ___SET_R0(___LBL(5))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),143,___G_fx_3c_)
 ___DEF_SLBL(5,___L5___riscv_23_riscv_2d_srai)
-   ___IF(___NOTFALSEP(___R1))
-   ___GOTO(___L13___riscv_23_riscv_2d_srai)
-   ___END_IF
-   ___GOTO(___L12___riscv_23_riscv_2d_srai)
+   ___SET_R0(___LBL(6))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
 ___DEF_SLBL(6,___L6___riscv_23_riscv_2d_srai)
-___DEF_GLBL(___L12___riscv_23_riscv_2d_srai)
+   ___IF(___NOTFALSEP(___R1))
+   ___GOTO(___L16___riscv_23_riscv_2d_srai)
+   ___END_IF
+   ___GOTO(___L15___riscv_23_riscv_2d_srai)
+___DEF_SLBL(7,___L7___riscv_23_riscv_2d_srai)
+___DEF_GLBL(___L15___riscv_23_riscv_2d_srai)
+___GATE2_OPEN(___ps,"_riscv#riscv-srai",8,___LBL(8),___fp);
+___DEF_SLBL(8,___L8___riscv_23_riscv_2d_srai)
+___GATE2_ENTER(___ps,"_riscv#riscv-srai",8,___LBL(8),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,4,0,___LBL(8),&___demand_attempt)){___ps->temp1=___LBL(8);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(-2,___STK(-6))
    ___SET_STK(-6,___STK(-5))
    ___SET_R2(___STK(-3))
    ___SET_R1(___FIX(1024L))
-   ___SET_R0(___LBL(7))
+   ___SET_R0(___LBL(9))
    ___ADJFP(4)
+___group_demand_commit(___ps,___LBL(8),___demand_attempt);
    ___JUMPGLONOTSAFE(___SET_NARGS(2),141,___G_fx_2b_)
-___DEF_SLBL(7,___L7___riscv_23_riscv_2d_srai)
-   ___SET_R0(___LBL(10))
-   ___SET_NARGS(1) ___GOTO(___L8___riscv_23_riscv_2d_srai)
-___DEF_SLBL(8,___L8___riscv_23_riscv_2d_srai)
+___DEF_SLBL(9,___L9___riscv_23_riscv_2d_srai)
+   ___SET_R0(___LBL(13))
+   ___SET_NARGS(1) ___GOTO(___L10___riscv_23_riscv_2d_srai)
+___DEF_SLBL(10,___L10___riscv_23_riscv_2d_srai)
    ___IF_NARGS_EQ(1,___SET_R2(___SYM_I))
    ___IF_NARGS_EQ(2,___NOTHING)
-   ___WRONG_NARGS(8,1,1,0)
+   ___WRONG_NARGS(10,1,1,0)
+___GATE2_OPEN(___ps,"_riscv#riscv-srai",11,___LBL(11),___fp);
+___DEF_SLBL(11,___L11___riscv_23_riscv_2d_srai)
+___GATE2_ENTER(___ps,"_riscv#riscv-srai",11,___LBL(11),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,1,0,___LBL(11),&___demand_attempt)){___ps->temp1=___LBL(11);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R2)
-   ___SET_R2(___R1)
-   ___SET_R1(___STK(1))
    ___ADJFP(1)
-   ___POLL(9)
-___DEF_SLBL(9,___L9___riscv_23_riscv_2d_srai)
+   ___SET_R2(___R1)
+   ___SET_R1(___STK(0))
+___group_demand_commit(___ps,___LBL(11),___demand_attempt);
+   ___POLL(12)
+___DEF_SLBL(12,___L12___riscv_23_riscv_2d_srai)
    ___ADJFP(-1)
    ___JUMPGLONOTSAFE(___SET_NARGS(2),136,___G_cons)
-___DEF_SLBL(10,___L10___riscv_23_riscv_2d_srai)
+___DEF_SLBL(13,___L13___riscv_23_riscv_2d_srai)
    ___SET_R2(___R1)
    ___SET_R1(___STK(-8))
    ___SET_R3(___FIX(20480L))
    ___SET_R0(___STK(-6))
-   ___POLL(11)
-___DEF_SLBL(11,___L11___riscv_23_riscv_2d_srai)
+   ___POLL(14)
+___DEF_SLBL(14,___L14___riscv_23_riscv_2d_srai)
    ___ADJFP(-10)
-   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(575),___L0___riscv_23_riscv_2d_type_2d_i)
-___DEF_GLBL(___L13___riscv_23_riscv_2d_srai)
+   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(677),___L0___riscv_23_riscv_2d_type_2d_i)
+___DEF_GLBL(___L16___riscv_23_riscv_2d_srai)
    ___SET_R1(___SUB(77))
-   ___SET_R0(___LBL(6))
+   ___SET_R0(___LBL(7))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),138,___G_error)
-___DEF_GLBL(___L14___riscv_23_riscv_2d_srai)
-   ___SET_R0(___LBL(5))
+___DEF_GLBL(___L17___riscv_23_riscv_2d_srai)
+   ___SET_R0(___LBL(6))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
 ___END_P_SW
 ___END_P_COD
@@ -7431,15 +8251,15 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_lwu
 #undef ___PH_LBL0
-#define ___PH_LBL0 511
+#define ___PH_LBL0 601
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(6)
+___BEGIN_P_HLBL_AT(7)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_lwu)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_lwu)
@@ -7447,32 +8267,42 @@ ___DEF_P_HLBL(___L2___riscv_23_riscv_2d_lwu)
 ___DEF_P_HLBL(___L3___riscv_23_riscv_2d_lwu)
 ___DEF_P_HLBL(___L4___riscv_23_riscv_2d_lwu)
 ___DEF_P_HLBL(___L5___riscv_23_riscv_2d_lwu)
+___DEF_P_HLBL(___L6___riscv_23_riscv_2d_lwu)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_lwu)
    ___IF_NARGS_EQ(4,___NOTHING)
    ___WRONG_NARGS(0,4,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_lwu)
-   ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
-   ___SET_STK(3,___R2)
-   ___SET_STK(4,___R3)
-   ___SET_R1(___STK(0))
-   ___ADJFP(7)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_riscv#riscv-lwu",1,___LBL(1),___fp);
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_lwu)
-   ___SET_R0(___LBL(2))
-   ___JUMPINT(___SET_NARGS(1),___PRC(9),___L___riscv_23_riscv_2d_64bit_2d_mode_3f_)
+___GATE2_ENTER(___ps,"_riscv#riscv-lwu",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,7,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R0)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_STK(1,___R3)
+   ___ADJFP(1)
+   ___SET_R1(___STK(-4))
+   ___ADJFP(3)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___riscv_23_riscv_2d_lwu)
    ___SET_R0(___LBL(3))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
+   ___JUMPINT(___SET_NARGS(1),___PRC(9),___L___riscv_23_riscv_2d_64bit_2d_mode_3f_)
 ___DEF_SLBL(3,___L3___riscv_23_riscv_2d_lwu)
-   ___IF(___NOTFALSEP(___R1))
-   ___GOTO(___L7___riscv_23_riscv_2d_lwu)
-   ___END_IF
-   ___GOTO(___L6___riscv_23_riscv_2d_lwu)
+   ___SET_R0(___LBL(4))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
 ___DEF_SLBL(4,___L4___riscv_23_riscv_2d_lwu)
-___DEF_GLBL(___L6___riscv_23_riscv_2d_lwu)
+   ___IF(___NOTFALSEP(___R1))
+   ___GOTO(___L8___riscv_23_riscv_2d_lwu)
+   ___END_IF
+   ___GOTO(___L7___riscv_23_riscv_2d_lwu)
+___DEF_SLBL(5,___L5___riscv_23_riscv_2d_lwu)
+___DEF_GLBL(___L7___riscv_23_riscv_2d_lwu)
    ___SET_STK(-2,___STK(-6))
    ___SET_STK(-6,___STK(-5))
    ___SET_STK(-5,___STK(-4))
@@ -7480,13 +8310,13 @@ ___DEF_GLBL(___L6___riscv_23_riscv_2d_lwu)
    ___SET_R3(___FIX(3L))
    ___SET_R2(___FIX(24576L))
    ___SET_R0(___STK(-2))
-   ___POLL(5)
-___DEF_SLBL(5,___L5___riscv_23_riscv_2d_lwu)
+   ___POLL(6)
+___DEF_SLBL(6,___L6___riscv_23_riscv_2d_lwu)
    ___ADJFP(-5)
-   ___SET_NARGS(6) ___JUMPINT(___NOTHING,___PRC(575),___L0___riscv_23_riscv_2d_type_2d_i)
-___DEF_GLBL(___L7___riscv_23_riscv_2d_lwu)
+   ___SET_NARGS(6) ___JUMPINT(___NOTHING,___PRC(677),___L0___riscv_23_riscv_2d_type_2d_i)
+___DEF_GLBL(___L8___riscv_23_riscv_2d_lwu)
    ___SET_R1(___SUB(50))
-   ___SET_R0(___LBL(4))
+   ___SET_R0(___LBL(5))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),138,___G_error)
 ___END_P_SW
 ___END_P_COD
@@ -7494,15 +8324,15 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_ld
 #undef ___PH_LBL0
-#define ___PH_LBL0 518
+#define ___PH_LBL0 609
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(6)
+___BEGIN_P_HLBL_AT(7)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_ld)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_ld)
@@ -7510,32 +8340,42 @@ ___DEF_P_HLBL(___L2___riscv_23_riscv_2d_ld)
 ___DEF_P_HLBL(___L3___riscv_23_riscv_2d_ld)
 ___DEF_P_HLBL(___L4___riscv_23_riscv_2d_ld)
 ___DEF_P_HLBL(___L5___riscv_23_riscv_2d_ld)
+___DEF_P_HLBL(___L6___riscv_23_riscv_2d_ld)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_ld)
    ___IF_NARGS_EQ(4,___NOTHING)
    ___WRONG_NARGS(0,4,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_ld)
-   ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
-   ___SET_STK(3,___R2)
-   ___SET_STK(4,___R3)
-   ___SET_R1(___STK(0))
-   ___ADJFP(7)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_riscv#riscv-ld",1,___LBL(1),___fp);
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_ld)
-   ___SET_R0(___LBL(2))
-   ___JUMPINT(___SET_NARGS(1),___PRC(9),___L___riscv_23_riscv_2d_64bit_2d_mode_3f_)
+___GATE2_ENTER(___ps,"_riscv#riscv-ld",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,7,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R0)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_STK(1,___R3)
+   ___ADJFP(1)
+   ___SET_R1(___STK(-4))
+   ___ADJFP(3)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___riscv_23_riscv_2d_ld)
    ___SET_R0(___LBL(3))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
+   ___JUMPINT(___SET_NARGS(1),___PRC(9),___L___riscv_23_riscv_2d_64bit_2d_mode_3f_)
 ___DEF_SLBL(3,___L3___riscv_23_riscv_2d_ld)
-   ___IF(___NOTFALSEP(___R1))
-   ___GOTO(___L7___riscv_23_riscv_2d_ld)
-   ___END_IF
-   ___GOTO(___L6___riscv_23_riscv_2d_ld)
+   ___SET_R0(___LBL(4))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
 ___DEF_SLBL(4,___L4___riscv_23_riscv_2d_ld)
-___DEF_GLBL(___L6___riscv_23_riscv_2d_ld)
+   ___IF(___NOTFALSEP(___R1))
+   ___GOTO(___L8___riscv_23_riscv_2d_ld)
+   ___END_IF
+   ___GOTO(___L7___riscv_23_riscv_2d_ld)
+___DEF_SLBL(5,___L5___riscv_23_riscv_2d_ld)
+___DEF_GLBL(___L7___riscv_23_riscv_2d_ld)
    ___SET_STK(-2,___STK(-6))
    ___SET_STK(-6,___STK(-5))
    ___SET_STK(-5,___STK(-4))
@@ -7543,13 +8383,13 @@ ___DEF_GLBL(___L6___riscv_23_riscv_2d_ld)
    ___SET_R3(___FIX(3L))
    ___SET_R2(___FIX(12288L))
    ___SET_R0(___STK(-2))
-   ___POLL(5)
-___DEF_SLBL(5,___L5___riscv_23_riscv_2d_ld)
+   ___POLL(6)
+___DEF_SLBL(6,___L6___riscv_23_riscv_2d_ld)
    ___ADJFP(-5)
-   ___SET_NARGS(6) ___JUMPINT(___NOTHING,___PRC(575),___L0___riscv_23_riscv_2d_type_2d_i)
-___DEF_GLBL(___L7___riscv_23_riscv_2d_ld)
+   ___SET_NARGS(6) ___JUMPINT(___NOTHING,___PRC(677),___L0___riscv_23_riscv_2d_type_2d_i)
+___DEF_GLBL(___L8___riscv_23_riscv_2d_ld)
    ___SET_R1(___SUB(50))
-   ___SET_R0(___LBL(4))
+   ___SET_R0(___LBL(5))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),138,___G_error)
 ___END_P_SW
 ___END_P_COD
@@ -7557,15 +8397,15 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_addiw
 #undef ___PH_LBL0
-#define ___PH_LBL0 525
+#define ___PH_LBL0 617
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(6)
+___BEGIN_P_HLBL_AT(7)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_addiw)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_addiw)
@@ -7573,32 +8413,42 @@ ___DEF_P_HLBL(___L2___riscv_23_riscv_2d_addiw)
 ___DEF_P_HLBL(___L3___riscv_23_riscv_2d_addiw)
 ___DEF_P_HLBL(___L4___riscv_23_riscv_2d_addiw)
 ___DEF_P_HLBL(___L5___riscv_23_riscv_2d_addiw)
+___DEF_P_HLBL(___L6___riscv_23_riscv_2d_addiw)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_addiw)
    ___IF_NARGS_EQ(4,___NOTHING)
    ___WRONG_NARGS(0,4,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_addiw)
-   ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
-   ___SET_STK(3,___R2)
-   ___SET_STK(4,___R3)
-   ___SET_R1(___STK(0))
-   ___ADJFP(7)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_riscv#riscv-addiw",1,___LBL(1),___fp);
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_addiw)
-   ___SET_R0(___LBL(2))
-   ___JUMPINT(___SET_NARGS(1),___PRC(9),___L___riscv_23_riscv_2d_64bit_2d_mode_3f_)
+___GATE2_ENTER(___ps,"_riscv#riscv-addiw",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,7,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R0)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_STK(1,___R3)
+   ___ADJFP(1)
+   ___SET_R1(___STK(-4))
+   ___ADJFP(3)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___riscv_23_riscv_2d_addiw)
    ___SET_R0(___LBL(3))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
+   ___JUMPINT(___SET_NARGS(1),___PRC(9),___L___riscv_23_riscv_2d_64bit_2d_mode_3f_)
 ___DEF_SLBL(3,___L3___riscv_23_riscv_2d_addiw)
-   ___IF(___NOTFALSEP(___R1))
-   ___GOTO(___L7___riscv_23_riscv_2d_addiw)
-   ___END_IF
-   ___GOTO(___L6___riscv_23_riscv_2d_addiw)
+   ___SET_R0(___LBL(4))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
 ___DEF_SLBL(4,___L4___riscv_23_riscv_2d_addiw)
-___DEF_GLBL(___L6___riscv_23_riscv_2d_addiw)
+   ___IF(___NOTFALSEP(___R1))
+   ___GOTO(___L8___riscv_23_riscv_2d_addiw)
+   ___END_IF
+   ___GOTO(___L7___riscv_23_riscv_2d_addiw)
+___DEF_SLBL(5,___L5___riscv_23_riscv_2d_addiw)
+___DEF_GLBL(___L7___riscv_23_riscv_2d_addiw)
    ___SET_STK(-2,___STK(-6))
    ___SET_STK(-6,___STK(-5))
    ___SET_STK(-5,___STK(-4))
@@ -7606,13 +8456,13 @@ ___DEF_GLBL(___L6___riscv_23_riscv_2d_addiw)
    ___SET_R3(___FIX(27L))
    ___SET_R2(___FIX(0L))
    ___SET_R0(___STK(-2))
-   ___POLL(5)
-___DEF_SLBL(5,___L5___riscv_23_riscv_2d_addiw)
+   ___POLL(6)
+___DEF_SLBL(6,___L6___riscv_23_riscv_2d_addiw)
    ___ADJFP(-5)
-   ___SET_NARGS(6) ___JUMPINT(___NOTHING,___PRC(575),___L0___riscv_23_riscv_2d_type_2d_i)
-___DEF_GLBL(___L7___riscv_23_riscv_2d_addiw)
+   ___SET_NARGS(6) ___JUMPINT(___NOTHING,___PRC(677),___L0___riscv_23_riscv_2d_type_2d_i)
+___DEF_GLBL(___L8___riscv_23_riscv_2d_addiw)
    ___SET_R1(___SUB(50))
-   ___SET_R0(___LBL(4))
+   ___SET_R0(___LBL(5))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),138,___G_error)
 ___END_P_SW
 ___END_P_COD
@@ -7620,15 +8470,15 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_slliw
 #undef ___PH_LBL0
-#define ___PH_LBL0 532
+#define ___PH_LBL0 625
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(13)
+___BEGIN_P_HLBL_AT(16)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_slliw)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_slliw)
@@ -7643,89 +8493,111 @@ ___DEF_P_HLBL(___L9___riscv_23_riscv_2d_slliw)
 ___DEF_P_HLBL(___L10___riscv_23_riscv_2d_slliw)
 ___DEF_P_HLBL(___L11___riscv_23_riscv_2d_slliw)
 ___DEF_P_HLBL(___L12___riscv_23_riscv_2d_slliw)
+___DEF_P_HLBL(___L13___riscv_23_riscv_2d_slliw)
+___DEF_P_HLBL(___L14___riscv_23_riscv_2d_slliw)
+___DEF_P_HLBL(___L15___riscv_23_riscv_2d_slliw)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_slliw)
    ___IF_NARGS_EQ(4,___NOTHING)
    ___WRONG_NARGS(0,4,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_slliw)
-   ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
-   ___SET_STK(3,___R2)
-   ___SET_STK(4,___R3)
-   ___SET_R1(___STK(0))
-   ___ADJFP(7)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_riscv#riscv-slliw",1,___LBL(1),___fp);
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_slliw)
-   ___SET_R0(___LBL(2))
-   ___JUMPINT(___SET_NARGS(1),___PRC(9),___L___riscv_23_riscv_2d_64bit_2d_mode_3f_)
+___GATE2_ENTER(___ps,"_riscv#riscv-slliw",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,7,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R0)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_STK(1,___R3)
+   ___ADJFP(1)
+   ___SET_R1(___STK(-4))
+   ___ADJFP(3)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___riscv_23_riscv_2d_slliw)
    ___SET_R0(___LBL(3))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
+   ___JUMPINT(___SET_NARGS(1),___PRC(9),___L___riscv_23_riscv_2d_64bit_2d_mode_3f_)
 ___DEF_SLBL(3,___L3___riscv_23_riscv_2d_slliw)
-   ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L13___riscv_23_riscv_2d_slliw)
-   ___END_IF
-   ___SET_R1(___SUB(50))
    ___SET_R0(___LBL(4))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),138,___G_error)
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
 ___DEF_SLBL(4,___L4___riscv_23_riscv_2d_slliw)
-___DEF_GLBL(___L13___riscv_23_riscv_2d_slliw)
-   ___SET_R1(___STK(-3))
-   ___SET_R2(___FIX(0L))
-   ___SET_R0(___LBL(5))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),147,___G_fx_3e__3d_)
-___DEF_SLBL(5,___L5___riscv_23_riscv_2d_slliw)
    ___IF(___NOT(___NOTFALSEP(___R1)))
    ___GOTO(___L16___riscv_23_riscv_2d_slliw)
    ___END_IF
+   ___SET_R1(___SUB(50))
+   ___SET_R0(___LBL(5))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),138,___G_error)
+___DEF_SLBL(5,___L5___riscv_23_riscv_2d_slliw)
+___DEF_GLBL(___L16___riscv_23_riscv_2d_slliw)
+   ___SET_R1(___STK(-3))
+   ___SET_R2(___FIX(0L))
+   ___SET_R0(___LBL(6))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),147,___G_fx_3e__3d_)
+___DEF_SLBL(6,___L6___riscv_23_riscv_2d_slliw)
+   ___IF(___NOT(___NOTFALSEP(___R1)))
+   ___GOTO(___L19___riscv_23_riscv_2d_slliw)
+   ___END_IF
    ___SET_R1(___STK(-3))
    ___SET_R2(___FIX(32L))
-   ___SET_R0(___LBL(6))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),143,___G_fx_3c_)
-___DEF_SLBL(6,___L6___riscv_23_riscv_2d_slliw)
    ___SET_R0(___LBL(7))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),143,___G_fx_3c_)
 ___DEF_SLBL(7,___L7___riscv_23_riscv_2d_slliw)
-   ___IF(___NOTFALSEP(___R1))
-   ___GOTO(___L15___riscv_23_riscv_2d_slliw)
-   ___END_IF
-   ___GOTO(___L14___riscv_23_riscv_2d_slliw)
+   ___SET_R0(___LBL(8))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
 ___DEF_SLBL(8,___L8___riscv_23_riscv_2d_slliw)
-___DEF_GLBL(___L14___riscv_23_riscv_2d_slliw)
+   ___IF(___NOTFALSEP(___R1))
+   ___GOTO(___L18___riscv_23_riscv_2d_slliw)
+   ___END_IF
+   ___GOTO(___L17___riscv_23_riscv_2d_slliw)
+___DEF_SLBL(9,___L9___riscv_23_riscv_2d_slliw)
+___DEF_GLBL(___L17___riscv_23_riscv_2d_slliw)
+___GATE2_OPEN(___ps,"_riscv#riscv-slliw",10,___LBL(10),___fp);
+___DEF_SLBL(10,___L10___riscv_23_riscv_2d_slliw)
+___GATE2_ENTER(___ps,"_riscv#riscv-slliw",10,___LBL(10),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,4,0,___LBL(10),&___demand_attempt)){___ps->temp1=___LBL(10);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(-2,___STK(-6))
    ___SET_STK(-6,___STK(-5))
    ___SET_STK(-5,___STK(-4))
    ___SET_R1(___STK(-3))
-   ___SET_R0(___LBL(11))
+   ___SET_R0(___LBL(14))
    ___ADJFP(4)
-   ___SET_NARGS(1) ___GOTO(___L9___riscv_23_riscv_2d_slliw)
-___DEF_SLBL(9,___L9___riscv_23_riscv_2d_slliw)
+___group_demand_commit(___ps,___LBL(10),___demand_attempt);
+   ___SET_NARGS(1) ___GOTO(___L11___riscv_23_riscv_2d_slliw)
+___DEF_SLBL(11,___L11___riscv_23_riscv_2d_slliw)
    ___IF_NARGS_EQ(1,___SET_R2(___SYM_I))
    ___IF_NARGS_EQ(2,___NOTHING)
-   ___WRONG_NARGS(9,1,1,0)
+   ___WRONG_NARGS(11,1,1,0)
+___GATE2_OPEN(___ps,"_riscv#riscv-slliw",12,___LBL(12),___fp);
+___DEF_SLBL(12,___L12___riscv_23_riscv_2d_slliw)
+___GATE2_ENTER(___ps,"_riscv#riscv-slliw",12,___LBL(12),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,1,0,___LBL(12),&___demand_attempt)){___ps->temp1=___LBL(12);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R2)
-   ___SET_R2(___R1)
-   ___SET_R1(___STK(1))
    ___ADJFP(1)
-   ___POLL(10)
-___DEF_SLBL(10,___L10___riscv_23_riscv_2d_slliw)
+   ___SET_R2(___R1)
+   ___SET_R1(___STK(0))
+___group_demand_commit(___ps,___LBL(12),___demand_attempt);
+   ___POLL(13)
+___DEF_SLBL(13,___L13___riscv_23_riscv_2d_slliw)
    ___ADJFP(-1)
    ___JUMPGLONOTSAFE(___SET_NARGS(2),136,___G_cons)
-___DEF_SLBL(11,___L11___riscv_23_riscv_2d_slliw)
+___DEF_SLBL(14,___L14___riscv_23_riscv_2d_slliw)
    ___SET_R3(___FIX(27L))
    ___SET_R2(___FIX(4096L))
    ___SET_R0(___STK(-6))
-   ___POLL(12)
-___DEF_SLBL(12,___L12___riscv_23_riscv_2d_slliw)
+   ___POLL(15)
+___DEF_SLBL(15,___L15___riscv_23_riscv_2d_slliw)
    ___ADJFP(-9)
-   ___SET_NARGS(6) ___JUMPINT(___NOTHING,___PRC(575),___L0___riscv_23_riscv_2d_type_2d_i)
-___DEF_GLBL(___L15___riscv_23_riscv_2d_slliw)
+   ___SET_NARGS(6) ___JUMPINT(___NOTHING,___PRC(677),___L0___riscv_23_riscv_2d_type_2d_i)
+___DEF_GLBL(___L18___riscv_23_riscv_2d_slliw)
    ___SET_R1(___SUB(78))
-   ___SET_R0(___LBL(8))
+   ___SET_R0(___LBL(9))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),138,___G_error)
-___DEF_GLBL(___L16___riscv_23_riscv_2d_slliw)
-   ___SET_R0(___LBL(7))
+___DEF_GLBL(___L19___riscv_23_riscv_2d_slliw)
+   ___SET_R0(___LBL(8))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
 ___END_P_SW
 ___END_P_COD
@@ -7733,15 +8605,15 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_srliw
 #undef ___PH_LBL0
-#define ___PH_LBL0 546
+#define ___PH_LBL0 642
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(13)
+___BEGIN_P_HLBL_AT(16)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_srliw)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_srliw)
@@ -7756,89 +8628,111 @@ ___DEF_P_HLBL(___L9___riscv_23_riscv_2d_srliw)
 ___DEF_P_HLBL(___L10___riscv_23_riscv_2d_srliw)
 ___DEF_P_HLBL(___L11___riscv_23_riscv_2d_srliw)
 ___DEF_P_HLBL(___L12___riscv_23_riscv_2d_srliw)
+___DEF_P_HLBL(___L13___riscv_23_riscv_2d_srliw)
+___DEF_P_HLBL(___L14___riscv_23_riscv_2d_srliw)
+___DEF_P_HLBL(___L15___riscv_23_riscv_2d_srliw)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_srliw)
    ___IF_NARGS_EQ(4,___NOTHING)
    ___WRONG_NARGS(0,4,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_srliw)
-   ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
-   ___SET_STK(3,___R2)
-   ___SET_STK(4,___R3)
-   ___SET_R1(___STK(0))
-   ___ADJFP(7)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_riscv#riscv-srliw",1,___LBL(1),___fp);
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_srliw)
-   ___SET_R0(___LBL(2))
-   ___JUMPINT(___SET_NARGS(1),___PRC(9),___L___riscv_23_riscv_2d_64bit_2d_mode_3f_)
+___GATE2_ENTER(___ps,"_riscv#riscv-srliw",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,7,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R0)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_STK(1,___R3)
+   ___ADJFP(1)
+   ___SET_R1(___STK(-4))
+   ___ADJFP(3)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___riscv_23_riscv_2d_srliw)
    ___SET_R0(___LBL(3))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
+   ___JUMPINT(___SET_NARGS(1),___PRC(9),___L___riscv_23_riscv_2d_64bit_2d_mode_3f_)
 ___DEF_SLBL(3,___L3___riscv_23_riscv_2d_srliw)
-   ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L13___riscv_23_riscv_2d_srliw)
-   ___END_IF
-   ___SET_R1(___SUB(50))
    ___SET_R0(___LBL(4))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),138,___G_error)
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
 ___DEF_SLBL(4,___L4___riscv_23_riscv_2d_srliw)
-___DEF_GLBL(___L13___riscv_23_riscv_2d_srliw)
-   ___SET_R1(___STK(-3))
-   ___SET_R2(___FIX(0L))
-   ___SET_R0(___LBL(5))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),147,___G_fx_3e__3d_)
-___DEF_SLBL(5,___L5___riscv_23_riscv_2d_srliw)
    ___IF(___NOT(___NOTFALSEP(___R1)))
    ___GOTO(___L16___riscv_23_riscv_2d_srliw)
    ___END_IF
+   ___SET_R1(___SUB(50))
+   ___SET_R0(___LBL(5))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),138,___G_error)
+___DEF_SLBL(5,___L5___riscv_23_riscv_2d_srliw)
+___DEF_GLBL(___L16___riscv_23_riscv_2d_srliw)
+   ___SET_R1(___STK(-3))
+   ___SET_R2(___FIX(0L))
+   ___SET_R0(___LBL(6))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),147,___G_fx_3e__3d_)
+___DEF_SLBL(6,___L6___riscv_23_riscv_2d_srliw)
+   ___IF(___NOT(___NOTFALSEP(___R1)))
+   ___GOTO(___L19___riscv_23_riscv_2d_srliw)
+   ___END_IF
    ___SET_R1(___STK(-3))
    ___SET_R2(___FIX(32L))
-   ___SET_R0(___LBL(6))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),143,___G_fx_3c_)
-___DEF_SLBL(6,___L6___riscv_23_riscv_2d_srliw)
    ___SET_R0(___LBL(7))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),143,___G_fx_3c_)
 ___DEF_SLBL(7,___L7___riscv_23_riscv_2d_srliw)
-   ___IF(___NOTFALSEP(___R1))
-   ___GOTO(___L15___riscv_23_riscv_2d_srliw)
-   ___END_IF
-   ___GOTO(___L14___riscv_23_riscv_2d_srliw)
+   ___SET_R0(___LBL(8))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
 ___DEF_SLBL(8,___L8___riscv_23_riscv_2d_srliw)
-___DEF_GLBL(___L14___riscv_23_riscv_2d_srliw)
+   ___IF(___NOTFALSEP(___R1))
+   ___GOTO(___L18___riscv_23_riscv_2d_srliw)
+   ___END_IF
+   ___GOTO(___L17___riscv_23_riscv_2d_srliw)
+___DEF_SLBL(9,___L9___riscv_23_riscv_2d_srliw)
+___DEF_GLBL(___L17___riscv_23_riscv_2d_srliw)
+___GATE2_OPEN(___ps,"_riscv#riscv-srliw",10,___LBL(10),___fp);
+___DEF_SLBL(10,___L10___riscv_23_riscv_2d_srliw)
+___GATE2_ENTER(___ps,"_riscv#riscv-srliw",10,___LBL(10),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,4,0,___LBL(10),&___demand_attempt)){___ps->temp1=___LBL(10);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(-2,___STK(-6))
    ___SET_STK(-6,___STK(-5))
    ___SET_STK(-5,___STK(-4))
    ___SET_R1(___STK(-3))
-   ___SET_R0(___LBL(11))
+   ___SET_R0(___LBL(14))
    ___ADJFP(4)
-   ___SET_NARGS(1) ___GOTO(___L9___riscv_23_riscv_2d_srliw)
-___DEF_SLBL(9,___L9___riscv_23_riscv_2d_srliw)
+___group_demand_commit(___ps,___LBL(10),___demand_attempt);
+   ___SET_NARGS(1) ___GOTO(___L11___riscv_23_riscv_2d_srliw)
+___DEF_SLBL(11,___L11___riscv_23_riscv_2d_srliw)
    ___IF_NARGS_EQ(1,___SET_R2(___SYM_I))
    ___IF_NARGS_EQ(2,___NOTHING)
-   ___WRONG_NARGS(9,1,1,0)
+   ___WRONG_NARGS(11,1,1,0)
+___GATE2_OPEN(___ps,"_riscv#riscv-srliw",12,___LBL(12),___fp);
+___DEF_SLBL(12,___L12___riscv_23_riscv_2d_srliw)
+___GATE2_ENTER(___ps,"_riscv#riscv-srliw",12,___LBL(12),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,1,0,___LBL(12),&___demand_attempt)){___ps->temp1=___LBL(12);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R2)
-   ___SET_R2(___R1)
-   ___SET_R1(___STK(1))
    ___ADJFP(1)
-   ___POLL(10)
-___DEF_SLBL(10,___L10___riscv_23_riscv_2d_srliw)
+   ___SET_R2(___R1)
+   ___SET_R1(___STK(0))
+___group_demand_commit(___ps,___LBL(12),___demand_attempt);
+   ___POLL(13)
+___DEF_SLBL(13,___L13___riscv_23_riscv_2d_srliw)
    ___ADJFP(-1)
    ___JUMPGLONOTSAFE(___SET_NARGS(2),136,___G_cons)
-___DEF_SLBL(11,___L11___riscv_23_riscv_2d_srliw)
+___DEF_SLBL(14,___L14___riscv_23_riscv_2d_srliw)
    ___SET_R3(___FIX(27L))
    ___SET_R2(___FIX(20480L))
    ___SET_R0(___STK(-6))
-   ___POLL(12)
-___DEF_SLBL(12,___L12___riscv_23_riscv_2d_srliw)
+   ___POLL(15)
+___DEF_SLBL(15,___L15___riscv_23_riscv_2d_srliw)
    ___ADJFP(-9)
-   ___SET_NARGS(6) ___JUMPINT(___NOTHING,___PRC(575),___L0___riscv_23_riscv_2d_type_2d_i)
-___DEF_GLBL(___L15___riscv_23_riscv_2d_srliw)
+   ___SET_NARGS(6) ___JUMPINT(___NOTHING,___PRC(677),___L0___riscv_23_riscv_2d_type_2d_i)
+___DEF_GLBL(___L18___riscv_23_riscv_2d_srliw)
    ___SET_R1(___SUB(79))
-   ___SET_R0(___LBL(8))
+   ___SET_R0(___LBL(9))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),138,___G_error)
-___DEF_GLBL(___L16___riscv_23_riscv_2d_srliw)
-   ___SET_R0(___LBL(7))
+___DEF_GLBL(___L19___riscv_23_riscv_2d_srliw)
+   ___SET_R0(___LBL(8))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
 ___END_P_SW
 ___END_P_COD
@@ -7846,15 +8740,15 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_sraiw
 #undef ___PH_LBL0
-#define ___PH_LBL0 560
+#define ___PH_LBL0 659
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(14)
+___BEGIN_P_HLBL_AT(17)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_sraiw)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_sraiw)
@@ -7870,93 +8764,115 @@ ___DEF_P_HLBL(___L10___riscv_23_riscv_2d_sraiw)
 ___DEF_P_HLBL(___L11___riscv_23_riscv_2d_sraiw)
 ___DEF_P_HLBL(___L12___riscv_23_riscv_2d_sraiw)
 ___DEF_P_HLBL(___L13___riscv_23_riscv_2d_sraiw)
+___DEF_P_HLBL(___L14___riscv_23_riscv_2d_sraiw)
+___DEF_P_HLBL(___L15___riscv_23_riscv_2d_sraiw)
+___DEF_P_HLBL(___L16___riscv_23_riscv_2d_sraiw)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_sraiw)
    ___IF_NARGS_EQ(4,___NOTHING)
    ___WRONG_NARGS(0,4,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_sraiw)
-   ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
-   ___SET_STK(3,___R2)
-   ___SET_STK(4,___R3)
-   ___SET_R1(___STK(0))
-   ___ADJFP(7)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_riscv#riscv-sraiw",1,___LBL(1),___fp);
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_sraiw)
-   ___SET_R0(___LBL(2))
-   ___JUMPINT(___SET_NARGS(1),___PRC(9),___L___riscv_23_riscv_2d_64bit_2d_mode_3f_)
+___GATE2_ENTER(___ps,"_riscv#riscv-sraiw",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,7,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R0)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_STK(1,___R3)
+   ___ADJFP(1)
+   ___SET_R1(___STK(-4))
+   ___ADJFP(3)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___riscv_23_riscv_2d_sraiw)
    ___SET_R0(___LBL(3))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
+   ___JUMPINT(___SET_NARGS(1),___PRC(9),___L___riscv_23_riscv_2d_64bit_2d_mode_3f_)
 ___DEF_SLBL(3,___L3___riscv_23_riscv_2d_sraiw)
-   ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L14___riscv_23_riscv_2d_sraiw)
-   ___END_IF
-   ___SET_R1(___SUB(50))
    ___SET_R0(___LBL(4))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),138,___G_error)
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
 ___DEF_SLBL(4,___L4___riscv_23_riscv_2d_sraiw)
-___DEF_GLBL(___L14___riscv_23_riscv_2d_sraiw)
-   ___SET_R1(___STK(-3))
-   ___SET_R2(___FIX(0L))
-   ___SET_R0(___LBL(5))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),147,___G_fx_3e__3d_)
-___DEF_SLBL(5,___L5___riscv_23_riscv_2d_sraiw)
    ___IF(___NOT(___NOTFALSEP(___R1)))
    ___GOTO(___L17___riscv_23_riscv_2d_sraiw)
    ___END_IF
+   ___SET_R1(___SUB(50))
+   ___SET_R0(___LBL(5))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),138,___G_error)
+___DEF_SLBL(5,___L5___riscv_23_riscv_2d_sraiw)
+___DEF_GLBL(___L17___riscv_23_riscv_2d_sraiw)
+   ___SET_R1(___STK(-3))
+   ___SET_R2(___FIX(0L))
+   ___SET_R0(___LBL(6))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),147,___G_fx_3e__3d_)
+___DEF_SLBL(6,___L6___riscv_23_riscv_2d_sraiw)
+   ___IF(___NOT(___NOTFALSEP(___R1)))
+   ___GOTO(___L20___riscv_23_riscv_2d_sraiw)
+   ___END_IF
    ___SET_R1(___STK(-3))
    ___SET_R2(___FIX(32L))
-   ___SET_R0(___LBL(6))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),143,___G_fx_3c_)
-___DEF_SLBL(6,___L6___riscv_23_riscv_2d_sraiw)
    ___SET_R0(___LBL(7))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),143,___G_fx_3c_)
 ___DEF_SLBL(7,___L7___riscv_23_riscv_2d_sraiw)
-   ___IF(___NOTFALSEP(___R1))
-   ___GOTO(___L16___riscv_23_riscv_2d_sraiw)
-   ___END_IF
-   ___GOTO(___L15___riscv_23_riscv_2d_sraiw)
+   ___SET_R0(___LBL(8))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
 ___DEF_SLBL(8,___L8___riscv_23_riscv_2d_sraiw)
-___DEF_GLBL(___L15___riscv_23_riscv_2d_sraiw)
+   ___IF(___NOTFALSEP(___R1))
+   ___GOTO(___L19___riscv_23_riscv_2d_sraiw)
+   ___END_IF
+   ___GOTO(___L18___riscv_23_riscv_2d_sraiw)
+___DEF_SLBL(9,___L9___riscv_23_riscv_2d_sraiw)
+___DEF_GLBL(___L18___riscv_23_riscv_2d_sraiw)
+___GATE2_OPEN(___ps,"_riscv#riscv-sraiw",10,___LBL(10),___fp);
+___DEF_SLBL(10,___L10___riscv_23_riscv_2d_sraiw)
+___GATE2_ENTER(___ps,"_riscv#riscv-sraiw",10,___LBL(10),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,4,0,___LBL(10),&___demand_attempt)){___ps->temp1=___LBL(10);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(-2,___STK(-6))
    ___SET_STK(-6,___STK(-5))
    ___SET_STK(-5,___STK(-4))
    ___SET_R2(___STK(-3))
    ___SET_R1(___FIX(1024L))
-   ___SET_R0(___LBL(9))
+   ___SET_R0(___LBL(11))
    ___ADJFP(4)
+___group_demand_commit(___ps,___LBL(10),___demand_attempt);
    ___JUMPGLONOTSAFE(___SET_NARGS(2),141,___G_fx_2b_)
-___DEF_SLBL(9,___L9___riscv_23_riscv_2d_sraiw)
-   ___SET_R0(___LBL(12))
-   ___SET_NARGS(1) ___GOTO(___L10___riscv_23_riscv_2d_sraiw)
-___DEF_SLBL(10,___L10___riscv_23_riscv_2d_sraiw)
+___DEF_SLBL(11,___L11___riscv_23_riscv_2d_sraiw)
+   ___SET_R0(___LBL(15))
+   ___SET_NARGS(1) ___GOTO(___L12___riscv_23_riscv_2d_sraiw)
+___DEF_SLBL(12,___L12___riscv_23_riscv_2d_sraiw)
    ___IF_NARGS_EQ(1,___SET_R2(___SYM_I))
    ___IF_NARGS_EQ(2,___NOTHING)
-   ___WRONG_NARGS(10,1,1,0)
+   ___WRONG_NARGS(12,1,1,0)
+___GATE2_OPEN(___ps,"_riscv#riscv-sraiw",13,___LBL(13),___fp);
+___DEF_SLBL(13,___L13___riscv_23_riscv_2d_sraiw)
+___GATE2_ENTER(___ps,"_riscv#riscv-sraiw",13,___LBL(13),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,1,0,___LBL(13),&___demand_attempt)){___ps->temp1=___LBL(13);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R2)
-   ___SET_R2(___R1)
-   ___SET_R1(___STK(1))
    ___ADJFP(1)
-   ___POLL(11)
-___DEF_SLBL(11,___L11___riscv_23_riscv_2d_sraiw)
+   ___SET_R2(___R1)
+   ___SET_R1(___STK(0))
+___group_demand_commit(___ps,___LBL(13),___demand_attempt);
+   ___POLL(14)
+___DEF_SLBL(14,___L14___riscv_23_riscv_2d_sraiw)
    ___ADJFP(-1)
    ___JUMPGLONOTSAFE(___SET_NARGS(2),136,___G_cons)
-___DEF_SLBL(12,___L12___riscv_23_riscv_2d_sraiw)
+___DEF_SLBL(15,___L15___riscv_23_riscv_2d_sraiw)
    ___SET_R3(___FIX(27L))
    ___SET_R2(___FIX(20480L))
    ___SET_R0(___STK(-6))
-   ___POLL(13)
-___DEF_SLBL(13,___L13___riscv_23_riscv_2d_sraiw)
+   ___POLL(16)
+___DEF_SLBL(16,___L16___riscv_23_riscv_2d_sraiw)
    ___ADJFP(-9)
-   ___SET_NARGS(6) ___JUMPINT(___NOTHING,___PRC(575),___L0___riscv_23_riscv_2d_type_2d_i)
-___DEF_GLBL(___L16___riscv_23_riscv_2d_sraiw)
+   ___SET_NARGS(6) ___JUMPINT(___NOTHING,___PRC(677),___L0___riscv_23_riscv_2d_type_2d_i)
+___DEF_GLBL(___L19___riscv_23_riscv_2d_sraiw)
    ___SET_R1(___SUB(80))
-   ___SET_R0(___LBL(8))
+   ___SET_R0(___LBL(9))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),138,___G_error)
-___DEF_GLBL(___L17___riscv_23_riscv_2d_sraiw)
-   ___SET_R0(___LBL(7))
+___DEF_GLBL(___L20___riscv_23_riscv_2d_sraiw)
+   ___SET_R0(___LBL(8))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
 ___END_P_SW
 ___END_P_COD
@@ -7964,15 +8880,15 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_type_2d_i
 #undef ___PH_LBL0
-#define ___PH_LBL0 575
+#define ___PH_LBL0 677
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(68)
+___BEGIN_P_HLBL_AT(76)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_type_2d_i)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_type_2d_i)
@@ -8042,6 +8958,14 @@ ___DEF_P_HLBL(___L64___riscv_23_riscv_2d_type_2d_i)
 ___DEF_P_HLBL(___L65___riscv_23_riscv_2d_type_2d_i)
 ___DEF_P_HLBL(___L66___riscv_23_riscv_2d_type_2d_i)
 ___DEF_P_HLBL(___L67___riscv_23_riscv_2d_type_2d_i)
+___DEF_P_HLBL(___L68___riscv_23_riscv_2d_type_2d_i)
+___DEF_P_HLBL(___L69___riscv_23_riscv_2d_type_2d_i)
+___DEF_P_HLBL(___L70___riscv_23_riscv_2d_type_2d_i)
+___DEF_P_HLBL(___L71___riscv_23_riscv_2d_type_2d_i)
+___DEF_P_HLBL(___L72___riscv_23_riscv_2d_type_2d_i)
+___DEF_P_HLBL(___L73___riscv_23_riscv_2d_type_2d_i)
+___DEF_P_HLBL(___L74___riscv_23_riscv_2d_type_2d_i)
+___DEF_P_HLBL(___L75___riscv_23_riscv_2d_type_2d_i)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_type_2d_i)
@@ -8050,462 +8974,518 @@ ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_type_2d_i)
    ___IF_NARGS_EQ(6,___NOTHING)
    ___WRONG_NARGS(0,5,1,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_type_2d_i)
-   ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
-   ___SET_STK(3,___R2)
-   ___SET_STK(4,___R3)
-   ___SET_R1(___STK(-1))
-   ___ADJFP(9)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_riscv#riscv-type-i",1,___LBL(1),___fp);
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_type_2d_i)
-   ___SET_R0(___LBL(2))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),140,___G_fixnum_3f_)
+___GATE2_ENTER(___ps,"_riscv#riscv-type-i",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,9,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R0)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_STK(1,___R3)
+   ___ADJFP(1)
+   ___SET_R1(___STK(-5))
+   ___ADJFP(5)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___riscv_23_riscv_2d_type_2d_i)
-   ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L94___riscv_23_riscv_2d_type_2d_i)
-   ___END_IF
-   ___SET_R1(___STK(-9))
    ___SET_R0(___LBL(3))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),140,___G_fixnum_3f_)
 ___DEF_SLBL(3,___L3___riscv_23_riscv_2d_type_2d_i)
    ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L94___riscv_23_riscv_2d_type_2d_i)
+   ___GOTO(___L102___riscv_23_riscv_2d_type_2d_i)
+   ___END_IF
+   ___SET_R1(___STK(-9))
+   ___SET_R0(___LBL(4))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),140,___G_fixnum_3f_)
+___DEF_SLBL(4,___L4___riscv_23_riscv_2d_type_2d_i)
+   ___IF(___NOT(___NOTFALSEP(___R1)))
+   ___GOTO(___L102___riscv_23_riscv_2d_type_2d_i)
    ___END_IF
    ___SET_R1(___STK(-7))
-   ___SET_R0(___LBL(4))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),160,___G_pair_3f_)
-___DEF_SLBL(4,___L4___riscv_23_riscv_2d_type_2d_i)
    ___SET_R0(___LBL(5))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),160,___G_pair_3f_)
 ___DEF_SLBL(5,___L5___riscv_23_riscv_2d_type_2d_i)
+   ___SET_R0(___LBL(6))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
+___DEF_SLBL(6,___L6___riscv_23_riscv_2d_type_2d_i)
    ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L68___riscv_23_riscv_2d_type_2d_i)
+   ___GOTO(___L76___riscv_23_riscv_2d_type_2d_i)
    ___END_IF
    ___SET_R1(___SUB(81))
-   ___SET_R0(___LBL(6))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),138,___G_error)
-___DEF_SLBL(6,___L6___riscv_23_riscv_2d_type_2d_i)
-___DEF_GLBL(___L68___riscv_23_riscv_2d_type_2d_i)
-   ___SET_R1(___STK(-7))
    ___SET_R0(___LBL(7))
-   ___JUMPINT(___SET_NARGS(1),___PRC(24),___L___riscv_23_riscv_2d_imm_2d_int_3f_)
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),138,___G_error)
 ___DEF_SLBL(7,___L7___riscv_23_riscv_2d_type_2d_i)
-   ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L93___riscv_23_riscv_2d_type_2d_i)
-   ___END_IF
+___DEF_GLBL(___L76___riscv_23_riscv_2d_type_2d_i)
    ___SET_R1(___STK(-7))
    ___SET_R0(___LBL(8))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),134,___G_car)
+   ___JUMPINT(___SET_NARGS(1),___PRC(27),___L___riscv_23_riscv_2d_imm_2d_int_3f_)
 ___DEF_SLBL(8,___L8___riscv_23_riscv_2d_type_2d_i)
-   ___SET_R2(___SYM_I)
-   ___SET_R0(___LBL(9))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),137,___G_eq_3f_)
-___DEF_SLBL(9,___L9___riscv_23_riscv_2d_type_2d_i)
-   ___SET_R0(___LBL(10))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
-___DEF_SLBL(10,___L10___riscv_23_riscv_2d_type_2d_i)
-   ___IF(___NOTFALSEP(___R1))
-   ___GOTO(___L92___riscv_23_riscv_2d_type_2d_i)
+   ___IF(___NOT(___NOTFALSEP(___R1)))
+   ___GOTO(___L101___riscv_23_riscv_2d_type_2d_i)
    ___END_IF
-   ___GOTO(___L69___riscv_23_riscv_2d_type_2d_i)
+   ___SET_R1(___STK(-7))
+   ___SET_R0(___LBL(9))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),134,___G_car)
+___DEF_SLBL(9,___L9___riscv_23_riscv_2d_type_2d_i)
+   ___SET_R2(___SYM_I)
+   ___SET_R0(___LBL(10))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),137,___G_eq_3f_)
+___DEF_SLBL(10,___L10___riscv_23_riscv_2d_type_2d_i)
+   ___SET_R0(___LBL(11))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
 ___DEF_SLBL(11,___L11___riscv_23_riscv_2d_type_2d_i)
-___DEF_GLBL(___L69___riscv_23_riscv_2d_type_2d_i)
-   ___SET_STK(1,___STK(-5))
-   ___SET_R1(___STK(-10))
-   ___SET_R2(___FIX(7L))
-   ___SET_R0(___LBL(12))
-   ___ADJFP(4)
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),149,___G_fxarithmetic_2d_shift)
+   ___IF(___NOTFALSEP(___R1))
+   ___GOTO(___L100___riscv_23_riscv_2d_type_2d_i)
+   ___END_IF
+   ___GOTO(___L77___riscv_23_riscv_2d_type_2d_i)
 ___DEF_SLBL(12,___L12___riscv_23_riscv_2d_type_2d_i)
+___DEF_GLBL(___L77___riscv_23_riscv_2d_type_2d_i)
+___GATE2_OPEN(___ps,"_riscv#riscv-type-i",13,___LBL(13),___fp);
+___DEF_SLBL(13,___L13___riscv_23_riscv_2d_type_2d_i)
+___GATE2_ENTER(___ps,"_riscv#riscv-type-i",13,___LBL(13),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,4,0,___LBL(13),&___demand_attempt)){___ps->temp1=___LBL(13);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___STK(-5))
+   ___ADJFP(1)
+   ___SET_R1(___STK(-11))
+   ___SET_R2(___FIX(7L))
+   ___SET_R0(___LBL(14))
+   ___ADJFP(3)
+___group_demand_commit(___ps,___LBL(13),___demand_attempt);
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),149,___G_fxarithmetic_2d_shift)
+___DEF_SLBL(14,___L14___riscv_23_riscv_2d_type_2d_i)
+___GATE2_OPEN(___ps,"_riscv#riscv-type-i",15,___LBL(15),___fp);
+___DEF_SLBL(15,___L15___riscv_23_riscv_2d_type_2d_i)
+___GATE2_ENTER(___ps,"_riscv#riscv-type-i",15,___LBL(15),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,4,0,___LBL(15),&___demand_attempt)){___ps->temp1=___LBL(15);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(-2,___R1)
    ___SET_R1(___STK(-13))
    ___SET_R2(___FIX(15L))
-   ___SET_R0(___LBL(13))
+   ___SET_R0(___LBL(16))
    ___ADJFP(4)
+___group_demand_commit(___ps,___LBL(15),___demand_attempt);
    ___JUMPGLONOTSAFE(___SET_NARGS(2),149,___G_fxarithmetic_2d_shift)
-___DEF_SLBL(13,___L13___riscv_23_riscv_2d_type_2d_i)
+___DEF_SLBL(16,___L16___riscv_23_riscv_2d_type_2d_i)
    ___SET_STK(-12,___R1)
    ___SET_R1(___STK(-15))
-   ___SET_R0(___LBL(14))
-   ___JUMPINT(___SET_NARGS(1),___PRC(55),___L___riscv_23_riscv_2d_imm_2d__3e_instr)
-___DEF_SLBL(14,___L14___riscv_23_riscv_2d_type_2d_i)
+   ___SET_R0(___LBL(17))
+   ___JUMPINT(___SET_NARGS(1),___PRC(61),___L___riscv_23_riscv_2d_imm_2d__3e_instr)
+___DEF_SLBL(17,___L17___riscv_23_riscv_2d_type_2d_i)
    ___SET_R3(___R1)
    ___SET_R1(___STK(-14))
    ___SET_R2(___STK(-12))
-   ___SET_R0(___LBL(15))
+   ___SET_R0(___LBL(18))
    ___ADJFP(-6)
    ___JUMPGLONOTSAFE(___SET_NARGS(5),141,___G_fx_2b_)
-___DEF_SLBL(15,___L15___riscv_23_riscv_2d_type_2d_i)
+___DEF_SLBL(18,___L18___riscv_23_riscv_2d_type_2d_i)
    ___SET_R2(___R1)
    ___SET_R1(___STK(-11))
-   ___SET_R0(___LBL(16))
+   ___SET_R0(___LBL(19))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),119,___G___asm_23_asm_2d_32_2d_le)
-___DEF_SLBL(16,___L16___riscv_23_riscv_2d_type_2d_i)
+___DEF_SLBL(19,___L19___riscv_23_riscv_2d_type_2d_i)
    ___SET_R1(___STK(-11))
-   ___SET_R0(___LBL(17))
+   ___SET_R0(___LBL(20))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),131,___G___codegen_23_codegen_2d_context_2d_listing_2d_format)
-___DEF_SLBL(17,___L17___riscv_23_riscv_2d_type_2d_i)
+___DEF_SLBL(20,___L20___riscv_23_riscv_2d_type_2d_i)
    ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L89___riscv_23_riscv_2d_type_2d_i)
+   ___GOTO(___L97___riscv_23_riscv_2d_type_2d_i)
    ___END_IF
    ___SET_R1(___STK(-5))
    ___SET_R2(___FIX(3L))
-   ___SET_R0(___LBL(18))
+   ___SET_R0(___LBL(21))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),145,___G_fx_3d_)
-___DEF_SLBL(18,___L18___riscv_23_riscv_2d_type_2d_i)
+___DEF_SLBL(21,___L21___riscv_23_riscv_2d_type_2d_i)
    ___IF(___NOTFALSEP(___R1))
-   ___GOTO(___L91___riscv_23_riscv_2d_type_2d_i)
+   ___GOTO(___L99___riscv_23_riscv_2d_type_2d_i)
    ___END_IF
    ___SET_R1(___STK(-5))
    ___SET_R2(___FIX(19L))
-   ___SET_R0(___LBL(19))
+   ___SET_R0(___LBL(22))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),145,___G_fx_3d_)
-___DEF_SLBL(19,___L19___riscv_23_riscv_2d_type_2d_i)
+___DEF_SLBL(22,___L22___riscv_23_riscv_2d_type_2d_i)
    ___IF(___NOTFALSEP(___R1))
-   ___GOTO(___L70___riscv_23_riscv_2d_type_2d_i)
+   ___GOTO(___L78___riscv_23_riscv_2d_type_2d_i)
    ___END_IF
-   ___GOTO(___L90___riscv_23_riscv_2d_type_2d_i)
-___DEF_SLBL(20,___L20___riscv_23_riscv_2d_type_2d_i)
+   ___GOTO(___L98___riscv_23_riscv_2d_type_2d_i)
+___DEF_SLBL(23,___L23___riscv_23_riscv_2d_type_2d_i)
    ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L89___riscv_23_riscv_2d_type_2d_i)
+   ___GOTO(___L97___riscv_23_riscv_2d_type_2d_i)
    ___END_IF
-___DEF_GLBL(___L70___riscv_23_riscv_2d_type_2d_i)
+___DEF_GLBL(___L78___riscv_23_riscv_2d_type_2d_i)
+___GATE2_OPEN(___ps,"_riscv#riscv-type-i",24,___LBL(24),___fp);
+___DEF_SLBL(24,___L24___riscv_23_riscv_2d_type_2d_i)
+___GATE2_ENTER(___ps,"_riscv#riscv-type-i",24,___LBL(24),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,8,0,___LBL(24),&___demand_attempt)){___ps->temp1=___LBL(24);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___SUB(82))
-   ___SET_STK(2,___SUB(83))
-   ___SET_STK(3,___SUB(84))
-   ___SET_STK(4,___SUB(85))
-   ___SET_STK(5,___SUB(86))
-   ___SET_R1(___STK(-7))
-   ___SET_R0(___LBL(21))
-   ___ADJFP(8)
+   ___ADJFP(1)
+   ___SET_STK(1,___SUB(83))
+   ___ADJFP(1)
+   ___SET_STK(1,___SUB(84))
+   ___ADJFP(1)
+   ___SET_STK(1,___SUB(85))
+   ___ADJFP(1)
+   ___SET_STK(1,___SUB(86))
+   ___ADJFP(1)
+   ___SET_R1(___STK(-12))
+   ___SET_R0(___LBL(25))
+   ___ADJFP(3)
+___group_demand_commit(___ps,___LBL(24),___demand_attempt);
    ___JUMPGLONOTSAFE(___SET_NARGS(1),135,___G_cdr)
-___DEF_SLBL(21,___L21___riscv_23_riscv_2d_type_2d_i)
+___DEF_SLBL(25,___L25___riscv_23_riscv_2d_type_2d_i)
    ___SET_R2(___R1)
    ___SET_R1(___FIX(30L))
-   ___SET_R0(___LBL(22))
+   ___SET_R0(___LBL(26))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),150,___G_fxbit_2d_set_3f_)
-___DEF_SLBL(22,___L22___riscv_23_riscv_2d_type_2d_i)
+___DEF_SLBL(26,___L26___riscv_23_riscv_2d_type_2d_i)
    ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L71___riscv_23_riscv_2d_type_2d_i)
+   ___GOTO(___L79___riscv_23_riscv_2d_type_2d_i)
    ___END_IF
    ___SET_R1(___SUB(87))
-   ___GOTO(___L72___riscv_23_riscv_2d_type_2d_i)
-___DEF_GLBL(___L71___riscv_23_riscv_2d_type_2d_i)
+   ___GOTO(___L80___riscv_23_riscv_2d_type_2d_i)
+___DEF_GLBL(___L79___riscv_23_riscv_2d_type_2d_i)
    ___SET_R1(___SUB(88))
-___DEF_GLBL(___L72___riscv_23_riscv_2d_type_2d_i)
+___DEF_GLBL(___L80___riscv_23_riscv_2d_type_2d_i)
    ___SET_R3(___SUB(89))
    ___SET_R2(___SUB(90))
-   ___SET_R0(___LBL(23))
+   ___SET_R0(___LBL(27))
    ___ADJFP(-3)
    ___JUMPGLONOTSAFE(___SET_NARGS(8),164,___G_vector)
-___DEF_SLBL(23,___L23___riscv_23_riscv_2d_type_2d_i)
+___DEF_SLBL(27,___L27___riscv_23_riscv_2d_type_2d_i)
    ___SET_STK(-4,___R1)
    ___SET_R1(___STK(-6))
    ___SET_R2(___FIX(-12L))
-   ___SET_R0(___LBL(24))
+   ___SET_R0(___LBL(28))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),149,___G_fxarithmetic_2d_shift)
-___DEF_SLBL(24,___L24___riscv_23_riscv_2d_type_2d_i)
+___DEF_SLBL(28,___L28___riscv_23_riscv_2d_type_2d_i)
    ___SET_R2(___R1)
    ___SET_R1(___STK(-4))
-   ___SET_R0(___LBL(25))
+   ___SET_R0(___LBL(29))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),166,___G_vector_2d_ref)
-___DEF_SLBL(25,___L25___riscv_23_riscv_2d_type_2d_i)
+___DEF_SLBL(29,___L29___riscv_23_riscv_2d_type_2d_i)
    ___SET_STK(-4,___R1)
    ___SET_R1(___STK(-5))
    ___SET_R2(___FIX(27L))
-   ___SET_R0(___LBL(26))
+   ___SET_R0(___LBL(30))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),145,___G_fx_3d_)
-___DEF_SLBL(26,___L26___riscv_23_riscv_2d_type_2d_i)
+___DEF_SLBL(30,___L30___riscv_23_riscv_2d_type_2d_i)
    ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L73___riscv_23_riscv_2d_type_2d_i)
+   ___GOTO(___L81___riscv_23_riscv_2d_type_2d_i)
    ___END_IF
    ___SET_R2(___SUB(91))
-   ___GOTO(___L74___riscv_23_riscv_2d_type_2d_i)
-___DEF_GLBL(___L73___riscv_23_riscv_2d_type_2d_i)
+   ___GOTO(___L82___riscv_23_riscv_2d_type_2d_i)
+___DEF_GLBL(___L81___riscv_23_riscv_2d_type_2d_i)
    ___SET_R2(___SUB(92))
-___DEF_GLBL(___L74___riscv_23_riscv_2d_type_2d_i)
+___DEF_GLBL(___L82___riscv_23_riscv_2d_type_2d_i)
    ___SET_R1(___STK(-4))
-   ___SET_R0(___LBL(27))
+   ___SET_R0(___LBL(31))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),154,___G_list)
-___DEF_SLBL(27,___L27___riscv_23_riscv_2d_type_2d_i)
+___DEF_SLBL(31,___L31___riscv_23_riscv_2d_type_2d_i)
    ___SET_STK(-4,___STK(-10))
    ___SET_STK(-10,___R1)
    ___SET_R1(___STK(-6))
    ___SET_R2(___FIX(4096L))
-   ___SET_R0(___LBL(28))
+   ___SET_R0(___LBL(32))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),145,___G_fx_3d_)
-___DEF_SLBL(28,___L28___riscv_23_riscv_2d_type_2d_i)
-   ___IF(___NOTFALSEP(___R1))
-   ___GOTO(___L75___riscv_23_riscv_2d_type_2d_i)
-   ___END_IF
-   ___GOTO(___L88___riscv_23_riscv_2d_type_2d_i)
-___DEF_SLBL(29,___L29___riscv_23_riscv_2d_type_2d_i)
-   ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L78___riscv_23_riscv_2d_type_2d_i)
-   ___END_IF
-___DEF_GLBL(___L75___riscv_23_riscv_2d_type_2d_i)
-   ___SET_R1(___STK(-11))
-   ___SET_R0(___LBL(30))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),129,___G___codegen_23_codegen_2d_context_2d_arch)
-___DEF_SLBL(30,___L30___riscv_23_riscv_2d_type_2d_i)
-   ___SET_R2(___SYM_RV64I)
-   ___SET_R0(___LBL(31))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),137,___G_eq_3f_)
-___DEF_SLBL(31,___L31___riscv_23_riscv_2d_type_2d_i)
-   ___IF(___NOTFALSEP(___R1))
-   ___GOTO(___L87___riscv_23_riscv_2d_type_2d_i)
-   ___END_IF
-   ___GOTO(___L76___riscv_23_riscv_2d_type_2d_i)
 ___DEF_SLBL(32,___L32___riscv_23_riscv_2d_type_2d_i)
    ___IF(___NOTFALSEP(___R1))
+   ___GOTO(___L83___riscv_23_riscv_2d_type_2d_i)
+   ___END_IF
+   ___GOTO(___L96___riscv_23_riscv_2d_type_2d_i)
+___DEF_SLBL(33,___L33___riscv_23_riscv_2d_type_2d_i)
+   ___IF(___NOT(___NOTFALSEP(___R1)))
    ___GOTO(___L86___riscv_23_riscv_2d_type_2d_i)
    ___END_IF
-___DEF_GLBL(___L76___riscv_23_riscv_2d_type_2d_i)
+___DEF_GLBL(___L83___riscv_23_riscv_2d_type_2d_i)
+   ___SET_R1(___STK(-11))
+   ___SET_R0(___LBL(34))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),129,___G___codegen_23_codegen_2d_context_2d_arch)
+___DEF_SLBL(34,___L34___riscv_23_riscv_2d_type_2d_i)
+   ___SET_R2(___SYM_RV64I)
+   ___SET_R0(___LBL(35))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),137,___G_eq_3f_)
+___DEF_SLBL(35,___L35___riscv_23_riscv_2d_type_2d_i)
+   ___IF(___NOTFALSEP(___R1))
+   ___GOTO(___L95___riscv_23_riscv_2d_type_2d_i)
+   ___END_IF
+   ___GOTO(___L84___riscv_23_riscv_2d_type_2d_i)
+___DEF_SLBL(36,___L36___riscv_23_riscv_2d_type_2d_i)
+   ___IF(___NOTFALSEP(___R1))
+   ___GOTO(___L94___riscv_23_riscv_2d_type_2d_i)
+   ___END_IF
+___DEF_GLBL(___L84___riscv_23_riscv_2d_type_2d_i)
    ___SET_R1(___FIX(31L))
-___DEF_GLBL(___L77___riscv_23_riscv_2d_type_2d_i)
+___DEF_GLBL(___L85___riscv_23_riscv_2d_type_2d_i)
    ___SET_STK(-6,___R1)
    ___SET_R1(___STK(-7))
-   ___SET_R0(___LBL(33))
+   ___SET_R0(___LBL(37))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),135,___G_cdr)
-___DEF_SLBL(33,___L33___riscv_23_riscv_2d_type_2d_i)
+___DEF_SLBL(37,___L37___riscv_23_riscv_2d_type_2d_i)
    ___SET_R2(___FIX(-20L))
-   ___SET_R0(___LBL(34))
+   ___SET_R0(___LBL(38))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),149,___G_fxarithmetic_2d_shift)
-___DEF_SLBL(34,___L34___riscv_23_riscv_2d_type_2d_i)
+___DEF_SLBL(38,___L38___riscv_23_riscv_2d_type_2d_i)
    ___SET_R2(___R1)
    ___SET_R1(___STK(-6))
-   ___SET_R0(___LBL(35))
+   ___SET_R0(___LBL(39))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),148,___G_fxand)
-___DEF_SLBL(35,___L35___riscv_23_riscv_2d_type_2d_i)
-   ___GOTO(___L79___riscv_23_riscv_2d_type_2d_i)
-___DEF_GLBL(___L78___riscv_23_riscv_2d_type_2d_i)
+___DEF_SLBL(39,___L39___riscv_23_riscv_2d_type_2d_i)
+   ___GOTO(___L87___riscv_23_riscv_2d_type_2d_i)
+___DEF_GLBL(___L86___riscv_23_riscv_2d_type_2d_i)
    ___SET_R1(___STK(-7))
-___DEF_GLBL(___L79___riscv_23_riscv_2d_type_2d_i)
+___DEF_GLBL(___L87___riscv_23_riscv_2d_type_2d_i)
    ___SET_R3(___R1)
    ___SET_R2(___STK(-9))
    ___SET_R1(___STK(-4))
    ___SET_R0(___STK(-8))
-   ___POLL(36)
-___DEF_SLBL(36,___L36___riscv_23_riscv_2d_type_2d_i)
-   ___ADJFP(-10)
-   ___SET_NARGS(5) ___GOTO(___L37___riscv_23_riscv_2d_type_2d_i)
-___DEF_SLBL(37,___L37___riscv_23_riscv_2d_type_2d_i)
-   ___IF_NARGS_EQ(2,___SET_R3(___NUL))
-   ___GET_REST(37,2,0,0)
-   ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
-   ___SET_STK(3,___R2)
-   ___SET_R2(___R3)
-   ___SET_R1(___LBL(46))
-   ___ADJFP(8)
-   ___POLL(38)
-___DEF_SLBL(38,___L38___riscv_23_riscv_2d_type_2d_i)
-   ___SET_R0(___LBL(39))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),156,___G_map)
-___DEF_SLBL(39,___L39___riscv_23_riscv_2d_type_2d_i)
-   ___SET_R2(___SUB(39))
-   ___SET_R0(___LBL(40))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),126,___G___asm_23_asm_2d_separated_2d_list)
+   ___POLL(40)
 ___DEF_SLBL(40,___L40___riscv_23_riscv_2d_type_2d_i)
-   ___SET_STK(-4,___R1)
-   ___SET_R0(___LBL(41))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),160,___G_pair_3f_)
+   ___ADJFP(-10)
+   ___SET_NARGS(5) ___GOTO(___L41___riscv_23_riscv_2d_type_2d_i)
 ___DEF_SLBL(41,___L41___riscv_23_riscv_2d_type_2d_i)
+   ___IF_NARGS_EQ(2,___SET_R3(___NUL))
+   ___GET_REST(41,2,0,0)
+___GATE2_OPEN(___ps,"_riscv#riscv-type-i",42,___LBL(42),___fp);
+___DEF_SLBL(42,___L42___riscv_23_riscv_2d_type_2d_i)
+___GATE2_ENTER(___ps,"_riscv#riscv-type-i",42,___LBL(42),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,8,0,___LBL(42),&___demand_attempt)){___ps->temp1=___LBL(42);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R0)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_R2(___R3)
+   ___SET_R1(___LBL(51))
+   ___ADJFP(5)
+___group_demand_commit(___ps,___LBL(42),___demand_attempt);
+   ___POLL(43)
+___DEF_SLBL(43,___L43___riscv_23_riscv_2d_type_2d_i)
+   ___SET_R0(___LBL(44))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),156,___G_map)
+___DEF_SLBL(44,___L44___riscv_23_riscv_2d_type_2d_i)
+   ___SET_R2(___SUB(39))
+   ___SET_R0(___LBL(45))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),126,___G___asm_23_asm_2d_separated_2d_list)
+___DEF_SLBL(45,___L45___riscv_23_riscv_2d_type_2d_i)
+   ___SET_STK(-4,___R1)
+   ___SET_R0(___LBL(46))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),160,___G_pair_3f_)
+___DEF_SLBL(46,___L46___riscv_23_riscv_2d_type_2d_i)
    ___IF(___NOTFALSEP(___R1))
-   ___GOTO(___L81___riscv_23_riscv_2d_type_2d_i)
+   ___GOTO(___L89___riscv_23_riscv_2d_type_2d_i)
    ___END_IF
    ___SET_R1(___NUL)
-   ___GOTO(___L80___riscv_23_riscv_2d_type_2d_i)
-___DEF_SLBL(42,___L42___riscv_23_riscv_2d_type_2d_i)
-___DEF_GLBL(___L80___riscv_23_riscv_2d_type_2d_i)
+   ___GOTO(___L88___riscv_23_riscv_2d_type_2d_i)
+___DEF_SLBL(47,___L47___riscv_23_riscv_2d_type_2d_i)
+___DEF_GLBL(___L88___riscv_23_riscv_2d_type_2d_i)
    ___SET_R2(___R1)
    ___SET_R1(___STK(-5))
-   ___SET_R0(___LBL(43))
+   ___SET_R0(___LBL(48))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),136,___G_cons)
-___DEF_SLBL(43,___L43___riscv_23_riscv_2d_type_2d_i)
+___DEF_SLBL(48,___L48___riscv_23_riscv_2d_type_2d_i)
    ___SET_R2(___R1)
    ___SET_R1(___CHR(9))
-   ___SET_R0(___LBL(44))
+   ___SET_R0(___LBL(49))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),136,___G_cons)
-___DEF_SLBL(44,___L44___riscv_23_riscv_2d_type_2d_i)
+___DEF_SLBL(49,___L49___riscv_23_riscv_2d_type_2d_i)
    ___SET_R2(___R1)
    ___SET_R1(___STK(-6))
    ___SET_R0(___STK(-7))
-   ___POLL(45)
-___DEF_SLBL(45,___L45___riscv_23_riscv_2d_type_2d_i)
+   ___POLL(50)
+___DEF_SLBL(50,___L50___riscv_23_riscv_2d_type_2d_i)
    ___ADJFP(-8)
    ___JUMPGLONOTSAFE(___SET_NARGS(2),125,___G___asm_23_asm_2d_listing)
-___DEF_GLBL(___L81___riscv_23_riscv_2d_type_2d_i)
+___DEF_GLBL(___L89___riscv_23_riscv_2d_type_2d_i)
    ___SET_R2(___STK(-4))
    ___SET_R1(___CHR(9))
-   ___SET_R0(___LBL(42))
+   ___SET_R0(___LBL(47))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),136,___G_cons)
-___DEF_SLBL(46,___L46___riscv_23_riscv_2d_type_2d_i)
+___DEF_SLBL(51,___L51___riscv_23_riscv_2d_type_2d_i)
    ___IF_NARGS_EQ(1,___NOTHING)
-   ___WRONG_NARGS(46,1,0,0)
+   ___WRONG_NARGS(51,1,0,0)
+___GATE2_OPEN(___ps,"_riscv#riscv-type-i",52,___LBL(52),___fp);
+___DEF_SLBL(52,___L52___riscv_23_riscv_2d_type_2d_i)
+___GATE2_ENTER(___ps,"_riscv#riscv-type-i",52,___LBL(52),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,8,0,___LBL(52),&___demand_attempt)){___ps->temp1=___LBL(52);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
-   ___ADJFP(8)
-   ___POLL(47)
-___DEF_SLBL(47,___L47___riscv_23_riscv_2d_type_2d_i)
-   ___SET_R0(___LBL(48))
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___ADJFP(6)
+___group_demand_commit(___ps,___LBL(52),___demand_attempt);
+   ___POLL(53)
+___DEF_SLBL(53,___L53___riscv_23_riscv_2d_type_2d_i)
+   ___SET_R0(___LBL(54))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),140,___G_fixnum_3f_)
-___DEF_SLBL(48,___L48___riscv_23_riscv_2d_type_2d_i)
+___DEF_SLBL(54,___L54___riscv_23_riscv_2d_type_2d_i)
    ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L82___riscv_23_riscv_2d_type_2d_i)
+   ___GOTO(___L90___riscv_23_riscv_2d_type_2d_i)
    ___END_IF
    ___SET_R2(___STK(-6))
    ___SET_R1(___SUB(0))
    ___SET_R0(___STK(-7))
-   ___POLL(49)
-___DEF_SLBL(49,___L49___riscv_23_riscv_2d_type_2d_i)
+   ___POLL(55)
+___DEF_SLBL(55,___L55___riscv_23_riscv_2d_type_2d_i)
    ___ADJFP(-8)
    ___JUMPGLONOTSAFE(___SET_NARGS(2),166,___G_vector_2d_ref)
-___DEF_GLBL(___L82___riscv_23_riscv_2d_type_2d_i)
+___DEF_GLBL(___L90___riscv_23_riscv_2d_type_2d_i)
    ___SET_R1(___STK(-6))
-   ___SET_R0(___LBL(50))
+   ___SET_R0(___LBL(56))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),160,___G_pair_3f_)
-___DEF_SLBL(50,___L50___riscv_23_riscv_2d_type_2d_i)
+___DEF_SLBL(56,___L56___riscv_23_riscv_2d_type_2d_i)
    ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L85___riscv_23_riscv_2d_type_2d_i)
+   ___GOTO(___L93___riscv_23_riscv_2d_type_2d_i)
    ___END_IF
    ___SET_R1(___STK(-6))
-   ___SET_R0(___LBL(51))
+   ___SET_R0(___LBL(57))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),160,___G_pair_3f_)
-___DEF_SLBL(51,___L51___riscv_23_riscv_2d_type_2d_i)
+___DEF_SLBL(57,___L57___riscv_23_riscv_2d_type_2d_i)
    ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L83___riscv_23_riscv_2d_type_2d_i)
+   ___GOTO(___L91___riscv_23_riscv_2d_type_2d_i)
    ___END_IF
    ___SET_R1(___STK(-6))
-   ___SET_R0(___LBL(52))
+   ___SET_R0(___LBL(58))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),134,___G_car)
-___DEF_SLBL(52,___L52___riscv_23_riscv_2d_type_2d_i)
-   ___SET_R0(___LBL(53))
+___DEF_SLBL(58,___L58___riscv_23_riscv_2d_type_2d_i)
+   ___SET_R0(___LBL(59))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),163,___G_symbol_3f_)
-___DEF_SLBL(53,___L53___riscv_23_riscv_2d_type_2d_i)
+___DEF_SLBL(59,___L59___riscv_23_riscv_2d_type_2d_i)
    ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L83___riscv_23_riscv_2d_type_2d_i)
+   ___GOTO(___L91___riscv_23_riscv_2d_type_2d_i)
    ___END_IF
    ___SET_R1(___STK(-6))
-   ___SET_R0(___LBL(54))
+   ___SET_R0(___LBL(60))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),135,___G_cdr)
-___DEF_SLBL(54,___L54___riscv_23_riscv_2d_type_2d_i)
-   ___SET_R0(___LBL(55))
+___DEF_SLBL(60,___L60___riscv_23_riscv_2d_type_2d_i)
+   ___SET_R0(___LBL(61))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),159,___G_number_3f_)
-___DEF_SLBL(55,___L55___riscv_23_riscv_2d_type_2d_i)
+___DEF_SLBL(61,___L61___riscv_23_riscv_2d_type_2d_i)
    ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L83___riscv_23_riscv_2d_type_2d_i)
+   ___GOTO(___L91___riscv_23_riscv_2d_type_2d_i)
    ___END_IF
    ___SET_R1(___STK(-6))
    ___SET_R0(___STK(-7))
-   ___POLL(56)
-___DEF_SLBL(56,___L56___riscv_23_riscv_2d_type_2d_i)
+   ___POLL(62)
+___DEF_SLBL(62,___L62___riscv_23_riscv_2d_type_2d_i)
    ___ADJFP(-8)
    ___JUMPGLONOTSAFE(___SET_NARGS(1),135,___G_cdr)
-___DEF_GLBL(___L83___riscv_23_riscv_2d_type_2d_i)
+___DEF_GLBL(___L91___riscv_23_riscv_2d_type_2d_i)
    ___SET_R1(___STK(-6))
-   ___SET_R0(___LBL(57))
-   ___JUMPINT(___SET_NARGS(1),___PRC(41),___L___riscv_23_riscv_2d_imm_2d_lbl_3f_)
-___DEF_SLBL(57,___L57___riscv_23_riscv_2d_type_2d_i)
+   ___SET_R0(___LBL(63))
+   ___JUMPINT(___SET_NARGS(1),___PRC(46),___L___riscv_23_riscv_2d_imm_2d_lbl_3f_)
+___DEF_SLBL(63,___L63___riscv_23_riscv_2d_type_2d_i)
    ___IF(___NOTFALSEP(___R1))
-   ___GOTO(___L84___riscv_23_riscv_2d_type_2d_i)
+   ___GOTO(___L92___riscv_23_riscv_2d_type_2d_i)
    ___END_IF
    ___SET_R2(___STK(-6))
    ___SET_R1(___SUB(40))
    ___SET_R0(___STK(-7))
-   ___POLL(58)
-___DEF_SLBL(58,___L58___riscv_23_riscv_2d_type_2d_i)
+   ___POLL(64)
+___DEF_SLBL(64,___L64___riscv_23_riscv_2d_type_2d_i)
    ___ADJFP(-8)
    ___JUMPGLONOTSAFE(___SET_NARGS(2),138,___G_error)
-___DEF_GLBL(___L84___riscv_23_riscv_2d_type_2d_i)
+___DEF_GLBL(___L92___riscv_23_riscv_2d_type_2d_i)
    ___SET_R1(___STK(-6))
-   ___SET_R0(___LBL(59))
+   ___SET_R0(___LBL(65))
    ___ADJFP(-4)
    ___JUMPGLONOTSAFE(___SET_NARGS(1),135,___G_cdr)
-___DEF_SLBL(59,___L59___riscv_23_riscv_2d_type_2d_i)
+___DEF_SLBL(65,___L65___riscv_23_riscv_2d_type_2d_i)
    ___SET_R0(___STK(-3))
-   ___POLL(60)
-___DEF_SLBL(60,___L60___riscv_23_riscv_2d_type_2d_i)
+   ___POLL(66)
+___DEF_SLBL(66,___L66___riscv_23_riscv_2d_type_2d_i)
    ___ADJFP(-4)
    ___JUMPGLONOTSAFE(___SET_NARGS(1),123,___G___asm_23_asm_2d_label_2d_name)
-___DEF_GLBL(___L85___riscv_23_riscv_2d_type_2d_i)
+___DEF_GLBL(___L93___riscv_23_riscv_2d_type_2d_i)
    ___SET_R1(___STK(-6))
    ___ADJFP(-8)
    ___JUMPRET(___STK(1))
-___DEF_GLBL(___L86___riscv_23_riscv_2d_type_2d_i)
+___DEF_GLBL(___L94___riscv_23_riscv_2d_type_2d_i)
    ___SET_R1(___FIX(63L))
-   ___GOTO(___L77___riscv_23_riscv_2d_type_2d_i)
-___DEF_GLBL(___L87___riscv_23_riscv_2d_type_2d_i)
+   ___GOTO(___L85___riscv_23_riscv_2d_type_2d_i)
+___DEF_GLBL(___L95___riscv_23_riscv_2d_type_2d_i)
    ___SET_R1(___STK(-5))
    ___SET_R2(___FIX(19L))
-   ___SET_R0(___LBL(32))
+   ___SET_R0(___LBL(36))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),145,___G_fx_3d_)
-___DEF_GLBL(___L88___riscv_23_riscv_2d_type_2d_i)
+___DEF_GLBL(___L96___riscv_23_riscv_2d_type_2d_i)
    ___SET_R1(___STK(-6))
    ___SET_R2(___FIX(20480L))
-   ___SET_R0(___LBL(29))
+   ___SET_R0(___LBL(33))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),145,___G_fx_3d_)
-___DEF_GLBL(___L89___riscv_23_riscv_2d_type_2d_i)
+___DEF_GLBL(___L97___riscv_23_riscv_2d_type_2d_i)
    ___SET_R1(___VOID)
    ___ADJFP(-12)
    ___JUMPRET(___STK(4))
-___DEF_GLBL(___L90___riscv_23_riscv_2d_type_2d_i)
+___DEF_GLBL(___L98___riscv_23_riscv_2d_type_2d_i)
    ___SET_R1(___STK(-5))
    ___SET_R2(___FIX(27L))
-   ___SET_R0(___LBL(20))
+   ___SET_R0(___LBL(23))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),145,___G_fx_3d_)
-___DEF_GLBL(___L91___riscv_23_riscv_2d_type_2d_i)
+___DEF_GLBL(___L99___riscv_23_riscv_2d_type_2d_i)
    ___SET_R1(___STK(-6))
    ___SET_R2(___FIX(-12L))
-   ___SET_R0(___LBL(61))
+   ___SET_R0(___LBL(67))
    ___ADJFP(-4)
    ___JUMPGLONOTSAFE(___SET_NARGS(2),149,___G_fxarithmetic_2d_shift)
-___DEF_SLBL(61,___L61___riscv_23_riscv_2d_type_2d_i)
+___DEF_SLBL(67,___L67___riscv_23_riscv_2d_type_2d_i)
    ___SET_R2(___R1)
    ___SET_R1(___SUB(93))
-   ___SET_R0(___LBL(62))
+   ___SET_R0(___LBL(68))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),166,___G_vector_2d_ref)
-___DEF_SLBL(62,___L62___riscv_23_riscv_2d_type_2d_i)
+___DEF_SLBL(68,___L68___riscv_23_riscv_2d_type_2d_i)
+___GATE2_OPEN(___ps,"_riscv#riscv-type-i",69,___LBL(69),___fp);
+___DEF_SLBL(69,___L69___riscv_23_riscv_2d_type_2d_i)
+___GATE2_ENTER(___ps,"_riscv#riscv-type-i",69,___LBL(69),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,4,0,___LBL(69),&___demand_attempt)){___ps->temp1=___LBL(69);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(-2,___R1)
    ___SET_R1(___STK(-3))
-   ___SET_R0(___LBL(63))
+   ___SET_R0(___LBL(70))
    ___ADJFP(4)
+___group_demand_commit(___ps,___LBL(69),___demand_attempt);
    ___JUMPGLONOTSAFE(___SET_NARGS(1),135,___G_cdr)
-___DEF_SLBL(63,___L63___riscv_23_riscv_2d_type_2d_i)
-   ___SET_R0(___LBL(64))
+___DEF_SLBL(70,___L70___riscv_23_riscv_2d_type_2d_i)
+   ___SET_R0(___LBL(71))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),158,___G_number_2d__3e_string)
-___DEF_SLBL(64,___L64___riscv_23_riscv_2d_type_2d_i)
+___DEF_SLBL(71,___L71___riscv_23_riscv_2d_type_2d_i)
+___GATE2_OPEN(___ps,"_riscv#riscv-type-i",72,___LBL(72),___fp);
+___DEF_SLBL(72,___L72___riscv_23_riscv_2d_type_2d_i)
+___GATE2_ENTER(___ps,"_riscv#riscv-type-i",72,___LBL(72),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,4,0,___LBL(72),&___demand_attempt)){___ps->temp1=___LBL(72);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R1)
-   ___SET_R2(___STK(-9))
+   ___ADJFP(1)
+   ___SET_R2(___STK(-10))
    ___SET_R1(___SUB(0))
-   ___SET_R0(___LBL(65))
-   ___ADJFP(4)
+   ___SET_R0(___LBL(73))
+   ___ADJFP(3)
+___group_demand_commit(___ps,___LBL(72),___demand_attempt);
    ___JUMPGLONOTSAFE(___SET_NARGS(2),166,___G_vector_2d_ref)
-___DEF_SLBL(65,___L65___riscv_23_riscv_2d_type_2d_i)
+___DEF_SLBL(73,___L73___riscv_23_riscv_2d_type_2d_i)
    ___SET_R2(___R1)
    ___SET_R3(___SUB(101))
    ___SET_R1(___SUB(102))
-   ___SET_R0(___LBL(66))
+   ___SET_R0(___LBL(74))
    ___ADJFP(-3)
    ___JUMPGLONOTSAFE(___SET_NARGS(4),162,___G_string_2d_append)
-___DEF_SLBL(66,___L66___riscv_23_riscv_2d_type_2d_i)
+___DEF_SLBL(74,___L74___riscv_23_riscv_2d_type_2d_i)
    ___SET_R3(___R1)
    ___SET_R2(___STK(-10))
    ___SET_R0(___STK(-8))
    ___SET_R1(___STK(-6))
-   ___POLL(67)
-___DEF_SLBL(67,___L67___riscv_23_riscv_2d_type_2d_i)
+   ___POLL(75)
+___DEF_SLBL(75,___L75___riscv_23_riscv_2d_type_2d_i)
    ___ADJFP(-11)
-   ___SET_NARGS(4) ___JUMPINT(___NOTHING,___PRC(90),___L0___riscv_23_riscv_2d_listing)
-___DEF_GLBL(___L92___riscv_23_riscv_2d_type_2d_i)
+   ___SET_NARGS(4) ___JUMPINT(___NOTHING,___PRC(97),___L0___riscv_23_riscv_2d_listing)
+___DEF_GLBL(___L100___riscv_23_riscv_2d_type_2d_i)
    ___SET_R1(___SUB(103))
-   ___SET_R0(___LBL(11))
+   ___SET_R0(___LBL(12))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),138,___G_error)
-___DEF_GLBL(___L93___riscv_23_riscv_2d_type_2d_i)
-   ___SET_R0(___LBL(10))
+___DEF_GLBL(___L101___riscv_23_riscv_2d_type_2d_i)
+   ___SET_R0(___LBL(11))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
-___DEF_GLBL(___L94___riscv_23_riscv_2d_type_2d_i)
-   ___SET_R0(___LBL(5))
+___DEF_GLBL(___L102___riscv_23_riscv_2d_type_2d_i)
+   ___SET_R0(___LBL(6))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
 ___END_P_SW
 ___END_P_COD
@@ -8513,117 +9493,138 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_sb
 #undef ___PH_LBL0
-#define ___PH_LBL0 644
+#define ___PH_LBL0 754
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R1 ___D_R2 ___D_R3
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R1 ___D_R2 ___D_R3
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R1 ___R_R2 ___R_R3
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R1 ___R_R2 ___R_R3
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(2)
+___BEGIN_P_HLBL_AT(3)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_sb)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_sb)
+___DEF_P_HLBL(___L2___riscv_23_riscv_2d_sb)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_sb)
    ___IF_NARGS_EQ(4,___NOTHING)
    ___WRONG_NARGS(0,4,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_sb)
-   ___SET_STK(1,___R1)
-   ___SET_STK(2,___R2)
-   ___SET_R2(___R3)
-   ___SET_R1(___STK(2))
-   ___SET_R3(___FIX(0L))
-   ___ADJFP(2)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_riscv#riscv-sb",1,___LBL(1),___fp);
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_sb)
+___GATE2_ENTER(___ps,"_riscv#riscv-sb",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,2,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_R2(___R3)
+   ___SET_R1(___STK(0))
+   ___SET_R3(___FIX(0L))
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
+___DEF_SLBL(2,___L2___riscv_23_riscv_2d_sb)
    ___ADJFP(-1)
-   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(660),___L0___riscv_23_riscv_2d_type_2d_s)
+   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(774),___L0___riscv_23_riscv_2d_type_2d_s)
 ___END_P_SW
 ___END_P_COD
 
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_sh
 #undef ___PH_LBL0
-#define ___PH_LBL0 647
+#define ___PH_LBL0 758
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R1 ___D_R2 ___D_R3
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R1 ___D_R2 ___D_R3
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R1 ___R_R2 ___R_R3
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R1 ___R_R2 ___R_R3
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(2)
+___BEGIN_P_HLBL_AT(3)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_sh)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_sh)
+___DEF_P_HLBL(___L2___riscv_23_riscv_2d_sh)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_sh)
    ___IF_NARGS_EQ(4,___NOTHING)
    ___WRONG_NARGS(0,4,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_sh)
-   ___SET_STK(1,___R1)
-   ___SET_STK(2,___R2)
-   ___SET_R2(___R3)
-   ___SET_R1(___STK(2))
-   ___SET_R3(___FIX(4096L))
-   ___ADJFP(2)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_riscv#riscv-sh",1,___LBL(1),___fp);
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_sh)
+___GATE2_ENTER(___ps,"_riscv#riscv-sh",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,2,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_R2(___R3)
+   ___SET_R1(___STK(0))
+   ___SET_R3(___FIX(4096L))
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
+___DEF_SLBL(2,___L2___riscv_23_riscv_2d_sh)
    ___ADJFP(-1)
-   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(660),___L0___riscv_23_riscv_2d_type_2d_s)
+   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(774),___L0___riscv_23_riscv_2d_type_2d_s)
 ___END_P_SW
 ___END_P_COD
 
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_sw
 #undef ___PH_LBL0
-#define ___PH_LBL0 650
+#define ___PH_LBL0 762
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R1 ___D_R2 ___D_R3
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R1 ___D_R2 ___D_R3
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R1 ___R_R2 ___R_R3
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R1 ___R_R2 ___R_R3
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(2)
+___BEGIN_P_HLBL_AT(3)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_sw)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_sw)
+___DEF_P_HLBL(___L2___riscv_23_riscv_2d_sw)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_sw)
    ___IF_NARGS_EQ(4,___NOTHING)
    ___WRONG_NARGS(0,4,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_sw)
-   ___SET_STK(1,___R1)
-   ___SET_STK(2,___R2)
-   ___SET_R2(___R3)
-   ___SET_R1(___STK(2))
-   ___SET_R3(___FIX(8192L))
-   ___ADJFP(2)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_riscv#riscv-sw",1,___LBL(1),___fp);
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_sw)
+___GATE2_ENTER(___ps,"_riscv#riscv-sw",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,2,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_R2(___R3)
+   ___SET_R1(___STK(0))
+   ___SET_R3(___FIX(8192L))
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
+___DEF_SLBL(2,___L2___riscv_23_riscv_2d_sw)
    ___ADJFP(-1)
-   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(660),___L0___riscv_23_riscv_2d_type_2d_s)
+   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(774),___L0___riscv_23_riscv_2d_type_2d_s)
 ___END_P_SW
 ___END_P_COD
 
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_sd
 #undef ___PH_LBL0
-#define ___PH_LBL0 653
+#define ___PH_LBL0 766
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(6)
+___BEGIN_P_HLBL_AT(7)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_sd)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_sd)
@@ -8631,45 +9632,55 @@ ___DEF_P_HLBL(___L2___riscv_23_riscv_2d_sd)
 ___DEF_P_HLBL(___L3___riscv_23_riscv_2d_sd)
 ___DEF_P_HLBL(___L4___riscv_23_riscv_2d_sd)
 ___DEF_P_HLBL(___L5___riscv_23_riscv_2d_sd)
+___DEF_P_HLBL(___L6___riscv_23_riscv_2d_sd)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_sd)
    ___IF_NARGS_EQ(4,___NOTHING)
    ___WRONG_NARGS(0,4,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_sd)
-   ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
-   ___SET_STK(3,___R2)
-   ___SET_STK(4,___R3)
-   ___SET_R1(___STK(0))
-   ___ADJFP(7)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_riscv#riscv-sd",1,___LBL(1),___fp);
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_sd)
-   ___SET_R0(___LBL(2))
-   ___JUMPINT(___SET_NARGS(1),___PRC(9),___L___riscv_23_riscv_2d_64bit_2d_mode_3f_)
+___GATE2_ENTER(___ps,"_riscv#riscv-sd",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,7,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R0)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_STK(1,___R3)
+   ___ADJFP(1)
+   ___SET_R1(___STK(-4))
+   ___ADJFP(3)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___riscv_23_riscv_2d_sd)
    ___SET_R0(___LBL(3))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
+   ___JUMPINT(___SET_NARGS(1),___PRC(9),___L___riscv_23_riscv_2d_64bit_2d_mode_3f_)
 ___DEF_SLBL(3,___L3___riscv_23_riscv_2d_sd)
-   ___IF(___NOTFALSEP(___R1))
-   ___GOTO(___L7___riscv_23_riscv_2d_sd)
-   ___END_IF
-   ___GOTO(___L6___riscv_23_riscv_2d_sd)
+   ___SET_R0(___LBL(4))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
 ___DEF_SLBL(4,___L4___riscv_23_riscv_2d_sd)
-___DEF_GLBL(___L6___riscv_23_riscv_2d_sd)
+   ___IF(___NOTFALSEP(___R1))
+   ___GOTO(___L8___riscv_23_riscv_2d_sd)
+   ___END_IF
+   ___GOTO(___L7___riscv_23_riscv_2d_sd)
+___DEF_SLBL(5,___L5___riscv_23_riscv_2d_sd)
+___DEF_GLBL(___L7___riscv_23_riscv_2d_sd)
    ___SET_STK(-2,___STK(-6))
    ___SET_STK(-6,___STK(-5))
    ___SET_R2(___STK(-3))
    ___SET_R1(___STK(-4))
    ___SET_R3(___FIX(12288L))
    ___SET_R0(___STK(-2))
-   ___POLL(5)
-___DEF_SLBL(5,___L5___riscv_23_riscv_2d_sd)
+   ___POLL(6)
+___DEF_SLBL(6,___L6___riscv_23_riscv_2d_sd)
    ___ADJFP(-6)
-   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(660),___L0___riscv_23_riscv_2d_type_2d_s)
-___DEF_GLBL(___L7___riscv_23_riscv_2d_sd)
+   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(774),___L0___riscv_23_riscv_2d_type_2d_s)
+___DEF_GLBL(___L8___riscv_23_riscv_2d_sd)
    ___SET_R1(___SUB(50))
-   ___SET_R0(___LBL(4))
+   ___SET_R0(___LBL(5))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),138,___G_error)
 ___END_P_SW
 ___END_P_COD
@@ -8677,15 +9688,15 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_type_2d_s
 #undef ___PH_LBL0
-#define ___PH_LBL0 660
+#define ___PH_LBL0 774
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(25)
+___BEGIN_P_HLBL_AT(29)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_type_2d_s)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_type_2d_s)
@@ -8712,6 +9723,10 @@ ___DEF_P_HLBL(___L21___riscv_23_riscv_2d_type_2d_s)
 ___DEF_P_HLBL(___L22___riscv_23_riscv_2d_type_2d_s)
 ___DEF_P_HLBL(___L23___riscv_23_riscv_2d_type_2d_s)
 ___DEF_P_HLBL(___L24___riscv_23_riscv_2d_type_2d_s)
+___DEF_P_HLBL(___L25___riscv_23_riscv_2d_type_2d_s)
+___DEF_P_HLBL(___L26___riscv_23_riscv_2d_type_2d_s)
+___DEF_P_HLBL(___L27___riscv_23_riscv_2d_type_2d_s)
+___DEF_P_HLBL(___L28___riscv_23_riscv_2d_type_2d_s)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_type_2d_s)
@@ -8720,159 +9735,186 @@ ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_type_2d_s)
    ___IF_NARGS_EQ(6,___NOTHING)
    ___WRONG_NARGS(0,5,1,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_type_2d_s)
-   ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
-   ___SET_STK(3,___R2)
-   ___SET_STK(4,___R3)
-   ___SET_R1(___STK(-1))
-   ___ADJFP(9)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_riscv#riscv-type-s",1,___LBL(1),___fp);
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_type_2d_s)
-   ___SET_R0(___LBL(2))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),140,___G_fixnum_3f_)
+___GATE2_ENTER(___ps,"_riscv#riscv-type-s",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,9,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R0)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_STK(1,___R3)
+   ___ADJFP(1)
+   ___SET_R1(___STK(-5))
+   ___ADJFP(5)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___riscv_23_riscv_2d_type_2d_s)
-   ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L30___riscv_23_riscv_2d_type_2d_s)
-   ___END_IF
-   ___SET_R1(___STK(-9))
    ___SET_R0(___LBL(3))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),140,___G_fixnum_3f_)
 ___DEF_SLBL(3,___L3___riscv_23_riscv_2d_type_2d_s)
    ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L30___riscv_23_riscv_2d_type_2d_s)
+   ___GOTO(___L34___riscv_23_riscv_2d_type_2d_s)
    ___END_IF
-   ___SET_R1(___STK(-7))
+   ___SET_R1(___STK(-9))
    ___SET_R0(___LBL(4))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),160,___G_pair_3f_)
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),140,___G_fixnum_3f_)
 ___DEF_SLBL(4,___L4___riscv_23_riscv_2d_type_2d_s)
-   ___SET_R0(___LBL(5))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
-___DEF_SLBL(5,___L5___riscv_23_riscv_2d_type_2d_s)
    ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L25___riscv_23_riscv_2d_type_2d_s)
+   ___GOTO(___L34___riscv_23_riscv_2d_type_2d_s)
    ___END_IF
-   ___SET_R1(___SUB(104))
-   ___SET_R0(___LBL(6))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),138,___G_error)
-___DEF_SLBL(6,___L6___riscv_23_riscv_2d_type_2d_s)
-___DEF_GLBL(___L25___riscv_23_riscv_2d_type_2d_s)
    ___SET_R1(___STK(-7))
-   ___SET_R0(___LBL(7))
-   ___JUMPINT(___SET_NARGS(1),___PRC(24),___L___riscv_23_riscv_2d_imm_2d_int_3f_)
-___DEF_SLBL(7,___L7___riscv_23_riscv_2d_type_2d_s)
+   ___SET_R0(___LBL(5))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),160,___G_pair_3f_)
+___DEF_SLBL(5,___L5___riscv_23_riscv_2d_type_2d_s)
+   ___SET_R0(___LBL(6))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
+___DEF_SLBL(6,___L6___riscv_23_riscv_2d_type_2d_s)
    ___IF(___NOT(___NOTFALSEP(___R1)))
    ___GOTO(___L29___riscv_23_riscv_2d_type_2d_s)
    ___END_IF
+   ___SET_R1(___SUB(104))
+   ___SET_R0(___LBL(7))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),138,___G_error)
+___DEF_SLBL(7,___L7___riscv_23_riscv_2d_type_2d_s)
+___DEF_GLBL(___L29___riscv_23_riscv_2d_type_2d_s)
    ___SET_R1(___STK(-7))
    ___SET_R0(___LBL(8))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),134,___G_car)
+   ___JUMPINT(___SET_NARGS(1),___PRC(27),___L___riscv_23_riscv_2d_imm_2d_int_3f_)
 ___DEF_SLBL(8,___L8___riscv_23_riscv_2d_type_2d_s)
-   ___SET_R2(___SYM_S)
-   ___SET_R0(___LBL(9))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),137,___G_eq_3f_)
-___DEF_SLBL(9,___L9___riscv_23_riscv_2d_type_2d_s)
-   ___SET_R0(___LBL(10))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
-___DEF_SLBL(10,___L10___riscv_23_riscv_2d_type_2d_s)
-   ___IF(___NOTFALSEP(___R1))
-   ___GOTO(___L28___riscv_23_riscv_2d_type_2d_s)
+   ___IF(___NOT(___NOTFALSEP(___R1)))
+   ___GOTO(___L33___riscv_23_riscv_2d_type_2d_s)
    ___END_IF
-   ___GOTO(___L26___riscv_23_riscv_2d_type_2d_s)
+   ___SET_R1(___STK(-7))
+   ___SET_R0(___LBL(9))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),134,___G_car)
+___DEF_SLBL(9,___L9___riscv_23_riscv_2d_type_2d_s)
+   ___SET_R2(___SYM_S)
+   ___SET_R0(___LBL(10))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),137,___G_eq_3f_)
+___DEF_SLBL(10,___L10___riscv_23_riscv_2d_type_2d_s)
+   ___SET_R0(___LBL(11))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
 ___DEF_SLBL(11,___L11___riscv_23_riscv_2d_type_2d_s)
-___DEF_GLBL(___L26___riscv_23_riscv_2d_type_2d_s)
-   ___SET_STK(1,___STK(-5))
-   ___SET_STK(2,___STK(-6))
-   ___SET_R1(___STK(-10))
-   ___SET_R2(___FIX(15L))
-   ___SET_R0(___LBL(12))
-   ___ADJFP(8)
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),149,___G_fxarithmetic_2d_shift)
+   ___IF(___NOTFALSEP(___R1))
+   ___GOTO(___L32___riscv_23_riscv_2d_type_2d_s)
+   ___END_IF
+   ___GOTO(___L30___riscv_23_riscv_2d_type_2d_s)
 ___DEF_SLBL(12,___L12___riscv_23_riscv_2d_type_2d_s)
+___DEF_GLBL(___L30___riscv_23_riscv_2d_type_2d_s)
+___GATE2_OPEN(___ps,"_riscv#riscv-type-s",13,___LBL(13),___fp);
+___DEF_SLBL(13,___L13___riscv_23_riscv_2d_type_2d_s)
+___GATE2_ENTER(___ps,"_riscv#riscv-type-s",13,___LBL(13),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,8,0,___LBL(13),&___demand_attempt)){___ps->temp1=___LBL(13);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___STK(-5))
+   ___ADJFP(1)
+   ___SET_STK(1,___STK(-7))
+   ___ADJFP(1)
+   ___SET_R1(___STK(-12))
+   ___SET_R2(___FIX(15L))
+   ___SET_R0(___LBL(14))
+   ___ADJFP(6)
+___group_demand_commit(___ps,___LBL(13),___demand_attempt);
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),149,___G_fxarithmetic_2d_shift)
+___DEF_SLBL(14,___L14___riscv_23_riscv_2d_type_2d_s)
    ___SET_STK(-13,___R1)
    ___SET_R1(___STK(-17))
    ___SET_R2(___FIX(20L))
-   ___SET_R0(___LBL(13))
+   ___SET_R0(___LBL(15))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),149,___G_fxarithmetic_2d_shift)
-___DEF_SLBL(13,___L13___riscv_23_riscv_2d_type_2d_s)
+___DEF_SLBL(15,___L15___riscv_23_riscv_2d_type_2d_s)
    ___SET_STK(-12,___R1)
    ___SET_R1(___STK(-15))
-   ___SET_R0(___LBL(14))
-   ___JUMPINT(___SET_NARGS(1),___PRC(55),___L___riscv_23_riscv_2d_imm_2d__3e_instr)
-___DEF_SLBL(14,___L14___riscv_23_riscv_2d_type_2d_s)
+   ___SET_R0(___LBL(16))
+   ___JUMPINT(___SET_NARGS(1),___PRC(61),___L___riscv_23_riscv_2d_imm_2d__3e_instr)
+___DEF_SLBL(16,___L16___riscv_23_riscv_2d_type_2d_s)
    ___SET_R3(___R1)
    ___SET_R2(___STK(-12))
    ___SET_R1(___STK(-13))
-   ___SET_R0(___LBL(15))
+   ___SET_R0(___LBL(17))
    ___ADJFP(-6)
    ___JUMPGLONOTSAFE(___SET_NARGS(5),141,___G_fx_2b_)
-___DEF_SLBL(15,___L15___riscv_23_riscv_2d_type_2d_s)
+___DEF_SLBL(17,___L17___riscv_23_riscv_2d_type_2d_s)
    ___SET_R2(___R1)
    ___SET_R1(___STK(-11))
-   ___SET_R0(___LBL(16))
+   ___SET_R0(___LBL(18))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),119,___G___asm_23_asm_2d_32_2d_le)
-___DEF_SLBL(16,___L16___riscv_23_riscv_2d_type_2d_s)
+___DEF_SLBL(18,___L18___riscv_23_riscv_2d_type_2d_s)
    ___SET_R1(___STK(-11))
-   ___SET_R0(___LBL(17))
+   ___SET_R0(___LBL(19))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),131,___G___codegen_23_codegen_2d_context_2d_listing_2d_format)
-___DEF_SLBL(17,___L17___riscv_23_riscv_2d_type_2d_s)
+___DEF_SLBL(19,___L19___riscv_23_riscv_2d_type_2d_s)
    ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L27___riscv_23_riscv_2d_type_2d_s)
+   ___GOTO(___L31___riscv_23_riscv_2d_type_2d_s)
    ___END_IF
    ___SET_R1(___STK(-6))
    ___SET_R2(___FIX(-12L))
-   ___SET_R0(___LBL(18))
+   ___SET_R0(___LBL(20))
    ___ADJFP(-4)
    ___JUMPGLONOTSAFE(___SET_NARGS(2),149,___G_fxarithmetic_2d_shift)
-___DEF_SLBL(18,___L18___riscv_23_riscv_2d_type_2d_s)
+___DEF_SLBL(20,___L20___riscv_23_riscv_2d_type_2d_s)
    ___SET_R2(___R1)
    ___SET_R1(___SUB(105))
-   ___SET_R0(___LBL(19))
+   ___SET_R0(___LBL(21))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),166,___G_vector_2d_ref)
-___DEF_SLBL(19,___L19___riscv_23_riscv_2d_type_2d_s)
+___DEF_SLBL(21,___L21___riscv_23_riscv_2d_type_2d_s)
+___GATE2_OPEN(___ps,"_riscv#riscv-type-s",22,___LBL(22),___fp);
+___DEF_SLBL(22,___L22___riscv_23_riscv_2d_type_2d_s)
+___GATE2_ENTER(___ps,"_riscv#riscv-type-s",22,___LBL(22),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,4,0,___LBL(22),&___demand_attempt)){___ps->temp1=___LBL(22);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(-2,___R1)
    ___SET_R1(___STK(-3))
-   ___SET_R0(___LBL(20))
+   ___SET_R0(___LBL(23))
    ___ADJFP(4)
+___group_demand_commit(___ps,___LBL(22),___demand_attempt);
    ___JUMPGLONOTSAFE(___SET_NARGS(1),135,___G_cdr)
-___DEF_SLBL(20,___L20___riscv_23_riscv_2d_type_2d_s)
-   ___SET_R0(___LBL(21))
+___DEF_SLBL(23,___L23___riscv_23_riscv_2d_type_2d_s)
+   ___SET_R0(___LBL(24))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),158,___G_number_2d__3e_string)
-___DEF_SLBL(21,___L21___riscv_23_riscv_2d_type_2d_s)
+___DEF_SLBL(24,___L24___riscv_23_riscv_2d_type_2d_s)
+___GATE2_OPEN(___ps,"_riscv#riscv-type-s",25,___LBL(25),___fp);
+___DEF_SLBL(25,___L25___riscv_23_riscv_2d_type_2d_s)
+___GATE2_ENTER(___ps,"_riscv#riscv-type-s",25,___LBL(25),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,4,0,___LBL(25),&___demand_attempt)){___ps->temp1=___LBL(25);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R1)
-   ___SET_R2(___STK(-10))
+   ___ADJFP(1)
+   ___SET_R2(___STK(-11))
    ___SET_R1(___SUB(0))
-   ___SET_R0(___LBL(22))
-   ___ADJFP(4)
+   ___SET_R0(___LBL(26))
+   ___ADJFP(3)
+___group_demand_commit(___ps,___LBL(25),___demand_attempt);
    ___JUMPGLONOTSAFE(___SET_NARGS(2),166,___G_vector_2d_ref)
-___DEF_SLBL(22,___L22___riscv_23_riscv_2d_type_2d_s)
+___DEF_SLBL(26,___L26___riscv_23_riscv_2d_type_2d_s)
    ___SET_R2(___R1)
    ___SET_R3(___SUB(110))
    ___SET_R1(___SUB(111))
-   ___SET_R0(___LBL(23))
+   ___SET_R0(___LBL(27))
    ___ADJFP(-3)
    ___JUMPGLONOTSAFE(___SET_NARGS(4),162,___G_string_2d_append)
-___DEF_SLBL(23,___L23___riscv_23_riscv_2d_type_2d_s)
+___DEF_SLBL(27,___L27___riscv_23_riscv_2d_type_2d_s)
    ___SET_R3(___R1)
    ___SET_R2(___STK(-9))
    ___SET_R0(___STK(-8))
    ___SET_R1(___STK(-6))
-   ___POLL(24)
-___DEF_SLBL(24,___L24___riscv_23_riscv_2d_type_2d_s)
+   ___POLL(28)
+___DEF_SLBL(28,___L28___riscv_23_riscv_2d_type_2d_s)
    ___ADJFP(-11)
-   ___SET_NARGS(4) ___JUMPINT(___NOTHING,___PRC(90),___L0___riscv_23_riscv_2d_listing)
-___DEF_GLBL(___L27___riscv_23_riscv_2d_type_2d_s)
+   ___SET_NARGS(4) ___JUMPINT(___NOTHING,___PRC(97),___L0___riscv_23_riscv_2d_listing)
+___DEF_GLBL(___L31___riscv_23_riscv_2d_type_2d_s)
    ___SET_R1(___VOID)
    ___ADJFP(-12)
    ___JUMPRET(___STK(4))
-___DEF_GLBL(___L28___riscv_23_riscv_2d_type_2d_s)
+___DEF_GLBL(___L32___riscv_23_riscv_2d_type_2d_s)
    ___SET_R1(___SUB(112))
-   ___SET_R0(___LBL(11))
+   ___SET_R0(___LBL(12))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),138,___G_error)
-___DEF_GLBL(___L29___riscv_23_riscv_2d_type_2d_s)
-   ___SET_R0(___LBL(10))
+___DEF_GLBL(___L33___riscv_23_riscv_2d_type_2d_s)
+   ___SET_R0(___LBL(11))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
-___DEF_GLBL(___L30___riscv_23_riscv_2d_type_2d_s)
-   ___SET_R0(___LBL(5))
+___DEF_GLBL(___L34___riscv_23_riscv_2d_type_2d_s)
+   ___SET_R0(___LBL(6))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
 ___END_P_SW
 ___END_P_COD
@@ -8880,219 +9922,261 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_beq
 #undef ___PH_LBL0
-#define ___PH_LBL0 686
+#define ___PH_LBL0 804
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R1 ___D_R2 ___D_R3
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R1 ___D_R2 ___D_R3
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R1 ___R_R2 ___R_R3
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R1 ___R_R2 ___R_R3
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(2)
+___BEGIN_P_HLBL_AT(3)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_beq)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_beq)
+___DEF_P_HLBL(___L2___riscv_23_riscv_2d_beq)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_beq)
    ___IF_NARGS_EQ(4,___NOTHING)
    ___WRONG_NARGS(0,4,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_beq)
-   ___SET_STK(1,___R1)
-   ___SET_STK(2,___R2)
-   ___SET_R2(___R3)
-   ___SET_R1(___STK(2))
-   ___SET_R3(___FIX(0L))
-   ___ADJFP(2)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_riscv#riscv-beq",1,___LBL(1),___fp);
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_beq)
+___GATE2_ENTER(___ps,"_riscv#riscv-beq",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,2,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_R2(___R3)
+   ___SET_R1(___STK(0))
+   ___SET_R3(___FIX(0L))
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
+___DEF_SLBL(2,___L2___riscv_23_riscv_2d_beq)
    ___ADJFP(-1)
-   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(704),___L0___riscv_23_riscv_2d_type_2d_b)
+   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(828),___L0___riscv_23_riscv_2d_type_2d_b)
 ___END_P_SW
 ___END_P_COD
 
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_bne
 #undef ___PH_LBL0
-#define ___PH_LBL0 689
+#define ___PH_LBL0 808
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R1 ___D_R2 ___D_R3
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R1 ___D_R2 ___D_R3
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R1 ___R_R2 ___R_R3
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R1 ___R_R2 ___R_R3
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(2)
+___BEGIN_P_HLBL_AT(3)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_bne)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_bne)
+___DEF_P_HLBL(___L2___riscv_23_riscv_2d_bne)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_bne)
    ___IF_NARGS_EQ(4,___NOTHING)
    ___WRONG_NARGS(0,4,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_bne)
-   ___SET_STK(1,___R1)
-   ___SET_STK(2,___R2)
-   ___SET_R2(___R3)
-   ___SET_R1(___STK(2))
-   ___SET_R3(___FIX(4096L))
-   ___ADJFP(2)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_riscv#riscv-bne",1,___LBL(1),___fp);
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_bne)
+___GATE2_ENTER(___ps,"_riscv#riscv-bne",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,2,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_R2(___R3)
+   ___SET_R1(___STK(0))
+   ___SET_R3(___FIX(4096L))
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
+___DEF_SLBL(2,___L2___riscv_23_riscv_2d_bne)
    ___ADJFP(-1)
-   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(704),___L0___riscv_23_riscv_2d_type_2d_b)
+   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(828),___L0___riscv_23_riscv_2d_type_2d_b)
 ___END_P_SW
 ___END_P_COD
 
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_blt
 #undef ___PH_LBL0
-#define ___PH_LBL0 692
+#define ___PH_LBL0 812
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R1 ___D_R2 ___D_R3
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R1 ___D_R2 ___D_R3
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R1 ___R_R2 ___R_R3
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R1 ___R_R2 ___R_R3
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(2)
+___BEGIN_P_HLBL_AT(3)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_blt)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_blt)
+___DEF_P_HLBL(___L2___riscv_23_riscv_2d_blt)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_blt)
    ___IF_NARGS_EQ(4,___NOTHING)
    ___WRONG_NARGS(0,4,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_blt)
-   ___SET_STK(1,___R1)
-   ___SET_STK(2,___R2)
-   ___SET_R2(___R3)
-   ___SET_R1(___STK(2))
-   ___SET_R3(___FIX(16384L))
-   ___ADJFP(2)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_riscv#riscv-blt",1,___LBL(1),___fp);
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_blt)
+___GATE2_ENTER(___ps,"_riscv#riscv-blt",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,2,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_R2(___R3)
+   ___SET_R1(___STK(0))
+   ___SET_R3(___FIX(16384L))
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
+___DEF_SLBL(2,___L2___riscv_23_riscv_2d_blt)
    ___ADJFP(-1)
-   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(704),___L0___riscv_23_riscv_2d_type_2d_b)
+   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(828),___L0___riscv_23_riscv_2d_type_2d_b)
 ___END_P_SW
 ___END_P_COD
 
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_bge
 #undef ___PH_LBL0
-#define ___PH_LBL0 695
+#define ___PH_LBL0 816
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R1 ___D_R2 ___D_R3
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R1 ___D_R2 ___D_R3
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R1 ___R_R2 ___R_R3
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R1 ___R_R2 ___R_R3
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(2)
+___BEGIN_P_HLBL_AT(3)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_bge)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_bge)
+___DEF_P_HLBL(___L2___riscv_23_riscv_2d_bge)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_bge)
    ___IF_NARGS_EQ(4,___NOTHING)
    ___WRONG_NARGS(0,4,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_bge)
-   ___SET_STK(1,___R1)
-   ___SET_STK(2,___R2)
-   ___SET_R2(___R3)
-   ___SET_R1(___STK(2))
-   ___SET_R3(___FIX(20480L))
-   ___ADJFP(2)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_riscv#riscv-bge",1,___LBL(1),___fp);
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_bge)
+___GATE2_ENTER(___ps,"_riscv#riscv-bge",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,2,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_R2(___R3)
+   ___SET_R1(___STK(0))
+   ___SET_R3(___FIX(20480L))
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
+___DEF_SLBL(2,___L2___riscv_23_riscv_2d_bge)
    ___ADJFP(-1)
-   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(704),___L0___riscv_23_riscv_2d_type_2d_b)
+   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(828),___L0___riscv_23_riscv_2d_type_2d_b)
 ___END_P_SW
 ___END_P_COD
 
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_bltu
 #undef ___PH_LBL0
-#define ___PH_LBL0 698
+#define ___PH_LBL0 820
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R1 ___D_R2 ___D_R3
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R1 ___D_R2 ___D_R3
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R1 ___R_R2 ___R_R3
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R1 ___R_R2 ___R_R3
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(2)
+___BEGIN_P_HLBL_AT(3)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_bltu)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_bltu)
+___DEF_P_HLBL(___L2___riscv_23_riscv_2d_bltu)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_bltu)
    ___IF_NARGS_EQ(4,___NOTHING)
    ___WRONG_NARGS(0,4,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_bltu)
-   ___SET_STK(1,___R1)
-   ___SET_STK(2,___R2)
-   ___SET_R2(___R3)
-   ___SET_R1(___STK(2))
-   ___SET_R3(___FIX(24576L))
-   ___ADJFP(2)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_riscv#riscv-bltu",1,___LBL(1),___fp);
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_bltu)
+___GATE2_ENTER(___ps,"_riscv#riscv-bltu",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,2,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_R2(___R3)
+   ___SET_R1(___STK(0))
+   ___SET_R3(___FIX(24576L))
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
+___DEF_SLBL(2,___L2___riscv_23_riscv_2d_bltu)
    ___ADJFP(-1)
-   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(704),___L0___riscv_23_riscv_2d_type_2d_b)
+   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(828),___L0___riscv_23_riscv_2d_type_2d_b)
 ___END_P_SW
 ___END_P_COD
 
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_bgeu
 #undef ___PH_LBL0
-#define ___PH_LBL0 701
+#define ___PH_LBL0 824
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R1 ___D_R2 ___D_R3
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R1 ___D_R2 ___D_R3
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R1 ___R_R2 ___R_R3
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R1 ___R_R2 ___R_R3
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(2)
+___BEGIN_P_HLBL_AT(3)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_bgeu)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_bgeu)
+___DEF_P_HLBL(___L2___riscv_23_riscv_2d_bgeu)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_bgeu)
    ___IF_NARGS_EQ(4,___NOTHING)
    ___WRONG_NARGS(0,4,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_bgeu)
-   ___SET_STK(1,___R1)
-   ___SET_STK(2,___R2)
-   ___SET_R2(___R3)
-   ___SET_R1(___STK(2))
-   ___SET_R3(___FIX(28672L))
-   ___ADJFP(2)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_riscv#riscv-bgeu",1,___LBL(1),___fp);
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_bgeu)
+___GATE2_ENTER(___ps,"_riscv#riscv-bgeu",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,2,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_R2(___R3)
+   ___SET_R1(___STK(0))
+   ___SET_R3(___FIX(28672L))
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
+___DEF_SLBL(2,___L2___riscv_23_riscv_2d_bgeu)
    ___ADJFP(-1)
-   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(704),___L0___riscv_23_riscv_2d_type_2d_b)
+   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(828),___L0___riscv_23_riscv_2d_type_2d_b)
 ___END_P_SW
 ___END_P_COD
 
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_type_2d_b
 #undef ___PH_LBL0
-#define ___PH_LBL0 704
+#define ___PH_LBL0 828
 #undef ___PD_ALL
-#define ___PD_ALL ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
 #undef ___PR_ALL
 #define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
 #undef ___PW_ALL
 #define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(40)
+___BEGIN_P_HLBL_AT(45)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_type_2d_b)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_type_2d_b)
@@ -9134,6 +10218,11 @@ ___DEF_P_HLBL(___L36___riscv_23_riscv_2d_type_2d_b)
 ___DEF_P_HLBL(___L37___riscv_23_riscv_2d_type_2d_b)
 ___DEF_P_HLBL(___L38___riscv_23_riscv_2d_type_2d_b)
 ___DEF_P_HLBL(___L39___riscv_23_riscv_2d_type_2d_b)
+___DEF_P_HLBL(___L40___riscv_23_riscv_2d_type_2d_b)
+___DEF_P_HLBL(___L41___riscv_23_riscv_2d_type_2d_b)
+___DEF_P_HLBL(___L42___riscv_23_riscv_2d_type_2d_b)
+___DEF_P_HLBL(___L43___riscv_23_riscv_2d_type_2d_b)
+___DEF_P_HLBL(___L44___riscv_23_riscv_2d_type_2d_b)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_type_2d_b)
@@ -9142,84 +10231,100 @@ ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_type_2d_b)
    ___IF_NARGS_EQ(6,___NOTHING)
    ___WRONG_NARGS(0,5,1,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_type_2d_b)
-   ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
-   ___SET_STK(3,___R2)
-   ___SET_STK(4,___R3)
-   ___SET_R1(___STK(-1))
-   ___ADJFP(9)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_riscv#riscv-type-b",1,___LBL(1),___fp);
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_type_2d_b)
-   ___SET_R0(___LBL(2))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),140,___G_fixnum_3f_)
+___GATE2_ENTER(___ps,"_riscv#riscv-type-b",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,9,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R0)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_STK(1,___R3)
+   ___ADJFP(1)
+   ___SET_R1(___STK(-5))
+   ___ADJFP(5)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___riscv_23_riscv_2d_type_2d_b)
-   ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L50___riscv_23_riscv_2d_type_2d_b)
-   ___END_IF
-   ___SET_R1(___STK(-9))
    ___SET_R0(___LBL(3))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),140,___G_fixnum_3f_)
 ___DEF_SLBL(3,___L3___riscv_23_riscv_2d_type_2d_b)
    ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L50___riscv_23_riscv_2d_type_2d_b)
+   ___GOTO(___L55___riscv_23_riscv_2d_type_2d_b)
+   ___END_IF
+   ___SET_R1(___STK(-9))
+   ___SET_R0(___LBL(4))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),140,___G_fixnum_3f_)
+___DEF_SLBL(4,___L4___riscv_23_riscv_2d_type_2d_b)
+   ___IF(___NOT(___NOTFALSEP(___R1)))
+   ___GOTO(___L55___riscv_23_riscv_2d_type_2d_b)
    ___END_IF
    ___SET_R1(___STK(-7))
-   ___SET_R0(___LBL(4))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),160,___G_pair_3f_)
-___DEF_SLBL(4,___L4___riscv_23_riscv_2d_type_2d_b)
    ___SET_R0(___LBL(5))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),160,___G_pair_3f_)
 ___DEF_SLBL(5,___L5___riscv_23_riscv_2d_type_2d_b)
+   ___SET_R0(___LBL(6))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
+___DEF_SLBL(6,___L6___riscv_23_riscv_2d_type_2d_b)
    ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L40___riscv_23_riscv_2d_type_2d_b)
+   ___GOTO(___L45___riscv_23_riscv_2d_type_2d_b)
    ___END_IF
    ___SET_R1(___SUB(113))
-   ___SET_R0(___LBL(6))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),138,___G_error)
-___DEF_SLBL(6,___L6___riscv_23_riscv_2d_type_2d_b)
-___DEF_GLBL(___L40___riscv_23_riscv_2d_type_2d_b)
-   ___SET_R1(___STK(-7))
    ___SET_R0(___LBL(7))
-   ___JUMPINT(___SET_NARGS(1),___PRC(41),___L___riscv_23_riscv_2d_imm_2d_lbl_3f_)
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),138,___G_error)
 ___DEF_SLBL(7,___L7___riscv_23_riscv_2d_type_2d_b)
-   ___IF(___NOTFALSEP(___R1))
-   ___GOTO(___L41___riscv_23_riscv_2d_type_2d_b)
-   ___END_IF
-   ___GOTO(___L49___riscv_23_riscv_2d_type_2d_b)
+___DEF_GLBL(___L45___riscv_23_riscv_2d_type_2d_b)
+   ___SET_R1(___STK(-7))
+   ___SET_R0(___LBL(8))
+   ___JUMPINT(___SET_NARGS(1),___PRC(46),___L___riscv_23_riscv_2d_imm_2d_lbl_3f_)
 ___DEF_SLBL(8,___L8___riscv_23_riscv_2d_type_2d_b)
    ___IF(___NOTFALSEP(___R1))
-   ___GOTO(___L48___riscv_23_riscv_2d_type_2d_b)
-   ___END_IF
-___DEF_GLBL(___L41___riscv_23_riscv_2d_type_2d_b)
-   ___SET_R0(___LBL(9))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
-___DEF_SLBL(9,___L9___riscv_23_riscv_2d_type_2d_b)
-   ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L42___riscv_23_riscv_2d_type_2d_b)
-   ___END_IF
-   ___SET_R1(___SUB(114))
-   ___SET_R0(___LBL(10))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),138,___G_error)
-___DEF_SLBL(10,___L10___riscv_23_riscv_2d_type_2d_b)
-___DEF_GLBL(___L42___riscv_23_riscv_2d_type_2d_b)
-   ___SET_R1(___STK(-7))
-   ___SET_R0(___LBL(11))
-   ___JUMPINT(___SET_NARGS(1),___PRC(24),___L___riscv_23_riscv_2d_imm_2d_int_3f_)
-___DEF_SLBL(11,___L11___riscv_23_riscv_2d_type_2d_b)
-   ___IF(___NOT(___NOTFALSEP(___R1)))
    ___GOTO(___L46___riscv_23_riscv_2d_type_2d_b)
    ___END_IF
-   ___SET_STK(1,___STK(-11))
-   ___SET_STK(2,___STK(-10))
-   ___SET_STK(3,___STK(-9))
-   ___SET_R3(___STK(-7))
-   ___SET_R2(___STK(-5))
-   ___SET_R1(___STK(-6))
-   ___SET_R0(___LBL(20))
-   ___ADJFP(3)
-   ___GOTO(___L44___riscv_23_riscv_2d_type_2d_b)
+   ___GOTO(___L54___riscv_23_riscv_2d_type_2d_b)
+___DEF_SLBL(9,___L9___riscv_23_riscv_2d_type_2d_b)
+   ___IF(___NOTFALSEP(___R1))
+   ___GOTO(___L53___riscv_23_riscv_2d_type_2d_b)
+   ___END_IF
+___DEF_GLBL(___L46___riscv_23_riscv_2d_type_2d_b)
+   ___SET_R0(___LBL(10))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
+___DEF_SLBL(10,___L10___riscv_23_riscv_2d_type_2d_b)
+   ___IF(___NOT(___NOTFALSEP(___R1)))
+   ___GOTO(___L47___riscv_23_riscv_2d_type_2d_b)
+   ___END_IF
+   ___SET_R1(___SUB(114))
+   ___SET_R0(___LBL(11))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),138,___G_error)
+___DEF_SLBL(11,___L11___riscv_23_riscv_2d_type_2d_b)
+___DEF_GLBL(___L47___riscv_23_riscv_2d_type_2d_b)
+   ___SET_R1(___STK(-7))
+   ___SET_R0(___LBL(12))
+   ___JUMPINT(___SET_NARGS(1),___PRC(27),___L___riscv_23_riscv_2d_imm_2d_int_3f_)
 ___DEF_SLBL(12,___L12___riscv_23_riscv_2d_type_2d_b)
-___DEF_GLBL(___L43___riscv_23_riscv_2d_type_2d_b)
+   ___IF(___NOT(___NOTFALSEP(___R1)))
+   ___GOTO(___L51___riscv_23_riscv_2d_type_2d_b)
+   ___END_IF
+___GATE2_OPEN(___ps,"_riscv#riscv-type-b",13,___LBL(13),___fp);
+___DEF_SLBL(13,___L13___riscv_23_riscv_2d_type_2d_b)
+___GATE2_ENTER(___ps,"_riscv#riscv-type-b",13,___LBL(13),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,3,0,___LBL(13),&___demand_attempt)){___ps->temp1=___LBL(13);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___STK(-11))
+   ___ADJFP(1)
+   ___SET_STK(1,___STK(-11))
+   ___ADJFP(1)
+   ___SET_STK(1,___STK(-11))
+   ___ADJFP(1)
+   ___SET_R3(___STK(-10))
+   ___SET_R2(___STK(-8))
+   ___SET_R1(___STK(-9))
+   ___SET_R0(___LBL(23))
+___group_demand_commit(___ps,___LBL(13),___demand_attempt);
+   ___GOTO(___L49___riscv_23_riscv_2d_type_2d_b)
+___DEF_SLBL(14,___L14___riscv_23_riscv_2d_type_2d_b)
+___DEF_GLBL(___L48___riscv_23_riscv_2d_type_2d_b)
    ___SET_STK(-5,___STK(-7))
    ___SET_STK(-7,___CLO(___STK(-6),1))
    ___SET_STK(-3,___STK(-6))
@@ -9231,83 +10336,95 @@ ___DEF_GLBL(___L43___riscv_23_riscv_2d_type_2d_b)
    ___SET_R1(___CLO(___STK(-3),2))
    ___SET_R0(___STK(-2))
    ___ADJFP(-5)
-   ___POLL(13)
-___DEF_SLBL(13,___L13___riscv_23_riscv_2d_type_2d_b)
-___DEF_GLBL(___L44___riscv_23_riscv_2d_type_2d_b)
-   ___SET_STK(1,___R0)
-   ___SET_STK(6,___R2)
-   ___SET_STK(7,___R1)
-   ___SET_STK(2,___R3)
-   ___SET_R1(___STK(-1))
-   ___SET_R2(___FIX(15L))
-   ___ADJFP(13)
-   ___POLL(14)
-___DEF_SLBL(14,___L14___riscv_23_riscv_2d_type_2d_b)
-   ___SET_R0(___LBL(15))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),149,___G_fxarithmetic_2d_shift)
+   ___POLL(15)
 ___DEF_SLBL(15,___L15___riscv_23_riscv_2d_type_2d_b)
+___DEF_GLBL(___L49___riscv_23_riscv_2d_type_2d_b)
+___GATE2_OPEN(___ps,"_riscv#riscv-type-b",16,___LBL(16),___fp);
+___DEF_SLBL(16,___L16___riscv_23_riscv_2d_type_2d_b)
+___GATE2_ENTER(___ps,"_riscv#riscv-type-b",16,___LBL(16),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,13,0,___LBL(16),&___demand_attempt)){___ps->temp1=___LBL(16);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R0)
+   ___ADJFP(1)
+   ___SET_STK(5,___R2)
+   ___ADJFP(5)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(-5,___R3)
+   ___SET_R1(___STK(-8))
+   ___SET_R2(___FIX(15L))
+   ___ADJFP(6)
+___group_demand_commit(___ps,___LBL(16),___demand_attempt);
+   ___POLL(17)
+___DEF_SLBL(17,___L17___riscv_23_riscv_2d_type_2d_b)
+   ___SET_R0(___LBL(18))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),149,___G_fxarithmetic_2d_shift)
+___DEF_SLBL(18,___L18___riscv_23_riscv_2d_type_2d_b)
    ___SET_STK(-14,___R1)
    ___SET_R1(___STK(-13))
    ___SET_R2(___FIX(20L))
-   ___SET_R0(___LBL(16))
+   ___SET_R0(___LBL(19))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),149,___G_fxarithmetic_2d_shift)
-___DEF_SLBL(16,___L16___riscv_23_riscv_2d_type_2d_b)
+___DEF_SLBL(19,___L19___riscv_23_riscv_2d_type_2d_b)
    ___SET_STK(-13,___R1)
    ___SET_R1(___STK(-11))
-   ___SET_R0(___LBL(17))
-   ___JUMPINT(___SET_NARGS(1),___PRC(55),___L___riscv_23_riscv_2d_imm_2d__3e_instr)
-___DEF_SLBL(17,___L17___riscv_23_riscv_2d_type_2d_b)
+   ___SET_R0(___LBL(20))
+   ___JUMPINT(___SET_NARGS(1),___PRC(61),___L___riscv_23_riscv_2d_imm_2d__3e_instr)
+___DEF_SLBL(20,___L20___riscv_23_riscv_2d_type_2d_b)
    ___SET_R3(___R1)
    ___SET_R2(___STK(-13))
    ___SET_R1(___STK(-14))
-   ___SET_R0(___LBL(18))
+   ___SET_R0(___LBL(21))
    ___ADJFP(-6)
    ___JUMPGLONOTSAFE(___SET_NARGS(5),141,___G_fx_2b_)
-___DEF_SLBL(18,___L18___riscv_23_riscv_2d_type_2d_b)
+___DEF_SLBL(21,___L21___riscv_23_riscv_2d_type_2d_b)
    ___SET_R2(___R1)
    ___SET_R1(___STK(-7))
    ___SET_R0(___STK(-4))
-   ___POLL(19)
-___DEF_SLBL(19,___L19___riscv_23_riscv_2d_type_2d_b)
+   ___POLL(22)
+___DEF_SLBL(22,___L22___riscv_23_riscv_2d_type_2d_b)
    ___ADJFP(-8)
    ___JUMPGLONOTSAFE(___SET_NARGS(2),119,___G___asm_23_asm_2d_32_2d_le)
-___DEF_SLBL(20,___L20___riscv_23_riscv_2d_type_2d_b)
+___DEF_SLBL(23,___L23___riscv_23_riscv_2d_type_2d_b)
    ___SET_R1(___STK(-11))
-   ___SET_R0(___LBL(21))
+   ___SET_R0(___LBL(24))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),131,___G___codegen_23_codegen_2d_context_2d_listing_2d_format)
-___DEF_SLBL(21,___L21___riscv_23_riscv_2d_type_2d_b)
+___DEF_SLBL(24,___L24___riscv_23_riscv_2d_type_2d_b)
    ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L45___riscv_23_riscv_2d_type_2d_b)
+   ___GOTO(___L50___riscv_23_riscv_2d_type_2d_b)
    ___END_IF
    ___SET_R1(___STK(-6))
    ___SET_R2(___FIX(-12L))
-   ___SET_R0(___LBL(22))
+   ___SET_R0(___LBL(25))
    ___ADJFP(-4)
    ___JUMPGLONOTSAFE(___SET_NARGS(2),149,___G_fxarithmetic_2d_shift)
-___DEF_SLBL(22,___L22___riscv_23_riscv_2d_type_2d_b)
+___DEF_SLBL(25,___L25___riscv_23_riscv_2d_type_2d_b)
    ___SET_R2(___R1)
    ___SET_R1(___SUB(115))
-   ___SET_R0(___LBL(23))
+   ___SET_R0(___LBL(26))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),166,___G_vector_2d_ref)
-___DEF_SLBL(23,___L23___riscv_23_riscv_2d_type_2d_b)
+___DEF_SLBL(26,___L26___riscv_23_riscv_2d_type_2d_b)
    ___SET_STK(-2,___STK(-6))
    ___SET_STK(-6,___R1)
    ___SET_R3(___STK(-3))
    ___SET_R2(___STK(-5))
    ___SET_R1(___STK(-2))
    ___SET_R0(___STK(-4))
-   ___POLL(24)
-___DEF_SLBL(24,___L24___riscv_23_riscv_2d_type_2d_b)
+   ___POLL(27)
+___DEF_SLBL(27,___L27___riscv_23_riscv_2d_type_2d_b)
    ___ADJFP(-6)
-   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(90),___L0___riscv_23_riscv_2d_listing)
-___DEF_GLBL(___L45___riscv_23_riscv_2d_type_2d_b)
+   ___SET_NARGS(5) ___JUMPINT(___NOTHING,___PRC(97),___L0___riscv_23_riscv_2d_listing)
+___DEF_GLBL(___L50___riscv_23_riscv_2d_type_2d_b)
    ___SET_R1(___VOID)
    ___ADJFP(-12)
    ___JUMPRET(___STK(4))
-___DEF_GLBL(___L46___riscv_23_riscv_2d_type_2d_b)
-   ___SET_STK(-4,___LBL(37))
+___DEF_GLBL(___L51___riscv_23_riscv_2d_type_2d_b)
+   ___SET_STK(-4,___LBL(42))
+___GATE2_OPEN(___ps,"_riscv#riscv-type-b",28,___LBL(28),___fp);
+___DEF_SLBL(28,___L28___riscv_23_riscv_2d_type_2d_b)
+___GATE2_ENTER(___ps,"_riscv#riscv-type-b",28,___LBL(28),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,0,9,___LBL(28),&___demand_attempt)){___ps->temp1=___LBL(28);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(-3,___ALLOC_CLO(6UL))
-   ___BEGIN_SETUP_CLO(6,___STK(-3),26)
+   ___BEGIN_SETUP_CLO(6,___STK(-3),30)
    ___ADD_CLO_ELEM(0,___STK(-11))
    ___ADD_CLO_ELEM(1,___STK(-6))
    ___ADD_CLO_ELEM(2,___STK(-7))
@@ -9318,95 +10435,104 @@ ___DEF_GLBL(___L46___riscv_23_riscv_2d_type_2d_b)
    ___SET_R3(___STK(-3))
    ___SET_R1(___STK(-11))
    ___SET_R2(___STK(-4))
-   ___SET_R0(___LBL(20))
-   ___CHECK_HEAP(25,4096)
-___DEF_SLBL(25,___L25___riscv_23_riscv_2d_type_2d_b)
-   ___JUMPGLONOTSAFE(___SET_NARGS(3),120,___G___asm_23_asm_2d_at_2d_assembly)
-___DEF_SLBL(26,___L26___riscv_23_riscv_2d_type_2d_b)
-   ___IF_NARGS_EQ(2,___NOTHING)
-   ___WRONG_NARGS(26,2,0,0)
-   ___SET_STK(1,___R0)
-   ___SET_STK(2,___R4)
-   ___SET_STK(3,___R2)
-   ___SET_R1(___CLO(___R4,3))
-   ___ADJFP(8)
-   ___POLL(27)
-___DEF_SLBL(27,___L27___riscv_23_riscv_2d_type_2d_b)
-   ___SET_R0(___LBL(28))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),135,___G_cdr)
-___DEF_SLBL(28,___L28___riscv_23_riscv_2d_type_2d_b)
-   ___SET_R0(___LBL(29))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),124,___G___asm_23_asm_2d_label_2d_pos)
+   ___SET_R0(___LBL(23))
+___group_demand_commit(___ps,___LBL(28),___demand_attempt);
+   ___CHECK_HEAP(29,4096)
 ___DEF_SLBL(29,___L29___riscv_23_riscv_2d_type_2d_b)
+   ___JUMPGLONOTSAFE(___SET_NARGS(3),120,___G___asm_23_asm_2d_at_2d_assembly)
+___DEF_SLBL(30,___L30___riscv_23_riscv_2d_type_2d_b)
+   ___IF_NARGS_EQ(2,___NOTHING)
+   ___WRONG_NARGS(30,2,0,0)
+___GATE2_OPEN(___ps,"_riscv#riscv-type-b",31,___LBL(31),___fp);
+___DEF_SLBL(31,___L31___riscv_23_riscv_2d_type_2d_b)
+___GATE2_ENTER(___ps,"_riscv#riscv-type-b",31,___LBL(31),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,8,0,___LBL(31),&___demand_attempt)){___ps->temp1=___LBL(31);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R0)
+   ___ADJFP(1)
+   ___SET_STK(1,___R4)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_R1(___CLO(___R4,3))
+   ___ADJFP(5)
+___group_demand_commit(___ps,___LBL(31),___demand_attempt);
+   ___POLL(32)
+___DEF_SLBL(32,___L32___riscv_23_riscv_2d_type_2d_b)
+   ___SET_R0(___LBL(33))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),135,___G_cdr)
+___DEF_SLBL(33,___L33___riscv_23_riscv_2d_type_2d_b)
+   ___SET_R0(___LBL(34))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),124,___G___asm_23_asm_2d_label_2d_pos)
+___DEF_SLBL(34,___L34___riscv_23_riscv_2d_type_2d_b)
    ___SET_STK(-4,___R1)
    ___SET_R1(___CLO(___STK(-6),3))
-   ___SET_R0(___LBL(30))
+   ___SET_R0(___LBL(35))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),134,___G_car)
-___DEF_SLBL(30,___L30___riscv_23_riscv_2d_type_2d_b)
+___DEF_SLBL(35,___L35___riscv_23_riscv_2d_type_2d_b)
    ___SET_R2(___R1)
    ___SET_R1(___STK(-5))
-   ___SET_R0(___LBL(31))
+   ___SET_R0(___LBL(36))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),141,___G_fx_2b_)
-___DEF_SLBL(31,___L31___riscv_23_riscv_2d_type_2d_b)
+___DEF_SLBL(36,___L36___riscv_23_riscv_2d_type_2d_b)
    ___SET_R2(___R1)
    ___SET_R1(___STK(-4))
-   ___SET_R0(___LBL(32))
+   ___SET_R0(___LBL(37))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),142,___G_fx_2d_)
-___DEF_SLBL(32,___L32___riscv_23_riscv_2d_type_2d_b)
+___DEF_SLBL(37,___L37___riscv_23_riscv_2d_type_2d_b)
    ___SET_STK(-5,___R1)
    ___SET_R2(___R1)
    ___SET_R1(___SYM_B)
-   ___SET_R0(___LBL(33))
+   ___SET_R0(___LBL(38))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),136,___G_cons)
-___DEF_SLBL(33,___L33___riscv_23_riscv_2d_type_2d_b)
+___DEF_SLBL(38,___L38___riscv_23_riscv_2d_type_2d_b)
    ___SET_STK(-4,___R1)
    ___SET_R1(___STK(-5))
    ___SET_R2(___FIX(-4096L))
-   ___SET_R0(___LBL(34))
+   ___SET_R0(___LBL(39))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),147,___G_fx_3e__3d_)
-___DEF_SLBL(34,___L34___riscv_23_riscv_2d_type_2d_b)
+___DEF_SLBL(39,___L39___riscv_23_riscv_2d_type_2d_b)
    ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L47___riscv_23_riscv_2d_type_2d_b)
+   ___GOTO(___L52___riscv_23_riscv_2d_type_2d_b)
    ___END_IF
    ___SET_R1(___STK(-5))
    ___SET_R2(___FIX(4094L))
-   ___SET_R0(___LBL(35))
+   ___SET_R0(___LBL(40))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),144,___G_fx_3c__3d_)
-___DEF_SLBL(35,___L35___riscv_23_riscv_2d_type_2d_b)
-   ___SET_R0(___LBL(36))
+___DEF_SLBL(40,___L40___riscv_23_riscv_2d_type_2d_b)
+   ___SET_R0(___LBL(41))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
-___DEF_SLBL(36,___L36___riscv_23_riscv_2d_type_2d_b)
+___DEF_SLBL(41,___L41___riscv_23_riscv_2d_type_2d_b)
    ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L43___riscv_23_riscv_2d_type_2d_b)
+   ___GOTO(___L48___riscv_23_riscv_2d_type_2d_b)
    ___END_IF
    ___SET_R1(___SUB(124))
-   ___SET_R0(___LBL(12))
+   ___SET_R0(___LBL(14))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),138,___G_error)
-___DEF_GLBL(___L47___riscv_23_riscv_2d_type_2d_b)
-   ___SET_R0(___LBL(36))
+___DEF_GLBL(___L52___riscv_23_riscv_2d_type_2d_b)
+   ___SET_R0(___LBL(41))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
-___DEF_SLBL(37,___L37___riscv_23_riscv_2d_type_2d_b)
+___DEF_SLBL(42,___L42___riscv_23_riscv_2d_type_2d_b)
    ___IF_NARGS_EQ(2,___NOTHING)
-   ___WRONG_NARGS(37,2,0,0)
+   ___WRONG_NARGS(42,2,0,0)
    ___SET_R1(___FIX(4L))
    ___JUMPRET(___R0)
-___DEF_GLBL(___L48___riscv_23_riscv_2d_type_2d_b)
+___DEF_GLBL(___L53___riscv_23_riscv_2d_type_2d_b)
    ___SET_R1(___STK(-7))
-   ___SET_R0(___LBL(38))
+   ___SET_R0(___LBL(43))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),134,___G_car)
-___DEF_SLBL(38,___L38___riscv_23_riscv_2d_type_2d_b)
+___DEF_SLBL(43,___L43___riscv_23_riscv_2d_type_2d_b)
    ___SET_R2(___SYM_B)
-   ___SET_R0(___LBL(39))
+   ___SET_R0(___LBL(44))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),137,___G_eq_3f_)
-___DEF_SLBL(39,___L39___riscv_23_riscv_2d_type_2d_b)
-   ___SET_R0(___LBL(9))
+___DEF_SLBL(44,___L44___riscv_23_riscv_2d_type_2d_b)
+   ___SET_R0(___LBL(10))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
-___DEF_GLBL(___L49___riscv_23_riscv_2d_type_2d_b)
+___DEF_GLBL(___L54___riscv_23_riscv_2d_type_2d_b)
    ___SET_R1(___STK(-7))
-   ___SET_R0(___LBL(8))
-   ___JUMPINT(___SET_NARGS(1),___PRC(24),___L___riscv_23_riscv_2d_imm_2d_int_3f_)
-___DEF_GLBL(___L50___riscv_23_riscv_2d_type_2d_b)
-   ___SET_R0(___LBL(5))
+   ___SET_R0(___LBL(9))
+   ___JUMPINT(___SET_NARGS(1),___PRC(27),___L___riscv_23_riscv_2d_imm_2d_int_3f_)
+___DEF_GLBL(___L55___riscv_23_riscv_2d_type_2d_b)
+   ___SET_R0(___LBL(6))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
 ___END_P_SW
 ___END_P_COD
@@ -9414,47 +10540,57 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_lui
 #undef ___PH_LBL0
-#define ___PH_LBL0 745
+#define ___PH_LBL0 874
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(5)
+___BEGIN_P_HLBL_AT(6)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_lui)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_lui)
 ___DEF_P_HLBL(___L2___riscv_23_riscv_2d_lui)
 ___DEF_P_HLBL(___L3___riscv_23_riscv_2d_lui)
 ___DEF_P_HLBL(___L4___riscv_23_riscv_2d_lui)
+___DEF_P_HLBL(___L5___riscv_23_riscv_2d_lui)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_lui)
    ___IF_NARGS_EQ(3,___NOTHING)
    ___WRONG_NARGS(0,3,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_lui)
-   ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
-   ___SET_STK(3,___R2)
-   ___SET_STK(4,___R3)
-   ___SET_STK(9,___R1)
-   ___SET_R2(___R3)
-   ___SET_R1(___STK(3))
-   ___SET_R3(___FIX(55L))
-   ___ADJFP(9)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_riscv#riscv-lui",1,___LBL(1),___fp);
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_lui)
-   ___SET_R0(___LBL(2))
-   ___JUMPINT(___SET_NARGS(4),___PRC(757),___L___riscv_23_riscv_2d_type_2d_u)
-___DEF_SLBL(2,___L2___riscv_23_riscv_2d_lui)
+___GATE2_ENTER(___ps,"_riscv#riscv-lui",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,9,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R0)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_STK(1,___R3)
+   ___ADJFP(1)
+   ___SET_STK(5,___R1)
+   ___ADJFP(5)
+   ___SET_R2(___R3)
    ___SET_R1(___STK(-6))
+   ___SET_R3(___FIX(55L))
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
+___DEF_SLBL(2,___L2___riscv_23_riscv_2d_lui)
    ___SET_R0(___LBL(3))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),131,___G___codegen_23_codegen_2d_context_2d_listing_2d_format)
+   ___JUMPINT(___SET_NARGS(4),___PRC(888),___L___riscv_23_riscv_2d_type_2d_u)
 ___DEF_SLBL(3,___L3___riscv_23_riscv_2d_lui)
+   ___SET_R1(___STK(-6))
+   ___SET_R0(___LBL(4))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),131,___G___codegen_23_codegen_2d_context_2d_listing_2d_format)
+___DEF_SLBL(4,___L4___riscv_23_riscv_2d_lui)
    ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L5___riscv_23_riscv_2d_lui)
+   ___GOTO(___L6___riscv_23_riscv_2d_lui)
    ___END_IF
    ___SET_STK(-3,___STK(-7))
    ___SET_STK(-7,___STK(-6))
@@ -9462,11 +10598,11 @@ ___DEF_SLBL(3,___L3___riscv_23_riscv_2d_lui)
    ___SET_R2(___STK(-5))
    ___SET_R1(___SUB(125))
    ___SET_R0(___STK(-3))
-   ___POLL(4)
-___DEF_SLBL(4,___L4___riscv_23_riscv_2d_lui)
+   ___POLL(5)
+___DEF_SLBL(5,___L5___riscv_23_riscv_2d_lui)
    ___ADJFP(-7)
-   ___SET_NARGS(4) ___JUMPINT(___NOTHING,___PRC(90),___L0___riscv_23_riscv_2d_listing)
-___DEF_GLBL(___L5___riscv_23_riscv_2d_lui)
+   ___SET_NARGS(4) ___JUMPINT(___NOTHING,___PRC(97),___L0___riscv_23_riscv_2d_listing)
+___DEF_GLBL(___L6___riscv_23_riscv_2d_lui)
    ___SET_R1(___VOID)
    ___ADJFP(-8)
    ___JUMPRET(___STK(1))
@@ -9476,47 +10612,57 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_auipc
 #undef ___PH_LBL0
-#define ___PH_LBL0 751
+#define ___PH_LBL0 881
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(5)
+___BEGIN_P_HLBL_AT(6)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_auipc)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_auipc)
 ___DEF_P_HLBL(___L2___riscv_23_riscv_2d_auipc)
 ___DEF_P_HLBL(___L3___riscv_23_riscv_2d_auipc)
 ___DEF_P_HLBL(___L4___riscv_23_riscv_2d_auipc)
+___DEF_P_HLBL(___L5___riscv_23_riscv_2d_auipc)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_auipc)
    ___IF_NARGS_EQ(3,___NOTHING)
    ___WRONG_NARGS(0,3,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_auipc)
-   ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
-   ___SET_STK(3,___R2)
-   ___SET_STK(4,___R3)
-   ___SET_STK(9,___R1)
-   ___SET_R2(___R3)
-   ___SET_R1(___STK(3))
-   ___SET_R3(___FIX(23L))
-   ___ADJFP(9)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_riscv#riscv-auipc",1,___LBL(1),___fp);
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_auipc)
-   ___SET_R0(___LBL(2))
-   ___JUMPINT(___SET_NARGS(4),___PRC(757),___L___riscv_23_riscv_2d_type_2d_u)
-___DEF_SLBL(2,___L2___riscv_23_riscv_2d_auipc)
+___GATE2_ENTER(___ps,"_riscv#riscv-auipc",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,9,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R0)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_STK(1,___R3)
+   ___ADJFP(1)
+   ___SET_STK(5,___R1)
+   ___ADJFP(5)
+   ___SET_R2(___R3)
    ___SET_R1(___STK(-6))
+   ___SET_R3(___FIX(23L))
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
+___DEF_SLBL(2,___L2___riscv_23_riscv_2d_auipc)
    ___SET_R0(___LBL(3))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),131,___G___codegen_23_codegen_2d_context_2d_listing_2d_format)
+   ___JUMPINT(___SET_NARGS(4),___PRC(888),___L___riscv_23_riscv_2d_type_2d_u)
 ___DEF_SLBL(3,___L3___riscv_23_riscv_2d_auipc)
+   ___SET_R1(___STK(-6))
+   ___SET_R0(___LBL(4))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),131,___G___codegen_23_codegen_2d_context_2d_listing_2d_format)
+___DEF_SLBL(4,___L4___riscv_23_riscv_2d_auipc)
    ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L5___riscv_23_riscv_2d_auipc)
+   ___GOTO(___L6___riscv_23_riscv_2d_auipc)
    ___END_IF
    ___SET_STK(-3,___STK(-7))
    ___SET_STK(-7,___STK(-6))
@@ -9524,11 +10670,11 @@ ___DEF_SLBL(3,___L3___riscv_23_riscv_2d_auipc)
    ___SET_R2(___STK(-5))
    ___SET_R1(___SUB(126))
    ___SET_R0(___STK(-3))
-   ___POLL(4)
-___DEF_SLBL(4,___L4___riscv_23_riscv_2d_auipc)
+   ___POLL(5)
+___DEF_SLBL(5,___L5___riscv_23_riscv_2d_auipc)
    ___ADJFP(-7)
-   ___SET_NARGS(4) ___JUMPINT(___NOTHING,___PRC(90),___L0___riscv_23_riscv_2d_listing)
-___DEF_GLBL(___L5___riscv_23_riscv_2d_auipc)
+   ___SET_NARGS(4) ___JUMPINT(___NOTHING,___PRC(97),___L0___riscv_23_riscv_2d_listing)
+___DEF_GLBL(___L6___riscv_23_riscv_2d_auipc)
    ___SET_R1(___VOID)
    ___ADJFP(-8)
    ___JUMPRET(___STK(1))
@@ -9538,15 +10684,15 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_type_2d_u
 #undef ___PH_LBL0
-#define ___PH_LBL0 757
+#define ___PH_LBL0 888
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(15)
+___BEGIN_P_HLBL_AT(16)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_type_2d_u)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_type_2d_u)
@@ -9563,94 +10709,104 @@ ___DEF_P_HLBL(___L11___riscv_23_riscv_2d_type_2d_u)
 ___DEF_P_HLBL(___L12___riscv_23_riscv_2d_type_2d_u)
 ___DEF_P_HLBL(___L13___riscv_23_riscv_2d_type_2d_u)
 ___DEF_P_HLBL(___L14___riscv_23_riscv_2d_type_2d_u)
+___DEF_P_HLBL(___L15___riscv_23_riscv_2d_type_2d_u)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_type_2d_u)
    ___IF_NARGS_EQ(4,___NOTHING)
    ___WRONG_NARGS(0,4,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_type_2d_u)
-   ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
-   ___SET_STK(3,___R2)
-   ___SET_STK(4,___R3)
-   ___ADJFP(7)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_riscv#riscv-type-u",1,___LBL(1),___fp);
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_type_2d_u)
-   ___SET_R0(___LBL(2))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),140,___G_fixnum_3f_)
+___GATE2_ENTER(___ps,"_riscv#riscv-type-u",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,7,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R0)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_STK(1,___R3)
+   ___ADJFP(1)
+   ___ADJFP(3)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___riscv_23_riscv_2d_type_2d_u)
+   ___SET_R0(___LBL(3))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),140,___G_fixnum_3f_)
+___DEF_SLBL(3,___L3___riscv_23_riscv_2d_type_2d_u)
+   ___IF(___NOT(___NOTFALSEP(___R1)))
+   ___GOTO(___L19___riscv_23_riscv_2d_type_2d_u)
+   ___END_IF
+   ___SET_R1(___STK(-4))
+   ___SET_R0(___LBL(4))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),160,___G_pair_3f_)
+___DEF_SLBL(4,___L4___riscv_23_riscv_2d_type_2d_u)
+   ___SET_R0(___LBL(5))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
+___DEF_SLBL(5,___L5___riscv_23_riscv_2d_type_2d_u)
+   ___IF(___NOT(___NOTFALSEP(___R1)))
+   ___GOTO(___L16___riscv_23_riscv_2d_type_2d_u)
+   ___END_IF
+   ___SET_R1(___SUB(127))
+   ___SET_R0(___LBL(6))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),138,___G_error)
+___DEF_SLBL(6,___L6___riscv_23_riscv_2d_type_2d_u)
+___DEF_GLBL(___L16___riscv_23_riscv_2d_type_2d_u)
+   ___SET_R1(___STK(-4))
+   ___SET_R0(___LBL(7))
+   ___JUMPINT(___SET_NARGS(1),___PRC(27),___L___riscv_23_riscv_2d_imm_2d_int_3f_)
+___DEF_SLBL(7,___L7___riscv_23_riscv_2d_type_2d_u)
    ___IF(___NOT(___NOTFALSEP(___R1)))
    ___GOTO(___L18___riscv_23_riscv_2d_type_2d_u)
    ___END_IF
    ___SET_R1(___STK(-4))
-   ___SET_R0(___LBL(3))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),160,___G_pair_3f_)
-___DEF_SLBL(3,___L3___riscv_23_riscv_2d_type_2d_u)
-   ___SET_R0(___LBL(4))
+   ___SET_R0(___LBL(8))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),134,___G_car)
+___DEF_SLBL(8,___L8___riscv_23_riscv_2d_type_2d_u)
+   ___SET_R2(___SYM_U)
+   ___SET_R0(___LBL(9))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),137,___G_eq_3f_)
+___DEF_SLBL(9,___L9___riscv_23_riscv_2d_type_2d_u)
+   ___SET_R0(___LBL(10))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
-___DEF_SLBL(4,___L4___riscv_23_riscv_2d_type_2d_u)
-   ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L15___riscv_23_riscv_2d_type_2d_u)
-   ___END_IF
-   ___SET_R1(___SUB(127))
-   ___SET_R0(___LBL(5))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),138,___G_error)
-___DEF_SLBL(5,___L5___riscv_23_riscv_2d_type_2d_u)
-___DEF_GLBL(___L15___riscv_23_riscv_2d_type_2d_u)
-   ___SET_R1(___STK(-4))
-   ___SET_R0(___LBL(6))
-   ___JUMPINT(___SET_NARGS(1),___PRC(24),___L___riscv_23_riscv_2d_imm_2d_int_3f_)
-___DEF_SLBL(6,___L6___riscv_23_riscv_2d_type_2d_u)
+___DEF_SLBL(10,___L10___riscv_23_riscv_2d_type_2d_u)
    ___IF(___NOT(___NOTFALSEP(___R1)))
    ___GOTO(___L17___riscv_23_riscv_2d_type_2d_u)
    ___END_IF
-   ___SET_R1(___STK(-4))
-   ___SET_R0(___LBL(7))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),134,___G_car)
-___DEF_SLBL(7,___L7___riscv_23_riscv_2d_type_2d_u)
-   ___SET_R2(___SYM_U)
-   ___SET_R0(___LBL(8))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),137,___G_eq_3f_)
-___DEF_SLBL(8,___L8___riscv_23_riscv_2d_type_2d_u)
-   ___SET_R0(___LBL(9))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
-___DEF_SLBL(9,___L9___riscv_23_riscv_2d_type_2d_u)
-   ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L16___riscv_23_riscv_2d_type_2d_u)
-   ___END_IF
    ___SET_R1(___SUB(128))
-   ___SET_R0(___LBL(10))
+   ___SET_R0(___LBL(11))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),138,___G_error)
-___DEF_SLBL(10,___L10___riscv_23_riscv_2d_type_2d_u)
-___DEF_GLBL(___L16___riscv_23_riscv_2d_type_2d_u)
+___DEF_SLBL(11,___L11___riscv_23_riscv_2d_type_2d_u)
+___DEF_GLBL(___L17___riscv_23_riscv_2d_type_2d_u)
    ___SET_R1(___STK(-5))
    ___SET_R2(___FIX(7L))
-   ___SET_R0(___LBL(11))
+   ___SET_R0(___LBL(12))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),149,___G_fxarithmetic_2d_shift)
-___DEF_SLBL(11,___L11___riscv_23_riscv_2d_type_2d_u)
+___DEF_SLBL(12,___L12___riscv_23_riscv_2d_type_2d_u)
    ___SET_STK(-5,___R1)
    ___SET_R1(___STK(-4))
-   ___SET_R0(___LBL(12))
-   ___JUMPINT(___SET_NARGS(1),___PRC(55),___L___riscv_23_riscv_2d_imm_2d__3e_instr)
-___DEF_SLBL(12,___L12___riscv_23_riscv_2d_type_2d_u)
+   ___SET_R0(___LBL(13))
+   ___JUMPINT(___SET_NARGS(1),___PRC(61),___L___riscv_23_riscv_2d_imm_2d__3e_instr)
+___DEF_SLBL(13,___L13___riscv_23_riscv_2d_type_2d_u)
    ___SET_R3(___R1)
    ___SET_R1(___STK(-3))
    ___SET_R2(___STK(-5))
-   ___SET_R0(___LBL(13))
+   ___SET_R0(___LBL(14))
    ___JUMPGLONOTSAFE(___SET_NARGS(3),141,___G_fx_2b_)
-___DEF_SLBL(13,___L13___riscv_23_riscv_2d_type_2d_u)
+___DEF_SLBL(14,___L14___riscv_23_riscv_2d_type_2d_u)
    ___SET_R2(___R1)
    ___SET_R1(___STK(-7))
    ___SET_R0(___STK(-6))
-   ___POLL(14)
-___DEF_SLBL(14,___L14___riscv_23_riscv_2d_type_2d_u)
+   ___POLL(15)
+___DEF_SLBL(15,___L15___riscv_23_riscv_2d_type_2d_u)
    ___ADJFP(-8)
    ___JUMPGLONOTSAFE(___SET_NARGS(2),119,___G___asm_23_asm_2d_32_2d_le)
-___DEF_GLBL(___L17___riscv_23_riscv_2d_type_2d_u)
-   ___SET_R0(___LBL(9))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
 ___DEF_GLBL(___L18___riscv_23_riscv_2d_type_2d_u)
-   ___SET_R0(___LBL(4))
+   ___SET_R0(___LBL(10))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
+___DEF_GLBL(___L19___riscv_23_riscv_2d_type_2d_u)
+   ___SET_R0(___LBL(5))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
 ___END_P_SW
 ___END_P_COD
@@ -9658,47 +10814,57 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_jal
 #undef ___PH_LBL0
-#define ___PH_LBL0 773
+#define ___PH_LBL0 905
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(5)
+___BEGIN_P_HLBL_AT(6)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_jal)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_jal)
 ___DEF_P_HLBL(___L2___riscv_23_riscv_2d_jal)
 ___DEF_P_HLBL(___L3___riscv_23_riscv_2d_jal)
 ___DEF_P_HLBL(___L4___riscv_23_riscv_2d_jal)
+___DEF_P_HLBL(___L5___riscv_23_riscv_2d_jal)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_jal)
    ___IF_NARGS_EQ(3,___NOTHING)
    ___WRONG_NARGS(0,3,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_jal)
-   ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
-   ___SET_STK(3,___R2)
-   ___SET_STK(4,___R3)
-   ___SET_STK(9,___R1)
-   ___SET_R2(___R3)
-   ___SET_R1(___STK(3))
-   ___SET_R3(___FIX(111L))
-   ___ADJFP(9)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_riscv#riscv-jal",1,___LBL(1),___fp);
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_jal)
-   ___SET_R0(___LBL(2))
-   ___JUMPINT(___SET_NARGS(4),___PRC(779),___L___riscv_23_riscv_2d_type_2d_j)
-___DEF_SLBL(2,___L2___riscv_23_riscv_2d_jal)
+___GATE2_ENTER(___ps,"_riscv#riscv-jal",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,9,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R0)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_STK(1,___R3)
+   ___ADJFP(1)
+   ___SET_STK(5,___R1)
+   ___ADJFP(5)
+   ___SET_R2(___R3)
    ___SET_R1(___STK(-6))
+   ___SET_R3(___FIX(111L))
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
+___DEF_SLBL(2,___L2___riscv_23_riscv_2d_jal)
    ___SET_R0(___LBL(3))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),131,___G___codegen_23_codegen_2d_context_2d_listing_2d_format)
+   ___JUMPINT(___SET_NARGS(4),___PRC(912),___L___riscv_23_riscv_2d_type_2d_j)
 ___DEF_SLBL(3,___L3___riscv_23_riscv_2d_jal)
+   ___SET_R1(___STK(-6))
+   ___SET_R0(___LBL(4))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),131,___G___codegen_23_codegen_2d_context_2d_listing_2d_format)
+___DEF_SLBL(4,___L4___riscv_23_riscv_2d_jal)
    ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L5___riscv_23_riscv_2d_jal)
+   ___GOTO(___L6___riscv_23_riscv_2d_jal)
    ___END_IF
    ___SET_STK(-3,___STK(-7))
    ___SET_STK(-7,___STK(-6))
@@ -9706,11 +10872,11 @@ ___DEF_SLBL(3,___L3___riscv_23_riscv_2d_jal)
    ___SET_R2(___STK(-5))
    ___SET_R1(___SUB(129))
    ___SET_R0(___STK(-3))
-   ___POLL(4)
-___DEF_SLBL(4,___L4___riscv_23_riscv_2d_jal)
+   ___POLL(5)
+___DEF_SLBL(5,___L5___riscv_23_riscv_2d_jal)
    ___ADJFP(-7)
-   ___SET_NARGS(4) ___JUMPINT(___NOTHING,___PRC(90),___L0___riscv_23_riscv_2d_listing)
-___DEF_GLBL(___L5___riscv_23_riscv_2d_jal)
+   ___SET_NARGS(4) ___JUMPINT(___NOTHING,___PRC(97),___L0___riscv_23_riscv_2d_listing)
+___DEF_GLBL(___L6___riscv_23_riscv_2d_jal)
    ___SET_R1(___VOID)
    ___ADJFP(-8)
    ___JUMPRET(___STK(1))
@@ -9720,15 +10886,15 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_type_2d_j
 #undef ___PH_LBL0
-#define ___PH_LBL0 779
+#define ___PH_LBL0 912
 #undef ___PD_ALL
-#define ___PD_ALL ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
 #undef ___PR_ALL
 #define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
 #undef ___PW_ALL
 #define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(35)
+___BEGIN_P_HLBL_AT(39)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_type_2d_j)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_type_2d_j)
@@ -9765,81 +10931,94 @@ ___DEF_P_HLBL(___L31___riscv_23_riscv_2d_type_2d_j)
 ___DEF_P_HLBL(___L32___riscv_23_riscv_2d_type_2d_j)
 ___DEF_P_HLBL(___L33___riscv_23_riscv_2d_type_2d_j)
 ___DEF_P_HLBL(___L34___riscv_23_riscv_2d_type_2d_j)
+___DEF_P_HLBL(___L35___riscv_23_riscv_2d_type_2d_j)
+___DEF_P_HLBL(___L36___riscv_23_riscv_2d_type_2d_j)
+___DEF_P_HLBL(___L37___riscv_23_riscv_2d_type_2d_j)
+___DEF_P_HLBL(___L38___riscv_23_riscv_2d_type_2d_j)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_type_2d_j)
    ___IF_NARGS_EQ(4,___NOTHING)
    ___WRONG_NARGS(0,4,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_type_2d_j)
-   ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
-   ___SET_STK(3,___R2)
-   ___SET_STK(4,___R3)
-   ___ADJFP(7)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_riscv#riscv-type-j",1,___LBL(1),___fp);
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_type_2d_j)
-   ___SET_R0(___LBL(2))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),140,___G_fixnum_3f_)
+___GATE2_ENTER(___ps,"_riscv#riscv-type-j",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,7,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R0)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_STK(1,___R3)
+   ___ADJFP(1)
+   ___ADJFP(3)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___riscv_23_riscv_2d_type_2d_j)
+   ___SET_R0(___LBL(3))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),140,___G_fixnum_3f_)
+___DEF_SLBL(3,___L3___riscv_23_riscv_2d_type_2d_j)
    ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L44___riscv_23_riscv_2d_type_2d_j)
+   ___GOTO(___L48___riscv_23_riscv_2d_type_2d_j)
    ___END_IF
    ___SET_R1(___STK(-4))
-   ___SET_R0(___LBL(3))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),160,___G_pair_3f_)
-___DEF_SLBL(3,___L3___riscv_23_riscv_2d_type_2d_j)
    ___SET_R0(___LBL(4))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),160,___G_pair_3f_)
 ___DEF_SLBL(4,___L4___riscv_23_riscv_2d_type_2d_j)
+   ___SET_R0(___LBL(5))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
+___DEF_SLBL(5,___L5___riscv_23_riscv_2d_type_2d_j)
    ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L35___riscv_23_riscv_2d_type_2d_j)
+   ___GOTO(___L39___riscv_23_riscv_2d_type_2d_j)
    ___END_IF
    ___SET_R1(___SUB(130))
-   ___SET_R0(___LBL(5))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),138,___G_error)
-___DEF_SLBL(5,___L5___riscv_23_riscv_2d_type_2d_j)
-___DEF_GLBL(___L35___riscv_23_riscv_2d_type_2d_j)
-   ___SET_R1(___STK(-4))
    ___SET_R0(___LBL(6))
-   ___JUMPINT(___SET_NARGS(1),___PRC(41),___L___riscv_23_riscv_2d_imm_2d_lbl_3f_)
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),138,___G_error)
 ___DEF_SLBL(6,___L6___riscv_23_riscv_2d_type_2d_j)
-   ___IF(___NOTFALSEP(___R1))
-   ___GOTO(___L36___riscv_23_riscv_2d_type_2d_j)
-   ___END_IF
-   ___GOTO(___L43___riscv_23_riscv_2d_type_2d_j)
+___DEF_GLBL(___L39___riscv_23_riscv_2d_type_2d_j)
+   ___SET_R1(___STK(-4))
+   ___SET_R0(___LBL(7))
+   ___JUMPINT(___SET_NARGS(1),___PRC(46),___L___riscv_23_riscv_2d_imm_2d_lbl_3f_)
 ___DEF_SLBL(7,___L7___riscv_23_riscv_2d_type_2d_j)
    ___IF(___NOTFALSEP(___R1))
-   ___GOTO(___L42___riscv_23_riscv_2d_type_2d_j)
+   ___GOTO(___L40___riscv_23_riscv_2d_type_2d_j)
    ___END_IF
-___DEF_GLBL(___L36___riscv_23_riscv_2d_type_2d_j)
-   ___SET_R0(___LBL(8))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
+   ___GOTO(___L47___riscv_23_riscv_2d_type_2d_j)
 ___DEF_SLBL(8,___L8___riscv_23_riscv_2d_type_2d_j)
+   ___IF(___NOTFALSEP(___R1))
+   ___GOTO(___L46___riscv_23_riscv_2d_type_2d_j)
+   ___END_IF
+___DEF_GLBL(___L40___riscv_23_riscv_2d_type_2d_j)
+   ___SET_R0(___LBL(9))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
+___DEF_SLBL(9,___L9___riscv_23_riscv_2d_type_2d_j)
    ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L37___riscv_23_riscv_2d_type_2d_j)
+   ___GOTO(___L41___riscv_23_riscv_2d_type_2d_j)
    ___END_IF
    ___SET_R1(___SUB(131))
-   ___SET_R0(___LBL(9))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),138,___G_error)
-___DEF_SLBL(9,___L9___riscv_23_riscv_2d_type_2d_j)
-___DEF_GLBL(___L37___riscv_23_riscv_2d_type_2d_j)
-   ___SET_R1(___STK(-4))
    ___SET_R0(___LBL(10))
-   ___JUMPINT(___SET_NARGS(1),___PRC(24),___L___riscv_23_riscv_2d_imm_2d_int_3f_)
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),138,___G_error)
 ___DEF_SLBL(10,___L10___riscv_23_riscv_2d_type_2d_j)
+___DEF_GLBL(___L41___riscv_23_riscv_2d_type_2d_j)
+   ___SET_R1(___STK(-4))
+   ___SET_R0(___LBL(11))
+   ___JUMPINT(___SET_NARGS(1),___PRC(27),___L___riscv_23_riscv_2d_imm_2d_int_3f_)
+___DEF_SLBL(11,___L11___riscv_23_riscv_2d_type_2d_j)
    ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L40___riscv_23_riscv_2d_type_2d_j)
+   ___GOTO(___L44___riscv_23_riscv_2d_type_2d_j)
    ___END_IF
    ___SET_R3(___STK(-4))
    ___SET_R2(___STK(-3))
    ___SET_R1(___STK(-5))
    ___SET_R0(___STK(-6))
    ___ADJFP(-7)
-   ___POLL(11)
-___DEF_SLBL(11,___L11___riscv_23_riscv_2d_type_2d_j)
-   ___GOTO(___L39___riscv_23_riscv_2d_type_2d_j)
+   ___POLL(12)
 ___DEF_SLBL(12,___L12___riscv_23_riscv_2d_type_2d_j)
-___DEF_GLBL(___L38___riscv_23_riscv_2d_type_2d_j)
+   ___GOTO(___L43___riscv_23_riscv_2d_type_2d_j)
+___DEF_SLBL(13,___L13___riscv_23_riscv_2d_type_2d_j)
+___DEF_GLBL(___L42___riscv_23_riscv_2d_type_2d_j)
    ___SET_STK(-5,___STK(-7))
    ___SET_STK(-7,___CLO(___STK(-6),1))
    ___SET_R3(___STK(-4))
@@ -9847,41 +11026,53 @@ ___DEF_GLBL(___L38___riscv_23_riscv_2d_type_2d_j)
    ___SET_R1(___CLO(___STK(-6),4))
    ___SET_R0(___STK(-5))
    ___ADJFP(-7)
-   ___POLL(13)
-___DEF_SLBL(13,___L13___riscv_23_riscv_2d_type_2d_j)
-___DEF_GLBL(___L39___riscv_23_riscv_2d_type_2d_j)
-   ___SET_STK(1,___R0)
-   ___SET_STK(2,___R2)
-   ___SET_STK(3,___R3)
-   ___SET_R2(___FIX(7L))
-   ___ADJFP(7)
    ___POLL(14)
 ___DEF_SLBL(14,___L14___riscv_23_riscv_2d_type_2d_j)
-   ___SET_R0(___LBL(15))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),149,___G_fxarithmetic_2d_shift)
+___DEF_GLBL(___L43___riscv_23_riscv_2d_type_2d_j)
+___GATE2_OPEN(___ps,"_riscv#riscv-type-j",15,___LBL(15),___fp);
 ___DEF_SLBL(15,___L15___riscv_23_riscv_2d_type_2d_j)
+___GATE2_ENTER(___ps,"_riscv#riscv-type-j",15,___LBL(15),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,7,0,___LBL(15),&___demand_attempt)){___ps->temp1=___LBL(15);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R0)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_STK(1,___R3)
+   ___ADJFP(1)
+   ___SET_R2(___FIX(7L))
+   ___ADJFP(4)
+___group_demand_commit(___ps,___LBL(15),___demand_attempt);
+   ___POLL(16)
+___DEF_SLBL(16,___L16___riscv_23_riscv_2d_type_2d_j)
+   ___SET_R0(___LBL(17))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),149,___G_fxarithmetic_2d_shift)
+___DEF_SLBL(17,___L17___riscv_23_riscv_2d_type_2d_j)
    ___SET_STK(-3,___R1)
    ___SET_R1(___STK(-4))
-   ___SET_R0(___LBL(16))
-   ___JUMPINT(___SET_NARGS(1),___PRC(55),___L___riscv_23_riscv_2d_imm_2d__3e_instr)
-___DEF_SLBL(16,___L16___riscv_23_riscv_2d_type_2d_j)
+   ___SET_R0(___LBL(18))
+   ___JUMPINT(___SET_NARGS(1),___PRC(61),___L___riscv_23_riscv_2d_imm_2d__3e_instr)
+___DEF_SLBL(18,___L18___riscv_23_riscv_2d_type_2d_j)
    ___SET_R3(___R1)
    ___SET_R1(___STK(-5))
    ___SET_R2(___STK(-3))
-   ___SET_R0(___LBL(17))
+   ___SET_R0(___LBL(19))
    ___JUMPGLONOTSAFE(___SET_NARGS(3),141,___G_fx_2b_)
-___DEF_SLBL(17,___L17___riscv_23_riscv_2d_type_2d_j)
+___DEF_SLBL(19,___L19___riscv_23_riscv_2d_type_2d_j)
    ___SET_R2(___R1)
    ___SET_R1(___STK(-7))
    ___SET_R0(___STK(-6))
-   ___POLL(18)
-___DEF_SLBL(18,___L18___riscv_23_riscv_2d_type_2d_j)
+   ___POLL(20)
+___DEF_SLBL(20,___L20___riscv_23_riscv_2d_type_2d_j)
    ___ADJFP(-8)
    ___JUMPGLONOTSAFE(___SET_NARGS(2),119,___G___asm_23_asm_2d_32_2d_le)
-___DEF_GLBL(___L40___riscv_23_riscv_2d_type_2d_j)
-   ___SET_STK(-2,___LBL(32))
+___DEF_GLBL(___L44___riscv_23_riscv_2d_type_2d_j)
+   ___SET_STK(-2,___LBL(36))
+___GATE2_OPEN(___ps,"_riscv#riscv-type-j",21,___LBL(21),___fp);
+___DEF_SLBL(21,___L21___riscv_23_riscv_2d_type_2d_j)
+___GATE2_ENTER(___ps,"_riscv#riscv-type-j",21,___LBL(21),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,0,7,___LBL(21),&___demand_attempt)){___ps->temp1=___LBL(21);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(-1,___ALLOC_CLO(4UL))
-   ___BEGIN_SETUP_CLO(4,___STK(-1),21)
+   ___BEGIN_SETUP_CLO(4,___STK(-1),24)
    ___ADD_CLO_ELEM(0,___STK(-7))
    ___ADD_CLO_ELEM(1,___STK(-4))
    ___ADD_CLO_ELEM(2,___STK(-3))
@@ -9892,97 +11083,106 @@ ___DEF_GLBL(___L40___riscv_23_riscv_2d_type_2d_j)
    ___SET_R0(___STK(-6))
    ___SET_R2(___STK(-2))
    ___ADJFP(-1)
-   ___CHECK_HEAP(19,4096)
-___DEF_SLBL(19,___L19___riscv_23_riscv_2d_type_2d_j)
-   ___POLL(20)
-___DEF_SLBL(20,___L20___riscv_23_riscv_2d_type_2d_j)
+___group_demand_commit(___ps,___LBL(21),___demand_attempt);
+   ___CHECK_HEAP(22,4096)
+___DEF_SLBL(22,___L22___riscv_23_riscv_2d_type_2d_j)
+   ___POLL(23)
+___DEF_SLBL(23,___L23___riscv_23_riscv_2d_type_2d_j)
    ___ADJFP(-7)
    ___JUMPGLONOTSAFE(___SET_NARGS(3),120,___G___asm_23_asm_2d_at_2d_assembly)
-___DEF_SLBL(21,___L21___riscv_23_riscv_2d_type_2d_j)
-   ___IF_NARGS_EQ(2,___NOTHING)
-   ___WRONG_NARGS(21,2,0,0)
-   ___SET_STK(1,___R0)
-   ___SET_STK(2,___R4)
-   ___SET_STK(3,___R2)
-   ___SET_R1(___CLO(___R4,2))
-   ___ADJFP(8)
-   ___POLL(22)
-___DEF_SLBL(22,___L22___riscv_23_riscv_2d_type_2d_j)
-   ___SET_R0(___LBL(23))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),135,___G_cdr)
-___DEF_SLBL(23,___L23___riscv_23_riscv_2d_type_2d_j)
-   ___SET_R0(___LBL(24))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),124,___G___asm_23_asm_2d_label_2d_pos)
 ___DEF_SLBL(24,___L24___riscv_23_riscv_2d_type_2d_j)
+   ___IF_NARGS_EQ(2,___NOTHING)
+   ___WRONG_NARGS(24,2,0,0)
+___GATE2_OPEN(___ps,"_riscv#riscv-type-j",25,___LBL(25),___fp);
+___DEF_SLBL(25,___L25___riscv_23_riscv_2d_type_2d_j)
+___GATE2_ENTER(___ps,"_riscv#riscv-type-j",25,___LBL(25),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,8,0,___LBL(25),&___demand_attempt)){___ps->temp1=___LBL(25);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R0)
+   ___ADJFP(1)
+   ___SET_STK(1,___R4)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_R1(___CLO(___R4,2))
+   ___ADJFP(5)
+___group_demand_commit(___ps,___LBL(25),___demand_attempt);
+   ___POLL(26)
+___DEF_SLBL(26,___L26___riscv_23_riscv_2d_type_2d_j)
+   ___SET_R0(___LBL(27))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),135,___G_cdr)
+___DEF_SLBL(27,___L27___riscv_23_riscv_2d_type_2d_j)
+   ___SET_R0(___LBL(28))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),124,___G___asm_23_asm_2d_label_2d_pos)
+___DEF_SLBL(28,___L28___riscv_23_riscv_2d_type_2d_j)
    ___SET_STK(-4,___R1)
    ___SET_R1(___CLO(___STK(-6),2))
-   ___SET_R0(___LBL(25))
+   ___SET_R0(___LBL(29))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),134,___G_car)
-___DEF_SLBL(25,___L25___riscv_23_riscv_2d_type_2d_j)
+___DEF_SLBL(29,___L29___riscv_23_riscv_2d_type_2d_j)
    ___SET_R2(___R1)
    ___SET_R1(___STK(-5))
-   ___SET_R0(___LBL(26))
+   ___SET_R0(___LBL(30))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),141,___G_fx_2b_)
-___DEF_SLBL(26,___L26___riscv_23_riscv_2d_type_2d_j)
+___DEF_SLBL(30,___L30___riscv_23_riscv_2d_type_2d_j)
    ___SET_R2(___R1)
    ___SET_R1(___STK(-4))
-   ___SET_R0(___LBL(27))
+   ___SET_R0(___LBL(31))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),142,___G_fx_2d_)
-___DEF_SLBL(27,___L27___riscv_23_riscv_2d_type_2d_j)
+___DEF_SLBL(31,___L31___riscv_23_riscv_2d_type_2d_j)
    ___SET_STK(-5,___R1)
    ___SET_R2(___R1)
    ___SET_R1(___SYM_J)
-   ___SET_R0(___LBL(28))
+   ___SET_R0(___LBL(32))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),136,___G_cons)
-___DEF_SLBL(28,___L28___riscv_23_riscv_2d_type_2d_j)
+___DEF_SLBL(32,___L32___riscv_23_riscv_2d_type_2d_j)
    ___SET_STK(-4,___R1)
    ___SET_R1(___STK(-5))
    ___SET_R2(___FIX(-1048576L))
-   ___SET_R0(___LBL(29))
+   ___SET_R0(___LBL(33))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),147,___G_fx_3e__3d_)
-___DEF_SLBL(29,___L29___riscv_23_riscv_2d_type_2d_j)
+___DEF_SLBL(33,___L33___riscv_23_riscv_2d_type_2d_j)
    ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L41___riscv_23_riscv_2d_type_2d_j)
+   ___GOTO(___L45___riscv_23_riscv_2d_type_2d_j)
    ___END_IF
    ___SET_R1(___STK(-5))
    ___SET_R2(___FIX(1048574L))
-   ___SET_R0(___LBL(30))
+   ___SET_R0(___LBL(34))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),144,___G_fx_3c__3d_)
-___DEF_SLBL(30,___L30___riscv_23_riscv_2d_type_2d_j)
-   ___SET_R0(___LBL(31))
+___DEF_SLBL(34,___L34___riscv_23_riscv_2d_type_2d_j)
+   ___SET_R0(___LBL(35))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
-___DEF_SLBL(31,___L31___riscv_23_riscv_2d_type_2d_j)
+___DEF_SLBL(35,___L35___riscv_23_riscv_2d_type_2d_j)
    ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L38___riscv_23_riscv_2d_type_2d_j)
+   ___GOTO(___L42___riscv_23_riscv_2d_type_2d_j)
    ___END_IF
    ___SET_R1(___SUB(132))
-   ___SET_R0(___LBL(12))
+   ___SET_R0(___LBL(13))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),138,___G_error)
-___DEF_GLBL(___L41___riscv_23_riscv_2d_type_2d_j)
-   ___SET_R0(___LBL(31))
+___DEF_GLBL(___L45___riscv_23_riscv_2d_type_2d_j)
+   ___SET_R0(___LBL(35))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
-___DEF_SLBL(32,___L32___riscv_23_riscv_2d_type_2d_j)
+___DEF_SLBL(36,___L36___riscv_23_riscv_2d_type_2d_j)
    ___IF_NARGS_EQ(2,___NOTHING)
-   ___WRONG_NARGS(32,2,0,0)
+   ___WRONG_NARGS(36,2,0,0)
    ___SET_R1(___FIX(4L))
    ___JUMPRET(___R0)
-___DEF_GLBL(___L42___riscv_23_riscv_2d_type_2d_j)
+___DEF_GLBL(___L46___riscv_23_riscv_2d_type_2d_j)
    ___SET_R1(___STK(-4))
-   ___SET_R0(___LBL(33))
+   ___SET_R0(___LBL(37))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),134,___G_car)
-___DEF_SLBL(33,___L33___riscv_23_riscv_2d_type_2d_j)
+___DEF_SLBL(37,___L37___riscv_23_riscv_2d_type_2d_j)
    ___SET_R2(___SYM_J)
-   ___SET_R0(___LBL(34))
+   ___SET_R0(___LBL(38))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),137,___G_eq_3f_)
-___DEF_SLBL(34,___L34___riscv_23_riscv_2d_type_2d_j)
-   ___SET_R0(___LBL(8))
+___DEF_SLBL(38,___L38___riscv_23_riscv_2d_type_2d_j)
+   ___SET_R0(___LBL(9))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
-___DEF_GLBL(___L43___riscv_23_riscv_2d_type_2d_j)
+___DEF_GLBL(___L47___riscv_23_riscv_2d_type_2d_j)
    ___SET_R1(___STK(-4))
-   ___SET_R0(___LBL(7))
-   ___JUMPINT(___SET_NARGS(1),___PRC(24),___L___riscv_23_riscv_2d_imm_2d_int_3f_)
-___DEF_GLBL(___L44___riscv_23_riscv_2d_type_2d_j)
-   ___SET_R0(___LBL(4))
+   ___SET_R0(___LBL(8))
+   ___JUMPINT(___SET_NARGS(1),___PRC(27),___L___riscv_23_riscv_2d_imm_2d_int_3f_)
+___DEF_GLBL(___L48___riscv_23_riscv_2d_type_2d_j)
+   ___SET_R0(___LBL(5))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
 ___END_P_SW
 ___END_P_COD
@@ -9990,15 +11190,15 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_fence
 #undef ___PH_LBL0
-#define ___PH_LBL0 815
+#define ___PH_LBL0 952
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(24)
+___BEGIN_P_HLBL_AT(26)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_fence)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_fence)
@@ -10024,6 +11224,8 @@ ___DEF_P_HLBL(___L20___riscv_23_riscv_2d_fence)
 ___DEF_P_HLBL(___L21___riscv_23_riscv_2d_fence)
 ___DEF_P_HLBL(___L22___riscv_23_riscv_2d_fence)
 ___DEF_P_HLBL(___L23___riscv_23_riscv_2d_fence)
+___DEF_P_HLBL(___L24___riscv_23_riscv_2d_fence)
+___DEF_P_HLBL(___L25___riscv_23_riscv_2d_fence)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_fence)
@@ -10032,186 +11234,202 @@ ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_fence)
    ___IF_NARGS_EQ(3,___NOTHING)
    ___WRONG_NARGS(0,1,2,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_fence)
+___GATE2_OPEN(___ps,"_riscv#riscv-fence",1,___LBL(1),___fp);
+___DEF_SLBL(1,___L1___riscv_23_riscv_2d_fence)
+___GATE2_ENTER(___ps,"_riscv#riscv-fence",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,8,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
-   ___SET_STK(3,___R2)
-   ___SET_STK(4,___R3)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_STK(1,___R3)
+   ___ADJFP(1)
    ___SET_R1(___R2)
    ___SET_R2(___FIX(0L))
-   ___ADJFP(8)
-   ___POLL(1)
-___DEF_SLBL(1,___L1___riscv_23_riscv_2d_fence)
-   ___SET_R0(___LBL(2))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),146,___G_fx_3e_)
+   ___ADJFP(4)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___riscv_23_riscv_2d_fence)
+   ___SET_R0(___LBL(3))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),146,___G_fx_3e_)
+___DEF_SLBL(3,___L3___riscv_23_riscv_2d_fence)
    ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L37___riscv_23_riscv_2d_fence)
+   ___GOTO(___L39___riscv_23_riscv_2d_fence)
    ___END_IF
    ___SET_R1(___STK(-5))
    ___SET_R2(___FIX(16L))
-   ___SET_R0(___LBL(3))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),143,___G_fx_3c_)
-___DEF_SLBL(3,___L3___riscv_23_riscv_2d_fence)
    ___SET_R0(___LBL(4))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),143,___G_fx_3c_)
 ___DEF_SLBL(4,___L4___riscv_23_riscv_2d_fence)
+   ___SET_R0(___LBL(5))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
+___DEF_SLBL(5,___L5___riscv_23_riscv_2d_fence)
    ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L24___riscv_23_riscv_2d_fence)
+   ___GOTO(___L26___riscv_23_riscv_2d_fence)
    ___END_IF
    ___SET_R1(___SUB(133))
-   ___SET_R0(___LBL(5))
+   ___SET_R0(___LBL(6))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),138,___G_error)
-___DEF_SLBL(5,___L5___riscv_23_riscv_2d_fence)
-___DEF_GLBL(___L24___riscv_23_riscv_2d_fence)
+___DEF_SLBL(6,___L6___riscv_23_riscv_2d_fence)
+___DEF_GLBL(___L26___riscv_23_riscv_2d_fence)
    ___SET_R1(___STK(-4))
    ___SET_R2(___FIX(0L))
-   ___SET_R0(___LBL(6))
+   ___SET_R0(___LBL(7))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),146,___G_fx_3e_)
-___DEF_SLBL(6,___L6___riscv_23_riscv_2d_fence)
+___DEF_SLBL(7,___L7___riscv_23_riscv_2d_fence)
    ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L36___riscv_23_riscv_2d_fence)
+   ___GOTO(___L38___riscv_23_riscv_2d_fence)
    ___END_IF
    ___SET_R1(___STK(-4))
    ___SET_R2(___FIX(16L))
-   ___SET_R0(___LBL(7))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),143,___G_fx_3c_)
-___DEF_SLBL(7,___L7___riscv_23_riscv_2d_fence)
    ___SET_R0(___LBL(8))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),143,___G_fx_3c_)
 ___DEF_SLBL(8,___L8___riscv_23_riscv_2d_fence)
+   ___SET_R0(___LBL(9))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
+___DEF_SLBL(9,___L9___riscv_23_riscv_2d_fence)
    ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L25___riscv_23_riscv_2d_fence)
+   ___GOTO(___L27___riscv_23_riscv_2d_fence)
    ___END_IF
    ___SET_R1(___SUB(134))
-   ___SET_R0(___LBL(9))
+   ___SET_R0(___LBL(10))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),138,___G_error)
-___DEF_SLBL(9,___L9___riscv_23_riscv_2d_fence)
-___DEF_GLBL(___L25___riscv_23_riscv_2d_fence)
+___DEF_SLBL(10,___L10___riscv_23_riscv_2d_fence)
+___DEF_GLBL(___L27___riscv_23_riscv_2d_fence)
    ___SET_R1(___STK(-4))
    ___SET_R2(___FIX(20L))
-   ___SET_R0(___LBL(10))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),149,___G_fxarithmetic_2d_shift)
-___DEF_SLBL(10,___L10___riscv_23_riscv_2d_fence)
-   ___SET_STK(-3,___R1)
-   ___SET_R1(___STK(-5))
-   ___SET_R2(___FIX(24L))
    ___SET_R0(___LBL(11))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),149,___G_fxarithmetic_2d_shift)
 ___DEF_SLBL(11,___L11___riscv_23_riscv_2d_fence)
+   ___SET_STK(-3,___R1)
+   ___SET_R1(___STK(-5))
+   ___SET_R2(___FIX(24L))
+   ___SET_R0(___LBL(12))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),149,___G_fxarithmetic_2d_shift)
+___DEF_SLBL(12,___L12___riscv_23_riscv_2d_fence)
    ___SET_R3(___R1)
    ___SET_R1(___FIX(15L))
    ___SET_R2(___STK(-3))
-   ___SET_R0(___LBL(12))
+   ___SET_R0(___LBL(13))
    ___JUMPGLONOTSAFE(___SET_NARGS(3),141,___G_fx_2b_)
-___DEF_SLBL(12,___L12___riscv_23_riscv_2d_fence)
+___DEF_SLBL(13,___L13___riscv_23_riscv_2d_fence)
    ___SET_R2(___R1)
    ___SET_R1(___STK(-6))
-   ___SET_R0(___LBL(13))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),119,___G___asm_23_asm_2d_32_2d_le)
-___DEF_SLBL(13,___L13___riscv_23_riscv_2d_fence)
-   ___SET_R1(___STK(-6))
    ___SET_R0(___LBL(14))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),131,___G___codegen_23_codegen_2d_context_2d_listing_2d_format)
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),119,___G___asm_23_asm_2d_32_2d_le)
 ___DEF_SLBL(14,___L14___riscv_23_riscv_2d_fence)
+   ___SET_R1(___STK(-6))
+   ___SET_R0(___LBL(15))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),131,___G___codegen_23_codegen_2d_context_2d_listing_2d_format)
+___DEF_SLBL(15,___L15___riscv_23_riscv_2d_fence)
    ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L35___riscv_23_riscv_2d_fence)
+   ___GOTO(___L37___riscv_23_riscv_2d_fence)
    ___END_IF
    ___SET_STK(-3,___STK(-7))
    ___SET_STK(-7,___STK(-6))
    ___SET_R1(___STK(-5))
-   ___SET_R0(___LBL(15))
-   ___GOTO(___L26___riscv_23_riscv_2d_fence)
-___DEF_SLBL(15,___L15___riscv_23_riscv_2d_fence)
+   ___SET_R0(___LBL(16))
+   ___GOTO(___L28___riscv_23_riscv_2d_fence)
+___DEF_SLBL(16,___L16___riscv_23_riscv_2d_fence)
    ___SET_STK(-6,___R1)
    ___SET_R1(___STK(-4))
-   ___SET_R0(___LBL(22))
-___DEF_GLBL(___L26___riscv_23_riscv_2d_fence)
+   ___SET_R0(___LBL(24))
+___DEF_GLBL(___L28___riscv_23_riscv_2d_fence)
+___GATE2_OPEN(___ps,"_riscv#riscv-fence",17,___LBL(17),___fp);
+___DEF_SLBL(17,___L17___riscv_23_riscv_2d_fence)
+___GATE2_ENTER(___ps,"_riscv#riscv-fence",17,___LBL(17),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,8,0,___LBL(17),&___demand_attempt)){___ps->temp1=___LBL(17);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
    ___SET_R2(___R1)
    ___SET_R1(___FIX(3L))
-   ___ADJFP(8)
-   ___POLL(16)
-___DEF_SLBL(16,___L16___riscv_23_riscv_2d_fence)
-   ___SET_R0(___LBL(17))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),150,___G_fxbit_2d_set_3f_)
-___DEF_SLBL(17,___L17___riscv_23_riscv_2d_fence)
-   ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L27___riscv_23_riscv_2d_fence)
-   ___END_IF
-   ___SET_R1(___SUB(135))
-   ___GOTO(___L28___riscv_23_riscv_2d_fence)
-___DEF_GLBL(___L27___riscv_23_riscv_2d_fence)
-   ___SET_R1(___SUB(136))
-___DEF_GLBL(___L28___riscv_23_riscv_2d_fence)
-   ___SET_STK(-5,___STK(-7))
-   ___SET_STK(-7,___R1)
-   ___SET_R2(___STK(-6))
-   ___SET_R1(___FIX(2L))
-   ___SET_R0(___LBL(18))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),150,___G_fxbit_2d_set_3f_)
+   ___ADJFP(6)
+___group_demand_commit(___ps,___LBL(17),___demand_attempt);
+   ___POLL(18)
 ___DEF_SLBL(18,___L18___riscv_23_riscv_2d_fence)
-   ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L29___riscv_23_riscv_2d_fence)
-   ___END_IF
-   ___SET_R1(___SUB(137))
-   ___GOTO(___L30___riscv_23_riscv_2d_fence)
-___DEF_GLBL(___L29___riscv_23_riscv_2d_fence)
-   ___SET_R1(___SUB(138))
-___DEF_GLBL(___L30___riscv_23_riscv_2d_fence)
-   ___SET_STK(-4,___R1)
-   ___SET_R2(___STK(-6))
-   ___SET_R1(___FIX(1L))
    ___SET_R0(___LBL(19))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),150,___G_fxbit_2d_set_3f_)
 ___DEF_SLBL(19,___L19___riscv_23_riscv_2d_fence)
    ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L31___riscv_23_riscv_2d_fence)
+   ___GOTO(___L29___riscv_23_riscv_2d_fence)
    ___END_IF
-   ___SET_R2(___SUB(139))
-   ___GOTO(___L32___riscv_23_riscv_2d_fence)
-___DEF_GLBL(___L31___riscv_23_riscv_2d_fence)
-   ___SET_R2(___SUB(140))
-___DEF_GLBL(___L32___riscv_23_riscv_2d_fence)
-   ___SET_STK(-3,___R2)
+   ___SET_R1(___SUB(135))
+   ___GOTO(___L30___riscv_23_riscv_2d_fence)
+___DEF_GLBL(___L29___riscv_23_riscv_2d_fence)
+   ___SET_R1(___SUB(136))
+___DEF_GLBL(___L30___riscv_23_riscv_2d_fence)
+   ___SET_STK(-5,___STK(-7))
+   ___SET_STK(-7,___R1)
    ___SET_R2(___STK(-6))
-   ___SET_R1(___FIX(0L))
+   ___SET_R1(___FIX(2L))
    ___SET_R0(___LBL(20))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),150,___G_fxbit_2d_set_3f_)
 ___DEF_SLBL(20,___L20___riscv_23_riscv_2d_fence)
    ___IF(___NOT(___NOTFALSEP(___R1)))
+   ___GOTO(___L31___riscv_23_riscv_2d_fence)
+   ___END_IF
+   ___SET_R1(___SUB(137))
+   ___GOTO(___L32___riscv_23_riscv_2d_fence)
+___DEF_GLBL(___L31___riscv_23_riscv_2d_fence)
+   ___SET_R1(___SUB(138))
+___DEF_GLBL(___L32___riscv_23_riscv_2d_fence)
+   ___SET_STK(-4,___R1)
+   ___SET_R2(___STK(-6))
+   ___SET_R1(___FIX(1L))
+   ___SET_R0(___LBL(21))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),150,___G_fxbit_2d_set_3f_)
+___DEF_SLBL(21,___L21___riscv_23_riscv_2d_fence)
+   ___IF(___NOT(___NOTFALSEP(___R1)))
    ___GOTO(___L33___riscv_23_riscv_2d_fence)
    ___END_IF
-   ___SET_R3(___SUB(141))
+   ___SET_R2(___SUB(139))
    ___GOTO(___L34___riscv_23_riscv_2d_fence)
 ___DEF_GLBL(___L33___riscv_23_riscv_2d_fence)
-   ___SET_R3(___SUB(142))
+   ___SET_R2(___SUB(140))
 ___DEF_GLBL(___L34___riscv_23_riscv_2d_fence)
+   ___SET_STK(-3,___R2)
+   ___SET_R2(___STK(-6))
+   ___SET_R1(___FIX(0L))
+   ___SET_R0(___LBL(22))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),150,___G_fxbit_2d_set_3f_)
+___DEF_SLBL(22,___L22___riscv_23_riscv_2d_fence)
+   ___IF(___NOT(___NOTFALSEP(___R1)))
+   ___GOTO(___L35___riscv_23_riscv_2d_fence)
+   ___END_IF
+   ___SET_R3(___SUB(141))
+   ___GOTO(___L36___riscv_23_riscv_2d_fence)
+___DEF_GLBL(___L35___riscv_23_riscv_2d_fence)
+   ___SET_R3(___SUB(142))
+___DEF_GLBL(___L36___riscv_23_riscv_2d_fence)
    ___SET_R0(___STK(-5))
    ___SET_R2(___STK(-3))
    ___SET_R1(___STK(-4))
-   ___POLL(21)
-___DEF_SLBL(21,___L21___riscv_23_riscv_2d_fence)
+   ___POLL(23)
+___DEF_SLBL(23,___L23___riscv_23_riscv_2d_fence)
    ___ADJFP(-7)
    ___JUMPGLONOTSAFE(___SET_NARGS(4),162,___G_string_2d_append)
-___DEF_SLBL(22,___L22___riscv_23_riscv_2d_fence)
+___DEF_SLBL(24,___L24___riscv_23_riscv_2d_fence)
    ___SET_R3(___R1)
    ___SET_R1(___SUB(143))
    ___SET_R0(___STK(-3))
    ___SET_R2(___STK(-6))
-   ___POLL(23)
-___DEF_SLBL(23,___L23___riscv_23_riscv_2d_fence)
+   ___POLL(25)
+___DEF_SLBL(25,___L25___riscv_23_riscv_2d_fence)
    ___ADJFP(-7)
-   ___SET_NARGS(4) ___JUMPINT(___NOTHING,___PRC(90),___L0___riscv_23_riscv_2d_listing)
-___DEF_GLBL(___L35___riscv_23_riscv_2d_fence)
+   ___SET_NARGS(4) ___JUMPINT(___NOTHING,___PRC(97),___L0___riscv_23_riscv_2d_listing)
+___DEF_GLBL(___L37___riscv_23_riscv_2d_fence)
    ___SET_R1(___VOID)
    ___ADJFP(-8)
    ___JUMPRET(___STK(1))
-___DEF_GLBL(___L36___riscv_23_riscv_2d_fence)
-   ___SET_R0(___LBL(8))
+___DEF_GLBL(___L38___riscv_23_riscv_2d_fence)
+   ___SET_R0(___LBL(9))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
-___DEF_GLBL(___L37___riscv_23_riscv_2d_fence)
-   ___SET_R0(___LBL(4))
+___DEF_GLBL(___L39___riscv_23_riscv_2d_fence)
+   ___SET_R0(___LBL(5))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),157,___G_not)
 ___END_P_SW
 ___END_P_COD
@@ -10219,51 +11437,59 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_fence_2e_i
 #undef ___PH_LBL0
-#define ___PH_LBL0 840
+#define ___PH_LBL0 979
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(5)
+___BEGIN_P_HLBL_AT(6)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_fence_2e_i)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_fence_2e_i)
 ___DEF_P_HLBL(___L2___riscv_23_riscv_2d_fence_2e_i)
 ___DEF_P_HLBL(___L3___riscv_23_riscv_2d_fence_2e_i)
 ___DEF_P_HLBL(___L4___riscv_23_riscv_2d_fence_2e_i)
+___DEF_P_HLBL(___L5___riscv_23_riscv_2d_fence_2e_i)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_fence_2e_i)
    ___IF_NARGS_EQ(1,___NOTHING)
    ___WRONG_NARGS(0,1,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_fence_2e_i)
-   ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
-   ___SET_R2(___FIX(4111L))
-   ___ADJFP(8)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_riscv#riscv-fence.i",1,___LBL(1),___fp);
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_fence_2e_i)
-   ___SET_R0(___LBL(2))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),119,___G___asm_23_asm_2d_32_2d_le)
+___GATE2_ENTER(___ps,"_riscv#riscv-fence.i",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,8,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R0)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_R2(___FIX(4111L))
+   ___ADJFP(6)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___riscv_23_riscv_2d_fence_2e_i)
-   ___SET_R1(___STK(-6))
    ___SET_R0(___LBL(3))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),131,___G___codegen_23_codegen_2d_context_2d_listing_2d_format)
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),119,___G___asm_23_asm_2d_32_2d_le)
 ___DEF_SLBL(3,___L3___riscv_23_riscv_2d_fence_2e_i)
+   ___SET_R1(___STK(-6))
+   ___SET_R0(___LBL(4))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),131,___G___codegen_23_codegen_2d_context_2d_listing_2d_format)
+___DEF_SLBL(4,___L4___riscv_23_riscv_2d_fence_2e_i)
    ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L5___riscv_23_riscv_2d_fence_2e_i)
+   ___GOTO(___L6___riscv_23_riscv_2d_fence_2e_i)
    ___END_IF
    ___SET_R1(___STK(-6))
    ___SET_R2(___SUB(144))
    ___SET_R0(___STK(-7))
-   ___POLL(4)
-___DEF_SLBL(4,___L4___riscv_23_riscv_2d_fence_2e_i)
+   ___POLL(5)
+___DEF_SLBL(5,___L5___riscv_23_riscv_2d_fence_2e_i)
    ___ADJFP(-8)
-   ___SET_NARGS(2) ___JUMPINT(___NOTHING,___PRC(90),___L0___riscv_23_riscv_2d_listing)
-___DEF_GLBL(___L5___riscv_23_riscv_2d_fence_2e_i)
+   ___SET_NARGS(2) ___JUMPINT(___NOTHING,___PRC(97),___L0___riscv_23_riscv_2d_listing)
+___DEF_GLBL(___L6___riscv_23_riscv_2d_fence_2e_i)
    ___SET_R1(___VOID)
    ___ADJFP(-8)
    ___JUMPRET(___STK(1))
@@ -10273,51 +11499,59 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_ecall
 #undef ___PH_LBL0
-#define ___PH_LBL0 846
+#define ___PH_LBL0 986
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(5)
+___BEGIN_P_HLBL_AT(6)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_ecall)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_ecall)
 ___DEF_P_HLBL(___L2___riscv_23_riscv_2d_ecall)
 ___DEF_P_HLBL(___L3___riscv_23_riscv_2d_ecall)
 ___DEF_P_HLBL(___L4___riscv_23_riscv_2d_ecall)
+___DEF_P_HLBL(___L5___riscv_23_riscv_2d_ecall)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_ecall)
    ___IF_NARGS_EQ(1,___NOTHING)
    ___WRONG_NARGS(0,1,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_ecall)
-   ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
-   ___SET_R2(___FIX(115L))
-   ___ADJFP(8)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_riscv#riscv-ecall",1,___LBL(1),___fp);
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_ecall)
-   ___SET_R0(___LBL(2))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),119,___G___asm_23_asm_2d_32_2d_le)
+___GATE2_ENTER(___ps,"_riscv#riscv-ecall",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,8,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R0)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_R2(___FIX(115L))
+   ___ADJFP(6)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___riscv_23_riscv_2d_ecall)
-   ___SET_R1(___STK(-6))
    ___SET_R0(___LBL(3))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),131,___G___codegen_23_codegen_2d_context_2d_listing_2d_format)
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),119,___G___asm_23_asm_2d_32_2d_le)
 ___DEF_SLBL(3,___L3___riscv_23_riscv_2d_ecall)
+   ___SET_R1(___STK(-6))
+   ___SET_R0(___LBL(4))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),131,___G___codegen_23_codegen_2d_context_2d_listing_2d_format)
+___DEF_SLBL(4,___L4___riscv_23_riscv_2d_ecall)
    ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L5___riscv_23_riscv_2d_ecall)
+   ___GOTO(___L6___riscv_23_riscv_2d_ecall)
    ___END_IF
    ___SET_R1(___STK(-6))
    ___SET_R2(___SUB(145))
    ___SET_R0(___STK(-7))
-   ___POLL(4)
-___DEF_SLBL(4,___L4___riscv_23_riscv_2d_ecall)
+   ___POLL(5)
+___DEF_SLBL(5,___L5___riscv_23_riscv_2d_ecall)
    ___ADJFP(-8)
-   ___SET_NARGS(2) ___JUMPINT(___NOTHING,___PRC(90),___L0___riscv_23_riscv_2d_listing)
-___DEF_GLBL(___L5___riscv_23_riscv_2d_ecall)
+   ___SET_NARGS(2) ___JUMPINT(___NOTHING,___PRC(97),___L0___riscv_23_riscv_2d_listing)
+___DEF_GLBL(___L6___riscv_23_riscv_2d_ecall)
    ___SET_R1(___VOID)
    ___ADJFP(-8)
    ___JUMPRET(___STK(1))
@@ -10327,51 +11561,59 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___riscv_23_riscv_2d_ebreak
 #undef ___PH_LBL0
-#define ___PH_LBL0 852
+#define ___PH_LBL0 993
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(5)
+___BEGIN_P_HLBL_AT(6)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___riscv_23_riscv_2d_ebreak)
 ___DEF_P_HLBL(___L1___riscv_23_riscv_2d_ebreak)
 ___DEF_P_HLBL(___L2___riscv_23_riscv_2d_ebreak)
 ___DEF_P_HLBL(___L3___riscv_23_riscv_2d_ebreak)
 ___DEF_P_HLBL(___L4___riscv_23_riscv_2d_ebreak)
+___DEF_P_HLBL(___L5___riscv_23_riscv_2d_ebreak)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___riscv_23_riscv_2d_ebreak)
    ___IF_NARGS_EQ(1,___NOTHING)
    ___WRONG_NARGS(0,1,0,0)
 ___DEF_GLBL(___L___riscv_23_riscv_2d_ebreak)
-   ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
-   ___SET_R2(___FIX(1048691L))
-   ___ADJFP(8)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_riscv#riscv-ebreak",1,___LBL(1),___fp);
 ___DEF_SLBL(1,___L1___riscv_23_riscv_2d_ebreak)
-   ___SET_R0(___LBL(2))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),119,___G___asm_23_asm_2d_32_2d_le)
+___GATE2_ENTER(___ps,"_riscv#riscv-ebreak",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,8,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R0)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_R2(___FIX(1048691L))
+   ___ADJFP(6)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___riscv_23_riscv_2d_ebreak)
-   ___SET_R1(___STK(-6))
    ___SET_R0(___LBL(3))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),131,___G___codegen_23_codegen_2d_context_2d_listing_2d_format)
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),119,___G___asm_23_asm_2d_32_2d_le)
 ___DEF_SLBL(3,___L3___riscv_23_riscv_2d_ebreak)
+   ___SET_R1(___STK(-6))
+   ___SET_R0(___LBL(4))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),131,___G___codegen_23_codegen_2d_context_2d_listing_2d_format)
+___DEF_SLBL(4,___L4___riscv_23_riscv_2d_ebreak)
    ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L5___riscv_23_riscv_2d_ebreak)
+   ___GOTO(___L6___riscv_23_riscv_2d_ebreak)
    ___END_IF
    ___SET_R1(___STK(-6))
    ___SET_R2(___SUB(146))
    ___SET_R0(___STK(-7))
-   ___POLL(4)
-___DEF_SLBL(4,___L4___riscv_23_riscv_2d_ebreak)
+   ___POLL(5)
+___DEF_SLBL(5,___L5___riscv_23_riscv_2d_ebreak)
    ___ADJFP(-8)
-   ___SET_NARGS(2) ___JUMPINT(___NOTHING,___PRC(90),___L0___riscv_23_riscv_2d_listing)
-___DEF_GLBL(___L5___riscv_23_riscv_2d_ebreak)
+   ___SET_NARGS(2) ___JUMPINT(___NOTHING,___PRC(97),___L0___riscv_23_riscv_2d_listing)
+___DEF_GLBL(___L6___riscv_23_riscv_2d_ebreak)
    ___SET_R1(___VOID)
    ___ADJFP(-8)
    ___JUMPRET(___STK(1))
@@ -10390,71 +11632,77 @@ ___BEGIN_LBL
 ,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_arch_2d_set_21_,___REF_SYM(15,___S___riscv_23_riscv_2d_arch_2d_set_21_),___REF_FAL,2,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_arch_2d_set_21_,2,-1,1)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_arch_2d_set_21_,___IFD(___RETI,0,0,0x3fL),2)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_64bit_2d_mode_3f_,___REF_SYM(8,___S___riscv_23_riscv_2d_64bit_2d_mode_3f_),___REF_FAL,4,0)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_64bit_2d_mode_3f_,___REF_SYM(8,___S___riscv_23_riscv_2d_64bit_2d_mode_3f_),___REF_FAL,5,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_64bit_2d_mode_3f_,1,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_64bit_2d_mode_3f_,___IFD(___RETI,4,0,0x3f1L),2)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_64bit_2d_mode_3f_,___IFD(___RETN,1,0,0x1L),3)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_64bit_2d_mode_3f_,___IFD(___RETI,4,4,0x3f0L),4)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_word_2d_width,___REF_SYM(119,___S___riscv_23_riscv_2d_word_2d_width),___REF_FAL,3,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_64bit_2d_mode_3f_,___IFD(___RETI,0,0,0x3fL),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_64bit_2d_mode_3f_,___IFD(___RETI,4,0,0x3f1L),3)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_64bit_2d_mode_3f_,___IFD(___RETN,1,0,0x1L),4)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_64bit_2d_mode_3f_,___IFD(___RETI,4,4,0x3f0L),5)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_word_2d_width,___REF_SYM(119,___S___riscv_23_riscv_2d_word_2d_width),___REF_FAL,4,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_word_2d_width,1,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_word_2d_width,___IFD(___RETI,4,0,0x3f1L),2)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_word_2d_width,___IFD(___RETN,1,0,0x1L),3)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_word_2d_width,___IFD(___RETI,0,0,0x3fL),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_word_2d_width,___IFD(___RETI,4,0,0x3f1L),3)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_word_2d_width,___IFD(___RETN,1,0,0x1L),4)
 ,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_imm_3f_,___REF_SYM(58,___S___riscv_23_riscv_2d_imm_3f_),___REF_FAL,2,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_imm_3f_,1,-1,1)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_3f_,___IFD(___RETI,0,0,0x3fL),2)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_imm_2d_int,___REF_SYM(50,___S___riscv_23_riscv_2d_imm_2d_int),___REF_FAL,2,0)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_imm_2d_int,___REF_SYM(50,___S___riscv_23_riscv_2d_imm_2d_int),___REF_FAL,3,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_imm_2d_int,2,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d_int,___IFD(___RETI,1,4,0x3f0L),2)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_imm_2d_int_3f_,___REF_SYM(53,___S___riscv_23_riscv_2d_imm_2d_int_3f_),___REF_FAL,7,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d_int,___IFD(___RETI,0,0,0x3fL),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d_int,___IFD(___RETI,1,4,0x3f0L),3)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_imm_2d_int_3f_,___REF_SYM(53,___S___riscv_23_riscv_2d_imm_2d_int_3f_),___REF_FAL,8,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_imm_2d_int_3f_,1,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d_int_3f_,___IFD(___RETI,8,0,0x3f03L),2)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d_int_3f_,___IFD(___RETN,5,0,0x3L),3)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d_int_3f_,___IFD(___RETI,0,0,0x3fL),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d_int_3f_,___IFD(___RETI,8,0,0x3f03L),3)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d_int_3f_,___IFD(___RETN,5,0,0x3L),4)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d_int_3f_,___IFD(___RETN,5,0,0x3L),5)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d_int_3f_,___IFD(___RETN,1,0,0x1L),6)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d_int_3f_,___IFD(___RETI,4,4,0x3f0L),7)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d_int_3f_,___IFD(___RETN,5,0,0x3L),6)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d_int_3f_,___IFD(___RETN,1,0,0x1L),7)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d_int_3f_,___IFD(___RETI,4,4,0x3f0L),8)
 ,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_imm_2d_int_2d_type,___REF_SYM(51,___S___riscv_23_riscv_2d_imm_2d_int_2d_type),___REF_FAL,2,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_imm_2d_int_2d_type,1,-1,1)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d_int_2d_type,___IFD(___RETI,0,0,0x3fL),2)
 ,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_imm_2d_int_2d_value,___REF_SYM(52,___S___riscv_23_riscv_2d_imm_2d_int_2d_value),___REF_FAL,2,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_imm_2d_int_2d_value,1,-1,1)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d_int_2d_value,___IFD(___RETI,0,0,0x3fL),2)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_imm_2d_lbl,___REF_SYM(54,___S___riscv_23_riscv_2d_imm_2d_lbl),___REF_FAL,2,0)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_imm_2d_lbl,___REF_SYM(54,___S___riscv_23_riscv_2d_imm_2d_lbl),___REF_FAL,3,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_imm_2d_lbl,2,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d_lbl,___IFD(___RETI,1,4,0x3f0L),2)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_imm_2d_lbl_3f_,___REF_SYM(57,___S___riscv_23_riscv_2d_imm_2d_lbl_3f_),___REF_FAL,7,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d_lbl,___IFD(___RETI,0,0,0x3fL),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d_lbl,___IFD(___RETI,1,4,0x3f0L),3)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_imm_2d_lbl_3f_,___REF_SYM(57,___S___riscv_23_riscv_2d_imm_2d_lbl_3f_),___REF_FAL,8,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_imm_2d_lbl_3f_,1,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d_lbl_3f_,___IFD(___RETI,8,0,0x3f03L),2)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d_lbl_3f_,___IFD(___RETN,5,0,0x3L),3)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d_lbl_3f_,___IFD(___RETI,0,0,0x3fL),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d_lbl_3f_,___IFD(___RETI,8,0,0x3f03L),3)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d_lbl_3f_,___IFD(___RETN,5,0,0x3L),4)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d_lbl_3f_,___IFD(___RETN,5,0,0x3L),5)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d_lbl_3f_,___IFD(___RETN,1,0,0x1L),6)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d_lbl_3f_,___IFD(___RETI,4,4,0x3f0L),7)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d_lbl_3f_,___IFD(___RETN,5,0,0x3L),6)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d_lbl_3f_,___IFD(___RETN,1,0,0x1L),7)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d_lbl_3f_,___IFD(___RETI,4,4,0x3f0L),8)
 ,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_imm_2d_lbl_2d_offset,___REF_SYM(56,___S___riscv_23_riscv_2d_imm_2d_lbl_2d_offset),___REF_FAL,2,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_imm_2d_lbl_2d_offset,1,-1,1)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d_lbl_2d_offset,___IFD(___RETI,0,0,0x3fL),2)
 ,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_imm_2d_lbl_2d_label,___REF_SYM(55,___S___riscv_23_riscv_2d_imm_2d_lbl_2d_label),___REF_FAL,2,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_imm_2d_lbl_2d_label,1,-1,1)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d_lbl_2d_label,___IFD(___RETI,0,0,0x3fL),2)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_imm_2d__3e_instr,___REF_SYM(49,___S___riscv_23_riscv_2d_imm_2d__3e_instr),___REF_FAL,34,0)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_imm_2d__3e_instr,___REF_SYM(49,___S___riscv_23_riscv_2d_imm_2d__3e_instr),___REF_FAL,35,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_imm_2d__3e_instr,1,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d__3e_instr,___IFD(___RETI,8,0,0x3f03L),2)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d__3e_instr,___IFD(___RETN,5,0,0x3L),3)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d__3e_instr,___IFD(___RETN,5,0,0x7L),4)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d__3e_instr,___IFD(___RETN,5,0,0x5L),5)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d__3e_instr,___IFD(___RETI,0,0,0x3fL),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d__3e_instr,___IFD(___RETI,8,0,0x3f03L),3)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d__3e_instr,___IFD(___RETN,5,0,0x3L),4)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d__3e_instr,___IFD(___RETN,5,0,0x7L),5)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d__3e_instr,___IFD(___RETN,5,0,0x5L),6)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d__3e_instr,___IFD(___RETN,5,0,0x5L),7)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d__3e_instr,___IFD(___RETN,5,0,0x5L),8)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d__3e_instr,___IFD(___RETN,5,0,0x15L),9)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d__3e_instr,___IFD(___RETN,5,0,0x5L),9)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d__3e_instr,___IFD(___RETN,5,0,0x15L),10)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d__3e_instr,___IFD(___RETN,5,0,0x17L),11)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d__3e_instr,___IFD(___RETN,5,0,0x15L),11)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d__3e_instr,___IFD(___RETN,5,0,0x17L),12)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d__3e_instr,___IFD(___RETN,5,0,0x1bL),13)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d__3e_instr,___IFD(___RETN,5,0,0x17L),13)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d__3e_instr,___IFD(___RETN,5,0,0x1bL),14)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d__3e_instr,___IFD(___RETN,1,0,0x1L),15)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d__3e_instr,___IFD(___RETN,5,0,0x5L),16)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d__3e_instr,___IFD(___RETI,4,4,0x3f0L),17)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d__3e_instr,___IFD(___RETN,5,0,0x5L),18)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d__3e_instr,___IFD(___RETN,5,0,0x1bL),15)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d__3e_instr,___IFD(___RETN,1,0,0x1L),16)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d__3e_instr,___IFD(___RETN,5,0,0x5L),17)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d__3e_instr,___IFD(___RETI,4,4,0x3f0L),18)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d__3e_instr,___IFD(___RETN,5,0,0x5L),19)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d__3e_instr,___IFD(___RETN,5,0,0x5L),20)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d__3e_instr,___IFD(___RETN,5,0,0x5L),21)
@@ -10462,44 +11710,48 @@ ___BEGIN_LBL
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d__3e_instr,___IFD(___RETN,5,0,0x5L),23)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d__3e_instr,___IFD(___RETN,5,0,0x5L),24)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d__3e_instr,___IFD(___RETN,5,0,0x5L),25)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d__3e_instr,___IFD(___RETN,5,0,0x15L),26)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d__3e_instr,___IFD(___RETN,5,0,0x5L),26)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d__3e_instr,___IFD(___RETN,5,0,0x15L),27)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d__3e_instr,___IFD(___RETN,5,0,0x17L),28)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d__3e_instr,___IFD(___RETN,5,0,0x15L),28)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d__3e_instr,___IFD(___RETN,5,0,0x17L),29)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d__3e_instr,___IFD(___RETN,5,0,0x1bL),30)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d__3e_instr,___IFD(___RETN,5,0,0x5L),31)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d__3e_instr,___IFD(___RETN,5,0,0x17L),30)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d__3e_instr,___IFD(___RETN,5,0,0x1bL),31)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d__3e_instr,___IFD(___RETN,5,0,0x5L),32)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d__3e_instr,___IFD(___RETN,5,0,0x3L),33)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d__3e_instr,___IFD(___RETN,5,0,0x5L),33)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d__3e_instr,___IFD(___RETN,5,0,0x3L),34)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_listing,___REF_SYM(72,___S___riscv_23_riscv_2d_listing),___REF_FAL,20,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_imm_2d__3e_instr,___IFD(___RETN,5,0,0x3L),35)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_listing,___REF_SYM(72,___S___riscv_23_riscv_2d_listing),___REF_FAL,22,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_listing,3,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_listing,___IFD(___RETI,8,0,0x3f07L),2)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_listing,___IFD(___RETN,5,0,0x7L),3)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_listing,___IFD(___RETI,0,0,0x3fL),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_listing,___IFD(___RETI,8,0,0x3f07L),3)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_listing,___IFD(___RETN,5,0,0x7L),4)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_listing,___IFD(___RETN,5,0,0xfL),5)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_listing,___IFD(___RETN,5,0,0x7L),6)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_listing,___IFD(___RETN,5,0,0x3L),7)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_listing,___IFD(___RETN,5,0,0x7L),5)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_listing,___IFD(___RETN,5,0,0xfL),6)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_listing,___IFD(___RETN,5,0,0x7L),7)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_listing,___IFD(___RETN,5,0,0x3L),8)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_listing,___IFD(___RETI,8,8,0x3f00L),9)
-,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_listing,1,-1,10)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_listing,___IFD(___RETI,8,0,0x3f03L),11)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_listing,___IFD(___RETN,5,0,0x3L),12)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_listing,___IFD(___RETI,8,8,0x3f00L),13)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_listing,___IFD(___RETN,5,0,0x3L),9)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_listing,___IFD(___RETI,8,8,0x3f00L),10)
+,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_listing,1,-1,11)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_listing,___IFD(___RETI,0,0,0x3fL),12)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_listing,___IFD(___RETI,8,0,0x3f03L),13)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_listing,___IFD(___RETN,5,0,0x3L),14)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_listing,___IFD(___RETN,5,0,0x3L),15)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_listing,___IFD(___RETI,8,8,0x3f00L),16)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_listing,___IFD(___RETI,8,8,0x3f00L),15)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_listing,___IFD(___RETN,5,0,0x3L),16)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_listing,___IFD(___RETN,5,0,0x3L),17)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_listing,___IFD(___RETI,8,8,0x3f00L),18)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_listing,___IFD(___RETN,1,0,0x1L),19)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_listing,___IFD(___RETI,4,4,0x3f0L),20)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_label,___REF_SYM(65,___S___riscv_23_riscv_2d_label),___REF_FAL,7,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_listing,___IFD(___RETN,5,0,0x3L),19)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_listing,___IFD(___RETI,8,8,0x3f00L),20)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_listing,___IFD(___RETN,1,0,0x1L),21)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_listing,___IFD(___RETI,4,4,0x3f0L),22)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_label,___REF_SYM(65,___S___riscv_23_riscv_2d_label),___REF_FAL,8,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_label,2,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_label,___IFD(___RETI,8,0,0x3f07L),2)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_label,___IFD(___RETN,5,0,0x7L),3)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_label,___IFD(___RETI,0,0,0x3fL),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_label,___IFD(___RETI,8,0,0x3f07L),3)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_label,___IFD(___RETN,5,0,0x7L),4)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_label,___IFD(___RETN,5,0,0x3L),5)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_label,___IFD(___RETN,5,0,0x7L),5)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_label,___IFD(___RETN,5,0,0x3L),6)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_label,___IFD(___RETI,8,8,0x3f00L),7)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_label,___IFD(___RETN,5,0,0x3L),7)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_label,___IFD(___RETI,8,8,0x3f00L),8)
 ,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_db,___REF_SYM(38,___S___riscv_23_riscv_2d_db),___REF_FAL,2,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_db,2,-1,1)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_db,___IFD(___RETI,0,0,0x3fL),2)
@@ -10530,436 +11782,528 @@ ___BEGIN_LBL
 ,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_dq,___REF_SYM(42,___S___riscv_23_riscv_2d_dq),___REF_FAL,2,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_dq,2,-1,1)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_dq,___IFD(___RETI,0,0,0x3fL),2)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_data_2d_elems,___REF_SYM(37,___S___riscv_23_riscv_2d_data_2d_elems),___REF_FAL,29,0)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_data_2d_elems,___REF_SYM(37,___S___riscv_23_riscv_2d_data_2d_elems),___REF_FAL,33,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_data_2d_elems,3,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_data_2d_elems,___IFD(___RETI,8,0,0x3f07L),2)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_data_2d_elems,___IFD(___RETN,5,0,0x7L),3)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_data_2d_elems,___IFD(___RETI,1,4,0x3f1L),4)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_data_2d_elems,___IFD(___RETN,5,3,0x1fL),5)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_data_2d_elems,___IFD(___RETI,1,4,0x3f1L),6)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_data_2d_elems,___IFD(___RETI,8,1,0x3f1fL),7)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_data_2d_elems,___IFD(___RETN,5,1,0x1fL),8)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_data_2d_elems,___IFD(___RETN,5,1,0x1fL),9)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_data_2d_elems,___IFD(___RETI,0,0,0x3fL),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_data_2d_elems,___IFD(___RETI,8,0,0x3f07L),3)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_data_2d_elems,___IFD(___RETN,5,0,0x7L),4)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_data_2d_elems,___IFD(___RETI,1,4,0x3f1L),5)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_data_2d_elems,___IFD(___RETN,5,3,0x1fL),6)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_data_2d_elems,___IFD(___RETI,1,4,0x3f1L),7)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_data_2d_elems,___IFD(___RETI,1,4,0x3f1L),8)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_data_2d_elems,___IFD(___RETI,8,1,0x3f1fL),9)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_data_2d_elems,___IFD(___RETN,5,1,0x1fL),10)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_data_2d_elems,___IFD(___RETN,9,1,0x3fL),11)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_data_2d_elems,___IFD(___RETN,5,1,0x1fL),11)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_data_2d_elems,___IFD(___RETN,5,1,0x1fL),12)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_data_2d_elems,___IFD(___RETI,3,4,0x3f7L),13)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_data_2d_elems,___IFD(___RETN,9,3,0x3fL),14)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_data_2d_elems,___IFD(___RETI,3,4,0x3f7L),15)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_data_2d_elems,___OFD(___RETI,12,3,0x3f07fL),16)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_data_2d_elems,___IFD(___RETN,9,3,0x7fL),17)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_data_2d_elems,___IFD(___RETN,9,3,0x7fL),18)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_data_2d_elems,___IFD(___RETN,9,3,0xffL),19)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_data_2d_elems,___IFD(___RETN,9,3,0xdfL),20)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_data_2d_elems,___IFD(___RETN,9,3,0x5fL),21)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_data_2d_elems,___IFD(___RETN,9,3,0x15fL),22)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_data_2d_elems,___IFD(___RETN,9,3,0x15fL),23)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_data_2d_elems,___IFD(___RETN,9,3,0x13fL),24)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_data_2d_elems,___IFD(___RETN,9,3,0x13fL),25)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_data_2d_elems,___IFD(___RETN,5,3,0x1fL),26)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_data_2d_elems,___IFD(___RETI,8,1,0x3f1fL),13)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_data_2d_elems,___IFD(___RETN,9,1,0x3fL),14)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_data_2d_elems,___IFD(___RETN,5,1,0x1fL),15)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_data_2d_elems,___IFD(___RETI,3,4,0x3f7L),16)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_data_2d_elems,___IFD(___RETN,9,3,0x3fL),17)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_data_2d_elems,___IFD(___RETI,3,4,0x3f7L),18)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_data_2d_elems,___IFD(___RETI,3,4,0x3f7L),19)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_data_2d_elems,___OFD(___RETI,12,3,0x3f07fL),20)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_data_2d_elems,___IFD(___RETN,9,3,0x7fL),21)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_data_2d_elems,___IFD(___RETN,9,3,0x7fL),22)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_data_2d_elems,___IFD(___RETN,9,3,0xffL),23)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_data_2d_elems,___IFD(___RETN,9,3,0xdfL),24)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_data_2d_elems,___IFD(___RETN,9,3,0x5fL),25)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_data_2d_elems,___IFD(___RETN,9,3,0x15fL),26)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_data_2d_elems,___IFD(___RETN,9,3,0x15fL),27)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_data_2d_elems,___IFD(___RETN,9,3,0x15fL),28)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_data_2d_elems,___IFD(___RETN,9,3,0x15fL),29)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_nop,___REF_SYM(79,___S___riscv_23_riscv_2d_nop),___REF_FAL,4,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_data_2d_elems,___IFD(___RETN,9,3,0x13fL),28)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_data_2d_elems,___IFD(___RETN,9,3,0x13fL),29)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_data_2d_elems,___IFD(___RETN,5,3,0x1fL),30)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_data_2d_elems,___IFD(___RETN,9,3,0x15fL),31)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_data_2d_elems,___IFD(___RETN,9,3,0x15fL),32)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_data_2d_elems,___IFD(___RETN,9,3,0x15fL),33)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_nop,___REF_SYM(79,___S___riscv_23_riscv_2d_nop),___REF_FAL,5,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_nop,1,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_nop,___IFD(___RETI,8,0,0x3f03L),2)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_nop,___IFD(___RETN,5,0,0x3L),3)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_nop,___IFD(___RETI,8,8,0x3f03L),4)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_li,___REF_SYM(71,___S___riscv_23_riscv_2d_li),___REF_FAL,45,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_nop,___IFD(___RETI,0,0,0x3fL),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_nop,___IFD(___RETI,8,0,0x3f03L),3)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_nop,___IFD(___RETN,5,0,0x3L),4)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_nop,___IFD(___RETI,8,8,0x3f03L),5)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_li,___REF_SYM(71,___S___riscv_23_riscv_2d_li),___REF_FAL,51,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_li,3,-1,1)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_li,___IFD(___RETN,5,0,0x1fL),2)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_li,___IFD(___RETI,8,0,0x3f07L),3)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_li,___IFD(___RETN,5,0,0x7L),4)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_li,___IFD(___RETN,5,0,0xfL),5)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_li,___IFD(___RETI,0,0,0x3fL),3)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_li,___IFD(___RETI,8,0,0x3f07L),4)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_li,___IFD(___RETN,5,0,0x7L),5)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_li,___IFD(___RETN,5,0,0xfL),6)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_li,___IFD(___RETN,5,0,0xfL),7)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_li,___IFD(___RETN,5,0,0x1fL),8)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_li,___IFD(___RETN,5,0,0xfL),8)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_li,___IFD(___RETN,5,0,0x1fL),9)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_li,___IFD(___RETN,9,0,0x3fL),10)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_li,___IFD(___RETN,9,0,0x37L),11)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_li,___IFD(___RETN,9,0,0x37L),12)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_li,___IFD(___RETN,5,0,0x1fL),10)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_li,___IFD(___RETI,8,0,0x3f1fL),11)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_li,___IFD(___RETN,9,0,0x3fL),12)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_li,___IFD(___RETN,9,0,0x37L),13)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_li,___IFD(___RETN,9,0,0x37L),14)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_li,___IFD(___RETN,9,0,0x37L),15)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_li,___IFD(___RETN,9,0,0x37L),16)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_li,___IFD(___RETN,9,0,0x37L),17)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_li,___IFD(___RETN,9,0,0x3fL),18)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_li,___IFD(___RETN,9,0,0x3fL),19)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_li,___IFD(___RETN,5,0,0x1fL),20)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_li,___IFD(___RETN,5,0,0x1fL),21)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_li,___IFD(___RETN,9,0,0x37L),18)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_li,___IFD(___RETN,9,0,0x37L),19)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_li,___IFD(___RETN,9,0,0x3fL),20)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_li,___IFD(___RETN,9,0,0x3fL),21)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_li,___IFD(___RETN,5,0,0x1fL),22)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_li,___IFD(___RETN,9,0,0x3fL),23)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_li,___IFD(___RETN,5,0,0x1fL),23)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_li,___IFD(___RETN,5,0,0x1fL),24)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_li,___IFD(___RETN,9,0,0x37L),25)
-,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_li,2,-1,26)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_li,___IFD(___RETI,1,4,0x3f0L),27)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_li,___IFD(___RETN,9,3,0x2fL),28)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_li,___OFD(___RETI,12,12,0x3f021L),29)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_li,___IFD(___RETN,5,0,0x17L),30)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_li,___IFD(___RETN,5,0,0x1fL),31)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_li,___IFD(___RETN,5,0,0x1fL),32)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_li,___IFD(___RETN,5,0,0x1fL),33)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_li,___IFD(___RETN,5,0,0x1fL),34)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_li,___IFD(___RETI,8,0,0x3f1fL),25)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_li,___IFD(___RETN,9,0,0x3fL),26)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_li,___IFD(___RETN,5,0,0x1fL),27)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_li,___IFD(___RETN,9,0,0x37L),28)
+,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_li,2,-1,29)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_li,___IFD(___RETI,0,0,0x3fL),30)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_li,___IFD(___RETI,1,4,0x3f0L),31)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_li,___IFD(___RETN,9,3,0x2fL),32)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_li,___OFD(___RETI,12,12,0x3f021L),33)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_li,___IFD(___RETN,5,0,0x17L),34)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_li,___IFD(___RETN,5,0,0x1fL),35)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_li,___IFD(___RETN,5,0,0x1fL),36)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_li,___IFD(___RETN,5,0,0x1fL),37)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_li,___IFD(___RETN,5,0,0x1fL),38)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_li,___IFD(___RETN,5,0,0x1fL),39)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_li,___IFD(___RETN,5,0,0x17L),40)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_li,___IFD(___RETN,5,0,0x7L),41)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_li,___IFD(___RETI,8,8,0x3f03L),42)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_li,___IFD(___RETN,5,0,0x1fL),40)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_li,___IFD(___RETN,5,0,0x1fL),41)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_li,___IFD(___RETN,5,0,0x1fL),42)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_li,___IFD(___RETN,5,0,0x1fL),43)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_li,___IFD(___RETN,5,0,0x17L),44)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_li,___IFD(___RETI,8,0,0x3f1fL),44)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_li,___IFD(___RETN,5,0,0x17L),45)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_mv,___REF_SYM(76,___S___riscv_23_riscv_2d_mv),___REF_FAL,4,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_li,___IFD(___RETN,5,0,0x7L),46)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_li,___IFD(___RETI,8,8,0x3f03L),47)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_li,___IFD(___RETN,5,0,0x1fL),48)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_li,___IFD(___RETI,8,0,0x3f1fL),49)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_li,___IFD(___RETN,5,0,0x17L),50)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_li,___IFD(___RETN,5,0,0x17L),51)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_mv,___REF_SYM(76,___S___riscv_23_riscv_2d_mv),___REF_FAL,5,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_mv,3,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_mv,___IFD(___RETI,8,0,0x3f0fL),2)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_mv,___IFD(___RETN,5,0,0xfL),3)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_mv,___IFD(___RETI,8,8,0x3f03L),4)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_not,___REF_SYM(80,___S___riscv_23_riscv_2d_not),___REF_FAL,4,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_mv,___IFD(___RETI,0,0,0x3fL),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_mv,___IFD(___RETI,8,0,0x3f0fL),3)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_mv,___IFD(___RETN,5,0,0xfL),4)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_mv,___IFD(___RETI,8,8,0x3f03L),5)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_not,___REF_SYM(80,___S___riscv_23_riscv_2d_not),___REF_FAL,5,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_not,3,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_not,___IFD(___RETI,8,0,0x3f0fL),2)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_not,___IFD(___RETN,5,0,0xfL),3)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_not,___IFD(___RETI,8,8,0x3f03L),4)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_neg,___REF_SYM(77,___S___riscv_23_riscv_2d_neg),___REF_FAL,2,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_not,___IFD(___RETI,0,0,0x3fL),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_not,___IFD(___RETI,8,0,0x3f0fL),3)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_not,___IFD(___RETN,5,0,0xfL),4)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_not,___IFD(___RETI,8,8,0x3f03L),5)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_neg,___REF_SYM(77,___S___riscv_23_riscv_2d_neg),___REF_FAL,3,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_neg,3,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_neg,___IFD(___RETI,1,4,0x3f1L),2)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_negw,___REF_SYM(78,___S___riscv_23_riscv_2d_negw),___REF_FAL,2,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_neg,___IFD(___RETI,0,0,0x3fL),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_neg,___IFD(___RETI,1,4,0x3f1L),3)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_negw,___REF_SYM(78,___S___riscv_23_riscv_2d_negw),___REF_FAL,3,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_negw,3,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_negw,___IFD(___RETI,1,4,0x3f1L),2)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_sext_2e_w,___REF_SYM(88,___S___riscv_23_riscv_2d_sext_2e_w),___REF_FAL,6,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_negw,___IFD(___RETI,0,0,0x3fL),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_negw,___IFD(___RETI,1,4,0x3f1L),3)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_sext_2e_w,___REF_SYM(88,___S___riscv_23_riscv_2d_sext_2e_w),___REF_FAL,8,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_sext_2e_w,3,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sext_2e_w,___IFD(___RETI,8,1,0x3f0fL),2)
-,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_sext_2e_w,2,-1,3)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sext_2e_w,___IFD(___RETI,1,4,0x3f0L),4)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sext_2e_w,___IFD(___RETN,5,1,0xfL),5)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sext_2e_w,___IFD(___RETI,8,8,0x3f01L),6)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_seqz,___REF_SYM(87,___S___riscv_23_riscv_2d_seqz),___REF_FAL,4,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sext_2e_w,___IFD(___RETI,0,0,0x3fL),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sext_2e_w,___IFD(___RETI,8,1,0x3f0fL),3)
+,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_sext_2e_w,2,-1,4)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sext_2e_w,___IFD(___RETI,0,0,0x3fL),5)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sext_2e_w,___IFD(___RETI,1,4,0x3f0L),6)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sext_2e_w,___IFD(___RETN,5,1,0xfL),7)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sext_2e_w,___IFD(___RETI,8,8,0x3f01L),8)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_seqz,___REF_SYM(87,___S___riscv_23_riscv_2d_seqz),___REF_FAL,5,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_seqz,3,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_seqz,___IFD(___RETI,8,0,0x3f0fL),2)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_seqz,___IFD(___RETN,5,0,0xfL),3)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_seqz,___IFD(___RETI,8,8,0x3f03L),4)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_snez,___REF_SYM(100,___S___riscv_23_riscv_2d_snez),___REF_FAL,2,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_seqz,___IFD(___RETI,0,0,0x3fL),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_seqz,___IFD(___RETI,8,0,0x3f0fL),3)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_seqz,___IFD(___RETN,5,0,0xfL),4)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_seqz,___IFD(___RETI,8,8,0x3f03L),5)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_snez,___REF_SYM(100,___S___riscv_23_riscv_2d_snez),___REF_FAL,3,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_snez,3,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_snez,___IFD(___RETI,2,4,0x3f3L),2)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_sltz,___REF_SYM(99,___S___riscv_23_riscv_2d_sltz),___REF_FAL,2,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_snez,___IFD(___RETI,0,0,0x3fL),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_snez,___IFD(___RETI,2,4,0x3f3L),3)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_sltz,___REF_SYM(99,___S___riscv_23_riscv_2d_sltz),___REF_FAL,3,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_sltz,3,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sltz,___IFD(___RETI,2,4,0x3f3L),2)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_sgtz,___REF_SYM(89,___S___riscv_23_riscv_2d_sgtz),___REF_FAL,2,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sltz,___IFD(___RETI,0,0,0x3fL),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sltz,___IFD(___RETI,2,4,0x3f3L),3)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_sgtz,___REF_SYM(89,___S___riscv_23_riscv_2d_sgtz),___REF_FAL,3,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_sgtz,3,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sgtz,___IFD(___RETI,2,4,0x3f3L),2)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_beqz,___REF_SYM(18,___S___riscv_23_riscv_2d_beqz),___REF_FAL,2,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sgtz,___IFD(___RETI,0,0,0x3fL),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sgtz,___IFD(___RETI,2,4,0x3f3L),3)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_beqz,___REF_SYM(18,___S___riscv_23_riscv_2d_beqz),___REF_FAL,3,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_beqz,3,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_beqz,___IFD(___RETI,2,4,0x3f3L),2)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_bnez,___REF_SYM(32,___S___riscv_23_riscv_2d_bnez),___REF_FAL,2,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_beqz,___IFD(___RETI,0,0,0x3fL),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_beqz,___IFD(___RETI,2,4,0x3f3L),3)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_bnez,___REF_SYM(32,___S___riscv_23_riscv_2d_bnez),___REF_FAL,3,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_bnez,3,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_bnez,___IFD(___RETI,2,4,0x3f3L),2)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_blez,___REF_SYM(27,___S___riscv_23_riscv_2d_blez),___REF_FAL,2,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_bnez,___IFD(___RETI,0,0,0x3fL),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_bnez,___IFD(___RETI,2,4,0x3f3L),3)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_blez,___REF_SYM(27,___S___riscv_23_riscv_2d_blez),___REF_FAL,3,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_blez,3,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_blez,___IFD(___RETI,3,4,0x3f3L),2)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_bgez,___REF_SYM(21,___S___riscv_23_riscv_2d_bgez),___REF_FAL,2,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_blez,___IFD(___RETI,0,0,0x3fL),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_blez,___IFD(___RETI,3,4,0x3f3L),3)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_bgez,___REF_SYM(21,___S___riscv_23_riscv_2d_bgez),___REF_FAL,3,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_bgez,3,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_bgez,___IFD(___RETI,2,4,0x3f3L),2)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_bltz,___REF_SYM(30,___S___riscv_23_riscv_2d_bltz),___REF_FAL,2,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_bgez,___IFD(___RETI,0,0,0x3fL),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_bgez,___IFD(___RETI,2,4,0x3f3L),3)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_bltz,___REF_SYM(30,___S___riscv_23_riscv_2d_bltz),___REF_FAL,3,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_bltz,3,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_bltz,___IFD(___RETI,2,4,0x3f3L),2)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_bgtz,___REF_SYM(24,___S___riscv_23_riscv_2d_bgtz),___REF_FAL,2,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_bltz,___IFD(___RETI,0,0,0x3fL),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_bltz,___IFD(___RETI,2,4,0x3f3L),3)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_bgtz,___REF_SYM(24,___S___riscv_23_riscv_2d_bgtz),___REF_FAL,3,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_bgtz,3,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_bgtz,___IFD(___RETI,3,4,0x3f3L),2)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_bgt,___REF_SYM(22,___S___riscv_23_riscv_2d_bgt),___REF_FAL,2,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_bgtz,___IFD(___RETI,0,0,0x3fL),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_bgtz,___IFD(___RETI,3,4,0x3f3L),3)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_bgt,___REF_SYM(22,___S___riscv_23_riscv_2d_bgt),___REF_FAL,3,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_bgt,4,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_bgt,___IFD(___RETI,2,4,0x3f3L),2)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_ble,___REF_SYM(25,___S___riscv_23_riscv_2d_ble),___REF_FAL,2,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_bgt,___IFD(___RETI,1,4,0x3f1L),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_bgt,___IFD(___RETI,2,4,0x3f3L),3)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_ble,___REF_SYM(25,___S___riscv_23_riscv_2d_ble),___REF_FAL,3,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_ble,4,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_ble,___IFD(___RETI,2,4,0x3f3L),2)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_bgtu,___REF_SYM(23,___S___riscv_23_riscv_2d_bgtu),___REF_FAL,2,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_ble,___IFD(___RETI,1,4,0x3f1L),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_ble,___IFD(___RETI,2,4,0x3f3L),3)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_bgtu,___REF_SYM(23,___S___riscv_23_riscv_2d_bgtu),___REF_FAL,3,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_bgtu,4,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_bgtu,___IFD(___RETI,2,4,0x3f3L),2)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_bleu,___REF_SYM(26,___S___riscv_23_riscv_2d_bleu),___REF_FAL,2,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_bgtu,___IFD(___RETI,1,4,0x3f1L),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_bgtu,___IFD(___RETI,2,4,0x3f3L),3)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_bleu,___REF_SYM(26,___S___riscv_23_riscv_2d_bleu),___REF_FAL,3,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_bleu,4,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_bleu,___IFD(___RETI,2,4,0x3f3L),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_bleu,___IFD(___RETI,1,4,0x3f1L),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_bleu,___IFD(___RETI,2,4,0x3f3L),3)
 ,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_j,___REF_SYM(59,___S___riscv_23_riscv_2d_j),___REF_FAL,2,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_j,2,-1,1)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_j,___IFD(___RETI,0,0,0x3fL),2)
 ,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_jal_2a_,___REF_SYM(61,___S___riscv_23_riscv_2d_jal_2a_),___REF_FAL,2,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_jal_2a_,2,-1,1)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_jal_2a_,___IFD(___RETI,0,0,0x3fL),2)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_jr,___REF_SYM(64,___S___riscv_23_riscv_2d_jr),___REF_FAL,6,0)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_jr,___REF_SYM(64,___S___riscv_23_riscv_2d_jr),___REF_FAL,8,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_jr,2,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_jr,___IFD(___RETI,8,1,0x3f07L),2)
-,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_jr,2,-1,3)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_jr,___IFD(___RETI,1,4,0x3f0L),4)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_jr,___IFD(___RETN,5,1,0x7L),5)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_jr,___IFD(___RETI,8,8,0x3f01L),6)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_jalr_2a_,___REF_SYM(63,___S___riscv_23_riscv_2d_jalr_2a_),___REF_FAL,6,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_jr,___IFD(___RETI,0,0,0x3fL),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_jr,___IFD(___RETI,8,1,0x3f07L),3)
+,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_jr,2,-1,4)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_jr,___IFD(___RETI,0,0,0x3fL),5)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_jr,___IFD(___RETI,1,4,0x3f0L),6)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_jr,___IFD(___RETN,5,1,0x7L),7)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_jr,___IFD(___RETI,8,8,0x3f01L),8)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_jalr_2a_,___REF_SYM(63,___S___riscv_23_riscv_2d_jalr_2a_),___REF_FAL,8,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_jalr_2a_,2,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_jalr_2a_,___IFD(___RETI,8,1,0x3f07L),2)
-,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_jalr_2a_,2,-1,3)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_jalr_2a_,___IFD(___RETI,1,4,0x3f0L),4)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_jalr_2a_,___IFD(___RETN,5,1,0x7L),5)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_jalr_2a_,___IFD(___RETI,8,8,0x3f01L),6)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_ret,___REF_SYM(84,___S___riscv_23_riscv_2d_ret),___REF_FAL,6,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_jalr_2a_,___IFD(___RETI,0,0,0x3fL),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_jalr_2a_,___IFD(___RETI,8,1,0x3f07L),3)
+,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_jalr_2a_,2,-1,4)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_jalr_2a_,___IFD(___RETI,0,0,0x3fL),5)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_jalr_2a_,___IFD(___RETI,1,4,0x3f0L),6)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_jalr_2a_,___IFD(___RETN,5,1,0x7L),7)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_jalr_2a_,___IFD(___RETI,8,8,0x3f01L),8)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_ret,___REF_SYM(84,___S___riscv_23_riscv_2d_ret),___REF_FAL,8,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_ret,1,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_ret,___IFD(___RETI,8,1,0x3f03L),2)
-,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_ret,2,-1,3)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_ret,___IFD(___RETI,1,4,0x3f0L),4)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_ret,___IFD(___RETN,5,1,0x3L),5)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_ret,___IFD(___RETI,8,8,0x3f01L),6)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_call,___REF_SYM(33,___S___riscv_23_riscv_2d_call),___REF_FAL,12,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_ret,___IFD(___RETI,0,0,0x3fL),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_ret,___IFD(___RETI,8,1,0x3f03L),3)
+,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_ret,2,-1,4)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_ret,___IFD(___RETI,0,0,0x3fL),5)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_ret,___IFD(___RETI,1,4,0x3f0L),6)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_ret,___IFD(___RETN,5,1,0x3L),7)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_ret,___IFD(___RETI,8,8,0x3f01L),8)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_call,___REF_SYM(33,___S___riscv_23_riscv_2d_call),___REF_FAL,14,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_call,2,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_call,___IFD(___RETI,8,0,0x3f07L),2)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_call,___IFD(___RETN,5,0,0x7L),3)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_call,___IFD(___RETI,0,0,0x3fL),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_call,___IFD(___RETI,8,0,0x3f07L),3)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_call,___IFD(___RETN,5,0,0x7L),4)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_call,___IFD(___RETN,5,0,0x7L),5)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_call,___IFD(___RETN,5,0,0x7L),6)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_call,___IFD(___RETN,5,3,0x9L),7)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_call,___IFD(___RETN,5,0,0x7L),7)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_call,___IFD(___RETN,5,3,0x9L),8)
-,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_call,2,-1,9)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_call,___IFD(___RETI,1,4,0x3f0L),10)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_call,___IFD(___RETN,5,3,0x9L),11)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_call,___IFD(___RETI,8,8,0x3f01L),12)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_tail,___REF_SYM(112,___S___riscv_23_riscv_2d_tail),___REF_FAL,12,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_call,___IFD(___RETN,5,3,0x9L),9)
+,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_call,2,-1,10)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_call,___IFD(___RETI,0,0,0x3fL),11)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_call,___IFD(___RETI,1,4,0x3f0L),12)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_call,___IFD(___RETN,5,3,0x9L),13)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_call,___IFD(___RETI,8,8,0x3f01L),14)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_tail,___REF_SYM(112,___S___riscv_23_riscv_2d_tail),___REF_FAL,14,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_tail,2,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_tail,___IFD(___RETI,8,0,0x3f07L),2)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_tail,___IFD(___RETN,5,0,0x7L),3)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_tail,___IFD(___RETI,0,0,0x3fL),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_tail,___IFD(___RETI,8,0,0x3f07L),3)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_tail,___IFD(___RETN,5,0,0x7L),4)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_tail,___IFD(___RETN,5,0,0x7L),5)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_tail,___IFD(___RETN,5,0,0x7L),6)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_tail,___IFD(___RETN,5,3,0x9L),7)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_tail,___IFD(___RETN,5,0,0x7L),7)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_tail,___IFD(___RETN,5,3,0x9L),8)
-,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_tail,2,-1,9)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_tail,___IFD(___RETI,1,4,0x3f0L),10)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_tail,___IFD(___RETN,5,3,0x9L),11)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_tail,___IFD(___RETI,8,8,0x3f01L),12)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_add,___REF_SYM(9,___S___riscv_23_riscv_2d_add),___REF_FAL,2,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_tail,___IFD(___RETN,5,3,0x9L),9)
+,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_tail,2,-1,10)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_tail,___IFD(___RETI,0,0,0x3fL),11)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_tail,___IFD(___RETI,1,4,0x3f0L),12)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_tail,___IFD(___RETN,5,3,0x9L),13)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_tail,___IFD(___RETI,8,8,0x3f01L),14)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_add,___REF_SYM(9,___S___riscv_23_riscv_2d_add),___REF_FAL,3,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_add,4,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_add,___IFD(___RETI,3,4,0x3f3L),2)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_sub,___REF_SYM(109,___S___riscv_23_riscv_2d_sub),___REF_FAL,2,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_add,___IFD(___RETI,1,4,0x3f1L),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_add,___IFD(___RETI,3,4,0x3f3L),3)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_sub,___REF_SYM(109,___S___riscv_23_riscv_2d_sub),___REF_FAL,3,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_sub,4,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sub,___IFD(___RETI,4,4,0x3ffL),2)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_sll,___REF_SYM(91,___S___riscv_23_riscv_2d_sll),___REF_FAL,2,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sub,___IFD(___RETI,1,4,0x3f1L),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sub,___IFD(___RETI,4,4,0x3ffL),3)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_sll,___REF_SYM(91,___S___riscv_23_riscv_2d_sll),___REF_FAL,3,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_sll,4,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sll,___IFD(___RETI,3,4,0x3f3L),2)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_slt,___REF_SYM(95,___S___riscv_23_riscv_2d_slt),___REF_FAL,2,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sll,___IFD(___RETI,1,4,0x3f1L),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sll,___IFD(___RETI,3,4,0x3f3L),3)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_slt,___REF_SYM(95,___S___riscv_23_riscv_2d_slt),___REF_FAL,3,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_slt,4,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_slt,___IFD(___RETI,3,4,0x3f3L),2)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_sltu,___REF_SYM(98,___S___riscv_23_riscv_2d_sltu),___REF_FAL,2,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_slt,___IFD(___RETI,1,4,0x3f1L),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_slt,___IFD(___RETI,3,4,0x3f3L),3)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_sltu,___REF_SYM(98,___S___riscv_23_riscv_2d_sltu),___REF_FAL,3,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_sltu,4,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sltu,___IFD(___RETI,3,4,0x3f3L),2)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_xor,___REF_SYM(120,___S___riscv_23_riscv_2d_xor),___REF_FAL,2,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sltu,___IFD(___RETI,1,4,0x3f1L),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sltu,___IFD(___RETI,3,4,0x3f3L),3)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_xor,___REF_SYM(120,___S___riscv_23_riscv_2d_xor),___REF_FAL,3,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_xor,4,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_xor,___IFD(___RETI,3,4,0x3f3L),2)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_srl,___REF_SYM(105,___S___riscv_23_riscv_2d_srl),___REF_FAL,2,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_xor,___IFD(___RETI,1,4,0x3f1L),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_xor,___IFD(___RETI,3,4,0x3f3L),3)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_srl,___REF_SYM(105,___S___riscv_23_riscv_2d_srl),___REF_FAL,3,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_srl,4,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_srl,___IFD(___RETI,3,4,0x3f3L),2)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_sra,___REF_SYM(101,___S___riscv_23_riscv_2d_sra),___REF_FAL,2,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_srl,___IFD(___RETI,1,4,0x3f1L),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_srl,___IFD(___RETI,3,4,0x3f3L),3)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_sra,___REF_SYM(101,___S___riscv_23_riscv_2d_sra),___REF_FAL,3,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_sra,4,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sra,___IFD(___RETI,4,4,0x3ffL),2)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_or,___REF_SYM(81,___S___riscv_23_riscv_2d_or),___REF_FAL,2,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sra,___IFD(___RETI,1,4,0x3f1L),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sra,___IFD(___RETI,4,4,0x3ffL),3)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_or,___REF_SYM(81,___S___riscv_23_riscv_2d_or),___REF_FAL,3,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_or,4,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_or,___IFD(___RETI,3,4,0x3f3L),2)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_and,___REF_SYM(13,___S___riscv_23_riscv_2d_and),___REF_FAL,2,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_or,___IFD(___RETI,1,4,0x3f1L),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_or,___IFD(___RETI,3,4,0x3f3L),3)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_and,___REF_SYM(13,___S___riscv_23_riscv_2d_and),___REF_FAL,3,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_and,4,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_and,___IFD(___RETI,3,4,0x3f3L),2)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_addw,___REF_SYM(12,___S___riscv_23_riscv_2d_addw),___REF_FAL,6,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_and,___IFD(___RETI,1,4,0x3f1L),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_and,___IFD(___RETI,3,4,0x3f3L),3)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_addw,___REF_SYM(12,___S___riscv_23_riscv_2d_addw),___REF_FAL,7,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_addw,4,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_addw,___IFD(___RETI,8,1,0x3f1fL),2)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_addw,___IFD(___RETN,5,1,0x1fL),3)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_addw,___IFD(___RETI,1,4,0x3f1L),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_addw,___IFD(___RETI,8,1,0x3f1fL),3)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_addw,___IFD(___RETN,5,1,0x1fL),4)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_addw,___IFD(___RETN,5,1,0x1fL),5)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_addw,___IFD(___RETI,8,8,0x3f07L),6)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_subw,___REF_SYM(110,___S___riscv_23_riscv_2d_subw),___REF_FAL,6,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_addw,___IFD(___RETN,5,1,0x1fL),6)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_addw,___IFD(___RETI,8,8,0x3f07L),7)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_subw,___REF_SYM(110,___S___riscv_23_riscv_2d_subw),___REF_FAL,7,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_subw,4,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_subw,___IFD(___RETI,8,1,0x3f1fL),2)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_subw,___IFD(___RETN,5,1,0x1fL),3)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_subw,___IFD(___RETI,1,4,0x3f1L),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_subw,___IFD(___RETI,8,1,0x3f1fL),3)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_subw,___IFD(___RETN,5,1,0x1fL),4)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_subw,___IFD(___RETN,5,1,0x1fL),5)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_subw,___IFD(___RETI,8,8,0x3f0fL),6)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_sllw,___REF_SYM(94,___S___riscv_23_riscv_2d_sllw),___REF_FAL,6,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_subw,___IFD(___RETN,5,1,0x1fL),6)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_subw,___IFD(___RETI,8,8,0x3f0fL),7)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_sllw,___REF_SYM(94,___S___riscv_23_riscv_2d_sllw),___REF_FAL,7,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_sllw,4,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sllw,___IFD(___RETI,8,1,0x3f1fL),2)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sllw,___IFD(___RETN,5,1,0x1fL),3)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sllw,___IFD(___RETI,1,4,0x3f1L),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sllw,___IFD(___RETI,8,1,0x3f1fL),3)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sllw,___IFD(___RETN,5,1,0x1fL),4)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sllw,___IFD(___RETN,5,1,0x1fL),5)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sllw,___IFD(___RETI,8,8,0x3f07L),6)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_srlw,___REF_SYM(108,___S___riscv_23_riscv_2d_srlw),___REF_FAL,6,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sllw,___IFD(___RETN,5,1,0x1fL),6)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sllw,___IFD(___RETI,8,8,0x3f07L),7)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_srlw,___REF_SYM(108,___S___riscv_23_riscv_2d_srlw),___REF_FAL,7,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_srlw,4,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_srlw,___IFD(___RETI,8,1,0x3f1fL),2)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_srlw,___IFD(___RETN,5,1,0x1fL),3)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_srlw,___IFD(___RETI,1,4,0x3f1L),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_srlw,___IFD(___RETI,8,1,0x3f1fL),3)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_srlw,___IFD(___RETN,5,1,0x1fL),4)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_srlw,___IFD(___RETN,5,1,0x1fL),5)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_srlw,___IFD(___RETI,8,8,0x3f07L),6)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_sraw,___REF_SYM(104,___S___riscv_23_riscv_2d_sraw),___REF_FAL,6,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_srlw,___IFD(___RETN,5,1,0x1fL),6)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_srlw,___IFD(___RETI,8,8,0x3f07L),7)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_sraw,___REF_SYM(104,___S___riscv_23_riscv_2d_sraw),___REF_FAL,7,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_sraw,4,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sraw,___IFD(___RETI,8,1,0x3f1fL),2)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sraw,___IFD(___RETN,5,1,0x1fL),3)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sraw,___IFD(___RETI,1,4,0x3f1L),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sraw,___IFD(___RETI,8,1,0x3f1fL),3)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sraw,___IFD(___RETN,5,1,0x1fL),4)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sraw,___IFD(___RETN,5,1,0x1fL),5)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sraw,___IFD(___RETI,8,8,0x3f0fL),6)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_type_2d_r,___REF_SYM(116,___S___riscv_23_riscv_2d_type_2d_r),___REF_FAL,19,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sraw,___IFD(___RETN,5,1,0x1fL),6)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sraw,___IFD(___RETI,8,8,0x3f0fL),7)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_type_2d_r,___REF_SYM(116,___S___riscv_23_riscv_2d_type_2d_r),___REF_FAL,22,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_type_2d_r,7,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_r,___OFD(___RETI,12,4,0x3f0ffL),2)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_r,___IFD(___RETN,9,4,0xffL),3)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_r,___IFD(___RETI,4,4,0x3ffL),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_r,___OFD(___RETI,12,4,0x3f0ffL),3)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_r,___IFD(___RETN,9,4,0xffL),4)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_r,___IFD(___RETN,9,4,0xffL),5)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_r,___IFD(___RETN,9,4,0xffL),6)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_r,___IFD(___RETN,9,4,0xffL),7)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_r,___IFD(___RETN,13,4,0x10ffL),8)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_r,___IFD(___RETN,17,4,0x70ffL),9)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_r,___IFD(___RETN,17,4,0x71ffL),10)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_r,___IFD(___RETN,9,4,0xffL),11)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_r,___IFD(___RETN,9,4,0xffL),12)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_r,___IFD(___RETN,9,4,0xffL),13)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_r,___IFD(___RETN,9,4,0x7fL),14)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_r,___IFD(___RETN,9,4,0xdfL),15)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_r,___IFD(___RETN,9,4,0x5fL),16)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_r,___IFD(___RETN,9,4,0x3fL),17)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_r,___IFD(___RETN,5,4,0x1fL),18)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_r,___IFD(___RETI,8,8,0x3f03L),19)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_jalr,___REF_SYM(62,___S___riscv_23_riscv_2d_jalr),___REF_FAL,5,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_r,___IFD(___RETN,9,4,0xffL),8)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_r,___OFD(___RETI,12,4,0x3f0ffL),9)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_r,___IFD(___RETN,13,4,0x10ffL),10)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_r,___OFD(___RETI,16,4,0x3f10ffL),11)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_r,___IFD(___RETN,17,4,0x70ffL),12)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_r,___IFD(___RETN,17,4,0x71ffL),13)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_r,___IFD(___RETN,9,4,0xffL),14)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_r,___IFD(___RETN,9,4,0xffL),15)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_r,___IFD(___RETN,9,4,0xffL),16)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_r,___IFD(___RETN,9,4,0x7fL),17)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_r,___IFD(___RETN,9,4,0xdfL),18)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_r,___IFD(___RETN,9,4,0x5fL),19)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_r,___IFD(___RETN,9,4,0x3fL),20)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_r,___IFD(___RETN,5,4,0x1fL),21)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_r,___IFD(___RETI,8,8,0x3f03L),22)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_jalr,___REF_SYM(62,___S___riscv_23_riscv_2d_jalr),___REF_FAL,6,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_jalr,4,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_jalr,___OFD(___RETI,11,1,0x3f71fL),2)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_jalr,___IFD(___RETN,5,1,0x1fL),3)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_jalr,___IFD(___RETI,1,4,0x3f1L),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_jalr,___OFD(___RETI,11,1,0x3f71fL),3)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_jalr,___IFD(___RETN,5,1,0x1fL),4)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_jalr,___IFD(___RETI,8,8,0x3f03L),5)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_lb,___REF_SYM(66,___S___riscv_23_riscv_2d_lb),___REF_FAL,2,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_jalr,___IFD(___RETN,5,1,0x1fL),5)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_jalr,___IFD(___RETI,8,8,0x3f03L),6)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_lb,___REF_SYM(66,___S___riscv_23_riscv_2d_lb),___REF_FAL,3,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_lb,4,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_lb,___IFD(___RETI,3,4,0x3f7L),2)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_lh,___REF_SYM(69,___S___riscv_23_riscv_2d_lh),___REF_FAL,2,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_lb,___IFD(___RETI,1,4,0x3f1L),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_lb,___IFD(___RETI,3,4,0x3f7L),3)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_lh,___REF_SYM(69,___S___riscv_23_riscv_2d_lh),___REF_FAL,3,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_lh,4,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_lh,___IFD(___RETI,3,4,0x3f7L),2)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_lw,___REF_SYM(74,___S___riscv_23_riscv_2d_lw),___REF_FAL,2,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_lh,___IFD(___RETI,1,4,0x3f1L),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_lh,___IFD(___RETI,3,4,0x3f7L),3)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_lw,___REF_SYM(74,___S___riscv_23_riscv_2d_lw),___REF_FAL,3,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_lw,4,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_lw,___IFD(___RETI,3,4,0x3f7L),2)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_lbu,___REF_SYM(67,___S___riscv_23_riscv_2d_lbu),___REF_FAL,2,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_lw,___IFD(___RETI,1,4,0x3f1L),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_lw,___IFD(___RETI,3,4,0x3f7L),3)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_lbu,___REF_SYM(67,___S___riscv_23_riscv_2d_lbu),___REF_FAL,3,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_lbu,4,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_lbu,___IFD(___RETI,3,4,0x3f7L),2)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_lhu,___REF_SYM(70,___S___riscv_23_riscv_2d_lhu),___REF_FAL,2,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_lbu,___IFD(___RETI,1,4,0x3f1L),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_lbu,___IFD(___RETI,3,4,0x3f7L),3)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_lhu,___REF_SYM(70,___S___riscv_23_riscv_2d_lhu),___REF_FAL,3,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_lhu,4,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_lhu,___IFD(___RETI,3,4,0x3f7L),2)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_addi,___REF_SYM(10,___S___riscv_23_riscv_2d_addi),___REF_FAL,2,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_lhu,___IFD(___RETI,1,4,0x3f1L),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_lhu,___IFD(___RETI,3,4,0x3f7L),3)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_addi,___REF_SYM(10,___S___riscv_23_riscv_2d_addi),___REF_FAL,3,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_addi,4,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_addi,___IFD(___RETI,3,4,0x3f3L),2)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_slti,___REF_SYM(96,___S___riscv_23_riscv_2d_slti),___REF_FAL,2,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_addi,___IFD(___RETI,1,4,0x3f1L),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_addi,___IFD(___RETI,3,4,0x3f3L),3)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_slti,___REF_SYM(96,___S___riscv_23_riscv_2d_slti),___REF_FAL,3,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_slti,4,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_slti,___IFD(___RETI,3,4,0x3f3L),2)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_sltiu,___REF_SYM(97,___S___riscv_23_riscv_2d_sltiu),___REF_FAL,2,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_slti,___IFD(___RETI,1,4,0x3f1L),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_slti,___IFD(___RETI,3,4,0x3f3L),3)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_sltiu,___REF_SYM(97,___S___riscv_23_riscv_2d_sltiu),___REF_FAL,3,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_sltiu,4,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sltiu,___IFD(___RETI,3,4,0x3f3L),2)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_xori,___REF_SYM(121,___S___riscv_23_riscv_2d_xori),___REF_FAL,2,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sltiu,___IFD(___RETI,1,4,0x3f1L),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sltiu,___IFD(___RETI,3,4,0x3f3L),3)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_xori,___REF_SYM(121,___S___riscv_23_riscv_2d_xori),___REF_FAL,3,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_xori,4,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_xori,___IFD(___RETI,3,4,0x3f3L),2)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_ori,___REF_SYM(82,___S___riscv_23_riscv_2d_ori),___REF_FAL,2,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_xori,___IFD(___RETI,1,4,0x3f1L),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_xori,___IFD(___RETI,3,4,0x3f3L),3)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_ori,___REF_SYM(82,___S___riscv_23_riscv_2d_ori),___REF_FAL,3,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_ori,4,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_ori,___IFD(___RETI,3,4,0x3f3L),2)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_andi,___REF_SYM(14,___S___riscv_23_riscv_2d_andi),___REF_FAL,2,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_ori,___IFD(___RETI,1,4,0x3f1L),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_ori,___IFD(___RETI,3,4,0x3f3L),3)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_andi,___REF_SYM(14,___S___riscv_23_riscv_2d_andi),___REF_FAL,3,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_andi,4,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_andi,___IFD(___RETI,3,4,0x3f3L),2)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_slli,___REF_SYM(92,___S___riscv_23_riscv_2d_slli),___REF_FAL,11,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_andi,___IFD(___RETI,1,4,0x3f1L),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_andi,___IFD(___RETI,3,4,0x3f3L),3)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_slli,___REF_SYM(92,___S___riscv_23_riscv_2d_slli),___REF_FAL,14,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_slli,4,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_slli,___IFD(___RETI,8,1,0x3f1fL),2)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_slli,___IFD(___RETN,5,1,0x1fL),3)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_slli,___IFD(___RETI,1,4,0x3f1L),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_slli,___IFD(___RETI,8,1,0x3f1fL),3)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_slli,___IFD(___RETN,5,1,0x1fL),4)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_slli,___IFD(___RETN,5,1,0x1fL),5)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_slli,___IFD(___RETN,5,1,0x1fL),6)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_slli,___IFD(___RETN,5,1,0x1fL),7)
-,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_slli,2,-1,8)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_slli,___IFD(___RETI,1,4,0x3f0L),9)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_slli,___IFD(___RETN,9,5,0x2bL),10)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_slli,___OFD(___RETI,12,12,0x3f003L),11)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_srli,___REF_SYM(106,___S___riscv_23_riscv_2d_srli),___REF_FAL,11,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_slli,___IFD(___RETN,5,1,0x1fL),8)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_slli,___IFD(___RETI,8,1,0x3f1fL),9)
+,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_slli,2,-1,10)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_slli,___IFD(___RETI,0,0,0x3fL),11)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_slli,___IFD(___RETI,1,4,0x3f0L),12)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_slli,___IFD(___RETN,9,5,0x2bL),13)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_slli,___OFD(___RETI,12,12,0x3f003L),14)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_srli,___REF_SYM(106,___S___riscv_23_riscv_2d_srli),___REF_FAL,14,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_srli,4,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_srli,___IFD(___RETI,8,1,0x3f1fL),2)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_srli,___IFD(___RETN,5,1,0x1fL),3)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_srli,___IFD(___RETI,1,4,0x3f1L),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_srli,___IFD(___RETI,8,1,0x3f1fL),3)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_srli,___IFD(___RETN,5,1,0x1fL),4)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_srli,___IFD(___RETN,5,1,0x1fL),5)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_srli,___IFD(___RETN,5,1,0x1fL),6)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_srli,___IFD(___RETN,5,1,0x1fL),7)
-,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_srli,2,-1,8)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_srli,___IFD(___RETI,1,4,0x3f0L),9)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_srli,___IFD(___RETN,9,5,0x2bL),10)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_srli,___OFD(___RETI,12,12,0x3f003L),11)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_srai,___REF_SYM(102,___S___riscv_23_riscv_2d_srai),___REF_FAL,12,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_srli,___IFD(___RETN,5,1,0x1fL),8)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_srli,___IFD(___RETI,8,1,0x3f1fL),9)
+,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_srli,2,-1,10)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_srli,___IFD(___RETI,0,0,0x3fL),11)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_srli,___IFD(___RETI,1,4,0x3f0L),12)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_srli,___IFD(___RETN,9,5,0x2bL),13)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_srli,___OFD(___RETI,12,12,0x3f003L),14)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_srai,___REF_SYM(102,___S___riscv_23_riscv_2d_srai),___REF_FAL,15,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_srai,4,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_srai,___IFD(___RETI,8,1,0x3f1fL),2)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_srai,___IFD(___RETN,5,1,0x1fL),3)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_srai,___IFD(___RETI,1,4,0x3f1L),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_srai,___IFD(___RETI,8,1,0x3f1fL),3)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_srai,___IFD(___RETN,5,1,0x1fL),4)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_srai,___IFD(___RETN,5,1,0x1fL),5)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_srai,___IFD(___RETN,5,1,0x1fL),6)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_srai,___IFD(___RETN,5,1,0x1fL),7)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_srai,___IFD(___RETN,9,5,0x2bL),8)
-,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_srai,2,-1,9)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_srai,___IFD(___RETI,1,4,0x3f0L),10)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_srai,___IFD(___RETN,9,5,0x2bL),11)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_srai,___OFD(___RETI,12,12,0x3f003L),12)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_lwu,___REF_SYM(75,___S___riscv_23_riscv_2d_lwu),___REF_FAL,6,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_srai,___IFD(___RETN,5,1,0x1fL),8)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_srai,___IFD(___RETI,8,1,0x3f1fL),9)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_srai,___IFD(___RETN,9,5,0x2bL),10)
+,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_srai,2,-1,11)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_srai,___IFD(___RETI,0,0,0x3fL),12)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_srai,___IFD(___RETI,1,4,0x3f0L),13)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_srai,___IFD(___RETN,9,5,0x2bL),14)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_srai,___OFD(___RETI,12,12,0x3f003L),15)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_lwu,___REF_SYM(75,___S___riscv_23_riscv_2d_lwu),___REF_FAL,7,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_lwu,4,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_lwu,___IFD(___RETI,8,1,0x3f1fL),2)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_lwu,___IFD(___RETN,5,1,0x1fL),3)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_lwu,___IFD(___RETI,1,4,0x3f1L),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_lwu,___IFD(___RETI,8,1,0x3f1fL),3)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_lwu,___IFD(___RETN,5,1,0x1fL),4)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_lwu,___IFD(___RETN,5,1,0x1fL),5)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_lwu,___IFD(___RETI,8,8,0x3f07L),6)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_ld,___REF_SYM(68,___S___riscv_23_riscv_2d_ld),___REF_FAL,6,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_lwu,___IFD(___RETN,5,1,0x1fL),6)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_lwu,___IFD(___RETI,8,8,0x3f07L),7)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_ld,___REF_SYM(68,___S___riscv_23_riscv_2d_ld),___REF_FAL,7,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_ld,4,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_ld,___IFD(___RETI,8,1,0x3f1fL),2)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_ld,___IFD(___RETN,5,1,0x1fL),3)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_ld,___IFD(___RETI,1,4,0x3f1L),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_ld,___IFD(___RETI,8,1,0x3f1fL),3)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_ld,___IFD(___RETN,5,1,0x1fL),4)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_ld,___IFD(___RETN,5,1,0x1fL),5)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_ld,___IFD(___RETI,8,8,0x3f07L),6)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_addiw,___REF_SYM(11,___S___riscv_23_riscv_2d_addiw),___REF_FAL,6,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_ld,___IFD(___RETN,5,1,0x1fL),6)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_ld,___IFD(___RETI,8,8,0x3f07L),7)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_addiw,___REF_SYM(11,___S___riscv_23_riscv_2d_addiw),___REF_FAL,7,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_addiw,4,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_addiw,___IFD(___RETI,8,1,0x3f1fL),2)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_addiw,___IFD(___RETN,5,1,0x1fL),3)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_addiw,___IFD(___RETI,1,4,0x3f1L),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_addiw,___IFD(___RETI,8,1,0x3f1fL),3)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_addiw,___IFD(___RETN,5,1,0x1fL),4)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_addiw,___IFD(___RETN,5,1,0x1fL),5)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_addiw,___IFD(___RETI,8,8,0x3f07L),6)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_slliw,___REF_SYM(93,___S___riscv_23_riscv_2d_slliw),___REF_FAL,13,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_addiw,___IFD(___RETN,5,1,0x1fL),6)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_addiw,___IFD(___RETI,8,8,0x3f07L),7)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_slliw,___REF_SYM(93,___S___riscv_23_riscv_2d_slliw),___REF_FAL,16,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_slliw,4,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_slliw,___IFD(___RETI,8,1,0x3f1fL),2)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_slliw,___IFD(___RETN,5,1,0x1fL),3)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_slliw,___IFD(___RETI,1,4,0x3f1L),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_slliw,___IFD(___RETI,8,1,0x3f1fL),3)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_slliw,___IFD(___RETN,5,1,0x1fL),4)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_slliw,___IFD(___RETN,5,1,0x1fL),5)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_slliw,___IFD(___RETN,5,1,0x1fL),6)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_slliw,___IFD(___RETN,5,1,0x1fL),7)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_slliw,___IFD(___RETN,5,1,0x1fL),8)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_slliw,___IFD(___RETN,5,1,0x1fL),9)
-,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_slliw,2,-1,10)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_slliw,___IFD(___RETI,1,4,0x3f0L),11)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_slliw,___IFD(___RETN,9,5,0x27L),12)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_slliw,___OFD(___RETI,12,12,0x3f007L),13)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_srliw,___REF_SYM(107,___S___riscv_23_riscv_2d_srliw),___REF_FAL,13,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_slliw,___IFD(___RETN,5,1,0x1fL),10)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_slliw,___IFD(___RETI,8,1,0x3f1fL),11)
+,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_slliw,2,-1,12)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_slliw,___IFD(___RETI,0,0,0x3fL),13)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_slliw,___IFD(___RETI,1,4,0x3f0L),14)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_slliw,___IFD(___RETN,9,5,0x27L),15)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_slliw,___OFD(___RETI,12,12,0x3f007L),16)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_srliw,___REF_SYM(107,___S___riscv_23_riscv_2d_srliw),___REF_FAL,16,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_srliw,4,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_srliw,___IFD(___RETI,8,1,0x3f1fL),2)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_srliw,___IFD(___RETN,5,1,0x1fL),3)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_srliw,___IFD(___RETI,1,4,0x3f1L),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_srliw,___IFD(___RETI,8,1,0x3f1fL),3)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_srliw,___IFD(___RETN,5,1,0x1fL),4)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_srliw,___IFD(___RETN,5,1,0x1fL),5)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_srliw,___IFD(___RETN,5,1,0x1fL),6)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_srliw,___IFD(___RETN,5,1,0x1fL),7)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_srliw,___IFD(___RETN,5,1,0x1fL),8)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_srliw,___IFD(___RETN,5,1,0x1fL),9)
-,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_srliw,2,-1,10)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_srliw,___IFD(___RETI,1,4,0x3f0L),11)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_srliw,___IFD(___RETN,9,5,0x27L),12)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_srliw,___OFD(___RETI,12,12,0x3f007L),13)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_sraiw,___REF_SYM(103,___S___riscv_23_riscv_2d_sraiw),___REF_FAL,14,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_srliw,___IFD(___RETN,5,1,0x1fL),10)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_srliw,___IFD(___RETI,8,1,0x3f1fL),11)
+,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_srliw,2,-1,12)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_srliw,___IFD(___RETI,0,0,0x3fL),13)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_srliw,___IFD(___RETI,1,4,0x3f0L),14)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_srliw,___IFD(___RETN,9,5,0x27L),15)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_srliw,___OFD(___RETI,12,12,0x3f007L),16)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_sraiw,___REF_SYM(103,___S___riscv_23_riscv_2d_sraiw),___REF_FAL,17,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_sraiw,4,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sraiw,___IFD(___RETI,8,1,0x3f1fL),2)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sraiw,___IFD(___RETN,5,1,0x1fL),3)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sraiw,___IFD(___RETI,1,4,0x3f1L),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sraiw,___IFD(___RETI,8,1,0x3f1fL),3)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sraiw,___IFD(___RETN,5,1,0x1fL),4)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sraiw,___IFD(___RETN,5,1,0x1fL),5)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sraiw,___IFD(___RETN,5,1,0x1fL),6)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sraiw,___IFD(___RETN,5,1,0x1fL),7)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sraiw,___IFD(___RETN,5,1,0x1fL),8)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sraiw,___IFD(___RETN,5,1,0x1fL),9)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sraiw,___IFD(___RETN,9,5,0x27L),10)
-,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_sraiw,2,-1,11)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sraiw,___IFD(___RETI,1,4,0x3f0L),12)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sraiw,___IFD(___RETN,9,5,0x27L),13)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sraiw,___OFD(___RETI,12,12,0x3f007L),14)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_type_2d_i,___REF_SYM(114,___S___riscv_23_riscv_2d_type_2d_i),___REF_FAL,68,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sraiw,___IFD(___RETN,5,1,0x1fL),10)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sraiw,___IFD(___RETI,8,1,0x3f1fL),11)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sraiw,___IFD(___RETN,9,5,0x27L),12)
+,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_sraiw,2,-1,13)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sraiw,___IFD(___RETI,0,0,0x3fL),14)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sraiw,___IFD(___RETI,1,4,0x3f0L),15)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sraiw,___IFD(___RETN,9,5,0x27L),16)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sraiw,___OFD(___RETI,12,12,0x3f007L),17)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_type_2d_i,___REF_SYM(114,___S___riscv_23_riscv_2d_type_2d_i),___REF_FAL,76,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_type_2d_i,6,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___OFD(___RETI,12,3,0x3f07fL),2)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,9,3,0x7fL),3)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETI,3,4,0x3f7L),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___OFD(___RETI,12,3,0x3f07fL),3)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,9,3,0x7fL),4)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,9,3,0x7fL),5)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,9,3,0x7fL),6)
@@ -10969,82 +12313,94 @@ ___BEGIN_LBL
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,9,3,0x7fL),10)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,9,3,0x7fL),11)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,9,3,0x7fL),12)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,13,3,0x107fL),13)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,17,3,0x307fL),14)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,17,3,0x30ffL),15)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,9,3,0x7fL),16)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,9,3,0x7fL),17)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,9,3,0x7fL),18)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,9,3,0x7fL),13)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___OFD(___RETI,12,3,0x3f07fL),14)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,13,3,0x107fL),15)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___OFD(___RETI,16,3,0x3f107fL),16)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,17,3,0x307fL),17)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,17,3,0x30ffL),18)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,9,3,0x7fL),19)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,9,3,0x7fL),20)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,9,3,0x7fL),21)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,17,3,0x1f07fL),22)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,17,3,0x1f07fL),23)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,9,3,0x7fL),22)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,9,3,0x7fL),23)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,9,3,0x7fL),24)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,9,3,0xffL),25)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,9,3,0x7fL),26)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,9,3,0xffL),27)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___OFD(___RETI,12,3,0x3f07fL),25)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,17,3,0x1f07fL),26)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,17,3,0x1f07fL),27)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,9,3,0x7fL),28)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,9,3,0xffL),29)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,9,3,0xdfL),30)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,9,3,0xdfL),31)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,9,3,0xdfL),32)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,9,3,0x9fL),33)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,9,3,0xafL),34)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,9,3,0xafL),35)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,9,3,0x8fL),36)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___OFD(___RETI,12,12,0x3f003L),37)
-,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_type_2d_i,3,-1,38)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETI,8,0,0x3f07L),39)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,5,0,0x7L),40)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,5,0,0x7L),41)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,5,0,0xfL),42)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,5,0,0x7L),43)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,5,0,0x3L),44)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,5,0,0x3L),45)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETI,8,8,0x3f00L),46)
-,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_type_2d_i,1,-1,47)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETI,8,0,0x3f03L),48)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,9,3,0x7fL),30)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,9,3,0xffL),31)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,9,3,0x7fL),32)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,9,3,0xffL),33)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,9,3,0xdfL),34)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,9,3,0xdfL),35)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,9,3,0xdfL),36)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,9,3,0x9fL),37)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,9,3,0xafL),38)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,9,3,0xafL),39)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,9,3,0x8fL),40)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___OFD(___RETI,12,12,0x3f003L),41)
+,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_type_2d_i,3,-1,42)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETI,0,0,0x3fL),43)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETI,8,0,0x3f07L),44)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,5,0,0x7L),45)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,5,0,0x7L),46)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,5,0,0xfL),47)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,5,0,0x7L),48)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,5,0,0x3L),49)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETI,8,8,0x3f00L),50)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,5,0,0x3L),51)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,5,0,0x3L),52)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,5,0,0x3L),53)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,5,0,0x3L),54)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,5,0,0x3L),50)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETI,8,8,0x3f00L),51)
+,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_type_2d_i,1,-1,52)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETI,0,0,0x3fL),53)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETI,8,0,0x3f03L),54)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,5,0,0x3L),55)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,5,0,0x3L),56)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETI,8,8,0x3f00L),57)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETI,8,8,0x3f00L),56)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,5,0,0x3L),57)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,5,0,0x3L),58)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETI,8,8,0x3f00L),59)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,1,0,0x1L),60)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETI,4,4,0x3f0L),61)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,5,3,0x1fL),62)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,5,3,0x1fL),63)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,9,3,0x2fL),64)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,9,3,0x2fL),65)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,13,3,0x102bL),66)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,9,3,0x2bL),67)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___OFD(___RETI,12,12,0x3f021L),68)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_sb,___REF_SYM(85,___S___riscv_23_riscv_2d_sb),___REF_FAL,2,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,5,0,0x3L),59)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,5,0,0x3L),60)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,5,0,0x3L),61)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,5,0,0x3L),62)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETI,8,8,0x3f00L),63)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,5,0,0x3L),64)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETI,8,8,0x3f00L),65)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,1,0,0x1L),66)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETI,4,4,0x3f0L),67)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,5,3,0x1fL),68)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,5,3,0x1fL),69)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETI,8,3,0x3f1fL),70)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,9,3,0x2fL),71)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,9,3,0x2fL),72)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___OFD(___RETI,12,3,0x3f02fL),73)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,13,3,0x102bL),74)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___IFD(___RETN,9,3,0x2bL),75)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_i,___OFD(___RETI,12,12,0x3f021L),76)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_sb,___REF_SYM(85,___S___riscv_23_riscv_2d_sb),___REF_FAL,3,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_sb,4,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sb,___IFD(___RETI,3,4,0x3f3L),2)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_sh,___REF_SYM(90,___S___riscv_23_riscv_2d_sh),___REF_FAL,2,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sb,___IFD(___RETI,1,4,0x3f1L),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sb,___IFD(___RETI,3,4,0x3f3L),3)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_sh,___REF_SYM(90,___S___riscv_23_riscv_2d_sh),___REF_FAL,3,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_sh,4,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sh,___IFD(___RETI,3,4,0x3f3L),2)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_sw,___REF_SYM(111,___S___riscv_23_riscv_2d_sw),___REF_FAL,2,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sh,___IFD(___RETI,1,4,0x3f1L),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sh,___IFD(___RETI,3,4,0x3f3L),3)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_sw,___REF_SYM(111,___S___riscv_23_riscv_2d_sw),___REF_FAL,3,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_sw,4,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sw,___IFD(___RETI,3,4,0x3f3L),2)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_sd,___REF_SYM(86,___S___riscv_23_riscv_2d_sd),___REF_FAL,6,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sw,___IFD(___RETI,1,4,0x3f1L),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sw,___IFD(___RETI,3,4,0x3f3L),3)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_sd,___REF_SYM(86,___S___riscv_23_riscv_2d_sd),___REF_FAL,7,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_sd,4,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sd,___IFD(___RETI,8,1,0x3f1fL),2)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sd,___IFD(___RETN,5,1,0x1fL),3)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sd,___IFD(___RETI,1,4,0x3f1L),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sd,___IFD(___RETI,8,1,0x3f1fL),3)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sd,___IFD(___RETN,5,1,0x1fL),4)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sd,___IFD(___RETN,5,1,0x1fL),5)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sd,___IFD(___RETI,8,8,0x3f03L),6)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_type_2d_s,___REF_SYM(117,___S___riscv_23_riscv_2d_type_2d_s),___REF_FAL,25,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sd,___IFD(___RETN,5,1,0x1fL),6)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_sd,___IFD(___RETI,8,8,0x3f03L),7)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_type_2d_s,___REF_SYM(117,___S___riscv_23_riscv_2d_type_2d_s),___REF_FAL,29,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_type_2d_s,6,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_s,___OFD(___RETI,12,3,0x3f07fL),2)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_s,___IFD(___RETN,9,3,0x7fL),3)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_s,___IFD(___RETI,3,4,0x3f7L),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_s,___OFD(___RETI,12,3,0x3f07fL),3)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_s,___IFD(___RETN,9,3,0x7fL),4)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_s,___IFD(___RETN,9,3,0x7fL),5)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_s,___IFD(___RETN,9,3,0x7fL),6)
@@ -11054,41 +12410,51 @@ ___BEGIN_LBL
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_s,___IFD(___RETN,9,3,0x7fL),10)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_s,___IFD(___RETN,9,3,0x7fL),11)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_s,___IFD(___RETN,9,3,0x7fL),12)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_s,___IFD(___RETN,17,3,0x303fL),13)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_s,___IFD(___RETN,17,3,0x307fL),14)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_s,___IFD(___RETN,17,3,0x30ffL),15)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_s,___IFD(___RETN,9,3,0x3fL),16)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_s,___IFD(___RETN,9,3,0x3fL),17)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_s,___IFD(___RETN,9,3,0x7fL),13)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_s,___OFD(___RETI,12,3,0x3f07fL),14)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_s,___IFD(___RETN,17,3,0x303fL),15)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_s,___IFD(___RETN,17,3,0x307fL),16)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_s,___IFD(___RETN,17,3,0x30ffL),17)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_s,___IFD(___RETN,9,3,0x3fL),18)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_s,___IFD(___RETN,5,3,0x1fL),19)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_s,___IFD(___RETN,5,3,0x1fL),20)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_s,___IFD(___RETN,9,3,0x2fL),21)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_s,___IFD(___RETN,9,3,0x2fL),22)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_s,___IFD(___RETN,13,3,0x102dL),23)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_s,___IFD(___RETN,9,3,0x2dL),24)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_s,___OFD(___RETI,12,12,0x3f021L),25)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_beq,___REF_SYM(17,___S___riscv_23_riscv_2d_beq),___REF_FAL,2,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_s,___IFD(___RETN,9,3,0x3fL),19)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_s,___IFD(___RETN,9,3,0x3fL),20)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_s,___IFD(___RETN,5,3,0x1fL),21)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_s,___IFD(___RETN,5,3,0x1fL),22)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_s,___IFD(___RETI,8,3,0x3f1fL),23)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_s,___IFD(___RETN,9,3,0x2fL),24)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_s,___IFD(___RETN,9,3,0x2fL),25)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_s,___OFD(___RETI,12,3,0x3f02fL),26)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_s,___IFD(___RETN,13,3,0x102dL),27)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_s,___IFD(___RETN,9,3,0x2dL),28)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_s,___OFD(___RETI,12,12,0x3f021L),29)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_beq,___REF_SYM(17,___S___riscv_23_riscv_2d_beq),___REF_FAL,3,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_beq,4,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_beq,___IFD(___RETI,3,4,0x3f3L),2)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_bne,___REF_SYM(31,___S___riscv_23_riscv_2d_bne),___REF_FAL,2,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_beq,___IFD(___RETI,1,4,0x3f1L),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_beq,___IFD(___RETI,3,4,0x3f3L),3)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_bne,___REF_SYM(31,___S___riscv_23_riscv_2d_bne),___REF_FAL,3,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_bne,4,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_bne,___IFD(___RETI,3,4,0x3f3L),2)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_blt,___REF_SYM(28,___S___riscv_23_riscv_2d_blt),___REF_FAL,2,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_bne,___IFD(___RETI,1,4,0x3f1L),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_bne,___IFD(___RETI,3,4,0x3f3L),3)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_blt,___REF_SYM(28,___S___riscv_23_riscv_2d_blt),___REF_FAL,3,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_blt,4,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_blt,___IFD(___RETI,3,4,0x3f3L),2)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_bge,___REF_SYM(19,___S___riscv_23_riscv_2d_bge),___REF_FAL,2,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_blt,___IFD(___RETI,1,4,0x3f1L),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_blt,___IFD(___RETI,3,4,0x3f3L),3)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_bge,___REF_SYM(19,___S___riscv_23_riscv_2d_bge),___REF_FAL,3,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_bge,4,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_bge,___IFD(___RETI,3,4,0x3f3L),2)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_bltu,___REF_SYM(29,___S___riscv_23_riscv_2d_bltu),___REF_FAL,2,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_bge,___IFD(___RETI,1,4,0x3f1L),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_bge,___IFD(___RETI,3,4,0x3f3L),3)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_bltu,___REF_SYM(29,___S___riscv_23_riscv_2d_bltu),___REF_FAL,3,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_bltu,4,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_bltu,___IFD(___RETI,3,4,0x3f3L),2)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_bgeu,___REF_SYM(20,___S___riscv_23_riscv_2d_bgeu),___REF_FAL,2,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_bltu,___IFD(___RETI,1,4,0x3f1L),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_bltu,___IFD(___RETI,3,4,0x3f3L),3)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_bgeu,___REF_SYM(20,___S___riscv_23_riscv_2d_bgeu),___REF_FAL,3,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_bgeu,4,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_bgeu,___IFD(___RETI,3,4,0x3f3L),2)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_type_2d_b,___REF_SYM(113,___S___riscv_23_riscv_2d_type_2d_b),___REF_FAL,40,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_bgeu,___IFD(___RETI,1,4,0x3f1L),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_bgeu,___IFD(___RETI,3,4,0x3f3L),3)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_type_2d_b,___REF_SYM(113,___S___riscv_23_riscv_2d_type_2d_b),___REF_FAL,45,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_type_2d_b,6,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_b,___OFD(___RETI,12,3,0x3f07fL),2)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_b,___IFD(___RETN,9,3,0x7fL),3)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_b,___IFD(___RETI,3,4,0x3f7L),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_b,___OFD(___RETI,12,3,0x3f07fL),3)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_b,___IFD(___RETN,9,3,0x7fL),4)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_b,___IFD(___RETN,9,3,0x7fL),5)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_b,___IFD(___RETN,9,3,0x7fL),6)
@@ -11098,50 +12464,57 @@ ___BEGIN_LBL
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_b,___IFD(___RETN,9,3,0x7fL),10)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_b,___IFD(___RETN,9,3,0x7fL),11)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_b,___IFD(___RETN,9,3,0x7fL),12)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_b,___IFD(___RETN,5,0,0xbL),13)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_b,___IFD(___RETI,3,4,0x3f7L),14)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_b,___OFD(___RETI,16,3,0x3f031dL),15)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_b,___IFD(___RETN,13,3,0x31dL),16)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_b,___IFD(___RETN,13,3,0x31bL),17)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_b,___IFD(___RETN,13,3,0x30fL),18)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_b,___IFD(___RETN,5,3,0x9L),19)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_b,___IFD(___RETI,8,8,0x3f00L),20)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_b,___IFD(___RETN,9,3,0x3fL),21)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_b,___IFD(___RETN,9,3,0x3fL),22)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_b,___IFD(___RETN,5,3,0x1fL),23)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_b,___IFD(___RETN,5,3,0x1fL),24)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_b,___IFD(___RETI,8,8,0x3f03L),25)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_b,___OFD(___RETI,12,3,0x3f0bfL),26)
-,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_type_2d_b,2,6,27)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_b,___IFD(___RETI,8,0,0x3f07L),28)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_b,___IFD(___RETN,5,0,0x7L),29)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_b,___IFD(___RETN,5,0,0x7L),30)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_b,___IFD(___RETN,5,0,0xfL),31)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_b,___IFD(___RETN,5,0,0xbL),32)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_b,___IFD(___RETN,5,0,0x3L),33)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_b,___IFD(___RETN,9,3,0x7fL),13)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_b,___OFD(___RETI,12,3,0x3f07fL),14)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_b,___IFD(___RETN,5,0,0xbL),15)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_b,___IFD(___RETI,3,4,0x3f7L),16)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_b,___IFD(___RETI,3,4,0x3f7L),17)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_b,___OFD(___RETI,16,3,0x3f031dL),18)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_b,___IFD(___RETN,13,3,0x31dL),19)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_b,___IFD(___RETN,13,3,0x31bL),20)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_b,___IFD(___RETN,13,3,0x30fL),21)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_b,___IFD(___RETN,5,3,0x9L),22)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_b,___IFD(___RETI,8,8,0x3f00L),23)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_b,___IFD(___RETN,9,3,0x3fL),24)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_b,___IFD(___RETN,9,3,0x3fL),25)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_b,___IFD(___RETN,5,3,0x1fL),26)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_b,___IFD(___RETN,5,3,0x1fL),27)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_b,___IFD(___RETI,8,8,0x3f03L),28)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_b,___OFD(___RETI,12,3,0x3f0ffL),29)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_b,___OFD(___RETI,12,3,0x3f0bfL),30)
+,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_type_2d_b,2,6,31)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_b,___IFD(___RETI,0,0,0x3fL),32)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_b,___IFD(___RETI,8,0,0x3f07L),33)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_b,___IFD(___RETN,5,0,0x7L),34)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_b,___IFD(___RETN,5,0,0xfL),35)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_b,___IFD(___RETN,5,0,0xbL),36)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_b,___IFD(___RETN,5,0,0x7L),35)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_b,___IFD(___RETN,5,0,0xfL),36)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_b,___IFD(___RETN,5,0,0xbL),37)
-,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_type_2d_b,2,-1,38)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_b,___IFD(___RETN,9,3,0x7fL),39)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_b,___IFD(___RETN,9,3,0x7fL),40)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_lui,___REF_SYM(73,___S___riscv_23_riscv_2d_lui),___REF_FAL,5,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_b,___IFD(___RETN,5,0,0x3L),38)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_b,___IFD(___RETN,5,0,0x7L),39)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_b,___IFD(___RETN,5,0,0xfL),40)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_b,___IFD(___RETN,5,0,0xbL),41)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_b,___IFD(___RETN,5,0,0xbL),42)
+,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_type_2d_b,2,-1,43)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_b,___IFD(___RETN,9,3,0x7fL),44)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_b,___IFD(___RETN,9,3,0x7fL),45)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_lui,___REF_SYM(73,___S___riscv_23_riscv_2d_lui),___REF_FAL,6,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_lui,3,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_lui,___OFD(___RETI,9,0,0x3f10fL),2)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_lui,___IFD(___RETN,5,0,0xfL),3)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_lui,___IFD(___RETI,0,0,0x3fL),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_lui,___OFD(___RETI,9,0,0x3f10fL),3)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_lui,___IFD(___RETN,5,0,0xfL),4)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_lui,___IFD(___RETI,8,8,0x3f01L),5)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_auipc,___REF_SYM(16,___S___riscv_23_riscv_2d_auipc),___REF_FAL,5,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_lui,___IFD(___RETN,5,0,0xfL),5)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_lui,___IFD(___RETI,8,8,0x3f01L),6)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_auipc,___REF_SYM(16,___S___riscv_23_riscv_2d_auipc),___REF_FAL,6,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_auipc,3,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_auipc,___OFD(___RETI,9,0,0x3f10fL),2)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_auipc,___IFD(___RETN,5,0,0xfL),3)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_auipc,___IFD(___RETI,0,0,0x3fL),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_auipc,___OFD(___RETI,9,0,0x3f10fL),3)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_auipc,___IFD(___RETN,5,0,0xfL),4)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_auipc,___IFD(___RETI,8,8,0x3f01L),5)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_type_2d_u,___REF_SYM(118,___S___riscv_23_riscv_2d_type_2d_u),___REF_FAL,15,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_auipc,___IFD(___RETN,5,0,0xfL),5)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_auipc,___IFD(___RETI,8,8,0x3f01L),6)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_type_2d_u,___REF_SYM(118,___S___riscv_23_riscv_2d_type_2d_u),___REF_FAL,16,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_type_2d_u,4,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_u,___IFD(___RETI,8,1,0x3f1fL),2)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_u,___IFD(___RETN,5,1,0x1fL),3)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_u,___IFD(___RETI,1,4,0x3f1L),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_u,___IFD(___RETI,8,1,0x3f1fL),3)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_u,___IFD(___RETN,5,1,0x1fL),4)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_u,___IFD(___RETN,5,1,0x1fL),5)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_u,___IFD(___RETN,5,1,0x1fL),6)
@@ -11150,20 +12523,22 @@ ___BEGIN_LBL
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_u,___IFD(___RETN,5,1,0x1fL),9)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_u,___IFD(___RETN,5,1,0x1fL),10)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_u,___IFD(___RETN,5,1,0x1fL),11)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_u,___IFD(___RETN,5,1,0x1bL),12)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_u,___IFD(___RETN,5,1,0x17L),13)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_u,___IFD(___RETN,5,1,0x3L),14)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_u,___IFD(___RETI,8,8,0x3f00L),15)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_jal,___REF_SYM(60,___S___riscv_23_riscv_2d_jal),___REF_FAL,5,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_u,___IFD(___RETN,5,1,0x1fL),12)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_u,___IFD(___RETN,5,1,0x1bL),13)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_u,___IFD(___RETN,5,1,0x17L),14)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_u,___IFD(___RETN,5,1,0x3L),15)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_u,___IFD(___RETI,8,8,0x3f00L),16)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_jal,___REF_SYM(60,___S___riscv_23_riscv_2d_jal),___REF_FAL,6,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_jal,3,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_jal,___OFD(___RETI,9,0,0x3f10fL),2)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_jal,___IFD(___RETN,5,0,0xfL),3)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_jal,___IFD(___RETI,0,0,0x3fL),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_jal,___OFD(___RETI,9,0,0x3f10fL),3)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_jal,___IFD(___RETN,5,0,0xfL),4)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_jal,___IFD(___RETI,8,8,0x3f01L),5)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_type_2d_j,___REF_SYM(115,___S___riscv_23_riscv_2d_type_2d_j),___REF_FAL,35,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_jal,___IFD(___RETN,5,0,0xfL),5)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_jal,___IFD(___RETI,8,8,0x3f01L),6)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_type_2d_j,___REF_SYM(115,___S___riscv_23_riscv_2d_type_2d_j),___REF_FAL,39,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_type_2d_j,4,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_j,___IFD(___RETI,8,1,0x3f1fL),2)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_j,___IFD(___RETN,5,1,0x1fL),3)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_j,___IFD(___RETI,1,4,0x3f1L),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_j,___IFD(___RETI,8,1,0x3f1fL),3)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_j,___IFD(___RETN,5,1,0x1fL),4)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_j,___IFD(___RETN,5,1,0x1fL),5)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_j,___IFD(___RETN,5,1,0x1fL),6)
@@ -11172,34 +12547,38 @@ ___BEGIN_LBL
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_j,___IFD(___RETN,5,1,0x1fL),9)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_j,___IFD(___RETN,5,1,0x1fL),10)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_j,___IFD(___RETN,5,1,0x1fL),11)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_j,___IFD(___RETI,1,4,0x3f1L),12)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_j,___IFD(___RETN,5,0,0xbL),13)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_j,___IFD(___RETI,1,4,0x3f1L),14)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_j,___IFD(___RETI,8,1,0x3f0fL),15)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_j,___IFD(___RETN,5,1,0xfL),16)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_j,___IFD(___RETN,5,1,0x17L),17)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_j,___IFD(___RETN,5,1,0x3L),18)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_j,___IFD(___RETI,8,8,0x3f00L),19)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_j,___IFD(___RETI,7,8,0x3f20L),20)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_j,___IFD(___RETI,7,8,0x3f20L),21)
-,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_type_2d_j,2,4,22)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_j,___IFD(___RETI,8,0,0x3f07L),23)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_j,___IFD(___RETN,5,0,0x7L),24)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_j,___IFD(___RETN,5,0,0x7L),25)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_j,___IFD(___RETN,5,0,0xfL),26)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_j,___IFD(___RETN,5,0,0xbL),27)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_j,___IFD(___RETN,5,0,0x3L),28)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_j,___IFD(___RETN,5,1,0x1fL),12)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_j,___IFD(___RETI,1,4,0x3f1L),13)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_j,___IFD(___RETN,5,0,0xbL),14)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_j,___IFD(___RETI,1,4,0x3f1L),15)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_j,___IFD(___RETI,1,4,0x3f1L),16)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_j,___IFD(___RETI,8,1,0x3f0fL),17)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_j,___IFD(___RETN,5,1,0xfL),18)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_j,___IFD(___RETN,5,1,0x17L),19)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_j,___IFD(___RETN,5,1,0x3L),20)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_j,___IFD(___RETI,8,8,0x3f00L),21)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_j,___IFD(___RETI,8,1,0x3f3fL),22)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_j,___IFD(___RETI,7,8,0x3f20L),23)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_j,___IFD(___RETI,7,8,0x3f20L),24)
+,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_type_2d_j,2,4,25)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_j,___IFD(___RETI,0,0,0x3fL),26)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_j,___IFD(___RETI,8,0,0x3f07L),27)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_j,___IFD(___RETN,5,0,0x7L),28)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_j,___IFD(___RETN,5,0,0x7L),29)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_j,___IFD(___RETN,5,0,0xfL),30)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_j,___IFD(___RETN,5,0,0xbL),31)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_j,___IFD(___RETN,5,0,0xbL),32)
-,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_type_2d_j,2,-1,33)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_j,___IFD(___RETN,5,1,0x1fL),34)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_j,___IFD(___RETN,5,1,0x1fL),35)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_fence,___REF_SYM(47,___S___riscv_23_riscv_2d_fence),___REF_FAL,24,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_j,___IFD(___RETN,5,0,0x3L),32)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_j,___IFD(___RETN,5,0,0x7L),33)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_j,___IFD(___RETN,5,0,0xfL),34)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_j,___IFD(___RETN,5,0,0xbL),35)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_j,___IFD(___RETN,5,0,0xbL),36)
+,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_type_2d_j,2,-1,37)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_j,___IFD(___RETN,5,1,0x1fL),38)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_type_2d_j,___IFD(___RETN,5,1,0x1fL),39)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_fence,___REF_SYM(47,___S___riscv_23_riscv_2d_fence),___REF_FAL,26,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_fence,3,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_fence,___IFD(___RETI,8,0,0x3f0fL),2)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_fence,___IFD(___RETN,5,0,0xfL),3)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_fence,___IFD(___RETI,0,0,0x3fL),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_fence,___IFD(___RETI,8,0,0x3f0fL),3)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_fence,___IFD(___RETN,5,0,0xfL),4)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_fence,___IFD(___RETN,5,0,0xfL),5)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_fence,___IFD(___RETN,5,0,0xfL),6)
@@ -11208,37 +12587,42 @@ ___BEGIN_LBL
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_fence,___IFD(___RETN,5,0,0xfL),9)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_fence,___IFD(___RETN,5,0,0xfL),10)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_fence,___IFD(___RETN,5,0,0xfL),11)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_fence,___IFD(___RETN,5,0,0x1fL),12)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_fence,___IFD(___RETN,5,0,0xfL),13)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_fence,___IFD(___RETN,5,0,0xfL),12)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_fence,___IFD(___RETN,5,0,0x1fL),13)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_fence,___IFD(___RETN,5,0,0xfL),14)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_fence,___IFD(___RETN,5,0,0xfL),15)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_fence,___IFD(___RETN,5,4,0x19L),16)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_fence,___IFD(___RETI,8,0,0x3f03L),17)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_fence,___IFD(___RETN,5,0,0x3L),18)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_fence,___IFD(___RETN,5,2,0x7L),19)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_fence,___IFD(___RETN,5,2,0xfL),20)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_fence,___IFD(___RETN,5,2,0x1dL),21)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_fence,___IFD(___RETI,8,8,0x3f19L),22)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_fence,___IFD(___RETN,5,4,0x13L),23)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_fence,___IFD(___RETI,8,8,0x3f03L),24)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_fence_2e_i,___REF_SYM(48,___S___riscv_23_riscv_2d_fence_2e_i),___REF_FAL,5,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_fence,___IFD(___RETN,5,0,0xfL),16)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_fence,___IFD(___RETN,5,4,0x19L),17)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_fence,___IFD(___RETI,0,0,0x3fL),18)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_fence,___IFD(___RETI,8,0,0x3f03L),19)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_fence,___IFD(___RETN,5,0,0x3L),20)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_fence,___IFD(___RETN,5,2,0x7L),21)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_fence,___IFD(___RETN,5,2,0xfL),22)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_fence,___IFD(___RETN,5,2,0x1dL),23)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_fence,___IFD(___RETI,8,8,0x3f19L),24)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_fence,___IFD(___RETN,5,4,0x13L),25)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_fence,___IFD(___RETI,8,8,0x3f03L),26)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_fence_2e_i,___REF_SYM(48,___S___riscv_23_riscv_2d_fence_2e_i),___REF_FAL,6,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_fence_2e_i,1,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_fence_2e_i,___IFD(___RETI,8,0,0x3f03L),2)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_fence_2e_i,___IFD(___RETN,5,0,0x3L),3)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_fence_2e_i,___IFD(___RETI,0,0,0x3fL),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_fence_2e_i,___IFD(___RETI,8,0,0x3f03L),3)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_fence_2e_i,___IFD(___RETN,5,0,0x3L),4)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_fence_2e_i,___IFD(___RETI,8,8,0x3f00L),5)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_ecall,___REF_SYM(46,___S___riscv_23_riscv_2d_ecall),___REF_FAL,5,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_fence_2e_i,___IFD(___RETN,5,0,0x3L),5)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_fence_2e_i,___IFD(___RETI,8,8,0x3f00L),6)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_ecall,___REF_SYM(46,___S___riscv_23_riscv_2d_ecall),___REF_FAL,6,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_ecall,1,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_ecall,___IFD(___RETI,8,0,0x3f03L),2)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_ecall,___IFD(___RETN,5,0,0x3L),3)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_ecall,___IFD(___RETI,0,0,0x3fL),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_ecall,___IFD(___RETI,8,0,0x3f03L),3)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_ecall,___IFD(___RETN,5,0,0x3L),4)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_ecall,___IFD(___RETI,8,8,0x3f00L),5)
-,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_ebreak,___REF_SYM(45,___S___riscv_23_riscv_2d_ebreak),___REF_FAL,5,0)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_ecall,___IFD(___RETN,5,0,0x3L),5)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_ecall,___IFD(___RETI,8,8,0x3f00L),6)
+,___DEF_LBL_INTRO(___H___riscv_23_riscv_2d_ebreak,___REF_SYM(45,___S___riscv_23_riscv_2d_ebreak),___REF_FAL,6,0)
 ,___DEF_LBL_PROC_AT(___H___riscv_23_riscv_2d_ebreak,1,-1,1)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_ebreak,___IFD(___RETI,8,0,0x3f03L),2)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_ebreak,___IFD(___RETN,5,0,0x3L),3)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_ebreak,___IFD(___RETI,0,0,0x3fL),2)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_ebreak,___IFD(___RETI,8,0,0x3f03L),3)
 ,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_ebreak,___IFD(___RETN,5,0,0x3L),4)
-,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_ebreak,___IFD(___RETI,8,8,0x3f00L),5)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_ebreak,___IFD(___RETN,5,0,0x3L),5)
+,___DEF_LBL_RET_AT(___H___riscv_23_riscv_2d_ebreak,___IFD(___RETI,8,8,0x3f00L),6)
 ___END_LBL
 
 ___BEGIN_OFD
@@ -11248,6 +12632,10 @@ ___BEGIN_OFD
                ___GCMAP1(0x3f021L)
 ,___DEF_OFD(___RETI,12,4)
                ___GCMAP1(0x3f0ffL)
+,___DEF_OFD(___RETI,12,4)
+               ___GCMAP1(0x3f0ffL)
+,___DEF_OFD(___RETI,16,4)
+               ___GCMAP1(0x3f10ffL)
 ,___DEF_OFD(___RETI,11,1)
                ___GCMAP1(0x3f71fL)
 ,___DEF_OFD(___RETI,12,12)
@@ -11264,18 +12652,34 @@ ___BEGIN_OFD
                ___GCMAP1(0x3f007L)
 ,___DEF_OFD(___RETI,12,3)
                ___GCMAP1(0x3f07fL)
+,___DEF_OFD(___RETI,12,3)
+               ___GCMAP1(0x3f07fL)
+,___DEF_OFD(___RETI,16,3)
+               ___GCMAP1(0x3f107fL)
+,___DEF_OFD(___RETI,12,3)
+               ___GCMAP1(0x3f07fL)
 ,___DEF_OFD(___RETI,12,12)
                ___GCMAP1(0x3f003L)
+,___DEF_OFD(___RETI,12,3)
+               ___GCMAP1(0x3f02fL)
 ,___DEF_OFD(___RETI,12,12)
                ___GCMAP1(0x3f021L)
 ,___DEF_OFD(___RETI,12,3)
                ___GCMAP1(0x3f07fL)
+,___DEF_OFD(___RETI,12,3)
+               ___GCMAP1(0x3f07fL)
+,___DEF_OFD(___RETI,12,3)
+               ___GCMAP1(0x3f02fL)
 ,___DEF_OFD(___RETI,12,12)
                ___GCMAP1(0x3f021L)
+,___DEF_OFD(___RETI,12,3)
+               ___GCMAP1(0x3f07fL)
 ,___DEF_OFD(___RETI,12,3)
                ___GCMAP1(0x3f07fL)
 ,___DEF_OFD(___RETI,16,3)
                ___GCMAP1(0x3f031dL)
+,___DEF_OFD(___RETI,12,3)
+               ___GCMAP1(0x3f0ffL)
 ,___DEF_OFD(___RETI,12,3)
                ___GCMAP1(0x3f0bfL)
 ,___DEF_OFD(___RETI,9,0)
@@ -11291,117 +12695,117 @@ ___DEF_MOD_PRM(0,___G___riscv_23_,1)
 ___DEF_MOD_PRM(76,___G___riscv_23_riscv_2d_register_2d_name,3)
 ___DEF_MOD_PRM(8,___G___riscv_23_riscv_2d_arch_2d_set_21_,6)
 ___DEF_MOD_PRM(1,___G___riscv_23_riscv_2d_64bit_2d_mode_3f_,9)
-___DEF_MOD_PRM(112,___G___riscv_23_riscv_2d_word_2d_width,14)
-___DEF_MOD_PRM(51,___G___riscv_23_riscv_2d_imm_3f_,18)
-___DEF_MOD_PRM(43,___G___riscv_23_riscv_2d_imm_2d_int,21)
-___DEF_MOD_PRM(46,___G___riscv_23_riscv_2d_imm_2d_int_3f_,24)
-___DEF_MOD_PRM(44,___G___riscv_23_riscv_2d_imm_2d_int_2d_type,32)
-___DEF_MOD_PRM(45,___G___riscv_23_riscv_2d_imm_2d_int_2d_value,35)
-___DEF_MOD_PRM(47,___G___riscv_23_riscv_2d_imm_2d_lbl,38)
-___DEF_MOD_PRM(50,___G___riscv_23_riscv_2d_imm_2d_lbl_3f_,41)
-___DEF_MOD_PRM(49,___G___riscv_23_riscv_2d_imm_2d_lbl_2d_offset,49)
-___DEF_MOD_PRM(48,___G___riscv_23_riscv_2d_imm_2d_lbl_2d_label,52)
-___DEF_MOD_PRM(42,___G___riscv_23_riscv_2d_imm_2d__3e_instr,55)
-___DEF_MOD_PRM(65,___G___riscv_23_riscv_2d_listing,90)
-___DEF_MOD_PRM(58,___G___riscv_23_riscv_2d_label,111)
-___DEF_MOD_PRM(31,___G___riscv_23_riscv_2d_db,119)
-___DEF_MOD_PRM(27,___G___riscv_23_riscv_2d_d2b,122)
-___DEF_MOD_PRM(33,___G___riscv_23_riscv_2d_dh,125)
-___DEF_MOD_PRM(36,___G___riscv_23_riscv_2d_ds,128)
-___DEF_MOD_PRM(28,___G___riscv_23_riscv_2d_d4b,131)
-___DEF_MOD_PRM(37,___G___riscv_23_riscv_2d_dw,134)
-___DEF_MOD_PRM(34,___G___riscv_23_riscv_2d_dl,137)
-___DEF_MOD_PRM(29,___G___riscv_23_riscv_2d_d8b,140)
-___DEF_MOD_PRM(32,___G___riscv_23_riscv_2d_dd,143)
-___DEF_MOD_PRM(35,___G___riscv_23_riscv_2d_dq,146)
-___DEF_MOD_PRM(30,___G___riscv_23_riscv_2d_data_2d_elems,149)
-___DEF_MOD_PRM(72,___G___riscv_23_riscv_2d_nop,179)
-___DEF_MOD_PRM(64,___G___riscv_23_riscv_2d_li,184)
-___DEF_MOD_PRM(69,___G___riscv_23_riscv_2d_mv,230)
-___DEF_MOD_PRM(73,___G___riscv_23_riscv_2d_not,235)
-___DEF_MOD_PRM(70,___G___riscv_23_riscv_2d_neg,240)
-___DEF_MOD_PRM(71,___G___riscv_23_riscv_2d_negw,243)
-___DEF_MOD_PRM(81,___G___riscv_23_riscv_2d_sext_2e_w,246)
-___DEF_MOD_PRM(80,___G___riscv_23_riscv_2d_seqz,253)
-___DEF_MOD_PRM(93,___G___riscv_23_riscv_2d_snez,258)
-___DEF_MOD_PRM(92,___G___riscv_23_riscv_2d_sltz,261)
-___DEF_MOD_PRM(82,___G___riscv_23_riscv_2d_sgtz,264)
-___DEF_MOD_PRM(11,___G___riscv_23_riscv_2d_beqz,267)
-___DEF_MOD_PRM(25,___G___riscv_23_riscv_2d_bnez,270)
-___DEF_MOD_PRM(20,___G___riscv_23_riscv_2d_blez,273)
-___DEF_MOD_PRM(14,___G___riscv_23_riscv_2d_bgez,276)
-___DEF_MOD_PRM(23,___G___riscv_23_riscv_2d_bltz,279)
-___DEF_MOD_PRM(17,___G___riscv_23_riscv_2d_bgtz,282)
-___DEF_MOD_PRM(15,___G___riscv_23_riscv_2d_bgt,285)
-___DEF_MOD_PRM(18,___G___riscv_23_riscv_2d_ble,288)
-___DEF_MOD_PRM(16,___G___riscv_23_riscv_2d_bgtu,291)
-___DEF_MOD_PRM(19,___G___riscv_23_riscv_2d_bleu,294)
-___DEF_MOD_PRM(52,___G___riscv_23_riscv_2d_j,297)
-___DEF_MOD_PRM(54,___G___riscv_23_riscv_2d_jal_2a_,300)
-___DEF_MOD_PRM(57,___G___riscv_23_riscv_2d_jr,303)
-___DEF_MOD_PRM(56,___G___riscv_23_riscv_2d_jalr_2a_,310)
-___DEF_MOD_PRM(77,___G___riscv_23_riscv_2d_ret,317)
-___DEF_MOD_PRM(26,___G___riscv_23_riscv_2d_call,324)
-___DEF_MOD_PRM(105,___G___riscv_23_riscv_2d_tail,337)
-___DEF_MOD_PRM(2,___G___riscv_23_riscv_2d_add,350)
-___DEF_MOD_PRM(102,___G___riscv_23_riscv_2d_sub,353)
-___DEF_MOD_PRM(84,___G___riscv_23_riscv_2d_sll,356)
-___DEF_MOD_PRM(88,___G___riscv_23_riscv_2d_slt,359)
-___DEF_MOD_PRM(91,___G___riscv_23_riscv_2d_sltu,362)
-___DEF_MOD_PRM(113,___G___riscv_23_riscv_2d_xor,365)
-___DEF_MOD_PRM(98,___G___riscv_23_riscv_2d_srl,368)
-___DEF_MOD_PRM(94,___G___riscv_23_riscv_2d_sra,371)
-___DEF_MOD_PRM(74,___G___riscv_23_riscv_2d_or,374)
-___DEF_MOD_PRM(6,___G___riscv_23_riscv_2d_and,377)
-___DEF_MOD_PRM(5,___G___riscv_23_riscv_2d_addw,380)
-___DEF_MOD_PRM(103,___G___riscv_23_riscv_2d_subw,387)
-___DEF_MOD_PRM(87,___G___riscv_23_riscv_2d_sllw,394)
-___DEF_MOD_PRM(101,___G___riscv_23_riscv_2d_srlw,401)
-___DEF_MOD_PRM(97,___G___riscv_23_riscv_2d_sraw,408)
-___DEF_MOD_PRM(109,___G___riscv_23_riscv_2d_type_2d_r,415)
-___DEF_MOD_PRM(55,___G___riscv_23_riscv_2d_jalr,435)
-___DEF_MOD_PRM(59,___G___riscv_23_riscv_2d_lb,441)
-___DEF_MOD_PRM(62,___G___riscv_23_riscv_2d_lh,444)
-___DEF_MOD_PRM(67,___G___riscv_23_riscv_2d_lw,447)
-___DEF_MOD_PRM(60,___G___riscv_23_riscv_2d_lbu,450)
-___DEF_MOD_PRM(63,___G___riscv_23_riscv_2d_lhu,453)
-___DEF_MOD_PRM(3,___G___riscv_23_riscv_2d_addi,456)
-___DEF_MOD_PRM(89,___G___riscv_23_riscv_2d_slti,459)
-___DEF_MOD_PRM(90,___G___riscv_23_riscv_2d_sltiu,462)
-___DEF_MOD_PRM(114,___G___riscv_23_riscv_2d_xori,465)
-___DEF_MOD_PRM(75,___G___riscv_23_riscv_2d_ori,468)
-___DEF_MOD_PRM(7,___G___riscv_23_riscv_2d_andi,471)
-___DEF_MOD_PRM(85,___G___riscv_23_riscv_2d_slli,474)
-___DEF_MOD_PRM(99,___G___riscv_23_riscv_2d_srli,486)
-___DEF_MOD_PRM(95,___G___riscv_23_riscv_2d_srai,498)
-___DEF_MOD_PRM(68,___G___riscv_23_riscv_2d_lwu,511)
-___DEF_MOD_PRM(61,___G___riscv_23_riscv_2d_ld,518)
-___DEF_MOD_PRM(4,___G___riscv_23_riscv_2d_addiw,525)
-___DEF_MOD_PRM(86,___G___riscv_23_riscv_2d_slliw,532)
-___DEF_MOD_PRM(100,___G___riscv_23_riscv_2d_srliw,546)
-___DEF_MOD_PRM(96,___G___riscv_23_riscv_2d_sraiw,560)
-___DEF_MOD_PRM(107,___G___riscv_23_riscv_2d_type_2d_i,575)
-___DEF_MOD_PRM(78,___G___riscv_23_riscv_2d_sb,644)
-___DEF_MOD_PRM(83,___G___riscv_23_riscv_2d_sh,647)
-___DEF_MOD_PRM(104,___G___riscv_23_riscv_2d_sw,650)
-___DEF_MOD_PRM(79,___G___riscv_23_riscv_2d_sd,653)
-___DEF_MOD_PRM(110,___G___riscv_23_riscv_2d_type_2d_s,660)
-___DEF_MOD_PRM(10,___G___riscv_23_riscv_2d_beq,686)
-___DEF_MOD_PRM(24,___G___riscv_23_riscv_2d_bne,689)
-___DEF_MOD_PRM(21,___G___riscv_23_riscv_2d_blt,692)
-___DEF_MOD_PRM(12,___G___riscv_23_riscv_2d_bge,695)
-___DEF_MOD_PRM(22,___G___riscv_23_riscv_2d_bltu,698)
-___DEF_MOD_PRM(13,___G___riscv_23_riscv_2d_bgeu,701)
-___DEF_MOD_PRM(106,___G___riscv_23_riscv_2d_type_2d_b,704)
-___DEF_MOD_PRM(66,___G___riscv_23_riscv_2d_lui,745)
-___DEF_MOD_PRM(9,___G___riscv_23_riscv_2d_auipc,751)
-___DEF_MOD_PRM(111,___G___riscv_23_riscv_2d_type_2d_u,757)
-___DEF_MOD_PRM(53,___G___riscv_23_riscv_2d_jal,773)
-___DEF_MOD_PRM(108,___G___riscv_23_riscv_2d_type_2d_j,779)
-___DEF_MOD_PRM(40,___G___riscv_23_riscv_2d_fence,815)
-___DEF_MOD_PRM(41,___G___riscv_23_riscv_2d_fence_2e_i,840)
-___DEF_MOD_PRM(39,___G___riscv_23_riscv_2d_ecall,846)
-___DEF_MOD_PRM(38,___G___riscv_23_riscv_2d_ebreak,852)
+___DEF_MOD_PRM(112,___G___riscv_23_riscv_2d_word_2d_width,15)
+___DEF_MOD_PRM(51,___G___riscv_23_riscv_2d_imm_3f_,20)
+___DEF_MOD_PRM(43,___G___riscv_23_riscv_2d_imm_2d_int,23)
+___DEF_MOD_PRM(46,___G___riscv_23_riscv_2d_imm_2d_int_3f_,27)
+___DEF_MOD_PRM(44,___G___riscv_23_riscv_2d_imm_2d_int_2d_type,36)
+___DEF_MOD_PRM(45,___G___riscv_23_riscv_2d_imm_2d_int_2d_value,39)
+___DEF_MOD_PRM(47,___G___riscv_23_riscv_2d_imm_2d_lbl,42)
+___DEF_MOD_PRM(50,___G___riscv_23_riscv_2d_imm_2d_lbl_3f_,46)
+___DEF_MOD_PRM(49,___G___riscv_23_riscv_2d_imm_2d_lbl_2d_offset,55)
+___DEF_MOD_PRM(48,___G___riscv_23_riscv_2d_imm_2d_lbl_2d_label,58)
+___DEF_MOD_PRM(42,___G___riscv_23_riscv_2d_imm_2d__3e_instr,61)
+___DEF_MOD_PRM(65,___G___riscv_23_riscv_2d_listing,97)
+___DEF_MOD_PRM(58,___G___riscv_23_riscv_2d_label,120)
+___DEF_MOD_PRM(31,___G___riscv_23_riscv_2d_db,129)
+___DEF_MOD_PRM(27,___G___riscv_23_riscv_2d_d2b,132)
+___DEF_MOD_PRM(33,___G___riscv_23_riscv_2d_dh,135)
+___DEF_MOD_PRM(36,___G___riscv_23_riscv_2d_ds,138)
+___DEF_MOD_PRM(28,___G___riscv_23_riscv_2d_d4b,141)
+___DEF_MOD_PRM(37,___G___riscv_23_riscv_2d_dw,144)
+___DEF_MOD_PRM(34,___G___riscv_23_riscv_2d_dl,147)
+___DEF_MOD_PRM(29,___G___riscv_23_riscv_2d_d8b,150)
+___DEF_MOD_PRM(32,___G___riscv_23_riscv_2d_dd,153)
+___DEF_MOD_PRM(35,___G___riscv_23_riscv_2d_dq,156)
+___DEF_MOD_PRM(30,___G___riscv_23_riscv_2d_data_2d_elems,159)
+___DEF_MOD_PRM(72,___G___riscv_23_riscv_2d_nop,193)
+___DEF_MOD_PRM(64,___G___riscv_23_riscv_2d_li,199)
+___DEF_MOD_PRM(69,___G___riscv_23_riscv_2d_mv,251)
+___DEF_MOD_PRM(73,___G___riscv_23_riscv_2d_not,257)
+___DEF_MOD_PRM(70,___G___riscv_23_riscv_2d_neg,263)
+___DEF_MOD_PRM(71,___G___riscv_23_riscv_2d_negw,267)
+___DEF_MOD_PRM(81,___G___riscv_23_riscv_2d_sext_2e_w,271)
+___DEF_MOD_PRM(80,___G___riscv_23_riscv_2d_seqz,280)
+___DEF_MOD_PRM(93,___G___riscv_23_riscv_2d_snez,286)
+___DEF_MOD_PRM(92,___G___riscv_23_riscv_2d_sltz,290)
+___DEF_MOD_PRM(82,___G___riscv_23_riscv_2d_sgtz,294)
+___DEF_MOD_PRM(11,___G___riscv_23_riscv_2d_beqz,298)
+___DEF_MOD_PRM(25,___G___riscv_23_riscv_2d_bnez,302)
+___DEF_MOD_PRM(20,___G___riscv_23_riscv_2d_blez,306)
+___DEF_MOD_PRM(14,___G___riscv_23_riscv_2d_bgez,310)
+___DEF_MOD_PRM(23,___G___riscv_23_riscv_2d_bltz,314)
+___DEF_MOD_PRM(17,___G___riscv_23_riscv_2d_bgtz,318)
+___DEF_MOD_PRM(15,___G___riscv_23_riscv_2d_bgt,322)
+___DEF_MOD_PRM(18,___G___riscv_23_riscv_2d_ble,326)
+___DEF_MOD_PRM(16,___G___riscv_23_riscv_2d_bgtu,330)
+___DEF_MOD_PRM(19,___G___riscv_23_riscv_2d_bleu,334)
+___DEF_MOD_PRM(52,___G___riscv_23_riscv_2d_j,338)
+___DEF_MOD_PRM(54,___G___riscv_23_riscv_2d_jal_2a_,341)
+___DEF_MOD_PRM(57,___G___riscv_23_riscv_2d_jr,344)
+___DEF_MOD_PRM(56,___G___riscv_23_riscv_2d_jalr_2a_,353)
+___DEF_MOD_PRM(77,___G___riscv_23_riscv_2d_ret,362)
+___DEF_MOD_PRM(26,___G___riscv_23_riscv_2d_call,371)
+___DEF_MOD_PRM(105,___G___riscv_23_riscv_2d_tail,386)
+___DEF_MOD_PRM(2,___G___riscv_23_riscv_2d_add,401)
+___DEF_MOD_PRM(102,___G___riscv_23_riscv_2d_sub,405)
+___DEF_MOD_PRM(84,___G___riscv_23_riscv_2d_sll,409)
+___DEF_MOD_PRM(88,___G___riscv_23_riscv_2d_slt,413)
+___DEF_MOD_PRM(91,___G___riscv_23_riscv_2d_sltu,417)
+___DEF_MOD_PRM(113,___G___riscv_23_riscv_2d_xor,421)
+___DEF_MOD_PRM(98,___G___riscv_23_riscv_2d_srl,425)
+___DEF_MOD_PRM(94,___G___riscv_23_riscv_2d_sra,429)
+___DEF_MOD_PRM(74,___G___riscv_23_riscv_2d_or,433)
+___DEF_MOD_PRM(6,___G___riscv_23_riscv_2d_and,437)
+___DEF_MOD_PRM(5,___G___riscv_23_riscv_2d_addw,441)
+___DEF_MOD_PRM(103,___G___riscv_23_riscv_2d_subw,449)
+___DEF_MOD_PRM(87,___G___riscv_23_riscv_2d_sllw,457)
+___DEF_MOD_PRM(101,___G___riscv_23_riscv_2d_srlw,465)
+___DEF_MOD_PRM(97,___G___riscv_23_riscv_2d_sraw,473)
+___DEF_MOD_PRM(109,___G___riscv_23_riscv_2d_type_2d_r,481)
+___DEF_MOD_PRM(55,___G___riscv_23_riscv_2d_jalr,504)
+___DEF_MOD_PRM(59,___G___riscv_23_riscv_2d_lb,511)
+___DEF_MOD_PRM(62,___G___riscv_23_riscv_2d_lh,515)
+___DEF_MOD_PRM(67,___G___riscv_23_riscv_2d_lw,519)
+___DEF_MOD_PRM(60,___G___riscv_23_riscv_2d_lbu,523)
+___DEF_MOD_PRM(63,___G___riscv_23_riscv_2d_lhu,527)
+___DEF_MOD_PRM(3,___G___riscv_23_riscv_2d_addi,531)
+___DEF_MOD_PRM(89,___G___riscv_23_riscv_2d_slti,535)
+___DEF_MOD_PRM(90,___G___riscv_23_riscv_2d_sltiu,539)
+___DEF_MOD_PRM(114,___G___riscv_23_riscv_2d_xori,543)
+___DEF_MOD_PRM(75,___G___riscv_23_riscv_2d_ori,547)
+___DEF_MOD_PRM(7,___G___riscv_23_riscv_2d_andi,551)
+___DEF_MOD_PRM(85,___G___riscv_23_riscv_2d_slli,555)
+___DEF_MOD_PRM(99,___G___riscv_23_riscv_2d_srli,570)
+___DEF_MOD_PRM(95,___G___riscv_23_riscv_2d_srai,585)
+___DEF_MOD_PRM(68,___G___riscv_23_riscv_2d_lwu,601)
+___DEF_MOD_PRM(61,___G___riscv_23_riscv_2d_ld,609)
+___DEF_MOD_PRM(4,___G___riscv_23_riscv_2d_addiw,617)
+___DEF_MOD_PRM(86,___G___riscv_23_riscv_2d_slliw,625)
+___DEF_MOD_PRM(100,___G___riscv_23_riscv_2d_srliw,642)
+___DEF_MOD_PRM(96,___G___riscv_23_riscv_2d_sraiw,659)
+___DEF_MOD_PRM(107,___G___riscv_23_riscv_2d_type_2d_i,677)
+___DEF_MOD_PRM(78,___G___riscv_23_riscv_2d_sb,754)
+___DEF_MOD_PRM(83,___G___riscv_23_riscv_2d_sh,758)
+___DEF_MOD_PRM(104,___G___riscv_23_riscv_2d_sw,762)
+___DEF_MOD_PRM(79,___G___riscv_23_riscv_2d_sd,766)
+___DEF_MOD_PRM(110,___G___riscv_23_riscv_2d_type_2d_s,774)
+___DEF_MOD_PRM(10,___G___riscv_23_riscv_2d_beq,804)
+___DEF_MOD_PRM(24,___G___riscv_23_riscv_2d_bne,808)
+___DEF_MOD_PRM(21,___G___riscv_23_riscv_2d_blt,812)
+___DEF_MOD_PRM(12,___G___riscv_23_riscv_2d_bge,816)
+___DEF_MOD_PRM(22,___G___riscv_23_riscv_2d_bltu,820)
+___DEF_MOD_PRM(13,___G___riscv_23_riscv_2d_bgeu,824)
+___DEF_MOD_PRM(106,___G___riscv_23_riscv_2d_type_2d_b,828)
+___DEF_MOD_PRM(66,___G___riscv_23_riscv_2d_lui,874)
+___DEF_MOD_PRM(9,___G___riscv_23_riscv_2d_auipc,881)
+___DEF_MOD_PRM(111,___G___riscv_23_riscv_2d_type_2d_u,888)
+___DEF_MOD_PRM(53,___G___riscv_23_riscv_2d_jal,905)
+___DEF_MOD_PRM(108,___G___riscv_23_riscv_2d_type_2d_j,912)
+___DEF_MOD_PRM(40,___G___riscv_23_riscv_2d_fence,952)
+___DEF_MOD_PRM(41,___G___riscv_23_riscv_2d_fence_2e_i,979)
+___DEF_MOD_PRM(39,___G___riscv_23_riscv_2d_ecall,986)
+___DEF_MOD_PRM(38,___G___riscv_23_riscv_2d_ebreak,993)
 ___END_MOD_PRM
 
 ___BEGIN_MOD_C_INIT
@@ -11412,117 +12816,117 @@ ___DEF_MOD_GLO(0,___G___riscv_23_,1)
 ___DEF_MOD_GLO(76,___G___riscv_23_riscv_2d_register_2d_name,3)
 ___DEF_MOD_GLO(8,___G___riscv_23_riscv_2d_arch_2d_set_21_,6)
 ___DEF_MOD_GLO(1,___G___riscv_23_riscv_2d_64bit_2d_mode_3f_,9)
-___DEF_MOD_GLO(112,___G___riscv_23_riscv_2d_word_2d_width,14)
-___DEF_MOD_GLO(51,___G___riscv_23_riscv_2d_imm_3f_,18)
-___DEF_MOD_GLO(43,___G___riscv_23_riscv_2d_imm_2d_int,21)
-___DEF_MOD_GLO(46,___G___riscv_23_riscv_2d_imm_2d_int_3f_,24)
-___DEF_MOD_GLO(44,___G___riscv_23_riscv_2d_imm_2d_int_2d_type,32)
-___DEF_MOD_GLO(45,___G___riscv_23_riscv_2d_imm_2d_int_2d_value,35)
-___DEF_MOD_GLO(47,___G___riscv_23_riscv_2d_imm_2d_lbl,38)
-___DEF_MOD_GLO(50,___G___riscv_23_riscv_2d_imm_2d_lbl_3f_,41)
-___DEF_MOD_GLO(49,___G___riscv_23_riscv_2d_imm_2d_lbl_2d_offset,49)
-___DEF_MOD_GLO(48,___G___riscv_23_riscv_2d_imm_2d_lbl_2d_label,52)
-___DEF_MOD_GLO(42,___G___riscv_23_riscv_2d_imm_2d__3e_instr,55)
-___DEF_MOD_GLO(65,___G___riscv_23_riscv_2d_listing,90)
-___DEF_MOD_GLO(58,___G___riscv_23_riscv_2d_label,111)
-___DEF_MOD_GLO(31,___G___riscv_23_riscv_2d_db,119)
-___DEF_MOD_GLO(27,___G___riscv_23_riscv_2d_d2b,122)
-___DEF_MOD_GLO(33,___G___riscv_23_riscv_2d_dh,125)
-___DEF_MOD_GLO(36,___G___riscv_23_riscv_2d_ds,128)
-___DEF_MOD_GLO(28,___G___riscv_23_riscv_2d_d4b,131)
-___DEF_MOD_GLO(37,___G___riscv_23_riscv_2d_dw,134)
-___DEF_MOD_GLO(34,___G___riscv_23_riscv_2d_dl,137)
-___DEF_MOD_GLO(29,___G___riscv_23_riscv_2d_d8b,140)
-___DEF_MOD_GLO(32,___G___riscv_23_riscv_2d_dd,143)
-___DEF_MOD_GLO(35,___G___riscv_23_riscv_2d_dq,146)
-___DEF_MOD_GLO(30,___G___riscv_23_riscv_2d_data_2d_elems,149)
-___DEF_MOD_GLO(72,___G___riscv_23_riscv_2d_nop,179)
-___DEF_MOD_GLO(64,___G___riscv_23_riscv_2d_li,184)
-___DEF_MOD_GLO(69,___G___riscv_23_riscv_2d_mv,230)
-___DEF_MOD_GLO(73,___G___riscv_23_riscv_2d_not,235)
-___DEF_MOD_GLO(70,___G___riscv_23_riscv_2d_neg,240)
-___DEF_MOD_GLO(71,___G___riscv_23_riscv_2d_negw,243)
-___DEF_MOD_GLO(81,___G___riscv_23_riscv_2d_sext_2e_w,246)
-___DEF_MOD_GLO(80,___G___riscv_23_riscv_2d_seqz,253)
-___DEF_MOD_GLO(93,___G___riscv_23_riscv_2d_snez,258)
-___DEF_MOD_GLO(92,___G___riscv_23_riscv_2d_sltz,261)
-___DEF_MOD_GLO(82,___G___riscv_23_riscv_2d_sgtz,264)
-___DEF_MOD_GLO(11,___G___riscv_23_riscv_2d_beqz,267)
-___DEF_MOD_GLO(25,___G___riscv_23_riscv_2d_bnez,270)
-___DEF_MOD_GLO(20,___G___riscv_23_riscv_2d_blez,273)
-___DEF_MOD_GLO(14,___G___riscv_23_riscv_2d_bgez,276)
-___DEF_MOD_GLO(23,___G___riscv_23_riscv_2d_bltz,279)
-___DEF_MOD_GLO(17,___G___riscv_23_riscv_2d_bgtz,282)
-___DEF_MOD_GLO(15,___G___riscv_23_riscv_2d_bgt,285)
-___DEF_MOD_GLO(18,___G___riscv_23_riscv_2d_ble,288)
-___DEF_MOD_GLO(16,___G___riscv_23_riscv_2d_bgtu,291)
-___DEF_MOD_GLO(19,___G___riscv_23_riscv_2d_bleu,294)
-___DEF_MOD_GLO(52,___G___riscv_23_riscv_2d_j,297)
-___DEF_MOD_GLO(54,___G___riscv_23_riscv_2d_jal_2a_,300)
-___DEF_MOD_GLO(57,___G___riscv_23_riscv_2d_jr,303)
-___DEF_MOD_GLO(56,___G___riscv_23_riscv_2d_jalr_2a_,310)
-___DEF_MOD_GLO(77,___G___riscv_23_riscv_2d_ret,317)
-___DEF_MOD_GLO(26,___G___riscv_23_riscv_2d_call,324)
-___DEF_MOD_GLO(105,___G___riscv_23_riscv_2d_tail,337)
-___DEF_MOD_GLO(2,___G___riscv_23_riscv_2d_add,350)
-___DEF_MOD_GLO(102,___G___riscv_23_riscv_2d_sub,353)
-___DEF_MOD_GLO(84,___G___riscv_23_riscv_2d_sll,356)
-___DEF_MOD_GLO(88,___G___riscv_23_riscv_2d_slt,359)
-___DEF_MOD_GLO(91,___G___riscv_23_riscv_2d_sltu,362)
-___DEF_MOD_GLO(113,___G___riscv_23_riscv_2d_xor,365)
-___DEF_MOD_GLO(98,___G___riscv_23_riscv_2d_srl,368)
-___DEF_MOD_GLO(94,___G___riscv_23_riscv_2d_sra,371)
-___DEF_MOD_GLO(74,___G___riscv_23_riscv_2d_or,374)
-___DEF_MOD_GLO(6,___G___riscv_23_riscv_2d_and,377)
-___DEF_MOD_GLO(5,___G___riscv_23_riscv_2d_addw,380)
-___DEF_MOD_GLO(103,___G___riscv_23_riscv_2d_subw,387)
-___DEF_MOD_GLO(87,___G___riscv_23_riscv_2d_sllw,394)
-___DEF_MOD_GLO(101,___G___riscv_23_riscv_2d_srlw,401)
-___DEF_MOD_GLO(97,___G___riscv_23_riscv_2d_sraw,408)
-___DEF_MOD_GLO(109,___G___riscv_23_riscv_2d_type_2d_r,415)
-___DEF_MOD_GLO(55,___G___riscv_23_riscv_2d_jalr,435)
-___DEF_MOD_GLO(59,___G___riscv_23_riscv_2d_lb,441)
-___DEF_MOD_GLO(62,___G___riscv_23_riscv_2d_lh,444)
-___DEF_MOD_GLO(67,___G___riscv_23_riscv_2d_lw,447)
-___DEF_MOD_GLO(60,___G___riscv_23_riscv_2d_lbu,450)
-___DEF_MOD_GLO(63,___G___riscv_23_riscv_2d_lhu,453)
-___DEF_MOD_GLO(3,___G___riscv_23_riscv_2d_addi,456)
-___DEF_MOD_GLO(89,___G___riscv_23_riscv_2d_slti,459)
-___DEF_MOD_GLO(90,___G___riscv_23_riscv_2d_sltiu,462)
-___DEF_MOD_GLO(114,___G___riscv_23_riscv_2d_xori,465)
-___DEF_MOD_GLO(75,___G___riscv_23_riscv_2d_ori,468)
-___DEF_MOD_GLO(7,___G___riscv_23_riscv_2d_andi,471)
-___DEF_MOD_GLO(85,___G___riscv_23_riscv_2d_slli,474)
-___DEF_MOD_GLO(99,___G___riscv_23_riscv_2d_srli,486)
-___DEF_MOD_GLO(95,___G___riscv_23_riscv_2d_srai,498)
-___DEF_MOD_GLO(68,___G___riscv_23_riscv_2d_lwu,511)
-___DEF_MOD_GLO(61,___G___riscv_23_riscv_2d_ld,518)
-___DEF_MOD_GLO(4,___G___riscv_23_riscv_2d_addiw,525)
-___DEF_MOD_GLO(86,___G___riscv_23_riscv_2d_slliw,532)
-___DEF_MOD_GLO(100,___G___riscv_23_riscv_2d_srliw,546)
-___DEF_MOD_GLO(96,___G___riscv_23_riscv_2d_sraiw,560)
-___DEF_MOD_GLO(107,___G___riscv_23_riscv_2d_type_2d_i,575)
-___DEF_MOD_GLO(78,___G___riscv_23_riscv_2d_sb,644)
-___DEF_MOD_GLO(83,___G___riscv_23_riscv_2d_sh,647)
-___DEF_MOD_GLO(104,___G___riscv_23_riscv_2d_sw,650)
-___DEF_MOD_GLO(79,___G___riscv_23_riscv_2d_sd,653)
-___DEF_MOD_GLO(110,___G___riscv_23_riscv_2d_type_2d_s,660)
-___DEF_MOD_GLO(10,___G___riscv_23_riscv_2d_beq,686)
-___DEF_MOD_GLO(24,___G___riscv_23_riscv_2d_bne,689)
-___DEF_MOD_GLO(21,___G___riscv_23_riscv_2d_blt,692)
-___DEF_MOD_GLO(12,___G___riscv_23_riscv_2d_bge,695)
-___DEF_MOD_GLO(22,___G___riscv_23_riscv_2d_bltu,698)
-___DEF_MOD_GLO(13,___G___riscv_23_riscv_2d_bgeu,701)
-___DEF_MOD_GLO(106,___G___riscv_23_riscv_2d_type_2d_b,704)
-___DEF_MOD_GLO(66,___G___riscv_23_riscv_2d_lui,745)
-___DEF_MOD_GLO(9,___G___riscv_23_riscv_2d_auipc,751)
-___DEF_MOD_GLO(111,___G___riscv_23_riscv_2d_type_2d_u,757)
-___DEF_MOD_GLO(53,___G___riscv_23_riscv_2d_jal,773)
-___DEF_MOD_GLO(108,___G___riscv_23_riscv_2d_type_2d_j,779)
-___DEF_MOD_GLO(40,___G___riscv_23_riscv_2d_fence,815)
-___DEF_MOD_GLO(41,___G___riscv_23_riscv_2d_fence_2e_i,840)
-___DEF_MOD_GLO(39,___G___riscv_23_riscv_2d_ecall,846)
-___DEF_MOD_GLO(38,___G___riscv_23_riscv_2d_ebreak,852)
+___DEF_MOD_GLO(112,___G___riscv_23_riscv_2d_word_2d_width,15)
+___DEF_MOD_GLO(51,___G___riscv_23_riscv_2d_imm_3f_,20)
+___DEF_MOD_GLO(43,___G___riscv_23_riscv_2d_imm_2d_int,23)
+___DEF_MOD_GLO(46,___G___riscv_23_riscv_2d_imm_2d_int_3f_,27)
+___DEF_MOD_GLO(44,___G___riscv_23_riscv_2d_imm_2d_int_2d_type,36)
+___DEF_MOD_GLO(45,___G___riscv_23_riscv_2d_imm_2d_int_2d_value,39)
+___DEF_MOD_GLO(47,___G___riscv_23_riscv_2d_imm_2d_lbl,42)
+___DEF_MOD_GLO(50,___G___riscv_23_riscv_2d_imm_2d_lbl_3f_,46)
+___DEF_MOD_GLO(49,___G___riscv_23_riscv_2d_imm_2d_lbl_2d_offset,55)
+___DEF_MOD_GLO(48,___G___riscv_23_riscv_2d_imm_2d_lbl_2d_label,58)
+___DEF_MOD_GLO(42,___G___riscv_23_riscv_2d_imm_2d__3e_instr,61)
+___DEF_MOD_GLO(65,___G___riscv_23_riscv_2d_listing,97)
+___DEF_MOD_GLO(58,___G___riscv_23_riscv_2d_label,120)
+___DEF_MOD_GLO(31,___G___riscv_23_riscv_2d_db,129)
+___DEF_MOD_GLO(27,___G___riscv_23_riscv_2d_d2b,132)
+___DEF_MOD_GLO(33,___G___riscv_23_riscv_2d_dh,135)
+___DEF_MOD_GLO(36,___G___riscv_23_riscv_2d_ds,138)
+___DEF_MOD_GLO(28,___G___riscv_23_riscv_2d_d4b,141)
+___DEF_MOD_GLO(37,___G___riscv_23_riscv_2d_dw,144)
+___DEF_MOD_GLO(34,___G___riscv_23_riscv_2d_dl,147)
+___DEF_MOD_GLO(29,___G___riscv_23_riscv_2d_d8b,150)
+___DEF_MOD_GLO(32,___G___riscv_23_riscv_2d_dd,153)
+___DEF_MOD_GLO(35,___G___riscv_23_riscv_2d_dq,156)
+___DEF_MOD_GLO(30,___G___riscv_23_riscv_2d_data_2d_elems,159)
+___DEF_MOD_GLO(72,___G___riscv_23_riscv_2d_nop,193)
+___DEF_MOD_GLO(64,___G___riscv_23_riscv_2d_li,199)
+___DEF_MOD_GLO(69,___G___riscv_23_riscv_2d_mv,251)
+___DEF_MOD_GLO(73,___G___riscv_23_riscv_2d_not,257)
+___DEF_MOD_GLO(70,___G___riscv_23_riscv_2d_neg,263)
+___DEF_MOD_GLO(71,___G___riscv_23_riscv_2d_negw,267)
+___DEF_MOD_GLO(81,___G___riscv_23_riscv_2d_sext_2e_w,271)
+___DEF_MOD_GLO(80,___G___riscv_23_riscv_2d_seqz,280)
+___DEF_MOD_GLO(93,___G___riscv_23_riscv_2d_snez,286)
+___DEF_MOD_GLO(92,___G___riscv_23_riscv_2d_sltz,290)
+___DEF_MOD_GLO(82,___G___riscv_23_riscv_2d_sgtz,294)
+___DEF_MOD_GLO(11,___G___riscv_23_riscv_2d_beqz,298)
+___DEF_MOD_GLO(25,___G___riscv_23_riscv_2d_bnez,302)
+___DEF_MOD_GLO(20,___G___riscv_23_riscv_2d_blez,306)
+___DEF_MOD_GLO(14,___G___riscv_23_riscv_2d_bgez,310)
+___DEF_MOD_GLO(23,___G___riscv_23_riscv_2d_bltz,314)
+___DEF_MOD_GLO(17,___G___riscv_23_riscv_2d_bgtz,318)
+___DEF_MOD_GLO(15,___G___riscv_23_riscv_2d_bgt,322)
+___DEF_MOD_GLO(18,___G___riscv_23_riscv_2d_ble,326)
+___DEF_MOD_GLO(16,___G___riscv_23_riscv_2d_bgtu,330)
+___DEF_MOD_GLO(19,___G___riscv_23_riscv_2d_bleu,334)
+___DEF_MOD_GLO(52,___G___riscv_23_riscv_2d_j,338)
+___DEF_MOD_GLO(54,___G___riscv_23_riscv_2d_jal_2a_,341)
+___DEF_MOD_GLO(57,___G___riscv_23_riscv_2d_jr,344)
+___DEF_MOD_GLO(56,___G___riscv_23_riscv_2d_jalr_2a_,353)
+___DEF_MOD_GLO(77,___G___riscv_23_riscv_2d_ret,362)
+___DEF_MOD_GLO(26,___G___riscv_23_riscv_2d_call,371)
+___DEF_MOD_GLO(105,___G___riscv_23_riscv_2d_tail,386)
+___DEF_MOD_GLO(2,___G___riscv_23_riscv_2d_add,401)
+___DEF_MOD_GLO(102,___G___riscv_23_riscv_2d_sub,405)
+___DEF_MOD_GLO(84,___G___riscv_23_riscv_2d_sll,409)
+___DEF_MOD_GLO(88,___G___riscv_23_riscv_2d_slt,413)
+___DEF_MOD_GLO(91,___G___riscv_23_riscv_2d_sltu,417)
+___DEF_MOD_GLO(113,___G___riscv_23_riscv_2d_xor,421)
+___DEF_MOD_GLO(98,___G___riscv_23_riscv_2d_srl,425)
+___DEF_MOD_GLO(94,___G___riscv_23_riscv_2d_sra,429)
+___DEF_MOD_GLO(74,___G___riscv_23_riscv_2d_or,433)
+___DEF_MOD_GLO(6,___G___riscv_23_riscv_2d_and,437)
+___DEF_MOD_GLO(5,___G___riscv_23_riscv_2d_addw,441)
+___DEF_MOD_GLO(103,___G___riscv_23_riscv_2d_subw,449)
+___DEF_MOD_GLO(87,___G___riscv_23_riscv_2d_sllw,457)
+___DEF_MOD_GLO(101,___G___riscv_23_riscv_2d_srlw,465)
+___DEF_MOD_GLO(97,___G___riscv_23_riscv_2d_sraw,473)
+___DEF_MOD_GLO(109,___G___riscv_23_riscv_2d_type_2d_r,481)
+___DEF_MOD_GLO(55,___G___riscv_23_riscv_2d_jalr,504)
+___DEF_MOD_GLO(59,___G___riscv_23_riscv_2d_lb,511)
+___DEF_MOD_GLO(62,___G___riscv_23_riscv_2d_lh,515)
+___DEF_MOD_GLO(67,___G___riscv_23_riscv_2d_lw,519)
+___DEF_MOD_GLO(60,___G___riscv_23_riscv_2d_lbu,523)
+___DEF_MOD_GLO(63,___G___riscv_23_riscv_2d_lhu,527)
+___DEF_MOD_GLO(3,___G___riscv_23_riscv_2d_addi,531)
+___DEF_MOD_GLO(89,___G___riscv_23_riscv_2d_slti,535)
+___DEF_MOD_GLO(90,___G___riscv_23_riscv_2d_sltiu,539)
+___DEF_MOD_GLO(114,___G___riscv_23_riscv_2d_xori,543)
+___DEF_MOD_GLO(75,___G___riscv_23_riscv_2d_ori,547)
+___DEF_MOD_GLO(7,___G___riscv_23_riscv_2d_andi,551)
+___DEF_MOD_GLO(85,___G___riscv_23_riscv_2d_slli,555)
+___DEF_MOD_GLO(99,___G___riscv_23_riscv_2d_srli,570)
+___DEF_MOD_GLO(95,___G___riscv_23_riscv_2d_srai,585)
+___DEF_MOD_GLO(68,___G___riscv_23_riscv_2d_lwu,601)
+___DEF_MOD_GLO(61,___G___riscv_23_riscv_2d_ld,609)
+___DEF_MOD_GLO(4,___G___riscv_23_riscv_2d_addiw,617)
+___DEF_MOD_GLO(86,___G___riscv_23_riscv_2d_slliw,625)
+___DEF_MOD_GLO(100,___G___riscv_23_riscv_2d_srliw,642)
+___DEF_MOD_GLO(96,___G___riscv_23_riscv_2d_sraiw,659)
+___DEF_MOD_GLO(107,___G___riscv_23_riscv_2d_type_2d_i,677)
+___DEF_MOD_GLO(78,___G___riscv_23_riscv_2d_sb,754)
+___DEF_MOD_GLO(83,___G___riscv_23_riscv_2d_sh,758)
+___DEF_MOD_GLO(104,___G___riscv_23_riscv_2d_sw,762)
+___DEF_MOD_GLO(79,___G___riscv_23_riscv_2d_sd,766)
+___DEF_MOD_GLO(110,___G___riscv_23_riscv_2d_type_2d_s,774)
+___DEF_MOD_GLO(10,___G___riscv_23_riscv_2d_beq,804)
+___DEF_MOD_GLO(24,___G___riscv_23_riscv_2d_bne,808)
+___DEF_MOD_GLO(21,___G___riscv_23_riscv_2d_blt,812)
+___DEF_MOD_GLO(12,___G___riscv_23_riscv_2d_bge,816)
+___DEF_MOD_GLO(22,___G___riscv_23_riscv_2d_bltu,820)
+___DEF_MOD_GLO(13,___G___riscv_23_riscv_2d_bgeu,824)
+___DEF_MOD_GLO(106,___G___riscv_23_riscv_2d_type_2d_b,828)
+___DEF_MOD_GLO(66,___G___riscv_23_riscv_2d_lui,874)
+___DEF_MOD_GLO(9,___G___riscv_23_riscv_2d_auipc,881)
+___DEF_MOD_GLO(111,___G___riscv_23_riscv_2d_type_2d_u,888)
+___DEF_MOD_GLO(53,___G___riscv_23_riscv_2d_jal,905)
+___DEF_MOD_GLO(108,___G___riscv_23_riscv_2d_type_2d_j,912)
+___DEF_MOD_GLO(40,___G___riscv_23_riscv_2d_fence,952)
+___DEF_MOD_GLO(41,___G___riscv_23_riscv_2d_fence_2e_i,979)
+___DEF_MOD_GLO(39,___G___riscv_23_riscv_2d_ecall,986)
+___DEF_MOD_GLO(38,___G___riscv_23_riscv_2d_ebreak,993)
 ___END_MOD_GLO
 
 ___BEGIN_MOD_SYM_KEY

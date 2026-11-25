@@ -358,7 +358,10 @@ ___PSDKR)
             if (hp && ___heap_alloc_fits(___ps, hp, pending->heap_words))
               return 0;
           }
-        return 1;
+        /* Return 2 (truthy) to distinguish a pure heap-group shortage from a
+         * stack shortage so handler_stack_limit raises heap-overflow-exception
+         * rather than stack-overflow-exception when GC overflows max_heap. */
+        return 2;
       }
   }
 

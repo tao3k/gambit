@@ -261,7 +261,7 @@ test-frame-contract:
 	@SETDLPATH@ FRAME_SPEC_FIXTURES=frame-spec-fixtures.h $(rootfromhere)/gsc/gsc@exe@ -:~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f -i $(srcdirpfx)frame-spec.scm
 	$(MAKE) test-frame-contract-build BUILD_EXE_OUTPUT_FILENAME_PARAM=frame-contract@exe@ BUILD_EXE_INPUT_FILENAMES_PARAM=$(srcdirpfx)frame-contract.c BUILD_EXE_CC_OPTIONS_PARAM=-I.
 	@SETDLPATH@ ./frame-contract@exe@
-	@SETDLPATH@ $(rootfromhere)/gsc/gsc@exe@ -:~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f -exe -o frame-continuation@exe@ $(srcdirpfx)frame-continuation.scm
+	@SETDLPATH@ $(rootfromhere)/gsc/gsc@exe@ -:~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f -exe -cc-options "-DHAVE_CONFIG_H -I$(srcdirpfx)$(rootfromhere)/include -I$(srcdirpfx)$(rootfromhere)/lib" -o frame-continuation@exe@ $(srcdirpfx)frame-continuation.scm
 	@SETDLPATH@ ./frame-continuation@exe@
 	@SETDLPATH@ $(rootfromhere)/gsc/gsc@exe@ -:~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f -exe -cc-options "-DHAVE_CONFIG_H -I$(srcdirpfx)$(rootfromhere)/include -I$(srcdirpfx)$(rootfromhere)/lib" -o frame-continuation-roots@exe@ $(srcdirpfx)frame-continuation-roots.scm
 	@SETDLPATH@ ./frame-continuation-roots@exe@

@@ -31870,6 +31870,7 @@ ___DEF_SLBL(16,___L16_c_23_nonneg_2d_integer_2d__3e_c_2d_id)
    ___SET_F64(___F64V3,___F64_FROM_U64(___CAST(___U64,___R1)))
 ___GATE2_ENTER(___ps,"c#nonneg-integer->c-id",16,___LBL(16),___fp);
 if(!___group_demand_enter(___ps,&___hp,&___fp,0,6,___LBL(16),&___demand_attempt)){___ps->temp1=___LBL(16);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_R1(___FAL)
    ___SET_R1(___F64BOX(___F64V3))
 ___group_demand_commit(___ps,___LBL(16),___demand_attempt);
    ___CHECK_HEAP_FLO(17,4096)

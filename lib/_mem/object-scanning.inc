@@ -82,7 +82,13 @@ ___WORD head;)
            * is also marked.  The link field is never scanned.
            */
 
-          if (traverse_weak_refs)
+          /*
+           * An already-executable will (including one detached from
+           * executable_wills_ by ##gc-pop-executable-will! before execution)
+           * must keep its testator strongly forwarded across any intervening
+           * GC; non-executable wills remain weak until mark_weak_phase.
+           */
+          if (traverse_weak_refs || (body[___WILL_NEXT] & ___EXECUTABLE_WILL))
             mark_array (work, body+1, 2); /* scan action and testator */
           else
             {

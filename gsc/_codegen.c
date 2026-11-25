@@ -171,9 +171,8 @@
 #define ___CNSCOUNT 1
 #define ___SUBCOUNT 5
 #define ___HOST_LAYOUT ___HOST_LAYOUT_PROCEDURES
-#define ___SHARED_PROCEDURE_DISPATCH 1
-#define ___LBLCOUNT 349
-#define ___OFDCOUNT 2
+#define ___LBLCOUNT 412
+#define ___OFDCOUNT 3
 #define ___MODDESCR ___REF_SUB(2)
 #include "gambit.h"
 
@@ -800,7 +799,7 @@ ___END_SUB
 
 
 #undef ___MD_ALL
-#define ___MD_ALL ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
+#define ___MD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
 #undef ___MR_ALL
 #define ___MR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
 #undef ___MW_ALL
@@ -838,166 +837,200 @@ ___DEF_M_HLBL(___L24___codegen_23_make_2d_codegen_2d_context)
 ___DEF_M_HLBL(___L25___codegen_23_make_2d_codegen_2d_context)
 ___DEF_M_HLBL(___L26___codegen_23_make_2d_codegen_2d_context)
 ___DEF_M_HLBL(___L27___codegen_23_make_2d_codegen_2d_context)
+___DEF_M_HLBL(___L28___codegen_23_make_2d_codegen_2d_context)
+___DEF_M_HLBL(___L29___codegen_23_make_2d_codegen_2d_context)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___codegen_23_codegen_2d_context_2d_listing_2d_format)
 ___DEF_M_HLBL(___L1___codegen_23_codegen_2d_context_2d_listing_2d_format)
 ___DEF_M_HLBL(___L2___codegen_23_codegen_2d_context_2d_listing_2d_format)
 ___DEF_M_HLBL(___L3___codegen_23_codegen_2d_context_2d_listing_2d_format)
+___DEF_M_HLBL(___L4___codegen_23_codegen_2d_context_2d_listing_2d_format)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___codegen_23_codegen_2d_context_2d_listing_2d_format_2d_set_21_)
 ___DEF_M_HLBL(___L1___codegen_23_codegen_2d_context_2d_listing_2d_format_2d_set_21_)
 ___DEF_M_HLBL(___L2___codegen_23_codegen_2d_context_2d_listing_2d_format_2d_set_21_)
 ___DEF_M_HLBL(___L3___codegen_23_codegen_2d_context_2d_listing_2d_format_2d_set_21_)
+___DEF_M_HLBL(___L4___codegen_23_codegen_2d_context_2d_listing_2d_format_2d_set_21_)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___codegen_23_codegen_2d_context_2d_arch)
 ___DEF_M_HLBL(___L1___codegen_23_codegen_2d_context_2d_arch)
 ___DEF_M_HLBL(___L2___codegen_23_codegen_2d_context_2d_arch)
 ___DEF_M_HLBL(___L3___codegen_23_codegen_2d_context_2d_arch)
+___DEF_M_HLBL(___L4___codegen_23_codegen_2d_context_2d_arch)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___codegen_23_codegen_2d_context_2d_arch_2d_set_21_)
 ___DEF_M_HLBL(___L1___codegen_23_codegen_2d_context_2d_arch_2d_set_21_)
 ___DEF_M_HLBL(___L2___codegen_23_codegen_2d_context_2d_arch_2d_set_21_)
 ___DEF_M_HLBL(___L3___codegen_23_codegen_2d_context_2d_arch_2d_set_21_)
+___DEF_M_HLBL(___L4___codegen_23_codegen_2d_context_2d_arch_2d_set_21_)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___codegen_23_codegen_2d_context_2d_target)
 ___DEF_M_HLBL(___L1___codegen_23_codegen_2d_context_2d_target)
 ___DEF_M_HLBL(___L2___codegen_23_codegen_2d_context_2d_target)
 ___DEF_M_HLBL(___L3___codegen_23_codegen_2d_context_2d_target)
+___DEF_M_HLBL(___L4___codegen_23_codegen_2d_context_2d_target)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___codegen_23_codegen_2d_context_2d_target_2d_set_21_)
 ___DEF_M_HLBL(___L1___codegen_23_codegen_2d_context_2d_target_2d_set_21_)
 ___DEF_M_HLBL(___L2___codegen_23_codegen_2d_context_2d_target_2d_set_21_)
 ___DEF_M_HLBL(___L3___codegen_23_codegen_2d_context_2d_target_2d_set_21_)
+___DEF_M_HLBL(___L4___codegen_23_codegen_2d_context_2d_target_2d_set_21_)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___codegen_23_codegen_2d_context_2d_fixup_2d_locs)
 ___DEF_M_HLBL(___L1___codegen_23_codegen_2d_context_2d_fixup_2d_locs)
 ___DEF_M_HLBL(___L2___codegen_23_codegen_2d_context_2d_fixup_2d_locs)
 ___DEF_M_HLBL(___L3___codegen_23_codegen_2d_context_2d_fixup_2d_locs)
+___DEF_M_HLBL(___L4___codegen_23_codegen_2d_context_2d_fixup_2d_locs)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_set_21_)
 ___DEF_M_HLBL(___L1___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_set_21_)
 ___DEF_M_HLBL(___L2___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_set_21_)
 ___DEF_M_HLBL(___L3___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_set_21_)
+___DEF_M_HLBL(___L4___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_set_21_)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___codegen_23_codegen_2d_context_2d_fixup_2d_objs)
 ___DEF_M_HLBL(___L1___codegen_23_codegen_2d_context_2d_fixup_2d_objs)
 ___DEF_M_HLBL(___L2___codegen_23_codegen_2d_context_2d_fixup_2d_objs)
 ___DEF_M_HLBL(___L3___codegen_23_codegen_2d_context_2d_fixup_2d_objs)
+___DEF_M_HLBL(___L4___codegen_23_codegen_2d_context_2d_fixup_2d_objs)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d_set_21_)
 ___DEF_M_HLBL(___L1___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d_set_21_)
 ___DEF_M_HLBL(___L2___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d_set_21_)
 ___DEF_M_HLBL(___L3___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d_set_21_)
+___DEF_M_HLBL(___L4___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d_set_21_)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___codegen_23_codegen_2d_context_2d_current_2d_proc)
 ___DEF_M_HLBL(___L1___codegen_23_codegen_2d_context_2d_current_2d_proc)
 ___DEF_M_HLBL(___L2___codegen_23_codegen_2d_context_2d_current_2d_proc)
 ___DEF_M_HLBL(___L3___codegen_23_codegen_2d_context_2d_current_2d_proc)
+___DEF_M_HLBL(___L4___codegen_23_codegen_2d_context_2d_current_2d_proc)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___codegen_23_codegen_2d_context_2d_current_2d_proc_2d_set_21_)
 ___DEF_M_HLBL(___L1___codegen_23_codegen_2d_context_2d_current_2d_proc_2d_set_21_)
 ___DEF_M_HLBL(___L2___codegen_23_codegen_2d_context_2d_current_2d_proc_2d_set_21_)
 ___DEF_M_HLBL(___L3___codegen_23_codegen_2d_context_2d_current_2d_proc_2d_set_21_)
+___DEF_M_HLBL(___L4___codegen_23_codegen_2d_context_2d_current_2d_proc_2d_set_21_)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___codegen_23_codegen_2d_context_2d_current_2d_code)
 ___DEF_M_HLBL(___L1___codegen_23_codegen_2d_context_2d_current_2d_code)
 ___DEF_M_HLBL(___L2___codegen_23_codegen_2d_context_2d_current_2d_code)
 ___DEF_M_HLBL(___L3___codegen_23_codegen_2d_context_2d_current_2d_code)
+___DEF_M_HLBL(___L4___codegen_23_codegen_2d_context_2d_current_2d_code)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___codegen_23_codegen_2d_context_2d_current_2d_code_2d_set_21_)
 ___DEF_M_HLBL(___L1___codegen_23_codegen_2d_context_2d_current_2d_code_2d_set_21_)
 ___DEF_M_HLBL(___L2___codegen_23_codegen_2d_context_2d_current_2d_code_2d_set_21_)
 ___DEF_M_HLBL(___L3___codegen_23_codegen_2d_context_2d_current_2d_code_2d_set_21_)
+___DEF_M_HLBL(___L4___codegen_23_codegen_2d_context_2d_current_2d_code_2d_set_21_)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___codegen_23_codegen_2d_context_2d_frame)
 ___DEF_M_HLBL(___L1___codegen_23_codegen_2d_context_2d_frame)
 ___DEF_M_HLBL(___L2___codegen_23_codegen_2d_context_2d_frame)
 ___DEF_M_HLBL(___L3___codegen_23_codegen_2d_context_2d_frame)
+___DEF_M_HLBL(___L4___codegen_23_codegen_2d_context_2d_frame)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___codegen_23_codegen_2d_context_2d_frame_2d_set_21_)
 ___DEF_M_HLBL(___L1___codegen_23_codegen_2d_context_2d_frame_2d_set_21_)
 ___DEF_M_HLBL(___L2___codegen_23_codegen_2d_context_2d_frame_2d_set_21_)
 ___DEF_M_HLBL(___L3___codegen_23_codegen_2d_context_2d_frame_2d_set_21_)
+___DEF_M_HLBL(___L4___codegen_23_codegen_2d_context_2d_frame_2d_set_21_)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___codegen_23_codegen_2d_context_2d_nargs)
 ___DEF_M_HLBL(___L1___codegen_23_codegen_2d_context_2d_nargs)
 ___DEF_M_HLBL(___L2___codegen_23_codegen_2d_context_2d_nargs)
 ___DEF_M_HLBL(___L3___codegen_23_codegen_2d_context_2d_nargs)
+___DEF_M_HLBL(___L4___codegen_23_codegen_2d_context_2d_nargs)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___codegen_23_codegen_2d_context_2d_nargs_2d_set_21_)
 ___DEF_M_HLBL(___L1___codegen_23_codegen_2d_context_2d_nargs_2d_set_21_)
 ___DEF_M_HLBL(___L2___codegen_23_codegen_2d_context_2d_nargs_2d_set_21_)
 ___DEF_M_HLBL(___L3___codegen_23_codegen_2d_context_2d_nargs_2d_set_21_)
+___DEF_M_HLBL(___L4___codegen_23_codegen_2d_context_2d_nargs_2d_set_21_)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___codegen_23_codegen_2d_context_2d_delayed_2d_actions)
 ___DEF_M_HLBL(___L1___codegen_23_codegen_2d_context_2d_delayed_2d_actions)
 ___DEF_M_HLBL(___L2___codegen_23_codegen_2d_context_2d_delayed_2d_actions)
 ___DEF_M_HLBL(___L3___codegen_23_codegen_2d_context_2d_delayed_2d_actions)
+___DEF_M_HLBL(___L4___codegen_23_codegen_2d_context_2d_delayed_2d_actions)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___codegen_23_codegen_2d_context_2d_delayed_2d_actions_2d_set_21_)
 ___DEF_M_HLBL(___L1___codegen_23_codegen_2d_context_2d_delayed_2d_actions_2d_set_21_)
 ___DEF_M_HLBL(___L2___codegen_23_codegen_2d_context_2d_delayed_2d_actions_2d_set_21_)
 ___DEF_M_HLBL(___L3___codegen_23_codegen_2d_context_2d_delayed_2d_actions_2d_set_21_)
+___DEF_M_HLBL(___L4___codegen_23_codegen_2d_context_2d_delayed_2d_actions_2d_set_21_)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___codegen_23_codegen_2d_context_2d_label_2d_struct_2d_position)
 ___DEF_M_HLBL(___L1___codegen_23_codegen_2d_context_2d_label_2d_struct_2d_position)
 ___DEF_M_HLBL(___L2___codegen_23_codegen_2d_context_2d_label_2d_struct_2d_position)
 ___DEF_M_HLBL(___L3___codegen_23_codegen_2d_context_2d_label_2d_struct_2d_position)
+___DEF_M_HLBL(___L4___codegen_23_codegen_2d_context_2d_label_2d_struct_2d_position)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___codegen_23_codegen_2d_context_2d_label_2d_struct_2d_position_2d_set_21_)
 ___DEF_M_HLBL(___L1___codegen_23_codegen_2d_context_2d_label_2d_struct_2d_position_2d_set_21_)
 ___DEF_M_HLBL(___L2___codegen_23_codegen_2d_context_2d_label_2d_struct_2d_position_2d_set_21_)
 ___DEF_M_HLBL(___L3___codegen_23_codegen_2d_context_2d_label_2d_struct_2d_position_2d_set_21_)
+___DEF_M_HLBL(___L4___codegen_23_codegen_2d_context_2d_label_2d_struct_2d_position_2d_set_21_)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___codegen_23_codegen_2d_context_2d_registers_2d_status)
 ___DEF_M_HLBL(___L1___codegen_23_codegen_2d_context_2d_registers_2d_status)
 ___DEF_M_HLBL(___L2___codegen_23_codegen_2d_context_2d_registers_2d_status)
 ___DEF_M_HLBL(___L3___codegen_23_codegen_2d_context_2d_registers_2d_status)
+___DEF_M_HLBL(___L4___codegen_23_codegen_2d_context_2d_registers_2d_status)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___codegen_23_codegen_2d_context_2d_registers_2d_status_2d_set_21_)
 ___DEF_M_HLBL(___L1___codegen_23_codegen_2d_context_2d_registers_2d_status_2d_set_21_)
 ___DEF_M_HLBL(___L2___codegen_23_codegen_2d_context_2d_registers_2d_status_2d_set_21_)
 ___DEF_M_HLBL(___L3___codegen_23_codegen_2d_context_2d_registers_2d_status_2d_set_21_)
+___DEF_M_HLBL(___L4___codegen_23_codegen_2d_context_2d_registers_2d_status_2d_set_21_)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___codegen_23_codegen_2d_context_2d_memory_2d_allocated)
 ___DEF_M_HLBL(___L1___codegen_23_codegen_2d_context_2d_memory_2d_allocated)
 ___DEF_M_HLBL(___L2___codegen_23_codegen_2d_context_2d_memory_2d_allocated)
 ___DEF_M_HLBL(___L3___codegen_23_codegen_2d_context_2d_memory_2d_allocated)
+___DEF_M_HLBL(___L4___codegen_23_codegen_2d_context_2d_memory_2d_allocated)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___codegen_23_codegen_2d_context_2d_memory_2d_allocated_2d_set_21_)
 ___DEF_M_HLBL(___L1___codegen_23_codegen_2d_context_2d_memory_2d_allocated_2d_set_21_)
 ___DEF_M_HLBL(___L2___codegen_23_codegen_2d_context_2d_memory_2d_allocated_2d_set_21_)
 ___DEF_M_HLBL(___L3___codegen_23_codegen_2d_context_2d_memory_2d_allocated_2d_set_21_)
+___DEF_M_HLBL(___L4___codegen_23_codegen_2d_context_2d_memory_2d_allocated_2d_set_21_)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___codegen_23_codegen_2d_context_2d_primitive_2d_labels_2d_table)
 ___DEF_M_HLBL(___L1___codegen_23_codegen_2d_context_2d_primitive_2d_labels_2d_table)
 ___DEF_M_HLBL(___L2___codegen_23_codegen_2d_context_2d_primitive_2d_labels_2d_table)
 ___DEF_M_HLBL(___L3___codegen_23_codegen_2d_context_2d_primitive_2d_labels_2d_table)
+___DEF_M_HLBL(___L4___codegen_23_codegen_2d_context_2d_primitive_2d_labels_2d_table)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___codegen_23_codegen_2d_context_2d_primitive_2d_labels_2d_table_2d_set_21_)
 ___DEF_M_HLBL(___L1___codegen_23_codegen_2d_context_2d_primitive_2d_labels_2d_table_2d_set_21_)
 ___DEF_M_HLBL(___L2___codegen_23_codegen_2d_context_2d_primitive_2d_labels_2d_table_2d_set_21_)
 ___DEF_M_HLBL(___L3___codegen_23_codegen_2d_context_2d_primitive_2d_labels_2d_table_2d_set_21_)
+___DEF_M_HLBL(___L4___codegen_23_codegen_2d_context_2d_primitive_2d_labels_2d_table_2d_set_21_)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___codegen_23_codegen_2d_context_2d_proc_2d_labels_2d_table)
 ___DEF_M_HLBL(___L1___codegen_23_codegen_2d_context_2d_proc_2d_labels_2d_table)
 ___DEF_M_HLBL(___L2___codegen_23_codegen_2d_context_2d_proc_2d_labels_2d_table)
 ___DEF_M_HLBL(___L3___codegen_23_codegen_2d_context_2d_proc_2d_labels_2d_table)
+___DEF_M_HLBL(___L4___codegen_23_codegen_2d_context_2d_proc_2d_labels_2d_table)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___codegen_23_codegen_2d_context_2d_proc_2d_labels_2d_table_2d_set_21_)
 ___DEF_M_HLBL(___L1___codegen_23_codegen_2d_context_2d_proc_2d_labels_2d_table_2d_set_21_)
 ___DEF_M_HLBL(___L2___codegen_23_codegen_2d_context_2d_proc_2d_labels_2d_table_2d_set_21_)
 ___DEF_M_HLBL(___L3___codegen_23_codegen_2d_context_2d_proc_2d_labels_2d_table_2d_set_21_)
+___DEF_M_HLBL(___L4___codegen_23_codegen_2d_context_2d_proc_2d_labels_2d_table_2d_set_21_)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___codegen_23_codegen_2d_context_2d_other_2d_labels_2d_table)
 ___DEF_M_HLBL(___L1___codegen_23_codegen_2d_context_2d_other_2d_labels_2d_table)
 ___DEF_M_HLBL(___L2___codegen_23_codegen_2d_context_2d_other_2d_labels_2d_table)
 ___DEF_M_HLBL(___L3___codegen_23_codegen_2d_context_2d_other_2d_labels_2d_table)
+___DEF_M_HLBL(___L4___codegen_23_codegen_2d_context_2d_other_2d_labels_2d_table)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___codegen_23_codegen_2d_context_2d_other_2d_labels_2d_table_2d_set_21_)
 ___DEF_M_HLBL(___L1___codegen_23_codegen_2d_context_2d_other_2d_labels_2d_table_2d_set_21_)
 ___DEF_M_HLBL(___L2___codegen_23_codegen_2d_context_2d_other_2d_labels_2d_table_2d_set_21_)
 ___DEF_M_HLBL(___L3___codegen_23_codegen_2d_context_2d_other_2d_labels_2d_table_2d_set_21_)
+___DEF_M_HLBL(___L4___codegen_23_codegen_2d_context_2d_other_2d_labels_2d_table_2d_set_21_)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_add_21_)
 ___DEF_M_HLBL(___L1___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_add_21_)
@@ -1007,6 +1040,7 @@ ___DEF_M_HLBL(___L4___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_add_21_)
 ___DEF_M_HLBL(___L5___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_add_21_)
 ___DEF_M_HLBL(___L6___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_add_21_)
 ___DEF_M_HLBL(___L7___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_add_21_)
+___DEF_M_HLBL(___L8___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_add_21_)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
 ___DEF_M_HLBL(___L1___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
@@ -1056,6 +1090,13 @@ ___DEF_M_HLBL(___L44___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vec
 ___DEF_M_HLBL(___L45___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
 ___DEF_M_HLBL(___L46___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
 ___DEF_M_HLBL(___L47___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
+___DEF_M_HLBL(___L48___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
+___DEF_M_HLBL(___L49___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
+___DEF_M_HLBL(___L50___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
+___DEF_M_HLBL(___L51___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
+___DEF_M_HLBL(___L52___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
+___DEF_M_HLBL(___L53___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
+___DEF_M_HLBL(___L54___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___codegen_23_codegen_2d_context_2d_fixup_2d_obj_2d_register_21_)
 ___DEF_M_HLBL(___L1___codegen_23_codegen_2d_context_2d_fixup_2d_obj_2d_register_21_)
@@ -1063,6 +1104,7 @@ ___DEF_M_HLBL(___L2___codegen_23_codegen_2d_context_2d_fixup_2d_obj_2d_register_
 ___DEF_M_HLBL(___L3___codegen_23_codegen_2d_context_2d_fixup_2d_obj_2d_register_21_)
 ___DEF_M_HLBL(___L4___codegen_23_codegen_2d_context_2d_fixup_2d_obj_2d_register_21_)
 ___DEF_M_HLBL(___L5___codegen_23_codegen_2d_context_2d_fixup_2d_obj_2d_register_21_)
+___DEF_M_HLBL(___L6___codegen_23_codegen_2d_context_2d_fixup_2d_obj_2d_register_21_)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector)
 ___DEF_M_HLBL(___L1___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector)
@@ -1078,6 +1120,9 @@ ___DEF_M_HLBL(___L10___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vec
 ___DEF_M_HLBL(___L11___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector)
 ___DEF_M_HLBL(___L12___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector)
 ___DEF_M_HLBL(___L13___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector)
+___DEF_M_HLBL(___L14___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector)
+___DEF_M_HLBL(___L15___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector)
+___DEF_M_HLBL(___L16___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___codegen_23_codegen_2d_fixup_2d_generic_21_)
 ___DEF_M_HLBL(___L1___codegen_23_codegen_2d_fixup_2d_generic_21_)
@@ -1094,6 +1139,10 @@ ___DEF_M_HLBL(___L11___codegen_23_codegen_2d_fixup_2d_generic_21_)
 ___DEF_M_HLBL(___L12___codegen_23_codegen_2d_fixup_2d_generic_21_)
 ___DEF_M_HLBL(___L13___codegen_23_codegen_2d_fixup_2d_generic_21_)
 ___DEF_M_HLBL(___L14___codegen_23_codegen_2d_fixup_2d_generic_21_)
+___DEF_M_HLBL(___L15___codegen_23_codegen_2d_fixup_2d_generic_21_)
+___DEF_M_HLBL(___L16___codegen_23_codegen_2d_fixup_2d_generic_21_)
+___DEF_M_HLBL(___L17___codegen_23_codegen_2d_fixup_2d_generic_21_)
+___DEF_M_HLBL(___L18___codegen_23_codegen_2d_fixup_2d_generic_21_)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___codegen_23_codegen_2d_fixup_2d_lbl_21_)
 ___DEF_M_HLBL(___L1___codegen_23_codegen_2d_fixup_2d_lbl_21_)
@@ -1107,6 +1156,8 @@ ___DEF_M_HLBL(___L8___codegen_23_codegen_2d_fixup_2d_lbl_21_)
 ___DEF_M_HLBL(___L9___codegen_23_codegen_2d_fixup_2d_lbl_21_)
 ___DEF_M_HLBL(___L10___codegen_23_codegen_2d_fixup_2d_lbl_21_)
 ___DEF_M_HLBL(___L11___codegen_23_codegen_2d_fixup_2d_lbl_21_)
+___DEF_M_HLBL(___L12___codegen_23_codegen_2d_fixup_2d_lbl_21_)
+___DEF_M_HLBL(___L13___codegen_23_codegen_2d_fixup_2d_lbl_21_)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_)
 ___DEF_M_HLBL(___L1___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_)
@@ -1120,6 +1171,8 @@ ___DEF_M_HLBL(___L8___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_)
 ___DEF_M_HLBL(___L9___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_)
 ___DEF_M_HLBL(___L10___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_)
 ___DEF_M_HLBL(___L11___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_)
+___DEF_M_HLBL(___L12___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_)
+___DEF_M_HLBL(___L13___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_)
 ___DEF_M_HLBL(___L1___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_)
@@ -1134,15 +1187,22 @@ ___DEF_M_HLBL(___L9___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_)
 ___DEF_M_HLBL(___L10___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_)
 ___DEF_M_HLBL(___L11___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_)
 ___DEF_M_HLBL(___L12___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_)
+___DEF_M_HLBL(___L13___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_)
+___DEF_M_HLBL(___L14___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_)
+___DEF_M_HLBL(___L15___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_)
+___DEF_M_HLBL(___L16___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___codegen_23_codegen_2d_fixup_2d_obj_21_)
 ___DEF_M_HLBL(___L1___codegen_23_codegen_2d_fixup_2d_obj_21_)
+___DEF_M_HLBL(___L2___codegen_23_codegen_2d_fixup_2d_obj_21_)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___codegen_23_codegen_2d_fixup_2d_glo_21_)
 ___DEF_M_HLBL(___L1___codegen_23_codegen_2d_fixup_2d_glo_21_)
+___DEF_M_HLBL(___L2___codegen_23_codegen_2d_fixup_2d_glo_21_)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___codegen_23_codegen_2d_fixup_2d_prm_21_)
 ___DEF_M_HLBL(___L1___codegen_23_codegen_2d_fixup_2d_prm_21_)
+___DEF_M_HLBL(___L2___codegen_23_codegen_2d_fixup_2d_prm_21_)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0___codegen_23_codegen_2d_fixup_2d_handler_21_)
 ___DEF_M_HLBL(___L1___codegen_23_codegen_2d_fixup_2d_handler_21_)
@@ -1156,6 +1216,8 @@ ___DEF_M_HLBL(___L8___codegen_23_codegen_2d_fixup_2d_handler_21_)
 ___DEF_M_HLBL(___L9___codegen_23_codegen_2d_fixup_2d_handler_21_)
 ___DEF_M_HLBL(___L10___codegen_23_codegen_2d_fixup_2d_handler_21_)
 ___DEF_M_HLBL(___L11___codegen_23_codegen_2d_fixup_2d_handler_21_)
+___DEF_M_HLBL(___L12___codegen_23_codegen_2d_fixup_2d_handler_21_)
+___DEF_M_HLBL(___L13___codegen_23_codegen_2d_fixup_2d_handler_21_)
 ___END_M_HLBL
 
 ___BEGIN_M_SW
@@ -1165,7 +1227,7 @@ ___BEGIN_M_SW
 #undef ___PH_LBL0
 #define ___PH_LBL0 1
 #undef ___PD_ALL
-#define ___PD_ALL ___D_R0 ___D_R1
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_R0 ___D_R1
 #undef ___PR_ALL
 #define ___PR_ALL ___R_R0 ___R_R1
 #undef ___PW_ALL
@@ -1191,13 +1253,13 @@ ___END_P_COD
 #undef ___PH_LBL0
 #define ___PH_LBL0 3
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(28)
+___BEGIN_P_HLBL_AT(30)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___codegen_23_make_2d_codegen_2d_context)
 ___DEF_P_HLBL(___L1___codegen_23_make_2d_codegen_2d_context)
@@ -1227,154 +1289,171 @@ ___DEF_P_HLBL(___L24___codegen_23_make_2d_codegen_2d_context)
 ___DEF_P_HLBL(___L25___codegen_23_make_2d_codegen_2d_context)
 ___DEF_P_HLBL(___L26___codegen_23_make_2d_codegen_2d_context)
 ___DEF_P_HLBL(___L27___codegen_23_make_2d_codegen_2d_context)
+___DEF_P_HLBL(___L28___codegen_23_make_2d_codegen_2d_context)
+___DEF_P_HLBL(___L29___codegen_23_make_2d_codegen_2d_context)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___codegen_23_make_2d_codegen_2d_context)
    ___IF_NARGS_EQ(0,___NOTHING)
    ___WRONG_NARGS(0,0,0,0)
 ___DEF_GLBL(___L___codegen_23_make_2d_codegen_2d_context)
+___GATE2_OPEN(___ps,"_codegen#make-codegen-context",1,___LBL(1)
+,___fp);
+___DEF_SLBL(1,___L1___codegen_23_make_2d_codegen_2d_context)
+___GATE2_ENTER(___ps,"_codegen#make-codegen-context",1,___LBL(1)
+,___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,4,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R0)
+   ___ADJFP(1)
    ___SET_R2(___FIX(16L))
    ___SET_R1(___FIX(4L))
-   ___ADJFP(4)
-   ___POLL(1)
-___DEF_SLBL(1,___L1___codegen_23_make_2d_codegen_2d_context)
-   ___SET_R0(___LBL(2))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),47,___G__2b_)
+   ___ADJFP(3)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___codegen_23_make_2d_codegen_2d_context)
-   ___SET_R2(___SYM_codegen_2d_context)
    ___SET_R0(___LBL(3))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),78,___G_make_2d_vector)
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),47,___G__2b_)
 ___DEF_SLBL(3,___L3___codegen_23_make_2d_codegen_2d_context)
+   ___SET_R2(___SYM_codegen_2d_context)
+   ___SET_R0(___LBL(4))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),78,___G_make_2d_vector)
+___DEF_SLBL(4,___L4___codegen_23_make_2d_codegen_2d_context)
+___GATE2_OPEN(___ps,"_codegen#make-codegen-context",5,___LBL(5)
+,___fp);
+___DEF_SLBL(5,___L5___codegen_23_make_2d_codegen_2d_context)
+___GATE2_ENTER(___ps,"_codegen#make-codegen-context",5,___LBL(5)
+,___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,4,0,___LBL(5),&___demand_attempt)){___ps->temp1=___LBL(5);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(-2,___R1)
    ___SET_R2(___FAL)
-   ___SET_R0(___LBL(4))
-   ___ADJFP(4)
-   ___JUMPINT(___SET_NARGS(2),___PRC(37),___L___codegen_23_codegen_2d_context_2d_listing_2d_format_2d_set_21_)
-___DEF_SLBL(4,___L4___codegen_23_make_2d_codegen_2d_context)
-   ___SET_R1(___STK(-6))
-   ___SET_R2(___FAL)
-   ___SET_R0(___LBL(5))
-   ___JUMPINT(___SET_NARGS(2),___PRC(47),___L___codegen_23_codegen_2d_context_2d_arch_2d_set_21_)
-___DEF_SLBL(5,___L5___codegen_23_make_2d_codegen_2d_context)
-   ___SET_R1(___STK(-6))
-   ___SET_R2(___FAL)
    ___SET_R0(___LBL(6))
-   ___JUMPINT(___SET_NARGS(2),___PRC(57),___L___codegen_23_codegen_2d_context_2d_target_2d_set_21_)
+   ___ADJFP(4)
+___group_demand_commit(___ps,___LBL(5),___demand_attempt);
+   ___JUMPINT(___SET_NARGS(2),___PRC(40),___L___codegen_23_codegen_2d_context_2d_listing_2d_format_2d_set_21_)
 ___DEF_SLBL(6,___L6___codegen_23_make_2d_codegen_2d_context)
    ___SET_R1(___STK(-6))
-   ___SET_R2(___NUL)
+   ___SET_R2(___FAL)
    ___SET_R0(___LBL(7))
-   ___JUMPINT(___SET_NARGS(2),___PRC(67),___L___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_set_21_)
+   ___JUMPINT(___SET_NARGS(2),___PRC(52),___L___codegen_23_codegen_2d_context_2d_arch_2d_set_21_)
 ___DEF_SLBL(7,___L7___codegen_23_make_2d_codegen_2d_context)
+   ___SET_R1(___STK(-6))
+   ___SET_R2(___FAL)
+   ___SET_R0(___LBL(8))
+   ___JUMPINT(___SET_NARGS(2),___PRC(64),___L___codegen_23_codegen_2d_context_2d_target_2d_set_21_)
+___DEF_SLBL(8,___L8___codegen_23_make_2d_codegen_2d_context)
+   ___SET_R1(___STK(-6))
+   ___SET_R2(___NUL)
+   ___SET_R0(___LBL(9))
+   ___JUMPINT(___SET_NARGS(2),___PRC(76),___L___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_set_21_)
+___DEF_SLBL(9,___L9___codegen_23_make_2d_codegen_2d_context)
    ___SET_R2(___GLO_eq_3f_)
    ___SET_R1(___KEY_test)
-   ___SET_R0(___LBL(8))
+   ___SET_R0(___LBL(10))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),77,___G_make_2d_table)
-___DEF_SLBL(8,___L8___codegen_23_make_2d_codegen_2d_context)
+___DEF_SLBL(10,___L10___codegen_23_make_2d_codegen_2d_context)
    ___SET_STK(-5,___R1)
    ___SET_R2(___FIX(4L))
    ___SET_R1(___FIX(4L))
-   ___SET_R0(___LBL(9))
+   ___SET_R0(___LBL(11))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),47,___G__2b_)
-___DEF_SLBL(9,___L9___codegen_23_make_2d_codegen_2d_context)
+___DEF_SLBL(11,___L11___codegen_23_make_2d_codegen_2d_context)
    ___SET_R2(___R1)
    ___SET_R3(___STK(-5))
    ___SET_R1(___STK(-6))
-   ___SET_R0(___LBL(10))
-   ___JUMPGLONOTSAFE(___SET_NARGS(3),86,___G_vector_2d_set_21_)
-___DEF_SLBL(10,___L10___codegen_23_make_2d_codegen_2d_context)
-   ___SET_R1(___STK(-6))
-   ___SET_R2(___FAL)
-   ___SET_R0(___LBL(11))
-   ___JUMPINT(___SET_NARGS(2),___PRC(87),___L___codegen_23_codegen_2d_context_2d_current_2d_proc_2d_set_21_)
-___DEF_SLBL(11,___L11___codegen_23_make_2d_codegen_2d_context)
-   ___SET_R1(___STK(-6))
-   ___SET_R2(___FAL)
    ___SET_R0(___LBL(12))
-   ___JUMPINT(___SET_NARGS(2),___PRC(97),___L___codegen_23_codegen_2d_context_2d_current_2d_code_2d_set_21_)
+   ___JUMPGLONOTSAFE(___SET_NARGS(3),86,___G_vector_2d_set_21_)
 ___DEF_SLBL(12,___L12___codegen_23_make_2d_codegen_2d_context)
    ___SET_R1(___STK(-6))
    ___SET_R2(___FAL)
    ___SET_R0(___LBL(13))
-   ___JUMPINT(___SET_NARGS(2),___PRC(107),___L___codegen_23_codegen_2d_context_2d_frame_2d_set_21_)
+   ___JUMPINT(___SET_NARGS(2),___PRC(100),___L___codegen_23_codegen_2d_context_2d_current_2d_proc_2d_set_21_)
 ___DEF_SLBL(13,___L13___codegen_23_make_2d_codegen_2d_context)
    ___SET_R1(___STK(-6))
    ___SET_R2(___FAL)
    ___SET_R0(___LBL(14))
-   ___JUMPINT(___SET_NARGS(2),___PRC(117),___L___codegen_23_codegen_2d_context_2d_nargs_2d_set_21_)
+   ___JUMPINT(___SET_NARGS(2),___PRC(112),___L___codegen_23_codegen_2d_context_2d_current_2d_code_2d_set_21_)
 ___DEF_SLBL(14,___L14___codegen_23_make_2d_codegen_2d_context)
    ___SET_R1(___STK(-6))
-   ___SET_R2(___NUL)
+   ___SET_R2(___FAL)
    ___SET_R0(___LBL(15))
-   ___JUMPINT(___SET_NARGS(2),___PRC(127),___L___codegen_23_codegen_2d_context_2d_delayed_2d_actions_2d_set_21_)
+   ___JUMPINT(___SET_NARGS(2),___PRC(124),___L___codegen_23_codegen_2d_context_2d_frame_2d_set_21_)
 ___DEF_SLBL(15,___L15___codegen_23_make_2d_codegen_2d_context)
    ___SET_R1(___STK(-6))
    ___SET_R2(___FAL)
    ___SET_R0(___LBL(16))
-   ___JUMPINT(___SET_NARGS(2),___PRC(137),___L___codegen_23_codegen_2d_context_2d_label_2d_struct_2d_position_2d_set_21_)
+   ___JUMPINT(___SET_NARGS(2),___PRC(136),___L___codegen_23_codegen_2d_context_2d_nargs_2d_set_21_)
 ___DEF_SLBL(16,___L16___codegen_23_make_2d_codegen_2d_context)
    ___SET_R1(___STK(-6))
-   ___SET_R2(___FAL)
+   ___SET_R2(___NUL)
    ___SET_R0(___LBL(17))
-   ___JUMPINT(___SET_NARGS(2),___PRC(147),___L___codegen_23_codegen_2d_context_2d_registers_2d_status_2d_set_21_)
+   ___JUMPINT(___SET_NARGS(2),___PRC(148),___L___codegen_23_codegen_2d_context_2d_delayed_2d_actions_2d_set_21_)
 ___DEF_SLBL(17,___L17___codegen_23_make_2d_codegen_2d_context)
    ___SET_R1(___STK(-6))
-   ___SET_R2(___FIX(0L))
+   ___SET_R2(___FAL)
    ___SET_R0(___LBL(18))
-   ___JUMPINT(___SET_NARGS(2),___PRC(157),___L___codegen_23_codegen_2d_context_2d_memory_2d_allocated_2d_set_21_)
+   ___JUMPINT(___SET_NARGS(2),___PRC(160),___L___codegen_23_codegen_2d_context_2d_label_2d_struct_2d_position_2d_set_21_)
 ___DEF_SLBL(18,___L18___codegen_23_make_2d_codegen_2d_context)
+   ___SET_R1(___STK(-6))
+   ___SET_R2(___FAL)
+   ___SET_R0(___LBL(19))
+   ___JUMPINT(___SET_NARGS(2),___PRC(172),___L___codegen_23_codegen_2d_context_2d_registers_2d_status_2d_set_21_)
+___DEF_SLBL(19,___L19___codegen_23_make_2d_codegen_2d_context)
+   ___SET_R1(___STK(-6))
+   ___SET_R2(___FIX(0L))
+   ___SET_R0(___LBL(20))
+   ___JUMPINT(___SET_NARGS(2),___PRC(184),___L___codegen_23_codegen_2d_context_2d_memory_2d_allocated_2d_set_21_)
+___DEF_SLBL(20,___L20___codegen_23_make_2d_codegen_2d_context)
    ___SET_R2(___GLO_equal_3f_)
    ___SET_R1(___KEY_test)
-   ___SET_R0(___LBL(19))
+   ___SET_R0(___LBL(21))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),77,___G_make_2d_table)
-___DEF_SLBL(19,___L19___codegen_23_make_2d_codegen_2d_context)
+___DEF_SLBL(21,___L21___codegen_23_make_2d_codegen_2d_context)
    ___SET_STK(-5,___R1)
    ___SET_R2(___FIX(13L))
    ___SET_R1(___FIX(4L))
-   ___SET_R0(___LBL(20))
+   ___SET_R0(___LBL(22))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),47,___G__2b_)
-___DEF_SLBL(20,___L20___codegen_23_make_2d_codegen_2d_context)
+___DEF_SLBL(22,___L22___codegen_23_make_2d_codegen_2d_context)
    ___SET_R2(___R1)
    ___SET_R3(___STK(-5))
    ___SET_R1(___STK(-6))
-   ___SET_R0(___LBL(21))
+   ___SET_R0(___LBL(23))
    ___JUMPGLONOTSAFE(___SET_NARGS(3),86,___G_vector_2d_set_21_)
-___DEF_SLBL(21,___L21___codegen_23_make_2d_codegen_2d_context)
+___DEF_SLBL(23,___L23___codegen_23_make_2d_codegen_2d_context)
    ___SET_R2(___GLO_equal_3f_)
    ___SET_R1(___KEY_test)
-   ___SET_R0(___LBL(22))
+   ___SET_R0(___LBL(24))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),77,___G_make_2d_table)
-___DEF_SLBL(22,___L22___codegen_23_make_2d_codegen_2d_context)
+___DEF_SLBL(24,___L24___codegen_23_make_2d_codegen_2d_context)
    ___SET_STK(-5,___R1)
    ___SET_R2(___FIX(14L))
    ___SET_R1(___FIX(4L))
-   ___SET_R0(___LBL(23))
+   ___SET_R0(___LBL(25))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),47,___G__2b_)
-___DEF_SLBL(23,___L23___codegen_23_make_2d_codegen_2d_context)
+___DEF_SLBL(25,___L25___codegen_23_make_2d_codegen_2d_context)
    ___SET_R2(___R1)
    ___SET_R3(___STK(-5))
    ___SET_R1(___STK(-6))
-   ___SET_R0(___LBL(24))
+   ___SET_R0(___LBL(26))
    ___JUMPGLONOTSAFE(___SET_NARGS(3),86,___G_vector_2d_set_21_)
-___DEF_SLBL(24,___L24___codegen_23_make_2d_codegen_2d_context)
+___DEF_SLBL(26,___L26___codegen_23_make_2d_codegen_2d_context)
    ___SET_R2(___GLO_equal_3f_)
    ___SET_R1(___KEY_test)
-   ___SET_R0(___LBL(25))
+   ___SET_R0(___LBL(27))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),77,___G_make_2d_table)
-___DEF_SLBL(25,___L25___codegen_23_make_2d_codegen_2d_context)
+___DEF_SLBL(27,___L27___codegen_23_make_2d_codegen_2d_context)
    ___SET_STK(-5,___R1)
    ___SET_R2(___FIX(15L))
    ___SET_R1(___FIX(4L))
-   ___SET_R0(___LBL(26))
+   ___SET_R0(___LBL(28))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),47,___G__2b_)
-___DEF_SLBL(26,___L26___codegen_23_make_2d_codegen_2d_context)
+___DEF_SLBL(28,___L28___codegen_23_make_2d_codegen_2d_context)
    ___SET_R2(___R1)
    ___SET_R3(___STK(-5))
    ___SET_R1(___STK(-6))
-   ___SET_R0(___LBL(27))
+   ___SET_R0(___LBL(29))
    ___JUMPGLONOTSAFE(___SET_NARGS(3),86,___G_vector_2d_set_21_)
-___DEF_SLBL(27,___L27___codegen_23_make_2d_codegen_2d_context)
+___DEF_SLBL(29,___L29___codegen_23_make_2d_codegen_2d_context)
    ___SET_R1(___STK(-6))
    ___ADJFP(-8)
    ___JUMPRET(___STK(1))
@@ -1384,41 +1463,51 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___codegen_23_codegen_2d_context_2d_listing_2d_format
 #undef ___PH_LBL0
-#define ___PH_LBL0 32
+#define ___PH_LBL0 34
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(4)
+___BEGIN_P_HLBL_AT(5)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___codegen_23_codegen_2d_context_2d_listing_2d_format)
 ___DEF_P_HLBL(___L1___codegen_23_codegen_2d_context_2d_listing_2d_format)
 ___DEF_P_HLBL(___L2___codegen_23_codegen_2d_context_2d_listing_2d_format)
 ___DEF_P_HLBL(___L3___codegen_23_codegen_2d_context_2d_listing_2d_format)
+___DEF_P_HLBL(___L4___codegen_23_codegen_2d_context_2d_listing_2d_format)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___codegen_23_codegen_2d_context_2d_listing_2d_format)
    ___IF_NARGS_EQ(1,___NOTHING)
    ___WRONG_NARGS(0,1,0,0)
 ___DEF_GLBL(___L___codegen_23_codegen_2d_context_2d_listing_2d_format)
+___GATE2_OPEN(___ps,"_codegen#codegen-context-listing-format",1,___LBL(
+1),___fp);
+___DEF_SLBL(1,___L1___codegen_23_codegen_2d_context_2d_listing_2d_format)
+___GATE2_ENTER(___ps,"_codegen#codegen-context-listing-format",1,___LBL(
+1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,8,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
    ___SET_R2(___FIX(0L))
    ___SET_R1(___FIX(4L))
-   ___ADJFP(8)
-   ___POLL(1)
-___DEF_SLBL(1,___L1___codegen_23_codegen_2d_context_2d_listing_2d_format)
-   ___SET_R0(___LBL(2))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),47,___G__2b_)
+   ___ADJFP(6)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___codegen_23_codegen_2d_context_2d_listing_2d_format)
+   ___SET_R0(___LBL(3))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),47,___G__2b_)
+___DEF_SLBL(3,___L3___codegen_23_codegen_2d_context_2d_listing_2d_format)
    ___SET_R2(___R1)
    ___SET_R1(___STK(-6))
    ___SET_R0(___STK(-7))
-   ___POLL(3)
-___DEF_SLBL(3,___L3___codegen_23_codegen_2d_context_2d_listing_2d_format)
+   ___POLL(4)
+___DEF_SLBL(4,___L4___codegen_23_codegen_2d_context_2d_listing_2d_format)
    ___ADJFP(-8)
    ___JUMPGLONOTSAFE(___SET_NARGS(2),85,___G_vector_2d_ref)
 ___END_P_SW
@@ -1427,43 +1516,54 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___codegen_23_codegen_2d_context_2d_listing_2d_format_2d_set_21_
 #undef ___PH_LBL0
-#define ___PH_LBL0 37
+#define ___PH_LBL0 40
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(4)
+___BEGIN_P_HLBL_AT(5)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___codegen_23_codegen_2d_context_2d_listing_2d_format_2d_set_21_)
 ___DEF_P_HLBL(___L1___codegen_23_codegen_2d_context_2d_listing_2d_format_2d_set_21_)
 ___DEF_P_HLBL(___L2___codegen_23_codegen_2d_context_2d_listing_2d_format_2d_set_21_)
 ___DEF_P_HLBL(___L3___codegen_23_codegen_2d_context_2d_listing_2d_format_2d_set_21_)
+___DEF_P_HLBL(___L4___codegen_23_codegen_2d_context_2d_listing_2d_format_2d_set_21_)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___codegen_23_codegen_2d_context_2d_listing_2d_format_2d_set_21_)
    ___IF_NARGS_EQ(2,___NOTHING)
    ___WRONG_NARGS(0,2,0,0)
 ___DEF_GLBL(___L___codegen_23_codegen_2d_context_2d_listing_2d_format_2d_set_21_)
+___GATE2_OPEN(___ps,"_codegen#codegen-context-listing-format-set!",1,___LBL(
+1),___fp);
+___DEF_SLBL(1,___L1___codegen_23_codegen_2d_context_2d_listing_2d_format_2d_set_21_)
+___GATE2_ENTER(___ps,"_codegen#codegen-context-listing-format-set!",1,___LBL(
+1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,8,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
-   ___SET_STK(3,___R2)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
    ___SET_R2(___FIX(0L))
    ___SET_R1(___FIX(4L))
-   ___ADJFP(8)
-   ___POLL(1)
-___DEF_SLBL(1,___L1___codegen_23_codegen_2d_context_2d_listing_2d_format_2d_set_21_)
-   ___SET_R0(___LBL(2))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),47,___G__2b_)
+   ___ADJFP(5)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___codegen_23_codegen_2d_context_2d_listing_2d_format_2d_set_21_)
+   ___SET_R0(___LBL(3))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),47,___G__2b_)
+___DEF_SLBL(3,___L3___codegen_23_codegen_2d_context_2d_listing_2d_format_2d_set_21_)
    ___SET_R2(___R1)
    ___SET_R3(___STK(-5))
    ___SET_R1(___STK(-6))
    ___SET_R0(___STK(-7))
-   ___POLL(3)
-___DEF_SLBL(3,___L3___codegen_23_codegen_2d_context_2d_listing_2d_format_2d_set_21_)
+   ___POLL(4)
+___DEF_SLBL(4,___L4___codegen_23_codegen_2d_context_2d_listing_2d_format_2d_set_21_)
    ___ADJFP(-8)
    ___JUMPGLONOTSAFE(___SET_NARGS(3),86,___G_vector_2d_set_21_)
 ___END_P_SW
@@ -1472,41 +1572,51 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___codegen_23_codegen_2d_context_2d_arch
 #undef ___PH_LBL0
-#define ___PH_LBL0 42
+#define ___PH_LBL0 46
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(4)
+___BEGIN_P_HLBL_AT(5)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___codegen_23_codegen_2d_context_2d_arch)
 ___DEF_P_HLBL(___L1___codegen_23_codegen_2d_context_2d_arch)
 ___DEF_P_HLBL(___L2___codegen_23_codegen_2d_context_2d_arch)
 ___DEF_P_HLBL(___L3___codegen_23_codegen_2d_context_2d_arch)
+___DEF_P_HLBL(___L4___codegen_23_codegen_2d_context_2d_arch)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___codegen_23_codegen_2d_context_2d_arch)
    ___IF_NARGS_EQ(1,___NOTHING)
    ___WRONG_NARGS(0,1,0,0)
 ___DEF_GLBL(___L___codegen_23_codegen_2d_context_2d_arch)
+___GATE2_OPEN(___ps,"_codegen#codegen-context-arch",1,___LBL(1)
+,___fp);
+___DEF_SLBL(1,___L1___codegen_23_codegen_2d_context_2d_arch)
+___GATE2_ENTER(___ps,"_codegen#codegen-context-arch",1,___LBL(1)
+,___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,8,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
    ___SET_R2(___FIX(1L))
    ___SET_R1(___FIX(4L))
-   ___ADJFP(8)
-   ___POLL(1)
-___DEF_SLBL(1,___L1___codegen_23_codegen_2d_context_2d_arch)
-   ___SET_R0(___LBL(2))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),47,___G__2b_)
+   ___ADJFP(6)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___codegen_23_codegen_2d_context_2d_arch)
+   ___SET_R0(___LBL(3))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),47,___G__2b_)
+___DEF_SLBL(3,___L3___codegen_23_codegen_2d_context_2d_arch)
    ___SET_R2(___R1)
    ___SET_R1(___STK(-6))
    ___SET_R0(___STK(-7))
-   ___POLL(3)
-___DEF_SLBL(3,___L3___codegen_23_codegen_2d_context_2d_arch)
+   ___POLL(4)
+___DEF_SLBL(4,___L4___codegen_23_codegen_2d_context_2d_arch)
    ___ADJFP(-8)
    ___JUMPGLONOTSAFE(___SET_NARGS(2),85,___G_vector_2d_ref)
 ___END_P_SW
@@ -1515,43 +1625,54 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___codegen_23_codegen_2d_context_2d_arch_2d_set_21_
 #undef ___PH_LBL0
-#define ___PH_LBL0 47
+#define ___PH_LBL0 52
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(4)
+___BEGIN_P_HLBL_AT(5)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___codegen_23_codegen_2d_context_2d_arch_2d_set_21_)
 ___DEF_P_HLBL(___L1___codegen_23_codegen_2d_context_2d_arch_2d_set_21_)
 ___DEF_P_HLBL(___L2___codegen_23_codegen_2d_context_2d_arch_2d_set_21_)
 ___DEF_P_HLBL(___L3___codegen_23_codegen_2d_context_2d_arch_2d_set_21_)
+___DEF_P_HLBL(___L4___codegen_23_codegen_2d_context_2d_arch_2d_set_21_)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___codegen_23_codegen_2d_context_2d_arch_2d_set_21_)
    ___IF_NARGS_EQ(2,___NOTHING)
    ___WRONG_NARGS(0,2,0,0)
 ___DEF_GLBL(___L___codegen_23_codegen_2d_context_2d_arch_2d_set_21_)
+___GATE2_OPEN(___ps,"_codegen#codegen-context-arch-set!",1,___LBL(
+1),___fp);
+___DEF_SLBL(1,___L1___codegen_23_codegen_2d_context_2d_arch_2d_set_21_)
+___GATE2_ENTER(___ps,"_codegen#codegen-context-arch-set!",1,___LBL(
+1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,8,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
-   ___SET_STK(3,___R2)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
    ___SET_R2(___FIX(1L))
    ___SET_R1(___FIX(4L))
-   ___ADJFP(8)
-   ___POLL(1)
-___DEF_SLBL(1,___L1___codegen_23_codegen_2d_context_2d_arch_2d_set_21_)
-   ___SET_R0(___LBL(2))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),47,___G__2b_)
+   ___ADJFP(5)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___codegen_23_codegen_2d_context_2d_arch_2d_set_21_)
+   ___SET_R0(___LBL(3))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),47,___G__2b_)
+___DEF_SLBL(3,___L3___codegen_23_codegen_2d_context_2d_arch_2d_set_21_)
    ___SET_R2(___R1)
    ___SET_R3(___STK(-5))
    ___SET_R1(___STK(-6))
    ___SET_R0(___STK(-7))
-   ___POLL(3)
-___DEF_SLBL(3,___L3___codegen_23_codegen_2d_context_2d_arch_2d_set_21_)
+   ___POLL(4)
+___DEF_SLBL(4,___L4___codegen_23_codegen_2d_context_2d_arch_2d_set_21_)
    ___ADJFP(-8)
    ___JUMPGLONOTSAFE(___SET_NARGS(3),86,___G_vector_2d_set_21_)
 ___END_P_SW
@@ -1560,41 +1681,51 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___codegen_23_codegen_2d_context_2d_target
 #undef ___PH_LBL0
-#define ___PH_LBL0 52
+#define ___PH_LBL0 58
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(4)
+___BEGIN_P_HLBL_AT(5)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___codegen_23_codegen_2d_context_2d_target)
 ___DEF_P_HLBL(___L1___codegen_23_codegen_2d_context_2d_target)
 ___DEF_P_HLBL(___L2___codegen_23_codegen_2d_context_2d_target)
 ___DEF_P_HLBL(___L3___codegen_23_codegen_2d_context_2d_target)
+___DEF_P_HLBL(___L4___codegen_23_codegen_2d_context_2d_target)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___codegen_23_codegen_2d_context_2d_target)
    ___IF_NARGS_EQ(1,___NOTHING)
    ___WRONG_NARGS(0,1,0,0)
 ___DEF_GLBL(___L___codegen_23_codegen_2d_context_2d_target)
+___GATE2_OPEN(___ps,"_codegen#codegen-context-target",1,___LBL(
+1),___fp);
+___DEF_SLBL(1,___L1___codegen_23_codegen_2d_context_2d_target)
+___GATE2_ENTER(___ps,"_codegen#codegen-context-target",1,___LBL(
+1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,8,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
    ___SET_R2(___FIX(2L))
    ___SET_R1(___FIX(4L))
-   ___ADJFP(8)
-   ___POLL(1)
-___DEF_SLBL(1,___L1___codegen_23_codegen_2d_context_2d_target)
-   ___SET_R0(___LBL(2))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),47,___G__2b_)
+   ___ADJFP(6)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___codegen_23_codegen_2d_context_2d_target)
+   ___SET_R0(___LBL(3))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),47,___G__2b_)
+___DEF_SLBL(3,___L3___codegen_23_codegen_2d_context_2d_target)
    ___SET_R2(___R1)
    ___SET_R1(___STK(-6))
    ___SET_R0(___STK(-7))
-   ___POLL(3)
-___DEF_SLBL(3,___L3___codegen_23_codegen_2d_context_2d_target)
+   ___POLL(4)
+___DEF_SLBL(4,___L4___codegen_23_codegen_2d_context_2d_target)
    ___ADJFP(-8)
    ___JUMPGLONOTSAFE(___SET_NARGS(2),85,___G_vector_2d_ref)
 ___END_P_SW
@@ -1603,43 +1734,54 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___codegen_23_codegen_2d_context_2d_target_2d_set_21_
 #undef ___PH_LBL0
-#define ___PH_LBL0 57
+#define ___PH_LBL0 64
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(4)
+___BEGIN_P_HLBL_AT(5)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___codegen_23_codegen_2d_context_2d_target_2d_set_21_)
 ___DEF_P_HLBL(___L1___codegen_23_codegen_2d_context_2d_target_2d_set_21_)
 ___DEF_P_HLBL(___L2___codegen_23_codegen_2d_context_2d_target_2d_set_21_)
 ___DEF_P_HLBL(___L3___codegen_23_codegen_2d_context_2d_target_2d_set_21_)
+___DEF_P_HLBL(___L4___codegen_23_codegen_2d_context_2d_target_2d_set_21_)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___codegen_23_codegen_2d_context_2d_target_2d_set_21_)
    ___IF_NARGS_EQ(2,___NOTHING)
    ___WRONG_NARGS(0,2,0,0)
 ___DEF_GLBL(___L___codegen_23_codegen_2d_context_2d_target_2d_set_21_)
+___GATE2_OPEN(___ps,"_codegen#codegen-context-target-set!",1,___LBL(
+1),___fp);
+___DEF_SLBL(1,___L1___codegen_23_codegen_2d_context_2d_target_2d_set_21_)
+___GATE2_ENTER(___ps,"_codegen#codegen-context-target-set!",1,___LBL(
+1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,8,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
-   ___SET_STK(3,___R2)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
    ___SET_R2(___FIX(2L))
    ___SET_R1(___FIX(4L))
-   ___ADJFP(8)
-   ___POLL(1)
-___DEF_SLBL(1,___L1___codegen_23_codegen_2d_context_2d_target_2d_set_21_)
-   ___SET_R0(___LBL(2))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),47,___G__2b_)
+   ___ADJFP(5)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___codegen_23_codegen_2d_context_2d_target_2d_set_21_)
+   ___SET_R0(___LBL(3))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),47,___G__2b_)
+___DEF_SLBL(3,___L3___codegen_23_codegen_2d_context_2d_target_2d_set_21_)
    ___SET_R2(___R1)
    ___SET_R3(___STK(-5))
    ___SET_R1(___STK(-6))
    ___SET_R0(___STK(-7))
-   ___POLL(3)
-___DEF_SLBL(3,___L3___codegen_23_codegen_2d_context_2d_target_2d_set_21_)
+   ___POLL(4)
+___DEF_SLBL(4,___L4___codegen_23_codegen_2d_context_2d_target_2d_set_21_)
    ___ADJFP(-8)
    ___JUMPGLONOTSAFE(___SET_NARGS(3),86,___G_vector_2d_set_21_)
 ___END_P_SW
@@ -1648,41 +1790,51 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs
 #undef ___PH_LBL0
-#define ___PH_LBL0 62
+#define ___PH_LBL0 70
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(4)
+___BEGIN_P_HLBL_AT(5)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___codegen_23_codegen_2d_context_2d_fixup_2d_locs)
 ___DEF_P_HLBL(___L1___codegen_23_codegen_2d_context_2d_fixup_2d_locs)
 ___DEF_P_HLBL(___L2___codegen_23_codegen_2d_context_2d_fixup_2d_locs)
 ___DEF_P_HLBL(___L3___codegen_23_codegen_2d_context_2d_fixup_2d_locs)
+___DEF_P_HLBL(___L4___codegen_23_codegen_2d_context_2d_fixup_2d_locs)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___codegen_23_codegen_2d_context_2d_fixup_2d_locs)
    ___IF_NARGS_EQ(1,___NOTHING)
    ___WRONG_NARGS(0,1,0,0)
 ___DEF_GLBL(___L___codegen_23_codegen_2d_context_2d_fixup_2d_locs)
+___GATE2_OPEN(___ps,"_codegen#codegen-context-fixup-locs",1,___LBL(
+1),___fp);
+___DEF_SLBL(1,___L1___codegen_23_codegen_2d_context_2d_fixup_2d_locs)
+___GATE2_ENTER(___ps,"_codegen#codegen-context-fixup-locs",1,___LBL(
+1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,8,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
    ___SET_R2(___FIX(3L))
    ___SET_R1(___FIX(4L))
-   ___ADJFP(8)
-   ___POLL(1)
-___DEF_SLBL(1,___L1___codegen_23_codegen_2d_context_2d_fixup_2d_locs)
-   ___SET_R0(___LBL(2))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),47,___G__2b_)
+   ___ADJFP(6)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___codegen_23_codegen_2d_context_2d_fixup_2d_locs)
+   ___SET_R0(___LBL(3))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),47,___G__2b_)
+___DEF_SLBL(3,___L3___codegen_23_codegen_2d_context_2d_fixup_2d_locs)
    ___SET_R2(___R1)
    ___SET_R1(___STK(-6))
    ___SET_R0(___STK(-7))
-   ___POLL(3)
-___DEF_SLBL(3,___L3___codegen_23_codegen_2d_context_2d_fixup_2d_locs)
+   ___POLL(4)
+___DEF_SLBL(4,___L4___codegen_23_codegen_2d_context_2d_fixup_2d_locs)
    ___ADJFP(-8)
    ___JUMPGLONOTSAFE(___SET_NARGS(2),85,___G_vector_2d_ref)
 ___END_P_SW
@@ -1691,43 +1843,54 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_set_21_
 #undef ___PH_LBL0
-#define ___PH_LBL0 67
+#define ___PH_LBL0 76
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(4)
+___BEGIN_P_HLBL_AT(5)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_set_21_)
 ___DEF_P_HLBL(___L1___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_set_21_)
 ___DEF_P_HLBL(___L2___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_set_21_)
 ___DEF_P_HLBL(___L3___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_set_21_)
+___DEF_P_HLBL(___L4___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_set_21_)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_set_21_)
    ___IF_NARGS_EQ(2,___NOTHING)
    ___WRONG_NARGS(0,2,0,0)
 ___DEF_GLBL(___L___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_set_21_)
+___GATE2_OPEN(___ps,"_codegen#codegen-context-fixup-locs-set!",1,___LBL(
+1),___fp);
+___DEF_SLBL(1,___L1___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_set_21_)
+___GATE2_ENTER(___ps,"_codegen#codegen-context-fixup-locs-set!",1,___LBL(
+1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,8,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
-   ___SET_STK(3,___R2)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
    ___SET_R2(___FIX(3L))
    ___SET_R1(___FIX(4L))
-   ___ADJFP(8)
-   ___POLL(1)
-___DEF_SLBL(1,___L1___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_set_21_)
-   ___SET_R0(___LBL(2))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),47,___G__2b_)
+   ___ADJFP(5)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_set_21_)
+   ___SET_R0(___LBL(3))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),47,___G__2b_)
+___DEF_SLBL(3,___L3___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_set_21_)
    ___SET_R2(___R1)
    ___SET_R3(___STK(-5))
    ___SET_R1(___STK(-6))
    ___SET_R0(___STK(-7))
-   ___POLL(3)
-___DEF_SLBL(3,___L3___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_set_21_)
+   ___POLL(4)
+___DEF_SLBL(4,___L4___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_set_21_)
    ___ADJFP(-8)
    ___JUMPGLONOTSAFE(___SET_NARGS(3),86,___G_vector_2d_set_21_)
 ___END_P_SW
@@ -1736,41 +1899,51 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___codegen_23_codegen_2d_context_2d_fixup_2d_objs
 #undef ___PH_LBL0
-#define ___PH_LBL0 72
+#define ___PH_LBL0 82
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(4)
+___BEGIN_P_HLBL_AT(5)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___codegen_23_codegen_2d_context_2d_fixup_2d_objs)
 ___DEF_P_HLBL(___L1___codegen_23_codegen_2d_context_2d_fixup_2d_objs)
 ___DEF_P_HLBL(___L2___codegen_23_codegen_2d_context_2d_fixup_2d_objs)
 ___DEF_P_HLBL(___L3___codegen_23_codegen_2d_context_2d_fixup_2d_objs)
+___DEF_P_HLBL(___L4___codegen_23_codegen_2d_context_2d_fixup_2d_objs)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___codegen_23_codegen_2d_context_2d_fixup_2d_objs)
    ___IF_NARGS_EQ(1,___NOTHING)
    ___WRONG_NARGS(0,1,0,0)
 ___DEF_GLBL(___L___codegen_23_codegen_2d_context_2d_fixup_2d_objs)
+___GATE2_OPEN(___ps,"_codegen#codegen-context-fixup-objs",1,___LBL(
+1),___fp);
+___DEF_SLBL(1,___L1___codegen_23_codegen_2d_context_2d_fixup_2d_objs)
+___GATE2_ENTER(___ps,"_codegen#codegen-context-fixup-objs",1,___LBL(
+1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,8,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
    ___SET_R2(___FIX(4L))
    ___SET_R1(___FIX(4L))
-   ___ADJFP(8)
-   ___POLL(1)
-___DEF_SLBL(1,___L1___codegen_23_codegen_2d_context_2d_fixup_2d_objs)
-   ___SET_R0(___LBL(2))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),47,___G__2b_)
+   ___ADJFP(6)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___codegen_23_codegen_2d_context_2d_fixup_2d_objs)
+   ___SET_R0(___LBL(3))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),47,___G__2b_)
+___DEF_SLBL(3,___L3___codegen_23_codegen_2d_context_2d_fixup_2d_objs)
    ___SET_R2(___R1)
    ___SET_R1(___STK(-6))
    ___SET_R0(___STK(-7))
-   ___POLL(3)
-___DEF_SLBL(3,___L3___codegen_23_codegen_2d_context_2d_fixup_2d_objs)
+   ___POLL(4)
+___DEF_SLBL(4,___L4___codegen_23_codegen_2d_context_2d_fixup_2d_objs)
    ___ADJFP(-8)
    ___JUMPGLONOTSAFE(___SET_NARGS(2),85,___G_vector_2d_ref)
 ___END_P_SW
@@ -1779,43 +1952,54 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d_set_21_
 #undef ___PH_LBL0
-#define ___PH_LBL0 77
+#define ___PH_LBL0 88
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(4)
+___BEGIN_P_HLBL_AT(5)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d_set_21_)
 ___DEF_P_HLBL(___L1___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d_set_21_)
 ___DEF_P_HLBL(___L2___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d_set_21_)
 ___DEF_P_HLBL(___L3___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d_set_21_)
+___DEF_P_HLBL(___L4___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d_set_21_)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d_set_21_)
    ___IF_NARGS_EQ(2,___NOTHING)
    ___WRONG_NARGS(0,2,0,0)
 ___DEF_GLBL(___L___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d_set_21_)
+___GATE2_OPEN(___ps,"_codegen#codegen-context-fixup-objs-set!",1,___LBL(
+1),___fp);
+___DEF_SLBL(1,___L1___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d_set_21_)
+___GATE2_ENTER(___ps,"_codegen#codegen-context-fixup-objs-set!",1,___LBL(
+1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,8,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
-   ___SET_STK(3,___R2)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
    ___SET_R2(___FIX(4L))
    ___SET_R1(___FIX(4L))
-   ___ADJFP(8)
-   ___POLL(1)
-___DEF_SLBL(1,___L1___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d_set_21_)
-   ___SET_R0(___LBL(2))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),47,___G__2b_)
+   ___ADJFP(5)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d_set_21_)
+   ___SET_R0(___LBL(3))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),47,___G__2b_)
+___DEF_SLBL(3,___L3___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d_set_21_)
    ___SET_R2(___R1)
    ___SET_R3(___STK(-5))
    ___SET_R1(___STK(-6))
    ___SET_R0(___STK(-7))
-   ___POLL(3)
-___DEF_SLBL(3,___L3___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d_set_21_)
+   ___POLL(4)
+___DEF_SLBL(4,___L4___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d_set_21_)
    ___ADJFP(-8)
    ___JUMPGLONOTSAFE(___SET_NARGS(3),86,___G_vector_2d_set_21_)
 ___END_P_SW
@@ -1824,41 +2008,51 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___codegen_23_codegen_2d_context_2d_current_2d_proc
 #undef ___PH_LBL0
-#define ___PH_LBL0 82
+#define ___PH_LBL0 94
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(4)
+___BEGIN_P_HLBL_AT(5)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___codegen_23_codegen_2d_context_2d_current_2d_proc)
 ___DEF_P_HLBL(___L1___codegen_23_codegen_2d_context_2d_current_2d_proc)
 ___DEF_P_HLBL(___L2___codegen_23_codegen_2d_context_2d_current_2d_proc)
 ___DEF_P_HLBL(___L3___codegen_23_codegen_2d_context_2d_current_2d_proc)
+___DEF_P_HLBL(___L4___codegen_23_codegen_2d_context_2d_current_2d_proc)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___codegen_23_codegen_2d_context_2d_current_2d_proc)
    ___IF_NARGS_EQ(1,___NOTHING)
    ___WRONG_NARGS(0,1,0,0)
 ___DEF_GLBL(___L___codegen_23_codegen_2d_context_2d_current_2d_proc)
+___GATE2_OPEN(___ps,"_codegen#codegen-context-current-proc",1,___LBL(
+1),___fp);
+___DEF_SLBL(1,___L1___codegen_23_codegen_2d_context_2d_current_2d_proc)
+___GATE2_ENTER(___ps,"_codegen#codegen-context-current-proc",1,___LBL(
+1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,8,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
    ___SET_R2(___FIX(5L))
    ___SET_R1(___FIX(4L))
-   ___ADJFP(8)
-   ___POLL(1)
-___DEF_SLBL(1,___L1___codegen_23_codegen_2d_context_2d_current_2d_proc)
-   ___SET_R0(___LBL(2))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),47,___G__2b_)
+   ___ADJFP(6)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___codegen_23_codegen_2d_context_2d_current_2d_proc)
+   ___SET_R0(___LBL(3))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),47,___G__2b_)
+___DEF_SLBL(3,___L3___codegen_23_codegen_2d_context_2d_current_2d_proc)
    ___SET_R2(___R1)
    ___SET_R1(___STK(-6))
    ___SET_R0(___STK(-7))
-   ___POLL(3)
-___DEF_SLBL(3,___L3___codegen_23_codegen_2d_context_2d_current_2d_proc)
+   ___POLL(4)
+___DEF_SLBL(4,___L4___codegen_23_codegen_2d_context_2d_current_2d_proc)
    ___ADJFP(-8)
    ___JUMPGLONOTSAFE(___SET_NARGS(2),85,___G_vector_2d_ref)
 ___END_P_SW
@@ -1867,43 +2061,54 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___codegen_23_codegen_2d_context_2d_current_2d_proc_2d_set_21_
 #undef ___PH_LBL0
-#define ___PH_LBL0 87
+#define ___PH_LBL0 100
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(4)
+___BEGIN_P_HLBL_AT(5)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___codegen_23_codegen_2d_context_2d_current_2d_proc_2d_set_21_)
 ___DEF_P_HLBL(___L1___codegen_23_codegen_2d_context_2d_current_2d_proc_2d_set_21_)
 ___DEF_P_HLBL(___L2___codegen_23_codegen_2d_context_2d_current_2d_proc_2d_set_21_)
 ___DEF_P_HLBL(___L3___codegen_23_codegen_2d_context_2d_current_2d_proc_2d_set_21_)
+___DEF_P_HLBL(___L4___codegen_23_codegen_2d_context_2d_current_2d_proc_2d_set_21_)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___codegen_23_codegen_2d_context_2d_current_2d_proc_2d_set_21_)
    ___IF_NARGS_EQ(2,___NOTHING)
    ___WRONG_NARGS(0,2,0,0)
 ___DEF_GLBL(___L___codegen_23_codegen_2d_context_2d_current_2d_proc_2d_set_21_)
+___GATE2_OPEN(___ps,"_codegen#codegen-context-current-proc-set!",1,___LBL(
+1),___fp);
+___DEF_SLBL(1,___L1___codegen_23_codegen_2d_context_2d_current_2d_proc_2d_set_21_)
+___GATE2_ENTER(___ps,"_codegen#codegen-context-current-proc-set!",1,___LBL(
+1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,8,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
-   ___SET_STK(3,___R2)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
    ___SET_R2(___FIX(5L))
    ___SET_R1(___FIX(4L))
-   ___ADJFP(8)
-   ___POLL(1)
-___DEF_SLBL(1,___L1___codegen_23_codegen_2d_context_2d_current_2d_proc_2d_set_21_)
-   ___SET_R0(___LBL(2))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),47,___G__2b_)
+   ___ADJFP(5)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___codegen_23_codegen_2d_context_2d_current_2d_proc_2d_set_21_)
+   ___SET_R0(___LBL(3))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),47,___G__2b_)
+___DEF_SLBL(3,___L3___codegen_23_codegen_2d_context_2d_current_2d_proc_2d_set_21_)
    ___SET_R2(___R1)
    ___SET_R3(___STK(-5))
    ___SET_R1(___STK(-6))
    ___SET_R0(___STK(-7))
-   ___POLL(3)
-___DEF_SLBL(3,___L3___codegen_23_codegen_2d_context_2d_current_2d_proc_2d_set_21_)
+   ___POLL(4)
+___DEF_SLBL(4,___L4___codegen_23_codegen_2d_context_2d_current_2d_proc_2d_set_21_)
    ___ADJFP(-8)
    ___JUMPGLONOTSAFE(___SET_NARGS(3),86,___G_vector_2d_set_21_)
 ___END_P_SW
@@ -1912,41 +2117,51 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___codegen_23_codegen_2d_context_2d_current_2d_code
 #undef ___PH_LBL0
-#define ___PH_LBL0 92
+#define ___PH_LBL0 106
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(4)
+___BEGIN_P_HLBL_AT(5)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___codegen_23_codegen_2d_context_2d_current_2d_code)
 ___DEF_P_HLBL(___L1___codegen_23_codegen_2d_context_2d_current_2d_code)
 ___DEF_P_HLBL(___L2___codegen_23_codegen_2d_context_2d_current_2d_code)
 ___DEF_P_HLBL(___L3___codegen_23_codegen_2d_context_2d_current_2d_code)
+___DEF_P_HLBL(___L4___codegen_23_codegen_2d_context_2d_current_2d_code)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___codegen_23_codegen_2d_context_2d_current_2d_code)
    ___IF_NARGS_EQ(1,___NOTHING)
    ___WRONG_NARGS(0,1,0,0)
 ___DEF_GLBL(___L___codegen_23_codegen_2d_context_2d_current_2d_code)
+___GATE2_OPEN(___ps,"_codegen#codegen-context-current-code",1,___LBL(
+1),___fp);
+___DEF_SLBL(1,___L1___codegen_23_codegen_2d_context_2d_current_2d_code)
+___GATE2_ENTER(___ps,"_codegen#codegen-context-current-code",1,___LBL(
+1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,8,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
    ___SET_R2(___FIX(6L))
    ___SET_R1(___FIX(4L))
-   ___ADJFP(8)
-   ___POLL(1)
-___DEF_SLBL(1,___L1___codegen_23_codegen_2d_context_2d_current_2d_code)
-   ___SET_R0(___LBL(2))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),47,___G__2b_)
+   ___ADJFP(6)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___codegen_23_codegen_2d_context_2d_current_2d_code)
+   ___SET_R0(___LBL(3))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),47,___G__2b_)
+___DEF_SLBL(3,___L3___codegen_23_codegen_2d_context_2d_current_2d_code)
    ___SET_R2(___R1)
    ___SET_R1(___STK(-6))
    ___SET_R0(___STK(-7))
-   ___POLL(3)
-___DEF_SLBL(3,___L3___codegen_23_codegen_2d_context_2d_current_2d_code)
+   ___POLL(4)
+___DEF_SLBL(4,___L4___codegen_23_codegen_2d_context_2d_current_2d_code)
    ___ADJFP(-8)
    ___JUMPGLONOTSAFE(___SET_NARGS(2),85,___G_vector_2d_ref)
 ___END_P_SW
@@ -1955,43 +2170,54 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___codegen_23_codegen_2d_context_2d_current_2d_code_2d_set_21_
 #undef ___PH_LBL0
-#define ___PH_LBL0 97
+#define ___PH_LBL0 112
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(4)
+___BEGIN_P_HLBL_AT(5)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___codegen_23_codegen_2d_context_2d_current_2d_code_2d_set_21_)
 ___DEF_P_HLBL(___L1___codegen_23_codegen_2d_context_2d_current_2d_code_2d_set_21_)
 ___DEF_P_HLBL(___L2___codegen_23_codegen_2d_context_2d_current_2d_code_2d_set_21_)
 ___DEF_P_HLBL(___L3___codegen_23_codegen_2d_context_2d_current_2d_code_2d_set_21_)
+___DEF_P_HLBL(___L4___codegen_23_codegen_2d_context_2d_current_2d_code_2d_set_21_)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___codegen_23_codegen_2d_context_2d_current_2d_code_2d_set_21_)
    ___IF_NARGS_EQ(2,___NOTHING)
    ___WRONG_NARGS(0,2,0,0)
 ___DEF_GLBL(___L___codegen_23_codegen_2d_context_2d_current_2d_code_2d_set_21_)
+___GATE2_OPEN(___ps,"_codegen#codegen-context-current-code-set!",1,___LBL(
+1),___fp);
+___DEF_SLBL(1,___L1___codegen_23_codegen_2d_context_2d_current_2d_code_2d_set_21_)
+___GATE2_ENTER(___ps,"_codegen#codegen-context-current-code-set!",1,___LBL(
+1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,8,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
-   ___SET_STK(3,___R2)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
    ___SET_R2(___FIX(6L))
    ___SET_R1(___FIX(4L))
-   ___ADJFP(8)
-   ___POLL(1)
-___DEF_SLBL(1,___L1___codegen_23_codegen_2d_context_2d_current_2d_code_2d_set_21_)
-   ___SET_R0(___LBL(2))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),47,___G__2b_)
+   ___ADJFP(5)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___codegen_23_codegen_2d_context_2d_current_2d_code_2d_set_21_)
+   ___SET_R0(___LBL(3))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),47,___G__2b_)
+___DEF_SLBL(3,___L3___codegen_23_codegen_2d_context_2d_current_2d_code_2d_set_21_)
    ___SET_R2(___R1)
    ___SET_R3(___STK(-5))
    ___SET_R1(___STK(-6))
    ___SET_R0(___STK(-7))
-   ___POLL(3)
-___DEF_SLBL(3,___L3___codegen_23_codegen_2d_context_2d_current_2d_code_2d_set_21_)
+   ___POLL(4)
+___DEF_SLBL(4,___L4___codegen_23_codegen_2d_context_2d_current_2d_code_2d_set_21_)
    ___ADJFP(-8)
    ___JUMPGLONOTSAFE(___SET_NARGS(3),86,___G_vector_2d_set_21_)
 ___END_P_SW
@@ -2000,41 +2226,51 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___codegen_23_codegen_2d_context_2d_frame
 #undef ___PH_LBL0
-#define ___PH_LBL0 102
+#define ___PH_LBL0 118
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(4)
+___BEGIN_P_HLBL_AT(5)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___codegen_23_codegen_2d_context_2d_frame)
 ___DEF_P_HLBL(___L1___codegen_23_codegen_2d_context_2d_frame)
 ___DEF_P_HLBL(___L2___codegen_23_codegen_2d_context_2d_frame)
 ___DEF_P_HLBL(___L3___codegen_23_codegen_2d_context_2d_frame)
+___DEF_P_HLBL(___L4___codegen_23_codegen_2d_context_2d_frame)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___codegen_23_codegen_2d_context_2d_frame)
    ___IF_NARGS_EQ(1,___NOTHING)
    ___WRONG_NARGS(0,1,0,0)
 ___DEF_GLBL(___L___codegen_23_codegen_2d_context_2d_frame)
+___GATE2_OPEN(___ps,"_codegen#codegen-context-frame",1,___LBL(1)
+,___fp);
+___DEF_SLBL(1,___L1___codegen_23_codegen_2d_context_2d_frame)
+___GATE2_ENTER(___ps,"_codegen#codegen-context-frame",1,___LBL(1)
+,___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,8,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
    ___SET_R2(___FIX(7L))
    ___SET_R1(___FIX(4L))
-   ___ADJFP(8)
-   ___POLL(1)
-___DEF_SLBL(1,___L1___codegen_23_codegen_2d_context_2d_frame)
-   ___SET_R0(___LBL(2))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),47,___G__2b_)
+   ___ADJFP(6)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___codegen_23_codegen_2d_context_2d_frame)
+   ___SET_R0(___LBL(3))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),47,___G__2b_)
+___DEF_SLBL(3,___L3___codegen_23_codegen_2d_context_2d_frame)
    ___SET_R2(___R1)
    ___SET_R1(___STK(-6))
    ___SET_R0(___STK(-7))
-   ___POLL(3)
-___DEF_SLBL(3,___L3___codegen_23_codegen_2d_context_2d_frame)
+   ___POLL(4)
+___DEF_SLBL(4,___L4___codegen_23_codegen_2d_context_2d_frame)
    ___ADJFP(-8)
    ___JUMPGLONOTSAFE(___SET_NARGS(2),85,___G_vector_2d_ref)
 ___END_P_SW
@@ -2043,43 +2279,54 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___codegen_23_codegen_2d_context_2d_frame_2d_set_21_
 #undef ___PH_LBL0
-#define ___PH_LBL0 107
+#define ___PH_LBL0 124
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(4)
+___BEGIN_P_HLBL_AT(5)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___codegen_23_codegen_2d_context_2d_frame_2d_set_21_)
 ___DEF_P_HLBL(___L1___codegen_23_codegen_2d_context_2d_frame_2d_set_21_)
 ___DEF_P_HLBL(___L2___codegen_23_codegen_2d_context_2d_frame_2d_set_21_)
 ___DEF_P_HLBL(___L3___codegen_23_codegen_2d_context_2d_frame_2d_set_21_)
+___DEF_P_HLBL(___L4___codegen_23_codegen_2d_context_2d_frame_2d_set_21_)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___codegen_23_codegen_2d_context_2d_frame_2d_set_21_)
    ___IF_NARGS_EQ(2,___NOTHING)
    ___WRONG_NARGS(0,2,0,0)
 ___DEF_GLBL(___L___codegen_23_codegen_2d_context_2d_frame_2d_set_21_)
+___GATE2_OPEN(___ps,"_codegen#codegen-context-frame-set!",1,___LBL(
+1),___fp);
+___DEF_SLBL(1,___L1___codegen_23_codegen_2d_context_2d_frame_2d_set_21_)
+___GATE2_ENTER(___ps,"_codegen#codegen-context-frame-set!",1,___LBL(
+1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,8,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
-   ___SET_STK(3,___R2)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
    ___SET_R2(___FIX(7L))
    ___SET_R1(___FIX(4L))
-   ___ADJFP(8)
-   ___POLL(1)
-___DEF_SLBL(1,___L1___codegen_23_codegen_2d_context_2d_frame_2d_set_21_)
-   ___SET_R0(___LBL(2))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),47,___G__2b_)
+   ___ADJFP(5)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___codegen_23_codegen_2d_context_2d_frame_2d_set_21_)
+   ___SET_R0(___LBL(3))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),47,___G__2b_)
+___DEF_SLBL(3,___L3___codegen_23_codegen_2d_context_2d_frame_2d_set_21_)
    ___SET_R2(___R1)
    ___SET_R3(___STK(-5))
    ___SET_R1(___STK(-6))
    ___SET_R0(___STK(-7))
-   ___POLL(3)
-___DEF_SLBL(3,___L3___codegen_23_codegen_2d_context_2d_frame_2d_set_21_)
+   ___POLL(4)
+___DEF_SLBL(4,___L4___codegen_23_codegen_2d_context_2d_frame_2d_set_21_)
    ___ADJFP(-8)
    ___JUMPGLONOTSAFE(___SET_NARGS(3),86,___G_vector_2d_set_21_)
 ___END_P_SW
@@ -2088,41 +2335,51 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___codegen_23_codegen_2d_context_2d_nargs
 #undef ___PH_LBL0
-#define ___PH_LBL0 112
+#define ___PH_LBL0 130
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(4)
+___BEGIN_P_HLBL_AT(5)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___codegen_23_codegen_2d_context_2d_nargs)
 ___DEF_P_HLBL(___L1___codegen_23_codegen_2d_context_2d_nargs)
 ___DEF_P_HLBL(___L2___codegen_23_codegen_2d_context_2d_nargs)
 ___DEF_P_HLBL(___L3___codegen_23_codegen_2d_context_2d_nargs)
+___DEF_P_HLBL(___L4___codegen_23_codegen_2d_context_2d_nargs)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___codegen_23_codegen_2d_context_2d_nargs)
    ___IF_NARGS_EQ(1,___NOTHING)
    ___WRONG_NARGS(0,1,0,0)
 ___DEF_GLBL(___L___codegen_23_codegen_2d_context_2d_nargs)
+___GATE2_OPEN(___ps,"_codegen#codegen-context-nargs",1,___LBL(1)
+,___fp);
+___DEF_SLBL(1,___L1___codegen_23_codegen_2d_context_2d_nargs)
+___GATE2_ENTER(___ps,"_codegen#codegen-context-nargs",1,___LBL(1)
+,___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,8,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
    ___SET_R2(___FIX(8L))
    ___SET_R1(___FIX(4L))
-   ___ADJFP(8)
-   ___POLL(1)
-___DEF_SLBL(1,___L1___codegen_23_codegen_2d_context_2d_nargs)
-   ___SET_R0(___LBL(2))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),47,___G__2b_)
+   ___ADJFP(6)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___codegen_23_codegen_2d_context_2d_nargs)
+   ___SET_R0(___LBL(3))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),47,___G__2b_)
+___DEF_SLBL(3,___L3___codegen_23_codegen_2d_context_2d_nargs)
    ___SET_R2(___R1)
    ___SET_R1(___STK(-6))
    ___SET_R0(___STK(-7))
-   ___POLL(3)
-___DEF_SLBL(3,___L3___codegen_23_codegen_2d_context_2d_nargs)
+   ___POLL(4)
+___DEF_SLBL(4,___L4___codegen_23_codegen_2d_context_2d_nargs)
    ___ADJFP(-8)
    ___JUMPGLONOTSAFE(___SET_NARGS(2),85,___G_vector_2d_ref)
 ___END_P_SW
@@ -2131,43 +2388,54 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___codegen_23_codegen_2d_context_2d_nargs_2d_set_21_
 #undef ___PH_LBL0
-#define ___PH_LBL0 117
+#define ___PH_LBL0 136
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(4)
+___BEGIN_P_HLBL_AT(5)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___codegen_23_codegen_2d_context_2d_nargs_2d_set_21_)
 ___DEF_P_HLBL(___L1___codegen_23_codegen_2d_context_2d_nargs_2d_set_21_)
 ___DEF_P_HLBL(___L2___codegen_23_codegen_2d_context_2d_nargs_2d_set_21_)
 ___DEF_P_HLBL(___L3___codegen_23_codegen_2d_context_2d_nargs_2d_set_21_)
+___DEF_P_HLBL(___L4___codegen_23_codegen_2d_context_2d_nargs_2d_set_21_)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___codegen_23_codegen_2d_context_2d_nargs_2d_set_21_)
    ___IF_NARGS_EQ(2,___NOTHING)
    ___WRONG_NARGS(0,2,0,0)
 ___DEF_GLBL(___L___codegen_23_codegen_2d_context_2d_nargs_2d_set_21_)
+___GATE2_OPEN(___ps,"_codegen#codegen-context-nargs-set!",1,___LBL(
+1),___fp);
+___DEF_SLBL(1,___L1___codegen_23_codegen_2d_context_2d_nargs_2d_set_21_)
+___GATE2_ENTER(___ps,"_codegen#codegen-context-nargs-set!",1,___LBL(
+1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,8,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
-   ___SET_STK(3,___R2)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
    ___SET_R2(___FIX(8L))
    ___SET_R1(___FIX(4L))
-   ___ADJFP(8)
-   ___POLL(1)
-___DEF_SLBL(1,___L1___codegen_23_codegen_2d_context_2d_nargs_2d_set_21_)
-   ___SET_R0(___LBL(2))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),47,___G__2b_)
+   ___ADJFP(5)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___codegen_23_codegen_2d_context_2d_nargs_2d_set_21_)
+   ___SET_R0(___LBL(3))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),47,___G__2b_)
+___DEF_SLBL(3,___L3___codegen_23_codegen_2d_context_2d_nargs_2d_set_21_)
    ___SET_R2(___R1)
    ___SET_R3(___STK(-5))
    ___SET_R1(___STK(-6))
    ___SET_R0(___STK(-7))
-   ___POLL(3)
-___DEF_SLBL(3,___L3___codegen_23_codegen_2d_context_2d_nargs_2d_set_21_)
+   ___POLL(4)
+___DEF_SLBL(4,___L4___codegen_23_codegen_2d_context_2d_nargs_2d_set_21_)
    ___ADJFP(-8)
    ___JUMPGLONOTSAFE(___SET_NARGS(3),86,___G_vector_2d_set_21_)
 ___END_P_SW
@@ -2176,41 +2444,51 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___codegen_23_codegen_2d_context_2d_delayed_2d_actions
 #undef ___PH_LBL0
-#define ___PH_LBL0 122
+#define ___PH_LBL0 142
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(4)
+___BEGIN_P_HLBL_AT(5)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___codegen_23_codegen_2d_context_2d_delayed_2d_actions)
 ___DEF_P_HLBL(___L1___codegen_23_codegen_2d_context_2d_delayed_2d_actions)
 ___DEF_P_HLBL(___L2___codegen_23_codegen_2d_context_2d_delayed_2d_actions)
 ___DEF_P_HLBL(___L3___codegen_23_codegen_2d_context_2d_delayed_2d_actions)
+___DEF_P_HLBL(___L4___codegen_23_codegen_2d_context_2d_delayed_2d_actions)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___codegen_23_codegen_2d_context_2d_delayed_2d_actions)
    ___IF_NARGS_EQ(1,___NOTHING)
    ___WRONG_NARGS(0,1,0,0)
 ___DEF_GLBL(___L___codegen_23_codegen_2d_context_2d_delayed_2d_actions)
+___GATE2_OPEN(___ps,"_codegen#codegen-context-delayed-actions",1,___LBL(
+1),___fp);
+___DEF_SLBL(1,___L1___codegen_23_codegen_2d_context_2d_delayed_2d_actions)
+___GATE2_ENTER(___ps,"_codegen#codegen-context-delayed-actions",1,___LBL(
+1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,8,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
    ___SET_R2(___FIX(9L))
    ___SET_R1(___FIX(4L))
-   ___ADJFP(8)
-   ___POLL(1)
-___DEF_SLBL(1,___L1___codegen_23_codegen_2d_context_2d_delayed_2d_actions)
-   ___SET_R0(___LBL(2))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),47,___G__2b_)
+   ___ADJFP(6)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___codegen_23_codegen_2d_context_2d_delayed_2d_actions)
+   ___SET_R0(___LBL(3))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),47,___G__2b_)
+___DEF_SLBL(3,___L3___codegen_23_codegen_2d_context_2d_delayed_2d_actions)
    ___SET_R2(___R1)
    ___SET_R1(___STK(-6))
    ___SET_R0(___STK(-7))
-   ___POLL(3)
-___DEF_SLBL(3,___L3___codegen_23_codegen_2d_context_2d_delayed_2d_actions)
+   ___POLL(4)
+___DEF_SLBL(4,___L4___codegen_23_codegen_2d_context_2d_delayed_2d_actions)
    ___ADJFP(-8)
    ___JUMPGLONOTSAFE(___SET_NARGS(2),85,___G_vector_2d_ref)
 ___END_P_SW
@@ -2219,43 +2497,54 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___codegen_23_codegen_2d_context_2d_delayed_2d_actions_2d_set_21_
 #undef ___PH_LBL0
-#define ___PH_LBL0 127
+#define ___PH_LBL0 148
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(4)
+___BEGIN_P_HLBL_AT(5)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___codegen_23_codegen_2d_context_2d_delayed_2d_actions_2d_set_21_)
 ___DEF_P_HLBL(___L1___codegen_23_codegen_2d_context_2d_delayed_2d_actions_2d_set_21_)
 ___DEF_P_HLBL(___L2___codegen_23_codegen_2d_context_2d_delayed_2d_actions_2d_set_21_)
 ___DEF_P_HLBL(___L3___codegen_23_codegen_2d_context_2d_delayed_2d_actions_2d_set_21_)
+___DEF_P_HLBL(___L4___codegen_23_codegen_2d_context_2d_delayed_2d_actions_2d_set_21_)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___codegen_23_codegen_2d_context_2d_delayed_2d_actions_2d_set_21_)
    ___IF_NARGS_EQ(2,___NOTHING)
    ___WRONG_NARGS(0,2,0,0)
 ___DEF_GLBL(___L___codegen_23_codegen_2d_context_2d_delayed_2d_actions_2d_set_21_)
+___GATE2_OPEN(___ps,"_codegen#codegen-context-delayed-actions-set!",1,___LBL(
+1),___fp);
+___DEF_SLBL(1,___L1___codegen_23_codegen_2d_context_2d_delayed_2d_actions_2d_set_21_)
+___GATE2_ENTER(___ps,"_codegen#codegen-context-delayed-actions-set!",1,___LBL(
+1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,8,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
-   ___SET_STK(3,___R2)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
    ___SET_R2(___FIX(9L))
    ___SET_R1(___FIX(4L))
-   ___ADJFP(8)
-   ___POLL(1)
-___DEF_SLBL(1,___L1___codegen_23_codegen_2d_context_2d_delayed_2d_actions_2d_set_21_)
-   ___SET_R0(___LBL(2))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),47,___G__2b_)
+   ___ADJFP(5)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___codegen_23_codegen_2d_context_2d_delayed_2d_actions_2d_set_21_)
+   ___SET_R0(___LBL(3))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),47,___G__2b_)
+___DEF_SLBL(3,___L3___codegen_23_codegen_2d_context_2d_delayed_2d_actions_2d_set_21_)
    ___SET_R2(___R1)
    ___SET_R3(___STK(-5))
    ___SET_R1(___STK(-6))
    ___SET_R0(___STK(-7))
-   ___POLL(3)
-___DEF_SLBL(3,___L3___codegen_23_codegen_2d_context_2d_delayed_2d_actions_2d_set_21_)
+   ___POLL(4)
+___DEF_SLBL(4,___L4___codegen_23_codegen_2d_context_2d_delayed_2d_actions_2d_set_21_)
    ___ADJFP(-8)
    ___JUMPGLONOTSAFE(___SET_NARGS(3),86,___G_vector_2d_set_21_)
 ___END_P_SW
@@ -2264,41 +2553,51 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___codegen_23_codegen_2d_context_2d_label_2d_struct_2d_position
 #undef ___PH_LBL0
-#define ___PH_LBL0 132
+#define ___PH_LBL0 154
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(4)
+___BEGIN_P_HLBL_AT(5)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___codegen_23_codegen_2d_context_2d_label_2d_struct_2d_position)
 ___DEF_P_HLBL(___L1___codegen_23_codegen_2d_context_2d_label_2d_struct_2d_position)
 ___DEF_P_HLBL(___L2___codegen_23_codegen_2d_context_2d_label_2d_struct_2d_position)
 ___DEF_P_HLBL(___L3___codegen_23_codegen_2d_context_2d_label_2d_struct_2d_position)
+___DEF_P_HLBL(___L4___codegen_23_codegen_2d_context_2d_label_2d_struct_2d_position)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___codegen_23_codegen_2d_context_2d_label_2d_struct_2d_position)
    ___IF_NARGS_EQ(1,___NOTHING)
    ___WRONG_NARGS(0,1,0,0)
 ___DEF_GLBL(___L___codegen_23_codegen_2d_context_2d_label_2d_struct_2d_position)
+___GATE2_OPEN(___ps,"_codegen#codegen-context-label-struct-position",1,___LBL(
+1),___fp);
+___DEF_SLBL(1,___L1___codegen_23_codegen_2d_context_2d_label_2d_struct_2d_position)
+___GATE2_ENTER(___ps,"_codegen#codegen-context-label-struct-position",1,___LBL(
+1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,8,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
    ___SET_R2(___FIX(10L))
    ___SET_R1(___FIX(4L))
-   ___ADJFP(8)
-   ___POLL(1)
-___DEF_SLBL(1,___L1___codegen_23_codegen_2d_context_2d_label_2d_struct_2d_position)
-   ___SET_R0(___LBL(2))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),47,___G__2b_)
+   ___ADJFP(6)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___codegen_23_codegen_2d_context_2d_label_2d_struct_2d_position)
+   ___SET_R0(___LBL(3))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),47,___G__2b_)
+___DEF_SLBL(3,___L3___codegen_23_codegen_2d_context_2d_label_2d_struct_2d_position)
    ___SET_R2(___R1)
    ___SET_R1(___STK(-6))
    ___SET_R0(___STK(-7))
-   ___POLL(3)
-___DEF_SLBL(3,___L3___codegen_23_codegen_2d_context_2d_label_2d_struct_2d_position)
+   ___POLL(4)
+___DEF_SLBL(4,___L4___codegen_23_codegen_2d_context_2d_label_2d_struct_2d_position)
    ___ADJFP(-8)
    ___JUMPGLONOTSAFE(___SET_NARGS(2),85,___G_vector_2d_ref)
 ___END_P_SW
@@ -2307,43 +2606,54 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___codegen_23_codegen_2d_context_2d_label_2d_struct_2d_position_2d_set_21_
 #undef ___PH_LBL0
-#define ___PH_LBL0 137
+#define ___PH_LBL0 160
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(4)
+___BEGIN_P_HLBL_AT(5)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___codegen_23_codegen_2d_context_2d_label_2d_struct_2d_position_2d_set_21_)
 ___DEF_P_HLBL(___L1___codegen_23_codegen_2d_context_2d_label_2d_struct_2d_position_2d_set_21_)
 ___DEF_P_HLBL(___L2___codegen_23_codegen_2d_context_2d_label_2d_struct_2d_position_2d_set_21_)
 ___DEF_P_HLBL(___L3___codegen_23_codegen_2d_context_2d_label_2d_struct_2d_position_2d_set_21_)
+___DEF_P_HLBL(___L4___codegen_23_codegen_2d_context_2d_label_2d_struct_2d_position_2d_set_21_)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___codegen_23_codegen_2d_context_2d_label_2d_struct_2d_position_2d_set_21_)
    ___IF_NARGS_EQ(2,___NOTHING)
    ___WRONG_NARGS(0,2,0,0)
 ___DEF_GLBL(___L___codegen_23_codegen_2d_context_2d_label_2d_struct_2d_position_2d_set_21_)
+___GATE2_OPEN(___ps,"_codegen#codegen-context-label-struct-position-set!",1,___LBL(
+1),___fp);
+___DEF_SLBL(1,___L1___codegen_23_codegen_2d_context_2d_label_2d_struct_2d_position_2d_set_21_)
+___GATE2_ENTER(___ps,"_codegen#codegen-context-label-struct-position-set!",1,___LBL(
+1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,8,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
-   ___SET_STK(3,___R2)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
    ___SET_R2(___FIX(10L))
    ___SET_R1(___FIX(4L))
-   ___ADJFP(8)
-   ___POLL(1)
-___DEF_SLBL(1,___L1___codegen_23_codegen_2d_context_2d_label_2d_struct_2d_position_2d_set_21_)
-   ___SET_R0(___LBL(2))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),47,___G__2b_)
+   ___ADJFP(5)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___codegen_23_codegen_2d_context_2d_label_2d_struct_2d_position_2d_set_21_)
+   ___SET_R0(___LBL(3))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),47,___G__2b_)
+___DEF_SLBL(3,___L3___codegen_23_codegen_2d_context_2d_label_2d_struct_2d_position_2d_set_21_)
    ___SET_R2(___R1)
    ___SET_R3(___STK(-5))
    ___SET_R1(___STK(-6))
    ___SET_R0(___STK(-7))
-   ___POLL(3)
-___DEF_SLBL(3,___L3___codegen_23_codegen_2d_context_2d_label_2d_struct_2d_position_2d_set_21_)
+   ___POLL(4)
+___DEF_SLBL(4,___L4___codegen_23_codegen_2d_context_2d_label_2d_struct_2d_position_2d_set_21_)
    ___ADJFP(-8)
    ___JUMPGLONOTSAFE(___SET_NARGS(3),86,___G_vector_2d_set_21_)
 ___END_P_SW
@@ -2352,41 +2662,51 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___codegen_23_codegen_2d_context_2d_registers_2d_status
 #undef ___PH_LBL0
-#define ___PH_LBL0 142
+#define ___PH_LBL0 166
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(4)
+___BEGIN_P_HLBL_AT(5)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___codegen_23_codegen_2d_context_2d_registers_2d_status)
 ___DEF_P_HLBL(___L1___codegen_23_codegen_2d_context_2d_registers_2d_status)
 ___DEF_P_HLBL(___L2___codegen_23_codegen_2d_context_2d_registers_2d_status)
 ___DEF_P_HLBL(___L3___codegen_23_codegen_2d_context_2d_registers_2d_status)
+___DEF_P_HLBL(___L4___codegen_23_codegen_2d_context_2d_registers_2d_status)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___codegen_23_codegen_2d_context_2d_registers_2d_status)
    ___IF_NARGS_EQ(1,___NOTHING)
    ___WRONG_NARGS(0,1,0,0)
 ___DEF_GLBL(___L___codegen_23_codegen_2d_context_2d_registers_2d_status)
+___GATE2_OPEN(___ps,"_codegen#codegen-context-registers-status",1,___LBL(
+1),___fp);
+___DEF_SLBL(1,___L1___codegen_23_codegen_2d_context_2d_registers_2d_status)
+___GATE2_ENTER(___ps,"_codegen#codegen-context-registers-status",1,___LBL(
+1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,8,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
    ___SET_R2(___FIX(11L))
    ___SET_R1(___FIX(4L))
-   ___ADJFP(8)
-   ___POLL(1)
-___DEF_SLBL(1,___L1___codegen_23_codegen_2d_context_2d_registers_2d_status)
-   ___SET_R0(___LBL(2))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),47,___G__2b_)
+   ___ADJFP(6)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___codegen_23_codegen_2d_context_2d_registers_2d_status)
+   ___SET_R0(___LBL(3))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),47,___G__2b_)
+___DEF_SLBL(3,___L3___codegen_23_codegen_2d_context_2d_registers_2d_status)
    ___SET_R2(___R1)
    ___SET_R1(___STK(-6))
    ___SET_R0(___STK(-7))
-   ___POLL(3)
-___DEF_SLBL(3,___L3___codegen_23_codegen_2d_context_2d_registers_2d_status)
+   ___POLL(4)
+___DEF_SLBL(4,___L4___codegen_23_codegen_2d_context_2d_registers_2d_status)
    ___ADJFP(-8)
    ___JUMPGLONOTSAFE(___SET_NARGS(2),85,___G_vector_2d_ref)
 ___END_P_SW
@@ -2395,43 +2715,54 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___codegen_23_codegen_2d_context_2d_registers_2d_status_2d_set_21_
 #undef ___PH_LBL0
-#define ___PH_LBL0 147
+#define ___PH_LBL0 172
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(4)
+___BEGIN_P_HLBL_AT(5)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___codegen_23_codegen_2d_context_2d_registers_2d_status_2d_set_21_)
 ___DEF_P_HLBL(___L1___codegen_23_codegen_2d_context_2d_registers_2d_status_2d_set_21_)
 ___DEF_P_HLBL(___L2___codegen_23_codegen_2d_context_2d_registers_2d_status_2d_set_21_)
 ___DEF_P_HLBL(___L3___codegen_23_codegen_2d_context_2d_registers_2d_status_2d_set_21_)
+___DEF_P_HLBL(___L4___codegen_23_codegen_2d_context_2d_registers_2d_status_2d_set_21_)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___codegen_23_codegen_2d_context_2d_registers_2d_status_2d_set_21_)
    ___IF_NARGS_EQ(2,___NOTHING)
    ___WRONG_NARGS(0,2,0,0)
 ___DEF_GLBL(___L___codegen_23_codegen_2d_context_2d_registers_2d_status_2d_set_21_)
+___GATE2_OPEN(___ps,"_codegen#codegen-context-registers-status-set!",1,___LBL(
+1),___fp);
+___DEF_SLBL(1,___L1___codegen_23_codegen_2d_context_2d_registers_2d_status_2d_set_21_)
+___GATE2_ENTER(___ps,"_codegen#codegen-context-registers-status-set!",1,___LBL(
+1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,8,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
-   ___SET_STK(3,___R2)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
    ___SET_R2(___FIX(11L))
    ___SET_R1(___FIX(4L))
-   ___ADJFP(8)
-   ___POLL(1)
-___DEF_SLBL(1,___L1___codegen_23_codegen_2d_context_2d_registers_2d_status_2d_set_21_)
-   ___SET_R0(___LBL(2))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),47,___G__2b_)
+   ___ADJFP(5)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___codegen_23_codegen_2d_context_2d_registers_2d_status_2d_set_21_)
+   ___SET_R0(___LBL(3))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),47,___G__2b_)
+___DEF_SLBL(3,___L3___codegen_23_codegen_2d_context_2d_registers_2d_status_2d_set_21_)
    ___SET_R2(___R1)
    ___SET_R3(___STK(-5))
    ___SET_R1(___STK(-6))
    ___SET_R0(___STK(-7))
-   ___POLL(3)
-___DEF_SLBL(3,___L3___codegen_23_codegen_2d_context_2d_registers_2d_status_2d_set_21_)
+   ___POLL(4)
+___DEF_SLBL(4,___L4___codegen_23_codegen_2d_context_2d_registers_2d_status_2d_set_21_)
    ___ADJFP(-8)
    ___JUMPGLONOTSAFE(___SET_NARGS(3),86,___G_vector_2d_set_21_)
 ___END_P_SW
@@ -2440,41 +2771,51 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___codegen_23_codegen_2d_context_2d_memory_2d_allocated
 #undef ___PH_LBL0
-#define ___PH_LBL0 152
+#define ___PH_LBL0 178
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(4)
+___BEGIN_P_HLBL_AT(5)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___codegen_23_codegen_2d_context_2d_memory_2d_allocated)
 ___DEF_P_HLBL(___L1___codegen_23_codegen_2d_context_2d_memory_2d_allocated)
 ___DEF_P_HLBL(___L2___codegen_23_codegen_2d_context_2d_memory_2d_allocated)
 ___DEF_P_HLBL(___L3___codegen_23_codegen_2d_context_2d_memory_2d_allocated)
+___DEF_P_HLBL(___L4___codegen_23_codegen_2d_context_2d_memory_2d_allocated)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___codegen_23_codegen_2d_context_2d_memory_2d_allocated)
    ___IF_NARGS_EQ(1,___NOTHING)
    ___WRONG_NARGS(0,1,0,0)
 ___DEF_GLBL(___L___codegen_23_codegen_2d_context_2d_memory_2d_allocated)
+___GATE2_OPEN(___ps,"_codegen#codegen-context-memory-allocated",1,___LBL(
+1),___fp);
+___DEF_SLBL(1,___L1___codegen_23_codegen_2d_context_2d_memory_2d_allocated)
+___GATE2_ENTER(___ps,"_codegen#codegen-context-memory-allocated",1,___LBL(
+1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,8,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
    ___SET_R2(___FIX(12L))
    ___SET_R1(___FIX(4L))
-   ___ADJFP(8)
-   ___POLL(1)
-___DEF_SLBL(1,___L1___codegen_23_codegen_2d_context_2d_memory_2d_allocated)
-   ___SET_R0(___LBL(2))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),47,___G__2b_)
+   ___ADJFP(6)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___codegen_23_codegen_2d_context_2d_memory_2d_allocated)
+   ___SET_R0(___LBL(3))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),47,___G__2b_)
+___DEF_SLBL(3,___L3___codegen_23_codegen_2d_context_2d_memory_2d_allocated)
    ___SET_R2(___R1)
    ___SET_R1(___STK(-6))
    ___SET_R0(___STK(-7))
-   ___POLL(3)
-___DEF_SLBL(3,___L3___codegen_23_codegen_2d_context_2d_memory_2d_allocated)
+   ___POLL(4)
+___DEF_SLBL(4,___L4___codegen_23_codegen_2d_context_2d_memory_2d_allocated)
    ___ADJFP(-8)
    ___JUMPGLONOTSAFE(___SET_NARGS(2),85,___G_vector_2d_ref)
 ___END_P_SW
@@ -2483,43 +2824,54 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___codegen_23_codegen_2d_context_2d_memory_2d_allocated_2d_set_21_
 #undef ___PH_LBL0
-#define ___PH_LBL0 157
+#define ___PH_LBL0 184
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(4)
+___BEGIN_P_HLBL_AT(5)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___codegen_23_codegen_2d_context_2d_memory_2d_allocated_2d_set_21_)
 ___DEF_P_HLBL(___L1___codegen_23_codegen_2d_context_2d_memory_2d_allocated_2d_set_21_)
 ___DEF_P_HLBL(___L2___codegen_23_codegen_2d_context_2d_memory_2d_allocated_2d_set_21_)
 ___DEF_P_HLBL(___L3___codegen_23_codegen_2d_context_2d_memory_2d_allocated_2d_set_21_)
+___DEF_P_HLBL(___L4___codegen_23_codegen_2d_context_2d_memory_2d_allocated_2d_set_21_)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___codegen_23_codegen_2d_context_2d_memory_2d_allocated_2d_set_21_)
    ___IF_NARGS_EQ(2,___NOTHING)
    ___WRONG_NARGS(0,2,0,0)
 ___DEF_GLBL(___L___codegen_23_codegen_2d_context_2d_memory_2d_allocated_2d_set_21_)
+___GATE2_OPEN(___ps,"_codegen#codegen-context-memory-allocated-set!",1,___LBL(
+1),___fp);
+___DEF_SLBL(1,___L1___codegen_23_codegen_2d_context_2d_memory_2d_allocated_2d_set_21_)
+___GATE2_ENTER(___ps,"_codegen#codegen-context-memory-allocated-set!",1,___LBL(
+1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,8,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
-   ___SET_STK(3,___R2)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
    ___SET_R2(___FIX(12L))
    ___SET_R1(___FIX(4L))
-   ___ADJFP(8)
-   ___POLL(1)
-___DEF_SLBL(1,___L1___codegen_23_codegen_2d_context_2d_memory_2d_allocated_2d_set_21_)
-   ___SET_R0(___LBL(2))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),47,___G__2b_)
+   ___ADJFP(5)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___codegen_23_codegen_2d_context_2d_memory_2d_allocated_2d_set_21_)
+   ___SET_R0(___LBL(3))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),47,___G__2b_)
+___DEF_SLBL(3,___L3___codegen_23_codegen_2d_context_2d_memory_2d_allocated_2d_set_21_)
    ___SET_R2(___R1)
    ___SET_R3(___STK(-5))
    ___SET_R1(___STK(-6))
    ___SET_R0(___STK(-7))
-   ___POLL(3)
-___DEF_SLBL(3,___L3___codegen_23_codegen_2d_context_2d_memory_2d_allocated_2d_set_21_)
+   ___POLL(4)
+___DEF_SLBL(4,___L4___codegen_23_codegen_2d_context_2d_memory_2d_allocated_2d_set_21_)
    ___ADJFP(-8)
    ___JUMPGLONOTSAFE(___SET_NARGS(3),86,___G_vector_2d_set_21_)
 ___END_P_SW
@@ -2528,41 +2880,51 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___codegen_23_codegen_2d_context_2d_primitive_2d_labels_2d_table
 #undef ___PH_LBL0
-#define ___PH_LBL0 162
+#define ___PH_LBL0 190
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(4)
+___BEGIN_P_HLBL_AT(5)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___codegen_23_codegen_2d_context_2d_primitive_2d_labels_2d_table)
 ___DEF_P_HLBL(___L1___codegen_23_codegen_2d_context_2d_primitive_2d_labels_2d_table)
 ___DEF_P_HLBL(___L2___codegen_23_codegen_2d_context_2d_primitive_2d_labels_2d_table)
 ___DEF_P_HLBL(___L3___codegen_23_codegen_2d_context_2d_primitive_2d_labels_2d_table)
+___DEF_P_HLBL(___L4___codegen_23_codegen_2d_context_2d_primitive_2d_labels_2d_table)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___codegen_23_codegen_2d_context_2d_primitive_2d_labels_2d_table)
    ___IF_NARGS_EQ(1,___NOTHING)
    ___WRONG_NARGS(0,1,0,0)
 ___DEF_GLBL(___L___codegen_23_codegen_2d_context_2d_primitive_2d_labels_2d_table)
+___GATE2_OPEN(___ps,"_codegen#codegen-context-primitive-labels-table",1,___LBL(
+1),___fp);
+___DEF_SLBL(1,___L1___codegen_23_codegen_2d_context_2d_primitive_2d_labels_2d_table)
+___GATE2_ENTER(___ps,"_codegen#codegen-context-primitive-labels-table",1,___LBL(
+1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,8,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
    ___SET_R2(___FIX(13L))
    ___SET_R1(___FIX(4L))
-   ___ADJFP(8)
-   ___POLL(1)
-___DEF_SLBL(1,___L1___codegen_23_codegen_2d_context_2d_primitive_2d_labels_2d_table)
-   ___SET_R0(___LBL(2))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),47,___G__2b_)
+   ___ADJFP(6)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___codegen_23_codegen_2d_context_2d_primitive_2d_labels_2d_table)
+   ___SET_R0(___LBL(3))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),47,___G__2b_)
+___DEF_SLBL(3,___L3___codegen_23_codegen_2d_context_2d_primitive_2d_labels_2d_table)
    ___SET_R2(___R1)
    ___SET_R1(___STK(-6))
    ___SET_R0(___STK(-7))
-   ___POLL(3)
-___DEF_SLBL(3,___L3___codegen_23_codegen_2d_context_2d_primitive_2d_labels_2d_table)
+   ___POLL(4)
+___DEF_SLBL(4,___L4___codegen_23_codegen_2d_context_2d_primitive_2d_labels_2d_table)
    ___ADJFP(-8)
    ___JUMPGLONOTSAFE(___SET_NARGS(2),85,___G_vector_2d_ref)
 ___END_P_SW
@@ -2571,43 +2933,54 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___codegen_23_codegen_2d_context_2d_primitive_2d_labels_2d_table_2d_set_21_
 #undef ___PH_LBL0
-#define ___PH_LBL0 167
+#define ___PH_LBL0 196
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(4)
+___BEGIN_P_HLBL_AT(5)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___codegen_23_codegen_2d_context_2d_primitive_2d_labels_2d_table_2d_set_21_)
 ___DEF_P_HLBL(___L1___codegen_23_codegen_2d_context_2d_primitive_2d_labels_2d_table_2d_set_21_)
 ___DEF_P_HLBL(___L2___codegen_23_codegen_2d_context_2d_primitive_2d_labels_2d_table_2d_set_21_)
 ___DEF_P_HLBL(___L3___codegen_23_codegen_2d_context_2d_primitive_2d_labels_2d_table_2d_set_21_)
+___DEF_P_HLBL(___L4___codegen_23_codegen_2d_context_2d_primitive_2d_labels_2d_table_2d_set_21_)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___codegen_23_codegen_2d_context_2d_primitive_2d_labels_2d_table_2d_set_21_)
    ___IF_NARGS_EQ(2,___NOTHING)
    ___WRONG_NARGS(0,2,0,0)
 ___DEF_GLBL(___L___codegen_23_codegen_2d_context_2d_primitive_2d_labels_2d_table_2d_set_21_)
+___GATE2_OPEN(___ps,"_codegen#codegen-context-primitive-labels-table-set!",1,___LBL(
+1),___fp);
+___DEF_SLBL(1,___L1___codegen_23_codegen_2d_context_2d_primitive_2d_labels_2d_table_2d_set_21_)
+___GATE2_ENTER(___ps,"_codegen#codegen-context-primitive-labels-table-set!",1,___LBL(
+1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,8,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
-   ___SET_STK(3,___R2)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
    ___SET_R2(___FIX(13L))
    ___SET_R1(___FIX(4L))
-   ___ADJFP(8)
-   ___POLL(1)
-___DEF_SLBL(1,___L1___codegen_23_codegen_2d_context_2d_primitive_2d_labels_2d_table_2d_set_21_)
-   ___SET_R0(___LBL(2))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),47,___G__2b_)
+   ___ADJFP(5)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___codegen_23_codegen_2d_context_2d_primitive_2d_labels_2d_table_2d_set_21_)
+   ___SET_R0(___LBL(3))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),47,___G__2b_)
+___DEF_SLBL(3,___L3___codegen_23_codegen_2d_context_2d_primitive_2d_labels_2d_table_2d_set_21_)
    ___SET_R2(___R1)
    ___SET_R3(___STK(-5))
    ___SET_R1(___STK(-6))
    ___SET_R0(___STK(-7))
-   ___POLL(3)
-___DEF_SLBL(3,___L3___codegen_23_codegen_2d_context_2d_primitive_2d_labels_2d_table_2d_set_21_)
+   ___POLL(4)
+___DEF_SLBL(4,___L4___codegen_23_codegen_2d_context_2d_primitive_2d_labels_2d_table_2d_set_21_)
    ___ADJFP(-8)
    ___JUMPGLONOTSAFE(___SET_NARGS(3),86,___G_vector_2d_set_21_)
 ___END_P_SW
@@ -2616,41 +2989,51 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___codegen_23_codegen_2d_context_2d_proc_2d_labels_2d_table
 #undef ___PH_LBL0
-#define ___PH_LBL0 172
+#define ___PH_LBL0 202
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(4)
+___BEGIN_P_HLBL_AT(5)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___codegen_23_codegen_2d_context_2d_proc_2d_labels_2d_table)
 ___DEF_P_HLBL(___L1___codegen_23_codegen_2d_context_2d_proc_2d_labels_2d_table)
 ___DEF_P_HLBL(___L2___codegen_23_codegen_2d_context_2d_proc_2d_labels_2d_table)
 ___DEF_P_HLBL(___L3___codegen_23_codegen_2d_context_2d_proc_2d_labels_2d_table)
+___DEF_P_HLBL(___L4___codegen_23_codegen_2d_context_2d_proc_2d_labels_2d_table)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___codegen_23_codegen_2d_context_2d_proc_2d_labels_2d_table)
    ___IF_NARGS_EQ(1,___NOTHING)
    ___WRONG_NARGS(0,1,0,0)
 ___DEF_GLBL(___L___codegen_23_codegen_2d_context_2d_proc_2d_labels_2d_table)
+___GATE2_OPEN(___ps,"_codegen#codegen-context-proc-labels-table",1,___LBL(
+1),___fp);
+___DEF_SLBL(1,___L1___codegen_23_codegen_2d_context_2d_proc_2d_labels_2d_table)
+___GATE2_ENTER(___ps,"_codegen#codegen-context-proc-labels-table",1,___LBL(
+1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,8,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
    ___SET_R2(___FIX(14L))
    ___SET_R1(___FIX(4L))
-   ___ADJFP(8)
-   ___POLL(1)
-___DEF_SLBL(1,___L1___codegen_23_codegen_2d_context_2d_proc_2d_labels_2d_table)
-   ___SET_R0(___LBL(2))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),47,___G__2b_)
+   ___ADJFP(6)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___codegen_23_codegen_2d_context_2d_proc_2d_labels_2d_table)
+   ___SET_R0(___LBL(3))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),47,___G__2b_)
+___DEF_SLBL(3,___L3___codegen_23_codegen_2d_context_2d_proc_2d_labels_2d_table)
    ___SET_R2(___R1)
    ___SET_R1(___STK(-6))
    ___SET_R0(___STK(-7))
-   ___POLL(3)
-___DEF_SLBL(3,___L3___codegen_23_codegen_2d_context_2d_proc_2d_labels_2d_table)
+   ___POLL(4)
+___DEF_SLBL(4,___L4___codegen_23_codegen_2d_context_2d_proc_2d_labels_2d_table)
    ___ADJFP(-8)
    ___JUMPGLONOTSAFE(___SET_NARGS(2),85,___G_vector_2d_ref)
 ___END_P_SW
@@ -2659,43 +3042,54 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___codegen_23_codegen_2d_context_2d_proc_2d_labels_2d_table_2d_set_21_
 #undef ___PH_LBL0
-#define ___PH_LBL0 177
+#define ___PH_LBL0 208
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(4)
+___BEGIN_P_HLBL_AT(5)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___codegen_23_codegen_2d_context_2d_proc_2d_labels_2d_table_2d_set_21_)
 ___DEF_P_HLBL(___L1___codegen_23_codegen_2d_context_2d_proc_2d_labels_2d_table_2d_set_21_)
 ___DEF_P_HLBL(___L2___codegen_23_codegen_2d_context_2d_proc_2d_labels_2d_table_2d_set_21_)
 ___DEF_P_HLBL(___L3___codegen_23_codegen_2d_context_2d_proc_2d_labels_2d_table_2d_set_21_)
+___DEF_P_HLBL(___L4___codegen_23_codegen_2d_context_2d_proc_2d_labels_2d_table_2d_set_21_)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___codegen_23_codegen_2d_context_2d_proc_2d_labels_2d_table_2d_set_21_)
    ___IF_NARGS_EQ(2,___NOTHING)
    ___WRONG_NARGS(0,2,0,0)
 ___DEF_GLBL(___L___codegen_23_codegen_2d_context_2d_proc_2d_labels_2d_table_2d_set_21_)
+___GATE2_OPEN(___ps,"_codegen#codegen-context-proc-labels-table-set!",1,___LBL(
+1),___fp);
+___DEF_SLBL(1,___L1___codegen_23_codegen_2d_context_2d_proc_2d_labels_2d_table_2d_set_21_)
+___GATE2_ENTER(___ps,"_codegen#codegen-context-proc-labels-table-set!",1,___LBL(
+1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,8,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
-   ___SET_STK(3,___R2)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
    ___SET_R2(___FIX(14L))
    ___SET_R1(___FIX(4L))
-   ___ADJFP(8)
-   ___POLL(1)
-___DEF_SLBL(1,___L1___codegen_23_codegen_2d_context_2d_proc_2d_labels_2d_table_2d_set_21_)
-   ___SET_R0(___LBL(2))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),47,___G__2b_)
+   ___ADJFP(5)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___codegen_23_codegen_2d_context_2d_proc_2d_labels_2d_table_2d_set_21_)
+   ___SET_R0(___LBL(3))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),47,___G__2b_)
+___DEF_SLBL(3,___L3___codegen_23_codegen_2d_context_2d_proc_2d_labels_2d_table_2d_set_21_)
    ___SET_R2(___R1)
    ___SET_R3(___STK(-5))
    ___SET_R1(___STK(-6))
    ___SET_R0(___STK(-7))
-   ___POLL(3)
-___DEF_SLBL(3,___L3___codegen_23_codegen_2d_context_2d_proc_2d_labels_2d_table_2d_set_21_)
+   ___POLL(4)
+___DEF_SLBL(4,___L4___codegen_23_codegen_2d_context_2d_proc_2d_labels_2d_table_2d_set_21_)
    ___ADJFP(-8)
    ___JUMPGLONOTSAFE(___SET_NARGS(3),86,___G_vector_2d_set_21_)
 ___END_P_SW
@@ -2704,41 +3098,51 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___codegen_23_codegen_2d_context_2d_other_2d_labels_2d_table
 #undef ___PH_LBL0
-#define ___PH_LBL0 182
+#define ___PH_LBL0 214
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(4)
+___BEGIN_P_HLBL_AT(5)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___codegen_23_codegen_2d_context_2d_other_2d_labels_2d_table)
 ___DEF_P_HLBL(___L1___codegen_23_codegen_2d_context_2d_other_2d_labels_2d_table)
 ___DEF_P_HLBL(___L2___codegen_23_codegen_2d_context_2d_other_2d_labels_2d_table)
 ___DEF_P_HLBL(___L3___codegen_23_codegen_2d_context_2d_other_2d_labels_2d_table)
+___DEF_P_HLBL(___L4___codegen_23_codegen_2d_context_2d_other_2d_labels_2d_table)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___codegen_23_codegen_2d_context_2d_other_2d_labels_2d_table)
    ___IF_NARGS_EQ(1,___NOTHING)
    ___WRONG_NARGS(0,1,0,0)
 ___DEF_GLBL(___L___codegen_23_codegen_2d_context_2d_other_2d_labels_2d_table)
+___GATE2_OPEN(___ps,"_codegen#codegen-context-other-labels-table",1,___LBL(
+1),___fp);
+___DEF_SLBL(1,___L1___codegen_23_codegen_2d_context_2d_other_2d_labels_2d_table)
+___GATE2_ENTER(___ps,"_codegen#codegen-context-other-labels-table",1,___LBL(
+1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,8,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
    ___SET_R2(___FIX(15L))
    ___SET_R1(___FIX(4L))
-   ___ADJFP(8)
-   ___POLL(1)
-___DEF_SLBL(1,___L1___codegen_23_codegen_2d_context_2d_other_2d_labels_2d_table)
-   ___SET_R0(___LBL(2))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),47,___G__2b_)
+   ___ADJFP(6)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___codegen_23_codegen_2d_context_2d_other_2d_labels_2d_table)
+   ___SET_R0(___LBL(3))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),47,___G__2b_)
+___DEF_SLBL(3,___L3___codegen_23_codegen_2d_context_2d_other_2d_labels_2d_table)
    ___SET_R2(___R1)
    ___SET_R1(___STK(-6))
    ___SET_R0(___STK(-7))
-   ___POLL(3)
-___DEF_SLBL(3,___L3___codegen_23_codegen_2d_context_2d_other_2d_labels_2d_table)
+   ___POLL(4)
+___DEF_SLBL(4,___L4___codegen_23_codegen_2d_context_2d_other_2d_labels_2d_table)
    ___ADJFP(-8)
    ___JUMPGLONOTSAFE(___SET_NARGS(2),85,___G_vector_2d_ref)
 ___END_P_SW
@@ -2747,43 +3151,54 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___codegen_23_codegen_2d_context_2d_other_2d_labels_2d_table_2d_set_21_
 #undef ___PH_LBL0
-#define ___PH_LBL0 187
+#define ___PH_LBL0 220
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(4)
+___BEGIN_P_HLBL_AT(5)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___codegen_23_codegen_2d_context_2d_other_2d_labels_2d_table_2d_set_21_)
 ___DEF_P_HLBL(___L1___codegen_23_codegen_2d_context_2d_other_2d_labels_2d_table_2d_set_21_)
 ___DEF_P_HLBL(___L2___codegen_23_codegen_2d_context_2d_other_2d_labels_2d_table_2d_set_21_)
 ___DEF_P_HLBL(___L3___codegen_23_codegen_2d_context_2d_other_2d_labels_2d_table_2d_set_21_)
+___DEF_P_HLBL(___L4___codegen_23_codegen_2d_context_2d_other_2d_labels_2d_table_2d_set_21_)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___codegen_23_codegen_2d_context_2d_other_2d_labels_2d_table_2d_set_21_)
    ___IF_NARGS_EQ(2,___NOTHING)
    ___WRONG_NARGS(0,2,0,0)
 ___DEF_GLBL(___L___codegen_23_codegen_2d_context_2d_other_2d_labels_2d_table_2d_set_21_)
+___GATE2_OPEN(___ps,"_codegen#codegen-context-other-labels-table-set!",1,___LBL(
+1),___fp);
+___DEF_SLBL(1,___L1___codegen_23_codegen_2d_context_2d_other_2d_labels_2d_table_2d_set_21_)
+___GATE2_ENTER(___ps,"_codegen#codegen-context-other-labels-table-set!",1,___LBL(
+1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,8,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
-   ___SET_STK(3,___R2)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
    ___SET_R2(___FIX(15L))
    ___SET_R1(___FIX(4L))
-   ___ADJFP(8)
-   ___POLL(1)
-___DEF_SLBL(1,___L1___codegen_23_codegen_2d_context_2d_other_2d_labels_2d_table_2d_set_21_)
-   ___SET_R0(___LBL(2))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),47,___G__2b_)
+   ___ADJFP(5)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___codegen_23_codegen_2d_context_2d_other_2d_labels_2d_table_2d_set_21_)
+   ___SET_R0(___LBL(3))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),47,___G__2b_)
+___DEF_SLBL(3,___L3___codegen_23_codegen_2d_context_2d_other_2d_labels_2d_table_2d_set_21_)
    ___SET_R2(___R1)
    ___SET_R3(___STK(-5))
    ___SET_R1(___STK(-6))
    ___SET_R0(___STK(-7))
-   ___POLL(3)
-___DEF_SLBL(3,___L3___codegen_23_codegen_2d_context_2d_other_2d_labels_2d_table_2d_set_21_)
+   ___POLL(4)
+___DEF_SLBL(4,___L4___codegen_23_codegen_2d_context_2d_other_2d_labels_2d_table_2d_set_21_)
    ___ADJFP(-8)
    ___JUMPGLONOTSAFE(___SET_NARGS(3),86,___G_vector_2d_set_21_)
 ___END_P_SW
@@ -2792,15 +3207,15 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_add_21_
 #undef ___PH_LBL0
-#define ___PH_LBL0 192
+#define ___PH_LBL0 226
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(8)
+___BEGIN_P_HLBL_AT(9)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_add_21_)
 ___DEF_P_HLBL(___L1___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_add_21_)
@@ -2810,51 +3225,62 @@ ___DEF_P_HLBL(___L4___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_add_21_)
 ___DEF_P_HLBL(___L5___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_add_21_)
 ___DEF_P_HLBL(___L6___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_add_21_)
 ___DEF_P_HLBL(___L7___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_add_21_)
+___DEF_P_HLBL(___L8___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_add_21_)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_add_21_)
    ___IF_NARGS_EQ(3,___NOTHING)
    ___WRONG_NARGS(0,3,0,0)
 ___DEF_GLBL(___L___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_add_21_)
-   ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
-   ___SET_STK(3,___R2)
-   ___SET_R2(___R3)
-   ___SET_R1(___STK(3))
-   ___ADJFP(8)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_codegen#codegen-context-fixup-locs-add!",1,___LBL(
+1),___fp);
 ___DEF_SLBL(1,___L1___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_add_21_)
-   ___SET_R0(___LBL(2))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),62,___G_cons)
+___GATE2_ENTER(___ps,"_codegen#codegen-context-fixup-locs-add!",1,___LBL(
+1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,8,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R0)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_R2(___R3)
+   ___SET_R1(___STK(0))
+   ___ADJFP(5)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_add_21_)
+   ___SET_R0(___LBL(3))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),62,___G_cons)
+___DEF_SLBL(3,___L3___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_add_21_)
    ___SET_STK(-5,___R1)
    ___SET_R2(___FIX(3L))
    ___SET_R1(___FIX(4L))
-   ___SET_R0(___LBL(3))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),47,___G__2b_)
-___DEF_SLBL(3,___L3___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_add_21_)
-   ___SET_R2(___R1)
-   ___SET_R1(___STK(-6))
    ___SET_R0(___LBL(4))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),85,___G_vector_2d_ref)
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),47,___G__2b_)
 ___DEF_SLBL(4,___L4___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_add_21_)
    ___SET_R2(___R1)
-   ___SET_R1(___STK(-5))
+   ___SET_R1(___STK(-6))
    ___SET_R0(___LBL(5))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),62,___G_cons)
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),85,___G_vector_2d_ref)
 ___DEF_SLBL(5,___L5___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_add_21_)
+   ___SET_R2(___R1)
+   ___SET_R1(___STK(-5))
+   ___SET_R0(___LBL(6))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),62,___G_cons)
+___DEF_SLBL(6,___L6___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_add_21_)
    ___SET_STK(-5,___R1)
    ___SET_R2(___FIX(3L))
    ___SET_R1(___FIX(4L))
-   ___SET_R0(___LBL(6))
+   ___SET_R0(___LBL(7))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),47,___G__2b_)
-___DEF_SLBL(6,___L6___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_add_21_)
+___DEF_SLBL(7,___L7___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_add_21_)
    ___SET_R2(___R1)
    ___SET_R3(___STK(-5))
    ___SET_R1(___STK(-6))
    ___SET_R0(___STK(-7))
-   ___POLL(7)
-___DEF_SLBL(7,___L7___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_add_21_)
+   ___POLL(8)
+___DEF_SLBL(8,___L8___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_add_21_)
    ___ADJFP(-8)
    ___JUMPGLONOTSAFE(___SET_NARGS(3),86,___G_vector_2d_set_21_)
 ___END_P_SW
@@ -2863,15 +3289,15 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector
 #undef ___PH_LBL0
-#define ___PH_LBL0 201
+#define ___PH_LBL0 236
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(48)
+___BEGIN_P_HLBL_AT(55)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
 ___DEF_P_HLBL(___L1___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
@@ -2921,88 +3347,135 @@ ___DEF_P_HLBL(___L44___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vec
 ___DEF_P_HLBL(___L45___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
 ___DEF_P_HLBL(___L46___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
 ___DEF_P_HLBL(___L47___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
+___DEF_P_HLBL(___L48___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
+___DEF_P_HLBL(___L49___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
+___DEF_P_HLBL(___L50___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
+___DEF_P_HLBL(___L51___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
+___DEF_P_HLBL(___L52___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
+___DEF_P_HLBL(___L53___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
+___DEF_P_HLBL(___L54___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
    ___IF_NARGS_EQ(1,___NOTHING)
    ___WRONG_NARGS(0,1,0,0)
 ___DEF_GLBL(___L___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
-   ___SET_STK(1,___R0)
-   ___ADJFP(4)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_codegen#codegen-context-fixup-locs->vector",1,___LBL(
+1),___fp);
 ___DEF_SLBL(1,___L1___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
-   ___SET_R0(___LBL(2))
-   ___JUMPINT(___SET_NARGS(1),___PRC(62),___L___codegen_23_codegen_2d_context_2d_fixup_2d_locs)
+___GATE2_ENTER(___ps,"_codegen#codegen-context-fixup-locs->vector",1,___LBL(
+1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,4,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R0)
+   ___ADJFP(1)
+   ___ADJFP(3)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
-   ___SET_STK(-2,___R1)
-   ___SET_R2(___LBL(41))
-   ___SET_R1(___STK(-2))
    ___SET_R0(___LBL(3))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),57,___G_c_23_sort_2d_list)
+   ___JUMPINT(___SET_NARGS(1),___PRC(70),___L___codegen_23_codegen_2d_context_2d_fixup_2d_locs)
 ___DEF_SLBL(3,___L3___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
    ___SET_STK(-2,___R1)
-   ___SET_R1(___FAL)
+   ___SET_R2(___LBL(47))
+   ___SET_R1(___STK(-2))
    ___SET_R0(___LBL(4))
-   ___ADJFP(4)
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),55,___G_c_23_make_2d_stretchable_2d_vector)
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),57,___G_c_23_sort_2d_list)
 ___DEF_SLBL(4,___L4___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
+___GATE2_OPEN(___ps,"_codegen#codegen-context-fixup-locs->vector",5,___LBL(
+5),___fp);
+___DEF_SLBL(5,___L5___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
+___GATE2_ENTER(___ps,"_codegen#codegen-context-fixup-locs->vector",5,___LBL(
+5),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,4,0,___LBL(5),&___demand_attempt)){___ps->temp1=___LBL(5);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(-2,___R1)
+   ___SET_R1(___FAL)
+   ___SET_R0(___LBL(6))
+   ___ADJFP(4)
+___group_demand_commit(___ps,___LBL(5),___demand_attempt);
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),55,___G_c_23_make_2d_stretchable_2d_vector)
+___DEF_SLBL(6,___L6___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
+___GATE2_OPEN(___ps,"_codegen#codegen-context-fixup-locs->vector",7,___LBL(
+7),___fp);
+___DEF_SLBL(7,___L7___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
+___GATE2_ENTER(___ps,"_codegen#codegen-context-fixup-locs->vector",7,___LBL(
+7),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,1,0,___LBL(7),&___demand_attempt)){___ps->temp1=___LBL(7);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(-5,___R1)
    ___SET_STK(1,___R1)
-   ___SET_R3(___STK(-6))
+   ___ADJFP(1)
+   ___SET_R3(___STK(-7))
    ___SET_R2(___FIX(0L))
    ___SET_R1(___FIX(0L))
-   ___SET_R0(___LBL(38))
-   ___ADJFP(1)
-   ___GOTO(___L48___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
-___DEF_SLBL(5,___L5___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
+   ___SET_R0(___LBL(44))
+___group_demand_commit(___ps,___LBL(7),___demand_attempt);
+   ___GOTO(___L55___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
+___DEF_SLBL(8,___L8___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
    ___SET_R3(___R1)
    ___SET_R0(___STK(-4))
    ___SET_R2(___STK(-3))
    ___SET_R1(___STK(-5))
    ___ADJFP(-7)
-   ___POLL(6)
-___DEF_SLBL(6,___L6___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
-___DEF_GLBL(___L48___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
+   ___POLL(9)
+___DEF_SLBL(9,___L9___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
+___DEF_GLBL(___L55___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
+___GATE2_OPEN(___ps,"_codegen#codegen-context-fixup-locs->vector",10,___LBL(
+10),___fp);
+___DEF_SLBL(10,___L10___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
+___GATE2_ENTER(___ps,"_codegen#codegen-context-fixup-locs->vector",10,___LBL(
+10),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,7,0,___LBL(10),&___demand_attempt)){___ps->temp1=___LBL(10);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
-   ___SET_STK(3,___R2)
-   ___SET_STK(4,___R3)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_STK(1,___R3)
+   ___ADJFP(1)
    ___SET_R1(___R3)
-   ___ADJFP(7)
-   ___POLL(7)
-___DEF_SLBL(7,___L7___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
-   ___SET_R0(___LBL(8))
+   ___ADJFP(3)
+___group_demand_commit(___ps,___LBL(10),___demand_attempt);
+   ___POLL(11)
+___DEF_SLBL(11,___L11___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
+   ___SET_R0(___LBL(12))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),79,___G_pair_3f_)
-___DEF_SLBL(8,___L8___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
+___DEF_SLBL(12,___L12___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
    ___IF(___NOTFALSEP(___R1))
-   ___GOTO(___L49___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
+   ___GOTO(___L56___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
    ___END_IF
    ___SET_R2(___STK(-5))
    ___SET_R1(___STK(-7))
    ___SET_R3(___FIX(0L))
    ___SET_R0(___STK(-6))
-   ___POLL(9)
-___DEF_SLBL(9,___L9___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
+   ___POLL(13)
+___DEF_SLBL(13,___L13___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
    ___ADJFP(-8)
    ___JUMPGLONOTSAFE(___SET_NARGS(3),59,___G_c_23_stretchable_2d_vector_2d_set_21_)
-___DEF_GLBL(___L49___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
+___DEF_GLBL(___L56___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
    ___SET_R1(___STK(-3))
-   ___SET_R0(___LBL(10))
+   ___SET_R0(___LBL(14))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),60,___G_car)
-___DEF_SLBL(10,___L10___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
+___DEF_SLBL(14,___L14___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
+___GATE2_OPEN(___ps,"_codegen#codegen-context-fixup-locs->vector",15,___LBL(
+15),___fp);
+___DEF_SLBL(15,___L15___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
+___GATE2_ENTER(___ps,"_codegen#codegen-context-fixup-locs->vector",15,___LBL(
+15),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,4,0,___LBL(15),&___demand_attempt)){___ps->temp1=___LBL(15);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(-2,___R1)
-   ___SET_R0(___LBL(11))
+   ___SET_R0(___LBL(16))
    ___ADJFP(4)
+___group_demand_commit(___ps,___LBL(15),___demand_attempt);
    ___JUMPGLONOTSAFE(___SET_NARGS(1),60,___G_car)
-___DEF_SLBL(11,___L11___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
-   ___SET_R0(___LBL(12))
+___DEF_SLBL(16,___L16___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
+   ___SET_R0(___LBL(17))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),51,___G___asm_23_asm_2d_label_2d_pos)
-___DEF_SLBL(12,___L12___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
+___DEF_SLBL(17,___L17___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
    ___SET_STK(-5,___R1)
    ___SET_R2(___STK(-8))
-   ___SET_R0(___LBL(13))
+   ___SET_R0(___LBL(18))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),68,___G_fx_2d_)
-___DEF_SLBL(13,___L13___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
+___DEF_SLBL(18,___L18___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
    ___SET_STK(-8,___STK(-10))
    ___SET_STK(-10,___STK(-7))
    ___SET_STK(-7,___STK(-9))
@@ -3012,121 +3485,94 @@ ___DEF_SLBL(13,___L13___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_ve
    ___SET_R1(___STK(-5))
    ___SET_R0(___STK(-8))
    ___ADJFP(-9)
-   ___POLL(14)
-___DEF_SLBL(14,___L14___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
-   ___GOTO(___L50___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
-___DEF_SLBL(15,___L15___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
+   ___POLL(19)
+___DEF_SLBL(19,___L19___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
+   ___GOTO(___L57___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
+___DEF_SLBL(20,___L20___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
    ___SET_R3(___R1)
    ___SET_R1(___STK(-7))
    ___SET_R0(___STK(-8))
    ___SET_R2(___STK(-6))
    ___ADJFP(-9)
-   ___POLL(16)
-___DEF_SLBL(16,___L16___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
-___DEF_GLBL(___L50___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
+   ___POLL(21)
+___DEF_SLBL(21,___L21___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
+___DEF_GLBL(___L57___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
+___GATE2_OPEN(___ps,"_codegen#codegen-context-fixup-locs->vector",22,___LBL(
+22),___fp);
+___DEF_SLBL(22,___L22___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
+___GATE2_ENTER(___ps,"_codegen#codegen-context-fixup-locs->vector",22,___LBL(
+22),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,9,0,___LBL(22),&___demand_attempt)){___ps->temp1=___LBL(22);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
-   ___SET_STK(3,___R2)
-   ___SET_STK(4,___R3)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_STK(1,___R3)
+   ___ADJFP(1)
    ___SET_R1(___R3)
    ___SET_R2(___FIX(127L))
-   ___ADJFP(9)
-   ___POLL(17)
-___DEF_SLBL(17,___L17___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
-   ___SET_R0(___LBL(18))
+   ___ADJFP(5)
+___group_demand_commit(___ps,___LBL(22),___demand_attempt);
+   ___POLL(23)
+___DEF_SLBL(23,___L23___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
+   ___SET_R0(___LBL(24))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),71,___G_fx_3e__3d_)
-___DEF_SLBL(18,___L18___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
+___DEF_SLBL(24,___L24___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
    ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L51___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
+   ___GOTO(___L58___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
    ___END_IF
    ___SET_R1(___STK(-5))
    ___SET_R2(___FIX(127L))
-   ___SET_R0(___LBL(19))
+   ___SET_R0(___LBL(25))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),74,___G_fxquotient)
-___DEF_SLBL(19,___L19___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
+___DEF_SLBL(25,___L25___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
    ___SET_STK(-4,___R1)
    ___SET_R2(___FIX(1L))
    ___SET_R1(___FIX(2L))
-   ___SET_R0(___LBL(20))
+   ___SET_R0(___LBL(26))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),68,___G_fx_2d_)
-___DEF_SLBL(20,___L20___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
+___DEF_SLBL(26,___L26___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
    ___SET_R2(___R1)
    ___SET_R1(___STK(-4))
-   ___SET_R0(___LBL(21))
+   ___SET_R0(___LBL(27))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),73,___G_fxmin)
-___DEF_SLBL(21,___L21___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
+___DEF_SLBL(27,___L27___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
    ___SET_STK(-4,___R1)
    ___SET_R3(___R1)
    ___SET_R2(___STK(-6))
    ___SET_R1(___STK(-11))
-   ___SET_R0(___LBL(22))
+   ___SET_R0(___LBL(28))
    ___JUMPGLONOTSAFE(___SET_NARGS(3),59,___G_c_23_stretchable_2d_vector_2d_set_21_)
-___DEF_SLBL(22,___L22___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
+___DEF_SLBL(28,___L28___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
    ___SET_R1(___STK(-6))
    ___SET_R2(___FIX(1L))
-   ___SET_R0(___LBL(23))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),67,___G_fx_2b_)
-___DEF_SLBL(23,___L23___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
-   ___SET_STK(-6,___R1)
-   ___SET_R1(___STK(-4))
-   ___SET_R2(___FIX(127L))
-   ___SET_R0(___LBL(24))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),66,___G_fx_2a_)
-___DEF_SLBL(24,___L24___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
-   ___SET_R2(___R1)
-   ___SET_R1(___STK(-5))
-   ___SET_R0(___LBL(15))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),68,___G_fx_2d_)
-___DEF_GLBL(___L51___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
-   ___SET_R1(___STK(-9))
-   ___SET_R0(___LBL(25))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),61,___G_cdr)
-___DEF_SLBL(25,___L25___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
-   ___SET_R2(___FIX(32L))
-   ___SET_R0(___LBL(26))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),70,___G_fx_3d_)
-___DEF_SLBL(26,___L26___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
-   ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L52___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
-   ___END_IF
-   ___SET_R1(___STK(-5))
-   ___SET_R2(___FIX(1L))
-   ___SET_R0(___LBL(27))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),67,___G_fx_2b_)
-___DEF_SLBL(27,___L27___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
-   ___SET_R2(___R1)
-   ___SET_R1(___FIX(2L))
-   ___SET_R0(___LBL(28))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),66,___G_fx_2a_)
-___DEF_SLBL(28,___L28___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
-   ___SET_R2(___R1)
-   ___SET_R1(___FIX(0L))
    ___SET_R0(___LBL(29))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),67,___G_fx_2b_)
 ___DEF_SLBL(29,___L29___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
-   ___SET_R3(___R1)
-   ___SET_R2(___STK(-6))
-   ___SET_R1(___STK(-11))
+   ___SET_STK(-6,___R1)
+   ___SET_R1(___STK(-4))
+   ___SET_R2(___FIX(127L))
    ___SET_R0(___LBL(30))
-   ___JUMPGLONOTSAFE(___SET_NARGS(3),59,___G_c_23_stretchable_2d_vector_2d_set_21_)
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),66,___G_fx_2a_)
 ___DEF_SLBL(30,___L30___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
-   ___SET_R1(___STK(-6))
-   ___SET_R2(___FIX(1L))
+   ___SET_R2(___R1)
+   ___SET_R1(___STK(-5))
+   ___SET_R0(___LBL(20))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),68,___G_fx_2d_)
+___DEF_GLBL(___L58___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
+   ___SET_R1(___STK(-9))
    ___SET_R0(___LBL(31))
-   ___ADJFP(-4)
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),67,___G_fx_2b_)
-___DEF_SLBL(31,___L31___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
-   ___SET_STK(-5,___R1)
-   ___SET_R1(___STK(-3))
-   ___SET_R2(___FIX(4L))
-   ___SET_R0(___LBL(32))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),67,___G_fx_2b_)
-___DEF_SLBL(32,___L32___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
-   ___SET_STK(-3,___R1)
-   ___SET_R1(___STK(-6))
-   ___SET_R0(___LBL(5))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),61,___G_cdr)
-___DEF_GLBL(___L52___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
+___DEF_SLBL(31,___L31___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
+   ___SET_R2(___FIX(32L))
+   ___SET_R0(___LBL(32))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),70,___G_fx_3d_)
+___DEF_SLBL(32,___L32___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
+   ___IF(___NOT(___NOTFALSEP(___R1)))
+   ___GOTO(___L59___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
+   ___END_IF
    ___SET_R1(___STK(-5))
    ___SET_R2(___FIX(1L))
    ___SET_R0(___LBL(33))
@@ -3138,7 +3584,7 @@ ___DEF_SLBL(33,___L33___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_ve
    ___JUMPGLONOTSAFE(___SET_NARGS(2),66,___G_fx_2a_)
 ___DEF_SLBL(34,___L34___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
    ___SET_R2(___R1)
-   ___SET_R1(___FIX(1L))
+   ___SET_R1(___FIX(0L))
    ___SET_R0(___LBL(35))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),67,___G_fx_2b_)
 ___DEF_SLBL(35,___L35___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
@@ -3156,47 +3602,94 @@ ___DEF_SLBL(36,___L36___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_ve
 ___DEF_SLBL(37,___L37___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
    ___SET_STK(-5,___R1)
    ___SET_R1(___STK(-3))
-   ___SET_R2(___FIX(8L))
-   ___SET_R0(___LBL(32))
+   ___SET_R2(___FIX(4L))
+   ___SET_R0(___LBL(38))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),67,___G_fx_2b_)
 ___DEF_SLBL(38,___L38___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
+   ___SET_STK(-3,___R1)
+   ___SET_R1(___STK(-6))
+   ___SET_R0(___LBL(8))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),61,___G_cdr)
+___DEF_GLBL(___L59___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
    ___SET_R1(___STK(-5))
+   ___SET_R2(___FIX(1L))
    ___SET_R0(___LBL(39))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),67,___G_fx_2b_)
+___DEF_SLBL(39,___L39___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
+   ___SET_R2(___R1)
+   ___SET_R1(___FIX(2L))
+   ___SET_R0(___LBL(40))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),66,___G_fx_2a_)
+___DEF_SLBL(40,___L40___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
+   ___SET_R2(___R1)
+   ___SET_R1(___FIX(1L))
+   ___SET_R0(___LBL(41))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),67,___G_fx_2b_)
+___DEF_SLBL(41,___L41___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
+   ___SET_R3(___R1)
+   ___SET_R2(___STK(-6))
+   ___SET_R1(___STK(-11))
+   ___SET_R0(___LBL(42))
+   ___JUMPGLONOTSAFE(___SET_NARGS(3),59,___G_c_23_stretchable_2d_vector_2d_set_21_)
+___DEF_SLBL(42,___L42___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
+   ___SET_R1(___STK(-6))
+   ___SET_R2(___FIX(1L))
+   ___SET_R0(___LBL(43))
+   ___ADJFP(-4)
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),67,___G_fx_2b_)
+___DEF_SLBL(43,___L43___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
+   ___SET_STK(-5,___R1)
+   ___SET_R1(___STK(-3))
+   ___SET_R2(___FIX(8L))
+   ___SET_R0(___LBL(38))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),67,___G_fx_2b_)
+___DEF_SLBL(44,___L44___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
+   ___SET_R1(___STK(-5))
+   ___SET_R0(___LBL(45))
    ___ADJFP(-4)
    ___JUMPGLONOTSAFE(___SET_NARGS(1),58,___G_c_23_stretchable_2d_vector_2d__3e_list)
-___DEF_SLBL(39,___L39___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
+___DEF_SLBL(45,___L45___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
    ___SET_R0(___STK(-3))
-   ___POLL(40)
-___DEF_SLBL(40,___L40___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
+   ___POLL(46)
+___DEF_SLBL(46,___L46___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
    ___ADJFP(-4)
    ___JUMPGLONOTSAFE(___SET_NARGS(1),76,___G_list_2d__3e_u8vector)
-___DEF_SLBL(41,___L41___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
+___DEF_SLBL(47,___L47___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
    ___IF_NARGS_EQ(2,___NOTHING)
-   ___WRONG_NARGS(41,2,0,0)
+   ___WRONG_NARGS(47,2,0,0)
+___GATE2_OPEN(___ps,"_codegen#codegen-context-fixup-locs->vector",48,___LBL(
+48),___fp);
+___DEF_SLBL(48,___L48___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
+___GATE2_ENTER(___ps,"_codegen#codegen-context-fixup-locs->vector",48,___LBL(
+48),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,8,0,___LBL(48),&___demand_attempt)){___ps->temp1=___LBL(48);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R0)
-   ___SET_STK(2,___R2)
-   ___ADJFP(8)
-   ___POLL(42)
-___DEF_SLBL(42,___L42___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
-   ___SET_R0(___LBL(43))
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___ADJFP(6)
+___group_demand_commit(___ps,___LBL(48),___demand_attempt);
+   ___POLL(49)
+___DEF_SLBL(49,___L49___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
+   ___SET_R0(___LBL(50))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),60,___G_car)
-___DEF_SLBL(43,___L43___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
-   ___SET_R0(___LBL(44))
+___DEF_SLBL(50,___L50___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
+   ___SET_R0(___LBL(51))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),51,___G___asm_23_asm_2d_label_2d_pos)
-___DEF_SLBL(44,___L44___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
+___DEF_SLBL(51,___L51___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
    ___SET_STK(-5,___R1)
    ___SET_R1(___STK(-6))
-   ___SET_R0(___LBL(45))
+   ___SET_R0(___LBL(52))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),60,___G_car)
-___DEF_SLBL(45,___L45___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
-   ___SET_R0(___LBL(46))
+___DEF_SLBL(52,___L52___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
+   ___SET_R0(___LBL(53))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),51,___G___asm_23_asm_2d_label_2d_pos)
-___DEF_SLBL(46,___L46___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
+___DEF_SLBL(53,___L53___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
    ___SET_R2(___R1)
    ___SET_R0(___STK(-7))
    ___SET_R1(___STK(-5))
-   ___POLL(47)
-___DEF_SLBL(47,___L47___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
+   ___POLL(54)
+___DEF_SLBL(54,___L54___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector)
    ___ADJFP(-8)
    ___JUMPGLONOTSAFE(___SET_NARGS(2),69,___G_fx_3c_)
 ___END_P_SW
@@ -3205,15 +3698,15 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___codegen_23_codegen_2d_context_2d_fixup_2d_obj_2d_register_21_
 #undef ___PH_LBL0
-#define ___PH_LBL0 250
+#define ___PH_LBL0 292
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(6)
+___BEGIN_P_HLBL_AT(7)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___codegen_23_codegen_2d_context_2d_fixup_2d_obj_2d_register_21_)
 ___DEF_P_HLBL(___L1___codegen_23_codegen_2d_context_2d_fixup_2d_obj_2d_register_21_)
@@ -3221,44 +3714,54 @@ ___DEF_P_HLBL(___L2___codegen_23_codegen_2d_context_2d_fixup_2d_obj_2d_register_
 ___DEF_P_HLBL(___L3___codegen_23_codegen_2d_context_2d_fixup_2d_obj_2d_register_21_)
 ___DEF_P_HLBL(___L4___codegen_23_codegen_2d_context_2d_fixup_2d_obj_2d_register_21_)
 ___DEF_P_HLBL(___L5___codegen_23_codegen_2d_context_2d_fixup_2d_obj_2d_register_21_)
+___DEF_P_HLBL(___L6___codegen_23_codegen_2d_context_2d_fixup_2d_obj_2d_register_21_)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___codegen_23_codegen_2d_context_2d_fixup_2d_obj_2d_register_21_)
    ___IF_NARGS_EQ(2,___NOTHING)
    ___WRONG_NARGS(0,2,0,0)
 ___DEF_GLBL(___L___codegen_23_codegen_2d_context_2d_fixup_2d_obj_2d_register_21_)
-   ___SET_STK(1,___R0)
-   ___SET_STK(2,___R2)
-   ___ADJFP(8)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_codegen#codegen-context-fixup-obj-register!",1,___LBL(
+1),___fp);
 ___DEF_SLBL(1,___L1___codegen_23_codegen_2d_context_2d_fixup_2d_obj_2d_register_21_)
-   ___SET_R0(___LBL(2))
-   ___JUMPINT(___SET_NARGS(1),___PRC(72),___L___codegen_23_codegen_2d_context_2d_fixup_2d_objs)
+___GATE2_ENTER(___ps,"_codegen#codegen-context-fixup-obj-register!",1,___LBL(
+1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,8,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R0)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___ADJFP(6)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___codegen_23_codegen_2d_context_2d_fixup_2d_obj_2d_register_21_)
+   ___SET_R0(___LBL(3))
+   ___JUMPINT(___SET_NARGS(1),___PRC(82),___L___codegen_23_codegen_2d_context_2d_fixup_2d_objs)
+___DEF_SLBL(3,___L3___codegen_23_codegen_2d_context_2d_fixup_2d_obj_2d_register_21_)
    ___SET_STK(-5,___R1)
    ___SET_R2(___STK(-6))
    ___SET_R3(___FAL)
-   ___SET_R0(___LBL(3))
+   ___SET_R0(___LBL(4))
    ___JUMPGLONOTSAFE(___SET_NARGS(3),83,___G_table_2d_ref)
-___DEF_SLBL(3,___L3___codegen_23_codegen_2d_context_2d_fixup_2d_obj_2d_register_21_)
+___DEF_SLBL(4,___L4___codegen_23_codegen_2d_context_2d_fixup_2d_obj_2d_register_21_)
    ___IF(___NOTFALSEP(___R1))
-   ___GOTO(___L6___codegen_23_codegen_2d_context_2d_fixup_2d_obj_2d_register_21_)
+   ___GOTO(___L7___codegen_23_codegen_2d_context_2d_fixup_2d_obj_2d_register_21_)
    ___END_IF
    ___SET_R1(___STK(-5))
-   ___SET_R0(___LBL(4))
+   ___SET_R0(___LBL(5))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),82,___G_table_2d_length)
-___DEF_SLBL(4,___L4___codegen_23_codegen_2d_context_2d_fixup_2d_obj_2d_register_21_)
+___DEF_SLBL(5,___L5___codegen_23_codegen_2d_context_2d_fixup_2d_obj_2d_register_21_)
    ___SET_STK(-4,___R1)
    ___SET_R3(___R1)
    ___SET_R2(___STK(-6))
    ___SET_R1(___STK(-5))
-   ___SET_R0(___LBL(5))
+   ___SET_R0(___LBL(6))
    ___JUMPGLONOTSAFE(___SET_NARGS(3),84,___G_table_2d_set_21_)
-___DEF_SLBL(5,___L5___codegen_23_codegen_2d_context_2d_fixup_2d_obj_2d_register_21_)
+___DEF_SLBL(6,___L6___codegen_23_codegen_2d_context_2d_fixup_2d_obj_2d_register_21_)
    ___SET_R1(___STK(-4))
    ___ADJFP(-8)
    ___JUMPRET(___STK(1))
-___DEF_GLBL(___L6___codegen_23_codegen_2d_context_2d_fixup_2d_obj_2d_register_21_)
+___DEF_GLBL(___L7___codegen_23_codegen_2d_context_2d_fixup_2d_obj_2d_register_21_)
    ___ADJFP(-8)
    ___JUMPRET(___STK(1))
 ___END_P_SW
@@ -3267,15 +3770,15 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector
 #undef ___PH_LBL0
-#define ___PH_LBL0 257
+#define ___PH_LBL0 300
 #undef ___PD_ALL
-#define ___PD_ALL ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
 #undef ___PR_ALL
 #define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
 #undef ___PW_ALL
 #define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(14)
+___BEGIN_P_HLBL_AT(17)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector)
 ___DEF_P_HLBL(___L1___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector)
@@ -3291,71 +3794,100 @@ ___DEF_P_HLBL(___L10___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vec
 ___DEF_P_HLBL(___L11___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector)
 ___DEF_P_HLBL(___L12___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector)
 ___DEF_P_HLBL(___L13___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector)
+___DEF_P_HLBL(___L14___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector)
+___DEF_P_HLBL(___L15___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector)
+___DEF_P_HLBL(___L16___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector)
    ___IF_NARGS_EQ(1,___NOTHING)
    ___WRONG_NARGS(0,1,0,0)
 ___DEF_GLBL(___L___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector)
-   ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
-   ___ADJFP(8)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_codegen#codegen-context-fixup-objs->vector",1,___LBL(
+1),___fp);
 ___DEF_SLBL(1,___L1___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector)
-   ___SET_R0(___LBL(2))
-   ___JUMPINT(___SET_NARGS(1),___PRC(72),___L___codegen_23_codegen_2d_context_2d_fixup_2d_objs)
+___GATE2_ENTER(___ps,"_codegen#codegen-context-fixup-objs->vector",1,___LBL(
+1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,8,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R0)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___ADJFP(6)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector)
    ___SET_R0(___LBL(3))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),82,___G_table_2d_length)
+   ___JUMPINT(___SET_NARGS(1),___PRC(82),___L___codegen_23_codegen_2d_context_2d_fixup_2d_objs)
 ___DEF_SLBL(3,___L3___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector)
    ___SET_R0(___LBL(4))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),78,___G_make_2d_vector)
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),82,___G_table_2d_length)
 ___DEF_SLBL(4,___L4___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector)
+   ___SET_R0(___LBL(5))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),78,___G_make_2d_vector)
+___DEF_SLBL(5,___L5___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector)
    ___SET_STK(-5,___R1)
+___GATE2_OPEN(___ps,"_codegen#codegen-context-fixup-objs->vector",6,___LBL(
+6),___fp);
+___DEF_SLBL(6,___L6___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector)
+___GATE2_ENTER(___ps,"_codegen#codegen-context-fixup-objs->vector",6,___LBL(
+6),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,0,4,___LBL(6),&___demand_attempt)){___ps->temp1=___LBL(6);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(-4,___ALLOC_CLO(1UL))
-   ___BEGIN_SETUP_CLO(1,___STK(-4),9)
+   ___BEGIN_SETUP_CLO(1,___STK(-4),11)
    ___ADD_CLO_ELEM(0,___R1)
    ___END_SETUP_CLO(1)
    ___SET_R1(___STK(-6))
-   ___SET_R0(___LBL(6))
-   ___CHECK_HEAP(5,4096)
-___DEF_SLBL(5,___L5___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector)
-   ___JUMPINT(___SET_NARGS(1),___PRC(72),___L___codegen_23_codegen_2d_context_2d_fixup_2d_objs)
-___DEF_SLBL(6,___L6___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector)
-   ___SET_R0(___LBL(7))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),81,___G_table_2d__3e_list)
+   ___SET_R0(___LBL(8))
+___group_demand_commit(___ps,___LBL(6),___demand_attempt);
+   ___CHECK_HEAP(7,4096)
 ___DEF_SLBL(7,___L7___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector)
+   ___JUMPINT(___SET_NARGS(1),___PRC(82),___L___codegen_23_codegen_2d_context_2d_fixup_2d_objs)
+___DEF_SLBL(8,___L8___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector)
+   ___SET_R0(___LBL(9))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),81,___G_table_2d__3e_list)
+___DEF_SLBL(9,___L9___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector)
    ___SET_R2(___R1)
    ___SET_R1(___STK(-4))
-   ___SET_R0(___LBL(8))
+   ___SET_R0(___LBL(10))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),65,___G_for_2d_each)
-___DEF_SLBL(8,___L8___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector)
+___DEF_SLBL(10,___L10___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector)
    ___SET_R1(___STK(-5))
    ___ADJFP(-8)
    ___JUMPRET(___STK(1))
-___DEF_SLBL(9,___L9___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector)
-   ___IF_NARGS_EQ(1,___NOTHING)
-   ___WRONG_NARGS(9,1,0,0)
-   ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
-   ___SET_STK(3,___R4)
-   ___ADJFP(8)
-   ___POLL(10)
-___DEF_SLBL(10,___L10___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector)
-   ___SET_R0(___LBL(11))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),61,___G_cdr)
 ___DEF_SLBL(11,___L11___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector)
+   ___IF_NARGS_EQ(1,___NOTHING)
+   ___WRONG_NARGS(11,1,0,0)
+___GATE2_OPEN(___ps,"_codegen#codegen-context-fixup-objs->vector",12,___LBL(
+12),___fp);
+___DEF_SLBL(12,___L12___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector)
+___GATE2_ENTER(___ps,"_codegen#codegen-context-fixup-objs->vector",12,___LBL(
+12),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,8,0,___LBL(12),&___demand_attempt)){___ps->temp1=___LBL(12);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R0)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R4)
+   ___ADJFP(1)
+   ___ADJFP(5)
+___group_demand_commit(___ps,___LBL(12),___demand_attempt);
+   ___POLL(13)
+___DEF_SLBL(13,___L13___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector)
+   ___SET_R0(___LBL(14))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),61,___G_cdr)
+___DEF_SLBL(14,___L14___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector)
    ___SET_STK(-4,___R1)
    ___SET_R1(___STK(-6))
-   ___SET_R0(___LBL(12))
+   ___SET_R0(___LBL(15))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),60,___G_car)
-___DEF_SLBL(12,___L12___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector)
+___DEF_SLBL(15,___L15___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector)
    ___SET_R3(___R1)
    ___SET_R1(___CLO(___STK(-5),1))
    ___SET_R0(___STK(-7))
    ___SET_R2(___STK(-4))
-   ___POLL(13)
-___DEF_SLBL(13,___L13___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector)
+   ___POLL(16)
+___DEF_SLBL(16,___L16___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector)
    ___ADJFP(-8)
    ___JUMPGLONOTSAFE(___SET_NARGS(3),86,___G_vector_2d_set_21_)
 ___END_P_SW
@@ -3364,15 +3896,15 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___codegen_23_codegen_2d_fixup_2d_generic_21_
 #undef ___PH_LBL0
-#define ___PH_LBL0 272
+#define ___PH_LBL0 318
 #undef ___PD_ALL
-#define ___PD_ALL ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
 #undef ___PR_ALL
 #define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
 #undef ___PW_ALL
 #define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(15)
+___BEGIN_P_HLBL_AT(19)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___codegen_23_codegen_2d_fixup_2d_generic_21_)
 ___DEF_P_HLBL(___L1___codegen_23_codegen_2d_fixup_2d_generic_21_)
@@ -3389,6 +3921,10 @@ ___DEF_P_HLBL(___L11___codegen_23_codegen_2d_fixup_2d_generic_21_)
 ___DEF_P_HLBL(___L12___codegen_23_codegen_2d_fixup_2d_generic_21_)
 ___DEF_P_HLBL(___L13___codegen_23_codegen_2d_fixup_2d_generic_21_)
 ___DEF_P_HLBL(___L14___codegen_23_codegen_2d_fixup_2d_generic_21_)
+___DEF_P_HLBL(___L15___codegen_23_codegen_2d_fixup_2d_generic_21_)
+___DEF_P_HLBL(___L16___codegen_23_codegen_2d_fixup_2d_generic_21_)
+___DEF_P_HLBL(___L17___codegen_23_codegen_2d_fixup_2d_generic_21_)
+___DEF_P_HLBL(___L18___codegen_23_codegen_2d_fixup_2d_generic_21_)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___codegen_23_codegen_2d_fixup_2d_generic_21_)
@@ -3396,38 +3932,62 @@ ___DEF_SLBL(0,___L0___codegen_23_codegen_2d_fixup_2d_generic_21_)
    ___IF_NARGS_EQ(4,___NOTHING)
    ___WRONG_NARGS(0,3,1,0)
 ___DEF_GLBL(___L___codegen_23_codegen_2d_fixup_2d_generic_21_)
-   ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
-   ___SET_STK(3,___R2)
-   ___SET_STK(4,___R3)
-   ___SET_R1(___STK(0))
-   ___SET_R2(___SYM_fixup)
-   ___ADJFP(7)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_codegen#codegen-fixup-generic!",1,___LBL(
+1),___fp);
 ___DEF_SLBL(1,___L1___codegen_23_codegen_2d_fixup_2d_generic_21_)
-   ___SET_R0(___LBL(2))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),53,___G___asm_23_asm_2d_make_2d_label)
+___GATE2_ENTER(___ps,"_codegen#codegen-fixup-generic!",1,___LBL(
+1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,7,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R0)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_STK(1,___R3)
+   ___ADJFP(1)
+   ___SET_R1(___STK(-4))
+   ___SET_R2(___SYM_fixup)
+   ___ADJFP(3)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___codegen_23_codegen_2d_fixup_2d_generic_21_)
+   ___SET_R0(___LBL(3))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),53,___G___asm_23_asm_2d_make_2d_label)
+___DEF_SLBL(3,___L3___codegen_23_codegen_2d_fixup_2d_generic_21_)
+___GATE2_OPEN(___ps,"_codegen#codegen-fixup-generic!",4,___LBL(
+4),___fp);
+___DEF_SLBL(4,___L4___codegen_23_codegen_2d_fixup_2d_generic_21_)
+___GATE2_ENTER(___ps,"_codegen#codegen-fixup-generic!",4,___LBL(
+4),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,4,0,___LBL(4),&___demand_attempt)){___ps->temp1=___LBL(4);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(-2,___R1)
    ___SET_R3(___STK(-5))
    ___SET_R2(___R1)
    ___SET_R1(___STK(-7))
-   ___SET_R0(___LBL(3))
+   ___SET_R0(___LBL(5))
    ___ADJFP(4)
-   ___JUMPINT(___SET_NARGS(3),___PRC(192),___L___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_add_21_)
-___DEF_SLBL(3,___L3___codegen_23_codegen_2d_fixup_2d_generic_21_)
+___group_demand_commit(___ps,___LBL(4),___demand_attempt);
+   ___JUMPINT(___SET_NARGS(3),___PRC(226),___L___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_add_21_)
+___DEF_SLBL(5,___L5___codegen_23_codegen_2d_fixup_2d_generic_21_)
    ___SET_R2(___STK(-6))
    ___SET_R1(___STK(-11))
-   ___SET_R0(___LBL(4))
+   ___SET_R0(___LBL(6))
    ___ADJFP(-4)
    ___JUMPGLONOTSAFE(___SET_NARGS(2),50,___G___asm_23_asm_2d_label)
-___DEF_SLBL(4,___L4___codegen_23_codegen_2d_fixup_2d_generic_21_)
+___DEF_SLBL(6,___L6___codegen_23_codegen_2d_fixup_2d_generic_21_)
+___GATE2_OPEN(___ps,"_codegen#codegen-fixup-generic!",7,___LBL(
+7),___fp);
+___DEF_SLBL(7,___L7___codegen_23_codegen_2d_fixup_2d_generic_21_)
+___GATE2_ENTER(___ps,"_codegen#codegen-fixup-generic!",7,___LBL(
+7),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,0,10,___LBL(7),&___demand_attempt)){___ps->temp1=___LBL(7);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(-2,___ALLOC_CLO(1UL))
-   ___BEGIN_SETUP_CLO(1,___STK(-2),13)
+   ___BEGIN_SETUP_CLO(1,___STK(-2),17)
    ___ADD_CLO_ELEM(0,___STK(-5))
    ___END_SETUP_CLO(1)
    ___SET_STK(-1,___ALLOC_CLO(3UL))
-   ___BEGIN_SETUP_CLO(3,___STK(-1),7)
+   ___BEGIN_SETUP_CLO(3,___STK(-1),10)
    ___ADD_CLO_ELEM(0,___STK(-4))
    ___ADD_CLO_ELEM(1,___STK(-3))
    ___ADD_CLO_ELEM(2,___STK(-5))
@@ -3437,56 +3997,67 @@ ___DEF_SLBL(4,___L4___codegen_23_codegen_2d_fixup_2d_generic_21_)
    ___SET_R0(___STK(-6))
    ___SET_R2(___STK(-2))
    ___ADJFP(-1)
-   ___CHECK_HEAP(5,4096)
-___DEF_SLBL(5,___L5___codegen_23_codegen_2d_fixup_2d_generic_21_)
-   ___POLL(6)
-___DEF_SLBL(6,___L6___codegen_23_codegen_2d_fixup_2d_generic_21_)
+___group_demand_commit(___ps,___LBL(7),___demand_attempt);
+   ___CHECK_HEAP(8,4096)
+___DEF_SLBL(8,___L8___codegen_23_codegen_2d_fixup_2d_generic_21_)
+   ___POLL(9)
+___DEF_SLBL(9,___L9___codegen_23_codegen_2d_fixup_2d_generic_21_)
    ___ADJFP(-7)
    ___JUMPGLONOTSAFE(___SET_NARGS(3),48,___G___asm_23_asm_2d_at_2d_assembly)
-___DEF_SLBL(7,___L7___codegen_23_codegen_2d_fixup_2d_generic_21_)
+___DEF_SLBL(10,___L10___codegen_23_codegen_2d_fixup_2d_generic_21_)
    ___IF_NARGS_EQ(2,___NOTHING)
-   ___WRONG_NARGS(7,2,0,0)
+   ___WRONG_NARGS(10,2,0,0)
+___GATE2_OPEN(___ps,"_codegen#codegen-fixup-generic!",11,___LBL(
+11),___fp);
+___DEF_SLBL(11,___L11___codegen_23_codegen_2d_fixup_2d_generic_21_)
+___GATE2_ENTER(___ps,"_codegen#codegen-fixup-generic!",11,___LBL(
+11),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,8,0,___LBL(11),&___demand_attempt)){___ps->temp1=___LBL(11);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
-   ___SET_STK(3,___R4)
-   ___ADJFP(8)
-   ___POLL(8)
-___DEF_SLBL(8,___L8___codegen_23_codegen_2d_fixup_2d_generic_21_)
-   ___SET_R0(___LBL(9))
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R4)
+   ___ADJFP(1)
+   ___ADJFP(5)
+___group_demand_commit(___ps,___LBL(11),___demand_attempt);
+   ___POLL(12)
+___DEF_SLBL(12,___L12___codegen_23_codegen_2d_fixup_2d_generic_21_)
+   ___SET_R0(___LBL(13))
    ___JUMPGENNOTSAFE(___SET_NARGS(2),___CLO(___R4,1))
-___DEF_SLBL(9,___L9___codegen_23_codegen_2d_fixup_2d_generic_21_)
+___DEF_SLBL(13,___L13___codegen_23_codegen_2d_fixup_2d_generic_21_)
    ___SET_R2(___R1)
    ___SET_R3(___CLO(___STK(-5),3))
    ___SET_R1(___STK(-6))
-   ___SET_R0(___LBL(10))
+   ___SET_R0(___LBL(14))
    ___JUMPGLONOTSAFE(___SET_NARGS(3),49,___G___asm_23_asm_2d_int_2d_le)
-___DEF_SLBL(10,___L10___codegen_23_codegen_2d_fixup_2d_generic_21_)
+___DEF_SLBL(14,___L14___codegen_23_codegen_2d_fixup_2d_generic_21_)
    ___IF(___NOT(___NOTFALSEP(___CLO(___STK(-5),2))))
-   ___GOTO(___L15___codegen_23_codegen_2d_fixup_2d_generic_21_)
+   ___GOTO(___L19___codegen_23_codegen_2d_fixup_2d_generic_21_)
    ___END_IF
    ___SET_R2(___CLO(___STK(-5),2))
    ___SET_R1(___SUB(0))
-   ___SET_R0(___LBL(11))
+   ___SET_R0(___LBL(15))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),75,___G_list)
-___DEF_SLBL(11,___L11___codegen_23_codegen_2d_fixup_2d_generic_21_)
+___DEF_SLBL(15,___L15___codegen_23_codegen_2d_fixup_2d_generic_21_)
    ___SET_R2(___R1)
    ___SET_R1(___STK(-6))
    ___SET_R0(___STK(-7))
-   ___POLL(12)
-___DEF_SLBL(12,___L12___codegen_23_codegen_2d_fixup_2d_generic_21_)
+   ___POLL(16)
+___DEF_SLBL(16,___L16___codegen_23_codegen_2d_fixup_2d_generic_21_)
    ___ADJFP(-8)
    ___JUMPGLONOTSAFE(___SET_NARGS(2),52,___G___asm_23_asm_2d_listing)
-___DEF_GLBL(___L15___codegen_23_codegen_2d_fixup_2d_generic_21_)
+___DEF_GLBL(___L19___codegen_23_codegen_2d_fixup_2d_generic_21_)
    ___SET_R1(___VOID)
    ___ADJFP(-8)
    ___JUMPRET(___STK(1))
-___DEF_SLBL(13,___L13___codegen_23_codegen_2d_fixup_2d_generic_21_)
+___DEF_SLBL(17,___L17___codegen_23_codegen_2d_fixup_2d_generic_21_)
    ___IF_NARGS_EQ(2,___NOTHING)
-   ___WRONG_NARGS(13,2,0,0)
+   ___WRONG_NARGS(17,2,0,0)
    ___SET_R1(___CLO(___R4,1))
    ___SET_R2(___FIX(3L))
-   ___POLL(14)
-___DEF_SLBL(14,___L14___codegen_23_codegen_2d_fixup_2d_generic_21_)
+   ___POLL(18)
+___DEF_SLBL(18,___L18___codegen_23_codegen_2d_fixup_2d_generic_21_)
    ___JUMPGLONOTSAFE(___SET_NARGS(2),72,___G_fxarithmetic_2d_shift_2d_right)
 ___END_P_SW
 ___END_P_COD
@@ -3494,15 +4065,15 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___codegen_23_codegen_2d_fixup_2d_lbl_21_
 #undef ___PH_LBL0
-#define ___PH_LBL0 288
+#define ___PH_LBL0 338
 #undef ___PD_ALL
-#define ___PD_ALL ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
 #undef ___PR_ALL
 #define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
 #undef ___PW_ALL
 #define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(12)
+___BEGIN_P_HLBL_AT(14)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___codegen_23_codegen_2d_fixup_2d_lbl_21_)
 ___DEF_P_HLBL(___L1___codegen_23_codegen_2d_fixup_2d_lbl_21_)
@@ -3516,6 +4087,8 @@ ___DEF_P_HLBL(___L8___codegen_23_codegen_2d_fixup_2d_lbl_21_)
 ___DEF_P_HLBL(___L9___codegen_23_codegen_2d_fixup_2d_lbl_21_)
 ___DEF_P_HLBL(___L10___codegen_23_codegen_2d_fixup_2d_lbl_21_)
 ___DEF_P_HLBL(___L11___codegen_23_codegen_2d_fixup_2d_lbl_21_)
+___DEF_P_HLBL(___L12___codegen_23_codegen_2d_fixup_2d_lbl_21_)
+___DEF_P_HLBL(___L13___codegen_23_codegen_2d_fixup_2d_lbl_21_)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___codegen_23_codegen_2d_fixup_2d_lbl_21_)
@@ -3523,78 +4096,92 @@ ___DEF_SLBL(0,___L0___codegen_23_codegen_2d_fixup_2d_lbl_21_)
    ___IF_NARGS_EQ(7,___NOTHING)
    ___WRONG_NARGS(0,6,1,0)
 ___DEF_GLBL(___L___codegen_23_codegen_2d_fixup_2d_lbl_21_)
+___GATE2_OPEN(___ps,"_codegen#codegen-fixup-lbl!",1,___LBL(1),___fp);
+___DEF_SLBL(1,___L1___codegen_23_codegen_2d_fixup_2d_lbl_21_)
+___GATE2_ENTER(___ps,"_codegen#codegen-fixup-lbl!",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,1,7,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___ALLOC_CLO(4UL))
-   ___BEGIN_SETUP_CLO(4,___STK(1),3)
+   ___BEGIN_SETUP_CLO(4,___STK(1),4)
    ___ADD_CLO_ELEM(0,___R2)
    ___ADD_CLO_ELEM(1,___STK(-2))
    ___ADD_CLO_ELEM(2,___STK(-1))
    ___ADD_CLO_ELEM(3,___STK(0))
    ___END_SETUP_CLO(4)
-   ___SET_STK(-2,___STK(1))
    ___ADJFP(1)
-   ___CHECK_HEAP(1,4096)
-___DEF_SLBL(1,___L1___codegen_23_codegen_2d_fixup_2d_lbl_21_)
+   ___SET_STK(-3,___STK(0))
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___CHECK_HEAP(2,4096)
+___DEF_SLBL(2,___L2___codegen_23_codegen_2d_fixup_2d_lbl_21_)
    ___IF(___NOTFALSEP(___R3))
-   ___GOTO(___L12___codegen_23_codegen_2d_fixup_2d_lbl_21_)
+   ___GOTO(___L14___codegen_23_codegen_2d_fixup_2d_lbl_21_)
    ___END_IF
    ___SET_R3(___FAL)
-___DEF_GLBL(___L12___codegen_23_codegen_2d_fixup_2d_lbl_21_)
+___DEF_GLBL(___L14___codegen_23_codegen_2d_fixup_2d_lbl_21_)
    ___SET_R2(___STK(-3))
-   ___POLL(2)
-___DEF_SLBL(2,___L2___codegen_23_codegen_2d_fixup_2d_lbl_21_)
-   ___ADJFP(-4)
-   ___SET_NARGS(4) ___JUMPINT(___NOTHING,___PRC(272),___L0___codegen_23_codegen_2d_fixup_2d_generic_21_)
+   ___POLL(3)
 ___DEF_SLBL(3,___L3___codegen_23_codegen_2d_fixup_2d_lbl_21_)
+   ___ADJFP(-4)
+   ___SET_NARGS(4) ___JUMPINT(___NOTHING,___PRC(318),___L0___codegen_23_codegen_2d_fixup_2d_generic_21_)
+___DEF_SLBL(4,___L4___codegen_23_codegen_2d_fixup_2d_lbl_21_)
    ___IF_NARGS_EQ(2,___NOTHING)
-   ___WRONG_NARGS(3,2,0,0)
+   ___WRONG_NARGS(4,2,0,0)
    ___IF(___NOT(___NOTFALSEP(___CLO(___R4,4))))
-   ___GOTO(___L13___codegen_23_codegen_2d_fixup_2d_lbl_21_)
+   ___GOTO(___L15___codegen_23_codegen_2d_fixup_2d_lbl_21_)
    ___END_IF
    ___SET_R1(___FIX(0L))
-   ___GOTO(___L14___codegen_23_codegen_2d_fixup_2d_lbl_21_)
-___DEF_GLBL(___L13___codegen_23_codegen_2d_fixup_2d_lbl_21_)
+   ___GOTO(___L16___codegen_23_codegen_2d_fixup_2d_lbl_21_)
+___DEF_GLBL(___L15___codegen_23_codegen_2d_fixup_2d_lbl_21_)
    ___SET_R1(___FIX(1L))
-___DEF_GLBL(___L14___codegen_23_codegen_2d_fixup_2d_lbl_21_)
+___DEF_GLBL(___L16___codegen_23_codegen_2d_fixup_2d_lbl_21_)
+___GATE2_OPEN(___ps,"_codegen#codegen-fixup-lbl!",5,___LBL(5),___fp);
+___DEF_SLBL(5,___L5___codegen_23_codegen_2d_fixup_2d_lbl_21_)
+___GATE2_ENTER(___ps,"_codegen#codegen-fixup-lbl!",5,___LBL(5),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,8,0,___LBL(5),&___demand_attempt)){___ps->temp1=___LBL(5);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R1)
-   ___SET_STK(2,___R0)
-   ___SET_STK(3,___R2)
-   ___SET_STK(4,___R4)
+   ___ADJFP(1)
+   ___SET_STK(1,___R0)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_STK(1,___R4)
+   ___ADJFP(1)
    ___SET_R2(___CLO(___R4,1))
    ___SET_R1(___FIX(16L))
-   ___ADJFP(8)
-   ___POLL(4)
-___DEF_SLBL(4,___L4___codegen_23_codegen_2d_fixup_2d_lbl_21_)
-   ___SET_R0(___LBL(5))
+   ___ADJFP(4)
+___group_demand_commit(___ps,___LBL(5),___demand_attempt);
+   ___POLL(6)
+___DEF_SLBL(6,___L6___codegen_23_codegen_2d_fixup_2d_lbl_21_)
+   ___SET_R0(___LBL(7))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),66,___G_fx_2a_)
-___DEF_SLBL(5,___L5___codegen_23_codegen_2d_fixup_2d_lbl_21_)
+___DEF_SLBL(7,___L7___codegen_23_codegen_2d_fixup_2d_lbl_21_)
    ___SET_STK(-3,___R1)
    ___SET_R1(___CLO(___STK(-4),2))
-   ___SET_R0(___LBL(6))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),51,___G___asm_23_asm_2d_label_2d_pos)
-___DEF_SLBL(6,___L6___codegen_23_codegen_2d_fixup_2d_lbl_21_)
-   ___SET_R2(___CLO(___STK(-4),3))
-   ___SET_R0(___LBL(7))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),67,___G_fx_2b_)
-___DEF_SLBL(7,___L7___codegen_23_codegen_2d_fixup_2d_lbl_21_)
-   ___SET_R2(___STK(-5))
    ___SET_R0(___LBL(8))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),68,___G_fx_2d_)
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),51,___G___asm_23_asm_2d_label_2d_pos)
 ___DEF_SLBL(8,___L8___codegen_23_codegen_2d_fixup_2d_lbl_21_)
+   ___SET_R2(___CLO(___STK(-4),3))
+   ___SET_R0(___LBL(9))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),67,___G_fx_2b_)
+___DEF_SLBL(9,___L9___codegen_23_codegen_2d_fixup_2d_lbl_21_)
+   ___SET_R2(___STK(-5))
+   ___SET_R0(___LBL(10))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),68,___G_fx_2d_)
+___DEF_SLBL(10,___L10___codegen_23_codegen_2d_fixup_2d_lbl_21_)
    ___SET_R2(___R1)
    ___SET_R1(___FIX(256L))
-   ___SET_R0(___LBL(9))
+   ___SET_R0(___LBL(11))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),66,___G_fx_2a_)
-___DEF_SLBL(9,___L9___codegen_23_codegen_2d_fixup_2d_lbl_21_)
+___DEF_SLBL(11,___L11___codegen_23_codegen_2d_fixup_2d_lbl_21_)
    ___SET_R2(___R1)
    ___SET_R1(___STK(-3))
-   ___SET_R0(___LBL(10))
+   ___SET_R0(___LBL(12))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),67,___G_fx_2b_)
-___DEF_SLBL(10,___L10___codegen_23_codegen_2d_fixup_2d_lbl_21_)
+___DEF_SLBL(12,___L12___codegen_23_codegen_2d_fixup_2d_lbl_21_)
    ___SET_R2(___R1)
    ___SET_R0(___STK(-6))
    ___SET_R1(___STK(-7))
-   ___POLL(11)
-___DEF_SLBL(11,___L11___codegen_23_codegen_2d_fixup_2d_lbl_21_)
+   ___POLL(13)
+___DEF_SLBL(13,___L13___codegen_23_codegen_2d_fixup_2d_lbl_21_)
    ___ADJFP(-8)
    ___JUMPGLONOTSAFE(___SET_NARGS(2),67,___G_fx_2b_)
 ___END_P_SW
@@ -3603,15 +4190,15 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_
 #undef ___PH_LBL0
-#define ___PH_LBL0 301
+#define ___PH_LBL0 353
 #undef ___PD_ALL
-#define ___PD_ALL ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
 #undef ___PR_ALL
 #define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
 #undef ___PW_ALL
 #define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(12)
+___BEGIN_P_HLBL_AT(14)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_)
 ___DEF_P_HLBL(___L1___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_)
@@ -3625,6 +4212,8 @@ ___DEF_P_HLBL(___L8___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_)
 ___DEF_P_HLBL(___L9___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_)
 ___DEF_P_HLBL(___L10___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_)
 ___DEF_P_HLBL(___L11___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_)
+___DEF_P_HLBL(___L12___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_)
+___DEF_P_HLBL(___L13___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_)
@@ -3632,78 +4221,95 @@ ___DEF_SLBL(0,___L0___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_)
    ___IF_NARGS_EQ(6,___NOTHING)
    ___WRONG_NARGS(0,5,1,0)
 ___DEF_GLBL(___L___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_)
+___GATE2_OPEN(___ps,"_codegen#codegen-fixup-lbl-late!",1,___LBL(
+1),___fp);
+___DEF_SLBL(1,___L1___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_)
+___GATE2_ENTER(___ps,"_codegen#codegen-fixup-lbl-late!",1,___LBL(
+1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,1,6,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___ALLOC_CLO(3UL))
-   ___BEGIN_SETUP_CLO(3,___STK(1),3)
+   ___BEGIN_SETUP_CLO(3,___STK(1),4)
    ___ADD_CLO_ELEM(0,___R2)
    ___ADD_CLO_ELEM(1,___STK(-1))
    ___ADD_CLO_ELEM(2,___STK(0))
    ___END_SETUP_CLO(3)
-   ___SET_R2(___STK(1))
    ___ADJFP(1)
-   ___CHECK_HEAP(1,4096)
-___DEF_SLBL(1,___L1___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_)
-   ___POLL(2)
+   ___SET_R2(___STK(0))
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___CHECK_HEAP(2,4096)
 ___DEF_SLBL(2,___L2___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_)
-   ___ADJFP(-3)
-   ___SET_NARGS(4) ___JUMPINT(___NOTHING,___PRC(272),___L0___codegen_23_codegen_2d_fixup_2d_generic_21_)
+   ___POLL(3)
 ___DEF_SLBL(3,___L3___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_)
-   ___IF_NARGS_EQ(2,___NOTHING)
-   ___WRONG_NARGS(3,2,0,0)
-   ___SET_STK(1,___R0)
-   ___SET_STK(2,___R2)
-   ___SET_STK(3,___R4)
-   ___ADJFP(8)
-   ___POLL(4)
+   ___ADJFP(-3)
+   ___SET_NARGS(4) ___JUMPINT(___NOTHING,___PRC(318),___L0___codegen_23_codegen_2d_fixup_2d_generic_21_)
 ___DEF_SLBL(4,___L4___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_)
-   ___SET_R0(___LBL(5))
-   ___JUMPGENNOTSAFE(___SET_NARGS(0),___CLO(___R4,2))
+   ___IF_NARGS_EQ(2,___NOTHING)
+   ___WRONG_NARGS(4,2,0,0)
+___GATE2_OPEN(___ps,"_codegen#codegen-fixup-lbl-late!",5,___LBL(
+5),___fp);
 ___DEF_SLBL(5,___L5___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_)
+___GATE2_ENTER(___ps,"_codegen#codegen-fixup-lbl-late!",5,___LBL(
+5),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,8,0,___LBL(5),&___demand_attempt)){___ps->temp1=___LBL(5);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R0)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_STK(1,___R4)
+   ___ADJFP(1)
+   ___ADJFP(5)
+___group_demand_commit(___ps,___LBL(5),___demand_attempt);
+   ___POLL(6)
+___DEF_SLBL(6,___L6___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_)
+   ___SET_R0(___LBL(7))
+   ___JUMPGENNOTSAFE(___SET_NARGS(0),___CLO(___R4,2))
+___DEF_SLBL(7,___L7___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_)
    ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L14___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_)
+   ___GOTO(___L16___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_)
    ___END_IF
    ___IF(___NOT(___NOTFALSEP(___CLO(___STK(-5),3))))
-   ___GOTO(___L12___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_)
+   ___GOTO(___L14___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_)
    ___END_IF
    ___SET_STK(-4,___R1)
    ___SET_R1(___FIX(0L))
-   ___GOTO(___L13___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_)
-___DEF_GLBL(___L12___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_)
+   ___GOTO(___L15___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_)
+___DEF_GLBL(___L14___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_)
    ___SET_STK(-4,___R1)
    ___SET_R1(___FIX(1L))
-___DEF_GLBL(___L13___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_)
+___DEF_GLBL(___L15___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_)
    ___SET_STK(-3,___R1)
    ___SET_R2(___CLO(___STK(-5),1))
    ___SET_R1(___FIX(16L))
-   ___SET_R0(___LBL(6))
+   ___SET_R0(___LBL(8))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),66,___G_fx_2a_)
-___DEF_SLBL(6,___L6___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_)
+___DEF_SLBL(8,___L8___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_)
    ___SET_STK(-5,___R1)
    ___SET_R1(___STK(-4))
-   ___SET_R0(___LBL(7))
+   ___SET_R0(___LBL(9))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),51,___G___asm_23_asm_2d_label_2d_pos)
-___DEF_SLBL(7,___L7___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_)
+___DEF_SLBL(9,___L9___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_)
    ___SET_R2(___STK(-6))
-   ___SET_R0(___LBL(8))
+   ___SET_R0(___LBL(10))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),68,___G_fx_2d_)
-___DEF_SLBL(8,___L8___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_)
+___DEF_SLBL(10,___L10___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_)
    ___SET_R2(___R1)
    ___SET_R1(___FIX(256L))
-   ___SET_R0(___LBL(9))
+   ___SET_R0(___LBL(11))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),66,___G_fx_2a_)
-___DEF_SLBL(9,___L9___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_)
+___DEF_SLBL(11,___L11___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_)
    ___SET_R2(___R1)
    ___SET_R1(___STK(-5))
-   ___SET_R0(___LBL(10))
+   ___SET_R0(___LBL(12))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),67,___G_fx_2b_)
-___DEF_SLBL(10,___L10___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_)
+___DEF_SLBL(12,___L12___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_)
    ___SET_R2(___R1)
    ___SET_R0(___STK(-7))
    ___SET_R1(___STK(-3))
-   ___POLL(11)
-___DEF_SLBL(11,___L11___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_)
+   ___POLL(13)
+___DEF_SLBL(13,___L13___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_)
    ___ADJFP(-8)
    ___JUMPGLONOTSAFE(___SET_NARGS(2),67,___G_fx_2b_)
-___DEF_GLBL(___L14___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_)
+___DEF_GLBL(___L16___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_)
    ___SET_R1(___FIX(0L))
    ___ADJFP(-8)
    ___JUMPRET(___STK(1))
@@ -3713,15 +4319,15 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_
 #undef ___PH_LBL0
-#define ___PH_LBL0 314
+#define ___PH_LBL0 368
 #undef ___PD_ALL
-#define ___PD_ALL ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
 #undef ___PR_ALL
 #define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
 #undef ___PW_ALL
 #define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(13)
+___BEGIN_P_HLBL_AT(17)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_)
 ___DEF_P_HLBL(___L1___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_)
@@ -3736,98 +4342,137 @@ ___DEF_P_HLBL(___L9___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_)
 ___DEF_P_HLBL(___L10___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_)
 ___DEF_P_HLBL(___L11___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_)
 ___DEF_P_HLBL(___L12___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_)
+___DEF_P_HLBL(___L13___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_)
+___DEF_P_HLBL(___L14___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_)
+___DEF_P_HLBL(___L15___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_)
+___DEF_P_HLBL(___L16___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_)
    ___IF_NARGS_EQ(6,___NOTHING)
    ___WRONG_NARGS(0,6,0,0)
 ___DEF_GLBL(___L___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_)
-   ___SET_STK(1,___R0)
-   ___SET_STK(2,___R1)
-   ___SET_STK(3,___R2)
-   ___SET_STK(4,___R3)
-   ___SET_R2(___STK(0))
-   ___SET_R1(___STK(-2))
-   ___ADJFP(9)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_codegen#codegen-fixup-obj-generic!",1,___LBL(
+1),___fp);
 ___DEF_SLBL(1,___L1___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_)
-   ___SET_R0(___LBL(2))
-   ___JUMPINT(___SET_NARGS(2),___PRC(250),___L___codegen_23_codegen_2d_context_2d_fixup_2d_obj_2d_register_21_)
+___GATE2_ENTER(___ps,"_codegen#codegen-fixup-obj-generic!",1,___LBL(
+1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,9,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R0)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___SET_STK(1,___R3)
+   ___ADJFP(1)
+   ___SET_R2(___STK(-4))
+   ___SET_R1(___STK(-6))
+   ___ADJFP(5)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
 ___DEF_SLBL(2,___L2___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_)
+   ___SET_R0(___LBL(3))
+   ___JUMPINT(___SET_NARGS(2),___PRC(292),___L___codegen_23_codegen_2d_context_2d_fixup_2d_obj_2d_register_21_)
+___DEF_SLBL(3,___L3___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_)
+___GATE2_OPEN(___ps,"_codegen#codegen-fixup-obj-generic!",4,___LBL(
+4),___fp);
+___DEF_SLBL(4,___L4___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_)
+___GATE2_ENTER(___ps,"_codegen#codegen-fixup-obj-generic!",4,___LBL(
+4),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,0,6,___LBL(4),&___demand_attempt)){___ps->temp1=___LBL(4);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(-4,___ALLOC_CLO(3UL))
-   ___BEGIN_SETUP_CLO(3,___STK(-4),6)
+   ___BEGIN_SETUP_CLO(3,___STK(-4),9)
    ___ADD_CLO_ELEM(0,___STK(-6))
    ___ADD_CLO_ELEM(1,___STK(-9))
    ___ADD_CLO_ELEM(2,___STK(-10))
    ___END_SETUP_CLO(3)
    ___SET_STK(-10,___STK(-4))
    ___ADJFP(-4)
-   ___CHECK_HEAP(3,4096)
-___DEF_SLBL(3,___L3___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_)
+___group_demand_commit(___ps,___LBL(4),___demand_attempt);
+   ___CHECK_HEAP(5,4096)
+___DEF_SLBL(5,___L5___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_)
    ___IF(___NOTFALSEP(___STK(-1)))
-   ___GOTO(___L15___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_)
+   ___GOTO(___L19___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_)
    ___END_IF
    ___SET_R1(___FAL)
-   ___GOTO(___L13___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_)
-___DEF_SLBL(4,___L4___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_)
+   ___GOTO(___L17___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_)
+___DEF_SLBL(6,___L6___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_)
    ___IF(___NOTFALSEP(___R1))
-   ___GOTO(___L14___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_)
+   ___GOTO(___L18___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_)
    ___END_IF
    ___SET_R1(___STK(-5))
    ___ADJFP(-4)
-___DEF_GLBL(___L13___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_)
+___DEF_GLBL(___L17___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_)
    ___SET_R3(___R1)
    ___SET_R1(___STK(-3))
    ___SET_R0(___STK(-4))
    ___SET_R2(___STK(-6))
-   ___POLL(5)
-___DEF_SLBL(5,___L5___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_)
-   ___ADJFP(-7)
-   ___SET_NARGS(4) ___JUMPINT(___NOTHING,___PRC(272),___L0___codegen_23_codegen_2d_fixup_2d_generic_21_)
-___DEF_GLBL(___L14___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_)
-   ___SET_R1(___SUB(1))
-   ___ADJFP(-4)
-   ___GOTO(___L13___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_)
-___DEF_GLBL(___L15___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_)
-   ___SET_R1(___STK(-1))
-   ___SET_R0(___LBL(4))
-   ___ADJFP(4)
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),54,___G_boolean_3f_)
-___DEF_SLBL(6,___L6___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_)
-   ___IF_NARGS_EQ(2,___NOTHING)
-   ___WRONG_NARGS(6,2,0,0)
-   ___SET_STK(1,___R0)
-   ___SET_STK(2,___R4)
-   ___SET_STK(3,___R1)
-   ___SET_R2(___CLO(___R4,1))
-   ___SET_R1(___FIX(16L))
-   ___ADJFP(8)
    ___POLL(7)
 ___DEF_SLBL(7,___L7___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_)
-   ___SET_R0(___LBL(8))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),66,___G_fx_2a_)
+   ___ADJFP(-7)
+   ___SET_NARGS(4) ___JUMPINT(___NOTHING,___PRC(318),___L0___codegen_23_codegen_2d_fixup_2d_generic_21_)
+___DEF_GLBL(___L18___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_)
+   ___SET_R1(___SUB(1))
+   ___ADJFP(-4)
+   ___GOTO(___L17___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_)
+___DEF_GLBL(___L19___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_)
+___GATE2_OPEN(___ps,"_codegen#codegen-fixup-obj-generic!",8,___LBL(
+8),___fp);
 ___DEF_SLBL(8,___L8___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_)
+___GATE2_ENTER(___ps,"_codegen#codegen-fixup-obj-generic!",8,___LBL(
+8),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,4,0,___LBL(8),&___demand_attempt)){___ps->temp1=___LBL(8);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_R1(___STK(-1))
+   ___SET_R0(___LBL(6))
+   ___ADJFP(4)
+___group_demand_commit(___ps,___LBL(8),___demand_attempt);
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),54,___G_boolean_3f_)
+___DEF_SLBL(9,___L9___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_)
+   ___IF_NARGS_EQ(2,___NOTHING)
+   ___WRONG_NARGS(9,2,0,0)
+___GATE2_OPEN(___ps,"_codegen#codegen-fixup-obj-generic!",10,___LBL(
+10),___fp);
+___DEF_SLBL(10,___L10___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_)
+___GATE2_ENTER(___ps,"_codegen#codegen-fixup-obj-generic!",10,___LBL(
+10),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,8,0,___LBL(10),&___demand_attempt)){___ps->temp1=___LBL(10);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___R0)
+   ___ADJFP(1)
+   ___SET_STK(1,___R4)
+   ___ADJFP(1)
+   ___SET_STK(1,___R1)
+   ___ADJFP(1)
+   ___SET_R2(___CLO(___R4,1))
+   ___SET_R1(___FIX(16L))
+   ___ADJFP(5)
+___group_demand_commit(___ps,___LBL(10),___demand_attempt);
+   ___POLL(11)
+___DEF_SLBL(11,___L11___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_)
+   ___SET_R0(___LBL(12))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),66,___G_fx_2a_)
+___DEF_SLBL(12,___L12___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_)
    ___SET_STK(-4,___R1)
    ___SET_R2(___CLO(___STK(-6),2))
    ___SET_R1(___STK(-5))
-   ___SET_R0(___LBL(9))
-   ___JUMPINT(___SET_NARGS(2),___PRC(250),___L___codegen_23_codegen_2d_context_2d_fixup_2d_obj_2d_register_21_)
-___DEF_SLBL(9,___L9___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_)
+   ___SET_R0(___LBL(13))
+   ___JUMPINT(___SET_NARGS(2),___PRC(292),___L___codegen_23_codegen_2d_context_2d_fixup_2d_obj_2d_register_21_)
+___DEF_SLBL(13,___L13___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_)
    ___SET_R2(___R1)
    ___SET_R1(___FIX(256L))
-   ___SET_R0(___LBL(10))
+   ___SET_R0(___LBL(14))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),66,___G_fx_2a_)
-___DEF_SLBL(10,___L10___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_)
+___DEF_SLBL(14,___L14___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_)
    ___SET_R2(___R1)
    ___SET_R1(___STK(-4))
-   ___SET_R0(___LBL(11))
+   ___SET_R0(___LBL(15))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),67,___G_fx_2b_)
-___DEF_SLBL(11,___L11___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_)
+___DEF_SLBL(15,___L15___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_)
    ___SET_R2(___R1)
    ___SET_R1(___CLO(___STK(-6),3))
    ___SET_R0(___STK(-7))
-   ___POLL(12)
-___DEF_SLBL(12,___L12___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_)
+   ___POLL(16)
+___DEF_SLBL(16,___L16___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_)
    ___ADJFP(-8)
    ___JUMPGLONOTSAFE(___SET_NARGS(2),67,___G_fx_2b_)
 ___END_P_SW
@@ -3836,18 +4481,19 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H___codegen_23_codegen_2d_fixup_2d_obj_21_
 #undef ___PH_LBL0
-#define ___PH_LBL0 328
+#define ___PH_LBL0 386
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R1 ___D_R2 ___D_R3
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R1 ___D_R2 ___D_R3
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R1 ___R_R2 ___R_R3
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R1 ___R_R2 ___R_R3
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(2)
+___BEGIN_P_HLBL_AT(3)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___codegen_23_codegen_2d_fixup_2d_obj_21_)
 ___DEF_P_HLBL(___L1___codegen_23_codegen_2d_fixup_2d_obj_21_)
+___DEF_P_HLBL(___L2___codegen_23_codegen_2d_fixup_2d_obj_21_)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___codegen_23_codegen_2d_fixup_2d_obj_21_)
@@ -3855,30 +4501,36 @@ ___DEF_SLBL(0,___L0___codegen_23_codegen_2d_fixup_2d_obj_21_)
    ___IF_NARGS_EQ(5,___NOTHING)
    ___WRONG_NARGS(0,4,1,0)
 ___DEF_GLBL(___L___codegen_23_codegen_2d_fixup_2d_obj_21_)
-   ___SET_STK(1,___STK(0))
-   ___SET_STK(0,___FIX(2L))
-   ___ADJFP(1)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_codegen#codegen-fixup-obj!",1,___LBL(1),___fp);
 ___DEF_SLBL(1,___L1___codegen_23_codegen_2d_fixup_2d_obj_21_)
-   ___JUMPINT(___SET_NARGS(6),___PRC(314),___L___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_)
+___GATE2_ENTER(___ps,"_codegen#codegen-fixup-obj!",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,1,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___STK(0))
+   ___ADJFP(1)
+   ___SET_STK(-1,___FIX(2L))
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
+___DEF_SLBL(2,___L2___codegen_23_codegen_2d_fixup_2d_obj_21_)
+   ___JUMPINT(___SET_NARGS(6),___PRC(368),___L___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_)
 ___END_P_SW
 ___END_P_COD
 
 #undef ___PH_PROC
 #define ___PH_PROC ___H___codegen_23_codegen_2d_fixup_2d_glo_21_
 #undef ___PH_LBL0
-#define ___PH_LBL0 331
+#define ___PH_LBL0 390
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R1 ___D_R2 ___D_R3
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R1 ___D_R2 ___D_R3
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R1 ___R_R2 ___R_R3
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R1 ___R_R2 ___R_R3
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(2)
+___BEGIN_P_HLBL_AT(3)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___codegen_23_codegen_2d_fixup_2d_glo_21_)
 ___DEF_P_HLBL(___L1___codegen_23_codegen_2d_fixup_2d_glo_21_)
+___DEF_P_HLBL(___L2___codegen_23_codegen_2d_fixup_2d_glo_21_)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___codegen_23_codegen_2d_fixup_2d_glo_21_)
@@ -3886,30 +4538,36 @@ ___DEF_SLBL(0,___L0___codegen_23_codegen_2d_fixup_2d_glo_21_)
    ___IF_NARGS_EQ(5,___NOTHING)
    ___WRONG_NARGS(0,4,1,0)
 ___DEF_GLBL(___L___codegen_23_codegen_2d_fixup_2d_glo_21_)
-   ___SET_STK(1,___STK(0))
-   ___SET_STK(0,___FIX(3L))
-   ___ADJFP(1)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_codegen#codegen-fixup-glo!",1,___LBL(1),___fp);
 ___DEF_SLBL(1,___L1___codegen_23_codegen_2d_fixup_2d_glo_21_)
-   ___JUMPINT(___SET_NARGS(6),___PRC(314),___L___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_)
+___GATE2_ENTER(___ps,"_codegen#codegen-fixup-glo!",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,1,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___STK(0))
+   ___ADJFP(1)
+   ___SET_STK(-1,___FIX(3L))
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
+___DEF_SLBL(2,___L2___codegen_23_codegen_2d_fixup_2d_glo_21_)
+   ___JUMPINT(___SET_NARGS(6),___PRC(368),___L___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_)
 ___END_P_SW
 ___END_P_COD
 
 #undef ___PH_PROC
 #define ___PH_PROC ___H___codegen_23_codegen_2d_fixup_2d_prm_21_
 #undef ___PH_LBL0
-#define ___PH_LBL0 334
+#define ___PH_LBL0 394
 #undef ___PD_ALL
-#define ___PD_ALL ___D_FP ___D_R1 ___D_R2 ___D_R3
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R1 ___D_R2 ___D_R3
 #undef ___PR_ALL
-#define ___PR_ALL ___R_FP ___R_R1 ___R_R2 ___R_R3
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R1 ___R_R2 ___R_R3
 #undef ___PW_ALL
-#define ___PW_ALL ___W_FP ___W_R1 ___W_R2 ___W_R3
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R1 ___W_R2 ___W_R3
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(2)
+___BEGIN_P_HLBL_AT(3)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___codegen_23_codegen_2d_fixup_2d_prm_21_)
 ___DEF_P_HLBL(___L1___codegen_23_codegen_2d_fixup_2d_prm_21_)
+___DEF_P_HLBL(___L2___codegen_23_codegen_2d_fixup_2d_prm_21_)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___codegen_23_codegen_2d_fixup_2d_prm_21_)
@@ -3917,27 +4575,32 @@ ___DEF_SLBL(0,___L0___codegen_23_codegen_2d_fixup_2d_prm_21_)
    ___IF_NARGS_EQ(5,___NOTHING)
    ___WRONG_NARGS(0,4,1,0)
 ___DEF_GLBL(___L___codegen_23_codegen_2d_fixup_2d_prm_21_)
-   ___SET_STK(1,___STK(0))
-   ___SET_STK(0,___FIX(4L))
-   ___ADJFP(1)
-   ___POLL(1)
+___GATE2_OPEN(___ps,"_codegen#codegen-fixup-prm!",1,___LBL(1),___fp);
 ___DEF_SLBL(1,___L1___codegen_23_codegen_2d_fixup_2d_prm_21_)
-   ___JUMPINT(___SET_NARGS(6),___PRC(314),___L___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_)
+___GATE2_ENTER(___ps,"_codegen#codegen-fixup-prm!",1,___LBL(1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,1,0,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(1,___STK(0))
+   ___ADJFP(1)
+   ___SET_STK(-1,___FIX(4L))
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___POLL(2)
+___DEF_SLBL(2,___L2___codegen_23_codegen_2d_fixup_2d_prm_21_)
+   ___JUMPINT(___SET_NARGS(6),___PRC(368),___L___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_)
 ___END_P_SW
 ___END_P_COD
 
 #undef ___PH_PROC
 #define ___PH_PROC ___H___codegen_23_codegen_2d_fixup_2d_handler_21_
 #undef ___PH_LBL0
-#define ___PH_LBL0 337
+#define ___PH_LBL0 398
 #undef ___PD_ALL
-#define ___PD_ALL ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
 #undef ___PR_ALL
 #define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
 #undef ___PW_ALL
 #define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(12)
+___BEGIN_P_HLBL_AT(14)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0___codegen_23_codegen_2d_fixup_2d_handler_21_)
 ___DEF_P_HLBL(___L1___codegen_23_codegen_2d_fixup_2d_handler_21_)
@@ -3951,70 +4614,91 @@ ___DEF_P_HLBL(___L8___codegen_23_codegen_2d_fixup_2d_handler_21_)
 ___DEF_P_HLBL(___L9___codegen_23_codegen_2d_fixup_2d_handler_21_)
 ___DEF_P_HLBL(___L10___codegen_23_codegen_2d_fixup_2d_handler_21_)
 ___DEF_P_HLBL(___L11___codegen_23_codegen_2d_fixup_2d_handler_21_)
+___DEF_P_HLBL(___L12___codegen_23_codegen_2d_fixup_2d_handler_21_)
+___DEF_P_HLBL(___L13___codegen_23_codegen_2d_fixup_2d_handler_21_)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0___codegen_23_codegen_2d_fixup_2d_handler_21_)
    ___IF_NARGS_EQ(4,___NOTHING)
    ___WRONG_NARGS(0,4,0,0)
 ___DEF_GLBL(___L___codegen_23_codegen_2d_fixup_2d_handler_21_)
+___GATE2_OPEN(___ps,"_codegen#codegen-fixup-handler!",1,___LBL(
+1),___fp);
+___DEF_SLBL(1,___L1___codegen_23_codegen_2d_fixup_2d_handler_21_)
+___GATE2_ENTER(___ps,"_codegen#codegen-fixup-handler!",1,___LBL(
+1),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,7,5,___LBL(1),&___demand_attempt)){___ps->temp1=___LBL(1);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___ALLOC_CLO(2UL))
-   ___BEGIN_SETUP_CLO(2,___STK(1),5)
+   ___BEGIN_SETUP_CLO(2,___STK(1),6)
    ___ADD_CLO_ELEM(0,___R1)
    ___ADD_CLO_ELEM(1,___R3)
    ___END_SETUP_CLO(2)
-   ___SET_STK(2,___R0)
-   ___SET_STK(3,___R2)
-   ___ADJFP(7)
-   ___CHECK_HEAP(1,4096)
-___DEF_SLBL(1,___L1___codegen_23_codegen_2d_fixup_2d_handler_21_)
-   ___POLL(2)
+   ___ADJFP(1)
+   ___SET_STK(1,___R0)
+   ___ADJFP(1)
+   ___SET_STK(1,___R2)
+   ___ADJFP(1)
+   ___ADJFP(4)
+___group_demand_commit(___ps,___LBL(1),___demand_attempt);
+   ___CHECK_HEAP(2,4096)
 ___DEF_SLBL(2,___L2___codegen_23_codegen_2d_fixup_2d_handler_21_)
-   ___SET_R0(___LBL(3))
-   ___JUMPGLONOTSAFE(___SET_NARGS(1),80,___G_symbol_2d__3e_string)
+   ___POLL(3)
 ___DEF_SLBL(3,___L3___codegen_23_codegen_2d_fixup_2d_handler_21_)
+   ___SET_R0(___LBL(4))
+   ___JUMPGLONOTSAFE(___SET_NARGS(1),80,___G_symbol_2d__3e_string)
+___DEF_SLBL(4,___L4___codegen_23_codegen_2d_fixup_2d_handler_21_)
    ___SET_R3(___R1)
    ___SET_R1(___STK(-4))
    ___SET_R0(___STK(-5))
    ___SET_R2(___STK(-6))
-   ___POLL(4)
-___DEF_SLBL(4,___L4___codegen_23_codegen_2d_fixup_2d_handler_21_)
-   ___ADJFP(-7)
-   ___SET_NARGS(4) ___JUMPINT(___NOTHING,___PRC(272),___L0___codegen_23_codegen_2d_fixup_2d_generic_21_)
+   ___POLL(5)
 ___DEF_SLBL(5,___L5___codegen_23_codegen_2d_fixup_2d_handler_21_)
+   ___ADJFP(-7)
+   ___SET_NARGS(4) ___JUMPINT(___NOTHING,___PRC(318),___L0___codegen_23_codegen_2d_fixup_2d_generic_21_)
+___DEF_SLBL(6,___L6___codegen_23_codegen_2d_fixup_2d_handler_21_)
    ___IF_NARGS_EQ(2,___NOTHING)
-   ___WRONG_NARGS(5,2,0,0)
+   ___WRONG_NARGS(6,2,0,0)
+___GATE2_OPEN(___ps,"_codegen#codegen-fixup-handler!",7,___LBL(
+7),___fp);
+___DEF_SLBL(7,___L7___codegen_23_codegen_2d_fixup_2d_handler_21_)
+___GATE2_ENTER(___ps,"_codegen#codegen-fixup-handler!",7,___LBL(
+7),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,8,0,___LBL(7),&___demand_attempt)){___ps->temp1=___LBL(7);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
    ___SET_STK(1,___R0)
-   ___SET_STK(2,___R4)
+   ___ADJFP(1)
+   ___SET_STK(1,___R4)
+   ___ADJFP(1)
    ___SET_R2(___CLO(___R4,2))
    ___SET_R1(___FIX(16L))
-   ___ADJFP(8)
-   ___POLL(6)
-___DEF_SLBL(6,___L6___codegen_23_codegen_2d_fixup_2d_handler_21_)
-   ___SET_R0(___LBL(7))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),66,___G_fx_2a_)
-___DEF_SLBL(7,___L7___codegen_23_codegen_2d_fixup_2d_handler_21_)
-   ___SET_STK(-5,___R1)
-   ___SET_R1(___CLO(___STK(-6),1))
-   ___SET_R2(___CNS(0))
-   ___SET_R0(___LBL(8))
-   ___JUMPGLONOTSAFE(___SET_NARGS(2),56,___G_c_23_object_2d_pos_2d_in_2d_list)
+   ___ADJFP(6)
+___group_demand_commit(___ps,___LBL(7),___demand_attempt);
+   ___POLL(8)
 ___DEF_SLBL(8,___L8___codegen_23_codegen_2d_fixup_2d_handler_21_)
-   ___SET_R2(___R1)
-   ___SET_R1(___FIX(256L))
    ___SET_R0(___LBL(9))
    ___JUMPGLONOTSAFE(___SET_NARGS(2),66,___G_fx_2a_)
 ___DEF_SLBL(9,___L9___codegen_23_codegen_2d_fixup_2d_handler_21_)
+   ___SET_STK(-5,___R1)
+   ___SET_R1(___CLO(___STK(-6),1))
+   ___SET_R2(___CNS(0))
+   ___SET_R0(___LBL(10))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),56,___G_c_23_object_2d_pos_2d_in_2d_list)
+___DEF_SLBL(10,___L10___codegen_23_codegen_2d_fixup_2d_handler_21_)
+   ___SET_R2(___R1)
+   ___SET_R1(___FIX(256L))
+   ___SET_R0(___LBL(11))
+   ___JUMPGLONOTSAFE(___SET_NARGS(2),66,___G_fx_2a_)
+___DEF_SLBL(11,___L11___codegen_23_codegen_2d_fixup_2d_handler_21_)
    ___SET_R2(___R1)
    ___SET_R1(___STK(-5))
-   ___SET_R0(___LBL(10))
+   ___SET_R0(___LBL(12))
    ___ADJFP(-4)
    ___JUMPGLONOTSAFE(___SET_NARGS(2),67,___G_fx_2b_)
-___DEF_SLBL(10,___L10___codegen_23_codegen_2d_fixup_2d_handler_21_)
+___DEF_SLBL(12,___L12___codegen_23_codegen_2d_fixup_2d_handler_21_)
    ___SET_R2(___R1)
    ___SET_R1(___FIX(5L))
    ___SET_R0(___STK(-3))
-   ___POLL(11)
-___DEF_SLBL(11,___L11___codegen_23_codegen_2d_fixup_2d_handler_21_)
+   ___POLL(13)
+___DEF_SLBL(13,___L13___codegen_23_codegen_2d_fixup_2d_handler_21_)
    ___ADJFP(-4)
    ___JUMPGLONOTSAFE(___SET_NARGS(2),67,___G_fx_2b_)
 ___END_P_SW
@@ -4026,19 +4710,19 @@ ___END_M_COD
 ___BEGIN_LBL
  ___DEF_LBL_INTRO(___H___codegen_23_,___REF_SYM(2,___S___codegen_23_),___REF_FAL,1,0)
 ,___DEF_LBL_PROC_AT(___H___codegen_23_,0,-1,1)
-,___DEF_LBL_INTRO(___H___codegen_23_make_2d_codegen_2d_context,___REF_SYM(47,___S___codegen_23_make_2d_codegen_2d_context),___REF_FAL,28,0)
+,___DEF_LBL_INTRO(___H___codegen_23_make_2d_codegen_2d_context,___REF_SYM(47,___S___codegen_23_make_2d_codegen_2d_context),___REF_FAL,30,0)
 ,___DEF_LBL_PROC_AT(___H___codegen_23_make_2d_codegen_2d_context,0,-1,1)
-,___DEF_LBL_RET_AT(___H___codegen_23_make_2d_codegen_2d_context,___IFD(___RETI,4,0,0x3f1L),2)
-,___DEF_LBL_RET_AT(___H___codegen_23_make_2d_codegen_2d_context,___IFD(___RETN,1,0,0x1L),3)
+,___DEF_LBL_RET_AT(___H___codegen_23_make_2d_codegen_2d_context,___IFD(___RETI,0,0,0x3fL),2)
+,___DEF_LBL_RET_AT(___H___codegen_23_make_2d_codegen_2d_context,___IFD(___RETI,4,0,0x3f1L),3)
 ,___DEF_LBL_RET_AT(___H___codegen_23_make_2d_codegen_2d_context,___IFD(___RETN,1,0,0x1L),4)
-,___DEF_LBL_RET_AT(___H___codegen_23_make_2d_codegen_2d_context,___IFD(___RETN,5,0,0x3L),5)
-,___DEF_LBL_RET_AT(___H___codegen_23_make_2d_codegen_2d_context,___IFD(___RETN,5,0,0x3L),6)
+,___DEF_LBL_RET_AT(___H___codegen_23_make_2d_codegen_2d_context,___IFD(___RETN,1,0,0x1L),5)
+,___DEF_LBL_RET_AT(___H___codegen_23_make_2d_codegen_2d_context,___IFD(___RETI,4,0,0x3f1L),6)
 ,___DEF_LBL_RET_AT(___H___codegen_23_make_2d_codegen_2d_context,___IFD(___RETN,5,0,0x3L),7)
 ,___DEF_LBL_RET_AT(___H___codegen_23_make_2d_codegen_2d_context,___IFD(___RETN,5,0,0x3L),8)
 ,___DEF_LBL_RET_AT(___H___codegen_23_make_2d_codegen_2d_context,___IFD(___RETN,5,0,0x3L),9)
-,___DEF_LBL_RET_AT(___H___codegen_23_make_2d_codegen_2d_context,___IFD(___RETN,5,0,0x7L),10)
+,___DEF_LBL_RET_AT(___H___codegen_23_make_2d_codegen_2d_context,___IFD(___RETN,5,0,0x3L),10)
 ,___DEF_LBL_RET_AT(___H___codegen_23_make_2d_codegen_2d_context,___IFD(___RETN,5,0,0x3L),11)
-,___DEF_LBL_RET_AT(___H___codegen_23_make_2d_codegen_2d_context,___IFD(___RETN,5,0,0x3L),12)
+,___DEF_LBL_RET_AT(___H___codegen_23_make_2d_codegen_2d_context,___IFD(___RETN,5,0,0x7L),12)
 ,___DEF_LBL_RET_AT(___H___codegen_23_make_2d_codegen_2d_context,___IFD(___RETN,5,0,0x3L),13)
 ,___DEF_LBL_RET_AT(___H___codegen_23_make_2d_codegen_2d_context,___IFD(___RETN,5,0,0x3L),14)
 ,___DEF_LBL_RET_AT(___H___codegen_23_make_2d_codegen_2d_context,___IFD(___RETN,5,0,0x3L),15)
@@ -4047,336 +4731,401 @@ ___BEGIN_LBL
 ,___DEF_LBL_RET_AT(___H___codegen_23_make_2d_codegen_2d_context,___IFD(___RETN,5,0,0x3L),18)
 ,___DEF_LBL_RET_AT(___H___codegen_23_make_2d_codegen_2d_context,___IFD(___RETN,5,0,0x3L),19)
 ,___DEF_LBL_RET_AT(___H___codegen_23_make_2d_codegen_2d_context,___IFD(___RETN,5,0,0x3L),20)
-,___DEF_LBL_RET_AT(___H___codegen_23_make_2d_codegen_2d_context,___IFD(___RETN,5,0,0x7L),21)
+,___DEF_LBL_RET_AT(___H___codegen_23_make_2d_codegen_2d_context,___IFD(___RETN,5,0,0x3L),21)
 ,___DEF_LBL_RET_AT(___H___codegen_23_make_2d_codegen_2d_context,___IFD(___RETN,5,0,0x3L),22)
-,___DEF_LBL_RET_AT(___H___codegen_23_make_2d_codegen_2d_context,___IFD(___RETN,5,0,0x3L),23)
-,___DEF_LBL_RET_AT(___H___codegen_23_make_2d_codegen_2d_context,___IFD(___RETN,5,0,0x7L),24)
+,___DEF_LBL_RET_AT(___H___codegen_23_make_2d_codegen_2d_context,___IFD(___RETN,5,0,0x7L),23)
+,___DEF_LBL_RET_AT(___H___codegen_23_make_2d_codegen_2d_context,___IFD(___RETN,5,0,0x3L),24)
 ,___DEF_LBL_RET_AT(___H___codegen_23_make_2d_codegen_2d_context,___IFD(___RETN,5,0,0x3L),25)
-,___DEF_LBL_RET_AT(___H___codegen_23_make_2d_codegen_2d_context,___IFD(___RETN,5,0,0x3L),26)
-,___DEF_LBL_RET_AT(___H___codegen_23_make_2d_codegen_2d_context,___IFD(___RETN,5,0,0x7L),27)
+,___DEF_LBL_RET_AT(___H___codegen_23_make_2d_codegen_2d_context,___IFD(___RETN,5,0,0x7L),26)
+,___DEF_LBL_RET_AT(___H___codegen_23_make_2d_codegen_2d_context,___IFD(___RETN,5,0,0x3L),27)
 ,___DEF_LBL_RET_AT(___H___codegen_23_make_2d_codegen_2d_context,___IFD(___RETN,5,0,0x3L),28)
-,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_context_2d_listing_2d_format,___REF_SYM(23,___S___codegen_23_codegen_2d_context_2d_listing_2d_format),___REF_FAL,4,0)
+,___DEF_LBL_RET_AT(___H___codegen_23_make_2d_codegen_2d_context,___IFD(___RETN,5,0,0x7L),29)
+,___DEF_LBL_RET_AT(___H___codegen_23_make_2d_codegen_2d_context,___IFD(___RETN,5,0,0x3L),30)
+,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_context_2d_listing_2d_format,___REF_SYM(23,___S___codegen_23_codegen_2d_context_2d_listing_2d_format),___REF_FAL,5,0)
 ,___DEF_LBL_PROC_AT(___H___codegen_23_codegen_2d_context_2d_listing_2d_format,1,-1,1)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_listing_2d_format,___IFD(___RETI,8,0,0x3f03L),2)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_listing_2d_format,___IFD(___RETN,5,0,0x3L),3)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_listing_2d_format,___IFD(___RETI,8,8,0x3f00L),4)
-,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_context_2d_listing_2d_format_2d_set_21_,___REF_SYM(24,___S___codegen_23_codegen_2d_context_2d_listing_2d_format_2d_set_21_),___REF_FAL,4,0)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_listing_2d_format,___IFD(___RETI,0,0,0x3fL),2)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_listing_2d_format,___IFD(___RETI,8,0,0x3f03L),3)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_listing_2d_format,___IFD(___RETN,5,0,0x3L),4)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_listing_2d_format,___IFD(___RETI,8,8,0x3f00L),5)
+,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_context_2d_listing_2d_format_2d_set_21_,___REF_SYM(24,___S___codegen_23_codegen_2d_context_2d_listing_2d_format_2d_set_21_),___REF_FAL,5,0)
 ,___DEF_LBL_PROC_AT(___H___codegen_23_codegen_2d_context_2d_listing_2d_format_2d_set_21_,2,-1,1)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_listing_2d_format_2d_set_21_,___IFD(___RETI,8,0,0x3f07L),2)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_listing_2d_format_2d_set_21_,___IFD(___RETN,5,0,0x7L),3)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_listing_2d_format_2d_set_21_,___IFD(___RETI,8,8,0x3f00L),4)
-,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_context_2d_arch,___REF_SYM(3,___S___codegen_23_codegen_2d_context_2d_arch),___REF_FAL,4,0)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_listing_2d_format_2d_set_21_,___IFD(___RETI,0,0,0x3fL),2)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_listing_2d_format_2d_set_21_,___IFD(___RETI,8,0,0x3f07L),3)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_listing_2d_format_2d_set_21_,___IFD(___RETN,5,0,0x7L),4)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_listing_2d_format_2d_set_21_,___IFD(___RETI,8,8,0x3f00L),5)
+,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_context_2d_arch,___REF_SYM(3,___S___codegen_23_codegen_2d_context_2d_arch),___REF_FAL,5,0)
 ,___DEF_LBL_PROC_AT(___H___codegen_23_codegen_2d_context_2d_arch,1,-1,1)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_arch,___IFD(___RETI,8,0,0x3f03L),2)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_arch,___IFD(___RETN,5,0,0x3L),3)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_arch,___IFD(___RETI,8,8,0x3f00L),4)
-,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_context_2d_arch_2d_set_21_,___REF_SYM(4,___S___codegen_23_codegen_2d_context_2d_arch_2d_set_21_),___REF_FAL,4,0)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_arch,___IFD(___RETI,0,0,0x3fL),2)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_arch,___IFD(___RETI,8,0,0x3f03L),3)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_arch,___IFD(___RETN,5,0,0x3L),4)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_arch,___IFD(___RETI,8,8,0x3f00L),5)
+,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_context_2d_arch_2d_set_21_,___REF_SYM(4,___S___codegen_23_codegen_2d_context_2d_arch_2d_set_21_),___REF_FAL,5,0)
 ,___DEF_LBL_PROC_AT(___H___codegen_23_codegen_2d_context_2d_arch_2d_set_21_,2,-1,1)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_arch_2d_set_21_,___IFD(___RETI,8,0,0x3f07L),2)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_arch_2d_set_21_,___IFD(___RETN,5,0,0x7L),3)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_arch_2d_set_21_,___IFD(___RETI,8,8,0x3f00L),4)
-,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_context_2d_target,___REF_SYM(37,___S___codegen_23_codegen_2d_context_2d_target),___REF_FAL,4,0)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_arch_2d_set_21_,___IFD(___RETI,0,0,0x3fL),2)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_arch_2d_set_21_,___IFD(___RETI,8,0,0x3f07L),3)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_arch_2d_set_21_,___IFD(___RETN,5,0,0x7L),4)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_arch_2d_set_21_,___IFD(___RETI,8,8,0x3f00L),5)
+,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_context_2d_target,___REF_SYM(37,___S___codegen_23_codegen_2d_context_2d_target),___REF_FAL,5,0)
 ,___DEF_LBL_PROC_AT(___H___codegen_23_codegen_2d_context_2d_target,1,-1,1)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_target,___IFD(___RETI,8,0,0x3f03L),2)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_target,___IFD(___RETN,5,0,0x3L),3)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_target,___IFD(___RETI,8,8,0x3f00L),4)
-,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_context_2d_target_2d_set_21_,___REF_SYM(38,___S___codegen_23_codegen_2d_context_2d_target_2d_set_21_),___REF_FAL,4,0)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_target,___IFD(___RETI,0,0,0x3fL),2)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_target,___IFD(___RETI,8,0,0x3f03L),3)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_target,___IFD(___RETN,5,0,0x3L),4)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_target,___IFD(___RETI,8,8,0x3f00L),5)
+,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_context_2d_target_2d_set_21_,___REF_SYM(38,___S___codegen_23_codegen_2d_context_2d_target_2d_set_21_),___REF_FAL,5,0)
 ,___DEF_LBL_PROC_AT(___H___codegen_23_codegen_2d_context_2d_target_2d_set_21_,2,-1,1)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_target_2d_set_21_,___IFD(___RETI,8,0,0x3f07L),2)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_target_2d_set_21_,___IFD(___RETN,5,0,0x7L),3)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_target_2d_set_21_,___IFD(___RETI,8,8,0x3f00L),4)
-,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs,___REF_SYM(11,___S___codegen_23_codegen_2d_context_2d_fixup_2d_locs),___REF_FAL,4,0)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_target_2d_set_21_,___IFD(___RETI,0,0,0x3fL),2)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_target_2d_set_21_,___IFD(___RETI,8,0,0x3f07L),3)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_target_2d_set_21_,___IFD(___RETN,5,0,0x7L),4)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_target_2d_set_21_,___IFD(___RETI,8,8,0x3f00L),5)
+,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs,___REF_SYM(11,___S___codegen_23_codegen_2d_context_2d_fixup_2d_locs),___REF_FAL,5,0)
 ,___DEF_LBL_PROC_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs,1,-1,1)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs,___IFD(___RETI,8,0,0x3f03L),2)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs,___IFD(___RETN,5,0,0x3L),3)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs,___IFD(___RETI,8,8,0x3f00L),4)
-,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_set_21_,___REF_SYM(14,___S___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_set_21_),___REF_FAL,4,0)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs,___IFD(___RETI,0,0,0x3fL),2)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs,___IFD(___RETI,8,0,0x3f03L),3)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs,___IFD(___RETN,5,0,0x3L),4)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs,___IFD(___RETI,8,8,0x3f00L),5)
+,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_set_21_,___REF_SYM(14,___S___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_set_21_),___REF_FAL,5,0)
 ,___DEF_LBL_PROC_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_set_21_,2,-1,1)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_set_21_,___IFD(___RETI,8,0,0x3f07L),2)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_set_21_,___IFD(___RETN,5,0,0x7L),3)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_set_21_,___IFD(___RETI,8,8,0x3f00L),4)
-,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_context_2d_fixup_2d_objs,___REF_SYM(16,___S___codegen_23_codegen_2d_context_2d_fixup_2d_objs),___REF_FAL,4,0)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_set_21_,___IFD(___RETI,0,0,0x3fL),2)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_set_21_,___IFD(___RETI,8,0,0x3f07L),3)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_set_21_,___IFD(___RETN,5,0,0x7L),4)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_set_21_,___IFD(___RETI,8,8,0x3f00L),5)
+,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_context_2d_fixup_2d_objs,___REF_SYM(16,___S___codegen_23_codegen_2d_context_2d_fixup_2d_objs),___REF_FAL,5,0)
 ,___DEF_LBL_PROC_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_objs,1,-1,1)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_objs,___IFD(___RETI,8,0,0x3f03L),2)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_objs,___IFD(___RETN,5,0,0x3L),3)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_objs,___IFD(___RETI,8,8,0x3f00L),4)
-,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d_set_21_,___REF_SYM(18,___S___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d_set_21_),___REF_FAL,4,0)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_objs,___IFD(___RETI,0,0,0x3fL),2)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_objs,___IFD(___RETI,8,0,0x3f03L),3)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_objs,___IFD(___RETN,5,0,0x3L),4)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_objs,___IFD(___RETI,8,8,0x3f00L),5)
+,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d_set_21_,___REF_SYM(18,___S___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d_set_21_),___REF_FAL,5,0)
 ,___DEF_LBL_PROC_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d_set_21_,2,-1,1)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d_set_21_,___IFD(___RETI,8,0,0x3f07L),2)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d_set_21_,___IFD(___RETN,5,0,0x7L),3)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d_set_21_,___IFD(___RETI,8,8,0x3f00L),4)
-,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_context_2d_current_2d_proc,___REF_SYM(7,___S___codegen_23_codegen_2d_context_2d_current_2d_proc),___REF_FAL,4,0)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d_set_21_,___IFD(___RETI,0,0,0x3fL),2)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d_set_21_,___IFD(___RETI,8,0,0x3f07L),3)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d_set_21_,___IFD(___RETN,5,0,0x7L),4)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d_set_21_,___IFD(___RETI,8,8,0x3f00L),5)
+,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_context_2d_current_2d_proc,___REF_SYM(7,___S___codegen_23_codegen_2d_context_2d_current_2d_proc),___REF_FAL,5,0)
 ,___DEF_LBL_PROC_AT(___H___codegen_23_codegen_2d_context_2d_current_2d_proc,1,-1,1)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_current_2d_proc,___IFD(___RETI,8,0,0x3f03L),2)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_current_2d_proc,___IFD(___RETN,5,0,0x3L),3)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_current_2d_proc,___IFD(___RETI,8,8,0x3f00L),4)
-,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_context_2d_current_2d_proc_2d_set_21_,___REF_SYM(8,___S___codegen_23_codegen_2d_context_2d_current_2d_proc_2d_set_21_),___REF_FAL,4,0)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_current_2d_proc,___IFD(___RETI,0,0,0x3fL),2)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_current_2d_proc,___IFD(___RETI,8,0,0x3f03L),3)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_current_2d_proc,___IFD(___RETN,5,0,0x3L),4)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_current_2d_proc,___IFD(___RETI,8,8,0x3f00L),5)
+,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_context_2d_current_2d_proc_2d_set_21_,___REF_SYM(8,___S___codegen_23_codegen_2d_context_2d_current_2d_proc_2d_set_21_),___REF_FAL,5,0)
 ,___DEF_LBL_PROC_AT(___H___codegen_23_codegen_2d_context_2d_current_2d_proc_2d_set_21_,2,-1,1)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_current_2d_proc_2d_set_21_,___IFD(___RETI,8,0,0x3f07L),2)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_current_2d_proc_2d_set_21_,___IFD(___RETN,5,0,0x7L),3)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_current_2d_proc_2d_set_21_,___IFD(___RETI,8,8,0x3f00L),4)
-,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_context_2d_current_2d_code,___REF_SYM(5,___S___codegen_23_codegen_2d_context_2d_current_2d_code),___REF_FAL,4,0)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_current_2d_proc_2d_set_21_,___IFD(___RETI,0,0,0x3fL),2)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_current_2d_proc_2d_set_21_,___IFD(___RETI,8,0,0x3f07L),3)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_current_2d_proc_2d_set_21_,___IFD(___RETN,5,0,0x7L),4)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_current_2d_proc_2d_set_21_,___IFD(___RETI,8,8,0x3f00L),5)
+,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_context_2d_current_2d_code,___REF_SYM(5,___S___codegen_23_codegen_2d_context_2d_current_2d_code),___REF_FAL,5,0)
 ,___DEF_LBL_PROC_AT(___H___codegen_23_codegen_2d_context_2d_current_2d_code,1,-1,1)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_current_2d_code,___IFD(___RETI,8,0,0x3f03L),2)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_current_2d_code,___IFD(___RETN,5,0,0x3L),3)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_current_2d_code,___IFD(___RETI,8,8,0x3f00L),4)
-,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_context_2d_current_2d_code_2d_set_21_,___REF_SYM(6,___S___codegen_23_codegen_2d_context_2d_current_2d_code_2d_set_21_),___REF_FAL,4,0)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_current_2d_code,___IFD(___RETI,0,0,0x3fL),2)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_current_2d_code,___IFD(___RETI,8,0,0x3f03L),3)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_current_2d_code,___IFD(___RETN,5,0,0x3L),4)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_current_2d_code,___IFD(___RETI,8,8,0x3f00L),5)
+,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_context_2d_current_2d_code_2d_set_21_,___REF_SYM(6,___S___codegen_23_codegen_2d_context_2d_current_2d_code_2d_set_21_),___REF_FAL,5,0)
 ,___DEF_LBL_PROC_AT(___H___codegen_23_codegen_2d_context_2d_current_2d_code_2d_set_21_,2,-1,1)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_current_2d_code_2d_set_21_,___IFD(___RETI,8,0,0x3f07L),2)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_current_2d_code_2d_set_21_,___IFD(___RETN,5,0,0x7L),3)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_current_2d_code_2d_set_21_,___IFD(___RETI,8,8,0x3f00L),4)
-,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_context_2d_frame,___REF_SYM(19,___S___codegen_23_codegen_2d_context_2d_frame),___REF_FAL,4,0)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_current_2d_code_2d_set_21_,___IFD(___RETI,0,0,0x3fL),2)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_current_2d_code_2d_set_21_,___IFD(___RETI,8,0,0x3f07L),3)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_current_2d_code_2d_set_21_,___IFD(___RETN,5,0,0x7L),4)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_current_2d_code_2d_set_21_,___IFD(___RETI,8,8,0x3f00L),5)
+,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_context_2d_frame,___REF_SYM(19,___S___codegen_23_codegen_2d_context_2d_frame),___REF_FAL,5,0)
 ,___DEF_LBL_PROC_AT(___H___codegen_23_codegen_2d_context_2d_frame,1,-1,1)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_frame,___IFD(___RETI,8,0,0x3f03L),2)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_frame,___IFD(___RETN,5,0,0x3L),3)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_frame,___IFD(___RETI,8,8,0x3f00L),4)
-,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_context_2d_frame_2d_set_21_,___REF_SYM(20,___S___codegen_23_codegen_2d_context_2d_frame_2d_set_21_),___REF_FAL,4,0)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_frame,___IFD(___RETI,0,0,0x3fL),2)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_frame,___IFD(___RETI,8,0,0x3f03L),3)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_frame,___IFD(___RETN,5,0,0x3L),4)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_frame,___IFD(___RETI,8,8,0x3f00L),5)
+,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_context_2d_frame_2d_set_21_,___REF_SYM(20,___S___codegen_23_codegen_2d_context_2d_frame_2d_set_21_),___REF_FAL,5,0)
 ,___DEF_LBL_PROC_AT(___H___codegen_23_codegen_2d_context_2d_frame_2d_set_21_,2,-1,1)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_frame_2d_set_21_,___IFD(___RETI,8,0,0x3f07L),2)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_frame_2d_set_21_,___IFD(___RETN,5,0,0x7L),3)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_frame_2d_set_21_,___IFD(___RETI,8,8,0x3f00L),4)
-,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_context_2d_nargs,___REF_SYM(27,___S___codegen_23_codegen_2d_context_2d_nargs),___REF_FAL,4,0)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_frame_2d_set_21_,___IFD(___RETI,0,0,0x3fL),2)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_frame_2d_set_21_,___IFD(___RETI,8,0,0x3f07L),3)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_frame_2d_set_21_,___IFD(___RETN,5,0,0x7L),4)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_frame_2d_set_21_,___IFD(___RETI,8,8,0x3f00L),5)
+,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_context_2d_nargs,___REF_SYM(27,___S___codegen_23_codegen_2d_context_2d_nargs),___REF_FAL,5,0)
 ,___DEF_LBL_PROC_AT(___H___codegen_23_codegen_2d_context_2d_nargs,1,-1,1)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_nargs,___IFD(___RETI,8,0,0x3f03L),2)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_nargs,___IFD(___RETN,5,0,0x3L),3)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_nargs,___IFD(___RETI,8,8,0x3f00L),4)
-,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_context_2d_nargs_2d_set_21_,___REF_SYM(28,___S___codegen_23_codegen_2d_context_2d_nargs_2d_set_21_),___REF_FAL,4,0)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_nargs,___IFD(___RETI,0,0,0x3fL),2)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_nargs,___IFD(___RETI,8,0,0x3f03L),3)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_nargs,___IFD(___RETN,5,0,0x3L),4)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_nargs,___IFD(___RETI,8,8,0x3f00L),5)
+,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_context_2d_nargs_2d_set_21_,___REF_SYM(28,___S___codegen_23_codegen_2d_context_2d_nargs_2d_set_21_),___REF_FAL,5,0)
 ,___DEF_LBL_PROC_AT(___H___codegen_23_codegen_2d_context_2d_nargs_2d_set_21_,2,-1,1)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_nargs_2d_set_21_,___IFD(___RETI,8,0,0x3f07L),2)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_nargs_2d_set_21_,___IFD(___RETN,5,0,0x7L),3)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_nargs_2d_set_21_,___IFD(___RETI,8,8,0x3f00L),4)
-,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_context_2d_delayed_2d_actions,___REF_SYM(9,___S___codegen_23_codegen_2d_context_2d_delayed_2d_actions),___REF_FAL,4,0)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_nargs_2d_set_21_,___IFD(___RETI,0,0,0x3fL),2)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_nargs_2d_set_21_,___IFD(___RETI,8,0,0x3f07L),3)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_nargs_2d_set_21_,___IFD(___RETN,5,0,0x7L),4)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_nargs_2d_set_21_,___IFD(___RETI,8,8,0x3f00L),5)
+,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_context_2d_delayed_2d_actions,___REF_SYM(9,___S___codegen_23_codegen_2d_context_2d_delayed_2d_actions),___REF_FAL,5,0)
 ,___DEF_LBL_PROC_AT(___H___codegen_23_codegen_2d_context_2d_delayed_2d_actions,1,-1,1)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_delayed_2d_actions,___IFD(___RETI,8,0,0x3f03L),2)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_delayed_2d_actions,___IFD(___RETN,5,0,0x3L),3)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_delayed_2d_actions,___IFD(___RETI,8,8,0x3f00L),4)
-,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_context_2d_delayed_2d_actions_2d_set_21_,___REF_SYM(10,___S___codegen_23_codegen_2d_context_2d_delayed_2d_actions_2d_set_21_),___REF_FAL,4,0)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_delayed_2d_actions,___IFD(___RETI,0,0,0x3fL),2)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_delayed_2d_actions,___IFD(___RETI,8,0,0x3f03L),3)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_delayed_2d_actions,___IFD(___RETN,5,0,0x3L),4)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_delayed_2d_actions,___IFD(___RETI,8,8,0x3f00L),5)
+,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_context_2d_delayed_2d_actions_2d_set_21_,___REF_SYM(10,___S___codegen_23_codegen_2d_context_2d_delayed_2d_actions_2d_set_21_),___REF_FAL,5,0)
 ,___DEF_LBL_PROC_AT(___H___codegen_23_codegen_2d_context_2d_delayed_2d_actions_2d_set_21_,2,-1,1)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_delayed_2d_actions_2d_set_21_,___IFD(___RETI,8,0,0x3f07L),2)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_delayed_2d_actions_2d_set_21_,___IFD(___RETN,5,0,0x7L),3)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_delayed_2d_actions_2d_set_21_,___IFD(___RETI,8,8,0x3f00L),4)
-,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_context_2d_label_2d_struct_2d_position,___REF_SYM(21,___S___codegen_23_codegen_2d_context_2d_label_2d_struct_2d_position),___REF_FAL,4,0)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_delayed_2d_actions_2d_set_21_,___IFD(___RETI,0,0,0x3fL),2)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_delayed_2d_actions_2d_set_21_,___IFD(___RETI,8,0,0x3f07L),3)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_delayed_2d_actions_2d_set_21_,___IFD(___RETN,5,0,0x7L),4)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_delayed_2d_actions_2d_set_21_,___IFD(___RETI,8,8,0x3f00L),5)
+,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_context_2d_label_2d_struct_2d_position,___REF_SYM(21,___S___codegen_23_codegen_2d_context_2d_label_2d_struct_2d_position),___REF_FAL,5,0)
 ,___DEF_LBL_PROC_AT(___H___codegen_23_codegen_2d_context_2d_label_2d_struct_2d_position,1,-1,1)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_label_2d_struct_2d_position,___IFD(___RETI,8,0,0x3f03L),2)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_label_2d_struct_2d_position,___IFD(___RETN,5,0,0x3L),3)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_label_2d_struct_2d_position,___IFD(___RETI,8,8,0x3f00L),4)
-,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_context_2d_label_2d_struct_2d_position_2d_set_21_,___REF_SYM(22,___S___codegen_23_codegen_2d_context_2d_label_2d_struct_2d_position_2d_set_21_),___REF_FAL,4,0)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_label_2d_struct_2d_position,___IFD(___RETI,0,0,0x3fL),2)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_label_2d_struct_2d_position,___IFD(___RETI,8,0,0x3f03L),3)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_label_2d_struct_2d_position,___IFD(___RETN,5,0,0x3L),4)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_label_2d_struct_2d_position,___IFD(___RETI,8,8,0x3f00L),5)
+,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_context_2d_label_2d_struct_2d_position_2d_set_21_,___REF_SYM(22,___S___codegen_23_codegen_2d_context_2d_label_2d_struct_2d_position_2d_set_21_),___REF_FAL,5,0)
 ,___DEF_LBL_PROC_AT(___H___codegen_23_codegen_2d_context_2d_label_2d_struct_2d_position_2d_set_21_,2,-1,1)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_label_2d_struct_2d_position_2d_set_21_,___IFD(___RETI,8,0,0x3f07L),2)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_label_2d_struct_2d_position_2d_set_21_,___IFD(___RETN,5,0,0x7L),3)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_label_2d_struct_2d_position_2d_set_21_,___IFD(___RETI,8,8,0x3f00L),4)
-,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_context_2d_registers_2d_status,___REF_SYM(35,___S___codegen_23_codegen_2d_context_2d_registers_2d_status),___REF_FAL,4,0)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_label_2d_struct_2d_position_2d_set_21_,___IFD(___RETI,0,0,0x3fL),2)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_label_2d_struct_2d_position_2d_set_21_,___IFD(___RETI,8,0,0x3f07L),3)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_label_2d_struct_2d_position_2d_set_21_,___IFD(___RETN,5,0,0x7L),4)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_label_2d_struct_2d_position_2d_set_21_,___IFD(___RETI,8,8,0x3f00L),5)
+,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_context_2d_registers_2d_status,___REF_SYM(35,___S___codegen_23_codegen_2d_context_2d_registers_2d_status),___REF_FAL,5,0)
 ,___DEF_LBL_PROC_AT(___H___codegen_23_codegen_2d_context_2d_registers_2d_status,1,-1,1)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_registers_2d_status,___IFD(___RETI,8,0,0x3f03L),2)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_registers_2d_status,___IFD(___RETN,5,0,0x3L),3)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_registers_2d_status,___IFD(___RETI,8,8,0x3f00L),4)
-,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_context_2d_registers_2d_status_2d_set_21_,___REF_SYM(36,___S___codegen_23_codegen_2d_context_2d_registers_2d_status_2d_set_21_),___REF_FAL,4,0)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_registers_2d_status,___IFD(___RETI,0,0,0x3fL),2)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_registers_2d_status,___IFD(___RETI,8,0,0x3f03L),3)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_registers_2d_status,___IFD(___RETN,5,0,0x3L),4)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_registers_2d_status,___IFD(___RETI,8,8,0x3f00L),5)
+,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_context_2d_registers_2d_status_2d_set_21_,___REF_SYM(36,___S___codegen_23_codegen_2d_context_2d_registers_2d_status_2d_set_21_),___REF_FAL,5,0)
 ,___DEF_LBL_PROC_AT(___H___codegen_23_codegen_2d_context_2d_registers_2d_status_2d_set_21_,2,-1,1)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_registers_2d_status_2d_set_21_,___IFD(___RETI,8,0,0x3f07L),2)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_registers_2d_status_2d_set_21_,___IFD(___RETN,5,0,0x7L),3)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_registers_2d_status_2d_set_21_,___IFD(___RETI,8,8,0x3f00L),4)
-,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_context_2d_memory_2d_allocated,___REF_SYM(25,___S___codegen_23_codegen_2d_context_2d_memory_2d_allocated),___REF_FAL,4,0)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_registers_2d_status_2d_set_21_,___IFD(___RETI,0,0,0x3fL),2)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_registers_2d_status_2d_set_21_,___IFD(___RETI,8,0,0x3f07L),3)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_registers_2d_status_2d_set_21_,___IFD(___RETN,5,0,0x7L),4)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_registers_2d_status_2d_set_21_,___IFD(___RETI,8,8,0x3f00L),5)
+,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_context_2d_memory_2d_allocated,___REF_SYM(25,___S___codegen_23_codegen_2d_context_2d_memory_2d_allocated),___REF_FAL,5,0)
 ,___DEF_LBL_PROC_AT(___H___codegen_23_codegen_2d_context_2d_memory_2d_allocated,1,-1,1)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_memory_2d_allocated,___IFD(___RETI,8,0,0x3f03L),2)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_memory_2d_allocated,___IFD(___RETN,5,0,0x3L),3)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_memory_2d_allocated,___IFD(___RETI,8,8,0x3f00L),4)
-,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_context_2d_memory_2d_allocated_2d_set_21_,___REF_SYM(26,___S___codegen_23_codegen_2d_context_2d_memory_2d_allocated_2d_set_21_),___REF_FAL,4,0)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_memory_2d_allocated,___IFD(___RETI,0,0,0x3fL),2)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_memory_2d_allocated,___IFD(___RETI,8,0,0x3f03L),3)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_memory_2d_allocated,___IFD(___RETN,5,0,0x3L),4)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_memory_2d_allocated,___IFD(___RETI,8,8,0x3f00L),5)
+,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_context_2d_memory_2d_allocated_2d_set_21_,___REF_SYM(26,___S___codegen_23_codegen_2d_context_2d_memory_2d_allocated_2d_set_21_),___REF_FAL,5,0)
 ,___DEF_LBL_PROC_AT(___H___codegen_23_codegen_2d_context_2d_memory_2d_allocated_2d_set_21_,2,-1,1)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_memory_2d_allocated_2d_set_21_,___IFD(___RETI,8,0,0x3f07L),2)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_memory_2d_allocated_2d_set_21_,___IFD(___RETN,5,0,0x7L),3)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_memory_2d_allocated_2d_set_21_,___IFD(___RETI,8,8,0x3f00L),4)
-,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_context_2d_primitive_2d_labels_2d_table,___REF_SYM(31,___S___codegen_23_codegen_2d_context_2d_primitive_2d_labels_2d_table),___REF_FAL,4,0)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_memory_2d_allocated_2d_set_21_,___IFD(___RETI,0,0,0x3fL),2)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_memory_2d_allocated_2d_set_21_,___IFD(___RETI,8,0,0x3f07L),3)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_memory_2d_allocated_2d_set_21_,___IFD(___RETN,5,0,0x7L),4)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_memory_2d_allocated_2d_set_21_,___IFD(___RETI,8,8,0x3f00L),5)
+,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_context_2d_primitive_2d_labels_2d_table,___REF_SYM(31,___S___codegen_23_codegen_2d_context_2d_primitive_2d_labels_2d_table),___REF_FAL,5,0)
 ,___DEF_LBL_PROC_AT(___H___codegen_23_codegen_2d_context_2d_primitive_2d_labels_2d_table,1,-1,1)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_primitive_2d_labels_2d_table,___IFD(___RETI,8,0,0x3f03L),2)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_primitive_2d_labels_2d_table,___IFD(___RETN,5,0,0x3L),3)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_primitive_2d_labels_2d_table,___IFD(___RETI,8,8,0x3f00L),4)
-,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_context_2d_primitive_2d_labels_2d_table_2d_set_21_,___REF_SYM(32,___S___codegen_23_codegen_2d_context_2d_primitive_2d_labels_2d_table_2d_set_21_),___REF_FAL,4,0)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_primitive_2d_labels_2d_table,___IFD(___RETI,0,0,0x3fL),2)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_primitive_2d_labels_2d_table,___IFD(___RETI,8,0,0x3f03L),3)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_primitive_2d_labels_2d_table,___IFD(___RETN,5,0,0x3L),4)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_primitive_2d_labels_2d_table,___IFD(___RETI,8,8,0x3f00L),5)
+,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_context_2d_primitive_2d_labels_2d_table_2d_set_21_,___REF_SYM(32,___S___codegen_23_codegen_2d_context_2d_primitive_2d_labels_2d_table_2d_set_21_),___REF_FAL,5,0)
 ,___DEF_LBL_PROC_AT(___H___codegen_23_codegen_2d_context_2d_primitive_2d_labels_2d_table_2d_set_21_,2,-1,1)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_primitive_2d_labels_2d_table_2d_set_21_,___IFD(___RETI,8,0,0x3f07L),2)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_primitive_2d_labels_2d_table_2d_set_21_,___IFD(___RETN,5,0,0x7L),3)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_primitive_2d_labels_2d_table_2d_set_21_,___IFD(___RETI,8,8,0x3f00L),4)
-,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_context_2d_proc_2d_labels_2d_table,___REF_SYM(33,___S___codegen_23_codegen_2d_context_2d_proc_2d_labels_2d_table),___REF_FAL,4,0)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_primitive_2d_labels_2d_table_2d_set_21_,___IFD(___RETI,0,0,0x3fL),2)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_primitive_2d_labels_2d_table_2d_set_21_,___IFD(___RETI,8,0,0x3f07L),3)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_primitive_2d_labels_2d_table_2d_set_21_,___IFD(___RETN,5,0,0x7L),4)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_primitive_2d_labels_2d_table_2d_set_21_,___IFD(___RETI,8,8,0x3f00L),5)
+,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_context_2d_proc_2d_labels_2d_table,___REF_SYM(33,___S___codegen_23_codegen_2d_context_2d_proc_2d_labels_2d_table),___REF_FAL,5,0)
 ,___DEF_LBL_PROC_AT(___H___codegen_23_codegen_2d_context_2d_proc_2d_labels_2d_table,1,-1,1)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_proc_2d_labels_2d_table,___IFD(___RETI,8,0,0x3f03L),2)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_proc_2d_labels_2d_table,___IFD(___RETN,5,0,0x3L),3)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_proc_2d_labels_2d_table,___IFD(___RETI,8,8,0x3f00L),4)
-,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_context_2d_proc_2d_labels_2d_table_2d_set_21_,___REF_SYM(34,___S___codegen_23_codegen_2d_context_2d_proc_2d_labels_2d_table_2d_set_21_),___REF_FAL,4,0)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_proc_2d_labels_2d_table,___IFD(___RETI,0,0,0x3fL),2)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_proc_2d_labels_2d_table,___IFD(___RETI,8,0,0x3f03L),3)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_proc_2d_labels_2d_table,___IFD(___RETN,5,0,0x3L),4)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_proc_2d_labels_2d_table,___IFD(___RETI,8,8,0x3f00L),5)
+,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_context_2d_proc_2d_labels_2d_table_2d_set_21_,___REF_SYM(34,___S___codegen_23_codegen_2d_context_2d_proc_2d_labels_2d_table_2d_set_21_),___REF_FAL,5,0)
 ,___DEF_LBL_PROC_AT(___H___codegen_23_codegen_2d_context_2d_proc_2d_labels_2d_table_2d_set_21_,2,-1,1)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_proc_2d_labels_2d_table_2d_set_21_,___IFD(___RETI,8,0,0x3f07L),2)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_proc_2d_labels_2d_table_2d_set_21_,___IFD(___RETN,5,0,0x7L),3)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_proc_2d_labels_2d_table_2d_set_21_,___IFD(___RETI,8,8,0x3f00L),4)
-,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_context_2d_other_2d_labels_2d_table,___REF_SYM(29,___S___codegen_23_codegen_2d_context_2d_other_2d_labels_2d_table),___REF_FAL,4,0)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_proc_2d_labels_2d_table_2d_set_21_,___IFD(___RETI,0,0,0x3fL),2)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_proc_2d_labels_2d_table_2d_set_21_,___IFD(___RETI,8,0,0x3f07L),3)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_proc_2d_labels_2d_table_2d_set_21_,___IFD(___RETN,5,0,0x7L),4)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_proc_2d_labels_2d_table_2d_set_21_,___IFD(___RETI,8,8,0x3f00L),5)
+,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_context_2d_other_2d_labels_2d_table,___REF_SYM(29,___S___codegen_23_codegen_2d_context_2d_other_2d_labels_2d_table),___REF_FAL,5,0)
 ,___DEF_LBL_PROC_AT(___H___codegen_23_codegen_2d_context_2d_other_2d_labels_2d_table,1,-1,1)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_other_2d_labels_2d_table,___IFD(___RETI,8,0,0x3f03L),2)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_other_2d_labels_2d_table,___IFD(___RETN,5,0,0x3L),3)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_other_2d_labels_2d_table,___IFD(___RETI,8,8,0x3f00L),4)
-,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_context_2d_other_2d_labels_2d_table_2d_set_21_,___REF_SYM(30,___S___codegen_23_codegen_2d_context_2d_other_2d_labels_2d_table_2d_set_21_),___REF_FAL,4,0)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_other_2d_labels_2d_table,___IFD(___RETI,0,0,0x3fL),2)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_other_2d_labels_2d_table,___IFD(___RETI,8,0,0x3f03L),3)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_other_2d_labels_2d_table,___IFD(___RETN,5,0,0x3L),4)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_other_2d_labels_2d_table,___IFD(___RETI,8,8,0x3f00L),5)
+,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_context_2d_other_2d_labels_2d_table_2d_set_21_,___REF_SYM(30,___S___codegen_23_codegen_2d_context_2d_other_2d_labels_2d_table_2d_set_21_),___REF_FAL,5,0)
 ,___DEF_LBL_PROC_AT(___H___codegen_23_codegen_2d_context_2d_other_2d_labels_2d_table_2d_set_21_,2,-1,1)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_other_2d_labels_2d_table_2d_set_21_,___IFD(___RETI,8,0,0x3f07L),2)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_other_2d_labels_2d_table_2d_set_21_,___IFD(___RETN,5,0,0x7L),3)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_other_2d_labels_2d_table_2d_set_21_,___IFD(___RETI,8,8,0x3f00L),4)
-,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_add_21_,___REF_SYM(13,___S___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_add_21_),___REF_FAL,8,0)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_other_2d_labels_2d_table_2d_set_21_,___IFD(___RETI,0,0,0x3fL),2)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_other_2d_labels_2d_table_2d_set_21_,___IFD(___RETI,8,0,0x3f07L),3)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_other_2d_labels_2d_table_2d_set_21_,___IFD(___RETN,5,0,0x7L),4)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_other_2d_labels_2d_table_2d_set_21_,___IFD(___RETI,8,8,0x3f00L),5)
+,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_add_21_,___REF_SYM(13,___S___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_add_21_),___REF_FAL,9,0)
 ,___DEF_LBL_PROC_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_add_21_,3,-1,1)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_add_21_,___IFD(___RETI,8,0,0x3f03L),2)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_add_21_,___IFD(___RETN,5,0,0x3L),3)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_add_21_,___IFD(___RETN,5,0,0x7L),4)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_add_21_,___IFD(___RETI,0,0,0x3fL),2)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_add_21_,___IFD(___RETI,8,0,0x3f03L),3)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_add_21_,___IFD(___RETN,5,0,0x3L),4)
 ,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_add_21_,___IFD(___RETN,5,0,0x7L),5)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_add_21_,___IFD(___RETN,5,0,0x3L),6)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_add_21_,___IFD(___RETN,5,0,0x7L),7)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_add_21_,___IFD(___RETI,8,8,0x3f00L),8)
-,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___REF_SYM(12,___S___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector),___REF_FAL,48,0)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_add_21_,___IFD(___RETN,5,0,0x7L),6)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_add_21_,___IFD(___RETN,5,0,0x3L),7)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_add_21_,___IFD(___RETN,5,0,0x7L),8)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_add_21_,___IFD(___RETI,8,8,0x3f00L),9)
+,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___REF_SYM(12,___S___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector),___REF_FAL,55,0)
 ,___DEF_LBL_PROC_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,1,-1,1)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETI,4,0,0x3f1L),2)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETN,1,0,0x1L),3)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETI,0,0,0x3fL),2)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETI,4,0,0x3f1L),3)
 ,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETN,1,0,0x1L),4)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETN,5,0,0x3L),5)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETN,5,3,0x1dL),6)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETI,1,4,0x3f5L),7)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETI,8,1,0x3f1fL),8)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETN,5,1,0x1fL),9)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETI,8,8,0x3f00L),10)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETN,5,1,0x1fL),11)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETN,9,1,0x3fL),12)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETN,9,1,0x3fL),13)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETN,9,1,0x77L),14)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETI,3,4,0x3f7L),15)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETN,9,3,0x3fL),16)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETI,3,4,0x3f7L),17)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___OFD(___RETI,12,3,0x3f07fL),18)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETN,9,3,0x7fL),19)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETN,9,3,0x7fL),20)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETN,9,3,0xffL),21)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETN,9,3,0x7fL),22)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETN,9,3,0xffL),23)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETN,9,3,0xdfL),24)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETN,1,0,0x1L),5)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETI,4,0,0x3f1L),6)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETN,5,0,0x3L),7)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETI,8,0,0x3f03L),8)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETN,5,3,0x1dL),9)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETI,1,4,0x3f5L),10)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETI,1,4,0x3f1L),11)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETI,8,1,0x3f1fL),12)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETN,5,1,0x1fL),13)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETI,8,8,0x3f00L),14)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETN,5,1,0x1fL),15)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETI,8,1,0x3f1fL),16)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETN,9,1,0x3fL),17)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETN,9,1,0x3fL),18)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETN,9,1,0x77L),19)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETI,3,4,0x3f7L),20)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETN,9,3,0x3fL),21)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETI,3,4,0x3f7L),22)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETI,3,4,0x3f7L),23)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___OFD(___RETI,12,3,0x3f07fL),24)
 ,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETN,9,3,0x7fL),25)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETN,9,3,0x7bL),26)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETN,9,3,0x7bL),27)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETN,9,3,0x3bL),28)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETN,9,3,0x3bL),29)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETN,9,3,0x3bL),30)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETN,9,3,0x3bL),31)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETN,5,3,0x1bL),32)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETN,5,3,0xfL),33)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETN,9,3,0x7fL),26)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETN,9,3,0xffL),27)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETN,9,3,0x7fL),28)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETN,9,3,0xffL),29)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETN,9,3,0xdfL),30)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETN,9,3,0x7fL),31)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETN,9,3,0x7bL),32)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETN,9,3,0x7bL),33)
 ,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETN,9,3,0x3bL),34)
 ,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETN,9,3,0x3bL),35)
 ,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETN,9,3,0x3bL),36)
 ,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETN,9,3,0x3bL),37)
 ,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETN,5,3,0x1bL),38)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETN,5,0,0x5L),39)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETN,1,0,0x1L),40)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETI,4,4,0x3f0L),41)
-,___DEF_LBL_PROC_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,2,-1,42)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETI,8,0,0x3f03L),43)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETN,5,0,0x3L),44)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETN,5,0,0x3L),45)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETN,5,0,0x5L),46)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETN,5,0,0x5L),47)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETI,8,8,0x3f04L),48)
-,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_context_2d_fixup_2d_obj_2d_register_21_,___REF_SYM(15,___S___codegen_23_codegen_2d_context_2d_fixup_2d_obj_2d_register_21_),___REF_FAL,6,0)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETN,5,3,0xfL),39)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETN,9,3,0x3bL),40)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETN,9,3,0x3bL),41)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETN,9,3,0x3bL),42)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETN,9,3,0x3bL),43)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETN,5,3,0x1bL),44)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETN,5,0,0x5L),45)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETN,1,0,0x1L),46)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETI,4,4,0x3f0L),47)
+,___DEF_LBL_PROC_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,2,-1,48)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETI,0,0,0x3fL),49)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETI,8,0,0x3f03L),50)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETN,5,0,0x3L),51)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETN,5,0,0x3L),52)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETN,5,0,0x5L),53)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETN,5,0,0x5L),54)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,___IFD(___RETI,8,8,0x3f04L),55)
+,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_context_2d_fixup_2d_obj_2d_register_21_,___REF_SYM(15,___S___codegen_23_codegen_2d_context_2d_fixup_2d_obj_2d_register_21_),___REF_FAL,7,0)
 ,___DEF_LBL_PROC_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_obj_2d_register_21_,2,-1,1)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_obj_2d_register_21_,___IFD(___RETI,8,0,0x3f03L),2)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_obj_2d_register_21_,___IFD(___RETN,5,0,0x3L),3)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_obj_2d_register_21_,___IFD(___RETN,5,0,0x7L),4)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_obj_2d_register_21_,___IFD(___RETI,0,0,0x3fL),2)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_obj_2d_register_21_,___IFD(___RETI,8,0,0x3f03L),3)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_obj_2d_register_21_,___IFD(___RETN,5,0,0x3L),4)
 ,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_obj_2d_register_21_,___IFD(___RETN,5,0,0x7L),5)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_obj_2d_register_21_,___IFD(___RETN,5,0,0x9L),6)
-,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector,___REF_SYM(17,___S___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector),___REF_FAL,14,0)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_obj_2d_register_21_,___IFD(___RETN,5,0,0x7L),6)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_obj_2d_register_21_,___IFD(___RETN,5,0,0x9L),7)
+,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector,___REF_SYM(17,___S___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector),___REF_FAL,17,0)
 ,___DEF_LBL_PROC_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector,1,-1,1)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector,___IFD(___RETI,8,0,0x3f03L),2)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector,___IFD(___RETN,5,0,0x3L),3)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector,___IFD(___RETI,0,0,0x3fL),2)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector,___IFD(___RETI,8,0,0x3f03L),3)
 ,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector,___IFD(___RETN,5,0,0x3L),4)
 ,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector,___IFD(___RETN,5,0,0x3L),5)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector,___IFD(___RETI,8,0,0x3f0dL),6)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector,___IFD(___RETN,5,0,0xdL),7)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector,___IFD(___RETN,5,0,0xdL),8)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector,___IFD(___RETN,5,0,0x5L),9)
-,___DEF_LBL_PROC_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector,1,1,10)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector,___IFD(___RETI,8,0,0x3f07L),11)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector,___IFD(___RETN,5,0,0x7L),12)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector,___IFD(___RETN,5,0,0xdL),13)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector,___IFD(___RETI,8,8,0x3f08L),14)
-,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_fixup_2d_generic_21_,___REF_SYM(39,___S___codegen_23_codegen_2d_fixup_2d_generic_21_),___REF_FAL,15,0)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector,___IFD(___RETN,5,0,0x3L),6)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector,___IFD(___RETI,8,0,0x3f07L),7)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector,___IFD(___RETI,8,0,0x3f0dL),8)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector,___IFD(___RETN,5,0,0xdL),9)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector,___IFD(___RETN,5,0,0xdL),10)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector,___IFD(___RETN,5,0,0x5L),11)
+,___DEF_LBL_PROC_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector,1,1,12)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector,___IFD(___RETI,0,0,0x3fL),13)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector,___IFD(___RETI,8,0,0x3f07L),14)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector,___IFD(___RETN,5,0,0x7L),15)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector,___IFD(___RETN,5,0,0xdL),16)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector,___IFD(___RETI,8,8,0x3f08L),17)
+,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_fixup_2d_generic_21_,___REF_SYM(39,___S___codegen_23_codegen_2d_fixup_2d_generic_21_),___REF_FAL,19,0)
 ,___DEF_LBL_PROC_AT(___H___codegen_23_codegen_2d_fixup_2d_generic_21_,4,-1,1)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_generic_21_,___IFD(___RETI,8,1,0x3f1fL),2)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_generic_21_,___IFD(___RETN,5,1,0x1fL),3)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_generic_21_,___IFD(___RETN,9,1,0x3fL),4)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_generic_21_,___IFD(___RETN,5,1,0x1fL),5)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_generic_21_,___IFD(___RETI,7,8,0x3f20L),6)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_generic_21_,___IFD(___RETI,7,8,0x3f20L),7)
-,___DEF_LBL_PROC_AT(___H___codegen_23_codegen_2d_fixup_2d_generic_21_,2,3,8)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_generic_21_,___IFD(___RETI,8,0,0x3f07L),9)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_generic_21_,___IFD(___RETN,5,0,0x7L),10)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_generic_21_,___IFD(___RETN,5,0,0x7L),11)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_generic_21_,___IFD(___RETN,5,0,0x3L),12)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_generic_21_,___IFD(___RETI,8,8,0x3f00L),13)
-,___DEF_LBL_PROC_AT(___H___codegen_23_codegen_2d_fixup_2d_generic_21_,2,1,14)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_generic_21_,___IFD(___RETI,0,0,0x3fL),15)
-,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_fixup_2d_lbl_21_,___REF_SYM(42,___S___codegen_23_codegen_2d_fixup_2d_lbl_21_),___REF_FAL,12,0)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_generic_21_,___IFD(___RETI,1,4,0x3f1L),2)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_generic_21_,___IFD(___RETI,8,1,0x3f1fL),3)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_generic_21_,___IFD(___RETN,5,1,0x1fL),4)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_generic_21_,___IFD(___RETI,8,1,0x3f1fL),5)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_generic_21_,___IFD(___RETN,9,1,0x3fL),6)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_generic_21_,___IFD(___RETN,5,1,0x1fL),7)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_generic_21_,___IFD(___RETI,8,1,0x3f1fL),8)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_generic_21_,___IFD(___RETI,7,8,0x3f20L),9)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_generic_21_,___IFD(___RETI,7,8,0x3f20L),10)
+,___DEF_LBL_PROC_AT(___H___codegen_23_codegen_2d_fixup_2d_generic_21_,2,3,11)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_generic_21_,___IFD(___RETI,0,0,0x3fL),12)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_generic_21_,___IFD(___RETI,8,0,0x3f07L),13)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_generic_21_,___IFD(___RETN,5,0,0x7L),14)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_generic_21_,___IFD(___RETN,5,0,0x7L),15)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_generic_21_,___IFD(___RETN,5,0,0x3L),16)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_generic_21_,___IFD(___RETI,8,8,0x3f00L),17)
+,___DEF_LBL_PROC_AT(___H___codegen_23_codegen_2d_fixup_2d_generic_21_,2,1,18)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_generic_21_,___IFD(___RETI,0,0,0x3fL),19)
+,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_fixup_2d_lbl_21_,___REF_SYM(42,___S___codegen_23_codegen_2d_fixup_2d_lbl_21_),___REF_FAL,14,0)
 ,___DEF_LBL_PROC_AT(___H___codegen_23_codegen_2d_fixup_2d_lbl_21_,7,-1,1)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_lbl_21_,___IFD(___RETI,5,8,0x3f03L),2)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_lbl_21_,___IFD(___RETI,4,4,0x3ffL),2)
 ,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_lbl_21_,___IFD(___RETI,5,8,0x3f03L),3)
-,___DEF_LBL_PROC_AT(___H___codegen_23_codegen_2d_fixup_2d_lbl_21_,2,4,4)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_lbl_21_,___IFD(___RETI,8,1,0x3f0fL),5)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_lbl_21_,___IFD(___RETN,5,1,0xfL),6)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_lbl_21_,___IFD(___RETN,5,1,0x1fL),7)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_lbl_21_,___IFD(___RETN,5,1,0x17L),8)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_lbl_21_,___IFD(___RETN,5,1,0x13L),9)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_lbl_21_,___IFD(___RETN,5,1,0x13L),10)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_lbl_21_,___IFD(___RETN,5,1,0x3L),11)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_lbl_21_,___IFD(___RETI,8,8,0x3f01L),12)
-,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_,___REF_SYM(43,___S___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_),___REF_FAL,12,0)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_lbl_21_,___IFD(___RETI,5,8,0x3f03L),4)
+,___DEF_LBL_PROC_AT(___H___codegen_23_codegen_2d_fixup_2d_lbl_21_,2,4,5)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_lbl_21_,___IFD(___RETI,0,0,0x3fL),6)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_lbl_21_,___IFD(___RETI,8,1,0x3f0fL),7)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_lbl_21_,___IFD(___RETN,5,1,0xfL),8)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_lbl_21_,___IFD(___RETN,5,1,0x1fL),9)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_lbl_21_,___IFD(___RETN,5,1,0x17L),10)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_lbl_21_,___IFD(___RETN,5,1,0x13L),11)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_lbl_21_,___IFD(___RETN,5,1,0x13L),12)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_lbl_21_,___IFD(___RETN,5,1,0x3L),13)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_lbl_21_,___IFD(___RETI,8,8,0x3f01L),14)
+,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_,___REF_SYM(43,___S___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_),___REF_FAL,14,0)
 ,___DEF_LBL_PROC_AT(___H___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_,6,-1,1)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_,___IFD(___RETI,4,4,0x3f1L),2)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_,___IFD(___RETI,3,4,0x3f7L),2)
 ,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_,___IFD(___RETI,4,4,0x3f1L),3)
-,___DEF_LBL_PROC_AT(___H___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_,2,3,4)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_,___IFD(___RETI,8,0,0x3f07L),5)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_,___IFD(___RETN,5,0,0x7L),6)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_,___IFD(___RETN,5,0,0x1bL),7)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_,___IFD(___RETN,5,0,0x17L),8)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_,___IFD(___RETN,5,0,0x15L),9)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_,___IFD(___RETN,5,0,0x15L),10)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_,___IFD(___RETN,5,0,0x11L),11)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_,___IFD(___RETI,8,8,0x3f10L),12)
-,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_,___REF_SYM(45,___S___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_),___REF_FAL,13,0)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_,___IFD(___RETI,4,4,0x3f1L),4)
+,___DEF_LBL_PROC_AT(___H___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_,2,3,5)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_,___IFD(___RETI,0,0,0x3fL),6)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_,___IFD(___RETI,8,0,0x3f07L),7)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_,___IFD(___RETN,5,0,0x7L),8)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_,___IFD(___RETN,5,0,0x1bL),9)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_,___IFD(___RETN,5,0,0x17L),10)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_,___IFD(___RETN,5,0,0x15L),11)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_,___IFD(___RETN,5,0,0x15L),12)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_,___IFD(___RETN,5,0,0x11L),13)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_,___IFD(___RETI,8,8,0x3f10L),14)
+,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_,___REF_SYM(45,___S___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_),___REF_FAL,17,0)
 ,___DEF_LBL_PROC_AT(___H___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_,6,-1,1)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_,___OFD(___RETI,12,3,0x3f07fL),2)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_,___IFD(___RETN,9,3,0x7fL),3)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_,___IFD(___RETI,8,3,0x3f5bL),4)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_,___IFD(___RETN,9,3,0x5bL),5)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_,___IFD(___RETI,8,8,0x3f03L),6)
-,___DEF_LBL_PROC_AT(___H___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_,2,3,7)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_,___IFD(___RETI,8,0,0x3f07L),8)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_,___IFD(___RETN,5,0,0x7L),9)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_,___IFD(___RETN,5,0,0xbL),10)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_,___IFD(___RETN,5,0,0xbL),11)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_,___IFD(___RETN,5,0,0x3L),12)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_,___IFD(___RETI,8,8,0x3f00L),13)
-,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_fixup_2d_obj_21_,___REF_SYM(44,___S___codegen_23_codegen_2d_fixup_2d_obj_21_),___REF_FAL,2,0)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_,___IFD(___RETI,3,4,0x3f7L),2)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_,___OFD(___RETI,12,3,0x3f07fL),3)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_,___IFD(___RETN,9,3,0x7fL),4)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_,___OFD(___RETI,12,3,0x3f07fL),5)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_,___IFD(___RETI,8,3,0x3f5bL),6)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_,___IFD(___RETN,9,3,0x5bL),7)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_,___IFD(___RETI,8,8,0x3f03L),8)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_,___IFD(___RETI,8,3,0x3f5bL),9)
+,___DEF_LBL_PROC_AT(___H___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_,2,3,10)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_,___IFD(___RETI,0,0,0x3fL),11)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_,___IFD(___RETI,8,0,0x3f07L),12)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_,___IFD(___RETN,5,0,0x7L),13)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_,___IFD(___RETN,5,0,0xbL),14)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_,___IFD(___RETN,5,0,0xbL),15)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_,___IFD(___RETN,5,0,0x3L),16)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_,___IFD(___RETI,8,8,0x3f00L),17)
+,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_fixup_2d_obj_21_,___REF_SYM(44,___S___codegen_23_codegen_2d_fixup_2d_obj_21_),___REF_FAL,3,0)
 ,___DEF_LBL_PROC_AT(___H___codegen_23_codegen_2d_fixup_2d_obj_21_,5,-1,1)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_obj_21_,___IFD(___RETI,3,4,0x3f7L),2)
-,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_fixup_2d_glo_21_,___REF_SYM(40,___S___codegen_23_codegen_2d_fixup_2d_glo_21_),___REF_FAL,2,0)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_obj_21_,___IFD(___RETI,2,4,0x3f3L),2)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_obj_21_,___IFD(___RETI,3,4,0x3f7L),3)
+,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_fixup_2d_glo_21_,___REF_SYM(40,___S___codegen_23_codegen_2d_fixup_2d_glo_21_),___REF_FAL,3,0)
 ,___DEF_LBL_PROC_AT(___H___codegen_23_codegen_2d_fixup_2d_glo_21_,5,-1,1)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_glo_21_,___IFD(___RETI,3,4,0x3f7L),2)
-,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_fixup_2d_prm_21_,___REF_SYM(46,___S___codegen_23_codegen_2d_fixup_2d_prm_21_),___REF_FAL,2,0)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_glo_21_,___IFD(___RETI,2,4,0x3f3L),2)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_glo_21_,___IFD(___RETI,3,4,0x3f7L),3)
+,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_fixup_2d_prm_21_,___REF_SYM(46,___S___codegen_23_codegen_2d_fixup_2d_prm_21_),___REF_FAL,3,0)
 ,___DEF_LBL_PROC_AT(___H___codegen_23_codegen_2d_fixup_2d_prm_21_,5,-1,1)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_prm_21_,___IFD(___RETI,3,4,0x3f7L),2)
-,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_fixup_2d_handler_21_,___REF_SYM(41,___S___codegen_23_codegen_2d_fixup_2d_handler_21_),___REF_FAL,12,0)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_prm_21_,___IFD(___RETI,2,4,0x3f3L),2)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_prm_21_,___IFD(___RETI,3,4,0x3f7L),3)
+,___DEF_LBL_INTRO(___H___codegen_23_codegen_2d_fixup_2d_handler_21_,___REF_SYM(41,___S___codegen_23_codegen_2d_fixup_2d_handler_21_),___REF_FAL,14,0)
 ,___DEF_LBL_PROC_AT(___H___codegen_23_codegen_2d_fixup_2d_handler_21_,4,-1,1)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_handler_21_,___IFD(___RETI,8,2,0x3f0fL),2)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_handler_21_,___IFD(___RETI,1,4,0x3f1L),2)
 ,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_handler_21_,___IFD(___RETI,8,2,0x3f0fL),3)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_handler_21_,___IFD(___RETN,5,2,0xfL),4)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_handler_21_,___IFD(___RETI,8,8,0x3f03L),5)
-,___DEF_LBL_PROC_AT(___H___codegen_23_codegen_2d_fixup_2d_handler_21_,2,2,6)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_handler_21_,___IFD(___RETI,8,0,0x3f03L),7)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_handler_21_,___IFD(___RETN,5,0,0x3L),8)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_handler_21_,___IFD(___RETN,5,0,0x5L),9)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_handler_21_,___IFD(___RETN,5,0,0x5L),10)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_handler_21_,___IFD(___RETN,1,0,0x1L),11)
-,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_handler_21_,___IFD(___RETI,4,4,0x3f0L),12)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_handler_21_,___IFD(___RETI,8,2,0x3f0fL),4)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_handler_21_,___IFD(___RETN,5,2,0xfL),5)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_handler_21_,___IFD(___RETI,8,8,0x3f03L),6)
+,___DEF_LBL_PROC_AT(___H___codegen_23_codegen_2d_fixup_2d_handler_21_,2,2,7)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_handler_21_,___IFD(___RETI,0,0,0x3fL),8)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_handler_21_,___IFD(___RETI,8,0,0x3f03L),9)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_handler_21_,___IFD(___RETN,5,0,0x3L),10)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_handler_21_,___IFD(___RETN,5,0,0x5L),11)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_handler_21_,___IFD(___RETN,5,0,0x5L),12)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_handler_21_,___IFD(___RETN,1,0,0x1L),13)
+,___DEF_LBL_RET_AT(___H___codegen_23_codegen_2d_fixup_2d_handler_21_,___IFD(___RETI,4,4,0x3f0L),14)
 ___END_LBL
 
 ___BEGIN_OFD
  ___DEF_OFD(___RETI,12,3)
+               ___GCMAP1(0x3f07fL)
+,___DEF_OFD(___RETI,12,3)
                ___GCMAP1(0x3f07fL)
 ,___DEF_OFD(___RETI,12,3)
                ___GCMAP1(0x3f07fL)
@@ -4385,50 +5134,50 @@ ___END_OFD
 ___BEGIN_MOD_PRM
 ___DEF_MOD_PRM(0,___G___codegen_23_,1)
 ___DEF_MOD_PRM(46,___G___codegen_23_make_2d_codegen_2d_context,3)
-___DEF_MOD_PRM(21,___G___codegen_23_codegen_2d_context_2d_listing_2d_format,32)
-___DEF_MOD_PRM(22,___G___codegen_23_codegen_2d_context_2d_listing_2d_format_2d_set_21_,37)
-___DEF_MOD_PRM(1,___G___codegen_23_codegen_2d_context_2d_arch,42)
-___DEF_MOD_PRM(2,___G___codegen_23_codegen_2d_context_2d_arch_2d_set_21_,47)
-___DEF_MOD_PRM(35,___G___codegen_23_codegen_2d_context_2d_target,52)
-___DEF_MOD_PRM(36,___G___codegen_23_codegen_2d_context_2d_target_2d_set_21_,57)
-___DEF_MOD_PRM(9,___G___codegen_23_codegen_2d_context_2d_fixup_2d_locs,62)
-___DEF_MOD_PRM(12,___G___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_set_21_,67)
-___DEF_MOD_PRM(14,___G___codegen_23_codegen_2d_context_2d_fixup_2d_objs,72)
-___DEF_MOD_PRM(16,___G___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d_set_21_,77)
-___DEF_MOD_PRM(5,___G___codegen_23_codegen_2d_context_2d_current_2d_proc,82)
-___DEF_MOD_PRM(6,___G___codegen_23_codegen_2d_context_2d_current_2d_proc_2d_set_21_,87)
-___DEF_MOD_PRM(3,___G___codegen_23_codegen_2d_context_2d_current_2d_code,92)
-___DEF_MOD_PRM(4,___G___codegen_23_codegen_2d_context_2d_current_2d_code_2d_set_21_,97)
-___DEF_MOD_PRM(17,___G___codegen_23_codegen_2d_context_2d_frame,102)
-___DEF_MOD_PRM(18,___G___codegen_23_codegen_2d_context_2d_frame_2d_set_21_,107)
-___DEF_MOD_PRM(25,___G___codegen_23_codegen_2d_context_2d_nargs,112)
-___DEF_MOD_PRM(26,___G___codegen_23_codegen_2d_context_2d_nargs_2d_set_21_,117)
-___DEF_MOD_PRM(7,___G___codegen_23_codegen_2d_context_2d_delayed_2d_actions,122)
-___DEF_MOD_PRM(8,___G___codegen_23_codegen_2d_context_2d_delayed_2d_actions_2d_set_21_,127)
-___DEF_MOD_PRM(19,___G___codegen_23_codegen_2d_context_2d_label_2d_struct_2d_position,132)
-___DEF_MOD_PRM(20,___G___codegen_23_codegen_2d_context_2d_label_2d_struct_2d_position_2d_set_21_,137)
-___DEF_MOD_PRM(33,___G___codegen_23_codegen_2d_context_2d_registers_2d_status,142)
-___DEF_MOD_PRM(34,___G___codegen_23_codegen_2d_context_2d_registers_2d_status_2d_set_21_,147)
-___DEF_MOD_PRM(23,___G___codegen_23_codegen_2d_context_2d_memory_2d_allocated,152)
-___DEF_MOD_PRM(24,___G___codegen_23_codegen_2d_context_2d_memory_2d_allocated_2d_set_21_,157)
-___DEF_MOD_PRM(29,___G___codegen_23_codegen_2d_context_2d_primitive_2d_labels_2d_table,162)
-___DEF_MOD_PRM(30,___G___codegen_23_codegen_2d_context_2d_primitive_2d_labels_2d_table_2d_set_21_,167)
-___DEF_MOD_PRM(31,___G___codegen_23_codegen_2d_context_2d_proc_2d_labels_2d_table,172)
-___DEF_MOD_PRM(32,___G___codegen_23_codegen_2d_context_2d_proc_2d_labels_2d_table_2d_set_21_,177)
-___DEF_MOD_PRM(27,___G___codegen_23_codegen_2d_context_2d_other_2d_labels_2d_table,182)
-___DEF_MOD_PRM(28,___G___codegen_23_codegen_2d_context_2d_other_2d_labels_2d_table_2d_set_21_,187)
-___DEF_MOD_PRM(11,___G___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_add_21_,192)
-___DEF_MOD_PRM(10,___G___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,201)
-___DEF_MOD_PRM(13,___G___codegen_23_codegen_2d_context_2d_fixup_2d_obj_2d_register_21_,250)
-___DEF_MOD_PRM(15,___G___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector,257)
-___DEF_MOD_PRM(37,___G___codegen_23_codegen_2d_fixup_2d_generic_21_,272)
-___DEF_MOD_PRM(41,___G___codegen_23_codegen_2d_fixup_2d_lbl_21_,288)
-___DEF_MOD_PRM(42,___G___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_,301)
-___DEF_MOD_PRM(44,___G___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_,314)
-___DEF_MOD_PRM(43,___G___codegen_23_codegen_2d_fixup_2d_obj_21_,328)
-___DEF_MOD_PRM(38,___G___codegen_23_codegen_2d_fixup_2d_glo_21_,331)
-___DEF_MOD_PRM(45,___G___codegen_23_codegen_2d_fixup_2d_prm_21_,334)
-___DEF_MOD_PRM(39,___G___codegen_23_codegen_2d_fixup_2d_handler_21_,337)
+___DEF_MOD_PRM(21,___G___codegen_23_codegen_2d_context_2d_listing_2d_format,34)
+___DEF_MOD_PRM(22,___G___codegen_23_codegen_2d_context_2d_listing_2d_format_2d_set_21_,40)
+___DEF_MOD_PRM(1,___G___codegen_23_codegen_2d_context_2d_arch,46)
+___DEF_MOD_PRM(2,___G___codegen_23_codegen_2d_context_2d_arch_2d_set_21_,52)
+___DEF_MOD_PRM(35,___G___codegen_23_codegen_2d_context_2d_target,58)
+___DEF_MOD_PRM(36,___G___codegen_23_codegen_2d_context_2d_target_2d_set_21_,64)
+___DEF_MOD_PRM(9,___G___codegen_23_codegen_2d_context_2d_fixup_2d_locs,70)
+___DEF_MOD_PRM(12,___G___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_set_21_,76)
+___DEF_MOD_PRM(14,___G___codegen_23_codegen_2d_context_2d_fixup_2d_objs,82)
+___DEF_MOD_PRM(16,___G___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d_set_21_,88)
+___DEF_MOD_PRM(5,___G___codegen_23_codegen_2d_context_2d_current_2d_proc,94)
+___DEF_MOD_PRM(6,___G___codegen_23_codegen_2d_context_2d_current_2d_proc_2d_set_21_,100)
+___DEF_MOD_PRM(3,___G___codegen_23_codegen_2d_context_2d_current_2d_code,106)
+___DEF_MOD_PRM(4,___G___codegen_23_codegen_2d_context_2d_current_2d_code_2d_set_21_,112)
+___DEF_MOD_PRM(17,___G___codegen_23_codegen_2d_context_2d_frame,118)
+___DEF_MOD_PRM(18,___G___codegen_23_codegen_2d_context_2d_frame_2d_set_21_,124)
+___DEF_MOD_PRM(25,___G___codegen_23_codegen_2d_context_2d_nargs,130)
+___DEF_MOD_PRM(26,___G___codegen_23_codegen_2d_context_2d_nargs_2d_set_21_,136)
+___DEF_MOD_PRM(7,___G___codegen_23_codegen_2d_context_2d_delayed_2d_actions,142)
+___DEF_MOD_PRM(8,___G___codegen_23_codegen_2d_context_2d_delayed_2d_actions_2d_set_21_,148)
+___DEF_MOD_PRM(19,___G___codegen_23_codegen_2d_context_2d_label_2d_struct_2d_position,154)
+___DEF_MOD_PRM(20,___G___codegen_23_codegen_2d_context_2d_label_2d_struct_2d_position_2d_set_21_,160)
+___DEF_MOD_PRM(33,___G___codegen_23_codegen_2d_context_2d_registers_2d_status,166)
+___DEF_MOD_PRM(34,___G___codegen_23_codegen_2d_context_2d_registers_2d_status_2d_set_21_,172)
+___DEF_MOD_PRM(23,___G___codegen_23_codegen_2d_context_2d_memory_2d_allocated,178)
+___DEF_MOD_PRM(24,___G___codegen_23_codegen_2d_context_2d_memory_2d_allocated_2d_set_21_,184)
+___DEF_MOD_PRM(29,___G___codegen_23_codegen_2d_context_2d_primitive_2d_labels_2d_table,190)
+___DEF_MOD_PRM(30,___G___codegen_23_codegen_2d_context_2d_primitive_2d_labels_2d_table_2d_set_21_,196)
+___DEF_MOD_PRM(31,___G___codegen_23_codegen_2d_context_2d_proc_2d_labels_2d_table,202)
+___DEF_MOD_PRM(32,___G___codegen_23_codegen_2d_context_2d_proc_2d_labels_2d_table_2d_set_21_,208)
+___DEF_MOD_PRM(27,___G___codegen_23_codegen_2d_context_2d_other_2d_labels_2d_table,214)
+___DEF_MOD_PRM(28,___G___codegen_23_codegen_2d_context_2d_other_2d_labels_2d_table_2d_set_21_,220)
+___DEF_MOD_PRM(11,___G___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_add_21_,226)
+___DEF_MOD_PRM(10,___G___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,236)
+___DEF_MOD_PRM(13,___G___codegen_23_codegen_2d_context_2d_fixup_2d_obj_2d_register_21_,292)
+___DEF_MOD_PRM(15,___G___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector,300)
+___DEF_MOD_PRM(37,___G___codegen_23_codegen_2d_fixup_2d_generic_21_,318)
+___DEF_MOD_PRM(41,___G___codegen_23_codegen_2d_fixup_2d_lbl_21_,338)
+___DEF_MOD_PRM(42,___G___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_,353)
+___DEF_MOD_PRM(44,___G___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_,368)
+___DEF_MOD_PRM(43,___G___codegen_23_codegen_2d_fixup_2d_obj_21_,386)
+___DEF_MOD_PRM(38,___G___codegen_23_codegen_2d_fixup_2d_glo_21_,390)
+___DEF_MOD_PRM(45,___G___codegen_23_codegen_2d_fixup_2d_prm_21_,394)
+___DEF_MOD_PRM(39,___G___codegen_23_codegen_2d_fixup_2d_handler_21_,398)
 ___END_MOD_PRM
 
 ___BEGIN_MOD_C_INIT
@@ -4437,50 +5186,50 @@ ___END_MOD_C_INIT
 ___BEGIN_MOD_GLO
 ___DEF_MOD_GLO(0,___G___codegen_23_,1)
 ___DEF_MOD_GLO(46,___G___codegen_23_make_2d_codegen_2d_context,3)
-___DEF_MOD_GLO(21,___G___codegen_23_codegen_2d_context_2d_listing_2d_format,32)
-___DEF_MOD_GLO(22,___G___codegen_23_codegen_2d_context_2d_listing_2d_format_2d_set_21_,37)
-___DEF_MOD_GLO(1,___G___codegen_23_codegen_2d_context_2d_arch,42)
-___DEF_MOD_GLO(2,___G___codegen_23_codegen_2d_context_2d_arch_2d_set_21_,47)
-___DEF_MOD_GLO(35,___G___codegen_23_codegen_2d_context_2d_target,52)
-___DEF_MOD_GLO(36,___G___codegen_23_codegen_2d_context_2d_target_2d_set_21_,57)
-___DEF_MOD_GLO(9,___G___codegen_23_codegen_2d_context_2d_fixup_2d_locs,62)
-___DEF_MOD_GLO(12,___G___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_set_21_,67)
-___DEF_MOD_GLO(14,___G___codegen_23_codegen_2d_context_2d_fixup_2d_objs,72)
-___DEF_MOD_GLO(16,___G___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d_set_21_,77)
-___DEF_MOD_GLO(5,___G___codegen_23_codegen_2d_context_2d_current_2d_proc,82)
-___DEF_MOD_GLO(6,___G___codegen_23_codegen_2d_context_2d_current_2d_proc_2d_set_21_,87)
-___DEF_MOD_GLO(3,___G___codegen_23_codegen_2d_context_2d_current_2d_code,92)
-___DEF_MOD_GLO(4,___G___codegen_23_codegen_2d_context_2d_current_2d_code_2d_set_21_,97)
-___DEF_MOD_GLO(17,___G___codegen_23_codegen_2d_context_2d_frame,102)
-___DEF_MOD_GLO(18,___G___codegen_23_codegen_2d_context_2d_frame_2d_set_21_,107)
-___DEF_MOD_GLO(25,___G___codegen_23_codegen_2d_context_2d_nargs,112)
-___DEF_MOD_GLO(26,___G___codegen_23_codegen_2d_context_2d_nargs_2d_set_21_,117)
-___DEF_MOD_GLO(7,___G___codegen_23_codegen_2d_context_2d_delayed_2d_actions,122)
-___DEF_MOD_GLO(8,___G___codegen_23_codegen_2d_context_2d_delayed_2d_actions_2d_set_21_,127)
-___DEF_MOD_GLO(19,___G___codegen_23_codegen_2d_context_2d_label_2d_struct_2d_position,132)
-___DEF_MOD_GLO(20,___G___codegen_23_codegen_2d_context_2d_label_2d_struct_2d_position_2d_set_21_,137)
-___DEF_MOD_GLO(33,___G___codegen_23_codegen_2d_context_2d_registers_2d_status,142)
-___DEF_MOD_GLO(34,___G___codegen_23_codegen_2d_context_2d_registers_2d_status_2d_set_21_,147)
-___DEF_MOD_GLO(23,___G___codegen_23_codegen_2d_context_2d_memory_2d_allocated,152)
-___DEF_MOD_GLO(24,___G___codegen_23_codegen_2d_context_2d_memory_2d_allocated_2d_set_21_,157)
-___DEF_MOD_GLO(29,___G___codegen_23_codegen_2d_context_2d_primitive_2d_labels_2d_table,162)
-___DEF_MOD_GLO(30,___G___codegen_23_codegen_2d_context_2d_primitive_2d_labels_2d_table_2d_set_21_,167)
-___DEF_MOD_GLO(31,___G___codegen_23_codegen_2d_context_2d_proc_2d_labels_2d_table,172)
-___DEF_MOD_GLO(32,___G___codegen_23_codegen_2d_context_2d_proc_2d_labels_2d_table_2d_set_21_,177)
-___DEF_MOD_GLO(27,___G___codegen_23_codegen_2d_context_2d_other_2d_labels_2d_table,182)
-___DEF_MOD_GLO(28,___G___codegen_23_codegen_2d_context_2d_other_2d_labels_2d_table_2d_set_21_,187)
-___DEF_MOD_GLO(11,___G___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_add_21_,192)
-___DEF_MOD_GLO(10,___G___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,201)
-___DEF_MOD_GLO(13,___G___codegen_23_codegen_2d_context_2d_fixup_2d_obj_2d_register_21_,250)
-___DEF_MOD_GLO(15,___G___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector,257)
-___DEF_MOD_GLO(37,___G___codegen_23_codegen_2d_fixup_2d_generic_21_,272)
-___DEF_MOD_GLO(41,___G___codegen_23_codegen_2d_fixup_2d_lbl_21_,288)
-___DEF_MOD_GLO(42,___G___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_,301)
-___DEF_MOD_GLO(44,___G___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_,314)
-___DEF_MOD_GLO(43,___G___codegen_23_codegen_2d_fixup_2d_obj_21_,328)
-___DEF_MOD_GLO(38,___G___codegen_23_codegen_2d_fixup_2d_glo_21_,331)
-___DEF_MOD_GLO(45,___G___codegen_23_codegen_2d_fixup_2d_prm_21_,334)
-___DEF_MOD_GLO(39,___G___codegen_23_codegen_2d_fixup_2d_handler_21_,337)
+___DEF_MOD_GLO(21,___G___codegen_23_codegen_2d_context_2d_listing_2d_format,34)
+___DEF_MOD_GLO(22,___G___codegen_23_codegen_2d_context_2d_listing_2d_format_2d_set_21_,40)
+___DEF_MOD_GLO(1,___G___codegen_23_codegen_2d_context_2d_arch,46)
+___DEF_MOD_GLO(2,___G___codegen_23_codegen_2d_context_2d_arch_2d_set_21_,52)
+___DEF_MOD_GLO(35,___G___codegen_23_codegen_2d_context_2d_target,58)
+___DEF_MOD_GLO(36,___G___codegen_23_codegen_2d_context_2d_target_2d_set_21_,64)
+___DEF_MOD_GLO(9,___G___codegen_23_codegen_2d_context_2d_fixup_2d_locs,70)
+___DEF_MOD_GLO(12,___G___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_set_21_,76)
+___DEF_MOD_GLO(14,___G___codegen_23_codegen_2d_context_2d_fixup_2d_objs,82)
+___DEF_MOD_GLO(16,___G___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d_set_21_,88)
+___DEF_MOD_GLO(5,___G___codegen_23_codegen_2d_context_2d_current_2d_proc,94)
+___DEF_MOD_GLO(6,___G___codegen_23_codegen_2d_context_2d_current_2d_proc_2d_set_21_,100)
+___DEF_MOD_GLO(3,___G___codegen_23_codegen_2d_context_2d_current_2d_code,106)
+___DEF_MOD_GLO(4,___G___codegen_23_codegen_2d_context_2d_current_2d_code_2d_set_21_,112)
+___DEF_MOD_GLO(17,___G___codegen_23_codegen_2d_context_2d_frame,118)
+___DEF_MOD_GLO(18,___G___codegen_23_codegen_2d_context_2d_frame_2d_set_21_,124)
+___DEF_MOD_GLO(25,___G___codegen_23_codegen_2d_context_2d_nargs,130)
+___DEF_MOD_GLO(26,___G___codegen_23_codegen_2d_context_2d_nargs_2d_set_21_,136)
+___DEF_MOD_GLO(7,___G___codegen_23_codegen_2d_context_2d_delayed_2d_actions,142)
+___DEF_MOD_GLO(8,___G___codegen_23_codegen_2d_context_2d_delayed_2d_actions_2d_set_21_,148)
+___DEF_MOD_GLO(19,___G___codegen_23_codegen_2d_context_2d_label_2d_struct_2d_position,154)
+___DEF_MOD_GLO(20,___G___codegen_23_codegen_2d_context_2d_label_2d_struct_2d_position_2d_set_21_,160)
+___DEF_MOD_GLO(33,___G___codegen_23_codegen_2d_context_2d_registers_2d_status,166)
+___DEF_MOD_GLO(34,___G___codegen_23_codegen_2d_context_2d_registers_2d_status_2d_set_21_,172)
+___DEF_MOD_GLO(23,___G___codegen_23_codegen_2d_context_2d_memory_2d_allocated,178)
+___DEF_MOD_GLO(24,___G___codegen_23_codegen_2d_context_2d_memory_2d_allocated_2d_set_21_,184)
+___DEF_MOD_GLO(29,___G___codegen_23_codegen_2d_context_2d_primitive_2d_labels_2d_table,190)
+___DEF_MOD_GLO(30,___G___codegen_23_codegen_2d_context_2d_primitive_2d_labels_2d_table_2d_set_21_,196)
+___DEF_MOD_GLO(31,___G___codegen_23_codegen_2d_context_2d_proc_2d_labels_2d_table,202)
+___DEF_MOD_GLO(32,___G___codegen_23_codegen_2d_context_2d_proc_2d_labels_2d_table_2d_set_21_,208)
+___DEF_MOD_GLO(27,___G___codegen_23_codegen_2d_context_2d_other_2d_labels_2d_table,214)
+___DEF_MOD_GLO(28,___G___codegen_23_codegen_2d_context_2d_other_2d_labels_2d_table_2d_set_21_,220)
+___DEF_MOD_GLO(11,___G___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d_add_21_,226)
+___DEF_MOD_GLO(10,___G___codegen_23_codegen_2d_context_2d_fixup_2d_locs_2d__3e_vector,236)
+___DEF_MOD_GLO(13,___G___codegen_23_codegen_2d_context_2d_fixup_2d_obj_2d_register_21_,292)
+___DEF_MOD_GLO(15,___G___codegen_23_codegen_2d_context_2d_fixup_2d_objs_2d__3e_vector,300)
+___DEF_MOD_GLO(37,___G___codegen_23_codegen_2d_fixup_2d_generic_21_,318)
+___DEF_MOD_GLO(41,___G___codegen_23_codegen_2d_fixup_2d_lbl_21_,338)
+___DEF_MOD_GLO(42,___G___codegen_23_codegen_2d_fixup_2d_lbl_2d_late_21_,353)
+___DEF_MOD_GLO(44,___G___codegen_23_codegen_2d_fixup_2d_obj_2d_generic_21_,368)
+___DEF_MOD_GLO(43,___G___codegen_23_codegen_2d_fixup_2d_obj_21_,386)
+___DEF_MOD_GLO(38,___G___codegen_23_codegen_2d_fixup_2d_glo_21_,390)
+___DEF_MOD_GLO(45,___G___codegen_23_codegen_2d_fixup_2d_prm_21_,394)
+___DEF_MOD_GLO(39,___G___codegen_23_codegen_2d_fixup_2d_handler_21_,398)
 ___END_MOD_GLO
 
 ___BEGIN_MOD_SYM_KEY

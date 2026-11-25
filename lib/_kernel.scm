@@ -354,6 +354,7 @@ end-of-code
       )
      {
        ___BOOL overflow;
+       int limit_kind = 0;
 
        ___COVER_STACK_LIMIT_HANDLER_STACK_LIMIT;
 
@@ -372,18 +373,24 @@ end-of-code
                || ___heap_continue_on_free_section(___ps)))
          overflow = 0;
        else
-         overflow = ___stack_limit (___PSPNC) && ___garbage_collect (___PSP 0);
+         {
+           limit_kind = ___stack_limit (___PSPNC);
+           overflow = limit_kind && ___garbage_collect (___PSP 0);
+         }
        ___group_demand_after(___ps, overflow);
        ___R_ALL
        ___SET_R0(___FRAME_FETCH_RA)
 
-       if (___group_demand_blocked(___ps))
-         ___group_demand_fail(___ps);
-       else if (overflow)
+       if (overflow || ___group_demand_blocked(___ps))
          {
+           ___group_demand_retire(___ps);
            ___COVER_STACK_LIMIT_HANDLER_HEAP_OVERFLOW;
-           ___JUMPPRM(___SET_NARGS(0),
-                      ___PRMCELL(___G__23__23_raise_2d_stack_2d_overflow_2d_exception.prm))
+           if (limit_kind == 2)
+             ___JUMPPRM(___SET_NARGS(0),
+                        ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
+           else
+             ___JUMPPRM(___SET_NARGS(0),
+                        ___PRMCELL(___G__23__23_raise_2d_stack_2d_overflow_2d_exception.prm))
          }
      }
 
@@ -2560,7 +2567,10 @@ end-of-code
               ___R_ALL
               ___SET_R0(___FRAME_FETCH_RA)
               if (overflow || ___group_demand_blocked(___ps))
-                ___RESULT = ___TRU;
+                {
+                  ___group_demand_retire(___ps);
+                  ___RESULT = ___TRU;
+                }
               else
                 ___RESULT = ___FAL;
             }
@@ -2720,6 +2730,7 @@ end-of-code
          {
            ___WORD will = ___SUBTYPED_FROM_START(___UNTAG(exec_wills));
            p->mem.executable_wills_ = ___WILL_NEXT_FIELD(will);
+           ___WILL_NEXT_FIELD(will) = ___TAG(0, ___EXECUTABLE_WILL);
            will_res = will;
            break;
          }
@@ -2735,6 +2746,7 @@ end-of-code
      {
        ___WORD will = ___SUBTYPED_FROM_START(___UNTAG(exec_wills));
        ___ps->mem.executable_wills_ = ___WILL_NEXT_FIELD(will);
+       ___WILL_NEXT_FIELD(will) = ___TAG(0, ___EXECUTABLE_WILL);
        ___RESULT = will;
      }
 #endif

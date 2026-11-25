@@ -702,7 +702,8 @@
             (macro-unlock-processor! processor)
             (##wait-abort! processor)))
         (begin
-          ;; the thread is not pinned, so add it to the current processor
+          ;; Preserve cache/cohort locality for mutex handoffs by keeping
+          ;; unpinned mutex waiters on the unlocking processor's run queue.
           (macro-add-thread-to-run-queue-of-current-processor! thread)))))
 
 (##define-macro (macro-add-thread-to-run-queue-of-current-processor-preferably! thread)
@@ -724,22 +725,28 @@
             (##btq-insert! processor thread)
             (macro-unlock-processor! processor)
             (##wait-abort! processor)))
-        (if (##not (macro-trylock-current-vm!))
-            (add-to-current-processor!)
-            (let ((processor (macro-processor-deq-head (macro-current-vm))))
-              (if (##eq? processor (macro-current-vm))
-                  (begin
-                    ;; no processor is currently idle
-                    (macro-unlock-current-vm!)
-                    (add-to-current-processor!))
-                  (begin
-                    ;; a processor that is currently idle was found
-                    (macro-processor-deq-remove! processor)
-                    (macro-unlock-current-vm!)
-                    (macro-lock-processor! processor)
-                    (##btq-insert! processor thread)
-                    (macro-unlock-processor! processor)
-                    (##wait-abort-no-remove! processor))))))))
+        (let ((vm (macro-current-vm)))
+          (if (or (##fx<= (macro-vm-idle-processor-count vm) 0)
+                  (##not (macro-trylock-current-vm!)))
+              (add-to-current-processor!)
+              (let ((processor (macro-processor-deq-head vm)))
+                (if (##eq? processor vm)
+                    (begin
+                      ;; no processor is currently idle
+                      (macro-unlock-current-vm!)
+                      (add-to-current-processor!))
+                    (begin
+                      ;; a processor that is currently idle was found
+                      (macro-processor-deq-remove! processor)
+                      (macro-processor-deq-init! processor)
+                      (macro-vm-idle-processor-count-set!
+                       vm
+                       (##fx- (macro-vm-idle-processor-count vm) 1))
+                      (macro-unlock-current-vm!)
+                      (macro-lock-processor! processor)
+                      (##btq-insert! processor thread)
+                      (macro-unlock-processor! processor)
+                      (##wait-abort-no-remove! processor)))))))))
 
 (##define-macro (macro-add-thread-to-run-queue-of-some-processor! thread)
   `(##add-thread-to-run-queue-of-some-processor-out-of-line! ,thread))
@@ -2663,16 +2670,28 @@
 
   (##declare (not interrupts-enabled))
 
-  (let ((processor (macro-current-processor)))
+  (let ((processor (macro-current-processor))
+        (vm (macro-current-vm)))
 
     (macro-lock-current-vm!)
-    (macro-processor-deq-insert-at-tail! (macro-current-vm) processor)
+    (if (##eq? (macro-processor-deq-next processor) processor)
+        (begin
+          (macro-processor-deq-insert-at-tail! vm processor)
+          (macro-vm-idle-processor-count-set!
+           vm
+           (##fx+ (macro-vm-idle-processor-count vm) 1))))
     (macro-unlock-current-vm!)
 
     (let ((code (##os-condvar-select! devices timeout)))
 
       (macro-lock-current-vm!)
-      (macro-processor-deq-remove! processor)
+      (if (##not (##eq? (macro-processor-deq-next processor) processor))
+          (begin
+            (macro-processor-deq-remove! processor)
+            (macro-processor-deq-init! processor)
+            (macro-vm-idle-processor-count-set!
+             vm
+             (##fx- (macro-vm-idle-processor-count vm) 1))))
       (macro-unlock-current-vm!)
 
       code)))
@@ -2681,9 +2700,16 @@
 
   (##declare (not interrupts-enabled))
 
-  (macro-lock-current-vm!)
-  (macro-processor-deq-remove! processor)
-  (macro-unlock-current-vm!)
+  (let ((vm (macro-current-vm)))
+    (macro-lock-current-vm!)
+    (if (##not (##eq? (macro-processor-deq-next processor) processor))
+        (begin
+          (macro-processor-deq-remove! processor)
+          (macro-processor-deq-init! processor)
+          (macro-vm-idle-processor-count-set!
+           vm
+           (##fx- (macro-vm-idle-processor-count vm) 1))))
+    (macro-unlock-current-vm!))
 
   (##wait-abort-no-remove! processor))
 
@@ -3095,7 +3121,10 @@
                      (macro-unlock-current-processor!)
 
                      (##wait! #f #t)
+
                      (##service-interrupts!) ;;TODO:remove
+
+                     ;; schedule next runnable thread
                      (##thread-schedule!))
 
                    (begin
@@ -3430,7 +3459,7 @@
   (let* ((mb (##thread-mailbox-get! (macro-current-thread)))
          (mutex (macro-mailbox-mutex mb)))
     (##check-heap-limit)
-    (macro-mutex-lock! mutex #f (macro-current-thread))
+    (macro-mutex-lock-anonymously! mutex #f)
     (macro-mailbox-cursor-set! mb #f)
     (macro-mutex-unlock! mutex)
     (##void)))
@@ -3443,7 +3472,7 @@
   (let* ((mb (##thread-mailbox-get! (macro-current-thread)))
          (mutex (macro-mailbox-mutex mb)))
     (##check-heap-limit)
-    (macro-mutex-lock! mutex #f (macro-current-thread))
+    (macro-mutex-lock-anonymously! mutex #f)
     (let ((cursor (macro-mailbox-cursor mb)))
       (if cursor
           (let* ((next (macro-fifo-next cursor))
@@ -3470,7 +3499,7 @@
     ;; remains lazy, outside the permit and performed only once per call.
     (let loop ((timeout-ready? #f) (timeout #f))
       (##check-heap-limit)
-      (macro-mutex-lock! mutex #f (macro-current-thread))
+      (macro-mutex-lock-anonymously! mutex #f)
       (let* ((cursor (macro-mailbox-cursor mb))
              (next (if cursor (macro-fifo-next cursor) (macro-mailbox-fifo mb)))
              (next2 (macro-fifo-next next)))
@@ -3539,10 +3568,10 @@
        absrel-timeout
        timeout-val))))
 
-(define-prim (##thread-send thread obj)
+(define-prim (##thread-send-with-mb thread mb obj)
   (##declare (not interrupts-enabled))
   (let* ((mb
-          (##thread-mailbox-get! thread))
+          (or mb (##thread-mailbox-get! thread)))
          (mutex
           (macro-mailbox-mutex mb))
          (cell
@@ -3550,11 +3579,15 @@
     ;; Keep the detached cell rooted across heap checks and the mutex wait.
     ;; Commit only links an initialized cell, without allocating under permit.
     (##check-heap-limit)
-    (macro-mutex-lock! mutex #f (macro-current-thread))
+    (macro-mutex-lock-anonymously! mutex #f)
     (macro-fifo-link-tail-cell! (macro-mailbox-fifo mb) cell)
     (macro-mutex-unlock! mutex)
-    (##condvar-signal! (macro-mailbox-condvar mb) #f)
+    (##condvar-signal-no-reschedule! (macro-mailbox-condvar mb) #f)
     (##void)))
+
+(define-prim (##thread-send thread obj)
+  (##declare (not interrupts-enabled))
+  (##thread-send-with-mb thread #f obj))
 
 (define-prim (thread-send thread obj)
   (macro-force-vars (thread)
@@ -3562,9 +3595,9 @@
       (begin
         (macro-lock-thread! thread)
         (macro-check-initialized-thread thread (thread-send thread obj)
-          (begin
+          (let ((mb (macro-thread-mailbox thread)))
             (macro-unlock-thread! thread)
-            (##thread-send thread obj)))))));;TODO: merge unlock and lock
+            (##thread-send-with-mb thread mb obj)))))))
 
 ;;;----------------------------------------------------------------------------
 
@@ -3749,16 +3782,25 @@
 
 (define-prim (##mutex-lock-anonymously-out-of-line! mutex absrel-timeout)
   (##declare (not interrupts-enabled))
-  (##mutex-lock-out-of-line! mutex absrel-timeout #f))
+  (##mutex-lock-unlocked-owner-out-of-line! mutex absrel-timeout #f))
 
 (define-prim (##mutex-lock-out-of-line! mutex absrel-timeout new-owner)
 
   (##declare (not interrupts-enabled))
 
-  ;; Assumes that the low-level locks of the mutex and new-owner are acquired.
+  ;; Assumes that the low-level lock of the mutex is acquired and, when
+  ;; new-owner is not #f, the low-level lock of new-owner is acquired.
 
   (if new-owner
       (macro-unlock-thread! new-owner))
+
+  (##mutex-lock-unlocked-owner-out-of-line! mutex absrel-timeout new-owner))
+
+(define-prim (##mutex-lock-unlocked-owner-out-of-line! mutex absrel-timeout new-owner)
+
+  (##declare (not interrupts-enabled))
+
+  ;; Assumes that only the low-level lock of the mutex is acquired.
 
   (let ((timeout
          (if (##not absrel-timeout)
@@ -4327,7 +4369,7 @@
        (##thread-btq-remove! next-thread)
        (macro-thread-toq-remove-if-in-toq! next-thread)
 
-       (macro-add-thread-to-run-queue-of-current-processor-preferably! next-thread)
+       (macro-add-thread-to-run-queue-of-some-processor! next-thread)
 
        ;; release low-level lock of thread
        (macro-unlock-thread! next-thread)

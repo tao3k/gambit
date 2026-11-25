@@ -176,6 +176,13 @@ ___SIZE_TS stack_fudge_used_;
 /* space used in msection heap fudge */
 ___SIZE_TS heap_fudge_used_;
 
+/* processor-private epoch-validated cache for lock_source_stack_frame */
+___msection *src_stack_cache_sec_[4];
+___UWORD src_stack_cache_base_[4];
+___UWORD src_stack_cache_epoch_;
+___SIZE_TS src_stack_cache_offset_;
+int src_stack_cache_next_;
+
 #ifdef ___DEBUG_GARBAGE_COLLECT
 
 /* GC state used for debugging */

@@ -637,12 +637,15 @@ ___BOOL ___root_round_publish(___processor_state ps)
       round->state != ___ROOT_ROUND_CLOSING ||
       !___root_globals_begin(&round->globals,ps,round->epoch)) return 0;
   { int i; ___WORD requested=___WORD_LOAD_ACQUIRE(&round->collection.requested_workers);
-    int live=0;
+    /* Processor 0 is the live coordinator carrier (launches[0] is never spawned
+     * via pthread_create); launches[1..participants-1] track secondary workers. */
+    int live=1;
     int count;
+#ifndef ___SINGLE_THREADED_VMS
     ___vm_lifecycle *life=round->vm->lifecycle;
-    if(life)for(i=0;i<round->participants && i<___MAX_PROCESSORS;i++)
+    if(life)for(i=1;i<round->participants && i<___MAX_PROCESSORS;i++)
       if(___WORD_LOAD_ACQUIRE(&life->launches[i].native_live))live++;
-    if(live<1)live=1;
+#endif
     count=(requested>0 && requested<round->participants)?(int)requested:round->participants;
     if(count>live)count=live;
     round->collection.decision=0;

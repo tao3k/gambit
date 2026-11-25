@@ -222,6 +222,7 @@ ___WORD *alloc_heap_chunk_limit_;
 /* Collector transport gate: successful CAS acquires the published queue.
  * No unlocked head/tail observations or generic ticket-lock grant polling. */
 ___VOLATILE ___WORD chunk_gate_;
+___VOLATILE ___WORD chunks_queued_; /* ordered count for lock-free empty check */
 
 #endif
 

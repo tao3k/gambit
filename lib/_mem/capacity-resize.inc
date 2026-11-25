@@ -224,6 +224,18 @@ ___SIZE_TS requested_words_still;)
                            nb_msections_stacks;
 
       SET_MAX(target_nb_sections, lower_bound_nb_sections);
+      if (___GSTATE->setup_params.max_heap == 0 && ___vms->processor_count > 1)
+        {
+          /* Each active processor consumes a stack and heap msection from
+           * nb_msections_assigned. Keep per-processor nursery headroom above
+           * normal_overflow_reserve so default-heap SMP mutators do not
+           * starve compute_free_heap_space_approximately() and amplify GCs. */
+          int smp_nursery_sections =
+            nb_msections_assigned +
+            compute_nb_msections_needed(normal_overflow_reserve) +
+            2 * ___vms->processor_count;
+          SET_MAX(target_nb_sections, smp_nursery_sections);
+        }
       upper_bound_nb_sections = target_nb_sections;
 
       if (___GSTATE->setup_params.max_heap > 0)

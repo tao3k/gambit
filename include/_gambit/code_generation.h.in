@@ -24,6 +24,9 @@
 #else
 #define ___EXPECT_TRUE(x) (x)
 #define ___EXPECT_FALSE(x) (x)
+#ifndef __builtin_expect
+#define __builtin_expect(x, expected) (x)
+#endif
 #endif
 
 /*---------------------------------------------------------------------------*/

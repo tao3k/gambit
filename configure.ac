@@ -2986,17 +2986,26 @@ if test "$ENABLE_CPLUSPLUS" = yes; then
   AC_MSG_ERROR([the modern C runtime requires a C23 compiler])
 fi
 gambit_saved_cflags=$CFLAGS
-CFLAGS="$CFLAGS -std=c23"
+if test "$C_COMP_VISUALC" = yes; then
+  gambit_c23_flag="/std:clatest"
+else
+  gambit_c23_flag="-std=c23"
+fi
+CFLAGS="$CFLAGS $gambit_c23_flag"
 AC_MSG_CHECKING([for the modern C23 language contract])
 AC_COMPILE_IFELSE([AC_LANG_SOURCE([[
-#if !defined(__STDC_VERSION__) || __STDC_VERSION__ < 202311L
+#if defined(_MSC_VER)
+#if !defined(__STDC_VERSION__) || __STDC_VERSION__ < 201710L
+#error A modern C compiler is required
+#endif
+#elif !defined(__STDC_VERSION__) || __STDC_VERSION__ < 202311L
 #error A C23 compiler is required
 #endif
 int main(void) { return 0; }
 ]])], [AC_MSG_RESULT([yes])],
        [AC_MSG_ERROR([C23 is required])])
 CFLAGS=$gambit_saved_cflags
-FLAGS_OBJ_DYN="$FLAGS_OBJ_DYN -std=c23"
+FLAGS_OBJ_DYN="$FLAGS_OBJ_DYN $gambit_c23_flag"
 
 # Compact diagnostic provenance does not remove semantic macro expansion.
 case "$target_os" in

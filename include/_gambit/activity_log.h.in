@@ -211,6 +211,18 @@ ___EXT(___emulated_shared_memory_barrier)()
 #endif
 #endif
 
+#if (defined(__aarch64__) || defined(_M_ARM64)) && !defined(___CPU_RELAX)
+#if defined(__APPLE__) && defined(__GNUC__)
+/* Apple Silicon treats YIELD as a 1-cycle NOP; ISB pauses issue pipeline
+ * and reduces memory-order violation flushes under spinlock contention. */
+#define ___CPU_RELAX() __asm__ __volatile__ ("isb" ::: "memory")
+#elif defined(__GNUC__)
+#define ___CPU_RELAX() __asm__ __volatile__ ("yield" ::: "memory")
+#elif defined(_MSC_VER)
+#define ___CPU_RELAX() __yield()
+#endif
+#endif
+
 #ifndef ___CPU_RELAX
 #define ___CPU_RELAX()
 #endif

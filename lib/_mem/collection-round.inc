@@ -26,57 +26,71 @@ ___collector_worker *work;)
 
 #ifndef ___SINGLE_THREADED_VMS
 
-#define ___GC_SCAN_STEAL_WORK_CYCLES 1000
+#define ___GC_SCAN_STEAL_WORK_CYCLES 64
+
+  if (np <= 1)
+    return;
 
   for (;;)
     {
       /* Try stealing a queued chunk from another processor */
 
-      for (i = (np-1) * ___GC_SCAN_STEAL_WORK_CYCLES - 1; i>=0; i--)
+      int cycle;
+      for (cycle = ___GC_SCAN_STEAL_WORK_CYCLES; cycle > 0; cycle--)
         {
-          ___collector_worker *victim = &___COLLECTORS(___vms)[(id + 1 + i%(np-1)) % np];
-          ___WORD *ptr = take_heap_chunk(work,victim);
-
-          if (ptr != 0)
+          for (i = 1; i < np; i++)
             {
-              scan_complete_heap_chunk (work, ptr, 3);
-              goto continue_local_scan;
+              ___collector_worker *victim = &___COLLECTORS(___vms)[(id + i) % np];
+              ___WORD *ptr = take_heap_chunk(work,victim);
+
+              if (ptr != 0)
+                {
+                  scan_complete_heap_chunk (work, ptr, 3);
+                  goto continue_local_scan;
+                }
             }
+          ___CPU_RELAX();
         }
 
       /* Signal being idle and wait for more work or termination */
 
       ___MUTEX_LOCK(scan_termination_mutex);
 
-      if (--(*workers_count) == 0)
-        {
-          /* Scan has terminated */
+      {
+        ___WORD rem = ___WORD_LOAD_ACQUIRE(workers_count) - 1;
+        ___WORD_STORE_RELEASE(workers_count, rem);
 
-          for (i=np-1; i>=0; i--)
-            ___CONDVAR_SIGNAL(scan_termination_condvar);
+        if (rem == 0)
+          {
+            /* Scan has terminated */
 
-          ___MUTEX_UNLOCK(scan_termination_mutex);
+            for (i=np-1; i>=0; i--)
+              ___CONDVAR_SIGNAL(scan_termination_condvar);
 
-          break;
-        }
-      else
-        {
-          /* Other processors are still actively scanning chunks */
+            ___MUTEX_UNLOCK(scan_termination_mutex);
 
-          ___ACTLOG_BEGIN_PS(gc_wait,lightgray);
-          ___CONDVAR_WAIT(scan_termination_condvar,scan_termination_mutex);
-          ___ACTLOG_END_PS();
+            break;
+          }
+        else
+          {
+            /* Other processors are still actively scanning chunks */
 
-          if (*workers_count == 0)
-            {
-              ___MUTEX_UNLOCK(scan_termination_mutex);
-              break;
-            }
+            ___ACTLOG_BEGIN_PS(gc_wait,lightgray);
+            ___CONDVAR_WAIT(scan_termination_condvar,scan_termination_mutex);
+            ___ACTLOG_END_PS();
 
-          (*workers_count)++;
+            rem = ___WORD_LOAD_ACQUIRE(workers_count);
+            if (rem == 0)
+              {
+                ___MUTEX_UNLOCK(scan_termination_mutex);
+                break;
+              }
 
-          ___MUTEX_UNLOCK(scan_termination_mutex);
-        }
+            ___WORD_STORE_RELEASE(workers_count, rem + 1);
+
+            ___MUTEX_UNLOCK(scan_termination_mutex);
+          }
+      }
     }
 
 #endif
@@ -349,22 +363,30 @@ ___SIZE_TS requested_words_still;)
     if(___PROCESSOR_ID(___ps,___vms)==0 && !___root_round_refuse(___ps))
       rc_contract_error("Known refusal cannot retire an already started root task");
     BARRIER();
-    /* A refused plan did not mark, so occupied sections stay. With no byte
-     * cap, grow the reserved pool and let the mutator retry. Reporting
-     * overflow here leaves the free list empty and the next allocation fails. */
-    if(___PROCESSOR_ID(___ps,___vms)==0 && the_msections &&
-       ___GSTATE->setup_params.max_heap==0) {
-      int before=the_msections->nb_sections;
-      int add=before/2;
-      if(add<32) add=32;
-      if(before>0 && add<=INT_MAX-before)
-        adjust_msections(&the_msections, before+add);
-      heap_size=compute_heap_size();
-      /* The reserve can exceed two new sections, so the approximate free
-       * space stays negative. Added sections are still usable. */
-      ___COLLECTION(___vms).overflow=the_msections->nb_sections>before?0:1;
-    } else if(___PROCESSOR_ID(___ps,___vms)==0)
-      ___COLLECTION(___vms).overflow=1;
+    /* A refused plan did not mark, so occupied sections stay. When the refusal
+     * is not an invalid worker/configuration request and no byte cap is active,
+     * grow the reserved pool and let the mutator retry. An invalid request must
+     * remain an explicit refusal/overflow without mutating the section pool. */
+    if(___PROCESSOR_ID(___ps,___vms)==0) {
+      ___gc_round *g=&___COLLECTION(___vms);
+      ___WORD req=___WORD_LOAD_ACQUIRE(&g->requested_workers);
+      int n=___ROOT_UNION(___vms)->participants;
+      int w=g->worker_count;
+      int invalid_request=(custom_msection_alloc || w<1 || w>n || req<0 || req>n);
+      if(!invalid_request && the_msections &&
+         ___GSTATE->setup_params.max_heap==0) {
+        int before=the_msections->nb_sections;
+        int add=before/2;
+        if(add<32) add=32;
+        if(before>0 && add<=INT_MAX-before)
+          adjust_msections(&the_msections, before+add);
+        heap_size=compute_heap_size();
+        /* The reserve can exceed two new sections, so the approximate free
+         * space stays negative. Added sections are still usable. */
+        g->overflow=the_msections->nb_sections>before?0:1;
+      } else
+        g->overflow=1;
+    }
     BARRIER();
     bytes_allocated_minus_occupied-=bytes_occupied(___ps);
     ___ACTLOG_END_PS();
@@ -390,7 +412,8 @@ ___SIZE_TS requested_words_still;)
         else if (movable_resumed)
           caller_overflow=0;
         else
-          caller_overflow=compute_free_heap_space_approximately()<___MSECTION_SIZE;
+          caller_overflow=shared_overflow ||
+            (compute_free_heap_space_approximately()<___MSECTION_SIZE);
         return caller_overflow;
       }
     }

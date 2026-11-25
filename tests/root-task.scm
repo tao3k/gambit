@@ -141,28 +141,37 @@ c-end
    (c-declare #<<c-end
 #include "rc.h"
 static int bank_test_fault,bank_test_calls,bank_test_entered;
-static void *bank_test_allocate(___PSD ___SIZE_T bytes)
+static ___SCMOBJ bank_test_begin_sfun(___processor_state ps, ___WORD nargs,
+                                      ___SCMOBJ proc, void **scope)
 {
-  ___PSGET
   ++bank_test_calls;
-  if(bank_test_calls==bank_test_fault) return 0;
-  return ___EXT(___alloc_rc)(___PSP bytes);
+  if(bank_test_calls==bank_test_fault) return ___FIX(___SFUN_HEAP_OVERFLOW_ERR);
+  return ___EXT(___begin_sfun)(ps, nargs, proc, scope);
+}
+static ___SCMOBJ bank_test_sfun_arg(___processor_state ps, void *scope,
+                                    ___WORD index, ___SCMOBJ arg)
+{
+  ++bank_test_calls;
+  if(bank_test_calls==bank_test_fault) return ___FIX(___SFUN_HEAP_OVERFLOW_ERR);
+  return ___EXT(___sfun_arg)(ps, scope, index, arg);
 }
 int bank_test_entry(___SCMOBJ,___SCMOBJ);
-/* Narrow allocator fault adapter around the actual emitted SFUN body. The
- * positive control delegates every allocation to the real runtime. */
+/* Narrow activation-entry fault adapter around the actual emitted SFUN body.
+ * The positive control delegates every entry/root call to the real runtime. */
 #pragma push_macro("___EXT")
-#pragma push_macro("___alloc_rc")
+#pragma push_macro("___begin_sfun")
+#pragma push_macro("___sfun_arg")
 #undef ___EXT
 #define ___EXT(f) f
-#define ___alloc_rc bank_test_allocate
+#define ___begin_sfun bank_test_begin_sfun
+#define ___sfun_arg bank_test_sfun_arg
 c-end
 )
    (c-define (bank-test-entry first second)
              (scheme-object scheme-object) int "bank_test_entry" ""
      ((c-lambda () void "++bank_test_entered;"))
      (if (and (pair? first) (pair? second)) 1 0))
-   (c-declare "#pragma pop_macro(\"___alloc_rc\")\n#pragma pop_macro(\"___EXT\")")
+   (c-declare "#pragma pop_macro(\"___sfun_arg\")\n#pragma pop_macro(\"___begin_sfun\")\n#pragma pop_macro(\"___EXT\")")
    (define bank-test-action
     (c-lambda (scheme-object scheme-object int) bool #<<c-end
 {
@@ -180,7 +189,7 @@ c-end
   ___result=domain->nodes==nodes && domain->borrows==borrows &&
     (bank_test_fault==0 ?
      (returned && result==1 && ___err==___FIX(___NO_ERR) &&
-      bank_test_calls==2 && bank_test_entered==1) :
+      bank_test_calls==3 && bank_test_entered==1) :
      (!returned && ___err==___FIX(___SFUN_HEAP_OVERFLOW_ERR) &&
       bank_test_calls==bank_test_fault && bank_test_entered==0));
   ___RC_UNLOCK(domain);
@@ -191,8 +200,8 @@ c-end
     (lambda (fault)
       (if (not (bank-test-action (cons 2027 2029) (cons 2039 2053) fault))
           (error "SFUN root bank did not drain at allocation boundary" fault)))
-    '(0 1 2))
-   (display "SFUN-ROOT-BANK-PARTIAL-FAILURE-PASS cases=3\n")))
+    '(0 1 2 3))
+   (display "SFUN-ROOT-BANK-PARTIAL-FAILURE-PASS cases=4\n")))
 
  (else
 ;;; gambit.smp.gc.root-task: native replay, independent oracle and shrinking.

@@ -703,6 +703,7 @@ copy-loc
 copy-opnd
 debug-info-add!
 debug-info-generate
+debug-info-skip!
 enter-opnd
 frame-closed
 frame-live

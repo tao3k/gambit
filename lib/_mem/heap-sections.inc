@@ -1,6 +1,23 @@
 #line 3046 ___MEM_SOURCE_FILE
 /*---------------------------------------------------------------------------*/
 
+#if defined(__ATOMIC_ACQUIRE) && defined(__ATOMIC_RELEASE)
+#define ___SECTION_PIN_LOAD_ACQ(p)      __atomic_load_n((p), __ATOMIC_ACQUIRE)
+#define ___SECTION_PIN_ADD_REL(p, v)    __atomic_fetch_add((p), (v), __ATOMIC_RELEASE)
+#define ___SECTION_PIN_SUB_ACQREL(p, v) __atomic_fetch_sub((p), (v), __ATOMIC_ACQ_REL)
+#define ___REST_CHAIN_ADD_RLX(p, v)     __atomic_fetch_add((p), (v), __ATOMIC_RELAXED)
+#elif defined(_MSC_VER)
+#define ___SECTION_PIN_LOAD_ACQ(p)      ((unsigned)_InterlockedOr((volatile long *)(p), 0))
+#define ___SECTION_PIN_ADD_REL(p, v)    ((void)_InterlockedExchangeAdd((volatile long *)(p), (long)(v)))
+#define ___SECTION_PIN_SUB_ACQREL(p, v) ((void)_InterlockedExchangeAdd((volatile long *)(p), -(long)(v)))
+#define ___REST_CHAIN_ADD_RLX(p, v)     ((void)___FETCH_AND_ADD_WORD((___VOLATILE ___WORD *)(p), (___WORD)(v)))
+#else
+#define ___SECTION_PIN_LOAD_ACQ(p)      (*(p))
+#define ___SECTION_PIN_ADD_REL(p, v)    ((*(p)) += (v))
+#define ___SECTION_PIN_SUB_ACQREL(p, v) ((*(p)) -= (v))
+#define ___REST_CHAIN_ADD_RLX(p, v)     ((*(p)) += (v))
+#endif
+
 #ifdef ___DEBUG_GARBAGE_COLLECT
 
 #define fatal_heap_overflow() fatal_heap_overflow_debug (__LINE__)
@@ -200,7 +217,7 @@ ___HIDDEN void release_stack_section(___processor_state ___ps, ___msection *sect
   section_claim *claim=section_claim_at(section,tospace_offset);
   if(claim->stack_owner!=___ps || claim->stack_state!=STACK_ACTIVE ||
      claim->heap_used ||
-     __atomic_load_n(&claim->source_pins, __ATOMIC_ACQUIRE))
+     ___SECTION_PIN_LOAD_ACQ(&claim->source_pins))
     { rc_contract_error("Stack section release lacks exclusive ownership"); return; }
   ___gc_copy_acquire(&section->copy_gate);
   claim->stack_state=STACK_REUSABLE;
@@ -396,6 +413,9 @@ ___collector_worker *owner;)
 {
   ___WORD *node;
 #ifndef ___SINGLE_THREADED_VMS
+  /* Read-only acquire pre-check avoids contended CAS/XCHG on empty queues. */
+  if (___WORD_LOAD_ACQUIRE(&owner->chunks_queued_) == 0)
+    return 0;
   if (___COMPARE_AND_SWAP_WORD(&owner->chunk_gate_,0,1) != 0)
     return 0;
 #endif
@@ -407,6 +427,9 @@ ___collector_worker *owner;)
   node = ___UNTAG_AS(*owner->heap_chunks_to_scan_head_, ___FORW);
   require_chunk_transition(work,node+1,1,2);
   owner->heap_chunks_to_scan_head_ = node;
+#ifndef ___SINGLE_THREADED_VMS
+  ___WORD_STORE_RELEASE(&owner->chunks_queued_, owner->chunks_queued_ - 1);
+#endif
   work->chunks_claimed_++;
   unlock_chunk_fifo(owner);
   return node+1;
@@ -455,6 +478,10 @@ ___collector_worker *work;)
 
       heap_chunks_to_scan_tail = new_tail;
 
+#ifndef ___SINGLE_THREADED_VMS
+      ___WORD_STORE_RELEASE(&work->chunks_queued_, work->chunks_queued_ + 1);
+#endif
+
       /*
        * A memory barrier is needed to ensure that the new tail of the
        * heap chunk FIFO are visible to other processors.  This can't
@@ -468,7 +495,9 @@ ___collector_worker *work;)
 
       unlock_chunk_fifo(work);
 #ifndef ___SINGLE_THREADED_VMS
-      ___CONDVAR_SIGNAL(scan_termination_condvar);
+      if (___WORD_LOAD_ACQUIRE(&scan_workers_count[traverse_weak_refs]) <
+          ___COLLECTION(___VMSTATE_FROM_PSTATE(___ps)).worker_count)
+        ___CONDVAR_SIGNAL(scan_termination_condvar);
 #endif
     }
 }
@@ -966,12 +995,11 @@ ___BOOL ___rest_caller_chain(___WORD *window, ___WORD na, ___WORD ra,
 #define REST_CHAIN_UNPIN(flag) \
   do { \
     if (pinned) { \
-      __atomic_fetch_sub(&section_claim_at(pinned,pinned_offset)->source_pins, \
-                         1, __ATOMIC_ACQ_REL); \
+      ___SECTION_PIN_SUB_ACQREL(&section_claim_at(pinned,pinned_offset)->source_pins, 1); \
       REST_OBS(REST_UNPIN,___ps,rest_observation_attempt_record(___ps),rest_observation_attempt_id(___ps), \
                ___COLLECTION(___VMSTATE_FROM_PSTATE(___ps)).epoch, \
                pinned,pinned_offset,(flag),0,0,0,0,0); \
-      __atomic_fetch_add(&___rest_chain_unpins, 1, __ATOMIC_RELAXED); \
+      ___REST_CHAIN_ADD_RLX(&___rest_chain_unpins, 1); \
       pinned=0; \
     } \
   } while (0)
@@ -1038,8 +1066,8 @@ ___BOOL ___rest_caller_chain(___WORD *window, ___WORD na, ___WORD ra,
           break;
         }
         ___gc_copy_acquire(&next_section->copy_gate);
-        __atomic_fetch_add(&___rest_chain_gates, 1, __ATOMIC_RELAXED);
-        __atomic_fetch_add(&___rest_chain_crossings, 1, __ATOMIC_RELAXED);
+        ___REST_CHAIN_ADD_RLX(&___rest_chain_gates, 1);
+        ___REST_CHAIN_ADD_RLX(&___rest_chain_crossings, 1);
         REST_OBS(REST_SUCCESSOR,___ps,rest_observation_attempt_record(___ps),rest_observation_attempt_id(___ps),
              ___COLLECTION(___VMSTATE_FROM_PSTATE(___ps)).epoch,
                  next_section,next_offset,next_claim->stack_owner,next,pinned,pinned_offset,1,0);
@@ -1073,12 +1101,11 @@ ___BOOL ___rest_caller_chain(___WORD *window, ___WORD na, ___WORD ra,
             /* The pin already covers the last read when it was taken
              * before that read. Do not take a second one on the way out. */
             if (pinned!=held) {
-              __atomic_fetch_add(&section_claim_at(held,held_offset)->source_pins,
-                                 1, __ATOMIC_RELEASE);
+              ___SECTION_PIN_ADD_REL(&section_claim_at(held,held_offset)->source_pins, 1);
               REST_OBS(REST_PIN,___ps,rest_observation_attempt_record(___ps),rest_observation_attempt_id(___ps),
              ___COLLECTION(___VMSTATE_FROM_PSTATE(___ps)).epoch,held,held_offset,
                        section_claim_at(held,held_offset)->stack_owner,top,held_base,held_past,0,0);
-              __atomic_fetch_add(&___rest_chain_old_pins, 1, __ATOMIC_RELAXED);
+              ___REST_CHAIN_ADD_RLX(&___rest_chain_old_pins, 1);
               pinned=held;
               pinned_offset=held_offset;
             }
@@ -1094,7 +1121,7 @@ ___BOOL ___rest_caller_chain(___WORD *window, ___WORD na, ___WORD ra,
           }
           if (section) {
             ___gc_copy_acquire(&section->copy_gate);
-            __atomic_fetch_add(&___rest_chain_gates, 1, __ATOMIC_RELAXED);
+            ___REST_CHAIN_ADD_RLX(&___rest_chain_gates, 1);
             held=section;
             held_offset=offset;
             held_base=section->base+offset;
@@ -1120,18 +1147,17 @@ ___BOOL ___rest_caller_chain(___WORD *window, ___WORD na, ___WORD ra,
       if (held && pinned!=held) {
         ___WORD link=___FP_STK(stack_past,-___BREAK_FRAME_NEXT);
         if (link && (___CAST(___UWORD,link)&(___WS-1))==0) {
-          __atomic_fetch_add(&section_claim_at(held,held_offset)->source_pins,
-                             1, __ATOMIC_RELEASE);
+          ___SECTION_PIN_ADD_REL(&section_claim_at(held,held_offset)->source_pins, 1);
           REST_OBS(REST_PIN,___ps,rest_observation_attempt_record(___ps),rest_observation_attempt_id(___ps),
              ___COLLECTION(___VMSTATE_FROM_PSTATE(___ps)).epoch,held,held_offset,
                    section_claim_at(held,held_offset)->stack_owner,top,held_base,held_past,0,0);
-          __atomic_fetch_add(&___rest_chain_old_pins, 1, __ATOMIC_RELAXED);
+          ___REST_CHAIN_ADD_RLX(&___rest_chain_old_pins, 1);
           pinned=held;
           pinned_offset=held_offset;
         }
       }
-      if (held) __atomic_fetch_add(&___rest_chain_reads, 1, __ATOMIC_RELAXED);
-      else __atomic_fetch_add(&___rest_chain_ungated, 1, __ATOMIC_RELAXED);
+      if (held) ___REST_CHAIN_ADD_RLX(&___rest_chain_reads, 1);
+      else ___REST_CHAIN_ADD_RLX(&___rest_chain_ungated, 1);
       if (!section) goto refuse;
       {
         ___WORD *half=section->base+offset;
@@ -1159,7 +1185,7 @@ ___BOOL ___rest_caller_chain(___WORD *window, ___WORD na, ___WORD ra,
              ___COLLECTION(___VMSTATE_FROM_PSTATE(___ps)).epoch,section,offset,
                section_claim_at(section,offset)->stack_owner,base-(fd.link+1),0,0,known_break,0);
       if (pinned && section==pinned)
-        __atomic_fetch_add(&___rest_chain_old_reads, 1, __ATOMIC_RELAXED);
+        ___REST_CHAIN_ADD_RLX(&___rest_chain_old_reads, 1);
     }
   REST_CHAIN_UNPIN(0);
   if (held) ___gc_copy_release(&held->copy_gate);
@@ -1270,8 +1296,7 @@ ___HIDDEN ___BOOL retire_drained_source_claims(___root_round *round,
     return 0;
   source=half-destination;
   for(section=sections->head; section; section=section->next)
-    if (__atomic_load_n(&section_claim_at(section,source)->source_pins,
-                        __ATOMIC_ACQUIRE))
+    if (___SECTION_PIN_LOAD_ACQ(&section_claim_at(section,source)->source_pins))
       return 0;
   for (i=0;i<round->participants;i++) {
     const ___root_member *member=&round->members[i];
@@ -1430,6 +1455,9 @@ ___virtual_machine_state ___vms;)
       heap_chunks_to_scan = NULL_CHUNK_LINK;
       heap_chunks_to_scan_head = &heap_chunks_to_scan;
       heap_chunks_to_scan_tail = &heap_chunks_to_scan;
+#ifndef ___SINGLE_THREADED_VMS
+      work->chunks_queued_ = 0;
+#endif
       still_objs_to_scan = 0;
     }
 

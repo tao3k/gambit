@@ -501,12 +501,31 @@ ___thread *thread;)
 #ifdef ___USE_POSIX_THREAD_SYSTEM
 
   pthread_t thread_id;
+  pthread_attr_t attr;
+  int attr_ok = (pthread_attr_init (&attr) == 0);
   int error;
 
-  if ((error=pthread_create (&thread_id,
-                      NULL,
-                      start_pthread_thread,
-                      ___CAST(void*,thread))) != 0)
+  /* macOS defaults secondary pthreads to 512 KiB (vs 8 MiB on main thread and
+   * Linux), which can overflow under nested c-define callbacks or single-host
+   * frames. Ensure worker processors receive at least a 4 MiB C stack. */
+  if (attr_ok)
+    {
+      size_t stack_size = 0;
+      const size_t min_stack = (size_t)4 * 1024 * 1024;
+      if (pthread_attr_getstacksize (&attr, &stack_size) == 0 &&
+          stack_size < min_stack)
+        pthread_attr_setstacksize (&attr, min_stack);
+    }
+
+  error = pthread_create (&thread_id,
+                          attr_ok ? &attr : NULL,
+                          start_pthread_thread,
+                          ___CAST(void*,thread));
+
+  if (attr_ok)
+    pthread_attr_destroy (&attr);
+
+  if (error != 0)
     return ___FIX(___ERRNO_ERR(error));
 
   thread->thread_id = thread_id;

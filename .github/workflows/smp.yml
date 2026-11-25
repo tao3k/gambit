@@ -1,42 +1,187 @@
 name: Gambit SMP
 on:
   pull_request:
-    paths: ['include/**', 'lib/**', 'gsc/**', 'gsi/**', 'tests/**', 'configure*', 'makefile.in', '.github/workflows/smp.yml']
+    paths: ['include/**', 'lib/**', 'gsc/**', 'gsi/**', 'tests/**', 'configure*', 'makefile.in', '.github/workflows/smp.yml', '.github/actions/gambit-*/**']
   push:
     branches: [modern-c]
   workflow_dispatch:
+
 permissions:
   contents: read
+
+concurrency:
+  group: gambit-smp-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  upstream-smp:
-    runs-on: macos-15
-    timeout-minutes: 30
+  smp-build-linux:
+    name: "SMP Build (Linux GCC C23)"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
-      - name: Install upstream build prerequisites
-        run: brew install gcc autoconf automake pkgconf coreutils
-      - name: Build the SMP configuration through existing Make targets
+      - uses: ./.github/actions/gambit-smp-build
+        with:
+          timeout-seconds: '900'
+      - name: Package built SMP runtime for modular test jobs
         run: |
-          aclocal && autoconf
-          export CC="${GAMBIT_SMP_CC:-$(command -v gcc-16)}"
-          export CFLAGS='-pipe -std=c23'
-          unset SDKROOT LIBRARY_PATH CPATH GAMBOPT
-          ./configure --enable-march= --enable-single-host=0 --enable-multiple-vms --enable-smp --enable-c-opt=-O1 --enable-c-opt-rts=yes --enable-gcc-opts --enable-inline-jumps --enable-dynamic-clib --enable-trust-c-tco --enable-multiple-threaded-vms
-          workers=$(sysctl -n hw.logicalcpu)
-          workers=$((workers > 1 ? workers - 1 : 1))
-          gtimeout --kill-after=2s 600s make -j"$workers" GAMBOPT=p1 core
+          tar -cf gambit-smp-linux-runtime.tar \
+            bin gsi/gsi gsc/gsc lib/libgambit.a lib/libgambitgsi.a lib/libgambitgsc.a \
+            lib/_gambit.c lib/_gambit#.scm lib/gambit#.scm lib/header.scm lib/lifecycle.h \
+            lib/mem.h lib/os.h lib/os_base.h lib/os_thread.h lib/setup.h lib/collector.h \
+            lib/root.h lib/rc.h \
+            lib/_kernel#.scm lib/_system#.scm lib/_num#.scm lib/_std#.scm lib/_eval#.scm \
+            lib/_module#.scm lib/_io#.scm lib/_nonstd#.scm lib/_thread#.scm lib/_repl#.scm \
+            lib/_define-syntax.scm lib/_syntax*.scm lib/_with-syntax-boot.scm \
+            include/gambit.h include/config.h
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gambit-smp-linux-runtime-${{ github.run_id }}-${{ github.run_attempt }}
+          path: gambit-smp-linux-runtime.tar
+          retention-days: 3
+
+  smp-multicore-pbt:
+    name: "True-Multicore PBT (${{ matrix.topology }})"
+    needs: smp-build-linux
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        topology: [p1, p2, p4]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install runtime compilation prerequisites
+        run: sudo apt-get update && sudo apt-get install -y gcc make time
+      - uses: actions/download-artifact@v4
+        with:
+          name: gambit-smp-linux-runtime-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: Unpack SMP runtime
+        run: tar -xf gambit-smp-linux-runtime.tar
+      - uses: ./.github/actions/gambit-multicore-pbt
+        with:
+          runtime-dir: '.'
+          topologies: ${{ matrix.topology }}
+          repeats: ${{ matrix.topology == 'p4' && '2' || '1' }}
+          include-scaling: 'true'
+          json-out: multicore-${{ matrix.topology }}.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gambit-multicore-${{ matrix.topology }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: multicore-${{ matrix.topology }}.json
+
+  smp-official-regressions:
+    name: "Official SMP Suite (${{ matrix.suite }})"
+    needs: smp-build-linux
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [unit-gsi-p2, thread-gsc-p2, stress-gsc-p2]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install runtime compilation prerequisites
+        run: sudo apt-get update && sudo apt-get install -y gcc make time
+      - uses: actions/download-artifact@v4
+        with:
+          name: gambit-smp-linux-runtime-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: Unpack SMP runtime
+        run: tar -xf gambit-smp-linux-runtime.tar
+      - name: Official interpreted units with two processors
+        if: matrix.suite == 'unit-gsi-p2'
+        working-directory: tests
+        env:
+          GAMBOPT: p2,~~bin=../bin,~~lib=../lib,~~include=../include
+        run: timeout --kill-after=2s 300s ../gsi/gsi -:p1,~~bin=../bin,~~lib=../lib,~~include=../include -f run-unit-tests.scm -gsi
+      - name: Official compiled thread and map regressions with two processors
+        if: matrix.suite == 'thread-gsc-p2'
+        working-directory: tests
+        env:
+          GAMBOPT: p2,~~bin=../bin,~~lib=../lib,~~include=../include
+        run: timeout --kill-after=2s 300s ../gsi/gsi -:p1,~~bin=../bin,~~lib=../lib,~~include=../include -f run-unit-tests.scm -gsc unit-tests/06-thread unit-tests/04-list/map.scm
+      - name: Official compiled thread stress cases with two processors
+        if: matrix.suite == 'stress-gsc-p2'
+        working-directory: tests
+        env:
+          GAMBOPT: p2,~~bin=../bin,~~lib=../lib,~~include=../include
+        run: timeout --kill-after=2s 600s ../gsi/gsi -:p1,~~bin=../bin,~~lib=../lib,~~include=../include -f run-unit-tests.scm -gsc -stress unit-tests/06-thread/tfib_stress.scm unit-tests/06-thread/thread_interrupt_stress.scm unit-tests/06-thread/thread_interrupt2_stress.scm unit-tests/06-thread/thread_terminate_stress.scm
+
+  smp-c23-clang-hygiene:
+    name: "Clang C23 Header & Ordered-Sync TSan Hygiene"
+    needs: smp-build-linux
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Clang C23 + TSan toolchain
+        run: sudo apt-get update && sudo apt-get install -y clang
+      - uses: actions/download-artifact@v4
+        with:
+          name: gambit-smp-linux-runtime-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: Unpack configured headers
+        run: tar -xf gambit-smp-linux-runtime.tar include/gambit.h include/config.h
+      - name: Verify Clang -std=c23 -Werror=comment header cleanliness and TSan runtime
+        run: |
+          set -euo pipefail
+          cat <<'EOF' > /tmp/gambit_c23_hygiene.c
+          #define ___DONT_HAVE_CONFIG_H
+          #include "gambit.h"
+          #include <pthread.h>
+          static ___VOLATILE ___WORD shared_val = 0;
+          static ___VOLATILE ___WORD ready = 0;
+          static void *writer(void *arg) {
+            (void)arg;
+            ___WORD_STORE_RELAXED(&shared_val, 42);
+            ___WORD_STORE_RELEASE(&ready, 1);
+            return 0;
+          }
+          int main(void) {
+            pthread_t t;
+            if (pthread_create(&t, 0, writer, 0) != 0) return 1;
+            while (!___WORD_LOAD_ACQUIRE(&ready)) {}
+            ___WORD v = ___WORD_LOAD_RELAXED(&shared_val);
+            pthread_join(t, 0);
+            return v == 42 ? 0 : 2;
+          }
+          EOF
+          clang -std=c23 -Werror=comment -fsanitize=thread -O1 -Iinclude /tmp/gambit_c23_hygiene.c -lpthread -o /tmp/gambit_c23_hygiene
+          /tmp/gambit_c23_hygiene
+
+  upstream-smp:
+    name: "macOS arm64 SMP & True-Multicore"
+    runs-on: macos-15
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/gambit-smp-build
+        with:
+          timeout-seconds: '900'
       - name: Official interpreted units with two processors
         working-directory: tests
         env:
-          GAMBOPT: p2
-        run: gtimeout --kill-after=2s 300s ../gsi/gsi -:p1 -f run-unit-tests.scm -gsi
+          GAMBOPT: p2,~~bin=../bin,~~lib=../lib,~~include=../include
+        run: gtimeout --kill-after=2s 300s ../gsi/gsi -:p1,~~bin=../bin,~~lib=../lib,~~include=../include -f run-unit-tests.scm -gsi
       - name: Official compiled thread and map regressions with two processors
         working-directory: tests
         env:
-          GAMBOPT: p2
-        run: gtimeout --kill-after=2s 300s ../gsi/gsi -:p1 -f run-unit-tests.scm -gsc unit-tests/06-thread unit-tests/04-list/map.scm
+          GAMBOPT: p2,~~bin=../bin,~~lib=../lib,~~include=../include
+        run: gtimeout --kill-after=2s 300s ../gsi/gsi -:p1,~~bin=../bin,~~lib=../lib,~~include=../include -f run-unit-tests.scm -gsc unit-tests/06-thread unit-tests/04-list/map.scm
       - name: Official compiled thread stress cases with two processors
         working-directory: tests
         env:
-          GAMBOPT: p2
-        run: gtimeout --kill-after=2s 300s ../gsi/gsi -:p1 -f run-unit-tests.scm -gsc -stress unit-tests/06-thread/tfib_stress.scm unit-tests/06-thread/thread_interrupt_stress.scm unit-tests/06-thread/thread_interrupt2_stress.scm unit-tests/06-thread/thread_terminate_stress.scm
+          GAMBOPT: p2,~~bin=../bin,~~lib=../lib,~~include=../include
+        run: gtimeout --kill-after=2s 420s ../gsi/gsi -:p1,~~bin=../bin,~~lib=../lib,~~include=../include -f run-unit-tests.scm -gsc -stress unit-tests/06-thread/tfib_stress.scm unit-tests/06-thread/thread_interrupt_stress.scm unit-tests/06-thread/thread_interrupt2_stress.scm unit-tests/06-thread/thread_terminate_stress.scm
+      - uses: ./.github/actions/gambit-multicore-pbt
+        with:
+          runtime-dir: '.'
+          topologies: 'p2,p4'
+          repeats: '1'
+          include-scaling: 'true'
+          json-out: multicore-macos-arm64.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gambit-multicore-macos-arm64-${{ github.run_id }}-${{ github.run_attempt }}
+          path: multicore-macos-arm64.json

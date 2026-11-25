@@ -1,0 +1,77 @@
+name: Build Gambit SMP (C23)
+description: Reusable modular build action for Gambit SMP with C23, multiple VMs, and multiple threaded VMs
+inputs:
+  compiler:
+    description: Optional C compiler override (auto-detects gcc-16/gcc-15/gcc-14/gcc when empty)
+    required: false
+    default: ''
+  timeout-seconds:
+    description: Wall timeout for `make core`
+    required: false
+    default: '900'
+runs:
+  using: composite
+  steps:
+    - name: Install build prerequisites (Linux)
+      if: runner.os == 'Linux'
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y gcc make texinfo autoconf automake pkg-config time
+    - name: Install build prerequisites (macOS)
+      if: runner.os == 'macOS'
+      shell: bash
+      run: |
+        brew install gcc autoconf automake pkgconf coreutils
+    - name: Configure and build Gambit SMP core
+      shell: bash
+      env:
+        INPUT_CC: ${{ inputs.compiler }}
+        BUILD_TIMEOUT: ${{ inputs.timeout-seconds }}
+      run: |
+        set -euo pipefail
+        if [ "${RUNNER_OS}" = "macOS" ]; then
+          export PATH="/usr/bin:/bin:/opt/homebrew/bin:${PATH}"
+          TIMEOUT_BIN="$(command -v gtimeout)"
+          ACLOCAL_FLAGS="-I /opt/homebrew/share/aclocal"
+          PROCS="$(sysctl -n hw.logicalcpu)"
+          if [ -n "${INPUT_CC}" ]; then
+            CC_SELECTED="${INPUT_CC}"
+          else
+            CC_SELECTED="$(command -v gcc-16 || command -v gcc-15 || command -v gcc-14 || command -v gcc)"
+          fi
+        else
+          TIMEOUT_BIN="$(command -v timeout)"
+          ACLOCAL_FLAGS=""
+          PROCS="$(nproc)"
+          CC_SELECTED="${INPUT_CC:-$(command -v gcc)}"
+        fi
+        test -n "${CC_SELECTED}"
+        "${CC_SELECTED}" --version
+        aclocal ${ACLOCAL_FLAGS}
+        autoconf
+        export CC="${CC_SELECTED}"
+        export CFLAGS='-pipe -std=c23'
+        unset SDKROOT LIBRARY_PATH CPATH GAMBOPT
+        ./configure \
+          --enable-march= \
+          --enable-single-host=0 \
+          --enable-multiple-vms \
+          --enable-smp \
+          --enable-c-opt=-O1 \
+          --enable-c-opt-rts=yes \
+          --enable-gcc-opts \
+          --enable-inline-jumps \
+          --enable-dynamic-clib \
+          --enable-trust-c-tco \
+          --enable-multiple-threaded-vms
+        workers=$((PROCS > 1 ? PROCS - 1 : 1))
+        "${TIMEOUT_BIN}" --kill-after=2s "${BUILD_TIMEOUT}s" make -j"${workers}" GAMBOPT=p1 core
+        # Checked-in lib/_*.c use the default (non-SMP) distribution feature set;
+        # re-emit lib/*.c with the active --enable-smp cond-expand feature so
+        # _thread#.scm / _thread.scm SMP scheduler & migration primitives are compiled in.
+        cp gsc/gsc gsc-boot
+        touch lib/_thread#.scm lib/_thread.scm lib/_io.scm lib/_repl.scm
+        "${TIMEOUT_BIN}" --kill-after=2s "${BUILD_TIMEOUT}s" make -j"${workers}" -C lib GAMBOPT=p1 phase1
+        grep -q 'thread_2d_migrate_2d_to_21_' lib/_thread.c
+        "${TIMEOUT_BIN}" --kill-after=2s "${BUILD_TIMEOUT}s" make -j"${workers}" GAMBOPT=p1 core
