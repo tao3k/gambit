@@ -1230,8 +1230,8 @@ ___IMP_FUNC(int,___group_demand_enter)
     defined(__GNUC__)
 /* Value-based processor-owned byte-range fast-span admission (proved equivalent
  * to allocation-limits.inc:1179-1197 in CompiledHostRefinementV2.lean & CBMC).
- * Dereferencing (*hp_ptr/*fp_ptr/*att_ptr) lets GCC fold *(&___hp) back to
- * register-allocated ___hp/___fp/___demand_attempt on the fast path, keeping
+ * Dereferencing (*hp_ptr, *fp_ptr, *att_ptr) lets GCC fold *(&___hp) back to
+ * register-allocated ___hp, ___fp, ___demand_attempt on the fast path, keeping
  * address-taken temporaries confined to the cold slow-path branch. */
 #define ___group_demand_enter(ps,hp_ptr,fp_ptr,sw,hw,pt,att_ptr) \
   ({ \

@@ -1624,11 +1624,13 @@ end-of-code
      if (!___FIXEQ(___VECTORELEM(unwind_destination, 1),
                    ___FIX(___PROCESSOR_ID(___ps,___VMSTATE_FROM_PSTATE(___ps)))))
        {
-         /* not the same processor that created frame */
+         /* not the same processor that created frame; preserve return value in R1 */
+         ___SCMOBJ ret_val = ___R1;
+         ___SCMOBJ target_id = ___VECTORELEM(unwind_destination, 1);
          ___COVER_RETURN_TO_C_HANDLER_WRONG_PROCESSOR;
          ___SET_R0(___ps->handler_return_to_c)
-         ___SET_R1(___VECTORELEM(unwind_destination, 1))
-         ___JUMPPRM(___SET_NARGS(1),
+         ___PUSH_ARGS2(ret_val, target_id)
+         ___JUMPPRM(___SET_NARGS(2),
                     ___PRMCELL(___G__23__23_c_2d_return_2d_on_2d_other_2d_processor.prm))
        }
      else
@@ -2416,11 +2418,13 @@ end-of-code
 (define-prim (##c-return-on-other-processor-hook-set! x)
   (set! ##c-return-on-other-processor-hook x))
 
-(define-prim (##c-return-on-other-processor id)
+(define-prim (##c-return-on-other-processor val id)
   (##declare (not interrupts-enabled))
   (let ((proc ##c-return-on-other-processor-hook))
     (if (##procedure? proc)
-        (proc id)
+        (begin
+          (proc id)
+          val)
         (##raise-wrong-processor-c-return-exception))))
 
 (implement-library-type-number-of-arguments-limit-exception)
@@ -2658,29 +2662,112 @@ end-of-code
 (define-prim (##clear-gc-interrupt-jobs!)
   (##clear-jobs! ##gc-interrupt-jobs))
 
-(define-prim (##gc-finalize!)
+(define ##gc-finalizing-threads (##vector '()))
+
+(define-prim (##gc-finalizing-member? self lst)
+  (let loop ((x lst))
+    (and (##pair? x)
+         (or (##eq? (##car x) self)
+             (loop (##cdr x))))))
+
+(define-prim (##gc-finalizing-remq self lst)
+  (cond ((##null? lst) '())
+        ((##eq? (##car lst) self) (##cdr lst))
+        (else (##cons (##car lst) (##gc-finalizing-remq self (##cdr lst))))))
+
+(define-prim (##gc-finalizing-enter! self)
   (##declare (not interrupts-enabled))
-  (let ((will
-         (##c-code #<<end-of-code
+  (if (##not self)
+      #t
+      (let loop ()
+        (let ((cur (##vector-ref ##gc-finalizing-threads 0)))
+          (if (##gc-finalizing-member? self cur)
+              #f
+              (if (##eq? (##vector-cas! ##gc-finalizing-threads 0 (##cons self cur) cur) cur)
+                  #t
+                  (loop)))))))
 
-          ___WORD exec_wills = ___ps->mem.executable_wills_;
+(define-prim (##gc-finalizing-leave! self)
+  (##declare (not interrupts-enabled))
+  (if self
+      (let loop ()
+        (let ((cur (##vector-ref ##gc-finalizing-threads 0)))
+          (if (##gc-finalizing-member? self cur)
+              (if (##not (##eq? (##vector-cas! ##gc-finalizing-threads 0
+                                               (##gc-finalizing-remq self cur)
+                                               cur)
+                                cur))
+                  (loop)))))))
 
-          if (___UNTAG(exec_wills) == 0) /* end of list? */
-            ___RESULT = ___FAL;
-          else
-            {
-              ___WORD will = ___SUBTYPED_FROM_START(___UNTAG(exec_wills));
-              ___ps->mem.executable_wills_ = ___WILL_NEXT_FIELD(will);
-              ___RESULT = will;
-            }
+(define-prim (##gc-pop-executable-will!)
+  (##declare (not interrupts-enabled))
+  (##c-code #<<end-of-code
+
+#ifndef ___SINGLE_THREADED_VMS
+   static ___TICKETLOCK exec_will_lock = ___TICKETLOCK_INIT_STATIC;
+   ___virtual_machine_state vm = ___VMSTATE_FROM_PSTATE(___ps);
+   int self_id = ___PROCESSOR_ID(___ps, vm);
+   int count = vm->processor_count;
+   ___WORD will_res = ___FAL;
+   int k;
+
+   ___TICKETLOCK_LOCK(exec_will_lock);
+   for (k = 0; k < count; k++)
+     {
+       ___processor_state p = ___PSTATE_FROM_PROCESSOR_ID((self_id + k) % count, vm);
+       ___WORD exec_wills = p->mem.executable_wills_;
+       if (___UNTAG(exec_wills) != 0)
+         {
+           ___WORD will = ___SUBTYPED_FROM_START(___UNTAG(exec_wills));
+           p->mem.executable_wills_ = ___WILL_NEXT_FIELD(will);
+           will_res = will;
+           break;
+         }
+     }
+   ___TICKETLOCK_UNLOCK(exec_will_lock);
+   ___RESULT = will_res;
+#else
+   ___WORD exec_wills = ___ps->mem.executable_wills_;
+
+   if (___UNTAG(exec_wills) == 0) /* end of list? */
+     ___RESULT = ___FAL;
+   else
+     {
+       ___WORD will = ___SUBTYPED_FROM_START(___UNTAG(exec_wills));
+       ___ps->mem.executable_wills_ = ___WILL_NEXT_FIELD(will);
+       ___RESULT = will;
+     }
+#endif
 
 end-of-code
-)))
-    (if will
-      (begin
-        (##will-execute! will)
-        (##gc-finalize!))
-      (##gc-final-will-registry!))))
+))
+
+(define-prim (##gc-finalize!)
+  (##declare (not interrupts-enabled))
+  (let ((self (macro-current-thread)))
+    ;; Non-reentrant per-thread finalization: if a second ___INTR_GC arrives
+    ;; while `self` is already executing a will action (potentially holding a
+    ;; non-reentrant SRFI-18 mutex), skip nested finalization; the outer loop
+    ;; below will drain all newly executable wills once the current action ends.
+    (if (##not (and self
+                    (##gc-finalizing-member? self (##vector-ref ##gc-finalizing-threads 0))))
+        (let ((first-will (##gc-pop-executable-will!)))
+          (if first-will
+              (if (##gc-finalizing-enter! self)
+                  (let ()
+                    (##with-exception-catcher
+                     (lambda (exc)
+                       (##gc-finalizing-leave! self)
+                       (##raise exc))
+                     (lambda ()
+                       (let drain ((will first-will))
+                         (if will
+                             (begin
+                               (##will-execute! will)
+                               (drain (##gc-pop-executable-will!)))
+                             (##gc-final-will-registry!)))))
+                    (##gc-finalizing-leave! self)))
+              (##gc-final-will-registry!))))))
 
 (define-prim (##will-execute! will)
   (##declare (not interrupts-enabled))
@@ -2694,39 +2781,47 @@ end-of-code
           (action testator))
       (##void))))
 
-(define ##final-will-registry (macro-make-fifo))
+;; Lock-free SMP-safe final-will registry (1-slot vector updated via ##vector-cas!)
+(define ##final-will-registry (##vector '()))
+
+(define-prim (##final-will-registry-push! will)
+  (##declare (not interrupts-enabled))
+  (let loop ()
+    (let ((cur (##vector-ref ##final-will-registry 0)))
+      (if (##not (##eq? (##vector-cas! ##final-will-registry 0 (##cons will cur) cur) cur))
+          (loop)))))
+
+(define-prim (##final-will-registry-take-all!)
+  (##declare (not interrupts-enabled))
+  (let loop ()
+    (let ((cur (##vector-ref ##final-will-registry 0)))
+      (if (##null? cur)
+          '()
+          (if (##eq? (##vector-cas! ##final-will-registry 0 '() cur) cur)
+              cur
+              (loop))))))
 
 (define-prim (##execute-final-wills!)
   (##declare (not interrupts-enabled))
-  (let ((registry ##final-will-registry))
-    (let ((lst (macro-fifo-remove-all! registry)))
-      (let loop ((x lst))
-        (if (##not (##null? x))
-          (begin
-            (##will-execute! (##car x))
-            (loop (##cdr x))))))))
+  (let loop ((x (##final-will-registry-take-all!)))
+    (if (##not (##null? x))
+      (begin
+        (##will-execute! (##car x))
+        (loop (##cdr x))))))
 
 (define-prim (##gc-final-will-registry!)
   (##declare (not interrupts-enabled))
-  (let ((registry ##final-will-registry))
-    (let loop ((curr registry)
-               (next (macro-fifo-next registry)))
-      (if (##null? next)
-        (macro-fifo-tail-set! registry curr)
-        (let* ((will (macro-fifo-elem next))
-               (action (##will-action will)))
-          (if action
-            (begin
-              (macro-fifo-next-set! curr next)
-              (loop next
-                    (macro-fifo-next next)))
-            (loop curr
-                  (macro-fifo-next next))))))))
+  (let ((lst (##final-will-registry-take-all!)))
+    (let loop ((x lst))
+      (if (##not (##null? x))
+        (let ((will (##car x)))
+          (if (##will-action will)
+            (##final-will-registry-push! will))
+          (loop (##cdr x)))))))
 
 (define-prim (##make-final-will testator action)
-  (let* ((registry ##final-will-registry)
-         (will (##make-will testator action)))
-    (macro-fifo-insert-at-head! registry will)
+  (let ((will (##make-will testator action)))
+    (##final-will-registry-push! will)
     will))
 
 (define-prim (##handle-gc-interrupt!)

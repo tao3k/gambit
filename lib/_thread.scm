@@ -3261,27 +3261,37 @@
 
 (define-prim (##thread-migrate-to! id)
   (##declare (not interrupts-enabled))
-  ;; A runnable publication transfers the saved activation, not a live caller.
-  ;; Retain the Thread lease through both destination insertion and source
-  ;; current-thread withdrawal. A dequeuer can only trylock and retry meanwhile.
-  (macro-lock-current-thread!)
-  (macro-thread-save!
-   (lambda (current-thread id)
-     (let ((p (##processor id)))
-       (macro-lock-processor! p)
-       ;;TODO: reenable
-       ;;(macro-thread-unboost-and-clear-quantum-used! current-thread)
-       (macro-thread-resume-thunk-set! current-thread ##thread-void-action!)
-       (##btq-insert! p current-thread)
-       (macro-unlock-processor! p)
-       ;; Never hold two processor locks: opposite migrations must not form a
-       ;; processor->processor cycle. Thread ownership covers this interval.
-       (macro-lock-current-processor!)
-       (macro-processor-current-thread-set! (macro-current-processor) #f)
-       (macro-unlock-thread! current-thread)
-       (##wait-abort! p)
-       (##thread-schedule-with-acquired-processor!)))
-   id))
+  (if (##not (##fx= id (##current-processor-id)))
+      (let ((old-pinned (macro-thread-pinned (macro-current-thread))))
+        ;; A runnable publication transfers the saved activation, not a live caller.
+        ;; Retain the Thread lease through both destination insertion and source
+        ;; current-thread withdrawal, and pin the migrating thread to target
+        ;; processor `p` before insertion so neither the source processor nor an
+        ;; idle peer can work-steal it back before `p` wakes up (preventing
+        ;; self-steal livelock and unbounded stack msection growth on cross-core
+        ;; C returns). Restore `old-pinned` immediately upon resuming on `p`.
+        (macro-lock-current-thread!)
+        (macro-thread-save!
+         (lambda (current-thread id)
+           (let ((p (##processor id)))
+             (macro-thread-pinned-set! current-thread p)
+             (macro-lock-processor! p)
+             ;;TODO: reenable
+             ;;(macro-thread-unboost-and-clear-quantum-used! current-thread)
+             (macro-thread-resume-thunk-set! current-thread ##thread-void-action!)
+             (##btq-insert! p current-thread)
+             (macro-unlock-processor! p)
+             ;; Never hold two processor locks: opposite migrations must not form a
+             ;; processor->processor cycle. Thread ownership covers this interval.
+             (macro-lock-current-processor!)
+             (macro-processor-current-thread-set! (macro-current-processor) #f)
+             (macro-unlock-thread! current-thread)
+             (##wait-abort! p)
+             (##thread-schedule-with-acquired-processor!)))
+         id)
+        (macro-lock-current-thread!)
+        (macro-thread-pinned-set! (macro-current-thread) old-pinned)
+        (macro-unlock-current-thread!))))
 
 (define-prim (##thread-start-on! id thread)
   (##declare (not interrupts-enabled))
