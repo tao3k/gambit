@@ -244,7 +244,14 @@ ___SIZE_TS requested_words_still;)
   ___F64 user_time_end, sys_time_end, real_time_end;
   ___F64 user_time, sys_time, real_time;
 
-  if (!___lifecycle_gc_admitted(___ps)) return 1;
+  if (!___lifecycle_gc_admitted(___ps)) {
+    /* Ordinary compilation is not a closed binding context. An unlimited
+     * heap continues on a new section instead of raising heap overflow. */
+    if (___GSTATE->setup_params.max_heap==0 &&
+        ___heap_continue_on_free_section(___ps))
+      return 0;
+    return 1;
+  }
   ___ACTLOG_BEGIN_PS(gc,red);
 
   /* Start measuring GC statistics */
@@ -342,8 +349,51 @@ ___SIZE_TS requested_words_still;)
     if(___PROCESSOR_ID(___ps,___vms)==0 && !___root_round_refuse(___ps))
       rc_contract_error("Known refusal cannot retire an already started root task");
     BARRIER();
+    /* A refused plan did not mark, so occupied sections stay. With no byte
+     * cap, grow the reserved pool and let the mutator retry. Reporting
+     * overflow here leaves the free list empty and the next allocation fails. */
+    if(___PROCESSOR_ID(___ps,___vms)==0 && the_msections &&
+       ___GSTATE->setup_params.max_heap==0) {
+      int before=the_msections->nb_sections;
+      int add=before/2;
+      if(add<32) add=32;
+      if(before>0 && add<=INT_MAX-before)
+        adjust_msections(&the_msections, before+add);
+      heap_size=compute_heap_size();
+      /* The reserve can exceed two new sections, so the approximate free
+       * space stays negative. Added sections are still usable. */
+      ___COLLECTION(___vms).overflow=the_msections->nb_sections>before?0:1;
+    } else if(___PROCESSOR_ID(___ps,___vms)==0)
+      ___COLLECTION(___vms).overflow=1;
+    BARRIER();
     bytes_allocated_minus_occupied-=bytes_occupied(___ps);
-    ___ACTLOG_END_PS();return 1;
+    ___ACTLOG_END_PS();
+    {
+      int shared_overflow = ___COLLECTION(___vms).overflow ? 1 : 0;
+      int movable_resumed =
+        ___GSTATE->setup_params.max_heap==0 && shared_overflow==0;
+      int still_charged = 0;
+      /* Plan refusal never enters resize_heap, so a positive still request
+       * has no charge yet. Pool growth is not that reservation. */
+      if (requested_words_still>0 && shared_overflow==0) {
+        ALLOC_MEM_LOCK();
+        occupied_words_still += requested_words_still;
+        ALLOC_MEM_UNLOCK();
+        still_charged = 1;
+      }
+      {
+        int caller_overflow;
+        if (requested_words_still>0)
+          caller_overflow=___gc_caller_overflow(shared_overflow,movable_resumed,
+                                                (unsigned long)requested_words_still,
+                                                still_charged);
+        else if (movable_resumed)
+          caller_overflow=0;
+        else
+          caller_overflow=compute_free_heap_space_approximately()<___MSECTION_SIZE;
+        return caller_overflow;
+      }
+    }
   }
   if(___PROCESSOR_ID(___ps,___vms)==0) setup_stack_heap_vmstate(___vms);
   BARRIER();
@@ -515,6 +565,31 @@ ___SIZE_TS requested_words_still;)
 
 
   ___ACTLOG_END_PS();
+
+  /* Movable resume and the still reservation are decoded separately.
+   * resize_heap keeps a positive charge only when it returns success.
+   * A later rearm cannot recreate a charge that resize already withdrew. */
+  {
+    int shared_overflow = overflow ? 1 : 0;
+    int movable_resumed = 0;
+    int still_charged = 0;
+    if (___GSTATE->setup_params.max_heap==0 &&
+        ___heap_rearm_after_collection(___ps))
+      movable_resumed = 1;
+    if (requested_words_still>0 && shared_overflow==0) {
+      if (___PROCESSOR_ID(___ps,___vms)==0)
+        still_charged = 1;
+      else {
+        ALLOC_MEM_LOCK();
+        occupied_words_still += requested_words_still;
+        ALLOC_MEM_UNLOCK();
+        still_charged = 1;
+      }
+    }
+    overflow = ___gc_caller_overflow(shared_overflow,movable_resumed,
+                                     (unsigned long)requested_words_still,
+                                     still_charged);
+  }
 
   REST_OBS(REST_GC_END,___ps,0,0,rc_epoch,
            ___VMSTATE_FROM_PSTATE(___ps),___ps->context->fp,overflow,

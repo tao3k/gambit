@@ -29,6 +29,7 @@ ___processor_state source=___PSTATE, writer;
 ___virtual_machine_state other=calloc(1,sizeof(*other));
 ___glo_struct *global=___GLOBALVARSTRUCT(___arg1);
 ___SCMOBJ saved=___GLOBALVARPRIMREF(___arg1);
+size_t storage_bytes=0,extra_bytes=0;
 int i,ok=other!=0;
 if(!ok) _Exit(72);
 /* Only immediate values enter the shared image slot. The captured closure
@@ -49,6 +50,14 @@ for(i=0;i<3;i++) {
  if(___EXT(___garbage_collect)(___PSA(source) 0)) _Exit(74);
  ok=ok && ___GLOBALVARPRIMREF(___arg1)==___arg2;
  ___thread_set_pstate(writer);
+ {
+   ___global_slot_directory *directory=other->glos->directory;
+   size_t directory_bytes=0;
+   for(;directory;directory=directory->retired)
+     directory_bytes+=sizeof(*directory)+(directory->capacity-1)*sizeof(*directory->entries);
+   storage_bytes=sizeof(*other->glos)+other->glos->count*sizeof(___global_slot_page)+directory_bytes;
+   extra_bytes=storage_bytes-other->glos->count*___WORD_WIDTH*sizeof(___SCMOBJ);
+ }
  /* The real owner closes the complete VM and returns its reclamation receipt.
   * No caller-owned registry lock or separate premature PSTATE teardown. */
  if(!___cleanup_vmstate(other)) _Exit(72);
@@ -60,8 +69,7 @@ ok=ok && ___GLOBALVARPRIMREF(___arg1)==___FIX(41);
 ___GLOBALVARPRIMSET(___arg1,saved)
 free(other);
 printf("(VM-PRIMITIVE-LIFECYCLE cycles 3 storage-bytes %lu extra-bytes %lu)\n",
- (unsigned long)(___GLOBALS_STORAGE_WORDS*sizeof(___SCMOBJ)),
- (unsigned long)((___GLOBALS_STORAGE_WORDS-___GLOBALS_CAPACITY)*sizeof(___SCMOBJ)));
+ (unsigned long)storage_bytes, (unsigned long)extra_bytes);
 ___result=ok;
 #else
 ___result=1; /* The single-VM representation has no cross-VM histories. */
@@ -266,7 +274,13 @@ if(family) {
       for(;glo!=0;glo=glo->next) glo->val=___FAL;
     }
 #else
-    for(i=0;i<___GSTATE->mem.glo_list.count;i++) vm->glos[i]=___FAL;
+    {
+      ___global_slot_page *page;
+      int slot;
+      for(page=vm->glos->pages;page;page=page->next)
+        for(slot=0;slot<___WORD_WIDTH;slot++)
+          if(page->ordinary[slot]!=___UNB1) page->ordinary[slot]=___FAL;
+    }
 #endif
   }
   if(family==5 &&
@@ -382,7 +396,7 @@ static void replay_global_snapshot(___SCMOBJ commands,___SCMOBJ expected,int mut
   ___global_root_source source;
   ___root_task task;
   ___UWORD base,epoch,receipt;
-  int i,j,n=___INT(___VECTORLENGTH(commands)),initial,active=0;
+  int i,j,n=___INT(___VECTORLENGTH(commands)),initial,active=0,captured=-1;
   char name[80];
   if(vm->processor_count!=1) _Exit(72);
   for(i=0;i<4;i++) {
@@ -395,7 +409,13 @@ static void replay_global_snapshot(___SCMOBJ commands,___SCMOBJ expected,int mut
   writer=___PSTATE_FROM_PROCESSOR_ID(0,other);
   if(writer->mem.rc_domain_==0 || other->glos==0) _Exit(72);
   initial=___CAST(int,___GSTATE->mem.glo_list.count);
-  for(i=0;i<initial;i++) vm->glos[i]=___FAL;
+  {
+    ___global_slot_page *page;
+    int slot;
+    for(page=vm->glos->pages;page;page=page->next)
+      for(slot=0;slot<___WORD_WIDTH;slot++)
+          if(page->ordinary[slot]!=___UNB1) page->ordinary[slot]=___FAL;
+  }
   base=ps->mem.rc_domain_->task.epoch;
   ___root_task_init(&task,base);
   for(i=0;i<n;i++) {
@@ -409,22 +429,28 @@ static void replay_global_snapshot(___SCMOBJ commands,___SCMOBJ expected,int mut
       err=___make_global_var(symbols[slot]);
       ___thread_set_pstate(ps);
       accepted=err==symbols[slot];
-      if(___GSTATE->mem.glo_list.count>old && op==2 && vm->glos[old]!=___UNB1) _Exit(73);
+      if(___GSTATE->mem.glo_list.count>old && op==2 && ___GLOCELL_IN_VM(vm,old)!=___UNB1) _Exit(73);
     } else if(op==1 && !active && vm->mem.globals_snapshot_==0 &&
               ps->mem.rc_domain_->phase==___RC_OPEN) {
       accepted=___root_task_publish(ps->mem.rc_domain_,ps,base,&epoch) &&
                ___root_globals_begin(&snapshot,ps,epoch);
-      if(accepted) active=1;
+      if(accepted) {active=1;captured=___GSTATE->mem.glo_list.count-initial;}
     } else if(op==3) accepted=___root_task_publish_globals(&task,&source,vm,ps,base,&receipt);
     else if(op==4) accepted=___root_task_claim_globals(&task,ps,base+1);
     else if(op==5) accepted=___root_task_scan_globals(&task,ps,base+1);
     else if(op==6) accepted=___root_task_finish_globals(&task,ps,base+1);
     else if(op==7 && active) {
       accepted=___root_globals_end(&snapshot,ps);
-      if(accepted) active=0;
+      if(accepted) {active=0;captured=-1;}
     }
     seen[0]=accepted;seen[1]=___GSTATE->mem.glo_list.count-initial;
-    seen[2]=active?(task.origin.kind==___ROOT_GLOBALS?source.count:snapshot.count)-initial:-1;
+    /* The oracle's captured value is the registry transaction stamp, not a
+     * physical scan index. Independently require the production descriptor
+     * to cover this VM's actual frozen pages. */
+    seen[2]=active?captured:-1;
+    if(active && (snapshot.count!=vm->glos->count || snapshot.pages!=vm->glos->pages ||
+       (task.origin.kind==___ROOT_GLOBALS &&
+        (source.count!=snapshot.count || source.pages!=snapshot.pages)))) seen[2]=-2;
     /* A labeled live-count observer mutation calibrates this same C replay;
      * it does not replace the production implementation or oracle. */
     if(mutation && active) seen[2]=___GSTATE->mem.glo_list.count-initial;
@@ -2487,8 +2513,15 @@ if((owners==1 || owners==2) && ___PROCESSOR_ID(___PSTATE,vm)==0) {
       for(;g!=0;g=g->next) if(g->val==___UNB1) {cells[id]=&g->val;break;}
     }
 #else
-    ___root_globals_partition(___GSTATE->mem.glo_list.count,id,owners,&lo,&hi);
-    for(i=lo;i<hi;i++) if(vm->glos[i]==___UNB1) {cells[id]=&vm->glos[i];break;}
+    {
+      ___global_slot_page *page=vm->glos->pages;
+      int slot;
+      ___root_globals_partition(vm->glos->count,id,owners,&lo,&hi);
+      for(i=0;i<lo;i++) page=page->next;
+      for(i=lo;i<hi && cells[id]==0;i++,page=page->next)
+        for(slot=0;slot<___WORD_WIDTH;slot++)
+          if(page->ordinary[slot]==___UNB1) {cells[id]=&page->ordinary[slot];break;}
+    }
 #endif
     if(cells[id]==0) break;
     printf("GLOBALS-ROOT-SHARD owner=%d lo=%d hi=%d\n",id,lo,hi);
@@ -3075,40 +3108,24 @@ c-end
         (newline)))
     (delete-file input-file)))
 
-(define (globals-capacity)
-  (let ((refused
-         ((c-lambda () scheme-object #<<c-end
-#ifdef ___SINGLE_VM
-___result=___FAL;
-#else
-___virtual_machine_state vm=___VMSTATE_FROM_PSTATE(___PSTATE);
-___SCMOBJ sym=___FAL,first=___FAL,err;
-char name[80];
-int initial=___CAST(int,___GSTATE->mem.glo_list.count),i;
-for(i=initial;i<___GLOBALS_CAPACITY;i++) {
-  snprintf(name,sizeof(name),"___globals_capacity_identity_%d",i);
-  sym=___make_symkey_from_UTF_8_string(name,___sSYMBOL);
-  if(___FIXNUMP(sym) || ___GLOBALVARSTRUCT(sym)!=0 || ___make_global_var(sym)!=sym ||
-     ___GLOBALVARSTRUCT(sym)->val!=i || vm->glos[i]!=___UNB1) _Exit(74);
-  if(first==___FAL) first=sym;
-}
-sym=___make_symkey_from_UTF_8_string("___globals_capacity_refused",___sSYMBOL);
-err=___make_global_var(sym);
-if(err!=___FIX(___IMPL_LIMIT_ERR) || ___GLOBALVARSTRUCT(sym)!=0 ||
-   ___GSTATE->mem.glo_list.count!=___GLOBALS_CAPACITY ||
-   (first!=___FAL && ___make_global_var(first)!=first)) _Exit(74);
-printf("(GLOBALS-CAPACITY-NATIVE-PASS initial %d actual %d added %d)\n",initial,___GLOBALS_CAPACITY,___GLOBALS_CAPACITY-initial);
-fflush(stdout);___result=sym;
-#endif
-c-end
-))))
-    (if (not refused) (error "capacity control requires multiple VMs"))
-    (let ((caught #f))
-      (with-exception-catcher
-       (lambda (e) (if (not (heap-overflow-exception? e)) (raise e)) (set! caught #t))
-       (lambda () (##make-global-var refused)))
-      (if (not caught) (error "capacity refusal did not reach Scheme"))
-      (display "GLOBALS-CAPACITY-SCHEME-PASS\n"))))
+(define (globals-storage)
+  ;; Actual growth beyond the old backing-array limit; no runtime limit changes.
+  (let loop ((i 0))
+    (if (< i 21000)
+        (let ((symbol (string->symbol (string-append "___globals_storage_" (number->string i)))))
+          (##make-global-var symbol)
+          (##global-var-set! symbol (vector i))
+          (if (= (modulo i 997) 0) (##gc))
+          (loop (+ i 1)))))
+  (##gc)
+  (let loop ((i 0))
+    (if (< i 21000)
+        (begin
+          (if (not (= (vector-ref (##global-var-ref
+                      (string->symbol (string-append "___globals_storage_" (number->string i)))) 0) i))
+              (error "global storage lost a moving root" i))
+          (loop (+ i 1)))))
+  (display "GLOBALS-STORAGE-PASS bindings=21000\n"))
 
 ;;; Child descriptor closure keeps the same forked PID and exact byte stream.
 (c-declare #<<c-end
@@ -3352,7 +3369,7 @@ c-end
         ((and (= (length args) 1) (string=? (car args) "--symkey-views")) (view-suite))
         ((and (= (length args) 1) (string=? (car args) "--symkey-publication")) (intern-suite))
         ((and (= (length args) 1) (string=? (car args) "--globals-snapshot")) (snapshot-suite))
-        ((and (= (length args) 1) (string=? (car args) "--globals-capacity")) (globals-capacity))
+        ((and (= (length args) 1) (string=? (car args) "--globals-storage")) (globals-storage))
         ((and (= (length args) 2) (string=? (car args) "--replay"))
          (replay (call-with-input-file (cadr args) read)))
         ((and (= (length args) 1) (string=? (car args) "--moving-bank")) (bank-moving-roots))

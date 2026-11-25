@@ -50,7 +50,13 @@ ___PSDKR)
     check_fudge_used (___PSPNC);
 #endif
 
-  if (alloc_stack_ptr < alloc_stack_limit + ___MSECTION_FUDGE)
+  {
+    ___group_demand *pending_stack = group_demand_slot(___ps);
+    ___SIZE_TS stack_reserve = ___MSECTION_FUDGE;
+    if (pending_stack && pending_stack->context == ___ps->context &&
+        pending_stack->phase == 1 && pending_stack->stack_words > 0)
+      stack_reserve += pending_stack->stack_words;
+    if (alloc_stack_ptr < alloc_stack_limit + stack_reserve)
     {
       /*
        * There isn't enough free space in the current stack msection.
@@ -86,6 +92,23 @@ ___PSDKR)
 #endif
               compute_free_heap_space_approximately() < ___MSECTION_SIZE)
             {
+              if (___ps->primlock_depth > 0 && the_msections &&
+                  the_msections->nb_sections > 0 &&
+                  the_msections->nb_sections < INT_MAX &&
+                  ___rest_new_section_admitted (___ps, ___GSTATE->setup_params.max_heap))
+                {
+                  /* Never enter stop-the-world GC barrier while holding a raw spinlock,
+                   * while still enforcing any configured max_heap bound. */
+                  int before_n = the_msections->nb_sections;
+                  adjust_msections (&the_msections, before_n + 1);
+                  if (the_msections->nb_sections > before_n)
+                    {
+                      heap_size = compute_heap_size ();
+                      next_stack_msection_without_locking (___ps);
+                      ALLOC_MEM_UNLOCK();
+                      goto stack_msection_ready;
+                    }
+                }
               ALLOC_MEM_UNLOCK();
 
               /*
@@ -104,7 +127,12 @@ ___PSDKR)
                */
 
               if ((___ps->context->stack_break - alloc_stack_ptr) >
-                  (___ps->context->stack_start - ___ps->context->stack_limit)*2/3)
+                  (___ps->context->stack_start - ___ps->context->stack_limit)*2/3 ||
+                  (pending_stack && pending_stack->context == ___ps->context &&
+                   pending_stack->phase == 1 &&
+                   prev_alloc_stack_ptr != prev_stack_break &&
+                   (___ps->context->stack_break - alloc_stack_ptr) + stack_reserve >
+                     (___ps->context->stack_start - alloc_stack_limit)))
                 {
                   /*
                    * At the top of the current stack msection there are
@@ -139,6 +167,7 @@ ___PSDKR)
           ALLOC_MEM_UNLOCK();
         }
 
+    stack_msection_ready:
       /*
        * Move to the new stack msection.
        */
@@ -274,6 +303,7 @@ ___PSDKR)
                          fp,prev_stack_break);
       stack_msection_stop_using (___ps, prev_alloc_stack_start, fp);
     }
+  }
 
   /* A stack return reloads the heap cursor. The following allocation is
    * unchecked up to the fudge, so a nearly full half has to be replaced
@@ -305,7 +335,31 @@ ___PSDKR)
     if (pending && hp && pending->context==___ps->context &&
         pending->phase==1 && pending->heap_words>0 &&
         !___heap_alloc_fits(___ps, hp, pending->heap_words))
-      return 1;
+      {
+        if (___ps->primlock_depth > 0 && the_msections &&
+            the_msections->nb_sections > 0 &&
+            the_msections->nb_sections < INT_MAX)
+          {
+            int before_n;
+            ALLOC_MEM_LOCK();
+            if (___rest_new_section_admitted (___ps, ___GSTATE->setup_params.max_heap))
+              {
+                before_n = the_msections->nb_sections;
+                adjust_msections (&the_msections, before_n + 1);
+                if (the_msections->nb_sections > before_n)
+                  {
+                    heap_size = compute_heap_size ();
+                    next_heap_msection_without_locking (___ps);
+                  }
+              }
+            ALLOC_MEM_UNLOCK();
+            prepare_mem_pstate (___ps);
+            hp = ___ps->context ? ___ps->context->hp : 0;
+            if (hp && ___heap_alloc_fits(___ps, hp, pending->heap_words))
+              return 0;
+          }
+        return 1;
+      }
   }
 
   return 0;
@@ -440,13 +494,98 @@ static ___WORD group_demand_gc_epoch(___processor_state ps)
   return (___WORD)___VMSTATE_FROM_PSTATE(ps)->mem.nb_gcs_;
 }
 
+#ifdef ___GAMBIT_REST_OBSERVATION
+static int gate2_here(___processor_state ps)
+{
+  return gate2_view.phase && gate2_view.actor==ps &&
+    gate2_view.context==(uintptr_t)ps->context &&
+    gate2_view.activation==(uintptr_t)group_demand_activation(ps);
+}
+
+static int gate2_actor_current(void *actor)
+{
+  return actor && gate2_here((___processor_state)actor);
+}
+
+static void gate2_retire(___processor_state ps)
+{
+  if (gate2_here(ps)) {
+    gate2_event(REST_GROUP_RETIRED,gate2_view.attempt,0,0,0,0,0);
+    gate2_view.phase=GATE2_IDLE;
+  }
+}
+
+___EXP_FUNC(void,___gate2_group_site)
+(___processor_state ps, const char *procedure, int label, ___WORD point,
+ ___WORD *fp, int opening)
+{
+  ___WORD *lo=0,*hi=0;
+  if (__builtin_expect(!___rest_observation_active,1) || !gate2_procedure) return;
+  if (opening && point!=gate2_view.point && gate2_view.phase==GATE2_SETTLED)
+    gate2_retire(ps);
+  if (strcmp(gate2_procedure,procedure) || (uint64_t)label!=gate2_label) return;
+  if (opening) {
+    if (gate2_here(ps)) {
+      gate2_event(REST_GROUP_OPEN,(uintptr_t)fp,0,0,0,label,gate2_view.phase);
+      return;
+    }
+    gate2_view.actor=ps;
+    gate2_view.point=point;
+    gate2_view.context=(uintptr_t)ps->context;
+    gate2_view.activation=(uintptr_t)group_demand_activation(ps);
+    gate2_view.invocation++;
+    gate2_view.attempt=0;
+    gate2_view.epoch=group_demand_gc_epoch(ps);
+    gate2_view.phase=GATE2_OLD_FRAME;
+  } else if (!gate2_here(ps) || gate2_view.point!=point) return;
+  ___owned_stack_span(ps,&lo,&hi);
+  gate2_event(opening?REST_GROUP_OPEN:REST_GROUP_ENTER,(uintptr_t)fp,
+              (uintptr_t)lo,(uintptr_t)hi,(uintptr_t)ps->context->stack_limit,
+              label,gate2_view.phase);
+  if (!opening && gate2_view.phase!=GATE2_SETTLED) gate2_view.phase=GATE2_PENDING;
+}
+
+___EXP_FUNC(void,___gate2_fast_done)
+(___processor_state ps, ___WORD point)
+{
+  if (gate2_procedure && gate2_here(ps) && gate2_view.point==point && gate2_view.phase==GATE2_PENDING)
+    gate2_view.phase=GATE2_IDLE;
+}
+
+#endif
+
 static int group_demand_same(___group_demand *d, ___processor_state ps,
                              ___WORD group_point, ___WORD attempt)
 {
-  return d && ps && attempt!=0 && d->attempt==attempt &&
-    d->context==ps->context &&
-    d->activation==group_demand_activation(ps) &&
-    d->group_point==group_point;
+  ___vm_lifecycle *life;
+  if (!d || !ps || !ps->context || attempt==0 || d->attempt!=attempt) return 0;
+  if (d->context!=ps->context) return 0;
+  if (d->activation!=group_demand_activation(ps)) return 0;
+  if (d->group_point!=group_point) return 0;
+  life=___VMSTATE_FROM_PSTATE(ps)->lifecycle;
+  return life && d->service_incarnation==life->incarnation;
+}
+
+static int stack_span_adjust_fits(___WORD *lo, ___WORD *hi, ___WORD *fp,
+                                  ___SIZE_TS delta)
+{
+  ___WORD *floor, *next;
+  if (delta<=0) return 1;
+  if (!fp || fp<lo || fp>hi) return 0;
+  if ((___SIZE_TS)(hi-lo)<=___MSECTION_FUDGE) return 0;
+  floor=lo+___MSECTION_FUDGE;
+  if (fp<floor || (___SIZE_TS)(fp-floor)<delta) return 0;
+  next=fp-delta;
+  return next<=hi;
+}
+
+static int mutator_stack_adjust_fits(___processor_state ps, ___WORD *fp,
+                                     ___SIZE_TS delta)
+{
+  ___WORD *lo, *hi;
+  if (delta<=0) return 1;
+  if (!___owned_stack_span(ps, &lo, &hi)) return 0;
+  return stack_span_adjust_fits(lo, hi, fp, delta);
 }
 
 static int group_footprint_fits(___processor_state ps, ___group_demand *d,
@@ -454,7 +593,7 @@ static int group_footprint_fits(___processor_state ps, ___group_demand *d,
 {
   if (!ps || !d || !hp || !fp) return 0;
   if (d->heap_words>0 && !___heap_alloc_fits(ps, hp, d->heap_words)) return 0;
-  if (d->stack_words>0 && !cursor_has_stack_room(ps, fp, d->stack_words)) return 0;
+  if (d->stack_words>0 && !mutator_stack_adjust_fits(ps, fp, d->stack_words)) return 0;
   return 1;
 }
 
@@ -467,19 +606,52 @@ static void group_demand_publish_view(___group_demand *d, ___processor_state ps,
   d->epoch=group_demand_gc_epoch(ps);
 }
 
-/* Issue the next attempt for this VM. The counter never wraps; exhaustion
- * returns zero and the caller must fail the grant. */
-static ___WORD group_demand_issue(___vm_lifecycle *life)
+/* Next shortage number for this processor slot. Fitting groups do not
+ * call this. The counter stays on the slot for this VM incarnation and
+ * never wraps; exhaustion returns zero and the caller fails the grant. */
+static ___WORD group_demand_issue(___group_demand *d, ___vm_lifecycle *life)
 {
-  for (;;) {
-    ___WORD old=___WORD_LOAD_ACQUIRE(&life->group_demand_attempt_next);
-    ___WORD next;
-    if (old==0 || old>=___MAX_FIX) return 0;
-    next=old+1;
-    if (next==0 || next>=___MAX_FIX) return 0;
-    if (___lifecycle_cas(&life->group_demand_attempt_next, old, next)==old)
-      return old;
+  ___WORD n;
+  if (!d || !life) return 0;
+  n=d->service_next;
+  if (n==0) n=1;
+  if (n>=___MAX_FIX) return 0;
+  if (n+1==0 || n+1>=___MAX_FIX) return 0;
+  d->service_next=n+1;
+  d->service_incarnation=life->incarnation;
+  return n;
+}
+
+static int group_demand_local_room
+   (___processor_state ps, ___WORD *hp, ___WORD *fp,
+    ___SIZE_TS stack_words, ___SIZE_TS heap_words)
+{
+  ___WORD *lo, *hi;
+  if (!ps || !ps->context || !hp || !fp) return 0;
+  if (ps->context->hp!=hp || ps->context->fp!=fp) return 0;
+  /* Check pure pointer-local heap limits before acquiring copy_gate via
+   * ___owned_stack_span, and reuse the single (lo, hi) lease snapshot for
+   * both cursor containment and mutator stack-fudge adjustment. */
+  if (heap_words>0) {
+    ___WORD *limit=ps->heap_limit;
+    if (!limit || hp>=limit || (___SIZE_TS)(limit-hp)<heap_words) return 0;
+    if (!___heap_alloc_fits(ps, hp, heap_words)) return 0;
   }
+  if (!___owned_stack_span(ps, &lo, &hi) || fp<lo || fp>hi) return 0;
+  if (stack_words>0 && !stack_span_adjust_fits(lo, hi, fp, stack_words)) return 0;
+  return 1;
+}
+
+/* Capacity already covers this group. Authorize the caller's current
+ * cursors and leave the slow slot untouched. No shared counter, poll,
+ * safepoint or reentry. */
+int ___group_demand_local_admit
+   (___processor_state ps, ___WORD *hp, ___WORD *fp,
+    ___SIZE_TS stack_words, ___SIZE_TS heap_words)
+{
+  ___group_demand *d=group_demand_slot(ps);
+  if (!d || d->phase!=0) return 0;
+  return group_demand_local_room(ps, hp, fp, stack_words, heap_words);
 }
 
 ___EXP_FUNC(int,___handler_spill_backed)
@@ -490,7 +662,25 @@ ___EXP_FUNC(int,___handler_spill_backed)
     rc_contract_error("Handler internal return frame has no backing");
     return 0;
   }
-  if (cursor_has_stack_room(ps, cursor, handler_spill_words())) {
+  int fits=cursor_has_stack_room(ps, cursor, handler_spill_words());
+#ifdef ___GAMBIT_REST_OBSERVATION
+  if (gate2_procedure && gate2_here(ps) && ps->temp1==gate2_view.point) {
+    ___WORD *lo=0,*hi=0;
+    int raw_map_complete=1;
+    ___UWORD live=0;
+    ___frame_descriptor frame=___decode_frame_descriptor(___LABEL_DESCR_GET(ps->temp1),1);
+    int slot;
+    ___owned_stack_span(ps,&lo,&hi);
+    if (frame.stored_fs<0 || frame.stored_fs>64) raw_map_complete=0;
+    if (raw_map_complete)
+      for (slot=1; slot<=frame.stored_fs; ++slot)
+        if (___frame_slot_live(&frame, slot))
+          live|=(___UWORD)1<<(slot-1);
+    gate2_event(REST_GROUP_BACKING,(uintptr_t)cursor,(uintptr_t)lo,(uintptr_t)hi,
+                handler_spill_words(),fits && raw_map_complete ? frame.stored_fs+1 : 0,live);
+  }
+#endif
+  if (fits) {
     REST_OBS(REST_BACKING,ps,0,0,0,cursor,handler_spill_words(),1,0,0,0,0,0);
     return 1;
   }
@@ -540,25 +730,52 @@ ___EXP_FUNC(int,___group_demand_arm)
   /* One return from the handler. Issue phase 2 only after unframe, using
    * the cursors this entry actually holds, and consume the retry once.
    * A second miss is a native failure so the generated jump cannot spin. */
-  if (d->phase==1 && d->resume_query &&
+  /* The handler already proved this footprint and published the repaired
+   * cursors. Accept that view once; do not issue another shortage. */
+  if (d->phase==2 && d->resume_query &&
       d->context==ps->context &&
       d->activation==group_demand_activation(ps) &&
-      d->group_point==group_point && d->attempt!=0) {
+      d->group_point==group_point && d->attempt!=0 &&
+      d->hp==hp && d->fp==fp &&
+      d->epoch==group_demand_gc_epoch(ps) &&
+      ___VMSTATE_FROM_PSTATE(ps)->lifecycle &&
+      d->service_incarnation==___VMSTATE_FROM_PSTATE(ps)->lifecycle->incarnation) {
     d->resume_query=0;
-    if (!group_footprint_fits(ps, d, hp, fp)) {
-      d->phase=3;
-      return 0;
-    }
-    group_demand_publish_view(d, ps, hp, fp);
-    d->phase=2;
     if (attempt_out) *attempt_out=d->attempt;
     return 0;
   }
-  if (d->phase==1 || d->phase==2 || d->phase==3 || d->phase==4) return 1;
+  if (d->phase==1 && d->resume_query &&
+      d->context==ps->context &&
+      d->activation==group_demand_activation(ps) &&
+      d->group_point==group_point && d->attempt!=0 &&
+      ___VMSTATE_FROM_PSTATE(ps)->lifecycle &&
+      d->service_incarnation==___VMSTATE_FROM_PSTATE(ps)->lifecycle->incarnation) {
+    d->resume_query=0;
+    if (group_footprint_fits(ps, d, hp, fp)) {
+      group_demand_publish_view(d, ps, hp, fp);
+      d->phase=2;
+      ps->group_demand_active=1; clear_fast_span(ps);
+      if (attempt_out) *attempt_out=d->attempt;
+      return 0;
+    }
+    if (d->epoch==group_demand_gc_epoch(ps)) {
+      d->phase=3;
+      ps->group_demand_active=1; clear_fast_span(ps);
+      return 0;
+    }
+  }
+  if (d->phase==2 || (d->phase==1 && !d->resume_query) ||
+      ((d->phase==3 || d->phase==4) &&
+       d->context==ps->context &&
+       d->activation==group_demand_activation(ps)))
+    return 1;
+  /* Shortage only. A group that already fits is admitted by the caller
+   * with attempt zero and never reaches this issuance. */
   life=___VMSTATE_FROM_PSTATE(ps)->lifecycle;
-  attempt=group_demand_issue(life);
+  attempt=group_demand_issue(d, life);
   if (!attempt) {
     d->phase=3;
+    ps->group_demand_active=1; clear_fast_span(ps);
     return 0;
   }
   d->context=ps->context;
@@ -574,15 +791,18 @@ ___EXP_FUNC(int,___group_demand_arm)
     ___WORD *lo, *hi;
     if (!___owned_stack_span(ps, &lo, &hi) || fp<lo || fp>hi) {
       d->phase=3;
+      ps->group_demand_active=1; clear_fast_span(ps);
       rc_contract_error("Stack cursor is outside the owned interval");
       return 0;
     }
   }
   if (!cursor_has_stack_room(ps, fp, handler_spill_words())) {
     d->phase=3;
+    ps->group_demand_active=1; clear_fast_span(ps);
     return 0;
   }
   d->phase=group_footprint_fits(ps, d, hp, fp) ? 2 : 1;
+  ps->group_demand_active=1; clear_fast_span(ps);
   return 0;
 }
 
@@ -606,10 +826,23 @@ ___EXP_FUNC(void,___group_demand_commit)
   ___group_demand *d;
   /* A fitting stack-only enter publishes attempt 0 and must not clear
    * an earlier heap grant. */
-  if (attempt==0) return;
+  if (__builtin_expect(attempt==0, 1)) {
+#ifdef ___GAMBIT_REST_OBSERVATION
+    if (__builtin_expect(___rest_observation_active, 0))
+      ___gate2_fast_done(ps, group_point);
+#endif
+    return;
+  }
   d=group_demand_slot(ps);
   if (!group_demand_same(d, ps, group_point, attempt) || d->phase!=2) return;
+#ifdef ___GAMBIT_REST_OBSERVATION
+  if (gate2_procedure && gate2_here(ps) && gate2_view.point==group_point && gate2_view.attempt==attempt) {
+    gate2_event(REST_GROUP_COMMIT,attempt,0,0,0,0,0);
+    gate2_view.phase=GATE2_SETTLED;
+  }
+#endif
   d->phase=0;
+  if (ps) { ps->group_demand_active=0; publish_fast_span(ps); }
   d->context=0;
   d->activation=0;
   d->group_point=0;
@@ -637,6 +870,11 @@ ___EXP_FUNC(int,___group_demand_before)
     return 0;
   REST_OBS(REST_DEMAND,ps,d->activation,d->attempt,d->epoch,
            fp,lo,hi,ps->context->stack_limit,d->phase,d->stack_words,d->heap_words,0);
+#ifdef ___GAMBIT_REST_OBSERVATION
+  if (gate2_procedure && gate2_here(ps) && d->group_point==gate2_view.point && d->phase==1)
+    gate2_event(REST_GROUP_DEMAND,(uintptr_t)fp,(uintptr_t)ps->context->stack_limit,
+                d->phase,d->attempt,d->stack_words,d->heap_words);
+#endif
   if (d->phase==1) return 1;
   if (d->phase==3 || d->phase==4) return 2;
   return 0;
@@ -653,16 +891,20 @@ ___EXP_FUNC(void,___group_demand_after)
   if (d->activation!=group_demand_activation(ps) || d->attempt==0) return;
   hp=ps->context->hp;
   fp=ps->context->fp;
-  /* Diagnostic only. The 84138e91 demand struct has no saved_fp slot.
-   * Do not store one while this object is linked with that layout. */
-  (void)fp;
-  (void)hp;
-  if (overflow) {
-    d->phase=3;
+#ifdef ___GAMBIT_REST_OBSERVATION
+  if (gate2_procedure && gate2_here(ps) && d->group_point==gate2_view.point && d->attempt==gate2_view.attempt)
+    gate2_event(REST_GROUP_SAVED,(uintptr_t)fp,d->attempt,overflow,group_demand_gc_epoch(ps),0,0);
+#endif
+  /* A collection is not room. Publish the repaired cursors only when they
+   * hold the footprint, so the unframed retry writes at the post-recovery
+   * hp instead of the cursor that just filled the section. */
+  if (overflow || !group_footprint_fits(ps, d, hp, fp)) {
+    d->phase=overflow ? 3 : 4;
+    ps->group_demand_active=1; clear_fast_span(ps);
     d->resume_query=0;
     return;
   }
-  /* Phase 2 is issued by the unframed retry. Keep the attempt and demand. */
+  d->epoch=group_demand_gc_epoch(ps);
   d->resume_query=1;
 }
 
@@ -700,6 +942,7 @@ ___EXP_FUNC(void,___group_demand_retire)
   ___group_demand *d=group_demand_slot(ps);
   if (!d) return;
   d->phase=0;
+  if (ps) { ps->group_demand_active=0; publish_fast_span(ps); }
   d->context=0;
   d->activation=0;
   d->group_point=0;
@@ -720,6 +963,118 @@ ___EXP_FUNC(void,___group_demand_fail)
   rc_contract_error("Stack or heap group demand was not granted");
 }
 
+/* Publish the soft heap limit for a freshly selected section. The stack
+ * cursor stays where the mutator left it. */
+static void publish_bumped_heap_limit(___processor_state ___ps)
+{
+  ___PTRDIFF_T room;
+  ___SIZE_TS left;
+  ___WORD *soft;
+  if (!___ps) return;
+  room=alloc_heap_limit-alloc_heap_ptr;
+  left=room>(___PTRDIFF_T)___MSECTION_FUDGE
+    ? (___SIZE_TS)(room-(___PTRDIFF_T)___MSECTION_FUDGE) : 0;
+  ___ps->context->hp=alloc_heap_ptr;
+  ___ps->heap_limit=alloc_heap_ptr+left;
+  if (alloc_heap_limit &&
+      alloc_heap_limit>alloc_heap_start+___MSECTION_FUDGE) {
+    soft=alloc_heap_limit-___MSECTION_FUDGE;
+    if (___ps->heap_limit>soft) ___ps->heap_limit=soft;
+  }
+  publish_fast_span(___ps);
+}
+
+/* The current section cannot hold this heap group. Keep the bytes already
+ * consumed, then continue on a new section. Returns after the mutator heap
+ * cursor has moved. */
+static int bump_heap_section_for_demand(___processor_state ___ps, ___WORD *hp,
+                                        ___SIZE_TS heap_words)
+{
+  if (!___ps || !___ps->context || !hp || !heap_msection) return 0;
+  /* A cursor past the hard edge still belongs to this section. Snap it
+   * back so the next free section can be published. */
+  if (hp>alloc_heap_limit) hp=alloc_heap_limit;
+  if (hp<alloc_heap_start) return 0;
+  if (compute_free_heap_space_approximately()<___MSECTION_SIZE) return 0;
+  if (heap_words>0 && ___heap_alloc_fits(___ps, hp, heap_words) &&
+      alloc_heap_limit && hp<=alloc_heap_limit &&
+      (___SIZE_TS)(alloc_heap_limit-hp)>(___SIZE_TS)___MSECTION_FUDGE) {
+    if ((___SIZE_TS)(alloc_heap_limit-hp)-(___SIZE_TS)___MSECTION_FUDGE>=heap_words) {
+      alloc_heap_ptr=hp;
+      publish_bumped_heap_limit(___ps);
+      return ___ps->context->hp==alloc_heap_ptr;
+    }
+    return 0;
+  }
+  alloc_heap_ptr=hp;
+  next_heap_msection(___ps);
+  publish_bumped_heap_limit(___ps);
+  return ___ps->context->hp==alloc_heap_ptr;
+}
+
+/* The soft heap limit ended a section that still has a free successor.
+ * Continuing there avoids a whole-heap census. */
+int ___stack_extend_soft_limit(___processor_state ___ps)
+{
+  ___WORD *floor;
+  if (!___ps || !___ps->context || !___ps->context->fp || !alloc_stack_limit)
+    return 0;
+  if (!___FP_AFTER(___ps->context->fp, ___ps->context->stack_limit)) return 0;
+  floor=alloc_stack_limit+___MSECTION_FUDGE;
+  if (___ps->context->fp<=floor) return 0;
+  ___ps->context->stack_limit=floor;
+  return 1;
+}
+
+int ___heap_rearm_after_collection(___processor_state ___ps)
+{
+  ___processor_state ps=___ps;
+  int n, add;
+  if (!ps || !ps->context) return 0;
+  if (ps->heap_limit && ps->context->hp && ps->context->hp<=ps->heap_limit)
+    return 1;
+  if (___GSTATE->setup_params.max_heap!=0) return 0;
+  if (!the_msections || !the_msections->head) return 0;
+  if (!heap_msection)
+    set_heap_msection(ps, the_msections->head);
+  ALLOC_MEM_LOCK();
+  n=the_msections->nb_sections;
+  add=n/2;
+  if (add<32) add=32;
+  if (compute_free_heap_space_approximately()<___MSECTION_SIZE &&
+      n>0 && add<=INT_MAX-n) {
+    adjust_msections(&the_msections, n+add);
+    heap_size=compute_heap_size();
+  }
+  ALLOC_MEM_UNLOCK();
+  next_heap_msection(ps);
+  publish_bumped_heap_limit(ps);
+  return ps->heap_limit && ps->context->hp && ps->context->hp<=ps->heap_limit;
+}
+
+int ___heap_continue_on_free_section(___processor_state ___ps)
+{
+  ___WORD *hp;
+  if (!___ps || !___ps->context) return 0;
+  hp=___ps->context->hp;
+  if (!___ps->heap_limit || hp<=___ps->heap_limit) return 0;
+  /* Assigned sections are not a heap limit. With no byte cap, reserve more
+   * before a census. The next bump publishes one of those sections. */
+  if (compute_free_heap_space_approximately()<___MSECTION_SIZE &&
+      ___GSTATE->setup_params.max_heap==0 && the_msections) {
+    int n, add, grown;
+    ALLOC_MEM_LOCK();
+    n=the_msections->nb_sections;
+    add=n/2;
+    if (add<8) add=8;
+    grown=n>0 && add<=INT_MAX-n ? n+add : n;
+    if (grown>n) adjust_msections(&the_msections, grown);
+    heap_size=compute_heap_size();
+    ALLOC_MEM_UNLOCK();
+  }
+  return bump_heap_section_for_demand(___ps, hp, 0);
+}
+
 /* Preserve the emitted protocol order in one runtime service. This uses
  * only C locals: no Scheme allocation, safepoint, spill or new attempt store.
  * A false result requires the caller's existing mapped limit-service jump. */
@@ -727,16 +1082,49 @@ ___EXP_FUNC(void,___group_demand_fail)
 ___EXP_FUNC(int,___group_demand_enter)
 (___processor_state ps, ___WORD **hp, ___WORD **fp,
  ___SIZE_TS stack_words, ___SIZE_TS heap_words,
+ ___WORD group_point, ___WORD *attempt_out);
+
+#if defined(__GNUC__) && !defined(CBMC)
+static __attribute__((noinline, cold)) int group_demand_enter_slow
+#else
+static int group_demand_enter_slow
+#endif
+(___processor_state ps, ___WORD **hp, ___WORD **fp,
+ ___SIZE_TS stack_words, ___SIZE_TS heap_words,
  ___WORD group_point, ___WORD *attempt_out)
 {
-  /* Heap grants keep the full attempt protocol. A stack adjustment that
-   * already fits the current half-section allocates nothing and does not
-   * need a new attempt. */
-  if (heap_words==0 && ps && ps->context && hp && *hp && fp && *fp &&
-      ps->context->hp==*hp && ps->context->fp==*fp &&
-      (stack_words<=0 || ___stack_adjust_fits(ps, *fp, stack_words))) {
-    if (attempt_out) *attempt_out=0;
-    return 1;
+  ___group_demand *slot;
+  /* A fitting group, including a positive heap demand, uses the caller's
+   * current cursors and does not take a service number. Shortage falls
+   * through to the mapped attempt. */
+  slot=ps ? group_demand_slot(ps) : 0;
+  {
+    int same_pending=slot && slot->phase!=0 && ps && slot->context==ps->context &&
+      slot->activation==group_demand_activation(ps) && slot->group_point==group_point;
+    int blocked_here=slot && (slot->phase==3 || slot->phase==4) && ps &&
+      slot->context==ps->context && slot->activation==group_demand_activation(ps);
+    /* Sync live generated cursors once on fast-path entry before acquiring
+     * the section copy_gate snapshot inside group_demand_local_room, cutting
+     * fast-path copy_gate acquisitions from up to 4 down to at most 1. */
+    if (!same_pending && !blocked_here && hp && *hp && fp && *fp && ps && ps->context &&
+        (!slot || slot->phase!=2)) {
+      ps->context->hp=*hp;
+      ps->context->fp=*fp;
+      if (group_demand_local_room(ps, *hp, *fp, stack_words, heap_words)) {
+        if ((!slot || slot->phase==0) && !ps->group_demand_active &&
+            (!ps->stack_fast_limit_b || (heap_words>0 && !ps->heap_fast_bytes)))
+          publish_fast_span(ps);
+        if (attempt_out) *attempt_out=0;
+        return 1;
+      }
+      if (heap_words>0 && bump_heap_section_for_demand(ps, *hp, heap_words)) {
+        *hp=ps->context->hp;
+        if (group_demand_local_room(ps, *hp, *fp, stack_words, heap_words)) {
+          if (attempt_out) *attempt_out=0;
+          return 1;
+        }
+      }
+    }
   }
   if (!___group_demand_resume_view(ps, group_point, hp, fp)) {
     ps->context->hp=*hp;
@@ -747,6 +1135,10 @@ ___EXP_FUNC(int,___group_demand_enter)
     rc_contract_error("Write-group arm was not accepted");
     return 0;
   }
+#ifdef ___GAMBIT_REST_OBSERVATION
+  if (gate2_procedure && gate2_here(ps) && gate2_view.point==group_point && attempt_out)
+    gate2_view.attempt=*attempt_out;
+#endif
   if (___group_demand_blocked(ps)) {
     rc_contract_error("Write-group entered while a refusal was pending");
     return 0;
@@ -759,6 +1151,14 @@ ___EXP_FUNC(int,___group_demand_enter)
       ___group_demand *noted=group_demand_slot(ps);
       ___WORD *lo=0,*hi=0;
       int owned=___owned_stack_span(ps,&lo,&hi);
+      if (gate2_procedure && noted && gate2_here(ps) && gate2_view.point==group_point &&
+          gate2_view.attempt==noted->attempt) {
+        gate2_view.epoch=noted->epoch;
+        gate2_event(REST_GROUP_GRANT,(uintptr_t)*fp,(uintptr_t)lo,(uintptr_t)hi,
+                    noted->stack_words,noted->attempt,___WS);
+        gate2_event(REST_GROUP_HEAP_GRANT,(uintptr_t)*hp,noted->heap_words,noted->attempt,0,0,0);
+        gate2_view.phase=GATE2_GRANTED;
+      }
       if (noted) REST_OBS(REST_GRANT,ps,noted->activation,noted->attempt,noted->epoch,
                *hp,*fp,noted->stack_words,noted->heap_words,group_point,
                noted->phase,owned?lo:0,owned?hi:0);
@@ -766,6 +1166,37 @@ ___EXP_FUNC(int,___group_demand_enter)
 #endif
     return granted;
   }
+}
+
+___EXP_FUNC(int,___group_demand_enter)
+(___processor_state ps, ___WORD **hp, ___WORD **fp,
+ ___SIZE_TS stack_words, ___SIZE_TS heap_words,
+ ___WORD group_point, ___WORD *attempt_out)
+{
+  /* Processor-owned byte-range leaf fast-span check when group_demand_active == 0:
+   * avoids callee-saved spills, copy_gate atomic acquisition, and lifecycle slot
+   * lookup while keeping ___group_demand_enter strictly out-of-line. */
+  if (__builtin_expect(ps!=0 && ps->context!=0 && hp!=0 && fp!=0 && attempt_out!=0, 1)) {
+    ___WORD *f=*fp;
+    ___WORD *h=*hp;
+    if (__builtin_expect(f!=0 && h!=0 && stack_words>=0 && heap_words>=0, 1)) {
+      ___UWORD sd=___CAST(___UWORD,f)-ps->stack_fast_floor_b;
+      if (__builtin_expect(
+            sd<ps->stack_fast_limit_b &&
+            (sd/sizeof(___WORD))>=(___UWORD)stack_words &&
+            (heap_words==0 ||
+             ((___CAST(___UWORD,h)-ps->heap_fast_lo_b)<ps->heap_fast_bytes &&
+              ((ps->heap_fast_bytes-(___CAST(___UWORD,h)-ps->heap_fast_lo_b))/sizeof(___WORD))>=(___UWORD)heap_words)),
+            1)) {
+        ps->context->hp=h;
+        ps->context->fp=f;
+        *attempt_out=0;
+        return 1;
+      }
+    }
+  }
+  return group_demand_enter_slow(ps, hp, fp, stack_words, heap_words,
+                                 group_point, attempt_out);
 }
 
 ___EXP_FUNC(void,___group_demand_note_return_fp)
@@ -776,6 +1207,20 @@ ___EXP_FUNC(void,___group_demand_note_return_fp)
   (void)fp;
   REST_OBS(REST_RETURN_FP,ps,d->activation,d->attempt,0,fp,d->phase,0,0,0,0,0,0);
 }
+
+#ifdef ___GAMBIT_REST_OBSERVATION
+___EXP_FUNC(void,___gate2_unwound)
+(___processor_state ps, ___WORD *handler_fp, ___WORD *caller_fp, int cfs)
+{
+  ___group_demand *d=group_demand_slot(ps);
+  if (gate2_procedure && d && gate2_here(ps) && d->phase==1 && d->resume_query &&
+      d->group_point==gate2_view.point && d->attempt==gate2_view.attempt) {
+    gate2_view.epoch=group_demand_gc_epoch(ps);
+    gate2_event(REST_GROUP_UNWOUND,(uintptr_t)handler_fp,(uintptr_t)caller_fp,cfs,
+                ___FRAME_ALIGN,___FRAME_SPACE(___NB_GVM_REGS+1),d->attempt);
+  }
+}
+#endif
 
 #ifdef ___DEBUG_HEAP_LIMIT
 
@@ -895,6 +1340,26 @@ ___PSDKR)
               next_heap_msection_without_locking (___ps);
 
             ALLOC_MEM_UNLOCK();
+          }
+        else if (___ps->primlock_depth > 0 && the_msections &&
+                 the_msections->nb_sections > 0 &&
+                 the_msections->nb_sections < INT_MAX &&
+                 ___rest_new_section_admitted (___ps, ___GSTATE->setup_params.max_heap))
+          {
+            int before_n = the_msections->nb_sections;
+            adjust_msections (&the_msections, before_n + 1);
+            if (the_msections->nb_sections > before_n)
+              {
+                heap_size = compute_heap_size ();
+                if (___gc_resume_heap_needs_refill(alloc_heap_ptr,alloc_heap_limit,___MSECTION_FUDGE))
+                  next_heap_msection_without_locking (___ps);
+                ALLOC_MEM_UNLOCK();
+              }
+            else
+              {
+                ALLOC_MEM_UNLOCK();
+                return 1;
+              }
           }
         else
           {

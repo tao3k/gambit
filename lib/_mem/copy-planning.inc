@@ -10,46 +10,88 @@ ___HIDDEN int census_checked_add(___SIZE_TS *sum, ___SIZE_TS value)
   *sum+=value;return 1;
 }
 
-___HIDDEN int census_claim(___collector_worker *work, ___WORD *source,
+static inline int census_claim(___collector_worker *work, ___WORD *source,
                           ___SIZE_TS span, ___SIZE_TS request, int frame)
 {
   ___processor_state ___ps=work->carrier;
   ___gc_census *c=work->census;
-  int i=find_msection(the_msections,source);
   ___SIZE_TS at,j,half=___MSECTION_SIZE>>1;
   ___msection *section;
   ___WORD *bits;
-  if(c->failed) return 0;
-  if(i<0 || i>=the_msections->nb_sections || span<1 || request<1) goto invalid;
-  section=the_msections->sections[i];
+  if(__builtin_expect(c->failed, 0)) return 0;
+  if(__builtin_expect(span<1 || request<1, 0)) goto invalid;
+  /* Consecutive objects in one half share the section found last time;
+   * cross-section pointers hit the worker-private 64-entry direct cache. */
+  if(__builtin_expect(
+       work->census_section_ && work->census_epoch_==___COLLECTION(work->vm).epoch &&
+       work->census_offset_==c->source_offset &&
+       source>=work->census_base_+c->source_offset &&
+       source<work->census_base_+c->source_offset+half, 1)) {
+    section=work->census_section_;
+  } else {
+    section=___gc_find_msection_cached(work, the_msections, source);
+    if(__builtin_expect(!section, 0)) goto invalid;
+    work->census_section_=section;
+    work->census_base_=section->base;
+    work->census_offset_=c->source_offset;
+    work->census_epoch_=___COLLECTION(work->vm).epoch;
+  }
   { ___UWORD address=___CAST(___UWORD,source);
     ___UWORD base=___CAST(___UWORD,section->base+c->source_offset);
-    if(address<base || address-base>=half*___WS || (address-base)%___WS) goto invalid;
+    if(__builtin_expect(address<base || address-base>=half*___WS || (address-base)%___WS, 0)) goto invalid;
     at=(address-base)/___WS;
   }
-  if(span>half-at || request>half-3) goto invalid;
+  if(__builtin_expect(span>half-at || request>half-3, 0)) goto invalid;
   bits=section->base+___MSECTION_SIZE;
-  { int shift=2*(at%(___WORD_WIDTH/2));
-    int old=(___CAST(___UWORD,bits[at/(___WORD_WIDTH/2)])>>shift)&3;
-    if(old==(frame?2:3)) return 0;
-    if(old) goto invalid;
+  {
+    const ___SIZE_TS spw=___WORD_WIDTH/2;
+    const ___UWORD ones=(~___CAST(___UWORD,0))/3;
+    const ___UWORD head_val=___CAST(___UWORD,frame?2:3);
+    ___SIZE_TS w=at/spw;
+    unsigned int off=(unsigned int)(at&(spw-1));
+    unsigned int shift=2*off;
+    ___UWORD cur=___CAST(___UWORD,bits[w]);
+    int old=(int)((cur>>shift)&3);
+    ___SIZE_TS first_take=spw-off;
+    ___UWORD first_mask;
+    ___UWORD first_pat;
+    if(old==(int)head_val) return 0;
+    if(__builtin_expect(old!=0, 0)) goto invalid;
+    if(first_take>span) first_take=span;
+    first_mask=(first_take==spw)
+      ? ~___CAST(___UWORD,0)
+      : (((___CAST(___UWORD,1)<<(2*first_take))-1)<<shift);
+    first_pat=((ones&first_mask)&~(___CAST(___UWORD,3)<<shift))|(head_val<<shift);
+    /* Full source intervals, not only pointer keys, must be disjoint. This
+     * detects a frame/header inside another object's extent before copying. */
+    if(__builtin_expect(first_take==span, 1)) {
+      if(__builtin_expect((cur&first_mask)!=0, 0)) goto invalid;
+      bits[w]=___CAST(___WORD,cur|first_pat);
+    } else {
+      ___SIZE_TS rem=span-first_take;
+      ___SIZE_TS full_words=rem/spw;
+      ___SIZE_TS tail_take=rem&(spw-1);
+      ___UWORD tail_mask=tail_take
+        ? ((___CAST(___UWORD,1)<<(2*tail_take))-1)
+        : 0;
+      if(__builtin_expect((cur&first_mask)!=0, 0)) goto invalid;
+      for(j=0;j<full_words;j++)
+        if(bits[w+1+j]!=0) goto invalid;
+      if(tail_take && (___CAST(___UWORD,bits[w+1+full_words])&tail_mask))
+        goto invalid;
+      bits[w]=___CAST(___WORD,cur|first_pat);
+      for(j=0;j<full_words;j++)
+        bits[w+1+j]=___CAST(___WORD,ones);
+      if(tail_take)
+        bits[w+1+full_words]|=___CAST(___WORD,ones&tail_mask);
+    }
   }
-  /* Full source intervals, not only pointer keys, must be disjoint. This
-   * detects a frame/header inside another object's extent before copying. */
-  for(j=at;j<at+span;j++) {
-    int shift=2*(j%(___WORD_WIDTH/2));
-    if((___CAST(___UWORD,bits[j/(___WORD_WIDTH/2)])>>shift)&3) goto invalid;
-  }
-  for(j=at;j<at+span;j++) {
-    int shift=2*(j%(___WORD_WIDTH/2));
-    bits[j/(___WORD_WIDTH/2)]|=___CAST(___WORD,___CAST(___UWORD,j==at?(frame?2:3):1)<<shift);
-  }
-  if(!census_checked_add(&c->source_words,span) ||
-     !census_checked_add(&c->destination_words,request)) goto invalid;
+  if(__builtin_expect(!census_checked_add(&c->source_words,span) ||
+     !census_checked_add(&c->destination_words,request), 0)) goto invalid;
   if(request>c->largest_request)c->largest_request=request;
-  if(request>(___MSECTION_SIZE>>1)-___MSECTION_FUDGE-3) ++c->large_count;
+  if(__builtin_expect(request>(___MSECTION_SIZE>>1)-___MSECTION_FUDGE-3, 0)) ++c->large_count;
   else {
-    if(!census_checked_add(&c->small_words,request)) goto invalid;
+    if(__builtin_expect(!census_checked_add(&c->small_words,request), 0)) goto invalid;
     if(request>c->small_max)c->small_max=request;
   }
   if(frame)++c->frames;else ++c->objects;
@@ -58,27 +100,39 @@ invalid:
   c->failed=1;return 0;
 }
 
-___HIDDEN void census_enqueue(___collector_worker *work, ___SCMOBJ value)
+#if defined(__GNUC__) && !defined(CBMC)
+static __attribute__((noinline, cold)) void census_enqueue_grow(___collector_worker *work, ___SCMOBJ value)
+#else
+___HIDDEN void census_enqueue_grow(___collector_worker *work, ___SCMOBJ value)
+#endif
 {
   ___gc_census *c=work->census;
-  if(c->failed)return;
-  if(c->count==c->capacity) {
-    ___SIZE_T capacity=c->capacity?2*c->capacity:___WORD_WIDTH;
-    if(capacity<c->capacity || capacity>~___CAST(___SIZE_T,0)/sizeof(*c->queue)) {
-      c->failed=1;return;
-    }
-    /* Both superseded and replacement buffers have a VM-owned publication
-     * slot. Interruption of malloc/copy/free is never an idempotent retry. */
-    c->state=___GC_PLAN_ALLOCATING;
-    c->replacement=___CAST(___SCMOBJ*,___ALLOC_MEM(capacity*sizeof(*c->queue)));
-    if(c->replacement==0) {c->state=___GC_PLAN_READING;c->failed=1;return;}
-    if(c->count)memcpy(c->replacement,c->queue,c->count*sizeof(*c->queue));
-    c->retired=c->queue;c->queue=c->replacement;c->replacement=0;
-    if(c->retired)___FREE_MEM(c->retired);
-    c->retired=0;c->capacity=capacity;c->state=___GC_PLAN_READING;
-    if(capacity*sizeof(*c->queue)>c->peak_bytes)c->peak_bytes=capacity*sizeof(*c->queue);
+  ___SIZE_T capacity=c->capacity?2*c->capacity:___WORD_WIDTH;
+  if(capacity<c->capacity || capacity>~___CAST(___SIZE_T,0)/sizeof(*c->queue)) {
+    c->failed=1;return;
   }
+  /* Both superseded and replacement buffers have a VM-owned publication
+   * slot. Interruption of malloc/copy/free is never an idempotent retry. */
+  c->state=___GC_PLAN_ALLOCATING;
+  c->replacement=___CAST(___SCMOBJ*,___ALLOC_MEM(capacity*sizeof(*c->queue)));
+  if(c->replacement==0) {c->state=___GC_PLAN_READING;c->failed=1;return;}
+  if(c->count)memcpy(c->replacement,c->queue,c->count*sizeof(*c->queue));
+  c->retired=c->queue;c->queue=c->replacement;c->replacement=0;
+  if(c->retired)___FREE_MEM(c->retired);
+  c->retired=0;c->capacity=capacity;c->state=___GC_PLAN_READING;
+  if(capacity*sizeof(*c->queue)>c->peak_bytes)c->peak_bytes=capacity*sizeof(*c->queue);
   c->queue[c->count++]=value;
+}
+
+static inline void census_enqueue(___collector_worker *work, ___SCMOBJ value)
+{
+  ___gc_census *c=work->census;
+  if(__builtin_expect(c->failed, 0))return;
+  if(__builtin_expect(c->count<c->capacity, 1)) {
+    c->queue[c->count++]=value;
+    return;
+  }
+  census_enqueue_grow(work, value);
 }
 
 ___HIDDEN void census_array(___collector_worker *work, ___WORD *start, ___WORD n)
@@ -134,7 +188,7 @@ ___HIDDEN void census_capture(___collector_worker *work, ___WORD *cell)
     ___SIZE_TS half_words=0,words;
     int at_break;
     if(!read_source_stack_frame(work,top,c->source_offset,logical_past,&ra,carry,&d,
-                                &half_words,&known_break)) {c->failed=1;return;}
+                                &half_words,&known_break)) break;
     words=___FRAME_SPACE(d.fs);
     base=top+words;next=___FP_STK(base,d.link+1);
     if(!source_break_agrees(base,known_break,next)) {c->failed=1;return;}
@@ -280,6 +334,7 @@ ___HIDDEN int plan_copy_round(___processor_state ps)
     ___WORD *base=___CAST(___WORD*,round->members[i].owner->mem.still_objs_);
     while(base) {base[___STILL_MARK]=0;base=___CAST(___WORD*,base[___STILL_LINK]);}
   }
+  work->sec_cache_epoch_=0;work->sec_cache_nb_sections_=-1;
   work->census=c;ps->collector=work;work->traverse_weak_refs_=1;
   mark_vm_scmobj(work, vm);mark_symkey_tables(___PSP ___GSTATE);
   for(i=0;i<n && !c->failed;i++) {

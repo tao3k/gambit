@@ -3,7 +3,7 @@
 herefromlib = gambit/char
 libfromhere = ../..
 SUBDIRS =
-HEADERS_SCM = char\#.scm
+HEADERS_SCM = char\#.scm char-set\#.scm
 MODULES_SCM = char.scm char.sld
 MAIN_MODULES = char
 UNICODE_DATA_FILES = CaseFolding.txt PropList.txt SpecialCasing.txt UnicodeData.txt

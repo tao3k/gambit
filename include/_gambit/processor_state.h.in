@@ -130,6 +130,12 @@ typedef struct ___processor_state_struct
     ___processor_state pstate_binding;
 #endif
     struct ___collector_worker_struct *collector; /* current private work authority */
+    int primlock_depth; /* active low-level spinlock nesting depth on this processor */
+    int group_demand_active; /* non-zero while processor group-demand slot phase != 0 */
+    ___UWORD stack_fast_floor_b; /* byte base of owned stack interval above fudge */
+    ___UWORD stack_fast_limit_b; /* byte span + 1 (0 when unowned or demand active) */
+    ___UWORD heap_fast_lo_b; /* byte base of owned active heap interval */
+    ___UWORD heap_fast_bytes; /* byte span up to soft heap_limit (0 when invalid) */
 
   } ___processor_state_struct;
 

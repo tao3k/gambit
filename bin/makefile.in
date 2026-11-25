@@ -448,13 +448,22 @@ distclean-pre: clean-pre
 
 distclean-post distclean-post-nonrec: clean-post-nonrec
 
-bootclean-pre: distclean-pre
+# These tools and aliases belong to the configured toolchain, not Scheme/C
+# generation. Their existing Make/config.status prerequisites handle changes.
+# Cleaning generated compiler products must not regenerate every tool template.
+bootclean-pre: mostlyclean-pre
 
-bootclean-post bootclean-post-nonrec: distclean-post-nonrec
+bootclean-post bootclean-post-nonrec: mostlyclean-post-nonrec
+	rm -f gsc-script@bat@ gsi-script@bat@ six@exe@ six-script@bat@ \
+	  scheme-srfi-0@bat@ scheme-r5rs@bat@ scheme-r4rs@bat@ \
+	  scheme-ieee-1178-1990@bat@ \
+	  gsc-script@bat@.lnk gsi-script@bat@.lnk six@exe@.lnk six-script@bat@.lnk \
+	  scheme-srfi-0@bat@.lnk scheme-r5rs@bat@.lnk scheme-r4rs@bat@.lnk \
+	  scheme-ieee-1178-1990@bat@.lnk
 
-realclean-pre: bootclean-pre
+realclean-pre: distclean-pre
 
-realclean-post realclean-post-nonrec: bootclean-post-nonrec
+realclean-post realclean-post-nonrec: distclean-post-nonrec
 	rm -f makefile \
 	  gambuild-C.unix gambuild-C.bat.windows \
 	  gambuild-js.unix gambuild-js.bat.windows \

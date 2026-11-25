@@ -521,7 +521,7 @@ AC_ARG_ENABLE(optimized-module-limit,
               AS_HELP_STRING([--enable-optimized-module-limit=N],
                              [set the maximal size of a module to use the normal C compilation optimization level (N is the number of control points in the module beyond which the optimization level is lowered; N=0 deactivates the lowering of the optimization level; N=20000 is the default)]),
               ENABLE_OPTIMIZED_MODULE_LIMIT=$enableval,
-              ENABLE_OPTIMIZED_MODULE_LIMIT=20000)
+              ENABLE_OPTIMIZED_MODULE_LIMIT=6000)
 
 CONF_OPTIMIZED_MODULE_LIMIT="$ENABLE_OPTIMIZED_MODULE_LIMIT"
 
@@ -1478,6 +1478,10 @@ AC_CHECK_C_COMPILER_DEF(_MSC_VER,C_COMP_VISUALC)
 #AC_CHECK_C_COMPILER_DEF(__BORLANDC__,C_COMP_BORLANDC)
 AC_CHECK_C_COMPILER_DEF(_WIN32,OS_WIN32)
 
+# Persist completed observations when the caller selected a standard cache.
+# A later interrupted configure still has no completed configuration receipt.
+AC_CACHE_SAVE
+
 ALL_BUILD_FEATURES="unix windows gcc clang visualc cc"
 
 if test "$C_COMP_CLANG" = yes; then
@@ -2115,6 +2119,8 @@ fi
 ###############################################################################
 #
 # Determine which thread system to use.
+
+AC_CACHE_SAVE
 
 # Check for threading system early, in case this has an impact on
 # other functionality.
@@ -2975,6 +2981,33 @@ else
 fi
 fi
 
+# Modern C baseline: keep the existing configure/Make interface.
+if test "$ENABLE_CPLUSPLUS" = yes; then
+  AC_MSG_ERROR([the modern C runtime requires a C23 compiler])
+fi
+gambit_saved_cflags=$CFLAGS
+CFLAGS="$CFLAGS -std=c23"
+AC_MSG_CHECKING([for the modern C23 language contract])
+AC_COMPILE_IFELSE([AC_LANG_SOURCE([[
+#if !defined(__STDC_VERSION__) || __STDC_VERSION__ < 202311L
+#error A C23 compiler is required
+#endif
+int main(void) { return 0; }
+]])], [AC_MSG_RESULT([yes])],
+       [AC_MSG_ERROR([C23 is required])])
+CFLAGS=$gambit_saved_cflags
+FLAGS_OBJ_DYN="$FLAGS_OBJ_DYN -std=c23"
+
+# Compact diagnostic provenance does not remove semantic macro expansion.
+case "$target_os" in
+  darwin*)
+    if test "$C_COMP_GNUC" = yes -a "$C_COMP_CLANG" != yes -a "$C_COMP_LLVM" != yes; then
+      AC_CHECK_C_COMPILER_OPT([-ftrack-macro-expansion=0], [GAMBIT_MACRO_COMPACT_ACCEPTED], [ -Werror])
+      if test "$GAMBIT_MACRO_COMPACT_ACCEPTED" != ""; then
+        FLAGS_OBJ_DYN="$FLAGS_OBJ_DYN -ftrack-macro-expansion=0"
+      fi
+    fi ;;
+esac
 FLAGS_OBJ="$FLAGS_OBJ $FLAGS_OBJ_DYN $FLAGS_OBJ_DYN_LIB_EXE"
 FLAGS_DYN="$FLAGS_DYN $FLAGS_OBJ_DYN $FLAGS_OBJ_DYN_LIB_EXE $FLAGS_DYN_LIB"
 FLAGS_LIB="$FLAGS_LIB $FLAGS_OBJ_DYN_LIB_EXE $FLAGS_DYN_LIB"
@@ -2985,6 +3018,8 @@ DEFS_OBJ="$DEFS_OBJ_DYN_LIB_EXE $DEFS_OBJ"
 DEFS_DYN="$DEFS_OBJ_DYN_LIB_EXE $DEFS_DYN"
 DEFS_LIB="$DEFS_OBJ_DYN_LIB_EXE $DEFS_LIB"
 DEFS_EXE="$DEFS_OBJ_DYN_LIB_EXE $DEFS_EXE"
+
+AC_CACHE_SAVE
 
 ###############################################################################
 #
@@ -3234,7 +3269,7 @@ else
 
     LIB_PREFIX="lib"
     LIB_EXTENSION=".a"
-    MAKE_LIBRARY='$(AR) rc $(LIBRARY)$(LIB_VERSION_SUFFIX) $(LIBRARY_OBJECTS) && $(RANLIB) $(LIBRARY)$(LIB_VERSION_SUFFIX)'
+    MAKE_LIBRARY='$(WITNESS_ARCHIVE) $(AR) rc $(LIBRARY)$(LIB_VERSION_SUFFIX) $(LIBRARY_OBJECTS) && $(WITNESS_INDEX) $(RANLIB) $(LIBRARY)$(LIB_VERSION_SUFFIX)'
     MAKE_LIBRARY_FOR_INSTALL=':'
     FIXLIB='$(RANLIB)'
     LINK_FOR_INSTALL=':'
@@ -3851,6 +3886,14 @@ AC_SUBST(ENABLE_VERSIONED_SHARED_LIBS)
 AC_SUBST(emacsdir)
 AC_SUBST(HELP_BROWSER)
 AC_SUBST(COMPILATION_OPTIONS)
+dnl Bind Scheme generation to configuration through the existing feature header.
+dnl AC_CONFIG_HEADERS preserves its timestamp when the effective contents match.
+AC_DEFINE_UNQUOTED([___RTLIB_COND_EXPAND_FEATURES],
+                  ["$RTLIB_COND_EXPAND_FEATURES"],
+                  [Configured target Scheme cond-expand prelude])
+AC_DEFINE_UNQUOTED([___GSC_COMPILATION_OPTIONS],
+                  ["$COMPILATION_OPTIONS"],
+                  [Configured Scheme compiler generation options])
 AC_SUBST(RTLIB_COND_EXPAND_FEATURES)
 AC_SUBST(BUILD_TARGETS)
 

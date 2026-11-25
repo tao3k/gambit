@@ -2410,9 +2410,12 @@ ___TICKETLOCK_UNLOCK2(___FIELD(STRUCTURE,obj,___INT(next)),___FIELD(STRUCTURE,ob
 
 #else
 
-#define ___PRIMITIVELOCK(obj,next,current) ___PRIMLOCK(obj,next,current)
-#define ___PRIMITIVETRYLOCK(obj,next,current) ___PRIMTRYLOCK(obj,next,current)
-#define ___PRIMITIVEUNLOCK(obj,next,current) ___PRIMUNLOCK(obj,next,current)
+#define ___PRIMITIVELOCK(obj,next,current) \
+  do { ___PRIMLOCK(obj,next,current) ___ps->primlock_depth++; } while (0);
+#define ___PRIMITIVETRYLOCK(obj,next,current) \
+  (___PRIMTRYLOCK(obj,next,current) ? (++___ps->primlock_depth, 1) : 0)
+#define ___PRIMITIVEUNLOCK(obj,next,current) \
+  do { if (___ps->primlock_depth > 0) ___ps->primlock_depth--; ___PRIMUNLOCK(obj,next,current) } while (0);
 
 #endif
 
@@ -2433,6 +2436,7 @@ if (___R0 == ___ps->handler_break) \
   frame = ___STK(-___BREAK_FRAME_NEXT); \
 else \
   { \
+    ___publish_raw_stack_span(___ps,___fp,___ps->context->stack_break); \
     ___SET_STK(-___FRAME_STACK_RA,___R0) \
     ___R0 = ___ps->handler_break; \
     frame = ___CAST(___SCMOBJ,___fp); \
@@ -2772,6 +2776,7 @@ if (___R0 == ___ps->handler_break) \
   frame = ___STK(-___BREAK_FRAME_NEXT); \
 else \
   { \
+    ___publish_raw_stack_span(___ps,___fp,___ps->context->stack_break); \
     ___SET_STK(-___FRAME_STACK_RA,___R0) \
     ___R0 = ___ps->handler_break; \
     frame = ___CAST(___SCMOBJ,___fp); \

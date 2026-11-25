@@ -16,8 +16,31 @@
 _Static_assert(sizeof(uintptr_t)==8, "rest observation requires 64-bit pointers");
 _Static_assert(__atomic_always_lock_free(8,0), "observation atomics must be lock free");
 
+int ___rest_observation_active;
 static uint64_t *rest_observation_map;
 static uint64_t rest_observation_case_id;
+#ifdef ___MEM_SOURCE_FILE
+/* A focused group uses a different case process from the rest fixtures.
+ * The scope is local to the mutator that opens the watched group. */
+static const char *gate2_procedure;
+static uint64_t gate2_label;
+enum gate2_phase { GATE2_IDLE, GATE2_OLD_FRAME, GATE2_PENDING, GATE2_GRANTED, GATE2_SETTLED };
+static _Thread_local struct {
+  void *actor;
+  uintptr_t point, context, activation;
+  uint64_t invocation, attempt, epoch;
+  enum gate2_phase phase;
+} gate2_view;
+
+static int gate2_actor_current(void *actor);
+
+static void gate2_event(uint64_t kind, uint64_t a, uint64_t b, uint64_t c,
+                        uint64_t d, uint64_t e, uint64_t f)
+{
+  ___rest_observation_emit(kind,(uintptr_t)gate2_view.actor,gate2_view.activation,
+    gate2_view.invocation,gate2_view.epoch,gate2_view.context,gate2_view.point,a,b,c,d,e,f);
+}
+#endif
 static int rest_observation_auto_watch; /* 1 one word short, 2 exact fit */
 static int rest_observation_auto_watch_claimed;
 static _Thread_local unsigned rest_observation_handler_form;
@@ -147,6 +170,7 @@ int ___rest_observation_open(const char *path)
     munmap(map,(size_t)st.st_size); return 0;
   }
   rest_observation_map=map;
+  __atomic_store_n(&___rest_observation_active,1,__ATOMIC_RELEASE);
   {
     const char *watch=getenv("GAMBIT_REST_OBSERVATION_WATCH");
     rest_observation_auto_watch=0;
@@ -162,6 +186,9 @@ void ___rest_observation_emit(uint64_t kind, uint64_t actor, uint64_t record,
 {
   uint64_t *map=rest_observation_map, *out, n, id;
   if (!map || __atomic_load_n(map+5,__ATOMIC_ACQUIRE)) return;
+#ifdef ___MEM_SOURCE_FILE
+  if (gate2_procedure && kind > REST_CASE_END && kind < REST_GROUP_OPEN) return;
+#endif
   id=__atomic_load_n(&rest_observation_case_id,__ATOMIC_ACQUIRE);
   if (!id) return;
   n=__atomic_load_n(map+3,__ATOMIC_RELAXED);
@@ -209,6 +236,7 @@ int ___rest_observation_close(void)
   if (!map || rest_observation_current_case()) return 0;
   /* Keep the mapping alive until process exit. A late observer must never
    * dereference unmapped storage, even when a fixture violates quiescence. */
+  __atomic_store_n(&___rest_observation_active,0,__ATOMIC_RELEASE);
   return __atomic_exchange_n(map+5,1,__ATOMIC_ACQ_REL)==0;
 }
 
@@ -234,11 +262,21 @@ void ___rest_observation_snapshot(uint64_t actor, uint64_t region, uint64_t phas
 
 void ___rest_observation_store(void *actor, void *fp, void *address)
 {
+#ifdef ___MEM_SOURCE_FILE
+  if (gate2_procedure && gate2_actor_current(actor))
+    gate2_event(REST_GROUP_STORE,(uintptr_t)fp,(uintptr_t)address,
+                gate2_view.phase,gate2_view.attempt,0,0);
+#endif
   REST_OBS(REST_STORE,actor,0,0,0,fp,address,0,0,0,0,0,0);
 }
 
 void ___rest_observation_adjust(void *actor, void *fp, intptr_t words)
 {
+#ifdef ___MEM_SOURCE_FILE
+  if (gate2_procedure && gate2_actor_current(actor))
+    gate2_event(REST_GROUP_ADJUST,(uintptr_t)fp,(uintptr_t)fp-(uintptr_t)words*8,
+                words,gate2_view.phase,gate2_view.attempt,0);
+#endif
   REST_OBS(REST_FP_ADJUST,actor,0,0,0,fp,
            (uintptr_t)fp-(uintptr_t)words*8,words,0,0,0,0,0);
 }
@@ -246,6 +284,24 @@ void ___rest_observation_adjust(void *actor, void *fp, intptr_t words)
 void ___rest_observation_pop(void *actor, void *fp)
 {
   REST_OBS(REST_POP,actor,0,0,0,fp,0,0,0,0,0,0,0);
+}
+
+void ___rest_observation_store_fast(void *fp, void *address)
+{
+  if (__builtin_expect(!___rest_observation_active,1)) return;
+  ___rest_observation_store(___PSTATE,fp,address);
+}
+
+void ___rest_observation_adjust_fast(void *fp, intptr_t words)
+{
+  if (__builtin_expect(!___rest_observation_active,1)) return;
+  ___rest_observation_adjust(___PSTATE,fp,words);
+}
+
+void ___rest_observation_pop_fast(void *fp)
+{
+  if (__builtin_expect(!___rest_observation_active,1)) return;
+  ___rest_observation_pop(___PSTATE,fp);
 }
 
 static int rest_observation_in_span(uintptr_t address, uintptr_t base, uint64_t words)
@@ -322,5 +378,24 @@ void ___rest_observation_arm_admission_sections(int remaining)
 {
   if (remaining<1) remaining=0;
   __atomic_store_n(&___rest_observation_admission_sections,remaining,__ATOMIC_RELEASE);
+}
+
+/* Frame phases are the caller's: 0 is the fp saved before a collection,
+ * 3 is the fp restored afterward. The tail and exact-end records are the
+ * handler handoff, not a new grant. */
+void ___rest_observation_frame(void *actor, unsigned phase, void *fp, uint64_t detail)
+{
+  REST_OBS(phase==3 ? REST_RETURN_FP : REST_SAVED_FP, actor, 0, 0, 0,
+           fp, phase, detail, 0, 0, 0, 0, 0);
+}
+
+void ___rest_observation_tail(void *actor, uint64_t label, uint64_t result)
+{
+  REST_OBS(REST_TAIL, actor, 0, 0, 0, label, result, 0, 0, 0, 0, 0, 0);
+}
+
+void ___rest_observation_exact_end(void *actor, void *hp, void *fp)
+{
+  REST_OBS(REST_NATIVE_CUT, actor, 0, 0, 0, hp, fp, 0, 0, 0, 0, 0, 0);
 }
 #endif

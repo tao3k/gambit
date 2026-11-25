@@ -1,3 +1,13 @@
+;; Select the scan executor census through the VM's internal atomic request.
+;; The frozen root population and all native cleanup owners remain unchanged.
+((c-lambda () void #<<c-end
+___virtual_machine_state vm = ___VMSTATE_FROM_PSTATE(___ps);
+___WORD count = 1;
+___WORD old = ___gc_atomic_load(&vm->gc_round.requested_workers);
+while (___gc_cas(&vm->gc_round.requested_workers,old,count) != old)
+  old = ___gc_atomic_load(&vm->gc_round.requested_workers);
+c-end
+))
 ;;; End-to-end generated frame/ABI control: native suffix, GC, repeated restore.
 (define native-thirty (c-lambda () int "___result = 30;"))
 (define saved #f)
@@ -35,3 +45,38 @@
               (= native-calls 3)))
     (error "frame continuation mismatch" a0 a1 a2 visits winds native-calls))
 (display "FRAME-CONTINUATION-PASS\n")
+
+;; Collector reference repair must retain the table's index-algorithm owner.
+;; Keep keys alive independently; this is not a weak-key-retention test.
+(define index-keys
+  (let loop ((i 80) (xs '()))
+    (if (= i 0) xs (loop (- i 1) (cons (vector i) xs)))))
+(define hash-calls 0)
+(define scheme-index
+  (make-table test: eq?
+              hash: (lambda (key)
+                      (set! hash-calls (+ hash-calls 1))
+                      (vector-ref key 0))))
+(define native-index (make-table test: eq?))
+(for-each (lambda (key)
+            (table-set! scheme-index key (vector-ref key 0))
+            (table-set! native-index key (vector-ref key 0)))
+          index-keys)
+(define calls-before-gc hash-calls)
+(##gc)
+(if (not (= calls-before-gc hash-calls))
+    (error "collector invoked Scheme hash callback"))
+(for-each (lambda (key)
+            (if (not (and (= (table-ref scheme-index key -1) (vector-ref key 0))
+                          (= (table-ref native-index key -1) (vector-ref key 0))))
+                (error "GC changed hash-index lookup")))
+          index-keys)
+(if (not (> hash-calls calls-before-gc))
+    (error "Scheme lookup did not own its hash callbacks"))
+(display "HASH-INDEX-OWNER-PASS\n")
+
+(if (not ((c-lambda () bool #<<c-end
+___virtual_machine_state vm=___VMSTATE_FROM_PSTATE(___ps);
+___return(vm->gc_round.worker_count==(1) && vm->gc_round.participant_count==vm->processor_count);
+c-end
+))) (error "requested map worker/root split was not observed"))

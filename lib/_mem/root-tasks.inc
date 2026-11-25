@@ -637,7 +637,14 @@ ___BOOL ___root_round_publish(___processor_state ps)
       round->state != ___ROOT_ROUND_CLOSING ||
       !___root_globals_begin(&round->globals,ps,round->epoch)) return 0;
   { int i; ___WORD requested=___WORD_LOAD_ACQUIRE(&round->collection.requested_workers);
-    int count=(requested>0 && requested<round->participants)?(int)requested:round->participants;
+    int live=0;
+    int count;
+    ___vm_lifecycle *life=round->vm->lifecycle;
+    if(life)for(i=0;i<round->participants && i<___MAX_PROCESSORS;i++)
+      if(___WORD_LOAD_ACQUIRE(&life->launches[i].native_live))live++;
+    if(live<1)live=1;
+    count=(requested>0 && requested<round->participants)?(int)requested:round->participants;
+    if(count>live)count=live;
     round->collection.decision=0;
     for(i=0;i<round->participants;i++)round->collection.observed[i]=0;
     round->collection.epoch=round->epoch;

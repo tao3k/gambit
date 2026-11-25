@@ -2256,15 +2256,24 @@
               (source-code (cadddr (cddr code)))))))
 
 (define (**c-declare-expr? source env)
-  (and (match **c-declare-sym 2 source env)
+  (and (match **c-declare-sym -2 source env)
        (let ((code (source-code source)))
-         (or (string? (source-code (cadr code)))
-             (pt-syntax-error
-               source
-               "Argument to 'c-declare' must be a string")))))
+         (cond ((not (string? (source-code (cadr code))))
+                (pt-syntax-error
+                 source
+                 "Argument to 'c-declare' must be a string"))
+               ((or (null? (cddr code))
+                    (and (null? (cdddr code))
+                         (eq? (source-code (caddr code)) 'procedure-host)))
+                #t)
+               (else (ill-formed-special-form source))))))
 
 (define (c-declaration-body source)
-  (cadr (source-code source)))
+  (let* ((code (source-code source))
+         (body (source-code (cadr code))))
+    (if (null? (cddr code))
+        body
+        (cons 'c-procedure-host-decl body))))
 
 (define (**c-initialize-expr? source env)
   (and (match **c-initialize-sym 2 source env)

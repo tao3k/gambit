@@ -1633,6 +1633,14 @@ int ___rest_attempt_blocked(void)
   return rest_attempt_blocked_flag;
 }
 
+int ___rest_planted_short(void)
+{
+#ifdef ___GAMBIT_REST_OBSERVATION
+  if (rest_observation_auto_watch==1) return 1;
+#endif
+  return rest_attempt_here(___PSTATE) && ___rest_attempt_words>0;
+}
+
 ___BOOL ___rest_one_word_short(___processor_state ps, ___WORD *hp, ___WORD *fp,
                               ___WORD pending, ___WORD np, ___WORD stack_slots)
 {

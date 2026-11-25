@@ -2,6 +2,47 @@
 
 /* Object representation */
 
+#ifdef ___GAMBIT_REST_OBSERVATION
+#include <stdint.h>
+___BEGIN_C_LINKAGE
+int ___rest_observation_open(const char *path);
+int ___rest_observation_case(uint64_t id);
+int ___rest_observation_case_end(void);
+int ___rest_observation_close(void);
+int ___rest_observation_watch(uint64_t argument_words);
+int ___rest_observation_body(void *actor);
+void ___rest_observation_frame(void *actor, unsigned phase, void *fp, uint64_t detail);
+void ___rest_observation_tail(void *actor, uint64_t label, uint64_t result);
+void ___rest_observation_form(unsigned form);
+void ___rest_observation_exact_end(void *actor, void *hp, void *fp);
+void ___rest_observation_emit(uint64_t kind, uint64_t actor, uint64_t record,
+  uint64_t attempt, uint64_t epoch, uint64_t a, uint64_t b, uint64_t c,
+  uint64_t d, uint64_t e, uint64_t f, uint64_t g, uint64_t h);
+void ___rest_observation_snapshot(uint64_t actor, uint64_t region, uint64_t phase,
+                                const void *base, uint64_t words);
+void ___rest_observation_store(void *actor, void *fp, void *address);
+void ___rest_observation_adjust(void *actor, void *fp, intptr_t words);
+void ___rest_observation_pop(void *actor, void *fp);
+void ___rest_observation_store_fast(void *fp, void *address);
+void ___rest_observation_adjust_fast(void *fp, intptr_t words);
+void ___rest_observation_pop_fast(void *fp);
+extern int ___rest_observation_active;
+___END_C_LINKAGE
+#if !defined(___LBLCOUNT) || (___LBLCOUNT < 6000)
+#define ___REST_OBS_STORE(fp,address) ((void)(__builtin_expect(___rest_observation_active,0) && (___rest_observation_store_fast((fp),(address)),0)))
+#define ___REST_OBS_ADJUST(fp,words) ((void)(__builtin_expect(___rest_observation_active,0) && (___rest_observation_adjust_fast((fp),(words)),0)))
+#define ___REST_OBS_POP(fp) ((void)(__builtin_expect(___rest_observation_active,0) && (___rest_observation_pop_fast((fp)),0)))
+#else
+#define ___REST_OBS_STORE(fp,address) ___rest_observation_store_fast((fp),(address))
+#define ___REST_OBS_ADJUST(fp,words) ___rest_observation_adjust_fast((fp),(words))
+#define ___REST_OBS_POP(fp) ___rest_observation_pop_fast((fp))
+#endif
+#else
+#define ___REST_OBS_STORE(fp,address) ((void)0)
+#define ___REST_OBS_ADJUST(fp,words) ((void)0)
+#define ___REST_OBS_POP(fp) ((void)0)
+#endif
+
 #ifdef ___SUPPORT_LOWLEVEL_EXEC
 #define ___REFERENCE_TO_BODY (-1)
 #define ___LABEL_LOWLEVEL_CODE 1
@@ -32,12 +73,23 @@
 #define ___ALIGNUP(x,mult) \
 ___CAST(___WORD*,(___CAST(___WORD,x)+((mult)-1))&~((mult)-1))
 
+#ifdef ___GAMBIT_DEV_RESTORE_PROBE
+#define ___DEV_RESTORE_CENSUS_STMT(kind) ___dev_restore_census_other(___ps,___hp,(kind));
+#define ___ALLOC(n) (___hp += ___dev_restore_census_bump(___ps,___hp,(___SIZE_TS)(n)))
+#else
+#define ___DEV_RESTORE_CENSUS_STMT(kind)
 #define ___ALLOC(n) ___hp += (n)
+#endif
 
 #if ___WORD_WIDTH == 32
 
+#ifdef ___GAMBIT_DEV_RESTORE_PROBE
+#define ___ALLOC_ALIGN64(n) \
+(___dev_restore_census_other(___ps,___hp,"align64"),___hp = ___CAST(___WORD*, (___CAST(___WORD,___hp) + (((n)<<___LWS) + 7)) & ~7))
+#else
 #define ___ALLOC_ALIGN64(n) \
 ___hp = ___CAST(___WORD*, (___CAST(___WORD,___hp) + (((n)<<___LWS) + 7)) & ~7)
+#endif
 
 #else
 
@@ -45,19 +97,52 @@ ___hp = ___CAST(___WORD*, (___CAST(___WORD,___hp) + (((n)<<___LWS) + 7)) & ~7)
 
 #endif
 
+#ifdef ___GAMBIT_DEV_RESTORE_PROBE
+#define ___DEV_RESTORE_HOST_TEXT_(host) #host
+#define ___DEV_RESTORE_HOST_TEXT(host) ___DEV_RESTORE_HOST_TEXT_(host)
+#define ___BEGIN_ALLOC_PAIR()(___dev_restore_pair_before(___ps,&___hp,___DEV_RESTORE_HOST_TEXT(___PH_PROC),__LINE__),___hp[0] = ___MAKE_HD_WORDS(___PAIR_SIZE,___sPAIR))
+/* Generated pair fields use the constant CAR and CDR offsets. */
+#define ___ADD_PAIR_ELEM(i,val)___hp[(i)+___PAIR_BODY] = ___dev_restore_pair_value(___ps,___hp,(i),(val))
+#define ___END_ALLOC_PAIR()(___ALLOC(___PAIR_SIZE+___PAIR_BODY),___dev_restore_pair_after(___ps,___hp),___hp)
+#elif defined(___GAMBIT_REST_OBSERVATION)
+#define ___BEGIN_ALLOC_PAIR()(___REST_OBS_STORE(0,___hp),___hp[0] = ___MAKE_HD_WORDS(___PAIR_SIZE,___sPAIR))
+#define ___ADD_PAIR_ELEM(i,val)(___REST_OBS_STORE(0,___hp+(i)+___PAIR_BODY),___hp[(i)+___PAIR_BODY] = val)
+#define ___END_ALLOC_PAIR()___ALLOC(___PAIR_SIZE+___PAIR_BODY)
+#else
 #define ___BEGIN_ALLOC_PAIR()___hp[0] = ___MAKE_HD_WORDS(___PAIR_SIZE,___sPAIR)
 #define ___ADD_PAIR_ELEM(i,val)___hp[(i)+___PAIR_BODY] = val
 #define ___END_ALLOC_PAIR()___ALLOC(___PAIR_SIZE+___PAIR_BODY)
+#endif
 #define ___GET_PAIR()___PAIR_FROM_END(___hp)
 
+#ifdef ___GAMBIT_DEV_RESTORE_PROBE
+#define ___BEGIN_ALLOC_SUBTYPED(hd)(___dev_restore_census_other(___ps,___hp,"subtyped-header"),___hp[0] = (hd))
+#elif defined(___GAMBIT_REST_OBSERVATION)
+#define ___BEGIN_ALLOC_SUBTYPED(hd)(___REST_OBS_STORE(0,___hp),___hp[0] = (hd))
+#else
 #define ___BEGIN_ALLOC_SUBTYPED(hd)___hp[0] = hd
+#endif
+#ifdef ___GAMBIT_REST_OBSERVATION
+#define ___ADD_SUBTYPED_ELEM(i,val)(___REST_OBS_STORE(0,___hp+(i)+___SUBTYPED_BODY),___hp[(i)+___SUBTYPED_BODY] = val)
+#else
 #define ___ADD_SUBTYPED_ELEM(i,val)___hp[(i)+___SUBTYPED_BODY] = val
+#endif
 #define ___END_ALLOC_SUBTYPED(n)___ALLOC((n)+___SUBTYPED_BODY)
 #define ___GET_SUBTYPED(n)___SUBTYPED_FROM_END(___hp,n)
 
+#ifdef ___GAMBIT_DEV_RESTORE_PROBE
+#define ___BEGIN_ALLOC_VECTOR_EXPR(n)(___hp[0] = ___dev_restore_vector_header(___ps,&___hp,(n),___DEV_RESTORE_HOST_TEXT(___PH_PROC),__LINE__))
+#define ___ADD_VECTOR_ELEM_EXPR(i,val)___hp[(i)+___VECTOR_BODY] = ___dev_restore_vector_value(___ps,___hp,(i),(val))
+#define ___END_ALLOC_VECTOR_EXPR(n)(___ALLOC((n)+___VECTOR_BODY),___dev_restore_vector_after(___ps,___hp),___hp)
+#elif defined(___GAMBIT_REST_OBSERVATION)
+#define ___BEGIN_ALLOC_VECTOR_EXPR(n)(___REST_OBS_STORE(0,___hp),___hp[0] = ___MAKE_HD_WORDS(n,___sVECTOR))
+#define ___ADD_VECTOR_ELEM_EXPR(i,val)(___REST_OBS_STORE(0,___hp+(i)+___VECTOR_BODY),___hp[(i)+___VECTOR_BODY] = val)
+#define ___END_ALLOC_VECTOR_EXPR(n)___ALLOC((n)+___VECTOR_BODY)
+#else
 #define ___BEGIN_ALLOC_VECTOR_EXPR(n)___hp[0] = ___MAKE_HD_WORDS(n,___sVECTOR)
 #define ___ADD_VECTOR_ELEM_EXPR(i,val)___hp[(i)+___VECTOR_BODY] = val
 #define ___END_ALLOC_VECTOR_EXPR(n)___ALLOC((n)+___VECTOR_BODY)
+#endif
 
 #define ___BEGIN_ALLOC_VECTOR(n)___BEGIN_ALLOC_VECTOR_EXPR(n);
 #define ___ADD_VECTOR_ELEM(i,val)___ADD_VECTOR_ELEM_EXPR(i,val);

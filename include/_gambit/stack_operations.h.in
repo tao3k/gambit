@@ -5,11 +5,18 @@
 #define ___SET_FP(fp)___fp=(fp);
 
 #define ___FP_AFTER(fp1,fp2)((fp1) < (fp2))
+#ifdef ___GAMBIT_REST_OBSERVATION
+#define ___FP_PUSH(fp,val)(___REST_OBS_ADJUST((fp),1),___REST_OBS_STORE((fp)-1,(fp)-1),*--fp=(val));
+#define ___FP_POP(fp)(___REST_OBS_POP(fp),___REST_OBS_ADJUST((fp),-1),*fp++)
+#define ___FP_SET_STK(fp,fpo,val)(___REST_OBS_STORE((fp),(fp)-(fpo)),fp[-(fpo)]=(val));
+#define ___FP_ADJFP(fp,fpa)(___REST_OBS_ADJUST((fp),(fpa)),fp-=(fpa));
+#else
 #define ___FP_PUSH(fp,val)*--fp=(val);
 #define ___FP_POP(fp)*fp++
-#define ___FP_STK(fp,fpo)fp[-(fpo)]
 #define ___FP_SET_STK(fp,fpo,val)fp[-(fpo)]=(val);
 #define ___FP_ADJFP(fp,fpa)fp-=(fpa);
+#endif
+#define ___FP_STK(fp,fpo)fp[-(fpo)]
 
 #define ___PUSH(val)___FP_PUSH(___fp,val)
 #define ___POP ___FP_POP(___fp)
@@ -211,21 +218,8 @@ goto *___LABEL_HOST_LABEL_GET(___pc);
 
 #ifdef ___INLINE_JUMPS
 
-#if defined(___SHARED_PROCEDURE_DISPATCH) && \
-    ___HOST_LAYOUT == ___HOST_LAYOUT_PROCEDURES
-/* Keep one indirect dispatch per procedure host. Direct label jumps and
-   the ordinary path to the host epilogue do not use this entry. */
-#define ___END_SW \
-goto ___jumpext; \
-___shared_jump: \
-if (___EXPECT_FALSE(___LABEL_HOST_GET(___pc) != ___HOST_PROC)) \
-  goto ___jumpext; \
-goto *___LABEL_HOST_LABEL_GET(___pc); \
-___jumpext:
-#else
 #define ___END_SW \
 ___jumpext:
-#endif
 
 #define ___JUMP(dest)___JUMPFAST(dest)
 
@@ -243,17 +237,12 @@ ___jumpext:
 
 #define ___JUMPEXT(dest){___pc=dest;goto ___jumpext;}
 
-#if defined(___SHARED_PROCEDURE_DISPATCH) && defined(___INLINE_JUMPS) && \
-    ___HOST_LAYOUT == ___HOST_LAYOUT_PROCEDURES
-#define ___JUMPFAST(dest){___pc=dest;goto ___shared_jump;}
-#else
 #define ___JUMPFAST(dest) \
 {___pc=dest; \
  if (___EXPECT_FALSE(___LABEL_HOST_GET(___pc) != ___HOST_PROC)) \
    goto ___jumpext; \
  goto *___LABEL_HOST_LABEL_GET(___pc); \
 }
-#endif
 
 #else
 
@@ -294,7 +283,13 @@ switch((___pc-=___start)/(___LABEL_SIZE*___WS)) \
 #define ___D_HEAP ___REGISTER ___WORD *___hp;
 #define ___R_HEAP ___R_HEAP_EXPR;
 #define ___W_HEAP ___W_HEAP_EXPR;
+#ifdef ___GAMBIT_DEV_RESTORE_PROBE
+/* ___D_HEAP leaves ___hp uninitialized. The hook receives only ___PSHEAP
+ * and the assignment is this local's first write. */
+#define ___R_HEAP_EXPR (___hp=___dev_restore_alloc_reload(___ps,___PSHEAP))
+#else
 #define ___R_HEAP_EXPR ___hp=___PSHEAP
+#endif
 #define ___W_HEAP_EXPR ___PSHEAP=___hp
 
 #define ___PSFP ___ps->context->fp

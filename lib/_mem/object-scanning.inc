@@ -14,21 +14,36 @@ ___WORD head;)
   ___SIZE_TS words = ___HD_WORDS(head);
   int subtype = ___HD_SUBTYPE(head);
   ___BOOL movable = ___HD_TYP(head) == ___MOVABLE0;
+  ___WORD *scan_cell = 0;
+  int scan_shift = 0;
+  ___WORD scan_mask = 0;
 
   if (movable && work->census==0)
     {
-      int state = change_object_scan_state
-        (work,body-1,GC_SCAN_READY,GC_SCAN_OWNED);
+      int leaf = (subtype == ___sFOREIGN || subtype == ___sSTRING ||
+                  subtype == ___sS8VECTOR || subtype == ___sU8VECTOR ||
+                  subtype == ___sS16VECTOR || subtype == ___sU16VECTOR ||
+                  subtype == ___sS32VECTOR || subtype == ___sU32VECTOR ||
+                  subtype == ___sS64VECTOR || subtype == ___sU64VECTOR ||
+                  subtype == ___sF32VECTOR || subtype == ___sF64VECTOR ||
+                  subtype == ___sFLONUM || subtype == ___sBIGNUM);
+      int state;
+      scan_cell = locate_object_scan_cell(work, body-1, &scan_shift, &scan_mask);
+      state = change_object_scan_state_at(
+        work, scan_cell, scan_shift, scan_mask,
+        GC_SCAN_READY, leaf ? GC_SCAN_DONE : GC_SCAN_OWNED);
       if (state == GC_SCAN_OWNED || state == GC_SCAN_DONE)
         {
           work->duplicate_scans++;
           return words; /* no field mutation; the first owner carries debt */
         }
-      if (state != GC_SCAN_READY)
+      if (__builtin_expect(state != GC_SCAN_READY, 0))
         {
           static char *msgs[] = { "GC scan before object initialization", NULL };
           ___fatal_error (msgs);
         }
+      if (leaf)
+        return words;
     }
 
 #ifdef ENABLE_CONSISTENCY_CHECKS
@@ -212,9 +227,11 @@ ___WORD head;)
       break;
     }
 
-  if (work->census==0 && movable &&
-      change_object_scan_state(work,body-1,GC_SCAN_OWNED,GC_SCAN_DONE)
-      != GC_SCAN_OWNED)
+  if (scan_cell != 0 &&
+      __builtin_expect(
+        change_object_scan_state_at(work, scan_cell, scan_shift, scan_mask,
+                                    GC_SCAN_OWNED, GC_SCAN_DONE)
+        != GC_SCAN_OWNED, 0))
     {
       static char *msgs[] = { "GC scan owner lost before completion", NULL };
       ___fatal_error (msgs);

@@ -213,12 +213,19 @@
               output-filename
               (string-append root (caar target.file-extensions))))
          (v1
-          (if (source? input)
-              (vector #f (sourcify-deep input input))
-              (read-source input #f #t)))
+          (begin
+            (display "phase read-source\n")
+            (force-output)
+            (if (source? input)
+                (vector #f (sourcify-deep input input))
+                (read-source input #f #t))))
          (script-line (vector-ref v1 0))
          (expr (vector-ref v1 1))
-         (program (expand-source (wrap-program expr)))
+         (program
+          (begin
+            (display "phase expand\n")
+            (force-output)
+            (expand-source (wrap-program expr))))
          (module-ref
           (cond ((assq 'module-ref opts) => cadr)
                 (else
@@ -232,11 +239,14 @@
           (if script-line
               (**compilation-meta-info-add! 'script-line script-line))
           (**compilation-module-ref-set! module-ref)
-          (parse-program
-           program
-           (make-global-environment)
-           module-ref
-           vector))))
+          (begin
+            (display "phase parse\n")
+            (force-output)
+            (parse-program
+             program
+             (make-global-environment)
+             module-ref
+             vector)))))
      (lambda (v2 comp-ctx)
 
        (if (null? (**macro-compilation-ctx-supply-modules comp-ctx))
@@ -247,7 +257,11 @@
        (let* ((lst (vector-ref v2 0))
               (env (vector-ref v2 1))
               (c-intf (vector-ref v2 2))
-              (parsed-program (normalize-program lst)))
+              (parsed-program
+               (begin
+                 (display "phase normalize\n")
+                 (force-output)
+                 (normalize-program lst))))
 
          (let* ((externals (env-externals-ref env))
                 (name->ref-alist (map (lambda (var) (cons
@@ -574,7 +588,10 @@
 
         (for-each
           (lambda (x)
-            (display x port)
+            (display (if (and (pair? x) (eq? (car x) 'c-procedure-host-decl))
+                         (cdr x)
+                         x)
+                     port)
             (newline port))
           decls)
 

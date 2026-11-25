@@ -1,249 +1,323 @@
-;;; Stateful RC implementation properties. Model protocol duties stay in Quint.
-;;; Legal operations carry slot identities, not raw generated addresses.
-;;; A failure prints the deterministic seed and complete replayable history.
+;;; ROOT-SOURCE regression: b77ad85c fails on the nonzero-origin RC payload.
+;;; This test does not implement/admit root dispatch or arbitrary FFI writers.
+;;; Execute with -:p2. A single-thread configuration exercises origin0 only;
+;;; its PASS marker is distinct and never counts as nonzero SMP evidence.
+;;; Two slots correspond to the two real processor origins in this control.
+;;; Never dereference a possibly stale RC payload: compare tagged words only.
 (c-declare #<<c-end
-#include "rc.h"
-static void *rc_slots[4];
-static const ___SCMOBJ *rc_cells[4];
-static void *rc_departing;
-#ifdef ___USE_POSIX_THREAD_SYSTEM
-static pthread_t rc_native_thread;
-static void *rc_native_bytes;
-static void *rc_reference_worker(void *unused) {
-  int i;
-  for(i=0;i<2000;i++) {
-    ___EXT(___addref_rc)(rc_native_bytes);
-    ___EXT(___release_rc)(rc_native_bytes);
-  }
-  ___EXT(___release_rc)(rc_native_bytes);
-  return 0;
-}
+#include "mem.h"
+#if defined(__APPLE__)
+#include <dlfcn.h>
 #endif
+static void *rc_origin_slot[2];
+static ___SCMOBJ rc_origin_before[2];
+/* Internal root protocol under test; no new public FFI entrypoint. */
+extern ___SCMOBJ *___borrow_rc_root(___processor_state, void *);
+extern void ___return_rc_root(void *);
+static void *rc_borrow_slot;
+static ___SCMOBJ *rc_borrow_cell;
+static ___SCMOBJ rc_borrow_before;
+extern int rc_origin_callback(int);
+static int rc_marker_gc_status;
+static int rc_join_fault(int armed) {
+#if defined(__APPLE__)
+  void (*arm)(int,int,int)=dlsym(RTLD_DEFAULT,"resize_test_arm");
+  if(!arm) return 0;
+  arm(0,armed?1:0,0);return 1;
+#else
+  return 0;
+#endif
+}
+static int rc_join_fault_calls(void) {
+#if defined(__APPLE__)
+  int (*count)(int)=dlsym(RTLD_DEFAULT,"resize_test_count");
+  return count?count(1):-1;
+#else
+  return -1;
+#endif
+}
+static ___SIZE_TS rc_free_words(___virtual_machine_state vm) {
+  return vm->mem.heap_size_ -
+    ___CAST(___SIZE_TS,vm->mem.nb_msections_assigned_)*___MSECTION_SIZE -
+    vm->mem.occupied_words_still_ - vm->mem.overflow_reserve_;
+}
 c-end
 )
-(define rc-act
-  (c-lambda (int int scheme-object) int #<<c-end
-int op=___arg1, i=___arg2;
-void *p;
-___result=0;
-if(i>=0 && i<4) {
-  p=rc_slots[i];
-  switch(op) {
-  case 0:
-    if(!p) { rc_slots[i]=___EXT(___alloc_rc)(___PSA(___PSTATE) 0); ___result=rc_slots[i]!=0; }
-    break;
-  case 1: if(p) ___result=___try_set_data_rc(___PSTATE,p,___arg3); break;
-  case 2: if(p) { ___EXT(___addref_rc)(p); ___result=1; } break;
-  case 3:
-    if(p) {
-      int last=___EXT(___refcount_rc)(p)==1 && !rc_cells[i];
-      ___EXT(___release_rc)(p); if(last) rc_slots[i]=0; ___result=1;
-    }
-    break;
-  case 4:
-    if(p && !rc_cells[i]) { rc_cells[i]=___borrow_rc_root(___PSTATE,p); ___result=rc_cells[i]!=0; }
-    break;
-  case 5:
-    if(p && rc_cells[i]) {
-      int last=___EXT(___refcount_rc)(p)==0;
-      ___return_rc_root(p); rc_cells[i]=0; if(last) rc_slots[i]=0; ___result=1;
-    }
-    break;
-  case 6:
-    /* A live payload/borrow must refuse teardown without changing admission. */
-    if(p && !___rc_prepare_cleanup(___PSTATE))
-      ___result=___try_set_data_rc(___PSTATE,p,___arg3);
-    else ___rc_cancel_cleanup(___PSTATE);
-    break;
+(define register-root
+  (c-lambda (int scheme-object) int #<<c-end
+int owner = ___PROCESSOR_ID(___PSTATE, ___VMSTATE_FROM_PSTATE(___PSTATE));
+if (owner != ___arg1 || owner < 0 || owner >= 2) {
+  ___result = -1;
+} else {
+  void *p = ___EXT(___alloc_rc)(___PSA(___PSTATE) 0);
+  if (!p) ___result = -2;
+  else {
+    rc_origin_slot[owner] = p;
+    rc_origin_before[owner] = ___arg2;
+    ___EXT(___set_data_rc)(p, ___arg2);
+    ___result = owner;
   }
 }
 c-end
 ))
-(define rc-inspect
-  (c-lambda (int int scheme-object bool) bool #<<c-end
-int i=___arg1;
-void *p=rc_slots[i];
-___result=p && ___EXT(___refcount_rc)(p)==___arg2 &&
-  ___EXT(___data_rc)(p)==___arg3 &&
-  (!___arg4 || (rc_cells[i] && *rc_cells[i]==___arg3));
+(define compare-and-release
+  (c-lambda (int scheme-object) int #<<c-end
+void *p = rc_origin_slot[___arg1];
+int moved = rc_origin_before[___arg1] != ___arg2;
+int updated = ___EXT(___data_rc)(p) == ___arg2;
+___EXT(___release_rc)(p);
+rc_origin_slot[___arg1] = 0;
+___result = (moved ? 2 : 0) | (updated ? 1 : 0);
 c-end
 ))
-(define (exercise owner seed steps)
-  (let ((refs (make-vector 4 0)) (borrows (make-vector 4 #f))
-        (values (make-vector 4 #f)) (history '()) (state seed) (actions 0))
-    (define (next n)
-      (set! state (modulo (+ (* state 48271) 17) 2147483647))
-      (modulo state n))
-    (define (fail why)
-      (write (list 'RC-PROPERTY-FAIL owner seed why (reverse history)))
-      (newline) (force-output) (error "RC implementation property violated" why))
-    (define (check-all)
-      (do ((i 0 (+ i 1))) ((= i 4))
-        (if (or (> (vector-ref refs i) 0) (vector-ref borrows i))
-            (if (not (rc-inspect i (vector-ref refs i) (vector-ref values i)
-                                 (vector-ref borrows i)))
-                (fail (list 'inspect i))))))
-    (define (record action)
-      (set! actions (+ actions 1)) (set! history (cons action history)))
-    (do ((step 0 (+ step 1))) ((= step steps))
-      (let* ((i (next 4)) (op (next 8)) (n (vector-ref refs i))
-             (b (vector-ref borrows i)) (live (or (> n 0) b))
-             (value (cons owner (make-vector (+ 1 (next 9)) step))))
-        (cond
-         ((and (= op 0) (not live))
-          (record (list 'register i))
-          (if (not (= (rc-act 0 i #f) 1)) (fail 'register))
-          (vector-set! refs i 1) (vector-set! values i #f))
-         ((and (= op 1) (> n 0))
-          (record (list 'write i step))
-          (if (not (= (rc-act 1 i value) (if b 0 1))) (fail 'write-admission))
-          (if (not b) (vector-set! values i value)))
-         ((and (= op 2) (> n 0) (< n 8))
-          (record (list 'addref i))
-          (rc-act 2 i #f) (vector-set! refs i (+ n 1)))
-         ((and (= op 3) (> n 0))
-          (record (list 'release i))
-          (rc-act 3 i #f) (vector-set! refs i (- n 1)))
-         ((and (= op 4) (> n 0) (not b))
-          (record (list 'borrow i))
-          (if (not (= (rc-act 4 i #f) 1)) (fail 'borrow))
-          (vector-set! borrows i #t))
-         ((and (= op 5) b)
-          (record (list 'return i))
-          (rc-act 5 i #f) (vector-set! borrows i #f))
-         ((and (= op 6) (> n 0) (vector-ref values i))
-          (record (list 'close-refused i step))
-          (if (not (= (rc-act 6 i value) (if b 0 1))) (fail 'close-refusal))
-          (if (not b) (vector-set! values i value)))
-         ((= op 7)
-          (record '(gc)) (##gc)))
-        (check-all)))
-    (do ((i 0 (+ i 1))) ((= i 4))
-      (if (vector-ref borrows i) (rc-act 5 i #f))
-      (do ((n (vector-ref refs i) (- n 1))) ((= n 0)) (rc-act 3 i #f)))
-    (##gc)
-    (write (list 'RC-STATEFUL-PASS owner seed 'draws steps 'actions actions))
-    (newline) (force-output)))
-
-(define (on-owner owner thunk)
-  (let ((thread (make-thread thunk)))
-    (if (> (##current-vm-processor-count) 1)
-        (##thread-pin! thread (##processor owner)))
-    (thread-start! thread) (thread-join! thread)))
-;; A single execution context has no affinity choice or SMP pin primitive.
-(if (> (##current-vm-processor-count) 1)
-    (##thread-pin! (current-thread) (##processor 0)))
+(define (observe owner)
+  (let ((t (make-thread
+            (lambda ()
+              (let* ((root (cons (##current-processor-id) (make-vector 7 owner)))
+                     (registered (register-root owner root)))
+                (if (not (= owner registered))
+                    (error "RC origin registration failed" owner registered))
+                (write (list 'RC-SOURCE-STAGE 'registered owner)) (newline) (force-output)
+                (##gc)
+                (let ((bits (compare-and-release owner root)))
+                  ;; Keep the ordinary Scheme root live; inspect only this root.
+                  (if (not (= owner (car root))) (error "ordinary root damaged"))
+                  (list owner registered bits)))))))
+    (##thread-pin! t (##processor owner))
+    (thread-start! t)
+    (thread-join! t)))
+;; The control caller must survive the requested membership. Pinning its
+;; logical thread is not a replacement for the native self-removal refusal.
+(##thread-pin! (current-thread) (##processor 0))
 (thread-yield!)
-(define rc-initial-members (##current-vm-processor-count))
+(if (not (= (##current-processor-id) 0)) (error "control caller not on source0"))
 (for-each
  (lambda (owner)
-   (for-each (lambda (seed) (on-owner owner (lambda () (exercise owner seed 240))))
-             '(173 947 2027)))
+   (let ((row (observe owner)))
+     (write (cons 'RC-ROOT-ORIGIN row)) (newline) (force-output)
+     (if (< (caddr row) 2) (error "control requires actual moving collection"))
+     (if (not (= (caddr row) 3))
+         (error "RC moving-root coverage incomplete" row))))
  (if (> (##current-vm-processor-count) 1) '(0 1) '(0)))
+(display (if (> (##current-vm-processor-count) 1)
+             "RC-ROOT-ORIGIN-PASS" "RC-ROOT-ORIGIN-SINGLE-PASS")) (newline) (force-output)
 
-(define rc-registration-refusal
-  (c-lambda () bool #<<c-end
-void *p=___EXT(___alloc_rc_no_register)(3);
-___result=0;
-if(p && ___EXT(___alloc_rc_no_register)(~(___SIZE_T)0)==0) {
-  ___rc_header *h=(___rc_header*)p-1;
-  if(___rc_prepare_cleanup(___PSTATE)) {
-    int private_kept=___EXT(___setup_pstate)(___PSTATE,___VMSTATE_FROM_PSTATE(___PSTATE))==___FIX(___UNKNOWN_ERR) &&
-      ___EXT(___register_rc)(___PSA(___PSTATE) p)==0 &&
-      h->domain==0 && h->refcount==1 && h->next==h && h->prev==h;
-    ___rc_cancel_cleanup(___PSTATE);
-    ___result=private_kept && ___EXT(___register_rc)(___PSA(___PSTATE) p)==p &&
-      ___EXT(___register_rc)(___PSA(___PSTATE) p)==p && h->domain->nodes==1;
-  }
-}
-___EXT(___release_rc)(p);
-c-end
-))
-(if (not (rc-registration-refusal)) (error "registration refusal lost private ownership"))
-(display "RC-REGISTRATION-REFUSAL-PASS\n")
-
-;;; Guaranteed borrow-last history, independent of random action coverage.
-(let ((value (cons 817 (make-vector 5 919))))
-  (rc-act 0 0 #f) (rc-act 1 0 value) (rc-act 4 0 #f) (rc-act 3 0 #f)
-  (##gc)
-  (if (not (rc-inspect 0 0 value #t)) (error "borrow-last root lost"))
-  (rc-act 5 0 #f))
-(display "RC-BORROW-LAST-PASS\n")
-
-;;; An independent native reference holder can count/release while the Scheme
-;;; owner participates in moving GC. No raw foreign payload writer is admitted.
-(define rc-start-native
-  (c-lambda () int #<<c-end
-___result=0;
-#ifdef ___USE_POSIX_THREAD_SYSTEM
-___result=-1;
-rc_native_bytes=___EXT(___alloc_rc)(___PSA(___PSTATE) 7);
-if(rc_native_bytes) {
-  ___EXT(___addref_rc)(rc_native_bytes);
-  if(pthread_create(&rc_native_thread,0,rc_reference_worker,0)==0) ___result=1;
+;;; A borrowed cell is a stable root address, not a saved Scheme value. A
+;;; final public release must leave it linked until the borrow is returned.
+(define borrow-and-drop-reference
+  (c-lambda (scheme-object) bool #<<c-end
+void *p=___EXT(___alloc_rc)(___PSA(___PSTATE) 0);
+if(p==0) ___result=0;
+else {
+  ___EXT(___set_data_rc)(p,___arg1);
+  rc_borrow_cell=___borrow_rc_root(___PSTATE,p);
+  if(rc_borrow_cell==0) { ___EXT(___release_rc)(p); ___result=0; }
   else {
-    ___EXT(___release_rc)(rc_native_bytes);
-    ___EXT(___release_rc)(rc_native_bytes); rc_native_bytes=0;
-    ___result=-1;
+    rc_borrow_slot=p; rc_borrow_before=___arg1;
+    ___EXT(___release_rc)(p);
+    ___result=1;
   }
 }
-#endif
 c-end
 ))
-(define rc-join-native
-  (c-lambda () bool #<<c-end
-___result=0;
-#ifdef ___USE_POSIX_THREAD_SYSTEM
-if(pthread_join(rc_native_thread,0)==0) {
-  ___result=___EXT(___refcount_rc)(rc_native_bytes)==1;
-  ___EXT(___release_rc)(rc_native_bytes); rc_native_bytes=0;
+(define reload-and-return-borrow
+  (c-lambda (scheme-object) int #<<c-end
+int moved=rc_borrow_before!=___arg1;
+int updated=*rc_borrow_cell==___arg1;
+int zero=___EXT(___refcount_rc)(rc_borrow_slot)==0;
+___return_rc_root(rc_borrow_slot);
+rc_borrow_slot=0; rc_borrow_cell=0;
+___result=(moved?4:0)|(updated?2:0)|(zero?1:0);
+c-end
+))
+(let ((root (cons 131 (make-vector 7 139))))
+  (if (not (borrow-and-drop-reference root)) (error "root borrow refused"))
+  (##gc)
+  (if (not (= (reload-and-return-borrow root) 7))
+      (error "zero-reference borrow did not retain/reload the moving root"))
+  (if (not (= (car root) 131)) (error "borrowed ordinary root damaged")))
+(##gc)
+(display "RC-BORROW-RELOAD-PASS\n") (force-output)
+
+;;; Escape from Scheme through a generated SFUN and its native caller. A
+;;; subsequent callback must see a valid activation chain, not a stale marker.
+(define rc-origin-action (lambda () 0))
+(c-define (rc-origin-callback action) (int) int "rc_origin_callback" "extern"
+  (if (= action 0) (begin (##gc) 37) (rc-origin-action)))
+(define invoke-root-callback
+  (c-lambda (int) int "___result=rc_origin_callback(___arg1);"))
+(let ((answer (call-with-current-continuation
+               (lambda (escape)
+                 (set! rc-origin-action (lambda () (##gc) (escape 41)))
+                 (invoke-root-callback 1)
+                 0))))
+  (set! rc-origin-action (lambda () 0))
+  (if (not (= answer 41)) (error "callback escape lost its result")))
+(if (not (= (invoke-root-callback 0) 37))
+    (error "callback activation did not recover after escape"))
+(display "RC-CALLBACK-ESCAPE-PASS\n") (force-output)
+
+;;; Reach the real marker allocation slow path using valid still allocations.
+;;; Single-member admission makes these allocator snapshots stable. No private
+;;; counter is written, no heap parameter changes, and a GC before the marker
+;;; is a failed precondition, never evidence of constructor-root protection.
+(define marker-under-allocation-gc
+  (c-lambda (scheme-object) scheme-object #<<c-end
+___processor_state ps=___PSTATE;
+___virtual_machine_state vm=___VMSTATE_FROM_PSTATE(ps);
+___SCMOBJ filler,marker=___FAL,before=___arg1,err;
+___SIZE_TS free_words,words,overhead,prior_deferred;
+___F64 collections=vm->mem.nb_gcs_;
+rc_marker_gc_status=-1; ___result=___FAL;
+if(vm->processor_count==1) {
+  /* Derive overhead from real allocator accounting, not copied layout
+   * constants. This zero-length vector is fully initialized and released. */
+  prior_deferred=ps->mem.words_still_objs_deferred_;
+  filler=___EXT(___make_vector)(ps,0,___FAL);
+  if(!___FIXNUMP(filler)) {
+  ___EXT(___release_scmobj)(filler);
+  overhead=ps->mem.words_still_objs_deferred_-prior_deferred;
+  free_words=rc_free_words(vm);
+  words=free_words-ps->mem.words_still_objs_deferred_-1;
+  if(overhead>0 && vm->mem.nb_gcs_==collections &&
+     words>___MAX_STILL_DEFERRED+overhead) {
+    filler=___EXT(___make_vector)(ps,words-overhead,___FAL);
+    if(!___FIXNUMP(filler)) {
+      ___EXT(___release_scmobj)(filler);
+      words=___MAX_STILL_DEFERRED-ps->mem.words_still_objs_deferred_;
+      if(words>=overhead) {
+        filler=___EXT(___make_vector)(ps,words-overhead,___FAL);
+        if(!___FIXNUMP(filler)) {
+          ___EXT(___release_scmobj)(filler);
+          if(vm->mem.nb_gcs_==collections && rc_free_words(vm)==1 &&
+             ps->mem.words_still_objs_deferred_==___MAX_STILL_DEFERRED) {
+            rc_marker_gc_status=-2;
+            err=___EXT(___make_sfun_stack_marker)(ps,&marker,before);
+            if(err==___FIX(___NO_ERR)) {
+              ___result=___VECTORELEM(marker,0);
+              rc_marker_gc_status=(vm->mem.nb_gcs_>collections?2:0)|
+                                  (___result!=before?1:0);
+              ___EXT(___kill_sfun_stack_marker)(marker);
+            }
+          }
+        }
+      }
+    }
+  }
+  }
 }
-#endif
 c-end
 ))
-(let ((started (rc-start-native)))
-  (if (< started 0) (error "native reference thread creation failed"))
-  (if (= started 1)
-      (begin
-        (do ((i 0 (+ i 1))) ((= i 20)) (##gc))
-        (if (not (rc-join-native)) (error "native reference handoff failed"))
-        (display "RC-NATIVE-REFERENCE-PASS\n"))
-      (display "RC-NATIVE-REFERENCE-SKIP unsupported-thread-backend\n")))
+(define marker-gc-status
+  (c-lambda () int "___result=rc_marker_gc_status;"))
+(let ((members (##current-vm-processor-count)))
+  (if (> members 1)
+      (if (not (equal? (##cvmr 1) 0)) (error "marker test source stop refused")))
+  (##gc)
+  (let* ((payload (make-vector 7 149))
+         (proc (lambda () (vector-ref payload 3)))
+         (reloaded (marker-under-allocation-gc proc)))
+    (if (not (and (= (marker-gc-status) 3) (procedure? reloaded)
+                  (= (reloaded) 149)))
+        (error "marker allocation did not protect and reload its closure"
+               (marker-gc-status))))
+  (if (> members 1)
+      (if (not (equal? (##cvmr members) 0)) (error "marker test source restore refused"))))
+(display "RC-MARKER-ALLOCATION-GC-PASS\n") (force-output)
 
-;;; Real resize must reject a source containing a Scheme payload before the
-;;; roster is changed, then permit retirement after its actual owner releases.
-(if (> (##current-vm-processor-count) 1)
-    (let ((value (cons 971 (make-vector 3 977))))
-      (on-owner 1 (lambda () (rc-act 0 0 #f) (rc-act 1 0 value)))
-      (if (= (##current-vm-resize #f 1) 0) (error "live RC root did not refuse resize"))
-      (if (not (= (##current-vm-processor-count) 2)) (error "refused resize changed roster"))
-      (##gc)
-      (if (not (rc-inspect 0 1 value #f)) (error "refused source lost moving root"))
-      (on-owner 1 (lambda () (rc-act 3 0 #f)))
-      (display "RC-RETIRE-REFUSAL-PASS\n")))
-
-;;; A byte handle's lifetime crosses successful owner retirement. It is
-;;; released from the surviving owner after the real shrink/join completes.
-(define rc-retain-byte
-  (c-lambda () bool #<<c-end
-rc_departing=___EXT(___alloc_rc)(___PSA(___PSTATE) 13);
-___result=rc_departing!=0;
+;;; A real nonzero source stops while its RC-only still payload stays live.
+;;; This distinguishes domain lifetime from carrier lifetime. The optional
+;;; calibrated join-error run never treats an unknown result as a stop witness.
+(define retain-still-root
+  (c-lambda () int #<<c-end
+int owner=___PROCESSOR_ID(___PSTATE,___VMSTATE_FROM_PSTATE(___PSTATE));
+void *p=0;
+if(owner!=1 || rc_origin_slot[1]!=0) ___result=-1;
+else if((p=___EXT(___alloc_rc)(___PSA(___PSTATE) 0))==0) ___result=-2;
+else {
+  ___SCMOBJ root=___EXT(___make_vector)(___PSTATE,7,___FIX(113));
+  if(___FIXNUMP(root)) { ___EXT(___release_rc)(p); ___result=-3; }
+  else {
+    ___EXT(___set_data_rc)(p,root);
+    ___EXT(___release_scmobj)(root);
+    rc_origin_slot[1]=p;
+    ___result=1;
+  }
+}
 c-end
 ))
-(define rc-release-byte
+(define retained-still-root
+  (c-lambda () scheme-object "___result=___EXT(___data_rc)(rc_origin_slot[1]);"))
+(define release-still-root
+  (c-lambda () void
+    "___EXT(___release_rc)(rc_origin_slot[1]); rc_origin_slot[1]=0;"))
+(define unknown-join-control? (member "unknown-join" (command-line)))
+(define arm-join-fault (c-lambda (bool) int "rc_join_fault"))
+(define join-fault-calls (c-lambda () int "rc_join_fault_calls"))
+(define quarantined-source?
+  (c-lambda () bool
+    "___result=!___root_slot_available(___VMSTATE_FROM_PSTATE(___PSTATE),1);"))
+(define recover-actual-join
   (c-lambda () bool #<<c-end
-___rc_header *h=(___rc_header*)rc_departing-1;
-___rc_domain *d=h->domain;
-___result=d && d->phase==___RC_DETACHED && d->owner==0 && d->task.executor==0 &&
-  d->task.scan_leases==0 && d->nodes==1;
-___EXT(___release_rc)(rc_departing); rc_departing=0;
+___virtual_machine_state vm=___VMSTATE_FROM_PSTATE(___PSTATE);
+___SCMOBJ error=___thread_join(&___PSTATE_FROM_PROCESSOR_ID(1,vm)->os_thread);
+/* This control supplies a fresh actual platform result, not a fabricated
+ * success flag or a protocol for a possibly executing/unknown owner. */
+if(error==___FIX(___NO_ERR)) ___root_note_join(vm,1,1);
+___result=error==___FIX(___NO_ERR);
 c-end
 ))
 (if (> (##current-vm-processor-count) 1)
     (begin
-      (if (not (on-owner 1 rc-retain-byte)) (error "byte handle allocation failed"))
-      (if (not (= (##current-vm-resize #f 1) 0)) (error "RC-clean shrink refused"))
-      (if (not (rc-release-byte)) (error "byte owner not detached"))
-      (display "RC-DETACHED-BYTE-PASS\n")))
-(display (if (> rc-initial-members 1) "RC-OWNERSHIP-PASS\n"
-             "RC-OWNERSHIP-SINGLE-PASS\n")) (force-output)
+      (let ((t (make-thread
+                (lambda ()
+                  (let ((result (##cvmr 1)))
+                    (list result (##current-vm-processor-count) (##current-processor-id)))))))
+        (##thread-pin! t (##processor 1))
+        (thread-start! t)
+        (let ((row (thread-join! t)))
+          (if (not (and (not (equal? (car row) 0)) (= (cadr row) 2) (= (caddr row) 1)))
+              (error "self-removal must retain the calling source" row)))
+        (display "RC-SOURCE-SELF-REMOVAL-REFUSED\n") (force-output))
+      (let ((t (make-thread retain-still-root)))
+        (##thread-pin! t (##processor 1))
+        (thread-start! t)
+        (if (not (= (thread-join! t) 1)) (error "still source registration failed")))
+      (write (list 'RC-SOURCE-STAGE 'before-stop (##current-processor-id)))
+      (newline) (force-output)
+      (if unknown-join-control?
+          (if (not (= (arm-join-fault #t) 1)) (error "join adapter unavailable")))
+      (let ((result (##cvmr 1)))
+        (if unknown-join-control?
+            (if (or (equal? result 0) (not (= (join-fault-calls) 1))
+                    (not (quarantined-source?)))
+                (error "actual join error did not retain source custody" result))
+            (if (not (equal? result 0)) (error "source stop refused" result))))
+      (if (not (= (##current-vm-processor-count) 1)) (error "source still active"))
+      (display "RC-SOURCE-STAGE stopped\n") (force-output)
+      (##gc)
+      (display "RC-SOURCE-STAGE retained-scan\n") (force-output)
+      (let ((root (retained-still-root)))
+        (if (not (equal? root (make-vector 7 113)))
+            (error "retained source payload damaged")))
+      (release-still-root)
+      (##gc)
+      (if unknown-join-control?
+          (begin
+            ;; A real platform join error leaves the old source outside the
+            ;; surviving GC roster. Roots above must still have been scanned.
+            (if (or (equal? (##cvmr 2) 0)
+                    (not (= (##current-vm-processor-count) 1))
+                    (not (quarantined-source?)))
+                (error "unknown join admitted source reuse"))
+            (display "RC-UNKNOWN-JOIN-GC-PASS\n") (force-output)
+            (if (not (= (arm-join-fault #f) 1)) (error "join adapter reset failed"))
+            (if (not (recover-actual-join)) (error "actual recovery join failed"))
+            (if (quarantined-source?) (error "successful recovery join not acknowledged"))))
+      ;; Reuse is permitted only after the real successful native join.
+      (let ((result (##cvmr 2)))
+        (if (not (equal? result 0)) (error "confirmed source reuse refused" result)))
+      (display "RC-SOURCE-STAGE reused\n") (force-output)
+      (let ((row (observe 1)))
+        (if (not (= (caddr row) 3)) (error "reused source lost RC root" row)))
+      (display "RC-ROOT-RETIRE-REUSE-PASS") (newline) (force-output)))

@@ -223,6 +223,10 @@ extern ___WORD ___rest_resume_reloads;
 extern ___WORD ___rest_resume_collections;
 extern void ___rest_disarm_attempt(void);
 extern int ___rest_attempt_blocked(void);
+extern int ___rest_planted_short(void);
+extern int ___heap_continue_on_free_section(___processor_state ___ps);
+extern int ___heap_rearm_after_collection(___processor_state ___ps);
+extern int ___stack_extend_soft_limit(___processor_state ___ps);
 extern ___BOOL ___rest_one_word_short(___processor_state ps, ___WORD *hp, ___WORD *fp,
                                 ___WORD pending, ___WORD np, ___WORD stack_slots);
 extern void ___rest_note_attempt_entry(___processor_state ps,
@@ -391,6 +395,10 @@ typedef struct ___group_demand_struct {
   ___SIZE_TS heap_words;
   int phase; /* 0 empty, 1 pending, 2 granted, 3 exhausted, 4 diagnostic */
   int resume_query; /* one handler return may re-query this attempt */
+  /* Shortage numbers for this slot only. Not cleared when a service ends,
+   * and not shared with another processor. */
+  ___WORD service_next;
+  ___WORD service_incarnation;
 } ___group_demand;
 
 typedef struct ___vm_lifecycle_struct {

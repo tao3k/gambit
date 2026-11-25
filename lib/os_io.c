@@ -11571,6 +11571,7 @@ ___SCMOBJ ___os_condvar_select
 ___SCMOBJ devices;
 ___SCMOBJ timeout;)
 {
+  ___processor_state ___ps = ___PSTATE;
   ___SCMOBJ e;
   ___time to;
 

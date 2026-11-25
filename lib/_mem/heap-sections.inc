@@ -192,6 +192,7 @@ ___HIDDEN void park_stack_section(___processor_state ___ps, ___msection *section
   claim->parked_break=brk;
   claim->stack_state=STACK_PARKED;
   ___gc_copy_release(&section->copy_gate);
+  clear_fast_span(___ps);
 }
 
 ___HIDDEN void release_stack_section(___processor_state ___ps, ___msection *section)
@@ -206,6 +207,7 @@ ___HIDDEN void release_stack_section(___processor_state ___ps, ___msection *sect
   claim->reuse_next=msection_free_list;
   msection_free_list=section;
   ___gc_copy_release(&section->copy_gate);
+  clear_fast_span(___ps);
 }
 
 ___HIDDEN void set_stack_msection
@@ -227,6 +229,7 @@ ___msection *ms;)
   alloc_stack_limit = start_of_tospace(ms);
   alloc_stack_start = alloc_stack_limit + (___MSECTION_SIZE>>1);
   alloc_stack_ptr = alloc_stack_start;
+  clear_fast_span(___ps);
 }
 
 
@@ -523,6 +526,7 @@ ___msection *ms;)
   alloc_heap_start = start_of_tospace(ms);
   alloc_heap_limit = alloc_heap_start + (___MSECTION_SIZE>>1);
   alloc_heap_ptr = alloc_heap_start;
+  clear_fast_span(___ps);
 }
 
 
@@ -647,6 +651,7 @@ ___BOOL ___rest_publish_owned_soft_edge(___processor_state ps,
   if (edge<hp) return 0;
   /* Carrier-local soft edge of the section already owned. No claim. */
   if (!ps->heap_limit || ps->heap_limit<edge) ps->heap_limit=edge;
+  publish_fast_span(ps);
   return ps->heap_limit && hp<=ps->heap_limit;
 }
 
@@ -665,12 +670,6 @@ static struct {
   int claimed;
   ___SIZE_T cap;
 } rest_section_contest;
-
-/* Admission here is the generated two-argument check, including the contest cap. */
-static ___BOOL rest_overlay_section_admitted(___processor_state ps, ___SIZE_T max_heap)
-{
-  return ___rest_new_section_admitted(ps, max_heap);
-}
 
 int ___rest_observation_arm_section_contest(___processor_state ___ps, ___WORD words)
 {
@@ -826,6 +825,17 @@ ___BOOL ___rest_extend_interval(___processor_state ps,
     if (matched)
       max_heap=rest_section_contest_cap(___ps,max_heap);
 #endif
+    /* No fresh section is not a byte cap. Grow before refusing so a rest
+     * demand does not fall through into a whole-heap census. */
+    if (max_heap==0 && the_msections &&
+        compute_free_heap_space_approximately()<___MSECTION_SIZE) {
+      int n=the_msections->nb_sections, add=n/2;
+      if (add<8) add=8;
+      if (n>0 && add<=INT_MAX-n) {
+        adjust_msections(&the_msections, n+add);
+        heap_size=compute_heap_size();
+      }
+    }
     /* Read the admission inputs and next candidate under the same lock as
      * the actual bound, ownership check and commit. The probe only peeks. */
     REST_OBS(REST_LOCK,___ps,rest_observation_attempt_record(___ps),rest_observation_attempt_id(___ps),
@@ -835,8 +845,10 @@ ___BOOL ___rest_extend_interval(___processor_state ps,
              ___MSECTION_SIZE,nb_msections_assigned==0 || alloc_msection
                              ? peek_fresh_msection(___ps) : 0);
     if (custom_msection_alloc ||
+#ifdef ___GAMBIT_REST_OBSERVATION
         (matched && rest_section_contest.claimed) ||
-        !rest_overlay_section_admitted(___ps,max_heap)) {
+#endif
+        !___rest_new_section_admitted(___ps,max_heap)) {
       REST_OBS(REST_REFUSE,___ps,rest_observation_attempt_record(___ps),rest_observation_attempt_id(___ps),
              ___COLLECTION(___VMSTATE_FROM_PSTATE(___ps)).epoch,___VMSTATE_FROM_PSTATE(___ps),
                alloc_msection,nb_msections_assigned,custom_msection_alloc ? 4 : 1,0,0,0,0);
@@ -901,6 +913,7 @@ ___BOOL ___rest_extend_interval(___processor_state ps,
       if (hard > base+___MSECTION_FUDGE &&
           ___ps->heap_limit > hard-___MSECTION_FUDGE)
         ___ps->heap_limit = hard-___MSECTION_FUDGE;
+      publish_fast_span(___ps);
       REST_OBS(REST_SECTION_PUBLISHED,___ps,rest_observation_attempt_record(___ps),
                rest_observation_attempt_id(___ps),___COLLECTION(___VMSTATE_FROM_PSTATE(___ps)).epoch,
                ___VMSTATE_FROM_PSTATE(___ps),heap_msection,tospace_offset,
@@ -1119,13 +1132,25 @@ ___BOOL ___rest_caller_chain(___WORD *window, ___WORD na, ___WORD ra,
       }
       if (held) __atomic_fetch_add(&___rest_chain_reads, 1, __ATOMIC_RELAXED);
       else __atomic_fetch_add(&___rest_chain_ungated, 1, __ATOMIC_RELAXED);
+      if (!section) goto refuse;
+      {
+        ___WORD *half=section->base+offset;
+        ___WORD *half_past=half+(___MSECTION_SIZE>>1);
+        if (!top || (___CAST(___UWORD,top)&(___WS-1)) || top<half || top>=half_past)
+          goto refuse;
+      }
       if (rest_chain_frame_refused(___ps,section_claim_at(section,offset),
                                    top,held_base,held_past))
         goto refuse;
       if (!read_admitted_stack_frame(section_claim_at(section, offset),
                                     top, half_words, logical, &ra, 1, &fd,
-                                    &known_break))
-        goto refuse;
+                                    &known_break)) {
+        /* A non-label word ends the walk. The frames already decoded are
+         * the caller chain; collecting is still allowed. */
+        REST_CHAIN_UNPIN(0);
+        if (held) ___gc_copy_release(&held->copy_gate);
+        return 1;
+      }
       base=top+___FRAME_SPACE(fd.fs);
       if (known_break && base>known_break) goto refuse;
       ra=___FP_STK(base, fd.link+1);
@@ -1378,6 +1403,16 @@ ___virtual_machine_state ___vms;)
       work->chunks_published_ = 0;
       work->chunks_claimed_ = 0;
       work->chunks_completed_ = 0;
+      work->scan_state_section_ = 0;
+      work->scan_state_base_ = 0;
+      work->scan_state_offset_ = 0;
+      work->scan_state_epoch_ = 0;
+      work->census_section_ = 0;
+      work->census_base_ = 0;
+      work->census_offset_ = 0;
+      work->census_epoch_ = 0;
+      work->sec_cache_epoch_ = 0;
+      work->sec_cache_nb_sections_ = -1;
       work->reserve = &___RESUME(___vms,
         ___PROCESSOR_ID(___ps,___vms));
       work->arena.epoch = ___COLLECTION(___vms).epoch;

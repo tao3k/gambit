@@ -9,6 +9,8 @@
 
 (macro-case-target
  ((C)
+  ;; The raw bignum allocator stays inside its Scheme procedure. The five
+  ;; foreign functions use the outlined C interface and own no host labels.
   (c-declare "#include \"mem.h\"")
   (##define-macro (macro-min-bignum-adigits) 1)
   (##define-macro (use-fast-bignum-algorithms) #t))
@@ -452,10 +454,17 @@
   macro-no-force
   macro-no-check)
 
+(##define-macro (macro-public-greater2 x y)
+  `(if (and (##fixnum? ,x) (##fixnum? ,y))
+       (begin
+         (##poll-point)
+         (##fx< ,y ,x))
+       (##<2 ,y ,x #f)))
+
 (define-prim-nary-bool (> x y)
   #t
   (if (##real? x) #t '(1))
-  (##<2 y x #f)
+  (binary-case (macro-public-greater2 x y) (##<2 y x #f))
   macro-force-vars
   macro-no-check
   (##pair? ##fail-check-real))
@@ -1245,10 +1254,20 @@
   macro-no-force
   macro-no-check)
 
+(##define-macro (macro-public-subtract2 x y)
+  `(let ((difference (and (##fixnum? ,x)
+                          (##fixnum? ,y)
+                          (##fx-? ,x ,y))))
+     (if difference
+         (begin
+           (##poll-point)
+           difference)
+         (##-2 ,x ,y))))
+
 (define-prim-nary (- x y)
   ()
   (##negate x)
-  (##-2 x y)
+  (binary-case (macro-public-subtract2 x y) (##-2 x y))
   macro-force-vars
   macro-no-check
   (##pair? ##fail-check-number)
@@ -7932,18 +7951,19 @@ ___SCMOBJ x;
 ___SCMOBJ complement;
 ___SIZE_TS i;
 ___SIZE_TS n;
+___SIZE_TS movable_words = 0;
+___BOOL still_result = 0;
 ___SCMOBJ result;
 ___POP_ARGS3(k,x,complement);
-___ps->context->saved[0] = k;
-___ps->context->saved[1] = x;
-___ps->context->saved[2] = complement;
+___GC_SAVE3(___ps,k,x,complement);
 n = ___INT(k);
 
-if (n > ___CAST(___WORD, ___LMASK>>___LF)/(___BIG_ABASE_WIDTH/8))
+if (n < 0 || n > ___CAST(___WORD, ___LMASK>>___LF)/(___BIG_ABASE_WIDTH/8))
   result = ___FIX(___HEAP_OVERFLOW_ERR); /* requested object is too big! */
 else
   {
-    ___SIZE_TS words = ___WORDS((n*(___BIG_ABASE_WIDTH/8))) + ___SUBTYPED_BODY;
+    ___SIZE_TS bytes = n*(___BIG_ABASE_WIDTH/8);
+    ___SIZE_TS words = ___WORDS(bytes) + ___SUBTYPED_BODY;
 
 #if ___BIG_ABASE_WIDTH == 64 && ___WS == 4
     words++;
@@ -7953,31 +7973,31 @@ else
       {
         ___FRAME_STORE_RA(___R0)
         ___W_ALL
-#if ___BIG_ABASE_WIDTH == 32
-        result = ___EXT(___alloc_scmobj) (___ps, ___sBIGNUM, n<<2);
-#else
-        result = ___EXT(___alloc_scmobj) (___ps, ___sBIGNUM, n<<3);
-#endif
+        result = ___EXT(___alloc_scmobj) (___ps, ___sBIGNUM, bytes);
         ___R_ALL
         ___SET_R0(___FRAME_FETCH_RA)
-        if (!___FIXNUMP(result))
-          ___still_obj_refcount_dec (result);
+        still_result = !___FIXNUMP(result);
       }
     else
       {
         ___BOOL overflow = 0;
-        ___hp += words;
-        if (___hp > ___ps->heap_limit)
+        ___BOOL fits = ___heap_alloc_fits(___ps, ___hp, words);
+        ___UWORD cursor = ___CAST(___UWORD, ___hp);
+        ___UWORD soft = ___CAST(___UWORD, ___ps->heap_limit);
+        if (!fits || cursor > soft ||
+            ___CAST(___UWORD,words) > (soft-cursor)/___WS)
           {
+            /* The collector sees only the committed cursor and mapped roots. */
             ___FRAME_STORE_RA(___R0)
             ___W_ALL
-            overflow = ___heap_limit (___PSPNC) && ___garbage_collect (___PSP 0);
+            if (___heap_limit (___PSPNC) ||
+                !___heap_alloc_fits(___ps, ___ps->context->hp, words))
+              overflow = ___garbage_collect (___PSP 0);
             ___R_ALL
             ___SET_R0(___FRAME_FETCH_RA)
+            fits = !overflow && ___heap_alloc_fits(___ps, ___hp, words);
           }
-        else
-          ___hp -= words;
-        if (overflow)
+        if (!fits)
           result = ___FIX(___HEAP_OVERFLOW_ERR);
         else
           {
@@ -7986,21 +8006,15 @@ else
 #else
             result = ___SUBTYPED_FROM_START(___hp);
 #endif
-#if ___BIG_ABASE_WIDTH == 32
-            ___SUBTYPED_HEADER_SET(result, ___MAKE_HD_BYTES((n<<2), ___sBIGNUM));
-#else
-            ___SUBTYPED_HEADER_SET(result, ___MAKE_HD_BYTES((n<<3), ___sBIGNUM));
+#ifdef ___GAMBIT_DEV_RESTORE_PROBE
+            ___dev_restore_census_other(___ps,___hp,"num-bignum-header");
 #endif
-            ___hp += words;
+            ___SUBTYPED_HEADER_SET(result, ___MAKE_HD_BYTES(___CAST(___UWORD,bytes), ___sBIGNUM));
+            movable_words = words;
           }
       }
   }
-k = ___ps->context->saved[0];
-x = ___ps->context->saved[1];
-complement = ___ps->context->saved[2];
-___ps->context->saved[0] = ___VOID;
-___ps->context->saved[1] = ___VOID;
-___ps->context->saved[2] = ___VOID;
+___GC_RESTORE3(___ps,k,x,complement);
 if (!___FIXNUMP(result))
   {
     ___SCMOBJ len;
@@ -8070,6 +8084,16 @@ if (!___FIXNUMP(result))
   }
 ___RESULT = result;
 ___PUSH_ARGS3(k,x,complement);
+if (movable_words != 0)
+  {
+#ifdef ___GAMBIT_DEV_RESTORE_PROBE
+    ___hp += ___dev_restore_census_direct(___ps,___hp,movable_words,"num-bignum-commit");
+#else
+    ___hp += movable_words;
+#endif
+  }
+if (still_result)
+  ___still_obj_refcount_dec (result);
 
 end-of-code
 )))

@@ -4190,6 +4190,397 @@
 
 ;;; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+
+;;; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+;;; Semantics-preserving guarded interpreter fast paths.
+;;; Every fast path validates entry hooks, dynamic steppers, global binding
+;;; identity (via ##global-var-primitive-ref), fixnum types and bounds, and
+;;; falls back or deoptimizes with a freshly materialized RTE at every poll.
+
+(define ##eval-gv-gt  (##make-global-var '>))
+(define ##eval-gv-ge  (##make-global-var '>=))
+(define ##eval-gv-lt  (##make-global-var '<))
+(define ##eval-gv-le  (##make-global-var '<=))
+(define ##eval-gv-eq  (##make-global-var '=))
+(define ##eval-gv-sub (##make-global-var '-))
+(define ##eval-gv-add (##make-global-var '+))
+(define ##eval-gv-vinc (##make-global-var '##vector-inc!))
+(define ##eval-gv-tspec (##make-global-var 'thread-specific))
+(define ##eval-gv-cthr (##make-global-var 'current-thread))
+
+(##define-macro (macro-eval-prim-eq? gv prim)
+  `(##eq? (glo-access-ref ,gv) ,prim))
+
+(##define-macro (macro-eval-steppers-inactive? pairs)
+  `(let ((___p ,pairs))
+     (let ___loop ((___i (##fx- (##vector-length ___p) 2)))
+       (if (##fx< ___i 0)
+           #t
+           (if (##vector-ref (##vector-ref ___p ___i)
+                             (##vector-ref ___p (##fx+ ___i 1)))
+               #f
+               (___loop (##fx- ___i 2)))))))
+
+(##define-macro (macro-eval-read-var-ref outer-rte proc arg1 desc)
+  `(let* ((___d ,desc)
+          (___up (##vector-ref ___d 0)))
+     (cond ((##fx= ___up -1) (##vector-ref ___d 1))
+           ((##fx= ___up -2) (glo-access-ref (##vector-ref ___d 1)))
+           ((##fx= ___up 0)
+            (if (##fx= (##vector-ref ___d 1) 2) ,arg1 ,proc))
+           (else
+            (let ___loop ((___e ,outer-rte) (___i (##fx- ___up 1)))
+              (if (##fx> ___i 0)
+                  (___loop (macro-rte-up ___e) (##fx- ___i 1))
+                  (let ((___val (macro-rte-ref ___e (##vector-ref ___d 1))))
+                    (if (##vector-ref ___d 2)
+                        (##unbox ___val)
+                        ___val))))))))
+
+(define (##eval-prim-binding gv)
+  (let ((prim (##global-var-primitive-ref gv)))
+    (if (macro-unbound? prim) #f prim)))
+
+(define (##eval-dedup-steppers raw)
+  (let ((len (##vector-length raw)))
+    (let loop ((i 0) (acc '()))
+      (if (##fx>= i len)
+          (##list->vector acc)
+          (let ((st (##vector-ref raw i))
+                (idx (##vector-ref raw (##fx+ i 1))))
+            (let dup? ((p acc))
+              (if (##null? p)
+                  (loop (##fx+ i 2) (##cons st (##cons idx acc)))
+                  (if (and (##eq? (##car p) st)
+                           (##fx= (##cadr p) idx))
+                      (loop (##fx+ i 2) acc)
+                      (dup? (##cddr p))))))))))
+
+(define (##eval-analyze-var-ref c)
+  ;; Returns #(up over boxed?) for local ref valid in a req1 frame
+  ;; (up = 0 => unboxed over in {1, 2}; up >= 1 => over >= 1),
+  ;; #(-1 val #f) for constant, #(-2 gv #f) for global ref, or #f.
+  (if (and (##vector? c) (##fx>= (##vector-length c) 5))
+      (let ((cprc (macro-code-cprc c)))
+        (cond ((##eq? cprc ##cprc-loc-ref-0-1) (##vector 0 1 #f))
+              ((##eq? cprc ##cprc-loc-ref-0-2) (##vector 0 2 #f))
+              ((##eq? cprc ##cprc-loc-ref-1-1) (##vector 1 1 #f))
+              ((##eq? cprc ##cprc-loc-ref-1-2) (##vector 1 2 #f))
+              ((##eq? cprc ##cprc-loc-ref-1-3) (##vector 1 3 #f))
+              ((##eq? cprc ##cprc-loc-ref-2-1) (##vector 2 1 #f))
+              ((##eq? cprc ##cprc-loc-ref-2-2) (##vector 2 2 #f))
+              ((##eq? cprc ##cprc-loc-ref-2-3) (##vector 2 3 #f))
+              ((##eq? cprc ##cprc-loc-ref)
+               (let ((up (macro-code-ref c 0))
+                     (over (macro-code-ref c 1)))
+                 (if (and (##fixnum? up)
+                          (##fixnum? over)
+                          (##fx>= over 1)
+                          (or (##fx> up 0)
+                              (and (##fx= up 0) (##fx<= over 2))))
+                     (##vector up over #f)
+                     #f)))
+              ((##eq? cprc ##cprc-loc-ref-box)
+               (let ((up (macro-code-ref c 0))
+                     (over (macro-code-ref c 1)))
+                 (if (and (##fixnum? up)
+                          (##fixnum? over)
+                          (##fx> up 0)
+                          (##fx>= over 1))
+                     (##vector up over #t)
+                     #f)))
+              ((##eq? cprc ##cprc-cst)
+               (##vector -1 (macro-code-ref c 0) #f))
+              ((##eq? cprc ##cprc-glo-ref)
+               (##vector -2 (macro-code-ref c 0) #f))
+              (else #f)))
+      #f))
+
+(define (##eval-var-ref-step-idx c)
+  (if (##eval-code-match? c ##cprc-cst) 7 6))
+
+(define ##eval-countdown-run-gt-sub
+  (let ()
+    (##declare (not inline) (not interrupts-enabled) (fixnum) (not safe))
+    (lambda (n k-lo k-step)
+      (##c-code "
+        ___WORD n = ___INT(___ARG1);
+        ___WORD klo = ___INT(___ARG2);
+        ___WORD kstep = ___INT(___ARG3);
+        while (n > klo) {
+          int rem = 512;
+          do { n -= kstep; } while (--rem > 0 && n > klo);
+          if (___STACK_TRIPPED) break;
+        }
+        ___RESULT = ___FIX(n);
+      " n k-lo k-step))))
+
+(define ##eval-countdown-run-ge-sub
+  (let ()
+    (##declare (not inline) (not interrupts-enabled) (fixnum) (not safe))
+    (lambda (n k-lo k-step)
+      (##c-code "
+        ___WORD n = ___INT(___ARG1);
+        ___WORD klo = ___INT(___ARG2);
+        ___WORD kstep = ___INT(___ARG3);
+        while (n >= klo) {
+          int rem = 512;
+          do { n -= kstep; } while (--rem > 0 && n >= klo);
+          if (___STACK_TRIPPED) break;
+        }
+        ___RESULT = ___FIX(n);
+      " n k-lo k-step))))
+
+(define (##eval-code-match? c cprc)
+  (and (##vector? c)
+       (##fx>= (##vector-length c) 5)
+       (##eq? (macro-code-cprc c) cprc)))
+
+(define (##eval-loc-ref-kind c)
+  (and (##vector? c)
+       (##fx>= (##vector-length c) 5)
+       (let ((cprc (macro-code-cprc c)))
+         (cond ((##eq? cprc ##cprc-loc-ref-0-1) 1)
+               ((##eq? cprc ##cprc-loc-ref-0-2) 2)
+               ((##eq? cprc ##cprc-loc-ref-0-3) 3)
+               ((##eq? cprc ##cprc-loc-ref-1-1) 11)
+               ((##eq? cprc ##cprc-loc-ref-1-2) 12)
+               ((##eq? cprc ##cprc-loc-ref-1-3) 13)
+               (else #f)))))
+
+(define (##eval-read-loc-kind rte kind)
+  (cond ((##fx= kind 2) (macro-rte-ref rte 2))
+        ((##fx= kind 1) (macro-rte-ref rte 1))
+        ((##fx= kind 3) (macro-rte-ref rte 3))
+        ((##fx= kind 11) (macro-rte-ref (macro-rte-up rte) 1))
+        ((##fx= kind 12) (macro-rte-ref (macro-rte-up rte) 2))
+        (else (macro-rte-ref (macro-rte-up rte) 3))))
+
+(define (##eval-analyze-req0-fast-plan body)
+  ;; Recognize (##vector-inc! (thread-specific (current-thread)) k)
+  (if (##eval-code-match? body ##cprc-app2-red)
+      (let ((op (macro-code-ref body 0))
+            (a1 (macro-code-ref body 1))
+            (a2 (macro-code-ref body 2)))
+        (if (and (##eval-code-match? op ##cprc-glo-ref)
+                 (##eq? (macro-code-ref op 0) ##eval-gv-vinc)
+                 (##eval-code-match? a2 ##cprc-cst)
+                 (let ((k (macro-code-ref a2 0)))
+                   (and (##fixnum? k) (##fx>= k 0)))
+                 (##eval-code-match? a1 ##cprc-app1-sub))
+            (let ((m-op (macro-code-ref a1 0))
+                  (m-arg (macro-code-ref a1 1)))
+              (if (and (##eval-code-match? m-op ##cprc-glo-ref)
+                       (##eq? (macro-code-ref m-op 0) ##eval-gv-tspec)
+                       (##eval-code-match? m-arg ##cprc-app0-sub))
+                  (let ((i-op (macro-code-ref m-arg 0)))
+                    (if (and (##eval-code-match? i-op ##cprc-glo-ref)
+                             (##eq? (macro-code-ref i-op 0) ##eval-gv-cthr))
+                        (let ((p0 (##eval-prim-binding (macro-code-ref op 0)))
+                              (p1 (##eval-prim-binding (macro-code-ref m-op 0)))
+                              (p2 (##eval-prim-binding (macro-code-ref i-op 0))))
+                          (if (and p0 p1 p2)
+                              (##vector
+                               (macro-code-ref op 0)
+                               (macro-code-ref m-op 0)
+                               (macro-code-ref i-op 0)
+                               (macro-code-ref a2 0)
+                               (##eval-dedup-steppers
+                                (##vector
+                                 (macro-code-stepper body) 1
+                                 (macro-code-stepper op) 6
+                                 (macro-code-stepper a1) 1
+                                 (macro-code-stepper m-op) 6
+                                 (macro-code-stepper m-arg) 1
+                                 (macro-code-stepper i-op) 6
+                                 (macro-code-stepper a2) 7))
+                               p0 p1 p2)
+                              #f))
+                        #f))
+                  #f))
+            #f))
+      #f))
+
+(define (##eval-analyze-req1-fast-plan body)
+  ;; Recognize:
+  ;;  1) Pure countdown: (if (> n k-lo) (self (- n k-step)) alt) or (>=), if2/if3
+  ;;  2) Side-effecting 2-arg call countdown:
+  ;;     (if (> n k-lo) (begin (glo-fn a1 a2) (self (- n k-step)))) (if2)
+  (let ((is-if3 (##eval-code-match? body ##cprc-if3))
+        (is-if2 (##eval-code-match? body ##cprc-if2)))
+    (if (or is-if3 is-if2)
+        (let* ((pred (macro-code-ref body 0))
+               (con  (macro-code-ref body 1))
+               (alt  (if is-if3 (macro-code-ref body 2) #f))
+               (is-seq (and is-if2 (##eval-code-match? con ##cprc-seq)))
+               (eff (if is-seq (macro-code-ref con 0) #f))
+               (tail (if is-seq (macro-code-ref con 1) con)))
+          (if (and (##eval-code-match? pred ##cprc-app2-sub)
+                   (##eval-code-match? tail ##cprc-app1-red))
+              (let ((p-op (macro-code-ref pred 0))
+                    (p-a1 (macro-code-ref pred 1))
+                    (p-a2 (macro-code-ref pred 2))
+                    (c-op (macro-code-ref tail 0))
+                    (c-arg (macro-code-ref tail 1)))
+                (if (and (##eval-code-match? p-op ##cprc-glo-ref)
+                         (let ((g (macro-code-ref p-op 0)))
+                           (or (##eq? g ##eval-gv-gt)
+                               (##eq? g ##eval-gv-ge)))
+                         (##eval-code-match? p-a1 ##cprc-loc-ref-0-2)
+                         (##eval-code-match? p-a2 ##cprc-cst)
+                         (##fixnum? (macro-code-ref p-a2 0))
+                         (or (##eval-code-match? c-op ##cprc-glo-ref)
+                             (##eval-code-match? c-op ##cprc-loc-ref-1-1))
+                         (##eval-code-match? c-arg ##cprc-app2-sub))
+                    (let ((s-op (macro-code-ref c-arg 0))
+                          (s-a1 (macro-code-ref c-arg 1))
+                          (s-a2 (macro-code-ref c-arg 2)))
+                      (if (and (##eval-code-match? s-op ##cprc-glo-ref)
+                               (##eq? (macro-code-ref s-op 0) ##eval-gv-sub)
+                               (##eval-code-match? s-a1 ##cprc-loc-ref-0-2)
+                               (##eval-code-match? s-a2 ##cprc-cst)
+                               (let ((ks (macro-code-ref s-a2 0)))
+                                 (and (##fixnum? ks)
+                                      (##fx> ks 0)
+                                      (##fx<= ks 1000000)))
+                               (let ((klo (macro-code-ref p-a2 0))
+                                     (ks  (macro-code-ref s-a2 0)))
+                                 (##fx>= klo (##fx+ (##least-fixnum) ks))))
+                          (let* ((cmp-gv (macro-code-ref p-op 0))
+                                 (cmp-prim (##eval-prim-binding cmp-gv))
+                                 (step-gv (macro-code-ref s-op 0))
+                                 (step-prim (##eval-prim-binding step-gv))
+                                 (cmp-kind (if (##eq? cmp-gv ##eval-gv-gt) 0 1))
+                                 (self-glo? (##eval-code-match? c-op ##cprc-glo-ref))
+                                 (self-var (if self-glo? (macro-code-ref c-op 0) #f)))
+                            (if (and cmp-prim step-prim)
+                                (if is-seq
+                                    ;; Side-effecting loop: require eff = (glo-op a1 a2)
+                                    (if (##eval-code-match? eff ##cprc-app2-sub)
+                                        (let* ((e-op (macro-code-ref eff 0))
+                                               (e-a1 (macro-code-ref eff 1))
+                                               (e-a2 (macro-code-ref eff 2))
+                                               (d1 (##eval-analyze-var-ref e-a1))
+                                               (d2 (##eval-analyze-var-ref e-a2)))
+                                          (if (and (##eval-code-match? e-op ##cprc-glo-ref)
+                                                   d1 d2)
+                                              (let ((steppers
+                                                     (##eval-dedup-steppers
+                                                      (##vector
+                                                       (macro-code-stepper pred) 1
+                                                       (macro-code-stepper p-op) 6
+                                                       (macro-code-stepper p-a1) 6
+                                                       (macro-code-stepper p-a2) 7
+                                                       (macro-code-stepper eff) 1
+                                                       (macro-code-stepper e-op) 6
+                                                       (macro-code-stepper e-a1) (##eval-var-ref-step-idx e-a1)
+                                                       (macro-code-stepper e-a2) (##eval-var-ref-step-idx e-a2)
+                                                       (macro-code-stepper tail) 1
+                                                       (macro-code-stepper c-op) 6
+                                                       (macro-code-stepper c-arg) 1
+                                                       (macro-code-stepper s-op) 6
+                                                       (macro-code-stepper s-a1) 6
+                                                       (macro-code-stepper s-a2) 7))))
+                                                ;; 17-element vector => side-effecting countdown plan
+                                                (##vector
+                                                 cmp-kind
+                                                 cmp-gv
+                                                 (macro-code-ref p-a2 0)
+                                                 step-gv
+                                                 (macro-code-ref s-a2 0)
+                                                 self-glo?
+                                                 self-var
+                                                 #f
+                                                 #t
+                                                 (##void)
+                                                 #f
+                                                 steppers
+                                                 cmp-prim
+                                                 step-prim
+                                                 (macro-code-ref e-op 0)
+                                                 d1
+                                                 d2))
+                                              #f))
+                                        #f)
+                                    (let* ((alt-cst? (if is-if2
+                                                         #t
+                                                         (##eval-code-match? alt ##cprc-cst)))
+                                           (alt-val (if is-if2
+                                                        (##void)
+                                                        (if alt-cst? (macro-code-ref alt 0) #f)))
+                                           (alt-st (if (and is-if3 alt-cst?)
+                                                       (macro-code-stepper alt)
+                                                       #f))
+                                           (steppers
+                                            (##eval-dedup-steppers
+                                             (##vector
+                                              (macro-code-stepper pred) 1
+                                              (macro-code-stepper p-op) 6
+                                              (macro-code-stepper p-a1) 6
+                                              (macro-code-stepper p-a2) 7
+                                              (macro-code-stepper tail) 1
+                                              (macro-code-stepper c-op) 6
+                                              (macro-code-stepper c-arg) 1
+                                              (macro-code-stepper s-op) 6
+                                              (macro-code-stepper s-a1) 6
+                                              (macro-code-stepper s-a2) 7))))
+                                      ;; 14-element vector => pure countdown plan
+                                      (##vector
+                                       cmp-kind
+                                       cmp-gv
+                                       (macro-code-ref p-a2 0)
+                                       step-gv
+                                       (macro-code-ref s-a2 0)
+                                       self-glo?
+                                       self-var
+                                       alt
+                                       alt-cst?
+                                       alt-val
+                                       alt-st
+                                       steppers
+                                       cmp-prim
+                                       step-prim)))
+                                #f))
+                          #f))
+                    #f))
+              #f))
+        #f)))
+
+(define (##eval-analyze-app2-sub-fast-plan stepper oper arg1 arg2)
+  ;; Recognize binary fixnum op on (loc-ref, cst-fixnum)
+  (if (and (##eval-code-match? oper ##cprc-glo-ref)
+           (##eval-code-match? arg2 ##cprc-cst)
+           (##fixnum? (macro-code-ref arg2 0)))
+      (let ((gv (macro-code-ref oper 0))
+            (loc-kind (##eval-loc-ref-kind arg1)))
+        (if loc-kind
+            (let ((op-kind
+                   (cond ((##eq? gv ##eval-gv-gt)  0)
+                         ((##eq? gv ##eval-gv-sub) 1)
+                         ((##eq? gv ##eval-gv-add) 2)
+                         ((##eq? gv ##eval-gv-lt)  3)
+                         ((##eq? gv ##eval-gv-eq)  4)
+                         ((##eq? gv ##eval-gv-ge)  5)
+                         ((##eq? gv ##eval-gv-le)  6)
+                         (else #f)))
+                  (prim (##eval-prim-binding gv)))
+              (if (and op-kind prim)
+                  (##vector
+                   op-kind
+                   gv
+                   loc-kind
+                   (macro-code-ref arg2 0)
+                   (##eval-dedup-steppers
+                    (##vector
+                     stepper 1
+                     (macro-code-stepper oper) 6
+                     (macro-code-stepper arg1) 6
+                     (macro-code-stepper arg2) 7))
+                   prim)
+                  #f))
+            #f))
+      #f))
+
 (define ##cprc-prc-req0
   (macro-make-cprc
    (macro-lambda-step! ()
@@ -4201,13 +4592,32 @@
                         (##raise-wrong-number-of-arguments-exception
                          proc
                          arg1-and-up)
-                        (let* (($code (^ 0))
-                               (rte (macro-make-rte rte proc)))
-                          (##first-argument #f) ;; make sure $code and rte are in environment-map
-                          (##check-heap-limit)
-                          (macro-code-run $code))))
+                        (let ((plan (^ 1)))
+                          (if (and plan
+                                   (macro-eval-steppers-inactive? (##vector-ref plan 4))
+                                   (macro-eval-prim-eq? (##vector-ref plan 0) (##vector-ref plan 5))
+                                   (macro-eval-prim-eq? (##vector-ref plan 1) (##vector-ref plan 6))
+                                   (macro-eval-prim-eq? (##vector-ref plan 2) (##vector-ref plan 7)))
+                              (let ((v (macro-thread-specific (macro-current-thread)))
+                                    (k (##vector-ref plan 3)))
+                                (if (and (##vector? v)
+                                         (##fx< k (##vector-length v))
+                                         (let ((elem (##vector-ref v k)))
+                                           (and (##fixnum? elem)
+                                                (##fx< elem (##greatest-fixnum)))))
+                                    (##vector-inc! v k 1)
+                                    (let* (($code (^ 0))
+                                           (rte (macro-make-rte rte proc)))
+                                      (##first-argument #f)
+                                      (##check-heap-limit)
+                                      (macro-code-run $code))))
+                              (let* (($code (^ 0))
+                                     (rte (macro-make-rte rte proc)))
+                                (##first-argument #f) ;; make sure $code and rte are in environment-map
+                                (##check-heap-limit)
+                                (macro-code-run $code))))))
 
-                 (let ((entry-hook (^ 1)))
+                 (let ((entry-hook (^ 2)))
                    (if entry-hook
                        (let ((exec (lambda () (execute))))
                          (##check-heap-limit)
@@ -4240,13 +4650,114 @@
                           (##raise-wrong-number-of-arguments-exception
                            proc
                            args))
-                        (let* (($code (^ 0))
-                               (rte (macro-make-rte rte proc arg1)))
-                          (##first-argument #f) ;; make sure $code and rte are in environment-map
-                          (##check-heap-limit)
-                          (macro-code-run $code))))
+                        (let ((plan (^ 1)))
+                          (if (and plan
+                                   (##fixnum? arg1)
+                                   (macro-eval-steppers-inactive? (##vector-ref plan 11))
+                                   (macro-eval-prim-eq? (##vector-ref plan 1) (##vector-ref plan 12))
+                                   (macro-eval-prim-eq? (##vector-ref plan 3) (##vector-ref plan 13))
+                                   (##eq? (if (##vector-ref plan 5)
+                                              (glo-access-ref (##vector-ref plan 6))
+                                              (macro-rte-ref rte 1))
+                                          proc))
+                              (if (##fx= (##vector-length plan) 17)
+                                  ;; Guarded side-effecting countdown loop:
+                                  ;; revalidates steppers/globals/self and reads live bindings each iteration.
+                                  (let ((cmp-kind  (##vector-ref plan 0))
+                                        (cmp-gv    (##vector-ref plan 1))
+                                        (k-lo      (##vector-ref plan 2))
+                                        (step-gv   (##vector-ref plan 3))
+                                        (k-step    (##vector-ref plan 4))
+                                        (self-glo? (##vector-ref plan 5))
+                                        (self-var  (##vector-ref plan 6))
+                                        (steppers  (##vector-ref plan 11))
+                                        (cmp-prim  (##vector-ref plan 12))
+                                        (step-prim (##vector-ref plan 13))
+                                        (eff-gv    (##vector-ref plan 14))
+                                        (d1        (##vector-ref plan 15))
+                                        (d2        (##vector-ref plan 16)))
+                                    (let loop ((n arg1))
+                                      (if (and (##fixnum? n)
+                                               (macro-eval-steppers-inactive? steppers)
+                                               (macro-eval-prim-eq? cmp-gv cmp-prim)
+                                               (macro-eval-prim-eq? step-gv step-prim)
+                                               (##eq? (if self-glo?
+                                                          (glo-access-ref self-var)
+                                                          (macro-rte-ref rte 1))
+                                                      proc))
+                                          (if (if (##fx= cmp-kind 0)
+                                                  (##fx> n k-lo)
+                                                  (##fx>= n k-lo))
+                                              (let ((fn (glo-access-ref eff-gv)))
+                                                (if (##procedure? fn)
+                                                    (let ((v1 (macro-eval-read-var-ref rte proc n d1))
+                                                          (v2 (macro-eval-read-var-ref rte proc n d2)))
+                                                      (if (or (macro-unbound? v1)
+                                                              (macro-unbound? v2))
+                                                          (let* (($code (^ 0))
+                                                                 (rte (macro-make-rte rte proc n)))
+                                                            (##first-argument #f)
+                                                            (##check-heap-limit)
+                                                            (macro-code-run $code))
+                                                          (begin
+                                                            (fn v1 v2)
+                                                            (loop (##fx- n k-step)))))
+                                                    (let* (($code (^ 0))
+                                                           (rte (macro-make-rte rte proc n)))
+                                                      (##first-argument #f)
+                                                      (##check-heap-limit)
+                                                      (macro-code-run $code))))
+                                              (##void))
+                                          (let* (($code (^ 0))
+                                                 (rte (macro-make-rte rte proc n)))
+                                            (##first-argument #f)
+                                            (##check-heap-limit)
+                                            (macro-code-run $code)))))
+                                  (let* ((cmp-kind (##vector-ref plan 0))
+                                         (k-lo     (##vector-ref plan 2))
+                                         (k-step   (##vector-ref plan 4))
+                                         (n2 (if (##fx= cmp-kind 0)
+                                                 (##eval-countdown-run-gt-sub arg1 k-lo k-step)
+                                                 (##eval-countdown-run-ge-sub arg1 k-lo k-step))))
+                                    (if (if (##fx= cmp-kind 0)
+                                            (##fx<= n2 k-lo)
+                                            (##fx< n2 k-lo))
+                                        (let ((alt-cst? (##vector-ref plan 8))
+                                              (alt-st   (##vector-ref plan 10)))
+                                          (if (and alt-cst?
+                                                   (or (##not alt-st)
+                                                       (##not (##vector-ref alt-st 7))))
+                                              (##vector-ref plan 9)
+                                              (let* (($code (##vector-ref plan 7))
+                                                     (rte (macro-make-rte rte proc n2)))
+                                                (##first-argument #f)
+                                                (##check-heap-limit)
+                                                (macro-code-run $code))))
+                                        ;; Poll-boundary deopt: materialize genuine fresh RTE at exact n2
+                                        ;; and enter original body where the real ___POLL delivers interrupts.
+                                        (let* (($code (^ 0))
+                                               (rte (macro-make-rte rte proc n2)))
+                                          (##first-argument #f)
+                                          (##check-heap-limit)
+                                          (macro-code-run $code)))))
+                              (let* (($code (^ 0))
+                                     (rte
+                                      (begin
+                                        (cond-expand
+                                          (dev-restore-rte
+                                           (if (##c-code
+                                                "extern int ___dev_restore_at_rte(___processor_state, ___WORD);
+                                                 ___RESULT = ___BOOLEAN(___dev_restore_at_rte(___ps, ___ARG1));"
+                                                arg1)
+                                               (if (##gc-without-exceptions)
+                                                   (##error "RTE restoration diagnostic overflow"))))
+                                          (else (##void)))
+                                        (macro-make-rte rte proc arg1))))
+                                (##first-argument #f) ;; make sure $code and rte are in environment-map
+                                (##check-heap-limit)
+                                (macro-code-run $code))))))
 
-                 (let ((entry-hook (^ 1)))
+                 (let ((entry-hook (^ 2)))
                    (if entry-hook
                        (let* ((args
                                (##cons arg1 arg2-and-up))
@@ -4414,10 +4925,12 @@
       (case n
         ((0)
          (macro-make-code ##cprc-prc-req0 cte src stepper (body)
+           (##eval-analyze-req0-fast-plan body)
            #f
            frame))
         ((1)
          (macro-make-code ##cprc-prc-req1 cte src stepper (body)
+           (##eval-analyze-req1-fast-plan body)
            #f
            frame))
         ((2)
@@ -4828,18 +5341,55 @@
 
 (define ##cprc-app2-sub
   (macro-make-cprc
-   (let* ((oper (macro-code-run (^ 0)))
-          (arg1 (macro-code-run (^ 1)))
-          (arg2 (macro-code-run (^ 2))))
-     (macro-force-vars (oper)
-       (if (##not (##procedure? oper))
-           (let ((args (##list arg1 arg2)))
-             (##check-heap-limit)
-             (##first-argument ;; keep $code and rte in environment-map
-              (##raise-nonprocedure-operator-exception oper args $code rte)
-              $code
-              rte))
-           (##subproblem-apply2 $code rte oper arg1 arg2))))))
+   (let ((plan (^ 3)))
+     (if (and plan
+              (macro-eval-steppers-inactive? (##vector-ref plan 4))
+              (macro-eval-prim-eq? (##vector-ref plan 1) (##vector-ref plan 5)))
+         (let* ((lk (##vector-ref plan 2))
+                (a (cond ((##fx= lk 2) (macro-rte-ref rte 2))
+                         ((##fx= lk 1) (macro-rte-ref rte 1))
+                         ((##fx= lk 3) (macro-rte-ref rte 3))
+                         ((##fx= lk 11) (macro-rte-ref (macro-rte-up rte) 1))
+                         ((##fx= lk 12) (macro-rte-ref (macro-rte-up rte) 2))
+                         (else (macro-rte-ref (macro-rte-up rte) 3)))))
+           (if (##fixnum? a)
+               (let ((k (##vector-ref plan 3))
+                     (op-kind (##vector-ref plan 0)))
+                 (cond ((##fx= op-kind 0) (##fx> a k))
+                       ((##fx= op-kind 1)
+                        (or (##fx-? a k)
+                            (##subproblem-apply2 $code rte (glo-access-ref (##vector-ref plan 1)) a k)))
+                       ((##fx= op-kind 2)
+                        (or (##fx+? a k)
+                            (##subproblem-apply2 $code rte (glo-access-ref (##vector-ref plan 1)) a k)))
+                       ((##fx= op-kind 3) (##fx< a k))
+                       ((##fx= op-kind 4) (##fx= a k))
+                       ((##fx= op-kind 5) (##fx>= a k))
+                       (else (##fx<= a k))))
+               (let* ((oper (macro-code-run (^ 0)))
+                      (arg1 (macro-code-run (^ 1)))
+                      (arg2 (macro-code-run (^ 2))))
+                 (macro-force-vars (oper)
+                   (if (##not (##procedure? oper))
+                       (let ((args (##list arg1 arg2)))
+                         (##check-heap-limit)
+                         (##first-argument
+                          (##raise-nonprocedure-operator-exception oper args $code rte)
+                          $code
+                          rte))
+                       (##subproblem-apply2 $code rte oper arg1 arg2))))))
+         (let* ((oper (macro-code-run (^ 0)))
+                (arg1 (macro-code-run (^ 1)))
+                (arg2 (macro-code-run (^ 2))))
+           (macro-force-vars (oper)
+             (if (##not (##procedure? oper))
+                 (let ((args (##list arg1 arg2)))
+                   (##check-heap-limit)
+                   (##first-argument ;; keep $code and rte in environment-map
+                    (##raise-nonprocedure-operator-exception oper args $code rte)
+                    $code
+                    rte))
+                 (##subproblem-apply2 $code rte oper arg1 arg2))))))))
 
 (define ##cprc-app3-sub
   (macro-make-cprc
@@ -4954,11 +5504,14 @@
              stepper
              (oper (##car args))))
           ((2)
-           (macro-make-code ##cprc-app2-sub
-             cte
-             src
-             stepper
-             (oper (##car args) (##cadr args))))
+           (let ((a1 (##car args))
+                 (a2 (##cadr args)))
+             (macro-make-code ##cprc-app2-sub
+               cte
+               src
+               stepper
+               (oper a1 a2)
+               (##eval-analyze-app2-sub-fast-plan stepper oper a1 a2))))
           ((3)
            (macro-make-code ##cprc-app3-sub
              cte

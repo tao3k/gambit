@@ -169,12 +169,29 @@ do { \
 
 #define ___CLO_FREEVARS (1+___CLO_LOWLEVEL_TRAMPOLINE_SIZE)
 
+/* Probe image only. The pre-write call may exit before either store. BEGIN
+ * and END perform the header write and bump. The following call validates
+ * that pair and is discarded by the comma operator, so ___GET_SUBTYPED
+ * remains the expression result. It does not print POSITIVE: the label,
+ * trampoline and free-variable stores are still ahead. The #else tokens
+ * are the production expansion. */
+#ifdef ___GAMBIT_DEV_RESTORE_PROBE
+#define ___ALLOC_CLO(n)(___dev_restore_alloc_before(___ps,&___hp,(___SIZE_TS)(n),(___SIZE_TS)((n)+___CLO_FREEVARS+___SUBTYPED_BODY),___DEV_RESTORE_HOST_TEXT(___PH_PROC)),___BEGIN_ALLOC_SUBTYPED(___MAKE_HD_WORDS(n+___CLO_FREEVARS,___sPROCEDURE)),___END_ALLOC_SUBTYPED(n+___CLO_FREEVARS),___dev_restore_alloc_after(___ps,___hp),___GET_SUBTYPED(n+___CLO_FREEVARS))
+#define ___BEGIN_SETUP_CLO(n,clo,lbl) \
+{___WORD *___ptr=___BODY0_AS(clo,___tSUBTYPED); \
+___WORD ___dev_label=___LBL(lbl); \
+___ptr[___LABEL_ENTRY_OR_DESCR]=___dev_label; \
+___CLO_LOWLEVEL_TRAMPOLINE_SETUP(___ptr,___dev_label); \
+___dev_restore_clo_label(___ps,___ptr,___dev_label,lbl);
+#define ___ADD_CLO_ELEM(i,val) do{___WORD ___dev_v=(val);___SIZE_TS ___dev_i=(___SIZE_TS)(i);___ptr[___dev_i+___CLO_FREEVARS]=___dev_v;___dev_restore_clo_field(___ps,___ptr,___dev_i,___dev_v);}while(0);
+#else
 #define ___ALLOC_CLO(n)(___BEGIN_ALLOC_SUBTYPED(___MAKE_HD_WORDS(n+___CLO_FREEVARS,___sPROCEDURE)),___END_ALLOC_SUBTYPED(n+___CLO_FREEVARS),___GET_SUBTYPED(n+___CLO_FREEVARS))
 #define ___BEGIN_SETUP_CLO(n,clo,lbl) \
 {___WORD *___ptr=___BODY0_AS(clo,___tSUBTYPED); \
 ___ptr[___LABEL_ENTRY_OR_DESCR]=___LBL(lbl); \
 ___CLO_LOWLEVEL_TRAMPOLINE_SETUP(___ptr,___LBL(lbl));
 #define ___ADD_CLO_ELEM(i,val)___ptr[i+___CLO_FREEVARS]=(val);
+#endif
 #define ___END_SETUP_CLO(n) }
 #define ___CLO(x,y)___BODY_AS(x,___tSUBTYPED)[y+(___CLO_FREEVARS-1)]
 #define ___SET_CLO(x,y,z)___BODY_AS(x,___tSUBTYPED)[y+(___CLO_FREEVARS-1)]=z;
@@ -243,6 +260,7 @@ ___BEGIN_ALLOC_SUBTYPED(___MAKE_HD_BYTES(n<<2,___sU32VECTOR));
 
 #define ___BEGIN_ALLOC_S64VECTOR(n) \
 {___WORD *___ptr = (___WORD*)((___WORD)(___hp+2)&~7); \
+___DEV_RESTORE_CENSUS_STMT("s64vector") \
 ___ptr[-1]=___MAKE_HD_BYTES(n<<3,___sS64VECTOR);
 #define ___ADD_S64VECTOR_ELEM_RAW(i,val)___STORE_S64(___ptr,i,val);
 #define ___ADD_S64VECTOR_ELEM(i,val)___ADD_S64VECTOR_ELEM_RAW(i,___S64UNBOX(val))
@@ -251,6 +269,7 @@ ___ptr[-1]=___MAKE_HD_BYTES(n<<3,___sS64VECTOR);
 
 #define ___BEGIN_ALLOC_U64VECTOR(n) \
 {___WORD *___ptr = (___WORD*)((___WORD)(___hp+2)&~7); \
+___DEV_RESTORE_CENSUS_STMT("u64vector") \
 ___ptr[-1]=___MAKE_HD_BYTES(n<<3,___sU64VECTOR);
 #define ___ADD_U64VECTOR_ELEM_RAW(i,val)___STORE_U64(___ptr,i,val);
 #define ___ADD_U64VECTOR_ELEM(i,val)___ADD_U64VECTOR_ELEM_RAW(i,___U64UNBOX(val))
@@ -289,6 +308,7 @@ ___BEGIN_ALLOC_SUBTYPED(___MAKE_HD_BYTES(n<<2,___sF32VECTOR));
 
 #define ___BEGIN_ALLOC_F64VECTOR(n) \
 {___WORD *___ptr = (___WORD*)((___WORD)(___hp+2)&~7); \
+___DEV_RESTORE_CENSUS_STMT("f64vector") \
 ___ptr[-1]=___MAKE_HD_BYTES(n<<3,___sF64VECTOR);
 #define ___ADD_F64VECTOR_ELEM(i,val)((___F64*)___ptr)[i]=(val);
 #define ___END_ALLOC_F64VECTOR(n)___ALLOC(___WORDS(n<<3)+2);}

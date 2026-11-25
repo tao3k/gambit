@@ -70,6 +70,63 @@ ___SIZE_TS live;)
 }
 
 
+___HIDDEN void clear_fast_span
+   ___P((___processor_state ___ps),
+        (___ps)
+___processor_state ___ps;)
+{
+  if (!___ps) return;
+  ___ps->stack_fast_floor_b = 0;
+  ___ps->stack_fast_limit_b = 0;
+  ___ps->heap_fast_lo_b = 0;
+  ___ps->heap_fast_bytes = 0;
+}
+
+___HIDDEN void publish_fast_span
+   ___P((___processor_state ___ps),
+        (___ps)
+___processor_state ___ps;)
+{
+  ___WORD *lo = 0, *hi = 0;
+  if (!___ps) return;
+  if (___ps->group_demand_active)
+    {
+      clear_fast_span(___ps);
+      return;
+    }
+  if (___owned_stack_span(___ps, &lo, &hi) && lo != 0 &&
+      (___SIZE_TS)(hi - lo) > (___SIZE_TS)___MSECTION_FUDGE &&
+      ___CAST(___UWORD, hi) < ~(___UWORD)0)
+    {
+      ___WORD *floor = lo + ___MSECTION_FUDGE;
+      ___ps->stack_fast_floor_b = ___CAST(___UWORD, floor);
+      ___ps->stack_fast_limit_b = ___CAST(___UWORD, hi) - ___CAST(___UWORD, floor) + 1;
+    }
+  else
+    {
+      ___ps->stack_fast_floor_b = 0;
+      ___ps->stack_fast_limit_b = 0;
+    }
+  ___ps->heap_fast_lo_b = 0;
+  ___ps->heap_fast_bytes = 0;
+  if (heap_msection &&
+      section_claim_at(heap_msection, tospace_offset)->heap_used &&
+      alloc_heap_start && alloc_heap_limit && ___ps->heap_limit &&
+      ___ps->heap_limit > alloc_heap_start &&
+      ___CAST(___UWORD, ___ps->heap_limit) < ~(___UWORD)0)
+    {
+      ___WORD *end = alloc_heap_limit;
+      if (heap_msection == stack_msection && alloc_stack_limit &&
+          alloc_stack_limit < end)
+        end = alloc_stack_limit;
+      if (___ps->heap_limit <= end)
+        {
+          ___ps->heap_fast_lo_b = ___CAST(___UWORD, alloc_heap_start);
+          ___ps->heap_fast_bytes = ___CAST(___UWORD, ___ps->heap_limit) - ___CAST(___UWORD, alloc_heap_start);
+        }
+    }
+}
+
 ___HIDDEN void prepare_mem_pstate
    ___P((___processor_state ___ps),
         (___ps)
@@ -147,6 +204,8 @@ ___processor_state ___ps;)
   else if (alloc_heap_ptr && alloc_heap_ptr > alloc_heap_start)
     ___ps->heap_limit = alloc_heap_ptr-1;
   /* set stack overflow and interrupt detection limit */
+
+  publish_fast_span (___ps);
 
   ___refresh_interrupts_pstate (___ps);
 
@@ -473,6 +532,20 @@ ___virtual_machine_state ___vms;)
 
 ___SCMOBJ ___setup_mem ___PVOID
 {
+#ifdef ___GAMBIT_REST_OBSERVATION
+  const char *procedure=getenv("GAMBIT_GATE2_PROCEDURE");
+  const char *label=getenv("GAMBIT_GATE2_LABEL");
+  const char *case_id=getenv("GAMBIT_GATE2_CASE");
+  if (!gate2_procedure && procedure && label && case_id && ___rest_observation_open(0)) {
+    const uint64_t selected_case=strtoull(case_id,0,10);
+    const uint64_t selected_label=strtoull(label,0,10);
+    if (selected_label && selected_case && ___rest_observation_case(selected_case)) {
+      gate2_procedure=procedure;
+      gate2_label=selected_label;
+      rest_observation_case_hold=1;
+    }
+  }
+#endif
   if (___GSTATE->setup_params.min_heap == 0)
     {
       /*
@@ -542,6 +615,7 @@ ___processor_state ___ps;)
 {
   if (!___rc_prepare_cleanup (___ps))
     { rc_contract_error ("RC roots or borrows prevent memory cleanup"); return; }
+  clear_fast_span (___ps);
   cleanup_rc (___ps);
 }
 

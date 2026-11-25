@@ -1,0 +1,42 @@
+name: Gambit SMP
+on:
+  pull_request:
+    paths: ['include/**', 'lib/**', 'gsc/**', 'gsi/**', 'tests/**', 'configure*', 'makefile.in', '.github/workflows/smp.yml']
+  push:
+    branches: [modern-c]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  upstream-smp:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install upstream build prerequisites
+        run: brew install gcc autoconf automake pkgconf coreutils
+      - name: Build the SMP configuration through existing Make targets
+        run: |
+          aclocal && autoconf
+          export CC="${GAMBIT_SMP_CC:-$(command -v gcc-16)}"
+          export CFLAGS='-pipe -std=c23'
+          unset SDKROOT LIBRARY_PATH CPATH GAMBOPT
+          ./configure --enable-march= --enable-single-host=0 --enable-multiple-vms --enable-smp --enable-c-opt=-O1 --enable-c-opt-rts=yes --enable-gcc-opts --enable-inline-jumps --enable-dynamic-clib --enable-trust-c-tco --enable-multiple-threaded-vms
+          workers=$(sysctl -n hw.logicalcpu)
+          workers=$((workers > 1 ? workers - 1 : 1))
+          gtimeout --kill-after=2s 600s make -j"$workers" GAMBOPT=p1 core
+      - name: Official interpreted units with two processors
+        working-directory: tests
+        env:
+          GAMBOPT: p2
+        run: gtimeout --kill-after=2s 300s ../gsi/gsi -:p1 -f run-unit-tests.scm -gsi
+      - name: Official compiled thread and map regressions with two processors
+        working-directory: tests
+        env:
+          GAMBOPT: p2
+        run: gtimeout --kill-after=2s 300s ../gsi/gsi -:p1 -f run-unit-tests.scm -gsc unit-tests/06-thread unit-tests/04-list/map.scm
+      - name: Official compiled thread stress cases with two processors
+        working-directory: tests
+        env:
+          GAMBOPT: p2
+        run: gtimeout --kill-after=2s 300s ../gsi/gsi -:p1 -f run-unit-tests.scm -gsc -stress unit-tests/06-thread/tfib_stress.scm unit-tests/06-thread/thread_interrupt_stress.scm unit-tests/06-thread/thread_interrupt2_stress.scm unit-tests/06-thread/thread_terminate_stress.scm

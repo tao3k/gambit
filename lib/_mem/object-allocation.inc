@@ -194,14 +194,20 @@ ___SIZE_TS bytes;)
         {
           /*
            * Couldn't allocate the still object (probably the C heap is full).
-           * So undo its accounting at the VM level.
+           * Refund this request once. A reservation resize_heap already
+           * withdrew is not refunded here, because that path returns before
+           * this allocation.
            */
 
-          ALLOC_MEM_LOCK();
+          {
+            int refunded = 0;
+            long occupied = (long)occupied_words_still;
 
-          occupied_words_still -= words;
-
-          ALLOC_MEM_UNLOCK();
+            ALLOC_MEM_LOCK();
+            if (___still_refund_once(&refunded,&occupied,(long)words))
+              occupied_words_still = (___SIZE_TS)occupied;
+            ALLOC_MEM_UNLOCK();
+          }
 
           return ___FIX(___HEAP_OVERFLOW_ERR);
         }

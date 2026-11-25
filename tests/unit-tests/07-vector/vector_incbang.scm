@@ -28,3 +28,21 @@
 (test-error-tail wrong-number-of-arguments-exception? (vector-inc!))
 (test-error-tail wrong-number-of-arguments-exception? (vector-inc! vect1))
 (test-error-tail wrong-number-of-arguments-exception? (vector-inc! vect1 0 0 0))
+
+;; The callable primitive must accept the compiler's two-argument form too.
+;; Apply also exercises first-class calls, without primitive-call expansion.
+(define (call-primitive-inc . args)
+  (declare (not inline) (not inline-primitives ##vector-inc!))
+  (apply ##vector-inc! args))
+
+(define vect3 (vector 11))
+(test-equal 11 (##vector-inc! vect3 0))
+(test-equal 12 (##vector-ref vect3 0))
+(test-equal 12 (call-primitive-inc vect3 0))
+(test-equal 13 (##vector-ref vect3 0))
+(test-equal 13 (call-primitive-inc vect3 0 7))
+(test-equal 20 (##vector-ref vect3 0))
+(test-error-tail wrong-number-of-arguments-exception?
+                 (call-primitive-inc vect3))
+(test-error-tail wrong-number-of-arguments-exception?
+                 (call-primitive-inc vect3 0 1 2))

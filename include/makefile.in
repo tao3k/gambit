@@ -404,8 +404,9 @@ makefile: makefile.in $(rootfromhere)/config.status
 stamp-gambit: $(srcdirpfx)gambit.h.in $(addprefix $(srcdirpfx),$(HEADER_TEMPLATES)) $(rootfromhere)/config.status
 	@$(CONFIGURE_GAMBIT_HEADER)
 
+# The header command ends in a newline. Strip it so this fallback stays one shell.
 gambit.h: | stamp-gambit
-	@if test ! -f $@; then $(CONFIGURE_GAMBIT_HEADER) fi
+	@if test ! -f $@; then $(strip $(CONFIGURE_GAMBIT_HEADER)); fi
 
 # Tell versions [3.59,3.63) of GNU make not to export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

@@ -1798,6 +1798,14 @@
             (lambda (wait thread timeout)
               ;; Internal frame root, like Thread.cont; user captures retain denv.
               (##continuation-denv-set! wait #f)
+              (cond-expand
+                (dev-restore-join
+                 (if (##c-code
+                      "extern int ___dev_restore_at_join(___processor_state);
+                       ___RESULT = ___BOOLEAN(___dev_restore_at_join(___ps));")
+                     (if (##gc-without-exceptions)
+                         (##error "join restoration diagnostic overflow"))))
+                (else (##void)))
               (letrec ((resume
                         (lambda ()
                           (##thread-park! wait ##thread-join-register!
@@ -2788,22 +2796,23 @@
 
     (if (macro-current-thread) ;; if currently executing a thread
 
-        (let* ((current-processor-floats ;; to get heartbeat interval
+        (let* ((current-processor-floats
                 (macro-thread-floats (macro-current-processor)))
-               (current-thread-floats ;; to get current thread's quantum used
-                (macro-thread-floats (macro-current-thread)))
-               (heartbeat-interval
-                (macro-get-heartbeat-interval current-processor-floats))
-               (quantum-used
-                (##fl+ (macro-quantum-used current-thread-floats)
-                       heartbeat-interval)))
-
-          (macro-quantum-used-set! current-thread-floats quantum-used)
-
-          (if (##fl< quantum-used
-                     (macro-quantum current-thread-floats))
-              (macro-thread-reschedule-if-needed!) ;;TODO: check what this does
-              (##thread-yield!))))))
+               (current-thread-floats
+                (macro-thread-floats (macro-current-thread))))
+          (if (and (##f64vector? current-processor-floats)
+                   (##f64vector? current-thread-floats))
+              (let* ((heartbeat-interval
+                      (macro-get-heartbeat-interval current-processor-floats))
+                     (quantum-used
+                      (##fl+ (macro-quantum-used current-thread-floats)
+                             heartbeat-interval)))
+                (macro-quantum-used-set! current-thread-floats quantum-used)
+                (if (##fl< quantum-used
+                           (macro-quantum current-thread-floats))
+                    (macro-thread-reschedule-if-needed!)
+                    (##thread-yield!)))
+              (##void))))))
 
 (define-prim (##thread-reschedule!)
 
@@ -3229,6 +3238,8 @@
   (macro-processor-init! (##current-processor) (##current-processor-id))
 
   ;; enable interrupting this processor
+  (if (##not (##startup-ready!)) (##error "stale startup activation"))
+
   (##enable-interrupts!)
 
   ;; start scheduling threads on this processor
@@ -3279,7 +3290,7 @@
         thread))))
 
 (define (##cvmr n)
-  (##current-vm-resize ##startup-processor! n))
+  (##current-vm-resize-ready ##startup-processor! n))
 
 (define (##startup-parallelism!)
   (let* ((level
@@ -6961,6 +6972,8 @@
     (##btq-insert! (macro-current-processor) thread)
     )
 
+  (if (##not (##startup-ready!)) (##error "stale startup activation"))
+
   (##enable-interrupts!)
 
   (let loop ()
@@ -6969,7 +6982,7 @@
     (loop)))
 
 (define (##cvmr n)
-  (##current-vm-resize ##startup-processor! n))
+  (##current-vm-resize-ready ##startup-processor! n))
 
 (define (##startup-parallelism!)
   (let* ((level

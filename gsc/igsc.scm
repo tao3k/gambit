@@ -1,5 +1,5 @@
 #! /bin/sh
-":";THISDIR="`dirname $0`";GSI="$THISDIR/../gsi/gsi";if test "`basename $0`" == "igsc.scm" ; then exec $GSI -:dar,=$THISDIR/.. -f $0 $*; else exec $GSI -:dar,=$THISDIR -f $0 $*; fi
+":";THISDIR="`dirname $0`";GSI="${GAMBIT_BOOT_GSI:-$THISDIR/../gsi/gsi}";if test "`basename $0`" = "igsc.scm" ; then exec "$GSI" -:dar,=$THISDIR/.. -f "$0" "$@"; else GSI="${GAMBIT_BOOT_GSI:-$THISDIR/gsi/gsi}";exec "$GSI" -:dar,=$THISDIR -f "$0" "$@"; fi
 
 ;;;============================================================================
 
@@ -29,15 +29,53 @@
 
 (at-expansion-time (define ##compilation-options '()))
 
-;; remove runtime options if any
+;; (command-line) is the SRFI-193 script line, which is ("") here.
+;; Copying it erases -c and the source file, so ##main-gsi/gsc sees no
+;; arguments and blocks in the REPL.  The host argv is
+;; gsi -:dar -f igsc.scm -:~~... -f -c -o out file.scm.  Keep only the
+;; arguments after this script, and drop runtime -: options.
+
+(define (igsc-runtime-option? arg)
+  (and (string? arg)
+       (>= (string-length arg) 2)
+       (string=? (substring arg 0 2) "-:")))
+
+(define (igsc-script-arg? arg)
+  (and (string? arg)
+       (let ((base (path-strip-directory arg)))
+         (or (string=? base "igsc.scm")
+             (string=? base "gsc-boot")))))
 
 (let* ((cl ##processed-command-line)
-       (args (cdr cl)))
-  (if (and (pair? args)
-           (string? (car args))
-           (>= (string-length (car args)) 2)
-           (string=? (substring (car args) 0 2) "-:"))
-      (set! ##processed-command-line (cons (car cl) (cdr args)))))
+       (tail
+        (let loop ((rest (cdr cl)))
+          (cond ((or (null? rest) (null? (cdr rest)))
+                 (cdr cl))
+                ((and (string? (car rest))
+                      (string=? (car rest) "-f")
+                      (igsc-script-arg? (cadr rest)))
+                 (cddr rest))
+                (else
+                 (loop (cdr rest)))))))
+  ;; argv[0] is the gsi binary, so ##command-name is "gsi" and
+  ;; ##main-gsi/gsc takes the interpreter.  Name this invocation gsc.
+  (set! ##processed-command-line
+        (cons "gsc"
+              (let strip ((rest tail) (rev '()))
+                (cond ((null? rest)
+                       (reverse rev))
+                      ((igsc-runtime-option? (car rest))
+                       (strip (cdr rest) rev))
+                      (else
+                       (strip (cdr rest) (cons (car rest) rev))))))))
+
+;; command-name and command-args must consume this same canonical invocation.
+(##script-command-line-set! #f)
+
+(display "compiler-args ")
+(write (cdr ##processed-command-line))
+(newline)
+(force-output)
 
 ;; normalize program name
 
@@ -92,8 +130,13 @@
         (let ((file (string-append "~~/" dir base ".scm")))
           (display "loading ")
           (write file)
+          (newline)
+          (force-output)
           (load file)
-          (newline))))))
+          (display "loaded ")
+          (write file)
+          (newline)
+          (force-output))))))
 
 ;;;----------------------------------------------------------------------------
 
@@ -110,6 +153,10 @@
 (for-each (load-from-root "gsc/") gsc-modules)
 
 (eval '(##namespace ("")))
+
+(display "compiler-main")
+(newline)
+(force-output)
 
 (##main-gsi/gsc)
 

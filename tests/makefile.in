@@ -75,7 +75,8 @@ debug.scm error.scm r4rstest.scm mix.scm mem.scm client.c server.scm server.h \
 test1.ok test2.ok test3.ok test4.ok test5.ok test6.ok test7.ok \
 test8.ok test9.ok test10.scm input run-unit-tests.scm stack-overflow-undo.c \
 inline-primitives.scm sfun-entry.scm sfun-entry-fault.c pipe.scm collector-diagnostics.c \
-  ordered-sync.c frame-spec.scm frame-contract.c frame-continuation.scm frame-continuation-roots.scm
+  ordered-sync.c frame-spec.scm frame-contract.c frame-continuation.scm frame-continuation-roots.scm \
+  smp/gc/rest-parameter-semantics.scm smp/gc/rest-parameter-cuts.scm
 
 GENDISTFILES =
 
@@ -262,7 +263,7 @@ test-frame-contract:
 	@SETDLPATH@ ./frame-contract@exe@
 	@SETDLPATH@ $(rootfromhere)/gsc/gsc@exe@ -:~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f -exe -o frame-continuation@exe@ $(srcdirpfx)frame-continuation.scm
 	@SETDLPATH@ ./frame-continuation@exe@
-	@SETDLPATH@ $(rootfromhere)/gsc/gsc@exe@ -:~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f -exe -o frame-continuation-roots@exe@ $(srcdirpfx)frame-continuation-roots.scm
+	@SETDLPATH@ $(rootfromhere)/gsc/gsc@exe@ -:~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f -exe -cc-options "-DHAVE_CONFIG_H -I$(srcdirpfx)$(rootfromhere)/include -I$(srcdirpfx)$(rootfromhere)/lib" -o frame-continuation-roots@exe@ $(srcdirpfx)frame-continuation-roots.scm
 	@SETDLPATH@ ./frame-continuation-roots@exe@
 	rm -f frame-spec-fixtures.h frame-contract@exe@ frame-contract@obj@ frame-continuation@exe@ frame-continuation-roots@exe@
 
@@ -478,7 +479,7 @@ test-symkey-publication: root-task@exe@
 .PHONY: test-globals-snapshot
 test-globals-snapshot: root-task@exe@
 	@SETDLPATH@ ./root-task@exe@ -:p1 --globals-snapshot
-	@SETDLPATH@ ./root-task@exe@ -:p1 --globals-capacity
+	@SETDLPATH@ ./root-task@exe@ -:p1 --globals-storage
 	rm -f root-task-input.dat
 
 # These three already-existing feature variants are build products. Test
@@ -605,6 +606,11 @@ vm-lifecycle-host@exe@: $(srcdirpfx)smp/gc/vm-lifecycle-host.scm $(SMP_TEST_BUIL
 test-vm-lifecycle: vm-lifecycle@exe@ vm-lifecycle-host@exe@
 	@SETDLPATH@ ./vm-lifecycle@exe@ -:p1
 	@SETDLPATH@ ./vm-lifecycle-host@exe@ -:p1
+
+.PHONY: test-rest-parameters
+test-rest-parameters:
+	@SETDLPATH@ $(rootfromhere)/gsi/gsi@exe@ -:p1,~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f "$(srcdirpfx)smp/gc/rest-parameter-semantics.scm"
+	@SETDLPATH@ $(rootfromhere)/gsi/gsi@exe@ -:p1,~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f "$(srcdirpfx)smp/gc/rest-parameter-cuts.scm" -e "(begin (rest-cut-self-check) (for-each rest-cut-drive '(ordinary keyword-rest rest-keyword)))"
 
 .PHONY: test-binding-activation
 binding-activation@exe@: $(srcdirpfx)binding-activation.scm $(srcdirpfx)root-task-replay.scm $(SMP_TEST_BUILD_DEPS)

@@ -292,6 +292,7 @@ end-of-code
     */
 
    int fs;
+   int pending_demand;
    ___SCMOBJ ra;
 
 #ifdef ___HEARTBEAT_USING_POLL_COUNTDOWN
@@ -311,6 +312,9 @@ end-of-code
    if (!___handler_spill_backed (___ps, ___fp))
      ___group_demand_fail (___ps);
 
+   /* Read the demand while the cursor is still the caller's cursor. */
+   pending_demand = ___group_demand_before (___ps, ___fp);
+
    ___RETI_GET_CFS(ra,fs)
 
    ___ADJFP(___ROUND_TO_MULT(fs,___FRAME_ALIGN)-fs)
@@ -320,12 +324,30 @@ end-of-code
 
    ___ADJFP(-___RETI_RA)
 
+   /* GVM registers are now saved in the internal-return frame whose GC map
+    * excludes any raw unboxed spill slots; clear live regs before ___W_ALL so
+    * mark_registers never scans raw F64 spill bits as Scheme pointers. */
+#if ___NB_GVM_REGS > 1
+   ___SET_R1(___FIX(0L))
+#endif
+#if ___NB_GVM_REGS > 2
+   ___SET_R2(___FIX(0L))
+#endif
+#if ___NB_GVM_REGS > 3
+   ___SET_R3(___FIX(0L))
+#endif
+#if ___NB_GVM_REGS > 4
+   ___SET_R4(___FIX(0L))
+#endif
+
    ___SET_R0(___ps->internal_return)
 
    /* check why the handler was called */
 
    if (___FP_AFTER(___fp,___ps->context->stack_limit)
-       || ___group_demand_before(___ps,___fp)==1
+       || pending_demand==1
+       || ___ps->group_demand_active
+       || (___ps->heap_limit && ___ps->context->hp>___ps->heap_limit)
 #ifdef ___CALL_GC_FREQUENTLY
        || --___ps->mem.gc_calls_to_punt_ < 0
 #endif
@@ -337,7 +359,20 @@ end-of-code
 
        ___FRAME_STORE_RA(___R0)
        ___W_ALL
-       overflow = ___stack_limit (___PSPNC) && ___garbage_collect (___PSP 0);
+       /* The soft stack limit is only a poll. The section still holds
+        * frames down to its hard edge, so do not census for that gap. */
+       if (___FP_AFTER(___fp,___ps->context->stack_limit) &&
+           ___ps->mem.alloc_stack_limit_ &&
+           !___FP_AFTER(___fp,___ps->mem.alloc_stack_limit_+___MSECTION_FUDGE))
+         ___ps->context->stack_limit=___ps->mem.alloc_stack_limit_+___MSECTION_FUDGE;
+       if (pending_demand!=1
+           && !___ps->group_demand_active
+           && !___FP_AFTER(___fp,___ps->context->stack_limit)
+           && (!(___ps->heap_limit && ___ps->context->hp>___ps->heap_limit)
+               || ___heap_continue_on_free_section(___ps)))
+         overflow = 0;
+       else
+         overflow = ___stack_limit (___PSPNC) && ___garbage_collect (___PSP 0);
        ___group_demand_after(___ps, overflow);
        ___R_ALL
        ___SET_R0(___FRAME_FETCH_RA)
@@ -350,6 +385,17 @@ end-of-code
            ___JUMPPRM(___SET_NARGS(0),
                       ___PRMCELL(___G__23__23_raise_2d_stack_2d_overflow_2d_exception.prm))
          }
+     }
+
+   /* A write-group demand is a backing service, not an interrupt poll.
+    * Likewise, while a processor holds any primitive spinlock (primlock_depth > 0),
+    * dispatching ##interrupt-handler -> ##thread-heartbeat! would self-deadlock on
+    * CURRENTPROCESSOR. Returning directly to internal_return preserves critical
+    * sections and leaves pending interrupts armed for the next genuine poll. */
+   if (pending_demand == 1 || ___ps->group_demand_active || ___ps->primlock_depth > 0)
+     {
+       ___refresh_interrupts_pstate (___ps);
+       ___JUMPEXTPRM(___NOTHING, ___R0)
      }
 
    /* handle interrupts */
@@ -391,6 +437,19 @@ end-of-code
    ___PUSH(ra)  /* push return address */
 
    ___ADJFP(-___RETI_RA)
+
+#if ___NB_GVM_REGS > 1
+   ___SET_R1(___FIX(0L))
+#endif
+#if ___NB_GVM_REGS > 2
+   ___SET_R2(___FIX(0L))
+#endif
+#if ___NB_GVM_REGS > 3
+   ___SET_R3(___FIX(0L))
+#endif
+#if ___NB_GVM_REGS > 4
+   ___SET_R4(___FIX(0L))
+#endif
 
    ___SET_R0(___ps->internal_return)
 
@@ -609,9 +668,9 @@ end-of-code
 
    i = na - np + 1;
 
-   /* The fast path reserves only the pairs it emits. A short interval
-    * writes nothing and pops nothing. The mapped retry frame and the
-    * complete RC span are installed before collection. */
+   /* Admission is the complete demand, including np and one vector word.
+    * False writes nothing and may recover; the pair loop still emits only i
+    * pairs after a true result. */
    ___activation_record *held = 0;
    ___WORD held_epoch = 0;
 
@@ -619,8 +678,11 @@ end-of-code
     * live cursors stay in registers, so publish them before the test. */
    ___W_HEAP
    ___W_FP
+#ifdef ___GAMBIT_REST_OBSERVATION
+   ___rest_observation_form(1);
+#endif
    ___rest_note_attempt_entry(___ps, ___hp, ___fp);
-   if (!___rest_fast_grant_fits(___ps, ___hp, ___fp, i, 1))
+   if (!___rest_fast_grant_fits(___ps, ___hp, ___fp, i, np, 1))
      {
        ___BOOL overflow;
        ___SCMOBJ repaired=___ps->temp1;
@@ -628,6 +690,29 @@ end-of-code
        int frame_fs, frame_link;
 
        ___COVER_REST_PARAM_HANDLER_NEED_TO_GC;
+       /* Nine words against a ten-word demand, and the hard tail is no
+        * larger. Refuse before a root window, collection, extension, or
+        * pair store. */
+       if (___rest_planted_short() &&
+           ___rest_one_word_short(___ps, ___hp, ___fp, i, np, 1) &&
+           ___rest_physical_tail_short(___ps, i, np))
+         {
+           ___rest_mark_attempt_cut(___ps, ___hp, ___fp, 9, i);
+           ___rest_disarm_attempt();
+           ___JUMPPRM(___SET_NARGS(0),
+                      ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
+         }
+       /* The soft cursor is one word short, but this section's hard tail
+        * already holds the complete demand. Publish that edge and admit
+        * before any root window or pair store. */
+       if (___rest_one_word_short(___ps, ___hp, ___fp, i, np, 1) &&
+           !___rest_physical_tail_short(___ps, i, np) &&
+           ___rest_publish_owned_soft_edge(___ps, i, np))
+         {
+           ___R_HEAP
+           if (___rest_fast_grant_fits(___ps, ___hp, ___fp, i, np, 1))
+             goto rest_ordinary_admitted;
+         }
        if (___rest_attempt_blocked())
          {
            ___rest_mark_attempt_cut(___ps, ___hp, ___fp, 1, i);
@@ -637,6 +722,17 @@ end-of-code
            ___rest_disarm_attempt();
            ___JUMPPRM(___SET_NARGS(0),
                       ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
+         }
+       /* Before runtime GC admission is open, take the next free section
+        * directly; once admitted, enter root-window custody and collection. */
+       if (!___lifecycle_gc_admitted(___ps) &&
+           !___rest_planted_short() &&
+           ___rest_physical_tail_short(___ps, i, np) &&
+           ___rest_extend_interval(___ps, i, np))
+         {
+           ___R_HEAP
+           if (___rest_fast_grant_fits(___ps, ___hp, ___fp, i, np, 1))
+             goto rest_ordinary_admitted;
          }
        if (np<1 ||
            !___rest_root_window(___ps, ___fp, ___ps->temp1, na, 0, 0,
@@ -650,12 +746,26 @@ end-of-code
            ___JUMPPRM(___SET_NARGS(0),
                       ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
          }
-       if (___rest_caller_chain(___fp, na, ___R0,
-                                ___ps->context->stack_limit,
-                                ___ps->context->stack_break,
-                                ___ps->internal_return))
+       if (!___rest_caller_chain(___fp, na, ___R0,
+                                 ___ps->context->stack_limit,
+                                 ___ps->context->stack_break,
+                                 ___ps->internal_return))
          {
+           /* False is invalid source evidence or an incomplete logical
+            * walk. It does not authorize a destination extension. */
+           ___rest_mark_attempt_cut(___ps, ___hp, ___fp, 5, i);
+           ___ADJFP(-na)
+           ___FP_SET_STK(___fp,-___FRAME_STACK_RA,___R0)
+           ___W_FP
+           ___rest_activation_cleanup(___ps, held, ___FIX(1), held_epoch);
+           ___rest_disarm_attempt();
+           ___JUMPPRM(___SET_NARGS(0),
+                      ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
+         }
+       {
+           ___WORD *saved_fp=___fp;
            ___WORD *parent=___fp+na;
+           ___rest_observation_note_saved_fp(___ps, held, held_epoch, saved_fp, parent);
            ___FP_SET_STK(parent,-___FRAME_STACK_RA,___R0)
            ___fp=parent;
            ___W_ALL
@@ -673,7 +783,7 @@ end-of-code
                if (___heap_limit(___PSPNC))
                  {
                    ___rest_note_before_collect();
-             overflow=___garbage_collect(___PSP 0);
+                   overflow=___garbage_collect(___PSP 0);
                  }
                ___R_ALL
                ___SET_R0(___FRAME_FETCH_RA)
@@ -682,34 +792,26 @@ end-of-code
                ___fp<___ps->context->stack_limit+na)
              {
                ___rest_mark_attempt_cut(___ps, ___hp, ___fp, 4, i);
+               ___FP_SET_STK(___fp,-___FRAME_STACK_RA,___R0)
+               ___W_FP
                ___rest_activation_cleanup(___ps, held, ___FIX(1), held_epoch);
                ___rest_disarm_attempt();
                ___JUMPPRM(___SET_NARGS(0),
                           ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
              }
            ___ADJFP(na)
+           ___rest_observation_note_saved_fp(___ps, held, held_epoch, ___fp, ___fp);
+           ___rest_observation_note_return_fp(___ps, held, held_epoch, ___fp);
            ___R_HEAP
-         }
-       else if (!___rest_extend_interval(___ps, i, np))
-         {
-           ___rest_mark_attempt_cut(___ps, ___hp, ___fp, 2, i);
-           ___ADJFP(-na)
-           ___FP_SET_STK(___fp,-___FRAME_STACK_RA,___R0)
            ___W_FP
-           ___rest_activation_cleanup(___ps, held, ___FIX(1), held_epoch);
-           ___rest_disarm_attempt();
-           ___JUMPPRM(___SET_NARGS(0),
-                      ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
          }
-       else
-         ___R_HEAP
        ___rest_note_attempt_acquired(___ps, ___hp, ___fp);
        if (!___rest_reload_window(___ps, ___fp, held, held_epoch, na, 0, 0,
-                                  &repaired) ||
-           !___rest_grant_fits(___ps, ___hp, ___fp, i, np, 1))
+                                  &repaired))
          {
+           /* Root reload failed. This is not a destination shortage. */
            ___rest_note_attempt_view(___ps, held, held_epoch, ___fp);
-           ___rest_mark_attempt_cut(___ps, ___hp, ___fp, 1, i);
+           ___rest_mark_attempt_cut(___ps, ___hp, ___fp, 6, i);
            ___ADJFP(-na)
            ___FP_SET_STK(___fp,-___FRAME_STACK_RA,___R0)
            ___W_FP
@@ -717,9 +819,96 @@ end-of-code
            ___rest_disarm_attempt();
            ___JUMPPRM(___SET_NARGS(0),
                       ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
+         }
+       if (!___rest_stack_slots_fit(___ps, ___fp, 1))
+         {
+           /* Stack slots are short. Do not extend the heap. */
+           ___rest_note_attempt_view(___ps, held, held_epoch, ___fp);
+           ___rest_mark_attempt_cut(___ps, ___hp, ___fp, 7, i);
+           ___ADJFP(-na)
+           ___FP_SET_STK(___fp,-___FRAME_STACK_RA,___R0)
+           ___W_FP
+           ___rest_activation_cleanup(___ps, held, ___FIX(1), held_epoch);
+           ___rest_disarm_attempt();
+           ___JUMPPRM(___SET_NARGS(0),
+                      ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
+         }
+       if (!___rest_grant_fits(___ps, ___hp, ___fp, i, np, 1))
+         {
+           /* The returned heap view is still short. Soft quota alone is
+            * not a section contest. Only a short physical tail may claim;
+            * the same attempt then rechecks the complete grant.
+            * One word short of the complete demand is a refusal, not a
+            * new section. */
+           if (___rest_planted_short() &&
+               ___rest_one_word_short(___ps, ___hp, ___fp, i, np, 1) &&
+               ___rest_physical_tail_short(___ps, i, np))
+             {
+               ___rest_note_attempt_view(___ps, held, held_epoch, ___fp);
+               ___rest_mark_attempt_cut(___ps, ___hp, ___fp, 9, i);
+               ___rest_activation_cleanup(___ps, held, ___FIX(1), held_epoch);
+               ___rest_disarm_attempt();
+               ___JUMPPRM(___SET_NARGS(0),
+                          ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
+             }
+           if (___rest_physical_tail_short(___ps, i, np))
+             {
+           if (!___rest_extend_interval(___ps, i, np))
+             {
+               ___rest_note_attempt_view(___ps, held, held_epoch, ___fp);
+               ___rest_mark_attempt_cut(___ps, ___hp, ___fp, 2, i);
+               ___ADJFP(-na)
+               ___FP_SET_STK(___fp,-___FRAME_STACK_RA,___R0)
+               ___W_FP
+               ___rest_activation_cleanup(___ps, held, ___FIX(1), held_epoch);
+               ___rest_disarm_attempt();
+               ___JUMPPRM(___SET_NARGS(0),
+                          ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
+             }
+             }
+           else if (!___rest_publish_owned_soft_edge(___ps, i, np))
+             {
+               ___rest_note_attempt_view(___ps, held, held_epoch, ___fp);
+               ___rest_mark_attempt_cut(___ps, ___hp, ___fp, 8, i);
+               ___ADJFP(-na)
+               ___FP_SET_STK(___fp,-___FRAME_STACK_RA,___R0)
+               ___W_FP
+               ___rest_activation_cleanup(___ps, held, ___FIX(1), held_epoch);
+               ___rest_disarm_attempt();
+               ___JUMPPRM(___SET_NARGS(0),
+                          ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
+             }
+           ___R_HEAP
+           if (!___rest_reload_window(___ps, ___fp, held, held_epoch, na, 0, 0,
+                                      &repaired) ||
+               !___rest_grant_fits(___ps, ___hp, ___fp, i, np, 1))
+             {
+               ___rest_note_attempt_view(___ps, held, held_epoch, ___fp);
+               ___rest_mark_attempt_cut(___ps, ___hp, ___fp, 1, i);
+               ___ADJFP(-na)
+               ___FP_SET_STK(___fp,-___FRAME_STACK_RA,___R0)
+               ___W_FP
+               ___rest_activation_cleanup(___ps, held, ___FIX(1), held_epoch);
+               ___rest_disarm_attempt();
+               ___JUMPPRM(___SET_NARGS(0),
+                          ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
+             }
          }
        ___ps->temp1=repaired;
      }
+
+   rest_ordinary_admitted:
+
+   if (held) {
+     enum ___rest_status preflight=
+       ___rest_ready_preflight(___ps, held, ___FIX(1), held_epoch);
+     if (preflight!=___REST_OK && preflight!=___REST_DUPLICATE) {
+       ___rest_activation_cleanup(___ps, held, ___FIX(1), held_epoch);
+       ___rest_disarm_attempt();
+       ___JUMPPRM(___SET_NARGS(0),
+                  ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
+     }
+   }
 
    while (i > 0)
      {
@@ -743,6 +932,15 @@ end-of-code
        rest_param_list = entered;
      }
 
+#ifdef ___GAMBIT_REST_OBSERVATION
+   {
+     extern void ___rest_observation_exact_granted(___processor_state, ___WORD *, ___WORD *);
+     ___W_HEAP
+     ___W_FP
+     ___rest_observation_exact_granted(___ps, ___hp, ___fp);
+   }
+#endif
+
    ___COVER_REST_PARAM_HANDLER_NO_NEED_TO_GC;
 
    ___PUSH(rest_param_list) /* rest parameter is last */
@@ -750,6 +948,7 @@ end-of-code
    ___POP_ARGS_IN_REGS(np) /* load register arguments */
 
    ___rest_disarm_attempt();
+   ___rest_observation_note_body(___ps);
    ___JUMPEXTPRM(___SET_NARGS(-1),___ps->temp1)
 
 end-of-code
@@ -1062,6 +1261,9 @@ end-of-code
 
    ___activation_record *held = 0;
    ___WORD held_epoch = 0;
+#ifdef ___GAMBIT_REST_OBSERVATION
+   unsigned rest_observation_form = ___ps->temp4 ? 2 : 3;
+#endif
 
    {
      ___WORD staged = 0;
@@ -1071,6 +1273,9 @@ end-of-code
       * Both keyword spellings use this handler's own I and J. */
      ___W_HEAP
      ___W_FP
+#ifdef ___GAMBIT_REST_OBSERVATION
+     ___rest_observation_form(rest_observation_form);
+#endif
      ___rest_note_attempt_entry(___ps, ___hp, ___fp);
      if (!___rest_signed_sum(j, nb_key, &staged) ||
          !___rest_signed_sum(staged, 1, &stack_slots))
@@ -1079,7 +1284,7 @@ end-of-code
          ___JUMPPRM(___SET_NARGS(0),
                     ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
        }
-     if (!___rest_fast_grant_fits(___ps, ___hp, ___fp, i, stack_slots))
+     if (!___rest_fast_grant_fits(___ps, ___hp, ___fp, i, np, stack_slots))
        {
          ___BOOL overflow;
          ___SCMOBJ repaired=___ps->temp1;
@@ -1087,6 +1292,23 @@ end-of-code
          int frame_fs, frame_link;
 
          ___COVER_KEYWORD_REST_PARAM_HANDLER_NEED_TO_GC;
+         if (___rest_planted_short() &&
+             ___rest_one_word_short(___ps, ___hp, ___fp, i, np, stack_slots) &&
+             ___rest_physical_tail_short(___ps, i, np))
+           {
+             ___rest_mark_attempt_cut(___ps, ___hp, ___fp, 9, i);
+             ___rest_disarm_attempt();
+             ___JUMPPRM(___SET_NARGS(0),
+                        ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
+           }
+         if (___rest_one_word_short(___ps, ___hp, ___fp, i, np, stack_slots) &&
+             !___rest_physical_tail_short(___ps, i, np) &&
+             ___rest_publish_owned_soft_edge(___ps, i, np))
+           {
+             ___R_HEAP
+             if (___rest_fast_grant_fits(___ps, ___hp, ___fp, i, np, stack_slots))
+               goto rest_keyword_admitted;
+           }
          if (___rest_attempt_blocked())
            {
              ___rest_mark_attempt_cut(___ps, ___hp, ___fp, 1, i);
@@ -1096,6 +1318,15 @@ end-of-code
              ___rest_disarm_attempt();
              ___JUMPPRM(___SET_NARGS(0),
                         ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
+           }
+         if (!___lifecycle_gc_admitted(___ps) &&
+             !___rest_planted_short() &&
+             ___rest_physical_tail_short(___ps, i, np) &&
+             ___rest_extend_interval(___ps, i, np))
+           {
+             ___R_HEAP
+             if (___rest_fast_grant_fits(___ps, ___hp, ___fp, i, np, stack_slots))
+               goto rest_keyword_admitted;
            }
          if (!___rest_root_window(___ps, ___fp, ___ps->temp1, na, nb_key,
                                   key_vals, nb_req_opt, j, i, np, 1,
@@ -1109,18 +1340,32 @@ end-of-code
              ___JUMPPRM(___SET_NARGS(0),
                         ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
            }
-         if (___rest_caller_chain(___fp, na, ___R0,
-                                  ___ps->context->stack_limit,
-                                  ___ps->context->stack_break,
-                                  ___ps->internal_return))
+         if (!___rest_caller_chain(___fp, na, ___R0,
+                                   ___ps->context->stack_limit,
+                                   ___ps->context->stack_break,
+                                   ___ps->internal_return))
            {
+             /* False is invalid source evidence or an incomplete logical
+              * walk. It does not authorize a destination extension. */
+             ___rest_mark_attempt_cut(___ps, ___hp, ___fp, 5, i);
+             ___ADJFP(-na)
+             ___FP_SET_STK(___fp,-___FRAME_STACK_RA,___R0)
+             ___W_FP
+             ___rest_activation_cleanup(___ps, held, ___FIX(1), held_epoch);
+             ___rest_disarm_attempt();
+             ___JUMPPRM(___SET_NARGS(0),
+                        ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
+           }
+         {
+             ___WORD *saved_fp=___fp;
              ___WORD *parent=___fp+na;
+             ___rest_observation_note_saved_fp(___ps, held, held_epoch, saved_fp, parent);
              ___FP_SET_STK(parent,-___FRAME_STACK_RA,___R0)
              ___fp=parent;
              ___W_ALL
              {
                ___rest_note_before_collect();
-             overflow=___garbage_collect(___PSP 0);
+               overflow=___garbage_collect(___PSP 0);
              }
              ___R_ALL
              ___SET_R0(___FRAME_FETCH_RA)
@@ -1130,7 +1375,7 @@ end-of-code
                  if (___heap_limit(___PSPNC))
                    {
                      ___rest_note_before_collect();
-             overflow=___garbage_collect(___PSP 0);
+                     overflow=___garbage_collect(___PSP 0);
                    }
                  ___R_ALL
                  ___SET_R0(___FRAME_FETCH_RA)
@@ -1139,34 +1384,26 @@ end-of-code
                  ___fp<___ps->context->stack_limit+na)
                {
                  ___rest_mark_attempt_cut(___ps, ___hp, ___fp, 4, i);
+                 ___FP_SET_STK(___fp,-___FRAME_STACK_RA,___R0)
+                 ___W_FP
                  ___rest_activation_cleanup(___ps, held, ___FIX(1), held_epoch);
                  ___rest_disarm_attempt();
                  ___JUMPPRM(___SET_NARGS(0),
                             ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
                }
              ___ADJFP(na)
+             ___rest_observation_note_saved_fp(___ps, held, held_epoch, ___fp, ___fp);
+             ___rest_observation_note_return_fp(___ps, held, held_epoch, ___fp);
              ___R_HEAP
-           }
-         else if (!___rest_extend_interval(___ps, i, np))
-           {
-             ___rest_mark_attempt_cut(___ps, ___hp, ___fp, 2, i);
-             ___ADJFP(-na)
-             ___FP_SET_STK(___fp,-___FRAME_STACK_RA,___R0)
              ___W_FP
-             ___rest_activation_cleanup(___ps, held, ___FIX(1), held_epoch);
-             ___rest_disarm_attempt();
-             ___JUMPPRM(___SET_NARGS(0),
-                        ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
            }
-         else
-           ___R_HEAP
          ___rest_note_attempt_acquired(___ps, ___hp, ___fp);
          if (!___rest_reload_window(___ps, ___fp, held, held_epoch, na,
-                                    nb_key, key_vals, &repaired) ||
-             !___rest_grant_fits(___ps, ___hp, ___fp, i, np, stack_slots))
+                                    nb_key, key_vals, &repaired))
            {
+             /* Root reload failed. This is not a destination shortage. */
              ___rest_note_attempt_view(___ps, held, held_epoch, ___fp);
-             ___rest_mark_attempt_cut(___ps, ___hp, ___fp, 1, i);
+             ___rest_mark_attempt_cut(___ps, ___hp, ___fp, 6, i);
              ___ADJFP(-na)
              ___FP_SET_STK(___fp,-___FRAME_STACK_RA,___R0)
              ___W_FP
@@ -1174,9 +1411,96 @@ end-of-code
              ___rest_disarm_attempt();
              ___JUMPPRM(___SET_NARGS(0),
                         ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
+           }
+         if (!___rest_stack_slots_fit(___ps, ___fp, stack_slots))
+           {
+             /* Stack slots are short. Do not extend the heap. */
+             ___rest_note_attempt_view(___ps, held, held_epoch, ___fp);
+             ___rest_mark_attempt_cut(___ps, ___hp, ___fp, 7, i);
+             ___ADJFP(-na)
+             ___FP_SET_STK(___fp,-___FRAME_STACK_RA,___R0)
+             ___W_FP
+             ___rest_activation_cleanup(___ps, held, ___FIX(1), held_epoch);
+             ___rest_disarm_attempt();
+             ___JUMPPRM(___SET_NARGS(0),
+                        ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
+           }
+         if (!___rest_grant_fits(___ps, ___hp, ___fp, i, np, stack_slots))
+           {
+             /* The returned heap view is still short. Soft quota alone is
+              * not a section contest. Only a short physical tail may claim;
+              * the same attempt then rechecks the complete grant.
+              * One word short of the complete demand is a refusal, not a
+              * new section. */
+             if (___rest_planted_short() &&
+                 ___rest_one_word_short(___ps, ___hp, ___fp, i, np, stack_slots) &&
+                 ___rest_physical_tail_short(___ps, i, np))
+               {
+                 ___rest_note_attempt_view(___ps, held, held_epoch, ___fp);
+                 ___rest_mark_attempt_cut(___ps, ___hp, ___fp, 9, i);
+                 ___rest_activation_cleanup(___ps, held, ___FIX(1), held_epoch);
+                 ___rest_disarm_attempt();
+                 ___JUMPPRM(___SET_NARGS(0),
+                            ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
+               }
+             if (___rest_physical_tail_short(___ps, i, np))
+               {
+             if (!___rest_extend_interval(___ps, i, np))
+               {
+                 ___rest_note_attempt_view(___ps, held, held_epoch, ___fp);
+                 ___rest_mark_attempt_cut(___ps, ___hp, ___fp, 2, i);
+                 ___ADJFP(-na)
+                 ___FP_SET_STK(___fp,-___FRAME_STACK_RA,___R0)
+                 ___W_FP
+                 ___rest_activation_cleanup(___ps, held, ___FIX(1), held_epoch);
+                 ___rest_disarm_attempt();
+                 ___JUMPPRM(___SET_NARGS(0),
+                            ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
+               }
+               }
+             else if (!___rest_publish_owned_soft_edge(___ps, i, np))
+               {
+                 ___rest_note_attempt_view(___ps, held, held_epoch, ___fp);
+                 ___rest_mark_attempt_cut(___ps, ___hp, ___fp, 8, i);
+                 ___ADJFP(-na)
+                 ___FP_SET_STK(___fp,-___FRAME_STACK_RA,___R0)
+                 ___W_FP
+                 ___rest_activation_cleanup(___ps, held, ___FIX(1), held_epoch);
+                 ___rest_disarm_attempt();
+                 ___JUMPPRM(___SET_NARGS(0),
+                            ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
+               }
+             ___R_HEAP
+             if (!___rest_reload_window(___ps, ___fp, held, held_epoch, na,
+                                        nb_key, key_vals, &repaired) ||
+                 !___rest_grant_fits(___ps, ___hp, ___fp, i, np, stack_slots))
+               {
+                 ___rest_note_attempt_view(___ps, held, held_epoch, ___fp);
+                 ___rest_mark_attempt_cut(___ps, ___hp, ___fp, 1, i);
+                 ___ADJFP(-na)
+                 ___FP_SET_STK(___fp,-___FRAME_STACK_RA,___R0)
+                 ___W_FP
+                 ___rest_activation_cleanup(___ps, held, ___FIX(1), held_epoch);
+                 ___rest_disarm_attempt();
+                 ___JUMPPRM(___SET_NARGS(0),
+                            ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
+               }
            }
          ___ps->temp1=repaired;
        }
+   }
+
+   rest_keyword_admitted:
+
+   if (held) {
+     enum ___rest_status preflight=
+       ___rest_ready_preflight(___ps, held, ___FIX(1), held_epoch);
+     if (preflight!=___REST_OK && preflight!=___REST_DUPLICATE) {
+       ___rest_activation_cleanup(___ps, held, ___FIX(1), held_epoch);
+       ___rest_disarm_attempt();
+       ___JUMPPRM(___SET_NARGS(0),
+                  ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
+     }
    }
 
    while (i > 0)
@@ -1201,6 +1525,15 @@ end-of-code
        rest_param_list = entered;
      }
 
+#ifdef ___GAMBIT_REST_OBSERVATION
+   {
+     extern void ___rest_observation_exact_granted(___processor_state, ___WORD *, ___WORD *);
+     ___W_HEAP
+     ___W_FP
+     ___rest_observation_exact_granted(___ps, ___hp, ___fp);
+   }
+#endif
+
    ___ADJFP(-j)
 
    ___COVER_KEYWORD_REST_PARAM_HANDLER_NO_NEED_TO_GC;
@@ -1213,6 +1546,7 @@ end-of-code
    ___POP_ARGS_IN_REGS(np) /* load register arguments */
 
    ___rest_disarm_attempt();
+   ___rest_observation_note_body(___ps);
    ___JUMPEXTPRM(___SET_NARGS(-1),___ps->temp1)
 
 end-of-code
@@ -1245,6 +1579,16 @@ end-of-code
    ___PUSH(ra)  /* push return address */
 
    ___ADJFP(-___RETI_RA)
+
+#if ___NB_GVM_REGS > 2
+   ___SET_R2(___FIX(0L))
+#endif
+#if ___NB_GVM_REGS > 3
+   ___SET_R3(___FIX(0L))
+#endif
+#if ___NB_GVM_REGS > 4
+   ___SET_R4(___FIX(0L))
+#endif
 
    ___SET_R0(___ps->internal_return)
 
@@ -1460,6 +1804,16 @@ end-of-code
            ___COVER_BREAK_HANDLER_HEAP_RETN;
          }
 
+       {
+         extern int ___stack_adjust_fits(___processor_state, ___WORD *, ___SIZE_TS);
+         /* Copying the heap frame moves fp by the whole aligned frame.
+          * Refuse before the first store when that distance is outside
+          * the owned stack span. */
+         if (!___stack_adjust_fits(___ps, ___fp,
+                                   ___CAST(___SIZE_TS,___FRAME_SPACE(fs))))
+           ___group_demand_fail(___ps);
+       }
+
        fp += fs+1; /* get base of frame */
 
        for (i=fs; i>0; i--)
@@ -1516,6 +1870,9 @@ end-of-code
 
    int fs;
    ___SCMOBJ ira;
+#ifdef ___GAMBIT_REST_OBSERVATION
+   ___WORD *gate2_handler_fp = ___fp;
+#endif
 
    /* save result in case we are returning from ##force-out-of-line */
 
@@ -1537,6 +1894,20 @@ end-of-code
    /* adjust ___fp so that slot fs is on top of stack */
 
    ___ADJFP(fs-___ROUND_TO_MULT(fs,___FRAME_ALIGN))
+
+#ifdef ___GAMBIT_REST_OBSERVATION
+   {
+     extern void ___gate2_unwound(___processor_state, ___WORD *, ___WORD *, int);
+     ___gate2_unwound(___ps, gate2_handler_fp, ___fp, fs);
+   }
+#endif
+
+   /* The handler published its frame cursor before this pop. Keep the
+    * restored caller cursor beside that saved value. */
+   {
+     extern void ___group_demand_note_return_fp(___processor_state, ___WORD *);
+     ___group_demand_note_return_fp(___ps, ___fp);
+   }
 
    /* jump to internal return point */
 

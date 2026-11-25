@@ -113,7 +113,35 @@
 (define (univ-define-rtlib-feature name feature)
   (table-set! univ-rtlib-feature-table name (vector 'field feature)))
 
-(let () ;; univ-rtlib-features definitions
+;; Emit one top-level procedure per registration group. Pass the original
+;; local bindings explicitly so installation order and captures are unchanged.
+(define-macro (univ-rtlib-features . forms)
+  (let collect ((rest forms) (locals '()) (parameters '()))
+    (if (and (pair? rest) (eq? (caar rest) 'define))
+        (let ((binding (cadar rest)))
+          (collect (cdr rest)
+                   (cons (car rest) locals)
+                   (cons (if (pair? binding) (car binding) binding)
+                         parameters)))
+        (let ((names
+               (map (lambda (group)
+                      (string->symbol
+                       (string-append "univ-install-rtlib-"
+                                      (symbol->string (cadr group)))))
+                    rest))
+              (params (reverse parameters)))
+          `(begin
+             ,@(map (lambda (name group)
+                      `(define (,name ,@params)
+                         (declare (not inline))
+                         ,@(cddr group)))
+                    names rest)
+             (let ()
+               (declare (not inline))
+               ,@(reverse locals)
+               ,@(map (lambda (name) `(,name ,@params)) names)))))))
+
+(univ-rtlib-features
 
   (define (rts-class
            ctx
@@ -526,6 +554,7 @@
 
   ;;---------------------------------------------------------------------------
 
+(univ-rtlib-feature-group registers
   ;; GVM registers
 
   (for-each
@@ -681,7 +710,9 @@
                                (^empty-dict '(dict str scmobj)))))
 
   ;;---------------------------------------------------------------------------
+)
 
+(univ-rtlib-feature-group stack
   ;; GVM stack
 
   (univ-define-rtlib-feature 'sp
@@ -1019,7 +1050,9 @@
                (^return (^upcast* 'returnpt 'jumpable ra)))))))))
 
   ;;---------------------------------------------------------------------------
+)
 
+(univ-rtlib-feature-group parameters
   ;; Parameter processing and argument count checking
 
   (univ-define-rtlib-feature 'nargs
@@ -1315,7 +1348,9 @@
            (univ-pop-args-to-regs ctx 0))))))
 
   ;;---------------------------------------------------------------------------
+)
 
+(univ-rtlib-feature-group processor
   ;; Temporary variables
 
   (for-each
@@ -1485,7 +1520,9 @@
               ))))))
 
   ;;---------------------------------------------------------------------------
+)
 
+(univ-rtlib-feature-group modules
   ;; Module registry
 
   (univ-define-rtlib-feature 'modlinkinfo
@@ -1759,7 +1796,9 @@
                          (^jump pc)))))))
 
   ;;---------------------------------------------------------------------------
+)
 
+(univ-rtlib-feature-group conversions
   ;; Conversions between Scheme and host
 
   (univ-define-rtlib-feature 'foreign2host
@@ -2297,7 +2336,9 @@
               (^return (^getglo '##scm2host-call-error))))))))
 
   ;;---------------------------------------------------------------------------
+)
 
+(univ-rtlib-feature-group constructors
   ;; Type constructors and predicates
 
   (let ()
@@ -2437,7 +2478,9 @@
               "only available on go target"))))))
 
   ;;---------------------------------------------------------------------------
+)
 
+(univ-rtlib-feature-group symbols
   ;; Base 92 decoding of 32 bit unsigned integer arrays.
 
   (univ-define-rtlib-feature 'base92_decode
@@ -2730,7 +2773,9 @@
         (lambda (ctx feature)
           (continuation-graft-no-winding-procedure ctx num #t)))))
    '(2 3 4 5))
+)
 
+(univ-rtlib-feature-group control
   (univ-define-rtlib-feature 'continuation_return_no_winding2
    (lambda (ctx feature)
      (continuation-return-no-winding-procedure ctx 2)))
@@ -3049,10 +3094,41 @@
                  (^call-prim
                   (^rts-method-use 'bignum_to_s32)
                   n))))))))
+)
 
 )
 
-(define (old-univ-rtlib-feature ctx feature)
+;; Emit the case bodies as top-level procedures rather than nested
+;; lambdas in the selector's physical host.
+(define-macro (define-old-univ-rtlib-feature signature . forms)
+  (let* ((reversed (reverse forms))
+         (selector (car reversed))
+         (locals (reverse (cdr reversed)))
+         (clauses (cddr selector))
+         (params '(ctx feature rts-method rts-class rts-field rts-init))
+         (names
+          (map (lambda (clause)
+                 (let ((keys (car clause)))
+                   (string->symbol
+                    (string-append "univ-old-rtlib-"
+                                   (symbol->string
+                                    (if (pair? keys) (car keys) keys))))))
+               clauses)))
+    `(begin
+       ,@(map (lambda (name clause)
+                `(define (,name ,@params)
+                   (declare (not inline))
+                   ,@(cdr clause)))
+              names clauses)
+       (define ,signature
+         (declare (not inline))
+         ,@locals
+         (case ,(cadr selector)
+           ,@(map (lambda (name clause)
+                    `(,(car clause) (,name ,@params)))
+                  names clauses))))))
+
+(define-old-univ-rtlib-feature (old-univ-rtlib-feature ctx feature)
 
   (define (rts-method
            name

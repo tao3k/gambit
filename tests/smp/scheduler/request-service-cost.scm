@@ -31,7 +31,10 @@
 (define ready #f)
 (define finished #f)
 (define target
-  (thread-start!
+  ((if (and composed? (member "--place-target" (cdr (command-line)))
+            (> (##current-vm-processor-count) 1))
+       (lambda (thread) (##thread-start-on! 1 thread))
+       thread-start!)
    (make-thread
     (lambda ()
       (set! target-start-processor (processor-id (current-processor)))

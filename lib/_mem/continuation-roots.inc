@@ -35,9 +35,17 @@ ___HIDDEN ___msection *admit_source_stack_span(___collector_worker *work,
                                               ___SIZE_TS *half_words)
 {
   ___processor_state ___ps=work->carrier;
-  ___msection *section=resolve_source_half(the_msections,top,source_offset,half_words);
-  ___UWORD address=___CAST(___UWORD,top);
-  if (!section || !source_claim_is_live(section_claim_at(section,source_offset))) return 0;
+  ___msection *section;
+  ___UWORD address=___CAST(___UWORD,top), first, half_past;
+  if (source_offset!=0 && source_offset!=(___MSECTION_SIZE>>1)) return 0;
+  section=___gc_find_msection_cached(work, the_msections, top);
+  if (!section) return 0;
+  first=___CAST(___UWORD,section->base+source_offset);
+  half_past=first+___CAST(___UWORD,___MSECTION_SIZE>>1)*___WS;
+  if ((first%___WS)!=0 || (address%___WS)!=0 || address<first || address>=half_past)
+    return 0;
+  *half_words=(half_past-address)/___WS;
+  if (!source_claim_is_live(section_claim_at(section,source_offset))) return 0;
   if (logical_past) {
     ___UWORD logical=___CAST(___UWORD,logical_past);
     if ((logical%___WS)!=0 || logical<address || (logical-address)/___WS>*half_words) return 0;
@@ -50,12 +58,29 @@ ___HIDDEN int decode_source_stack_frame(___WORD *top, ___SIZE_TS remaining,
                                        ___frame_descriptor *frame)
 {
   int internal;
-  if (!remaining) return 0;
+  ___WORD label;
+  if (!remaining || !top || !ra || !frame) return 0;
   if (!carry) *ra=___FP_STK(top,-___FRAME_STACK_RA);
   internal=*ra==___GSTATE->internal_return;
   if (internal && ___CAST(___SIZE_TS,-___RETI_RA)>=remaining) return 0;
-  *frame=___decode_frame_descriptor(___LABEL_DESCR_GET(
-    internal ? ___FP_STK(top,___RETI_RA) : *ra),internal);
+  label=internal ? ___FP_STK(top,___RETI_RA) : *ra;
+  /* Only a permanent return label object has a frame descriptor. A fixnum
+   * or non-return subtyped object (such as a heap frame/continuation at a
+   * chain boundary) is not a code label, and decoding it faults. */
+  if (___TYP(label)!=___tSUBTYPED) return 0;
+  {
+    ___WORD *body=___UNTAG(label);
+    ___WORD hd, descr;
+    if (!body || (___CAST(___UWORD,body)&(___WS-1)) ||
+        ___CAST(___UWORD,body)<0x10000) return 0;
+    hd=___SUBTYPED_HEADER(label);
+    if (___HD_SUBTYPE(hd)!=___sRETURN || ___HD_TYP(hd)!=___PERM) return 0;
+    descr=___LABEL_DESCR_GET(label);
+    if (!___IS_IFD(descr) &&
+        (!descr || (___CAST(___UWORD,descr)&(___WS-1)) ||
+         ___CAST(___UWORD,descr)<0x10000)) return 0;
+    *frame=___decode_frame_descriptor(descr,internal);
+  }
   if (frame->fs<=0 || frame->link<0 || frame->link>=frame->fs ||
       ___CAST(___SIZE_TS,___FRAME_SPACE(frame->fs))>remaining) return 0;
   return 1;
@@ -71,12 +96,88 @@ ___HIDDEN ___WORD *raw_stack_span_end(const section_claim *claim, ___WORD *base,
   const unsigned char *marks=claim->raw_marks;
   ___SIZE_TS prev=index, next=index+1;
 
-  while (prev>low && !raw_stack_mark_at(marks,prev))
+#if defined(__GNUC__) && defined(__BYTE_ORDER__) && (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__) && !defined(CBMC)
+  {
+    const ___SIZE_TS max_wi = (___SIZE_TS)(RAW_STACK_MAP_BYTES / 8);
+    ___SIZE_TS wi = prev >> 5;
+    ___SIZE_TS lo_wi = low >> 5;
+    if (wi < max_wi) {
+      unsigned int top_bit = (unsigned int)((prev & 31) * 2 + 1);
+      ___U64 hi_mask = (top_bit == 63) ? ~(___U64)0 : (((___U64)1 << (top_bit + 1)) - 1);
+      ___SIZE_TS found = low;
+      for (;;) {
+        ___U64 w;
+        memcpy(&w, &marks[wi * 8], 8);
+        w &= hi_mask;
+        hi_mask = ~(___U64)0;
+        if (wi == lo_wi) {
+          unsigned int lo_bit = (unsigned int)((low & 31) * 2);
+          w &= (~(___U64)0) << lo_bit;
+        }
+        if (w != 0) {
+          unsigned int hb = 63U - (unsigned int)__builtin_clzll(w);
+          found = (wi << 5) + (___SIZE_TS)(hb >> 1);
+          break;
+        }
+        if (wi <= lo_wi) break;
+        wi--;
+      }
+      prev = found;
+    } else {
+      while (prev>low && !raw_stack_mark_at(marks,prev)) prev--;
+    }
+    if (raw_stack_mark_at(marks,prev)!=RAW_STACK_START) return 0;
+
+    if (next < high) {
+      ___SIZE_TS nwi = next >> 5;
+      ___SIZE_TS hi_wi = high >> 5;
+      if (hi_wi < max_wi) {
+        unsigned int lo_bit = (unsigned int)((next & 31) * 2);
+        ___U64 lo_mask = (~(___U64)0) << lo_bit;
+        ___SIZE_TS found = high;
+        for (;;) {
+          ___U64 w;
+          memcpy(&w, &marks[nwi * 8], 8);
+          w &= lo_mask;
+          lo_mask = ~(___U64)0;
+          if (nwi == hi_wi) {
+            unsigned int hb = (unsigned int)((high & 31) * 2 + 1);
+            w &= (hb == 63) ? ~(___U64)0 : (((___U64)1 << (hb + 1)) - 1);
+          }
+          if (w != 0) {
+            unsigned int lb = (unsigned int)__builtin_ctzll(w);
+            found = (nwi << 5) + (___SIZE_TS)(lb >> 1);
+            break;
+          }
+          if (nwi >= hi_wi) break;
+          nwi++;
+        }
+        next = found;
+      } else {
+        while (next<high && !raw_stack_mark_at(marks,next)) next++;
+      }
+    }
+  }
+#else
+  while (prev>low && !raw_stack_mark_at(marks,prev)) {
+    if ((prev&31)==31 && prev-low>=32) {
+      ___U64 z;
+      memcpy(&z, &marks[(prev-31)>>2], 8);
+      if (z==0) { prev-=32; continue; }
+    }
     prev-=prev%4==3 && !marks[prev/4] && prev-low>=4 ? 4 : 1;
+  }
   if (raw_stack_mark_at(marks,prev)!=RAW_STACK_START) return 0;
 
-  while (next<high && !raw_stack_mark_at(marks,next))
+  while (next<high && !raw_stack_mark_at(marks,next)) {
+    if ((next&31)==0 && high-next>=32) {
+      ___U64 z;
+      memcpy(&z, &marks[next>>2], 8);
+      if (z==0) { next+=32; continue; }
+    }
     next+=next%4==0 && !marks[next/4] && high-next>=4 ? 4 : 1;
+  }
+#endif
   return raw_stack_mark_at(marks,next)==RAW_STACK_END ? base+next : 0;
 }
 
@@ -88,6 +189,7 @@ ___HIDDEN int read_admitted_stack_frame(const section_claim *claim,
                                         ___WORD **known_break_out)
 {
   ___UWORD address=___CAST(___UWORD,top);
+  if (!claim || !top || (address & (___WS-1))) return 0;
   if (!logical_past && claim->stack_state==STACK_PARKED && claim->parked_top &&
       address>=___CAST(___UWORD,claim->parked_top) &&
       address<=___CAST(___UWORD,claim->parked_break))

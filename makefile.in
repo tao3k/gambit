@@ -110,9 +110,7 @@ core:
 
 core-pre: gsc-boot@exe@
 	$(MAKE) stamp
-	@if echo "MAKEFLAGS: $(MAKEFLAGS)" | fgrep -e "--jobserver-" > /dev/null; then \
-	  $(MAKE) phases; \
-	fi
+	$(MAKE) phases
 
 core-post:
 	@echo "*** to compile the builtin modules you should: make modules"
@@ -141,7 +139,7 @@ from-scratch: fake_target
 	$(MAKE) bootclean
 	$(MAKE) bootstrap # make gsc compiler corresponding to repo HEAD
 	$(MAKE) bootclean
-	$(MAKE) core       # make everything with repo HEAD gsc compiler
+	$(MAKE) core $(if $(GAMBIT_BUILD_WITNESS),GAMBIT_WITNESS_PASS=2) # build with repo HEAD gsc
 
 boot-most-recent-release: fake_target
 	@if test -x "boot/gsc-boot@exe@" && \

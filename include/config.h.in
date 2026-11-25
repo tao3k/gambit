@@ -344,3 +344,7 @@
 /*---------------------------------------------------------------------------*/
 
 #endif
+
+/* Target Scheme generation features; also a Make generation dependency. */
+#undef ___RTLIB_COND_EXPAND_FEATURES
+#undef ___GSC_COMPILATION_OPTIONS

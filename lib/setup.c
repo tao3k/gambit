@@ -455,7 +455,7 @@ ___processor_state ___ps;)
   ___FIELD(STRUCTURE,p,___OBJ_LOCK1) = ___FIX(0);
   ___FIELD(STRUCTURE,p,___OBJ_LOCK2) = ___FIX(0);
 
-  ___PRIMITIVELOCK(p,___FIX(___OBJ_LOCK1),___FIX(___OBJ_LOCK2))
+  ___PRIMLOCK(p,___FIX(___OBJ_LOCK1),___FIX(___OBJ_LOCK2))
 }
 
 
@@ -480,7 +480,7 @@ ___virtual_machine_state ___vms;)
   ___FIELD(STRUCTURE,vm,___OBJ_LOCK1) = ___FIX(0);
   ___FIELD(STRUCTURE,vm,___OBJ_LOCK2) = ___FIX(0);
 
-  ___PRIMITIVELOCK(vm,___FIX(___OBJ_LOCK1),___FIX(___OBJ_LOCK2))
+  ___PRIMLOCK(vm,___FIX(___OBJ_LOCK1),___FIX(___OBJ_LOCK2))
 }
 
 
@@ -5266,6 +5266,12 @@ ___virtual_machine_state ___vms;)
   ___ps->handler_break           = ___GSTATE->handler_break;
   ___ps->internal_return         = ___GSTATE->internal_return;
   ___ps->dynamic_env_bind_return = ___GSTATE->dynamic_env_bind_return;
+  ___ps->primlock_depth          = 0;
+  ___ps->group_demand_active     = 0;
+  ___ps->stack_fast_floor_b      = 0;
+  ___ps->stack_fast_limit_b      = 0;
+  ___ps->heap_fast_lo_b          = 0;
+  ___ps->heap_fast_bytes         = 0;
 
   /*
    * Setup exception handling.

@@ -17,8 +17,75 @@ typedef struct ___gc_resume_space_struct
     int loan_used;
     int accepted;
     int restored; /* active stack restored, before owner-affine cleanup */
+    int source_drained; /* published after the last local old-space read */
     int source_worker; /* -1: independent empty span; otherwise unique W tail */
+    int copy_admitted; /* set only after the checked continuation copy */
+    ___msection *source_section; /* stack section captured at copy preflight */
+    ___WORD *source_fp;
+    ___WORD *source_break;
+    ___SIZE_TS source_half; /* active half of source_section, in words */
+    ___SIZE_TS source_words; /* validated [fp, break + first-break) span */
   } ___gc_resume_space;
+
+/* Both endpoints must already lie in one half. The word count is formed
+ * only after that proof, so a foreign cursor is never subtracted. */
+static inline int ___gc_stack_span_words
+ (___WORD *half_base, ___WORD *half_past, ___WORD *fp, ___WORD *stack_break,
+  ___SIZE_TS break_words, ___SIZE_TS *words)
+{
+  ___UWORD base = ___CAST(___UWORD,half_base);
+  ___UWORD past = ___CAST(___UWORD,half_past);
+  ___UWORD start = ___CAST(___UWORD,fp);
+  ___UWORD brk = ___CAST(___UWORD,stack_break);
+  ___UWORD bytes = ___CAST(___UWORD,break_words) * ___WS;
+  ___UWORD end;
+  if (half_base == 0 || fp == 0 || stack_break == 0 || past <= base ||
+      start < base || brk < start || brk > past || bytes > past - brk ||
+      ((base | past | start | brk) % ___WS) != 0)
+    return 0;
+  end = brk + bytes;
+  if (end > past) return 0;
+  *words = (end - start) / ___WS;
+  return *words >= 1;
+}
+
+/* Room is [floor, cursor). Exact fit is room == words. One word short fails.
+ * The cursor may be one past the active half. */
+static inline int ___gc_stack_span_fits
+ (___WORD *half_base, ___WORD *half_past, ___WORD *floor, ___WORD *cursor,
+  ___SIZE_TS words)
+{
+  ___UWORD base = ___CAST(___UWORD,half_base);
+  ___UWORD past = ___CAST(___UWORD,half_past);
+  ___UWORD low = ___CAST(___UWORD,floor);
+  ___UWORD high = ___CAST(___UWORD,cursor);
+  if (words < 1 || half_base == 0 || floor == 0 || cursor == 0 ||
+      past <= base || low < base || high < low || high > past ||
+      ((base | past | low | high) % ___WS) != 0)
+    return 0;
+  return (high - low) / ___WS >= ___CAST(___UWORD,words);
+}
+
+/* Address of census_continuation's first frame load. Forming it does not
+ * read the cell. */
+static inline ___WORD *___gc_stack_first_read_cell (___WORD *fp)
+{
+  return &___FP_STK(fp, -___FRAME_STACK_RA);
+}
+
+/* cell is one of the words in [start, start+words). No load. */
+static inline int ___gc_stack_cell_inside
+ (___WORD *start, ___SIZE_TS words, ___WORD *cell)
+{
+  ___UWORD base = ___CAST(___UWORD,start);
+  ___UWORD addr = ___CAST(___UWORD,cell);
+  ___UWORD end;
+  if (start == 0 || cell == 0 || words < 1 || (base % ___WS) != 0 ||
+      (addr % ___WS) != 0)
+    return 0;
+  end = base + ___CAST(___UWORD,words) * ___WS;
+  return addr >= base && addr < end;
+}
 
 typedef struct ___gc_worker_arena_struct
   {
@@ -94,6 +161,10 @@ static inline int ___gc_copy_section_bound(int workers, ___SIZE_TS small_words,
 static inline int ___gc_copy_plan_fits(int roots,int copies,int pool)
 {return roots>0 && copies>0 && roots<=pool && copies<=pool-roots;}
 
+#define ___GC_SEC_CACHE_BITS 6
+#define ___GC_SEC_CACHE_SIZE (1 << ___GC_SEC_CACHE_BITS)
+#define ___GC_SEC_CACHE_MASK (___GC_SEC_CACHE_SIZE - 1)
+
 typedef struct ___collector_worker_struct
   {
     struct ___virtual_machine_state_struct *vm;
@@ -128,6 +199,18 @@ typedef struct ___collector_worker_struct
     ___SIZE_TS chunks_published_;
     ___SIZE_TS chunks_claimed_;
     ___SIZE_TS chunks_completed_;
+    /* Worker-owned section lookup hints; scoped to (vm, id) without TLS or races. */
+    ___msection *scan_state_section_;
+    ___WORD *scan_state_base_;
+    ___SIZE_TS scan_state_offset_;
+    ___SIZE_TS scan_state_epoch_;
+    ___msection *census_section_;
+    ___WORD *census_base_;
+    ___SIZE_TS census_offset_;
+    ___SIZE_TS census_epoch_;
+    ___msection *sec_cache_[___GC_SEC_CACHE_SIZE];
+    ___SIZE_TS sec_cache_epoch_;
+    int sec_cache_nb_sections_;
 /* start of current group of movable objects being copied by mark_array */
 ___WORD *alloc_heap_chunk_start_;
 
@@ -217,11 +300,88 @@ static inline int ___gc_arena_reserve
  * ownership. Epoch checks are not substitutes for that physical boundary.
  * Retired copied prefixes and the final interval enter context accounting
  * exactly once; the RC/still/root domain is never copied or rebound. */
+static inline int ___gc_resume_owner_matches
+ (const ___gc_resume_space *r, ___processor_state processor)
+{
+  return processor != 0 && r->context != 0 && r->owner == processor &&
+         processor->context == r->context;
+}
+
+/* The caller owns the section and supplies its actual destination half.
+ * Integer comparisons avoid relational comparisons of unrelated pointers;
+ * they validate address bounds, not section lifetime or ownership. */
+static inline int ___gc_resume_heap_interval_matches
+ (___WORD *section_base, ___WORD *section_past, ___WORD *start,
+  ___WORD *cursor, ___WORD *limit)
+{
+  ___UWORD base = ___CAST(___UWORD,section_base);
+  ___UWORD past = ___CAST(___UWORD,section_past);
+  ___UWORD first = ___CAST(___UWORD,start);
+  ___UWORD current = ___CAST(___UWORD,cursor);
+  ___UWORD end = ___CAST(___UWORD,limit);
+  return base != 0 && base <= first && first <= current && current <= end &&
+         end <= past && ((base | past | first | current | end) % ___WS) == 0;
+}
+
+/* Requires the aligned, ordered interval above. Compare remaining words
+ * without forming a pointer before the beginning of the destination section. */
+static inline int ___gc_resume_heap_needs_refill
+ (___WORD *cursor, ___WORD *limit, ___SIZE_TS fudge)
+{
+  ___UWORD current = ___CAST(___UWORD,cursor);
+  ___UWORD end = ___CAST(___UWORD,limit);
+  return (end-current)/___WS < ___CAST(___UWORD,fudge);
+}
+
+/* Publication postcondition for a validated interval. Remaining words must
+ * cover the fudge, so a first closure no larger than that fudge fits in the
+ * physical span. This does not observe the generated allocation site. */
+static inline int ___gc_published_reserve_fits
+ (___WORD *cursor, ___WORD *limit, ___SIZE_TS fudge, ___SIZE_TS first_words)
+{
+  ___UWORD current = ___CAST(___UWORD,cursor);
+  ___UWORD end = ___CAST(___UWORD,limit);
+  if (cursor == 0 || limit == 0 || current > end || first_words == 0 ||
+      ___CAST(___UWORD,fudge) < ___CAST(___UWORD,first_words))
+    return 0;
+  return (end - current) / ___WS >= ___CAST(___UWORD,fudge);
+}
+
+/* Copy completion, movable resume and a still reservation are separate.
+ * shared_overflow is the resize or plan result. movable_resumed is this
+ * processor's published heap interval. still_charged is this request's
+ * words currently in occupied_words_still. A movable resume answers only
+ * a zero-word caller. A positive still caller succeeds only when its own
+ * reservation is charged, and then the charge is transferred rather than
+ * refunded. Failure with no charge refunds nothing. */
+static inline int ___gc_caller_overflow
+ (int shared_overflow, int movable_resumed,
+  unsigned long requested_words_still, int still_charged)
+{
+  if (requested_words_still == 0)
+    return movable_resumed ? 0 : shared_overflow;
+  if (shared_overflow || !still_charged)
+    return 1;
+  return 0;
+}
+
+/* The first refund changes the account. A later call is a no-op. */
+static inline int ___still_refund_once
+ (int *refunded, long *occupied, long words)
+{
+  if (refunded == 0 || occupied == 0 || *refunded || words < 0)
+    return 0;
+  *refunded = 1;
+  *occupied -= words;
+  return 1;
+}
+
 static inline int ___gc_arena_handoff
  (___gc_worker_arena *a, ___gc_resume_space *r, ___WORD epoch)
 {
   ___pstate_mem *m;
-  if (a->handed_off || a->pending || !a->section || !r->context ||
+  if (a->handed_off || a->pending || !a->section ||
+      !___gc_resume_owner_matches(r,r->owner) ||
       r->accepted || r->source_worker < 0 || a->epoch != epoch || r->epoch != epoch) return 0;
   m = &r->owner->mem;
   m->heap_msection_ = a->section;
@@ -242,7 +402,8 @@ static inline int ___gc_resume_without_arena
  (___gc_resume_space *r, ___WORD epoch)
 {
   ___pstate_mem *m;
-  if (!r->context || r->epoch != epoch || r->accepted || r->loan_used ||
+  if (!___gc_resume_owner_matches(r,r->owner) ||
+      r->epoch != epoch || r->accepted || r->loan_used ||
       r->source_worker != -1 ||
       !r->stack_section || r->loan_limit-r->loan_base <= 2) return 0;
   m = &r->owner->mem;

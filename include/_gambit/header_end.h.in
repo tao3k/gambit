@@ -1,4 +1,26 @@
 
+___IMP_FUNC(void,___publish_raw_stack_span)
+ (___processor_state ___ps, ___WORD *top, ___WORD *brk);
+
+#ifdef ___GAMBIT_DEV_RESTORE_PROBE
+___WORD *___dev_restore_alloc_reload(___processor_state ___ps, ___WORD *___dev_new_hp);
+void ___dev_restore_alloc_before(___processor_state ___ps, ___WORD **___dev_hp, ___SIZE_TS ___dev_free, ___SIZE_TS ___dev_words, const char *___dev_host);
+void ___dev_restore_alloc_after(___processor_state ___ps, ___WORD *___dev_hp);
+void ___dev_restore_clo_label(___processor_state ___ps, ___WORD *___dev_ptr, ___WORD ___dev_label, int ___dev_index);
+void ___dev_restore_clo_field(___processor_state ___ps, ___WORD *___dev_ptr, ___SIZE_TS ___dev_i, ___WORD ___dev_val);
+void ___dev_restore_census_other(___processor_state ___ps, ___WORD *___dev_hp, const char *___dev_kind);
+void ___dev_restore_pair_before(___processor_state ___ps, ___WORD **___dev_hp, const char *___dev_host, int ___dev_line);
+___WORD ___dev_restore_pair_value(___processor_state ___ps, ___WORD *___dev_hp, int ___dev_index, ___WORD ___dev_value);
+void ___dev_restore_pair_after(___processor_state ___ps, ___WORD *___dev_hp);
+___WORD ___dev_restore_vector_header(___processor_state ___ps, ___WORD **___dev_hp, ___SIZE_TS ___dev_fields, const char *___dev_host, int ___dev_line);
+___WORD ___dev_restore_vector_value(___processor_state ___ps, ___WORD *___dev_hp, int ___dev_index, ___WORD ___dev_value);
+void ___dev_restore_vector_after(___processor_state ___ps, ___WORD *___dev_hp);
+___SIZE_TS ___dev_restore_census_bump(___processor_state ___ps, ___WORD *___dev_hp, ___SIZE_TS ___dev_words);
+___SIZE_TS ___dev_restore_census_direct(___processor_state ___ps, ___WORD *___dev_hp, ___SIZE_TS ___dev_words, const char *___dev_kind);
+___SIZE_TS ___dev_restore_census_provisional(___processor_state ___ps, ___WORD *___dev_hp, ___SIZE_TS ___dev_words, const char *___dev_kind);
+void ___dev_restore_note_cursor(___processor_state ___ps, ___WORD *___dev_hp);
+#endif
+
 #endif
 
 #endif

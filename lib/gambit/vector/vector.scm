@@ -192,7 +192,8 @@
           (vector-cas! vect k val oldval)
           (##vector-cas! vect k val oldval))))))
 
-(define-prim (##vector-inc! vect k val))
+(define-prim (##vector-inc! vect k #!optional (val 1))
+  (##vector-inc! vect k val))
 
 (define-prim (vector-inc! vect k #!optional (v (macro-absent-obj)))
   (macro-force-vars (vect k v)

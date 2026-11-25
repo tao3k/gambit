@@ -22,7 +22,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include "rest-observation.h"
-#include "_mem/rest-observation.inc"
 
 
 /* Internal source organization; inclusion order is part of the contract.
@@ -32,6 +31,7 @@
 #else
 #define ___MEM_SOURCE_FILE "mem.c"
 #endif
+#include "_mem/rest-observation.inc"
 
 #ifdef ___GAMBIT_DEV_RESTORE_PROBE
 #include "../tests/smp/gc/restore-collective-probe.h"
@@ -44,12 +44,52 @@
 #include "_mem/binding-views.inc"
 #include "_mem/root-tasks.inc"
 #include "_mem/movable-sections.inc"
+
+/* Worker-owned direct-mapped msection cache scoped strictly to work->vm
+ * (no _Thread_local storage, eliminating cross-VM pointer ABA reuse). */
+static inline ___msection *___gc_find_msection_cached
+   (___collector_worker *work, ___msections *ms, ___WORD *ptr)
+{
+  ___UWORD addr = ___CAST(___UWORD, ptr);
+  ___SIZE_TS epoch = ___COLLECTION(work->vm).epoch;
+  int ns = ms->nb_sections;
+  ___UWORD slot = (addr / (___CAST(___UWORD, ___MSECTION_SIZE) * ___WS)) & ___GC_SEC_CACHE_MASK;
+  if (__builtin_expect(work->sec_cache_epoch_ == epoch &&
+                       work->sec_cache_nb_sections_ == ns, 1))
+    {
+      ___msection *s = work->sec_cache_[slot];
+      if (__builtin_expect(s != 0 &&
+                           addr - ___CAST(___UWORD, s->base) < ___MSECTION_SIZE * ___WS, 1))
+        return s;
+    }
+  else
+    {
+      memset(work->sec_cache_, 0, sizeof(work->sec_cache_));
+      work->sec_cache_epoch_ = epoch;
+      work->sec_cache_nb_sections_ = ns;
+    }
+  {
+    int i = find_msection(ms, ptr);
+    if (i >= 0 && i < ns)
+      {
+        ___msection *s = ms->sections[i];
+        if (addr - ___CAST(___UWORD, s->base) < ___MSECTION_SIZE * ___WS)
+          {
+            work->sec_cache_[slot] = s;
+            return s;
+          }
+      }
+  }
+  return 0;
+}
 #include "_mem/permanent-allocation.inc"
 #include "_mem/global-bindings.inc"
 #include "_mem/still-refcount.inc"
 #include "_mem/object-allocation.inc"
 #include "_mem/symbols.inc"
 #include "_mem/diagnostics.inc"
+___HIDDEN void publish_fast_span ___P((___processor_state ___ps),());
+___HIDDEN void clear_fast_span ___P((___processor_state ___ps),());
 #include "_mem/heap-sections.inc"
 #include "_mem/startup-reservation.inc"
 #include "_mem/copy-reservations.inc"

@@ -4,6 +4,14 @@
 
 herefromroot = lib
 rootfromhere = ..
+
+# Optional witness supplied by the managed native build.
+GAMBIT_WITNESS_PASS ?= 1
+WITNESS_EMIT = $(if $(GAMBIT_BUILD_WITNESS),$(GAMBIT_BUILD_WITNESS) $(GAMBIT_WITNESS_PASS) emit "$@" $^ --)
+WITNESS_OBJECT = $(if $(GAMBIT_BUILD_WITNESS),$(GAMBIT_BUILD_WITNESS) $(GAMBIT_WITNESS_PASS) object "$@" $(BUILD_OBJ_INPUT_FILENAMES_PARAM) $^ --)
+WITNESS_LINK = $(if $(GAMBIT_BUILD_WITNESS),$(GAMBIT_BUILD_WITNESS) $(GAMBIT_WITNESS_PASS) link "$@" $^ --)
+WITNESS_ARCHIVE = $(if $(GAMBIT_BUILD_WITNESS),$(GAMBIT_BUILD_WITNESS) $(GAMBIT_WITNESS_PASS) archive "$@" $(LIBRARY_OBJECTS) --)
+WITNESS_INDEX = $(if $(GAMBIT_BUILD_WITNESS),$(GAMBIT_BUILD_WITNESS) $(GAMBIT_WITNESS_PASS) index "$@" --)
 SUBDIRS1 = _define-library
 SUBDIRS2 = @RTLIBSUBSYS@ \
 _irregex _base64 _csv _digest _geiser _git _hamt _http _json _match _pkg _six \
@@ -83,10 +91,10 @@ GAMBIT_LIB_C = _$(GAMBITLIB).c
 GAMBIT_LIB_O = _$(GAMBITLIB)@obj@
 
 NORMAL_C = main.c setup.c mem.c os_setup.c os_base.c os_thread.c os_time.c os_shell.c os_files.c os_dyn.c os_tty.c os_io.c c_intf.c actlog.c
-MEMORY_SOURCES = _mem/configuration.inc \
+MEMORY_SOURCES = rest-observation.h _mem/rest-observation.inc _mem/configuration.inc \
   _mem/aligned-allocation.inc \
   _mem/rc-allocation.inc _mem/global-storage.inc _mem/binding-views.inc _mem/root-tasks.inc \
-  _mem/movable-sections.inc \
+  _mem/section-claim.inc _mem/movable-sections.inc \
   _mem/permanent-allocation.inc \
   _mem/global-bindings.inc \
   _mem/still-refcount.inc \
@@ -208,7 +216,7 @@ core-post:
 	$(MAKE) deselect-gen-for-commit-post-nonrec
 
 .scm.c:
-	@SETDLPATHBOOT@ $(rootfromhere)/gsc-boot -:~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f -c @COMPILATION_OPTIONS@ $(PRELUDE_OPT) $(srcdirpfx)$*.scm
+	@SETDLPATHBOOT@ $(WITNESS_EMIT) $(rootfromhere)/gsc-boot -:p1,~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f -c @COMPILATION_OPTIONS@ $(PRELUDE_OPT) $(srcdirpfx)$*.scm
 
 phase1: $(MODULES_C_IN_COMPILE_ORDER) $(GAMBIT_LIB_C)
 
@@ -236,7 +244,7 @@ univ-libs: $(UNIVLIB) $(MODULES_SCM)
 GAMBIT_LIB_C: $(GAMBIT_LIB_C)
 
 $(GAMBIT_LIB_C): $(MODULES_C)
-	@SETDLPATHBOOT@ $(rootfromhere)/gsc-boot -:~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f -warnings -link -flat -o $@ -preload $(MODULES_C)
+	@SETDLPATHBOOT@ $(WITNESS_EMIT) $(rootfromhere)/gsc-boot -:p1,~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f -warnings -link -flat -o $@ -preload $(MODULES_C)
 
 GAMBIT_LIB_java: $(GAMBIT_LIB_java)
 
@@ -311,85 +319,86 @@ $(srcdirpfx)$(rootfromhere)/lib/_with-syntax-boot.scm
 $(MODULES_O) $(NORMAL_O): $(srcdirpfx)$(rootfromhere)/include/gambit.h
 
 _kernel@obj@: _kernel.c $(srcdirpfx)$(rootfromhere)/include/stamp.h os.h os_setup.h os_base.h os_time.h os_shell.h os_files.h os_dyn.h os_tty.h os_io.h setup.h mem.h c_intf.h
-	@BUILD_OBJ@ -D___LIBRARY
+	$(WITNESS_OBJECT) @BUILD_OBJ@ -D___LIBRARY
 
-_system.c: gambit/char/char\#.scm gambit/char/CaseFolding.txt gambit/char/PropList.txt gambit/char/SpecialCasing.txt gambit/char/UnicodeData.txt
+_system.c: gambit/char/char-set\#.scm
 
 _system@obj@: _system.c
-	@BUILD_OBJ@ -D___LIBRARY
+	$(WITNESS_OBJECT) @BUILD_OBJ@ -D___LIBRARY
 
 _num.c: gambit/random/random.scm gambit/random/random\#.scm
 
 _num@obj@: _num.c mem.h
-	@BUILD_OBJ@ -D___LIBRARY
+	$(WITNESS_OBJECT) @BUILD_OBJ@ -D___LIBRARY
 
 _std.c: gambit/boolean/boolean.scm gambit/boolean/boolean\#.scm gambit/symkey/symkey.scm gambit/symkey/symkey\#.scm gambit/list/list.scm gambit/list/list\#.scm gambit/vector/vector.scm gambit/vector/vector\#.scm gambit/string/string.scm gambit/string/string\#.scm gambit/procedure/procedure.scm gambit/procedure/procedure\#.scm gambit/promise/promise.scm gambit/promise/promise\#.scm gambit/parameter/parameter.scm gambit/parameter/parameter\#.scm gambit/char/char.scm gambit/char/char\#.scm gambit/char/CaseFolding.txt gambit/char/PropList.txt gambit/char/SpecialCasing.txt gambit/char/UnicodeData.txt
+_std.c: gambit/char/char-set\#.scm
 _std@obj@: _std.c os.h
-	@BUILD_OBJ@ -D___LIBRARY
+	$(WITNESS_OBJECT) @BUILD_OBJ@ -D___LIBRARY
 
 _eval@obj@: _eval.c
-	@BUILD_OBJ@ -D___LIBRARY
+	$(WITNESS_OBJECT) @BUILD_OBJ@ -D___LIBRARY
 
 _module@obj@: _module.c
-	@BUILD_OBJ@ -D___LIBRARY
+	$(WITNESS_OBJECT) @BUILD_OBJ@ -D___LIBRARY
 
 _io@obj@: _io.c
-	@BUILD_OBJ@ -D___LIBRARY
+	$(WITNESS_OBJECT) @BUILD_OBJ@ -D___LIBRARY
 
 _nonstd.c: gambit/env-vars/env-vars.scm gambit/env-vars/env-vars\#.scm gambit/process/process.scm gambit/process/process\#.scm
 _nonstd@obj@: _nonstd.c
-	@BUILD_OBJ@ -D___LIBRARY
+	$(WITNESS_OBJECT) @BUILD_OBJ@ -D___LIBRARY
 
 _thread@obj@: _thread.c
-	@BUILD_OBJ@ -D___LIBRARY
+	$(WITNESS_OBJECT) @BUILD_OBJ@ -D___LIBRARY
 
 _repl@obj@: _repl.c
-	@BUILD_OBJ@ -D___LIBRARY
+	$(WITNESS_OBJECT) @BUILD_OBJ@ -D___LIBRARY
 
 $(GAMBIT_LIB_O): $(GAMBIT_LIB_C)
-	@BUILD_OBJ@ -D___LIBRARY
+	$(WITNESS_OBJECT) @BUILD_OBJ@ -D___LIBRARY
 
 main@obj@: main.c os.h os_setup.h os_base.h os_shell.h setup.h
-	@BUILD_OBJ_RTS@ -D___LIBRARY
+	$(WITNESS_OBJECT) @BUILD_OBJ_RTS@ -D___LIBRARY
 
 setup@obj@: _setup/vm-registry.inc _setup/vm-lifecycle.inc setup.c os.h os_setup.h os_base.h os_files.h os_dyn.h os_thread.h setup.h mem.h rc.h root.h collector.h lifecycle.h c_intf.h
-	@BUILD_OBJ_RTS@ -D___LIBRARY
+	$(WITNESS_OBJECT) @BUILD_OBJ_RTS@ -D___LIBRARY
 
 mem@obj@: mem.c $(MEMORY_SOURCES) os.h os_setup.h os_base.h os_time.h setup.h mem.h rc.h root.h collector.h lifecycle.h c_intf.h actlog.h
-	@BUILD_OBJ_RTS@ -D___LIBRARY
+	$(WITNESS_OBJECT) @BUILD_OBJ_RTS@ -D___LIBRARY
 
 c_intf@obj@: _c_intf/sfun-entry.inc c_intf.c os.h os_base.h os_dyn.h setup.h mem.h c_intf.h rc.h root.h collector.h lifecycle.h
-	@BUILD_OBJ_RTS@ -D___LIBRARY
+	$(WITNESS_OBJECT) @BUILD_OBJ_RTS@ -D___LIBRARY
 
 actlog@obj@: actlog.c os.h os_base.h os_time.h actlog.h
-	@BUILD_OBJ_RTS@ -D___LIBRARY
+	$(WITNESS_OBJECT) @BUILD_OBJ_RTS@ -D___LIBRARY
 
 os_setup@obj@: os_setup.c os.h os_setup.h os_thread.h os_base.h os_time.h os_shell.h os_files.h os_dyn.h os_tty.h os_io.h setup.h mem.h c_intf.h
-	@BUILD_OBJ_RTS@ -D___LIBRARY
+	$(WITNESS_OBJECT) @BUILD_OBJ_RTS@ -D___LIBRARY
 
 os_base@obj@: os_base.c os.h os_base.h setup.h
-	@BUILD_OBJ_RTS@ -D___LIBRARY
+	$(WITNESS_OBJECT) @BUILD_OBJ_RTS@ -D___LIBRARY
 
 os_thread@obj@: os_thread.c os.h os_base.h os_thread.h
-	@BUILD_OBJ_RTS@ -D___LIBRARY
+	$(WITNESS_OBJECT) @BUILD_OBJ_RTS@ -D___LIBRARY
 
 os_time@obj@: os_time.c os.h os_thread.h os_base.h os_time.h
-	@BUILD_OBJ_RTS@ -D___LIBRARY
+	$(WITNESS_OBJECT) @BUILD_OBJ_RTS@ -D___LIBRARY
 
 os_shell@obj@: os_shell.c os.h os_setup.h os_base.h os_shell.h os_files.h
-	@BUILD_OBJ_RTS@ -D___LIBRARY
+	$(WITNESS_OBJECT) @BUILD_OBJ_RTS@ -D___LIBRARY
 
 os_files@obj@: os_files.c os.h os_base.h os_shell.h os_files.h setup.h
-	@BUILD_OBJ_RTS@ -D___LIBRARY
+	$(WITNESS_OBJECT) @BUILD_OBJ_RTS@ -D___LIBRARY
 
 os_dyn@obj@: os_dyn.c os.h os_base.h os_shell.h os_files.h os_dyn.h
-	@BUILD_OBJ_RTS@ -D___LIBRARY
+	$(WITNESS_OBJECT) @BUILD_OBJ_RTS@ -D___LIBRARY
 
 os_tty@obj@: os_tty.c os.h os_setup.h os_thread.h os_base.h os_tty.h os_shell.h os_io.h mem.h c_intf.h
-	@BUILD_OBJ_RTS@ -D___LIBRARY
+	$(WITNESS_OBJECT) @BUILD_OBJ_RTS@ -D___LIBRARY
 
 os_io@obj@: os_io.c os.h os_setup.h os_base.h os_io.h os_tty.h os_shell.h os_files.h setup.h c_intf.h
-	@BUILD_OBJ_RTS@ -D___LIBRARY
+	$(WITNESS_OBJECT) @BUILD_OBJ_RTS@ -D___LIBRARY
 
 bootstrap-pre:
 

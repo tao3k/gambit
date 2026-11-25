@@ -11,56 +11,95 @@
 #define GC_SCAN_OWNED       2
 #define GC_SCAN_DONE        3
 
-___HIDDEN int change_object_scan_state
-   ___P((___collector_worker *work, ___WORD *header, int from, int to),
-        (work, header, from, to)
-___collector_worker *work;
-___WORD *header;
-int from;
-int to;)
+static inline int change_object_scan_state_at
+   (___collector_worker *work, ___WORD *cell, int shift, ___WORD mask,
+    int from, int to)
+{
+  ___WORD old, updated;
+  int state;
+  if (___COLLECTION(work->vm).worker_count<=1)
+    {
+      old=*cell;
+      state=(___CAST(___UWORD,old) >> shift) & 3;
+      if (state!=from) return state;
+      *cell=(old & ~mask) |
+        ___CAST(___WORD,___CAST(___UWORD,to) << shift);
+      return from;
+    }
+  old = ___WORD_LOAD_ACQUIRE(cell);
+  for (;;)
+    {
+      ___WORD found;
+      state = (___CAST(___UWORD,old) >> shift) & 3;
+      if (state != from)
+        return state;
+      updated=(old & ~mask) |
+        ___CAST(___WORD,___CAST(___UWORD,to) << shift);
+      found = ___COMPARE_AND_SWAP_WORD(cell,old,updated);
+      if (found == old)
+        return from;
+      old = found;
+    }
+}
+
+static inline ___WORD *locate_object_scan_cell
+   (___collector_worker *work, ___WORD *header, int *shift_out, ___WORD *mask_out)
 {
   ___processor_state ___ps = work->carrier;
-  int i = find_msection (the_msections, header);
-  if (i >= 0 && i < the_msections->nb_sections)
+  ___msection *section;
+  ___PTRDIFF_T pos;
+  ___SIZE_TS dest = ___COLLECTION(work->vm).destination_offset;
+  ___SIZE_TS epoch = ___COLLECTION(work->vm).epoch;
+  if (__builtin_expect(
+        work->scan_state_section_ && work->scan_state_epoch_==epoch &&
+        work->scan_state_offset_==dest &&
+        header>=work->scan_state_base_+dest &&
+        header<work->scan_state_base_+dest+(___MSECTION_SIZE>>1), 1))
     {
-      ___PTRDIFF_T pos = header-the_msections->sections[i]->base-___COLLECTION(work->vm).destination_offset;
-      if (pos >= 0 && pos < (___MSECTION_SIZE>>1))
-        {
-          int shift = 2*(pos % (___WORD_WIDTH/2));
-          ___WORD mask = ___CAST(___WORD,___CAST(___UWORD,3) << shift);
-          ___WORD *cell = the_msections->sections[i]->base + ___MSECTION_SIZE +
-                         pos / (___WORD_WIDTH/2);
-          ___WORD old = ___COMPARE_AND_SWAP_WORD(cell,0,0);
-          for (;;)
-            {
-              int state = (___CAST(___UWORD,old) >> shift) & 3;
-              ___WORD found;
-              if (state != from)
-                return state;
-              found = ___COMPARE_AND_SWAP_WORD
-                (cell,old,(old & ~mask) |
-                 ___CAST(___WORD,___CAST(___UWORD,to) << shift));
-              if (found == old)
-                return from;
-              old = found;
-            }
-        }
+      section=work->scan_state_section_;
+      pos=header-(work->scan_state_base_+dest);
     }
+  else
+    {
+      section = ___gc_find_msection_cached(work, the_msections, header);
+      if (!section) goto outside;
+      pos=header-section->base-dest;
+      if (pos < 0 || pos >= (___MSECTION_SIZE>>1)) goto outside;
+      work->scan_state_section_=section;
+      work->scan_state_base_=section->base;
+      work->scan_state_offset_=dest;
+      work->scan_state_epoch_=epoch;
+    }
+  {
+    int shift = 2*(int)(pos & ((___WORD_WIDTH/2)-1));
+    *shift_out = shift;
+    *mask_out = ___CAST(___WORD,___CAST(___UWORD,3) << shift);
+    return section->base + ___MSECTION_SIZE + (pos / (___WORD_WIDTH/2));
+  }
+ outside:
   {
     static char *msgs[] = { "GC scan identity outside destination", NULL };
     ___fatal_error (msgs);
   }
-  return -1;
+  return 0;
+}
+
+static inline int change_object_scan_state
+   (___collector_worker *work, ___WORD *header, int from, int to)
+{
+  int shift;
+  ___WORD mask;
+  ___WORD *cell = locate_object_scan_cell(work, header, &shift, &mask);
+  return change_object_scan_state_at(work, cell, shift, mask, from, to);
 }
 
 
-___HIDDEN void publish_object_scan
-   ___P((___collector_worker *work, ___WORD *header), (work, header)
-___collector_worker *work;
-___WORD *header;)
+static inline void publish_object_scan
+   (___collector_worker *work, ___WORD *header)
 {
-  if (change_object_scan_state(work,header,GC_SCAN_UNPUBLISHED,GC_SCAN_READY)
-      != GC_SCAN_UNPUBLISHED)
+  if (__builtin_expect(
+        change_object_scan_state(work,header,GC_SCAN_UNPUBLISHED,GC_SCAN_READY)
+        != GC_SCAN_UNPUBLISHED, 0))
     {
       static char *msgs[] = { "GC object initialized more than once", NULL };
       ___fatal_error (msgs);
@@ -78,20 +117,34 @@ ___WORD *body;)
   ___processor_state ___ps = work->carrier;
   ___virtual_machine_state vms = work->vm;
   ___WORD *header = body-1;
-  int i = find_msection (the_msections, header);
-  if (i >= 0 && i < the_msections->nb_sections)
+  ___SIZE_TS source_off = (___MSECTION_SIZE>>1) - ___COLLECTION(vms).destination_offset;
+  ___SIZE_TS epoch = ___COLLECTION(vms).epoch;
+  if (__builtin_expect(
+        work->census_section_ && work->census_epoch_ == epoch &&
+        work->census_offset_ == source_off, 1))
     {
-      ___msection *section = the_msections->sections[i];
-      ___UWORD address = ___CAST(___UWORD,header);
-      ___UWORD base = ___CAST(___UWORD,section->base);
-      if (address >= base && address-base < ___MSECTION_SIZE*___WS)
-        {
-          ___SIZE_TS pos = (address-base)/___WS;
-          if (pos >= (___MSECTION_SIZE>>1)-___COLLECTION(vms).destination_offset &&
-              pos < ___MSECTION_SIZE-___COLLECTION(vms).destination_offset)
-            return section;
-        }
+      ___UWORD address = ___CAST(___UWORD, header);
+      ___UWORD sbase = ___CAST(___UWORD, work->census_base_ + source_off);
+      if (__builtin_expect(address >= sbase && address - sbase < (___MSECTION_SIZE>>1) * ___WS, 1))
+        return work->census_section_;
     }
+  {
+    ___msection *section = ___gc_find_msection_cached(work, the_msections, header);
+    if (section != 0)
+      {
+        ___UWORD address = ___CAST(___UWORD,header);
+        ___UWORD base = ___CAST(___UWORD,section->base);
+        ___SIZE_TS pos = (address-base)/___WS;
+        if (pos >= source_off && pos < source_off + (___MSECTION_SIZE>>1))
+          {
+            work->census_section_ = section;
+            work->census_base_ = section->base;
+            work->census_offset_ = source_off;
+            work->census_epoch_ = epoch;
+            return section;
+          }
+      }
+  }
   /* Recopying tospace invalidates any source-size capacity bound. Do not
    * silently skip a repeated cell or enlarge the heap. Retain coordinates
    * at the ordinary fatal boundary. This per-attempt lookup is a deliberate
@@ -115,27 +168,25 @@ ___WORD *body;)
 /* Frame roots, stack-to-heap construction and structural links share one
  * access domain. The queue gate is never held while entering this domain.
  * READY publishes raw payload, not permission to race a link constructor. */
-___HIDDEN void acquire_frame_access
-   ___P((___collector_worker *work), (work)
-___collector_worker *work;)
+static inline void acquire_frame_access
+   (___collector_worker *work)
 {
 #ifndef ___SINGLE_THREADED_VMS
-  ___processor_state ___ps = work->carrier;
   ___virtual_machine_state vms = work->vm;
-  while (___COMPARE_AND_SWAP_WORD(&___COLLECTION(vms).frame_gate,0,1) != 0)
-    ___CPU_RELAX();
+  if (___COLLECTION(vms).worker_count > 1)
+    while (___COMPARE_AND_SWAP_WORD(&___COLLECTION(vms).frame_gate,0,1) != 0)
+      ___CPU_RELAX();
 #endif
   work->frame_accesses_++;
 }
 
-___HIDDEN void release_frame_access
-   ___P((___collector_worker *work), (work)
-___collector_worker *work;)
+static inline void release_frame_access
+   (___collector_worker *work)
 {
 #ifndef ___SINGLE_THREADED_VMS
-  ___processor_state ___ps = work->carrier;
   ___virtual_machine_state vms = work->vm;
-  ___FETCH_AND_CLEAR_WORD(&___COLLECTION(vms).frame_gate);
+  if (___COLLECTION(vms).worker_count > 1)
+    ___FETCH_AND_CLEAR_WORD(&___COLLECTION(vms).frame_gate);
 #endif
 }
 
@@ -147,7 +198,7 @@ typedef struct ___copy_reservation_struct
     ___SIZE_TS words;
   } ___copy_reservation;
 
-___HIDDEN void prepare_copy_request
+static inline void prepare_copy_request
   (___collector_worker *work, ___msection *section, ___WORD *source,
    ___SIZE_TS source_words, ___SIZE_TS body_words, int align8, int frame)
 {
@@ -157,7 +208,7 @@ ___HIDDEN void prepare_copy_request
     ((___MSECTION_SIZE>>1)-___COLLECTION(work->vm).destination_offset)*___WS;
   ___SIZE_TS half = ___MSECTION_SIZE>>1;
   ___SIZE_TS destination;
-  if (body_words < 0 || body_words > half-4)
+  if (__builtin_expect(body_words < 0 || body_words > half-4, 0))
     {
       static char *msgs[] = { "GC copy body exceeds physical section", NULL };
       ___fatal_error(msgs);
@@ -168,10 +219,11 @@ ___HIDDEN void prepare_copy_request
 #else
   (void)align8;
 #endif
-  if (___WORD_LOAD_ACQUIRE(&r->state) != 0 || source_words <= 0 ||
+  /* copy_request belongs exclusively to this worker during collection. */
+  if (__builtin_expect(r->state != 0 || source_words <= 0 ||
       body_words < 0 || source_words > half || first < base ||
       first-base > (half-source_words)*___WS ||
-      (first-base)%___WS != 0 || destination > source_words+(frame ? 0 : 1))
+      (first-base)%___WS != 0 || destination > source_words+(frame ? 0 : 1), 0))
     {
       static char *msgs[] = { "GC copy request lacks bounded source interval", NULL };
       ___fatal_error(msgs);
@@ -182,7 +234,7 @@ ___HIDDEN void prepare_copy_request
   r->destination_words = destination;
   r->epoch = ___COLLECTION(work->vm).epoch;
   r->frame = frame;
-  ___COMPARE_AND_SWAP_WORD(&r->state,0,1);
+  r->state = 1;
 }
 
 #ifndef ___GC_COPY_CONTROL
@@ -192,10 +244,12 @@ ___HIDDEN void prepare_copy_request
 #define ___GC_ROOT_CONTROL(work) ((void)0)
 #endif
 
-___HIDDEN ___WORD load_copy_source_header
+static inline ___WORD load_copy_source_header
    (___collector_worker *work, ___WORD *body)
 {
 #ifdef ___ORDERED_WORD_NATIVE
+  if (___COLLECTION(work->vm).worker_count <= 1)
+    return body[-1];
   return ___WORD_LOAD_ACQUIRE(&body[-1]);
 #else
   /* Legacy load may be an RMW. Moving headers use their physical section's
@@ -226,18 +280,12 @@ ___HIDDEN ___WORD load_copy_source_header
  * or attempting forwarding. The interval is private until commit. A known
  * forwarding contender exits before reservation. A changed header while
  * holding source authority is unknown and retains the grant. */
-___HIDDEN ___copy_reservation reserve_copy
-   ___P((___collector_worker *work, ___WORD *alloc, ___SIZE_TS words, int align8),
-        (work, alloc, words, align8)
-___collector_worker *work;
-___WORD *alloc;
-___SIZE_TS words;
-int align8;)
+static inline ___copy_reservation reserve_copy
+   (___collector_worker *work, ___WORD *alloc, ___SIZE_TS words, int align8)
 {
-  ___processor_state ___ps = work->carrier;
   ___copy_reservation grant;
   ___SIZE_TS required;
-  if (work->copy_begin_ != 0 || words > (___MSECTION_SIZE>>1)-4)
+  if (__builtin_expect(work->copy_begin_ != 0 || words > (___MSECTION_SIZE>>1)-4, 0))
     {
       static char *msgs[] = { "GC invalid contiguous copy reservation", NULL };
       ___fatal_error(msgs);
@@ -248,17 +296,18 @@ int align8;)
 #else
   (void)align8;
 #endif
-  if (___WORD_LOAD_ACQUIRE(&work->copy_request.state) != 1 ||
+  if (__builtin_expect(work->copy_request.state != 1 ||
       work->copy_request.epoch != ___COLLECTION(work->vm).epoch ||
-      work->copy_request.destination_words != required)
+      work->copy_request.destination_words != required, 0))
     {
       static char *msgs[] = { "GC arena request lacks current source custody", NULL };
       ___fatal_error(msgs);
     }
-  if (required > (___MSECTION_SIZE>>1)-3)
+  if (__builtin_expect(required > (___MSECTION_SIZE>>1)-3, 0))
     fatal_heap_overflow(); /* no section can satisfy this request */
-  while ((required>(___MSECTION_SIZE>>1)-___MSECTION_FUDGE-3 && !work->arena.large) ||
-         alloc > work->arena.limit || work->arena.limit-alloc < required)
+  while (__builtin_expect(
+         (required>(___MSECTION_SIZE>>1)-___MSECTION_FUDGE-3 && !work->arena.large) ||
+         alloc > work->arena.limit || work->arena.limit-alloc < required, 0))
     {
       work->arena.cursor = alloc;
       end_heap_chunk(work);
@@ -269,8 +318,8 @@ int align8;)
   grant.header = alloc;
   grant.past = alloc+required;
   grant.words = words;
-  if (work->arena.cursor != grant.begin ||
-      !___gc_arena_reserve(&work->arena,required))
+  if (__builtin_expect(work->arena.cursor != grant.begin ||
+      !___gc_arena_reserve(&work->arena,required), 0))
     {
       static char *msgs[] = { "GC arena lost private copy interval", NULL };
       ___fatal_error(msgs);
@@ -282,29 +331,26 @@ int align8;)
   work->copy_begin_ = grant.begin;
   work->copy_past_ = grant.past;
   work->copy_reserved_words_ += required;
-  ___COMPARE_AND_SWAP_WORD(&work->copy_request.state,1,2);
+  work->copy_request.state = 2;
   return grant;
 }
 
-___HIDDEN void commit_copy
-   ___P((___collector_worker *work, const ___copy_reservation *grant),
-        (work, grant)
-___collector_worker *work;
-const ___copy_reservation *grant;)
+static inline void commit_copy
+   (___collector_worker *work, const ___copy_reservation *grant)
 {
-  if (work->copy_begin_ != grant->begin || work->copy_past_ != grant->past)
+  if (__builtin_expect(work->copy_begin_ != grant->begin || work->copy_past_ != grant->past, 0))
     {
       static char *msgs[] = { "GC commit lost private reservation", NULL };
       ___fatal_error(msgs);
     }
   /* Alignment objects become visible only after forwarding succeeds. */
-  if (grant->header != grant->begin)
+  if (__builtin_expect(grant->header != grant->begin, 0))
     {
       *grant->begin = ___MAKE_HD_WORDS(0,___sVECTOR);
       publish_object_scan(work,grant->begin);
     }
   work->copy_padding_words_ += (grant->past-grant->begin)-(grant->words+1);
-  if (!___gc_arena_commit(&work->arena,grant->begin,grant->past))
+  if (__builtin_expect(!___gc_arena_commit(&work->arena,grant->begin,grant->past), 0))
     {
       static char *msgs[] = { "GC commit does not own arena interval", NULL };
       ___fatal_error(msgs);
@@ -312,15 +358,14 @@ const ___copy_reservation *grant;)
   work->copy_begin_ = 0;
   work->copy_past_ = 0;
   work->copied_source_words += work->copy_request.source_words;
-  if(work->copy_reserved_words_ >
-     ___COLLECTION(work->vm).census.destination_words)
+  if (__builtin_expect(work->copy_reserved_words_ >
+      ___COLLECTION(work->vm).census.destination_words, 0))
     rc_contract_error("Unique copy charge exceeds the frozen census");
-  ___FETCH_AND_CLEAR_WORD(&work->copy_request.state);
+  work->copy_request.state = 0;
 }
 
-___HIDDEN void finish_tail
-   ___P((___collector_worker *work), (work)
-___collector_worker *work;)
+static inline void finish_tail
+   (___collector_worker *work)
 {
   if (work->tail_cell_ != 0)
     {
@@ -376,6 +421,11 @@ ___WORD n;)
   }
   ___processor_state ___ps = work->carrier;
   ___WORD *alloc = work->arena.cursor;
+  const int single_worker = (___COLLECTION(work->vm).worker_count <= 1);
+  const ___SIZE_TS dest_off = ___COLLECTION(work->vm).destination_offset;
+  const ___SIZE_TS source_off = (___MSECTION_SIZE>>1) - dest_off;
+  const ___SIZE_TS half_bytes = (___MSECTION_SIZE>>1) * ___WS;
+  const ___SIZE_TS epoch = ___COLLECTION(work->vm).epoch;
 
 #ifdef ENABLE_CONSISTENCY_CHECKS
   mark_array_call_line = line;
@@ -395,14 +445,6 @@ ___WORD n;)
             ___WORD head;
             int head_typ;
             int subtype;
-            /* A low bit only means the tag test. Unboxed bits whose top
-             * half is not a canonical user pointer are not a root. */
-            {
-              ___UWORD raw = ___CAST(___UWORD, ___MEM_ALLOCATED_CLEAR(obj));
-              ___UWORD top = raw >> 48;
-              if (top != 0 && top != 0xffff)
-                continue;
-            }
 
 #ifdef ENABLE_CONSISTENCY_CHECKS
             if (___DEBUG_SETTINGS_LEVEL(___GSTATE->setup_params.debug_settings) >= 1)
@@ -414,141 +456,184 @@ ___WORD n;)
              * load, never an RMW pretending to be one. The selected modern-C
              * backend supplies the existing acquire-load word service. */
             head = load_copy_source_header(work,body);
-            /* A canonical root may already contain a destination reference
-             * repaired by another source. Revisit supplies no initialization,
-             * Tail or scan completion; those debts stay with the copy owner.
-             * Valid managed values are assumed; arbitrary forged native words
-             * are not admitted by the root union. */
-            if (___HD_TYP(head)==___MOVABLE0) {
-              int section_index=find_msection(the_msections,body-1);
-              if(section_index>=0 && section_index<the_msections->nb_sections) {
-                ___UWORD address=___CAST(___UWORD,body-1);
-                ___UWORD first=___CAST(___UWORD,the_msections->sections[section_index]->base)+
-                  ___COLLECTION(work->vm).destination_offset*___WS;
-                if(address>=first && address-first<(___MSECTION_SIZE>>1)*___WS) {
-                  work->destination_revisits++;
-                  continue;
-                }
-              }
-            }
-            subtype = ___HD_SUBTYPE(head);
             head_typ = ___HD_TYP(head);
 
             if (head_typ == ___MOVABLE0)
               {
-                ___SIZE_TS words = ___HD_WORDS(head);
-                ___WORD *copy_header;
-                ___copy_reservation grant;
-                ___msection *source_section =
-                  require_fromspace_copy_source (work, cell, body);
-                ___VOLATILE ___WORD *copy_gate =
-                  &source_section->copy_gate;
+                ___WORD *header = body - 1;
+                ___UWORD addr = ___CAST(___UWORD, header);
+                ___msection *source_section = 0;
 
-                /* The old path reserved/refilled before discovering another
-                 * copier's forwarding. Refunding that private grant did not
-                 * recover a section already closed by refill. Serialize only
-                 * the claim/reservation/header publication, not payload copy.
-                 * Re-read under authority: the earlier header is a hint. */
-                ___gc_copy_acquire (copy_gate);
-                if (___WORD_LOAD_ACQUIRE(&body[-1]) != head)
+                /* Single cached lookup distinguishes frozen fromspace source
+                 * from destination revisit without two find_msection calls. */
+                if (__builtin_expect(
+                      work->census_section_ && work->census_epoch_ == epoch &&
+                      work->census_offset_ == source_off &&
+                      addr - ___CAST(___UWORD, work->census_base_ + source_off) < half_bytes, 1))
                   {
-                    ___gc_copy_release (copy_gate);
-                    goto again;
-                  }
-                prepare_copy_request(work,source_section,body-1,words+1,
-                                     words,subtype >= ___sS64VECTOR,0);
-                grant = reserve_copy
-                  (work,alloc,words,subtype >= ___sS64VECTOR);
-                alloc = grant.header;
-
-                ___GC_COPY_CONTROL(work,body,head); /* test-only scheduling, no result injection */
-                copy_header = alloc;
-                *alloc++ = head;
-
-#ifdef ___SINGLE_THREADED_VMS
-
-                body[-1] = ___TAG(alloc - ___REFERENCE_TO_BODY, ___FORW);
-
-#else
-
-                {
-                  ___WORD head_now =
-                    ___COMPARE_AND_SWAP_WORD(&body[-1],
-                                             head,
-                                             ___TAG(alloc - ___REFERENCE_TO_BODY, ___FORW));
-
-                  if (head_now != head)
-                    {
-                      /* Every admitted forwarding writer owns this gate.
-                       * A changed header here is an unknown foreign write,
-                       * never a known losing reservation eligible for refund. */
-                      static char *msgs[] = { "GC unknown forwarding result retains reservation", NULL };
-                      ___fatal_error (msgs);
-                    }
-                }
-
-#endif
-
-                ___gc_copy_release (copy_gate);
-                work->copied_words += words+1;
-                *cell = ___TAG(alloc - ___REFERENCE_TO_BODY, ___TYP(obj));
-                REST_OBS_REPAIR(___ps,cell,obj,*cell,work->arena.epoch);
-                finish_tail(work);
-
-                if (words > 0 && subtype <= ___sBOXVALUES)
-                  {
-                    cell = alloc;
-                    work->tail_cell_ = cell;
-                    work->tail_started_++;
+                    source_section = work->census_section_;
                   }
                 else
-                  cell = 0;
+                  {
+                    ___msection *sec = ___gc_find_msection_cached(work, the_msections, header);
+                    if (__builtin_expect(sec != 0, 1))
+                      {
+                        ___UWORD sbase = ___CAST(___UWORD, sec->base + source_off);
+                        if (addr - sbase < half_bytes)
+                          {
+                            work->census_section_ = sec;
+                            work->census_base_ = sec->base;
+                            work->census_offset_ = source_off;
+                            work->census_epoch_ = epoch;
+                            source_section = sec;
+                          }
+                        else if (addr - ___CAST(___UWORD, sec->base + dest_off) < half_bytes)
+                          {
+                            work->destination_revisits++;
+                            continue;
+                          }
+                      }
+                    if (__builtin_expect(source_section == 0, 0))
+                      source_section = require_fromspace_copy_source (work, cell, body);
+                  }
 
-                while (words > 0)
-                  {
-                    *alloc++ = *body++;
-                    words--;
-                  }
-                publish_object_scan (work, copy_header);
-                if (alloc != grant.past)
-                  {
-                    *alloc = ___MAKE_HD_WORDS(0,___sVECTOR);
-                    publish_object_scan(work,alloc++);
-                  }
-                commit_copy(work,&grant);
-                if (alloc >= alloc_heap_chunk_limit)
-                  {
-                    work->arena.cursor = alloc;
-                    end_heap_chunk (work);
-                    start_heap_chunk (work);
-                    alloc = work->arena.cursor;
-                  }
+                {
+                  ___SIZE_TS words = ___HD_WORDS(head);
+                  ___WORD *copy_header;
+                  ___copy_reservation grant;
 
-                if (cell != 0) goto again;
+                  subtype = ___HD_SUBTYPE(head);
+                  if (single_worker)
+                    {
+                      prepare_copy_request(work,source_section,header,words+1,
+                                           words,subtype >= ___sS64VECTOR,0);
+                      grant = reserve_copy
+                        (work,alloc,words,subtype >= ___sS64VECTOR);
+                      alloc = grant.header;
+
+                      ___GC_COPY_CONTROL(work,body,head);
+                      copy_header = alloc;
+                      *alloc++ = head;
+                      body[-1] = ___TAG(alloc - ___REFERENCE_TO_BODY, ___FORW);
+                    }
+                  else
+                    {
+                      ___VOLATILE ___WORD *copy_gate =
+                        &source_section->copy_gate;
+
+                      /* The old path reserved/refilled before discovering another
+                       * copier's forwarding. Refunding that private grant did not
+                       * recover a section already closed by refill. Serialize only
+                       * the claim/reservation/header publication, not payload copy.
+                       * Re-read under authority: the earlier header is a hint. */
+                      ___gc_copy_acquire (copy_gate);
+                      if (___WORD_LOAD_ACQUIRE(&body[-1]) != head)
+                        {
+                          ___gc_copy_release (copy_gate);
+                          goto again;
+                        }
+                      prepare_copy_request(work,source_section,header,words+1,
+                                           words,subtype >= ___sS64VECTOR,0);
+                      grant = reserve_copy
+                        (work,alloc,words,subtype >= ___sS64VECTOR);
+                      alloc = grant.header;
+
+                      ___GC_COPY_CONTROL(work,body,head); /* test-only scheduling, no result injection */
+                      copy_header = alloc;
+                      *alloc++ = head;
+
+#ifdef ___SINGLE_THREADED_VMS
+                      body[-1] = ___TAG(alloc - ___REFERENCE_TO_BODY, ___FORW);
+#else
+                      {
+                        ___WORD head_now =
+                          ___COMPARE_AND_SWAP_WORD(&body[-1],
+                                                   head,
+                                                   ___TAG(alloc - ___REFERENCE_TO_BODY, ___FORW));
+
+                        if (__builtin_expect(head_now != head, 0))
+                          {
+                            /* Every admitted forwarding writer owns this gate.
+                             * A changed header here is an unknown foreign write,
+                             * never a known losing reservation eligible for refund. */
+                            static char *msgs[] = { "GC unknown forwarding result retains reservation", NULL };
+                            ___fatal_error (msgs);
+                          }
+                      }
+#endif
+                      ___gc_copy_release (copy_gate);
+                    }
+
+                  work->copied_words += words+1;
+                  *cell = ___TAG(alloc - ___REFERENCE_TO_BODY, ___TYP(obj));
+                  REST_OBS_REPAIR(___ps,cell,obj,*cell,work->arena.epoch);
+                  finish_tail(work);
+
+                  if (words > 0 && subtype <= ___sBOXVALUES)
+                    {
+                      cell = alloc;
+                      work->tail_cell_ = cell;
+                      work->tail_started_++;
+                    }
+                  else
+                    cell = 0;
+
+                  while (words > 0)
+                    {
+                      *alloc++ = *body++;
+                      words--;
+                    }
+                  publish_object_scan (work, copy_header);
+                  if (__builtin_expect(alloc != grant.past, 0))
+                    {
+                      *alloc = ___MAKE_HD_WORDS(0,___sVECTOR);
+                      publish_object_scan(work,alloc++);
+                    }
+                  commit_copy(work,&grant);
+                  if (__builtin_expect(alloc >= alloc_heap_chunk_limit, 0))
+                    {
+                      work->arena.cursor = alloc;
+                      end_heap_chunk (work);
+                      start_heap_chunk (work);
+                      alloc = work->arena.cursor;
+                    }
+
+                  if (cell != 0) goto again;
+                }
               }
             else if (head_typ == ___STILL)
               {
+                if (single_worker)
+                  {
+                    if (body[___STILL_MARK - ___STILL_BODY] == -1)
+                      {
+                        body[___STILL_MARK - ___STILL_BODY]
+                          = ___CAST(___WORD,still_objs_to_scan);
+                        still_objs_to_scan
+                          = ___CAST(___WORD,body - ___STILL_BODY);
+                      }
+                  }
+                else
+                  {
 #ifdef ___SINGLE_THREADED_VMS
-
-                if (body[___STILL_MARK - ___STILL_BODY] == -1)
-                  {
-                    body[___STILL_MARK - ___STILL_BODY]
-                      = ___CAST(___WORD,still_objs_to_scan);
-                    still_objs_to_scan
-                      = ___CAST(___WORD,body - ___STILL_BODY);
-                  }
-
+                    if (body[___STILL_MARK - ___STILL_BODY] == -1)
+                      {
+                        body[___STILL_MARK - ___STILL_BODY]
+                          = ___CAST(___WORD,still_objs_to_scan);
+                        still_objs_to_scan
+                          = ___CAST(___WORD,body - ___STILL_BODY);
+                      }
 #else
-
-                if (___COMPARE_AND_SWAP_WORD(&body[___STILL_MARK - ___STILL_BODY],
-                                             -1,
-                                             ___CAST(___WORD,still_objs_to_scan))
-                    == -1)
-                  {
-                    still_objs_to_scan
-                      = ___CAST(___WORD,body - ___STILL_BODY);
-                  }
+                    if (___COMPARE_AND_SWAP_WORD(&body[___STILL_MARK - ___STILL_BODY],
+                                                 -1,
+                                                 ___CAST(___WORD,still_objs_to_scan))
+                        == -1)
+                      {
+                        still_objs_to_scan
+                          = ___CAST(___WORD,body - ___STILL_BODY);
+                      }
 #endif
+                  }
               }
             else if (___TESTTYPE(head_typ, ___FORW))
               {

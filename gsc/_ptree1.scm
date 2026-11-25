@@ -808,7 +808,7 @@
                    cont)))
 
               ((**c-declare-expr? source env)
-               (let ((body (source-code (c-declaration-body source))))
+               (let ((body (c-declaration-body source)))
 
                  (if *ptree-port*
                    (begin
@@ -1001,15 +1001,57 @@
         (else
          (pt-syntax-error source "Ill-formed expression"))))
 
+(define *mx-count* 0)
+(define *mx-last* #f)
+(define *mx-repeat* 0)
+(define *mx-name* #f)
+
+(define (mx-head source)
+  (let ((code (source-code source)))
+    (cond ((symbol? code) code)
+          ((and (pair? code) (source? (car code)))
+           (let ((name (source-code (car code))))
+             (if (symbol? name) name 'form)))
+          ((and (pair? code) (symbol? (car code)))
+           (car code))
+          (else 'atom))))
+
+(define (mx-power2? n)
+  (let loop ((k n))
+    (or (= k 2)
+        (and (even? k) (> k 2) (loop (quotient k 2))))))
+
+(define (mx-note kind name shape)
+  (set! *mx-count* (+ *mx-count* 1))
+  (let ((key (list kind name shape)))
+    (if (equal? key *mx-last*)
+        (set! *mx-repeat* (+ *mx-repeat* 1))
+        (begin
+          (set! *mx-last* key)
+          (set! *mx-repeat* 1)))
+    (if (or (not (eq? name *mx-name*)) (mx-power2? *mx-repeat*))
+        (begin
+          (set! *mx-name* name)
+          (display "mx ")
+          (write (list *mx-count* *mx-repeat* kind name shape))
+          (newline)
+          (force-output)))))
+
 (define (macro-expand source env)
   (let ((code (source-code source)))
-    (let* ((descr (env-lookup-macro env (source-code (car code))))
-           (expander (**macro-descr-expander descr)))
-      (sourcify-deep
-       (if (**macro-descr-def-syntax? descr)
-           (expander source)
-           (apply expander (cdr (source->expression source))))
-       source))))
+    (let* ((name (source-code (car code)))
+           (descr (env-lookup-macro env name))
+           (expander (**macro-descr-expander descr))
+           (in (mx-head source)))
+      (mx-note 'enter name in)
+      (let ((out
+             (sourcify-deep
+              (if (**macro-descr-def-syntax? descr)
+                  (expander source)
+                  (apply expander (cdr (source->expression source))))
+              source)))
+        (mx-note 'return name (mx-head out))
+        out))))
 
 (define (pt-self-eval source env use)
   (let ((val (source->expression source)))
@@ -1591,7 +1633,7 @@
                                            (env-macros-set env save)
                                            cont)))))
           ((**c-declare-expr? (car exprs) env)
-           (let ((body (source-code (c-declaration-body (car exprs)))))
+           (let ((body (c-declaration-body (car exprs))))
              (add-c-decl body)
              (extract-defs defs
                            non-defs
