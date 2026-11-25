@@ -14,58 +14,94 @@
  */
 
 /* Define as 1 if you want to compile for debugging.  */
+#ifndef ___DEBUG
 #undef ___DEBUG
+#endif
 
 /* Define as 1 if you want to generate a debugging log file.  */
+#ifndef ___DEBUG_LOG
 #undef ___DEBUG_LOG
+#endif
 
 /* Define as 1 if you want to generate a C backtrace when a program crashes.  */
+#ifndef ___DEBUG_C_BACKTRACE
 #undef ___DEBUG_C_BACKTRACE
+#endif
 
 /* Define as 1 if you want to compile for debugging the control flow history.  */
+#ifndef ___DEBUG_CTRL_FLOW_HISTORY
 #undef ___DEBUG_CTRL_FLOW_HISTORY
+#endif
 
 /* Define as 1 if you want to compile for debugging the host changes.  */
+#ifndef ___DEBUG_HOST_CHANGES
 #undef ___DEBUG_HOST_CHANGES
+#endif
 
 /* Define as 1 if you want to generate a log of the memory allocations. */
+#ifndef ___DEBUG_ALLOC_MEM
 #undef ___DEBUG_ALLOC_MEM
+#endif
 
 /* Define as 1 if you want to compile for debugging the garbage collector.  */
+#ifndef ___DEBUG_GARBAGE_COLLECT
 #undef ___DEBUG_GARBAGE_COLLECT
+#endif
 
 /* Define as 1 if you want to compile with profiling.  */
+#ifndef ___PROFILE
 #undef ___PROFILE
+#endif
 
 /* Define as 1 if you want to compile each Scheme file into one C function.  */
+#ifndef ___SINGLE_HOST
 #undef ___SINGLE_HOST
+#endif
 
 /* Define as 1 if you want to mix the execution of C and machine code.  */
+#ifndef ___SUPPORT_LOWLEVEL_EXEC
 #undef ___SUPPORT_LOWLEVEL_EXEC
+#endif
 
 /* Define as 1 if you want trampoline jumps to be inlined.  */
+#ifndef ___INLINE_JUMPS
 #undef ___INLINE_JUMPS
+#endif
 
 /* Define as 1 if you trust the C compiler does TCO properly */
+#ifndef ___TRUST_C_TCO
 #undef ___TRUST_C_TCO
+#endif
 
 /* Define as 1 if you want to compile as a shared library.  */
+#ifndef ___SHARED
 #undef ___SHARED
+#endif
 
 /* Define as 1 if dynamically loaded code should not be unloaded.  */
+#ifndef ___DONT_UNLOAD_DYN_CODE
 #undef ___DONT_UNLOAD_DYN_CODE
+#endif
 
 /* Define as 1 if thread local storage variables can be referenced from dynamically loaded code */
+#ifndef ___DYNAMIC_TLS
 #undef ___DYNAMIC_TLS
+#endif
 
 /* Define as 1 if C library functions can be called from dynamically loaded code */
+#ifndef ___CAN_IMPORT_CLIB_DYNAMICALLY
 #undef ___CAN_IMPORT_CLIB_DYNAMICALLY
+#endif
 
 /* Define as 1 if C library setjmp function can be called from dynamically loaded code */
+#ifndef ___CAN_IMPORT_SETJMP_DYNAMICALLY
 #undef ___CAN_IMPORT_SETJMP_DYNAMICALLY
+#endif
 
 /* Define as 1 if Gambit RTS functions can be called from dynamically loaded code */
+#ifndef ___CAN_IMPORT_DYNAMICALLY
 #undef ___CAN_IMPORT_DYNAMICALLY
+#endif
 
 /*---------------------------------------------------------------------------*/
 

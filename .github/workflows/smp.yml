@@ -16,7 +16,7 @@ concurrency:
 jobs:
   smp-build-linux:
     name: "SMP Build (Linux GCC C23)"
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
@@ -43,7 +43,7 @@ jobs:
   smp-multicore-pbt:
     name: "True-Multicore PBT (${{ matrix.topology }})"
     needs: smp-build-linux
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
       fail-fast: false
@@ -52,7 +52,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install runtime compilation prerequisites
-        run: sudo apt-get update && sudo apt-get install -y gcc-14 gcc make time
+        run: sudo apt-get update && sudo apt-get install -y gcc make time
       - uses: actions/download-artifact@v4
         with:
           name: gambit-smp-linux-runtime-${{ github.run_id }}-${{ github.run_attempt }}
@@ -74,7 +74,7 @@ jobs:
   smp-official-regressions:
     name: "Official SMP Suite (${{ matrix.suite }})"
     needs: smp-build-linux
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
       fail-fast: false
@@ -83,7 +83,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install runtime compilation prerequisites
-        run: sudo apt-get update && sudo apt-get install -y gcc-14 gcc make time
+        run: sudo apt-get update && sudo apt-get install -y gcc make time
       - uses: actions/download-artifact@v4
         with:
           name: gambit-smp-linux-runtime-${{ github.run_id }}-${{ github.run_attempt }}
@@ -111,7 +111,7 @@ jobs:
   smp-c23-clang-hygiene:
     name: "Clang C23 Header & Ordered-Sync TSan Hygiene"
     needs: smp-build-linux
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
