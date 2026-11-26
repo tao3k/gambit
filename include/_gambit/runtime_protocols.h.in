@@ -1272,6 +1272,7 @@ ___IMP_FUNC(void,___setup_params_reset)
 ___IMP_FUNC(___SCMOBJ,___setup)
    ___P((___setup_params_struct *setup_params),
         ());
+___IMP_FUNC(void,___dyn_process_set_owner) ___PVOID;
 ___IMP_FUNC(___BOOL,___cleanup) ___PVOID;
 ___IMP_FUNC(void,___cleanup_and_exit_process)
    ___P((int status),

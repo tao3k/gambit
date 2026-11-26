@@ -340,11 +340,20 @@ ___WORD *scan_ptr_;
 /* still objects remaining to scan */
 ___WORD still_objs_to_scan_;
 
-/* list of still objects */
+/* list of mature still objects */
 ___WORD still_objs_;
 
-/* words occupied by still objects */
+/* list of young still objects allocated since last GC */
+___WORD young_still_objs_;
+
+/* words occupied by still objects (mature + deferred foreign cleanup) */
 ___SIZE_TS words_still_objs_;
+
+/* words occupied by live mature still objects */
+___SIZE_TS words_still_objs_mature_;
+
+/* words allocated to young still objects since last GC */
+___SIZE_TS words_still_objs_young_;
 
 /* words occupied by still objects not yet accounted for at the VM level */
 ___SIZE_TS words_still_objs_deferred_;
@@ -534,6 +543,10 @@ ___UWORD mature_snapshot_epoch_;
 ___SIZE_TS occupied_words_mature_;
 int major_trigger_sections_;
 int minor_gcs_since_major_;
+___SIZE_TS mature_still_words_;
+___SIZE_TS major_trigger_still_words_;
+int promo_cand_count_;
+___msection *promo_cands_[___MAX_PROCESSORS * 2];
 ___VOLATILE ___WORD still_dirty_any_;
 ___VOLATILE ___WORD force_major_gc_;
 int gen_gc_enabled_;

@@ -12328,11 +12328,14 @@ ___DEF_SLBL(8,___L8__23__23_kernel_2d_handlers)
      }
    }
 
+   if (__builtin_expect(held != 0 || ___rest_attempt_words != 0, 0))
+     {
+       ___rest_fallback_pops += i;
+       ___rest_fallback_pair_writes += i;
+     }
    while (i > 0)
      {
        rest_param_list = ___CONS(___POP,rest_param_list);
-       ___rest_fallback_pops++;
-       ___rest_fallback_pair_writes++;
        i--;
      }
 
@@ -12941,11 +12944,14 @@ ___DEF_SLBL(10,___L10__23__23_kernel_2d_handlers)
      }
    }
 
+   if (__builtin_expect(held != 0 || ___rest_attempt_words != 0, 0))
+     {
+       ___rest_fallback_pops += i;
+       ___rest_fallback_pair_writes += i;
+     }
    while (i > 0)
      {
        rest_param_list = ___CONS(___POP,rest_param_list);
-       ___rest_fallback_pops++;
-       ___rest_fallback_pair_writes++;
        i--;
      }
 

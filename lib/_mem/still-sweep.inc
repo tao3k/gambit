@@ -1,4 +1,46 @@
 #line 4334 ___MEM_SOURCE_FILE
+___HIDDEN void sweep_young_still_objs
+   ___P((___PSDNC),
+        (___PSVNC)
+___PSDKR)
+{
+  ___PSGET
+  ___WORD *base = ___CAST(___WORD*, young_still_objs);
+  ___SIZE_TS promoted_words = 0;
+
+  young_still_objs = 0;
+  words_still_objs_young = 0;
+
+  while (base != 0)
+    {
+      ___WORD link = base[___STILL_LINK];
+      if (base[___STILL_MARK] == -1)
+        {
+          ___WORD head = base[___STILL_BODY-1];
+          if (___HD_SUBTYPE(head) == ___sFOREIGN)
+            ___lifecycle_defer(___ps, base);
+          else
+            free_mem_aligned_heap(base);
+        }
+      else
+        {
+#ifndef ___USE_HANDLES
+          base[___STILL_DIRTY] = 0;
+#endif
+          promoted_words += base[___STILL_LENGTH];
+          base[___STILL_LINK] = still_objs;
+          still_objs = ___CAST(___WORD, base);
+        }
+      base = ___CAST(___WORD*, link);
+    }
+
+  words_still_objs_mature += promoted_words;
+  words_still_objs = words_still_objs_mature + ___lifecycle_deferred_words(___ps);
+  words_still_objs_deferred = 0;
+  still_words_budget = 0;
+}
+
+
 ___HIDDEN void free_unmarked_still_objs
    ___P((___PSDNC),
         (___PSVNC)
@@ -7,7 +49,11 @@ ___PSDKR)
   ___PSGET
   ___WORD *last = &still_objs;
   ___WORD *base = ___CAST(___WORD*,*last);
+  ___WORD *young = ___CAST(___WORD*,young_still_objs);
   ___SIZE_TS live_words_still = 0;
+
+  young_still_objs = 0;
+  words_still_objs_young = 0;
 
   while (base != 0)
     {
@@ -31,8 +77,31 @@ ___PSDKR)
       base = ___CAST(___WORD*,link);
     }
 
+  while (young != 0)
+    {
+      ___WORD link = young[___STILL_LINK];
+      if (young[___STILL_MARK] == -1)
+        {
+          ___WORD head = young[___STILL_BODY-1];
+          if (___HD_SUBTYPE(head) == ___sFOREIGN)
+            ___lifecycle_defer(___ps,young);
+          else free_mem_aligned_heap(young);
+        }
+      else
+        {
+#ifndef ___USE_HANDLES
+          young[___STILL_DIRTY] = 0;
+#endif
+          live_words_still += young[___STILL_LENGTH];
+          *last = ___CAST(___WORD,young);
+          last = young + ___STILL_LINK;
+        }
+      young = ___CAST(___WORD*,link);
+    }
+
   *last = 0;
 
+  words_still_objs_mature = live_words_still;
   words_still_objs = live_words_still + ___lifecycle_deferred_words(___ps);
   words_still_objs_deferred = 0;
   still_words_budget = 0;
@@ -53,8 +122,12 @@ ___HIDDEN void free_still_objs
 ___processor_state ___ps;)
 {
   ___WORD *base = ___CAST(___WORD*,still_objs);
+  ___WORD *young = ___CAST(___WORD*,young_still_objs);
 
   still_objs = 0;
+  young_still_objs = 0;
+  words_still_objs_mature = 0;
+  words_still_objs_young = 0;
   while (base != 0)
     {
       ___WORD link=base[___STILL_LINK];
@@ -62,6 +135,14 @@ ___processor_state ___ps;)
         ___lifecycle_defer(___ps,base);
       else free_mem_aligned_heap(base);
       base=___CAST(___WORD*,link);
+    }
+  while (young != 0)
+    {
+      ___WORD link=young[___STILL_LINK];
+      if (___HD_SUBTYPE(young[___STILL_BODY-1])==___sFOREIGN)
+        ___lifecycle_defer(___ps,young);
+      else free_mem_aligned_heap(young);
+      young=___CAST(___WORD*,link);
     }
   words_still_objs=___lifecycle_deferred_words(___ps);
 }
@@ -144,6 +225,14 @@ enum ___handoff_status ___lifecycle_can_handoff(___processor_state ps)
     }
     base=___CAST(___WORD*,base[___STILL_LINK]);
   }
+  base=___CAST(___WORD*,ps->mem.young_still_objs_);
+  while(base) {
+    if(___HD_SUBTYPE(base[___STILL_BODY-1])==___sFOREIGN) {
+      ___SCMOBJ obj=___TAG(base+___STILL_BODY-___REFERENCE_TO_BODY,___tSUBTYPED);
+      if(___FOREIGN_RELEASE_FN_FIELD(obj)!=0)return ___HANDOFF_GC;
+    }
+    base=___CAST(___WORD*,base[___STILL_LINK]);
+  }
   return ___HANDOFF_READY;
 }
 void ___lifecycle_handoff(___processor_state from,___processor_state to)
@@ -153,10 +242,21 @@ void ___lifecycle_handoff(___processor_state from,___processor_state to)
     ___WORD *last=base;
     while(last[___STILL_LINK])last=___CAST(___WORD*,last[___STILL_LINK]);
     last[___STILL_LINK]=to->mem.still_objs_;to->mem.still_objs_=from->mem.still_objs_;
-    to->mem.words_still_objs_+=from->mem.words_still_objs_;
-    to->mem.words_still_objs_deferred_+=from->mem.words_still_objs_deferred_;
-    from->mem.still_objs_=0;from->mem.words_still_objs_=0;from->mem.words_still_objs_deferred_=0;
+    from->mem.still_objs_=0;
   }
+  base=___CAST(___WORD*,from->mem.young_still_objs_);
+  if(base) {
+    ___WORD *last=base;
+    while(last[___STILL_LINK])last=___CAST(___WORD*,last[___STILL_LINK]);
+    last[___STILL_LINK]=to->mem.young_still_objs_;to->mem.young_still_objs_=from->mem.young_still_objs_;
+    from->mem.young_still_objs_=0;
+  }
+  to->mem.words_still_objs_+=from->mem.words_still_objs_;
+  to->mem.words_still_objs_mature_+=from->mem.words_still_objs_mature_;
+  to->mem.words_still_objs_young_+=from->mem.words_still_objs_young_;
+  to->mem.words_still_objs_deferred_+=from->mem.words_still_objs_deferred_;
+  from->mem.words_still_objs_=0;from->mem.words_still_objs_mature_=0;
+  from->mem.words_still_objs_young_=0;from->mem.words_still_objs_deferred_=0;
   to->mem.still_words_budget_+=from->mem.still_words_budget_;
   from->mem.still_words_budget_=0;
   to->mem.bytes_allocated_minus_occupied_+=from->mem.bytes_allocated_minus_occupied_;

@@ -358,11 +358,100 @@
       (let ((s1 (gc-gen-stats)))
         (list nw (- (stat-minor s1) m0))))))
 
+;; ---------------------------------------------------------------------------
+;; Scenario 6: Wave A Generational ___STILL (non-ptr sweep, ptr promotion,
+;;             weak/will young-still custody) + Parallel rest/keyword fast_span
+;; ---------------------------------------------------------------------------
+(define (test-generational-still-and-rest)
+  (let* ((np (proc-count))
+         (nw (max 4 (* 2 np)))
+         (wt (make-table test: eq? weak-keys: #t))
+         (fired-still-will 0)
+         (live-young-still-ptr (make-vector 320 #f))
+         (live-young-still-f64 (make-f64vector 320 3.25))
+         (rsum (lambda (a b . rest)
+                 (let lp ((xs rest) (s (+ a b)))
+                   (if (null? xs) s (lp (cdr xs) (+ s (car xs)))))))
+         (ksum (lambda (#!key (x 1) (y 2) #!rest r)
+                 (let lp ((xs r) (s (+ x y)))
+                   (if (null? xs) s (lp (cdr xs) (+ s (car xs))))))))
+    ;; Establish mature baseline first
+    (##gc)
+    ;; Populate live young_still pointer vector with fresh young movable payloads
+    (vector-set! live-young-still-ptr 0 (make-young-payload 88001))
+    (vector-set! live-young-still-ptr 319 (make-young-payload 88002))
+    ;; Attach weak table entries & will to dead young_still objects
+    (let ((w-still (make-will (make-f64vector 320 9.5)
+                              (lambda (o)
+                                (if (and (f64vector? o) (= (f64vector-length o) 320))
+                                    (set! fired-still-will (+ fired-still-will 1)))))))
+      (table-set! wt (make-f64vector 300 7.0) 'dead-f64-still)
+      (table-set! wt (make-vector 300 'dead) 'dead-vec-still)
+      (table-set! wt live-young-still-f64 'live-f64-still)
+      (table-set! wt live-young-still-ptr 'live-vec-still)
+      ;; Allocate heavy dead young_still f64vectors & vectors + concurrent rest calls
+      (let* ((s0 (gc-gen-stats))
+             (m0 (stat-minor s0))
+             (threads
+              (let spawn ((w 0) (acc '()))
+                (if (= w nw)
+                    acc
+                    (spawn
+                     (+ w 1)
+                     (cons
+                      (thread-start!
+                       (make-thread
+                        (lambda ()
+                          ;; 1. Dead young_still f64vector & vector churn
+                          (let lp ((i 0) (sum 0.0))
+                            (if (< i 2500)
+                                (let ((fv (make-f64vector 256 1.25))
+                                      (pv (if (= (modulo i 25) 0) (make-vector 280 i) #f)))
+                                  (lp (+ i 1)
+                                      (+ sum (f64vector-ref fv 0)
+                                         (if pv (exact->inexact (vector-ref pv 0)) 0.0))))
+                                (begin
+                                  (assert-true (= sum 126875.0) "still-churn-sum" w sum)
+                                  ;; 2. Variadic & keyword fast_span torture
+                                  (let rlp ((j 0) (rs 0))
+                                    (if (< j 20000)
+                                        (rlp (+ j 1)
+                                             (+ rs
+                                                (rsum 1 2 3 4 5)
+                                                (ksum x: 3 y: 4 5 6)))
+                                        (begin
+                                          (assert-true (= rs (* 20000 (+ 15 18))) "rest-key-sum" w rs)
+                                          'ok)))))))))
+                      acc))))))
+        (for-each
+         (lambda (th)
+           (assert-true (eq? (thread-join! th 60 'timeout) 'ok) "s6-worker-ok"))
+         threads)
+        ;; Drain executable will if scheduled
+        (let drain ((k 0))
+          (if (and (< k 40) (< fired-still-will 1))
+              (begin (thread-sleep! 0.005) (drain (+ k 1)))))
+        ;; Verify live young_still objects promoted intact and dead weak entries cleared
+        (check-payload (vector-ref live-young-still-ptr 0) 88001 "promoted-still-0")
+        (check-payload (vector-ref live-young-still-ptr 319) 88002 "promoted-still-319")
+        (assert-true (= (f64vector-ref live-young-still-f64 0) 3.25) "promoted-still-f64")
+        (assert-true (eq? (table-ref wt live-young-still-f64 #f) 'live-f64-still) "wt-live-still-f64")
+        (assert-true (eq? (table-ref wt live-young-still-ptr #f) 'live-vec-still) "wt-live-still-ptr")
+        (assert-true (= (table-length wt) 2) "wt-dead-young-still-cleared" (table-length wt))
+        (assert-true (= fired-still-will 1) "young-still-will-fired" fired-still-will)
+        ;; Mutate now-mature still vector with fresh young payload and verify write barrier
+        (vector-set! live-young-still-ptr 100 (make-young-payload 88003))
+        (churn-young! 15000)
+        (check-payload (vector-ref live-young-still-ptr 100) 88003 "mature-still-wb-100")
+        (let ((s1 (gc-gen-stats)))
+          (list (will? w-still) (- (stat-minor s1) m0) fired-still-will))))))
+
 (define r1 (test-all-container-barriers))
 (define r2 (test-hint-log-overflow))
 (define r3 (test-wills-and-weak-tables))
 (define r4 (test-mature-continuations))
 (define r5 (test-multicore-wb-torture))
+(define r6 (test-generational-still-and-rest))
 (define sf (gc-gen-stats))
 
 (write
@@ -375,6 +464,8 @@
        's4-multishot r4
        's5-workers (car r5)
        's5-minor (cadr r5)
+       's6-minor (cadr r6)
+       's6-still-will (caddr r6)
        'total-minor (stat-minor sf)
        'total-major (stat-major sf)))
 (newline)

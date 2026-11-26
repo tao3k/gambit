@@ -116,10 +116,16 @@ ___processor_state ___ps;)
       ___CAST(___UWORD, ___ps->heap_limit) < ~(___UWORD)0)
     {
       ___WORD *end = alloc_heap_limit;
-      if (heap_msection == stack_msection && alloc_stack_limit &&
-          alloc_stack_limit < end)
-        end = alloc_stack_limit;
-      if (___ps->heap_limit <= end)
+      int shared_ok = 1;
+      if (heap_msection == stack_msection)
+        {
+          if (alloc_stack_limit && alloc_stack_limit < end)
+            end = alloc_stack_limit;
+          if (___ps->stack_fast_limit_b == 0 ||
+              ___CAST(___UWORD, ___ps->heap_limit) > ___ps->stack_fast_floor_b)
+            shared_ok = 0;
+        }
+      if (shared_ok && ___ps->heap_limit <= end)
         {
           ___ps->heap_fast_lo_b = ___CAST(___UWORD, alloc_heap_start);
           ___ps->heap_fast_bytes = ___CAST(___UWORD, ___ps->heap_limit) - ___CAST(___UWORD, alloc_heap_start);
@@ -323,7 +329,10 @@ ___processor_state ___ps;)
   /* Setup list of still objects. */
 
   still_objs = 0;
+  young_still_objs = 0;
   words_still_objs = 0;
+  words_still_objs_mature = 0;
+  words_still_objs_young = 0;
   words_still_objs_deferred = 0;
   still_words_budget = 0;
 
@@ -536,6 +545,9 @@ ___virtual_machine_state ___vms;)
   ___vms->mem.occupied_words_mature_ = 0;
   ___vms->mem.major_trigger_sections_ = 8;
   ___vms->mem.minor_gcs_since_major_ = 0;
+  ___vms->mem.mature_still_words_ = 0;
+  ___vms->mem.major_trigger_still_words_ = 4 * ___MSECTION_SIZE;
+  ___vms->mem.promo_cand_count_ = 0;
   ___vms->mem.still_dirty_any_ = 0;
   ___vms->mem.force_major_gc_ = 0;
   {

@@ -148,10 +148,19 @@ ___HIDDEN void census_array(___collector_worker *work, ___WORD *start, ___WORD n
     body=___BODY0(value);head=body[-1];type=___HD_TYP(head);
     if(type==___PERM)continue;
     if(type==___STILL) {
+#ifndef ___USE_HANDLES
+      if(___COLLECTION(work->vm).is_minor &&
+         (body[___STILL_DIRTY-___STILL_BODY] & ___STILL_FLAG_YOUNG)==0)
+        continue;
+#else
       if(___COLLECTION(work->vm).is_minor) continue;
+#endif
       ___WORD *mark=body+___STILL_MARK-___STILL_BODY;
       if(*mark)continue;
-      *mark=1;++c->still;census_enqueue(work,value);continue;
+      *mark=1;++c->still;
+      if(still_subtype_has_pointers(___HD_SUBTYPE(head)))
+        census_enqueue(work,value);
+      continue;
     }
     if(type!=___MOVABLE0) {c->failed=1;break;}
     request=___HD_WORDS(head)+1;
@@ -340,11 +349,19 @@ ___HIDDEN int plan_copy_round(___processor_state ps, ___SIZE_TS requested_words_
       memset(section->base+___MSECTION_SIZE,0,___msection_scan_words(___MSECTION_SIZE)*___WS);
       if(section==alloc_msection) break;
     }
+    if (g->has_young_still) {
+      for(i=0;i<n;i++) {
+        ___WORD *base=___CAST(___WORD*,round->members[i].owner->mem.young_still_objs_);
+        while(base) {base[___STILL_MARK]=0;base=___CAST(___WORD*,base[___STILL_LINK]);}
+      }
+    }
   } else {
     for(section=the_msections->head;section;section=section->next)
       memset(section->base+___MSECTION_SIZE,0,___msection_scan_words(___MSECTION_SIZE)*___WS);
     for(i=0;i<n;i++) {
       ___WORD *base=___CAST(___WORD*,round->members[i].owner->mem.still_objs_);
+      while(base) {base[___STILL_MARK]=0;base=___CAST(___WORD*,base[___STILL_LINK]);}
+      base=___CAST(___WORD*,round->members[i].owner->mem.young_still_objs_);
       while(base) {base[___STILL_MARK]=0;base=___CAST(___WORD*,base[___STILL_LINK]);}
     }
   }
@@ -367,6 +384,13 @@ ___HIDDEN int plan_copy_round(___processor_state ps, ___SIZE_TS requested_words_
     census_continuation(work,m,&round->resume[i],c->source_offset);
     if (!g->is_minor) {
       base=___CAST(___WORD*,m->owner->mem.still_objs_);
+      while(base) {
+        if(base[___STILL_REFCOUNT]!=0) {___WORD value=___SUBTYPED_FROM_BODY(base+___STILL_BODY);census_array(work,&value,1);}
+        base=___CAST(___WORD*,base[___STILL_LINK]);
+      }
+    }
+    if (!g->is_minor || g->has_young_still) {
+      base=___CAST(___WORD*,m->owner->mem.young_still_objs_);
       while(base) {
         if(base[___STILL_REFCOUNT]!=0) {___WORD value=___SUBTYPED_FROM_BODY(base+___STILL_BODY);census_array(work,&value,1);}
         base=___CAST(___WORD*,base[___STILL_LINK]);

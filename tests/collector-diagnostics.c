@@ -396,14 +396,14 @@ static int delayed_restore_reader(int early, int collective)
 #ifdef ___GAMBIT_DEV_RESTORE_GENERATED_CONTROL
     if (collective>=2) {
       CHECK(section_claim_at(section,0)->heap_used);
-      retire_section_claims(&sections,0);
+      retire_section_claims(&sections,0,0);
       barrier_sync_noop(parent);
     }
 #endif
     CHECK(pthread_join(reader,0)==0);
     if (collective==1) {
       CHECK(section_claim_at(section,0)->heap_used);
-      retire_section_claims(&sections,0);
+      retire_section_claims(&sections,0,0);
     }
     CHECK(!section_claim_at(section,0)->heap_used);
     CHECK(section_claim_at(section,half)->heap_used);
@@ -428,7 +428,7 @@ static int delayed_restore_reader(int early, int collective)
     CHECK(section_claim_at(section,0)->heap_used);
     puts("DRAINED-RETIRE-HELD-READER-REFUSED");
   } else if (early)
-    retire_section_claims(&sections,0);
+    retire_section_claims(&sections,0,0);
   held=section_claim_at(section,0)->heap_used;
   atomic_store(&restore_cut,3);
   pthread_cond_signal(&restore_cv);
@@ -453,7 +453,7 @@ static int delayed_restore_reader(int early, int collective)
     round->resume[1].source_half=0;
     CHECK(retire_drained_source_claims(round,&sections,4));
   } else if (!early)
-    retire_section_claims(&sections,0);
+    retire_section_claims(&sections,0,0);
   CHECK(!section_claim_at(section,0)->heap_used);
   CHECK(section_claim_at(section,half)->heap_used);
   free(section);
@@ -631,7 +631,7 @@ static int stack_section_ownership(void)
   CHECK(section_claim_at(shared,0)->heap_used);
   sections.head=shared;
   shared->next=outgoing;
-  retire_section_claims(&sections,0);
+  retire_section_claims(&sections,0,0);
   CHECK(!section_claim_at(shared,0)->heap_used);
   CHECK(section_claim_at(shared,0)->stack_state==STACK_UNCLAIMED);
   CHECK(section_claim_at(shared,___MSECTION_SIZE>>1)->stack_owner==___ps);

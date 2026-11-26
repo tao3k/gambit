@@ -591,12 +591,39 @@ ___WORD n;)
               }
             else if (head_typ == ___STILL)
               {
+#ifndef ___USE_HANDLES
+                if (is_minor &&
+                    (body[___STILL_DIRTY - ___STILL_BODY] & ___STILL_FLAG_YOUNG) == 0)
+                  {
+                    finish_tail(work);
+                    continue;
+                  }
+#else
                 if (is_minor)
                   {
                     finish_tail(work);
                     continue;
                   }
-                if (single_worker)
+#endif
+                if (!still_subtype_has_pointers(___HD_SUBTYPE(head)))
+                  {
+                    if (single_worker)
+                      {
+                        if (body[___STILL_MARK - ___STILL_BODY] == -1)
+                          body[___STILL_MARK - ___STILL_BODY] = 0;
+                      }
+                    else
+                      {
+#ifdef ___SINGLE_THREADED_VMS
+                        if (body[___STILL_MARK - ___STILL_BODY] == -1)
+                          body[___STILL_MARK - ___STILL_BODY] = 0;
+#else
+                        if (___WORD_LOAD_RELAXED(&body[___STILL_MARK - ___STILL_BODY]) == -1)
+                          ___COMPARE_AND_SWAP_WORD(&body[___STILL_MARK - ___STILL_BODY], -1, 0);
+#endif
+                      }
+                  }
+                else if (single_worker)
                   {
                     if (body[___STILL_MARK - ___STILL_BODY] == -1)
                       {
@@ -617,7 +644,8 @@ ___WORD n;)
                           = ___CAST(___WORD,body - ___STILL_BODY);
                       }
 #else
-                    if (___COMPARE_AND_SWAP_WORD(&body[___STILL_MARK - ___STILL_BODY],
+                    if (___WORD_LOAD_RELAXED(&body[___STILL_MARK - ___STILL_BODY]) == -1 &&
+                        ___COMPARE_AND_SWAP_WORD(&body[___STILL_MARK - ___STILL_BODY],
                                                  -1,
                                                  ___CAST(___WORD,still_objs_to_scan))
                         == -1)

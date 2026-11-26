@@ -5835,6 +5835,9 @@ ___EXP_FUNC(void,___cleanup_and_exit_process)
         (status)
 int status;)
 {
+#ifdef __APPLE__
+  ___retain_dyn_modules_until_process_exit ();
+#endif
   cleanup_runtime(1);
   ___exit_process (status);
 }
@@ -7420,7 +7423,13 @@ ___setup_params_struct *setup_params;)
 #endif
     cleanup_os_and_mem();___GSTATE->setup_state=2;
     ___WORD_STORE_RELEASE(&vm_registry_gate,VM_REGISTRY_CLOSED);
-  }else if (err != ___FIX(___NO_ERR)) cleanup_runtime(1);
+  }else if (err != ___FIX(___NO_ERR)) {
+#ifdef __APPLE__
+    if (err > ___FIX(___NO_ERR))
+      ___dyn_process_prepare_exit ();
+#endif
+    cleanup_runtime(1);
+  }
   return err;
 }
 

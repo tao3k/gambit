@@ -281,6 +281,8 @@ typedef struct ___gc_round_struct
     /* Generational Minor GC & mature segregation state for this round */
     int is_minor;
     int segregate_mature;
+    int has_wills;
+    int has_young_still;
     int card_overflow;
     int hint_count;
     ___msection *young_head;

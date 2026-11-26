@@ -398,27 +398,42 @@ do { \
 #define scan_and_advance(ptr, head) scan_no_fast_path(ptr, head)
 
 
-___HIDDEN void setup_still_objs_to_scan
-   ___P((___collector_worker *work, ___processor_state source),
-        (work, source)
-___collector_worker *work;
-___processor_state source;)
+___HIDDEN void setup_still_list_to_scan
+   (___WORD *base,
+    ___WORD **to_scan_io)
 {
-  ___processor_state ___ps = work->carrier;
-  ___WORD *base = ___CAST(___WORD*,source->mem.still_objs_);
-  ___WORD *to_scan = ___CAST(___WORD*,still_objs_to_scan);
+  ___WORD *to_scan = *to_scan_io;
 
   while (base != 0)
     {
       if (base[___STILL_REFCOUNT] == 0)
         base[___STILL_MARK] = -1;
-      else
+      else if (still_subtype_has_pointers(___HD_SUBTYPE(base[___STILL_HEADER])))
         {
           base[___STILL_MARK] = ___CAST(___WORD,to_scan);
           to_scan = base;
         }
+      else
+        base[___STILL_MARK] = 0;
       base = ___CAST(___WORD*,base[___STILL_LINK]);
     }
+
+  *to_scan_io = to_scan;
+}
+
+
+___HIDDEN void setup_still_objs_to_scan
+   ___P((___collector_worker *work, ___processor_state source, int minor_only),
+        (work, source, minor_only)
+___collector_worker *work;
+___processor_state source;
+int minor_only;)
+{
+  ___WORD *to_scan = ___CAST(___WORD*,still_objs_to_scan);
+
+  setup_still_list_to_scan(___CAST(___WORD*,source->mem.young_still_objs_), &to_scan);
+  if (!minor_only)
+    setup_still_list_to_scan(___CAST(___WORD*,source->mem.still_objs_), &to_scan);
 
   still_objs_to_scan = ___CAST(___WORD,to_scan);
 }

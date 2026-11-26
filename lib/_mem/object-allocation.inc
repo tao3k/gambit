@@ -220,22 +220,28 @@ ___SIZE_TS bytes;)
         }
     }
 
-  /* Initialize still object and add it to the still_objs list. */
+  /* Initialize still object and add it to the young_still_objs list
+   * (non-pointer subtypes stay clean and never dirty vm->mem.still_dirty_any_). */
 
   base = ___CAST(___WORD*,ptr);
   body = base + ___STILL_BODY;
 
+#ifdef ___USE_HANDLES
   base[___STILL_LINK] = still_objs;
   still_objs = ___CAST(___WORD,base);
   base[___STILL_REFCOUNT] = 1;
   base[___STILL_LENGTH] = words;
-
-#ifdef ___USE_HANDLES
+  base[___STILL_MARK] = 0;
   base[___STILL_HANDLE] = ___CAST(___WORD,body);
 #else
-  base[___STILL_DIRTY] = 1;
-  ___WORD_STORE_RELEASE(&vm->mem.still_dirty_any_, 1);
+  base[___STILL_LINK] = young_still_objs;
+  young_still_objs = ___CAST(___WORD,base);
+  base[___STILL_REFCOUNT] = 1;
+  base[___STILL_LENGTH] = words;
+  base[___STILL_MARK] = 0;
+  base[___STILL_DIRTY] = ___STILL_FLAG_YOUNG;
 #endif
+  words_still_objs_young += words;
 
   base[___STILL_HEADER] = ___MAKE_HD(bytes, subtype, ___STILL);
 

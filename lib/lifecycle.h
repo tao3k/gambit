@@ -375,6 +375,7 @@ extern enum ___rest_status ___rest_resume_delivery(___processor_state ps,
                                                   ___WORD **new_hp,
                                                   ___SCMOBJ *entered);
 extern int ___rest_user_continuation_restore(___WORD continuation_identity);
+extern ___WORD ___rest_attempt_words;
 extern ___WORD ___rest_record_field_loads;
 extern ___WORD ___rest_fallback_pops;
 extern ___WORD ___rest_fallback_pair_writes;

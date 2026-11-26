@@ -278,7 +278,10 @@
 #define scan_ptr                work->scan_ptr_
 #define still_objs_to_scan      work->still_objs_to_scan_
 #define still_objs              ___PSTATE_MEM(still_objs_)
+#define young_still_objs        ___PSTATE_MEM(young_still_objs_)
 #define words_still_objs        ___PSTATE_MEM(words_still_objs_)
+#define words_still_objs_mature ___PSTATE_MEM(words_still_objs_mature_)
+#define words_still_objs_young  ___PSTATE_MEM(words_still_objs_young_)
 #define words_still_objs_deferred ___PSTATE_MEM(words_still_objs_deferred_)
 #define still_words_budget      ___PSTATE_MEM(still_words_budget_)
 #define bytes_allocated_minus_occupied ___PSTATE_MEM(bytes_allocated_minus_occupied_)
@@ -345,8 +348,8 @@
 
 #define bytes_occupied(ps) \
 (___CAST(___F64,ps->mem.words_still_objs_ \
-                + ps->mem.words_still_objs_deferred_ \
-                + words_movable_objs(___ps)) * ___WS)
+                + ps->mem.words_still_objs_young_ \
+                + words_movable_objs(ps)) * ___WS)
 
 /*---------------------------------------------------------------------------*/
 
@@ -509,10 +512,41 @@
 #define ___STILL_BODY 6
 #else
 #define ___STILL_DIRTY 4
+/* Still object metadata flags packed in ___STILL_DIRTY (zero ABI churn):
+ *   bit 0: mature object contains a mutated pointer slot (remembered-set)
+ *   bit 1: young still object allocated since last GC (on young_still_objs_)
+ *   bits 2..7: reserved for Slice 2 Concurrent SATB Major GC mark color/epoch */
+#define ___STILL_FLAG_DIRTY 1
+#define ___STILL_FLAG_YOUNG 2
+#define ___STILL_MAJOR_COLOR_MASK 0xFC
 #define ___STILL_HANDLE ___STILL_BODY
 #define ___STILL_BODY (5+1)/************/
 #endif
 #define ___STILL_HEADER (___STILL_BODY-1)
+
+static inline int still_subtype_has_pointers(int subtype)
+{
+  switch (subtype)
+    {
+    case ___sFOREIGN:
+    case ___sSTRING:
+    case ___sS8VECTOR:
+    case ___sU8VECTOR:
+    case ___sS16VECTOR:
+    case ___sU16VECTOR:
+    case ___sS32VECTOR:
+    case ___sU32VECTOR:
+    case ___sS64VECTOR:
+    case ___sU64VECTOR:
+    case ___sF32VECTOR:
+    case ___sF64VECTOR:
+    case ___sFLONUM:
+    case ___sBIGNUM:
+      return 0;
+    default:
+      return 1;
+    }
+}
 
 
 /* End internal memory fragment. */

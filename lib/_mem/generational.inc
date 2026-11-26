@@ -76,9 +76,10 @@ ___WORD *slot_ptr;)
     {
 #ifndef ___USE_HANDLES
       ___WORD *base = ___BODY0(obj) - ___STILL_BODY;
-      if (___WORD_LOAD_RELAXED(&base[___STILL_DIRTY]) == 0)
+      ___WORD flags = ___WORD_LOAD_RELAXED(&base[___STILL_DIRTY]);
+      if ((flags & (___STILL_FLAG_YOUNG | ___STILL_FLAG_DIRTY)) == 0)
         {
-          ___WORD_STORE_RELEASE(&base[___STILL_DIRTY], 1);
+          ___WORD_STORE_RELEASE(&base[___STILL_DIRTY], ___STILL_FLAG_DIRTY);
           ___WORD_STORE_RELEASE(&vm->mem.still_dirty_any_, 1);
         }
 #endif
@@ -133,9 +134,10 @@ ___SIZE_TS words;)
     {
 #ifndef ___USE_HANDLES
       ___WORD *base = ___BODY0(obj) - ___STILL_BODY;
-      if (___WORD_LOAD_RELAXED(&base[___STILL_DIRTY]) == 0)
+      ___WORD flags = ___WORD_LOAD_RELAXED(&base[___STILL_DIRTY]);
+      if ((flags & (___STILL_FLAG_YOUNG | ___STILL_FLAG_DIRTY)) == 0)
         {
-          ___WORD_STORE_RELEASE(&base[___STILL_DIRTY], 1);
+          ___WORD_STORE_RELEASE(&base[___STILL_DIRTY], ___STILL_FLAG_DIRTY);
           ___WORD_STORE_RELEASE(&vm->mem.still_dirty_any_, 1);
         }
 #endif
@@ -221,6 +223,16 @@ static inline int gc_obj_unmarked(___collector_worker *work, ___SCMOBJ obj)
   int typ = ___HD_TYP(head);
   if (___COLLECTION(work->vm).is_minor)
     {
+      if (typ == ___STILL)
+        {
+#ifndef ___USE_HANDLES
+          ___WORD *base = body - ___STILL_BODY;
+          if ((base[___STILL_DIRTY] & ___STILL_FLAG_YOUNG) != 0 &&
+              base[___STILL_MARK] == -1)
+            return 1;
+#endif
+          return 0;
+        }
       if (typ != ___MOVABLE0)
         return 0;
       {
@@ -321,6 +333,44 @@ ___HIDDEN void collect_minor_card_hints(___virtual_machine_state vm)
   g->hint_count = overflow ? 0 : count;
 }
 
+___HIDDEN int section_has_promo_room(___msection *sec, ___SIZE_TS *start_w_out)
+{
+  ___SIZE_TS start_w = (sec->mature_words + ___GC_CARD_WORDS - 1) &
+                       ~___CAST(___SIZE_TS, ___GC_CARD_WORDS - 1);
+  if (start_w + ___MSECTION_FUDGE + 256 < (___MSECTION_SIZE >> 1))
+    {
+      if (start_w_out != 0)
+        *start_w_out = start_w;
+      return 1;
+    }
+  return 0;
+}
+
+___HIDDEN void promo_cand_add(___virtual_machine_state vm, ___msection *sec)
+{
+  int cap = ___MAX_PROCESSORS * 2;
+  int i;
+  ___SIZE_TS sw;
+  if (sec == 0 || sec->region_age != ___GC_REGION_MATURE || !section_has_promo_room(sec, &sw))
+    return;
+  for (i = 0; i < vm->mem.promo_cand_count_; i++)
+    if (vm->mem.promo_cands_[i] == sec)
+      return;
+  if (vm->mem.promo_cand_count_ < cap)
+    {
+      vm->mem.promo_cands_[vm->mem.promo_cand_count_++] = sec;
+      return;
+    }
+  {
+    int worst = 0;
+    for (i = 1; i < cap; i++)
+      if (vm->mem.promo_cands_[i]->mature_words > vm->mem.promo_cands_[worst]->mature_words)
+        worst = i;
+    if (sec->mature_words < vm->mem.promo_cands_[worst]->mature_words)
+      vm->mem.promo_cands_[worst] = sec;
+  }
+}
+
 ___HIDDEN void prepare_generational_round
    (___processor_state ps,
     ___SIZE_TS requested_words_still)
@@ -331,6 +381,7 @@ ___HIDDEN void prepare_generational_round
   ___SIZE_TS young_src_off = ps->mem.tospace_offset_;
   ___WORD force_major = ___WORD_LOAD_ACQUIRE(&vm->mem.force_major_gc_);
   int np = g->participant_count;
+  int p;
   int can_gen = 1;
 
   ___WORD_STORE_RELEASE(&vm->mem.force_major_gc_, 0);
@@ -356,11 +407,22 @@ ___HIDDEN void prepare_generational_round
   if (!vm->mem.gen_gc_enabled_)
     can_gen = 0;
   g->is_minor = 0;
+  g->has_wills = 0;
+  g->has_young_still = 0;
   g->card_overflow = 0;
   g->hint_count = 0;
   g->promo_tail_count = 0;
   g->old_mature_tail = vm->mem.mature_tail_;
   g->young_head = g->old_mature_tail ? g->old_mature_tail->next : vm->mem.the_msections_->head;
+  for (p = 0; p < np; p++)
+    {
+      ___processor_state pps = ___PSTATE_FROM_PROCESSOR_ID(p, vm);
+      if (___UNTAG(pps->mem.nonexecutable_wills_) != 0 ||
+          ___UNTAG(pps->mem.executable_wills_) != 0)
+        g->has_wills = 1;
+      if (pps->mem.young_still_objs_ != 0)
+        g->has_young_still = 1;
+    }
   {
     int i;
     for (i = 0; i < ___MAX_PROCESSORS; i++)
@@ -373,9 +435,11 @@ ___HIDDEN void prepare_generational_round
 
   if (can_gen &&
       force_major == 0 &&
-      requested_words_still == 0 &&
+      (requested_words_still == 0 ||
+       (___GSTATE->setup_params.max_heap == 0 && g->has_young_still)) &&
       vm->mem.nb_msections_mature_ > 0 &&
       vm->mem.nb_msections_mature_ < vm->mem.major_trigger_sections_ &&
+      vm->mem.mature_still_words_ < vm->mem.major_trigger_still_words_ &&
       vm->mem.minor_gcs_since_major_ < 64 &&
       g->worker_count >= 1 &&
       np == vm->processor_count)
@@ -392,6 +456,85 @@ ___HIDDEN void prepare_generational_round
         g->is_minor = 1;
     }
 
+  if (g->is_minor)
+    {
+      /* Mature sections maintain gc_dest_*==0, gc_role==0, gc_src_offset==active_offset,
+       * and scan_end_words==mature_words across Minor GCs. Walk ONLY young sections O(Y). */
+      int max_tails = g->worker_count;
+      int ci;
+      for (sec = g->young_head; sec != 0; sec = sec->next)
+        {
+          sec->gc_dest_offset = 0;
+          sec->gc_dest_words = 0;
+          sec->gc_is_dest = 0;
+          sec->gc_role = 0;
+          sec->gc_src_offset = young_src_off;
+          sec->scan_end_words = 0;
+        }
+
+      collect_minor_card_hints(vm);
+
+      /* Select up to worker_count least-full mature promotion tails from the O(W)
+       * candidate cache instead of linearly scanning all M mature sections. */
+      for (ci = 0; ci < vm->mem.promo_cand_count_; ci++)
+        {
+          ___SIZE_TS start_w;
+          sec = vm->mem.promo_cands_[ci];
+          if (sec == 0 || sec->region_age != ___GC_REGION_MATURE ||
+              !section_has_promo_room(sec, &start_w))
+            continue;
+          if (g->promo_tail_count < max_tails)
+            {
+              int idx = g->promo_tail_count++;
+              g->promo_tails[idx] = sec;
+              g->promo_tail_starts[idx] = start_w;
+            }
+          else
+            {
+              int worst = 0, j;
+              for (j = 1; j < max_tails; j++)
+                if (g->promo_tail_starts[j] > g->promo_tail_starts[worst])
+                  worst = j;
+              if (start_w < g->promo_tail_starts[worst])
+                {
+                  g->promo_tails[worst] = sec;
+                  g->promo_tail_starts[worst] = start_w;
+                }
+            }
+        }
+    }
+  else
+    {
+      for (sec = vm->mem.the_msections_->head; sec != 0; sec = sec->next)
+        {
+          sec->gc_dest_offset = 0;
+          sec->gc_dest_words = 0;
+          sec->gc_is_dest = 0;
+          sec->gc_role = 0;
+          if (sec->region_age == ___GC_REGION_MATURE)
+            {
+              sec->gc_src_offset = sec->active_offset;
+              sec->scan_end_words = sec->mature_words;
+            }
+          else
+            {
+              sec->gc_src_offset = young_src_off;
+              sec->scan_end_words = 0;
+            }
+        }
+    }
+}
+
+___HIDDEN void downgrade_minor_to_major(___processor_state ps)
+{
+  ___virtual_machine_state vm = ___VMSTATE_FROM_PSTATE(ps);
+  ___gc_round *g = &___COLLECTION(vm);
+  ___SIZE_TS young_src_off = ps->mem.tospace_offset_;
+  ___msection *sec;
+  g->is_minor = 0;
+  g->card_overflow = 0;
+  g->hint_count = 0;
+  g->promo_tail_count = 0;
   for (sec = vm->mem.the_msections_->head; sec != 0; sec = sec->next)
     {
       sec->gc_dest_offset = 0;
@@ -408,64 +551,6 @@ ___HIDDEN void prepare_generational_round
           sec->gc_src_offset = young_src_off;
           sec->scan_end_words = 0;
         }
-    }
-
-  if (g->is_minor)
-    {
-      int max_tails = g->worker_count;
-      collect_minor_card_hints(vm);
-      /* Select up to worker_count least-full existing mature sections with
-       * remaining card-aligned headroom so parallel Minor GC workers pack
-       * promotions into existing tails instead of leaking sparse sections. */
-      for (sec = vm->mem.the_msections_->head; sec != 0; sec = sec->next)
-        {
-          ___SIZE_TS start_w;
-          if (sec->region_age != ___GC_REGION_MATURE)
-            break;
-          start_w = (sec->mature_words + ___GC_CARD_WORDS - 1) &
-                    ~___CAST(___SIZE_TS, ___GC_CARD_WORDS - 1);
-          if (start_w + ___MSECTION_FUDGE + 256 < (___MSECTION_SIZE >> 1))
-            {
-              if (g->promo_tail_count < max_tails)
-                {
-                  int idx = g->promo_tail_count++;
-                  g->promo_tails[idx] = sec;
-                  g->promo_tail_starts[idx] = start_w;
-                }
-              else
-                {
-                  int worst = 0, j;
-                  for (j = 1; j < max_tails; j++)
-                    if (g->promo_tail_starts[j] > g->promo_tail_starts[worst])
-                      worst = j;
-                  if (start_w < g->promo_tail_starts[worst])
-                    {
-                      g->promo_tails[worst] = sec;
-                      g->promo_tail_starts[worst] = start_w;
-                    }
-                }
-            }
-          if (sec == g->old_mature_tail)
-            break;
-        }
-    }
-}
-
-___HIDDEN void downgrade_minor_to_major(___processor_state ps)
-{
-  ___virtual_machine_state vm = ___VMSTATE_FROM_PSTATE(ps);
-  ___gc_round *g = &___COLLECTION(vm);
-  ___msection *sec;
-  g->is_minor = 0;
-  g->card_overflow = 0;
-  g->hint_count = 0;
-  g->promo_tail_count = 0;
-  for (sec = vm->mem.the_msections_->head; sec != 0; sec = sec->next)
-    {
-      sec->gc_dest_offset = 0;
-      sec->gc_dest_words = 0;
-      sec->gc_is_dest = 0;
-      sec->gc_role = 0;
     }
 }
 
@@ -663,7 +748,7 @@ ___HIDDEN void scan_remembered_set(___collector_worker *work)
         }
     }
 
-  /* 2. Scan newly allocated or mutated still objects. */
+  /* 2. Scan mutated mature still objects. */
   if (___WORD_LOAD_ACQUIRE(&vm->mem.still_dirty_any_) != 0)
     {
       for (i = w_id; i < g->participant_count; i += w_cnt)
@@ -673,7 +758,7 @@ ___HIDDEN void scan_remembered_set(___collector_worker *work)
           while (base != 0)
             {
 #ifndef ___USE_HANDLES
-              if (base[___STILL_DIRTY] != 0)
+              if ((base[___STILL_DIRTY] & ___STILL_FLAG_DIRTY) != 0)
 #endif
                 scan_mature_object(work, base + ___STILL_BODY, base[___STILL_HEADER]);
               base = ___CAST(___WORD*, base[___STILL_LINK]);
@@ -818,8 +903,168 @@ ___HIDDEN void finalize_gc_sections(___virtual_machine_state vm)
       ___gc_card_reset_epoch(&ps->mem.card_hints_, g->epoch + 1, 0, 0, 0);
     }
 
+  /* Recompute live mature still word total in O(np). */
+  {
+    ___SIZE_TS mstill = 0;
+    for (p = 0; p < np; p++)
+      mstill += ___PSTATE_FROM_PROCESSOR_ID(p, vm)->mem.words_still_objs_mature_;
+    vm->mem.mature_still_words_ = mstill;
+  }
+
   /* 2. Finalize section ages and mature word counts. */
-  if (g->is_minor || g->segregate_mature)
+  if (g->is_minor)
+    {
+      /* O(Y + W) Minor GC finalizer: preserve existing mature prefix [head..old_mature_tail]
+       * untouched, update only modified promo_tails and newly promoted young sections, and
+       * skip rebuild_mature_snapshot() in O(1) whenever no new mature section was added. */
+      int i, new_mat_count = 0, active_young_count = 0;
+      ___msection *new_mat_head = 0, *new_mat_tail = 0;
+      ___msection *act_head = 0, *act_tail = 0;
+      ___msection *free_head = 0, *free_tail = 0;
+      ___msection *cur;
+
+      for (i = 0; i < g->promo_tail_count; i++)
+        {
+          ___msection *s = g->promo_tails[i];
+          if (s != 0)
+            {
+              if (s->gc_is_dest == 2)
+                {
+                  if (s->gc_dest_words > s->mature_words)
+                    vm->mem.occupied_words_mature_ += (s->gc_dest_words - s->mature_words);
+                  s->mature_words = s->gc_dest_words;
+                  s->scan_end_words = s->mature_words;
+                  s->region_age = ___GC_REGION_MATURE;
+                }
+              s->gc_is_dest = 0;
+              s->gc_dest_offset = 0;
+              s->gc_dest_words = 0;
+              s->gc_role = 0;
+              s->gc_src_offset = s->active_offset;
+            }
+        }
+
+      /* Prune full sections out of O(W) promo_cands_ cache. */
+      {
+        int out = 0;
+        for (i = 0; i < vm->mem.promo_cand_count_; i++)
+          {
+            ___msection *s = vm->mem.promo_cands_[i];
+            if (s != 0 && s->region_age == ___GC_REGION_MATURE &&
+                section_has_promo_room(s, 0))
+              vm->mem.promo_cands_[out++] = s;
+          }
+        vm->mem.promo_cand_count_ = out;
+      }
+
+      /* Partition ONLY young suffix [young_head .. tail]. */
+      cur = g->young_head;
+      if (g->old_mature_tail != 0)
+        g->old_mature_tail->next = 0;
+      else
+        ms->head = 0;
+
+      while (cur != 0)
+        {
+          ___msection *nxt = cur->next;
+          cur->prev = 0;
+          cur->next = 0;
+          if (cur->gc_is_dest == 1 && cur->gc_dest_words > 1)
+            {
+              cur->region_age = ___GC_REGION_MATURE;
+              cur->active_offset = cur->gc_dest_offset;
+              cur->gc_src_offset = cur->active_offset;
+              cur->mature_words = cur->gc_dest_words;
+              cur->scan_end_words = cur->mature_words;
+              cur->gc_is_dest = 0;
+              cur->gc_dest_offset = 0;
+              cur->gc_dest_words = 0;
+              cur->gc_role = 0;
+              cur->card_dirty_any = 0;
+              memset(___CAST(void*, section_card_bits(cur)), 0, SECTION_CARD_BYTES);
+              cur->region_generation++;
+              new_mat_count++;
+              vm->mem.occupied_words_mature_ += cur->mature_words;
+              promo_cand_add(vm, cur);
+              if (new_mat_tail) { new_mat_tail->next = cur; cur->prev = new_mat_tail; new_mat_tail = cur; }
+              else { new_mat_head = new_mat_tail = cur; }
+            }
+          else if (cur->gc_role == 1 || cur->gc_role == 2)
+            {
+              cur->region_age = ___GC_REGION_YOUNG;
+              cur->active_offset = 0;
+              cur->mature_words = 0;
+              cur->gc_is_dest = 0;
+              cur->gc_dest_offset = 0;
+              cur->gc_dest_words = 0;
+              cur->gc_role = 0;
+              active_young_count++;
+              if (act_tail) { act_tail->next = cur; cur->prev = act_tail; act_tail = cur; }
+              else { act_head = act_tail = cur; }
+            }
+          else
+            {
+              cur->region_age = ___GC_REGION_YOUNG;
+              cur->active_offset = 0;
+              cur->mature_words = 0;
+              cur->gc_is_dest = 0;
+              cur->gc_dest_offset = 0;
+              cur->gc_dest_words = 0;
+              cur->gc_role = 0;
+              *section_claim_at(cur, 0) = (section_claim){0};
+              *section_claim_at(cur, ___MSECTION_SIZE >> 1) = (section_claim){0};
+              if (free_tail) { free_tail->next = cur; cur->prev = free_tail; free_tail = cur; }
+              else { free_head = free_tail = cur; }
+            }
+          cur = nxt;
+        }
+
+      /* Splice [old_mature] -> [new_mat] -> [act] -> [free]. */
+      ms->tail = g->old_mature_tail;
+      if (new_mat_head)
+        {
+          if (ms->tail) { ms->tail->next = new_mat_head; new_mat_head->prev = ms->tail; ms->tail = new_mat_tail; }
+          else { ms->head = new_mat_head; ms->tail = new_mat_tail; }
+          vm->mem.mature_tail_ = new_mat_tail;
+        }
+      else
+        vm->mem.mature_tail_ = g->old_mature_tail;
+
+      if (act_head)
+        {
+          if (ms->tail) { ms->tail->next = act_head; act_head->prev = ms->tail; ms->tail = act_tail; }
+          else { ms->head = act_head; ms->tail = act_tail; }
+        }
+      if (free_head)
+        {
+          if (ms->tail) { ms->tail->next = free_head; free_head->prev = ms->tail; ms->tail = free_tail; }
+          else { ms->head = free_head; ms->tail = free_tail; }
+        }
+
+      /* Renumber indices ONLY across the newly spliced suffix O(Y). */
+      {
+        ___msection *idx_cur = g->old_mature_tail ? g->old_mature_tail->next : ms->head;
+        int idx = g->old_mature_tail ? (g->old_mature_tail->index + 1) : 0;
+        while (idx_cur != 0)
+          {
+            idx_cur->index = idx++;
+            idx_cur = idx_cur->next;
+          }
+      }
+
+      vm->mem.nb_msections_mature_ += new_mat_count;
+      vm->mem.alloc_msection_ = act_tail ? act_tail : vm->mem.mature_tail_;
+      vm->mem.nb_msections_assigned_ = vm->mem.nb_msections_mature_ + active_young_count;
+      vm->mem.nb_msections_stacks_ = np;
+      vm->mem.minor_gcs_since_major_++;
+
+      /* O(1) skip: when no new mature section was added, mature_sections_[]
+       * and mature_snapshot_epoch_ stay valid and wb_last_sec_ remains hot! */
+      if (new_mat_count > 0)
+        rebuild_mature_snapshot(vm);
+      return;
+    }
+  else if (g->segregate_mature)
     {
       ___SIZE_TS mature_words_total = 0;
       int mature_count = 0;
@@ -830,59 +1075,39 @@ ___HIDDEN void finalize_gc_sections(___virtual_machine_state vm)
       ___msection *act_head = 0, *act_tail = 0;
       ___msection *free_head = 0, *free_tail = 0;
 
+      vm->mem.promo_cand_count_ = 0;
+
       for (sec = ms->head; sec != 0; sec = sec->next)
         {
-          if (g->is_minor)
+          /* Major GC with mature segregation */
+          if (sec->gc_is_dest == 1 && sec->gc_dest_words > 1)
             {
-              if (sec->gc_is_dest == 2)
-                {
-                  sec->mature_words = sec->gc_dest_words;
-                  sec->region_age = ___GC_REGION_MATURE;
-                }
-              else if (sec->gc_is_dest == 1)
-                {
-                  if (sec->gc_dest_words > 1)
-                    {
-                      sec->region_age = ___GC_REGION_MATURE;
-                      sec->active_offset = sec->gc_dest_offset;
-                      sec->mature_words = sec->gc_dest_words;
-                      sec->card_dirty_any = 0;
-                      memset(___CAST(void*, section_card_bits(sec)), 0, SECTION_CARD_BYTES);
-                      sec->region_generation++;
-                    }
-                  else
-                    {
-                      sec->region_age = ___GC_REGION_YOUNG;
-                      sec->active_offset = 0;
-                      sec->mature_words = 0;
-                    }
-                }
+              sec->region_age = ___GC_REGION_MATURE;
+              sec->active_offset = sec->gc_dest_offset;
+              sec->gc_src_offset = sec->active_offset;
+              sec->mature_words = sec->gc_dest_words;
+              sec->scan_end_words = sec->mature_words;
+              sec->card_dirty_any = 0;
+              memset(___CAST(void*, section_card_bits(sec)), 0, SECTION_CARD_BYTES);
             }
           else
             {
-              /* Major GC with mature segregation */
-              if (sec->gc_is_dest == 1 && sec->gc_dest_words > 1)
-                {
-                  sec->region_age = ___GC_REGION_MATURE;
-                  sec->active_offset = sec->gc_dest_offset;
-                  sec->mature_words = sec->gc_dest_words;
-                  sec->card_dirty_any = 0;
-                  memset(___CAST(void*, section_card_bits(sec)), 0, SECTION_CARD_BYTES);
-                }
-              else
-                {
-                  sec->region_age = ___GC_REGION_YOUNG;
-                  sec->active_offset = 0;
-                  sec->mature_words = 0;
-                  sec->card_dirty_any = 0;
-                  memset(___CAST(void*, section_card_bits(sec)), 0, SECTION_CARD_BYTES);
-                }
+              sec->region_age = ___GC_REGION_YOUNG;
+              sec->active_offset = 0;
+              sec->mature_words = 0;
+              sec->scan_end_words = 0;
+              sec->card_dirty_any = 0;
+              memset(___CAST(void*, section_card_bits(sec)), 0, SECTION_CARD_BYTES);
             }
+          sec->gc_is_dest = 0;
+          sec->gc_dest_offset = 0;
+          sec->gc_dest_words = 0;
 
           if (sec->region_age == ___GC_REGION_MATURE)
             {
               mature_count++;
               mature_words_total += sec->mature_words;
+              promo_cand_add(vm, sec);
               if (sec->mature_words < best_tail_words)
                 {
                   best_tail_words = sec->mature_words;
@@ -897,6 +1122,8 @@ ___HIDDEN void finalize_gc_sections(___virtual_machine_state vm)
         while (cur != 0)
           {
             ___msection *nxt = cur->next;
+            int role = cur->gc_role;
+            cur->gc_role = 0;
             cur->prev = 0;
             cur->next = 0;
             if (cur->region_age == ___GC_REGION_MATURE)
@@ -907,7 +1134,7 @@ ___HIDDEN void finalize_gc_sections(___virtual_machine_state vm)
                     else { mat_head = mat_tail = cur; }
                   }
               }
-            else if (cur->gc_role == 1 || cur->gc_role == 2)
+            else if (role == 1 || role == 2)
               {
                 active_young_count++;
                 if (act_tail) { act_tail->next = cur; cur->prev = act_tail; act_tail = cur; }
@@ -956,20 +1183,22 @@ ___HIDDEN void finalize_gc_sections(___virtual_machine_state vm)
       vm->mem.nb_msections_assigned_ = mature_count + active_young_count;
       vm->mem.nb_msections_stacks_ = np;
 
-      if (g->is_minor)
-        vm->mem.minor_gcs_since_major_++;
-      else
-        {
-          int trig = mature_count * 2;
-          if (trig < mature_count + 8)
-            trig = mature_count + 8;
-          vm->mem.major_trigger_sections_ = trig;
-          vm->mem.minor_gcs_since_major_ = 0;
-        }
+      {
+        int trig = mature_count * 2;
+        ___SIZE_TS still_trig = vm->mem.mature_still_words_ * 2;
+        if (trig < mature_count + 8)
+          trig = mature_count + 8;
+        if (still_trig < 4 * ___MSECTION_SIZE)
+          still_trig = 4 * ___MSECTION_SIZE;
+        vm->mem.major_trigger_sections_ = trig;
+        vm->mem.major_trigger_still_words_ = still_trig;
+        vm->mem.minor_gcs_since_major_ = 0;
+      }
     }
   else
     {
       /* Non-segregated Major GC fallback (tight max_heap or probes) */
+      vm->mem.promo_cand_count_ = 0;
       for (sec = ms->head; sec != 0; sec = sec->next)
         {
           sec->region_age = ___GC_REGION_YOUNG;
@@ -981,6 +1210,10 @@ ___HIDDEN void finalize_gc_sections(___virtual_machine_state vm)
       vm->mem.mature_tail_ = 0;
       vm->mem.occupied_words_mature_ = 0;
       vm->mem.minor_gcs_since_major_ = 0;
+      vm->mem.major_trigger_still_words_ =
+        (vm->mem.mature_still_words_ * 2 > 4 * ___MSECTION_SIZE)
+        ? (vm->mem.mature_still_words_ * 2)
+        : (4 * ___MSECTION_SIZE);
     }
 
   rebuild_mature_snapshot(vm);

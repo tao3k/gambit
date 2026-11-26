@@ -1431,6 +1431,13 @@ ___global_state ___gs;) \
 } \
 ___END_C_LINKAGE
 
+/* Generated main owns the process; embedded ___setup/___cleanup do not. */
+#ifdef __APPLE__
+#define ___TERMINAL_PROCESS_BEGIN ___dyn_process_set_owner ();
+#else
+#define ___TERMINAL_PROCESS_BEGIN
+#endif
+
 #ifdef ___LIBRARY
 
 #define ___MAIN_PROC
@@ -1514,6 +1521,7 @@ int main ___P((int argc, \
 int argc; \
 char *argv[];) \
 { \
+  ___TERMINAL_PROCESS_BEGIN \
   return ___main_char \
            (argc, \
             argv, \

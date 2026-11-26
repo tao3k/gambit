@@ -583,7 +583,7 @@ static ___WORD rest_observation_last_words;
 static ___WORD rest_observation_last_entry_room = -1;
 static int rest_observation_last_one_word;
 static int rest_observation_last_physical;
-static int rest_observation_admission_captured;
+static ___VOLATILE ___WORD rest_observation_admission_captured;
 
 ___WORD ___rest_observation_last_demand(___WORD *pending, ___WORD *parameters)
 {
@@ -604,7 +604,7 @@ ___WORD ___rest_observation_last_decision(void)
 
 void ___rest_observation_reset_admission(void)
 {
-  rest_observation_admission_captured=0;
+  ___WORD_STORE_RELEASE(&rest_observation_admission_captured, 0);
 }
 
 /* Compare directory cells only. The activation record is not loaded here. */
@@ -1625,6 +1625,7 @@ ___WORD ___rest_attempt_seen_words;
 static int rest_attempt_blocked_flag;
 static int rest_attempt_entry_noted;
 static ___processor_state rest_attempt_owner;
+static ___VOLATILE ___WORD rest_attempt_active_flag;
 
 static int rest_attempt_here(___processor_state ps)
 {
@@ -1782,6 +1783,7 @@ void ___rest_arm_force_slow(void)
 {
   rest_attempt_owner=___PSTATE;
   rest_force_slow=1;
+  ___WORD_STORE_RELEASE(&rest_attempt_active_flag, 1);
 }
 
 void ___rest_arm_attempt(___WORD words, ___WORD floor)
@@ -1791,6 +1793,7 @@ void ___rest_arm_attempt(___WORD words, ___WORD floor)
   ___rest_attempt_floor=floor>0?floor:0;
   rest_attempt_blocked_flag=0;
   rest_attempt_entry_noted=0;
+  ___WORD_STORE_RELEASE(&rest_attempt_active_flag, 1);
   ___rest_attempt_entry_heap=0;
   ___rest_attempt_entry_frame=0;
   ___rest_attempt_entry_word=0;
@@ -1906,14 +1909,14 @@ void ___rest_disarm_attempt(void)
     rest_observation_case_leave();
   }
 #endif
-  if (__builtin_expect(!rest_attempt_owner && !___rest_attempt_words &&
-                       !rest_force_slow && !rest_attempt_blocked_flag, 1))
+  if (__builtin_expect(___WORD_LOAD_RELAXED(&rest_attempt_active_flag) == 0, 1))
     return;
   ___rest_attempt_words=0;
   ___rest_attempt_floor=0;
   rest_attempt_blocked_flag=0;
   rest_attempt_owner=0;
   rest_force_slow=0;
+  ___WORD_STORE_RELEASE(&rest_attempt_active_flag, 0);
 }
 
 ___WORD ___rest_heap_cursor(___processor_state ps)
@@ -1932,14 +1935,40 @@ ___BOOL ___rest_fast_grant_fits(___processor_state ps, ___WORD *hp, ___WORD *fp,
                                ___WORD pending, ___WORD np, ___WORD stack_slots)
 {
   ___WORD words;
-  if (rest_force_slow && rest_attempt_here(ps)) {
+  /* Lock-free processor-owned fast_span leaf bypass: mirrors ___group_demand_enter
+   * (zero copy_gate lock, zero ___PSTATE TLS, zero shared writes) when no attempt
+   * injection or observation trace is active. */
+  if (__builtin_expect(
+        ___WORD_LOAD_RELAXED(&rest_attempt_active_flag) == 0 &&
+#ifdef ___GAMBIT_REST_OBSERVATION
+        __atomic_load_n(&rest_observation_map, __ATOMIC_ACQUIRE) == 0 &&
+#endif
+        ___WORD_LOAD_ACQUIRE(&rest_observation_admission_captured) != 0 &&
+        ps != 0 && ps->context != 0 && hp != 0 && fp != 0 &&
+        ps->context->hp == hp && np >= 0 && stack_slots >= 0 &&
+        rest_batch_words(pending, np, &words),
+        1))
+    {
+      ___UWORD sd = ___CAST(___UWORD, fp) - ps->stack_fast_floor_b;
+      ___UWORD hd = ___CAST(___UWORD, hp) - ps->heap_fast_lo_b;
+      if (__builtin_expect(
+            sd < ps->stack_fast_limit_b &&
+            (sd / sizeof(___WORD)) >= (___UWORD)stack_slots &&
+            hd < ps->heap_fast_bytes &&
+            ((ps->heap_fast_bytes - hd) / sizeof(___WORD)) >= (___UWORD)words,
+            1))
+        return 1;
+    }
+
+  if (__builtin_expect(___WORD_LOAD_ACQUIRE(&rest_attempt_active_flag) != 0, 0) &&
+      rest_force_slow && rest_attempt_here(ps)) {
     rest_force_slow=0;
     return 0;
   }
   /* Ten-word envelope for the ordinary case. The following pair loop still
    * emits only pending*3 words. */
   if (np<0 || !rest_batch_words(pending, np, &words)) return 0;
-  if (!rest_observation_admission_captured) {
+  if (__builtin_expect(___WORD_LOAD_ACQUIRE(&rest_observation_admission_captured) == 0, 0)) {
     rest_observation_last_pending=pending;
     rest_observation_last_parameters=np;
     rest_observation_last_words=words;
@@ -1948,7 +1977,7 @@ ___BOOL ___rest_fast_grant_fits(___processor_state ps, ___WORD *hp, ___WORD *fp,
       ___rest_one_word_short(ps, hp, fp, pending, np, stack_slots) ? 1 : 0;
     rest_observation_last_physical=
       ___rest_physical_tail_short(ps, pending, np) ? 1 : 0;
-    rest_observation_admission_captured=1;
+    ___WORD_STORE_RELEASE(&rest_observation_admission_captured, 1);
   }
 #ifdef ___GAMBIT_REST_OBSERVATION
   if (__builtin_expect(__atomic_load_n(&rest_observation_map,__ATOMIC_ACQUIRE)!=0, 0)) {

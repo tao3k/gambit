@@ -26,7 +26,7 @@ ___collector_worker *work;)
 
 #ifndef ___SINGLE_THREADED_VMS
 
-#define ___GC_SCAN_STEAL_WORK_CYCLES 64
+#define ___GC_SCAN_STEAL_WORK_CYCLES 16
 
   if (np <= 1)
     return;
@@ -118,9 +118,7 @@ ___collector_worker *work;)
   /* Physical grants have already been installed and published to all R. */
   { int i; for(i=work->id;i<___COLLECTION(___vms).participant_count;i+=___COLLECTION(___vms).worker_count) {
       ___processor_state source=___PSTATE_FROM_PROCESSOR_ID(i,___vms);
-      if (!___COLLECTION(___vms).is_minor)
-        setup_still_objs_to_scan(work,source);
-      source->mem.words_still_objs_+=source->mem.words_still_objs_deferred_;
+      setup_still_objs_to_scan(work, source, ___COLLECTION(___vms).is_minor);
       source->mem.words_still_objs_deferred_=0;
       source->mem.still_words_budget_=0;
   } }
@@ -380,22 +378,21 @@ ___SIZE_TS requested_words_still;)
   ___dev_restore_alloc_expire(___ps, rc_epoch);
 #endif
   BARRIER();
-  if (is_coord && !___root_round_publish(___ps))
-    rc_contract_error("Frozen root union publication refused");
-
-  BARRIER(); /* publishes the one RootTask/worker assignment */
+  if (is_coord)
+    {
+      if (!___root_round_publish(___ps))
+        rc_contract_error("Frozen root union publication refused");
 #if defined(___GC_SLOT_TEST_FROZEN) != defined(___GC_SLOT_TEST_REPAIRED)
 #error "GC slot observation requires both test cuts"
 #endif
 #ifdef ___GC_SLOT_TEST_FROZEN
-  /* Only the coordinator can plan from here. The other members stay at
-   * the decision barrier. No forwarding or parity flip has started. */
-  if (is_coord)
-    ___GC_SLOT_TEST_FROZEN(___ps,rc_epoch);
+      /* Only the coordinator can plan from here. The other members stay at
+       * the decision barrier. No forwarding or parity flip has started. */
+      ___GC_SLOT_TEST_FROZEN(___ps,rc_epoch);
 #endif
-  if (is_coord)
-    ___COLLECTION(___vms).decision=plan_copy_round(___ps, requested_words_still);
-  BARRIER(); /* acquire the one decision; no parity changed */
+      ___COLLECTION(___vms).decision=plan_copy_round(___ps, requested_words_still);
+    }
+  BARRIER(); /* acquire the one decision & published RootTask/worker assignment */
   ___COLLECTION(___vms).observed[proc_id]=1;
   if (is_coord)
     {
@@ -482,8 +479,11 @@ ___SIZE_TS requested_words_still;)
   active_worker=(worker_idx>=0);
   work=active_worker?&___COLLECTORS(___vms)[worker_idx]:0;
   ___ps->collector=work;
-  if(active_worker) garbage_collect_setup_phase(work);
-  BARRIER();
+  if (!___COLLECTION(___vms).is_minor || ___COLLECTION(___vms).has_young_still)
+    {
+      if(active_worker) garbage_collect_setup_phase(work);
+      BARRIER();
+    }
 
   /* Mark the objects that are reachable strongly */
 
@@ -496,11 +496,13 @@ ___SIZE_TS requested_words_still;)
       !___root_round_finish_scan(___ps))
     rc_contract_error("Frozen root union still owns unfinished sources");
 
-  /* Mark the objects that are reachable weakly */
+  /* Mark the objects that are reachable weakly (skipped in O(1) when no wills exist) */
 
-  if(active_worker) garbage_collect_mark_weak_phase(work);
-
-  BARRIER();
+  if (___COLLECTION(___vms).has_wills)
+    {
+      if(active_worker) garbage_collect_mark_weak_phase(work);
+      BARRIER();
+    }
 
 
 #ifdef ___GC_SLOT_TEST_REPAIRED
@@ -634,9 +636,11 @@ ___SIZE_TS requested_words_still;)
 #ifdef ___GAMBIT_DEV_RESTORE_PROBE
   ___dev_restore_after_barrier(___ps, rc_epoch);
 #endif
-  /* Process gc hash tables and free unreachable still objects */
+  /* Process gc hash tables before any processor frees unreachable still objects
+   * (prevents cross-worker UAF when a weak table holds a dead still object). */
 
   if(active_worker) garbage_collect_cleanup_phase(work);
+  BARRIER();
   if (!___COLLECTION(___vms).is_minor)
     {
       free_unmarked_still_objs(___PSPNC);
@@ -648,7 +652,17 @@ ___SIZE_TS requested_words_still;)
               free_unmarked_still_objs(___PSANC(___PSTATE_FROM_PROCESSOR_ID(k, ___vms)));
         }
     }
-  BARRIER();
+  else if (___COLLECTION(___vms).has_young_still)
+    {
+      sweep_young_still_objs(___PSPNC);
+      if (is_coord)
+        {
+          int k;
+          for (k = 0; k < ___vms->processor_count; k++)
+            if (!___COLLECTION(___vms).active[k])
+              sweep_young_still_objs(___PSANC(___PSTATE_FROM_PROCESSOR_ID(k, ___vms)));
+        }
+    }
   ___ps->collector=0;
   ___RESUME(___vms,proc_id).source_drained=1;
   if (is_coord)
