@@ -149,6 +149,9 @@ ___SIZE_TS words_still_objs_;
 /* words occupied by still objects not yet accounted for at the VM level */
 ___SIZE_TS words_still_objs_deferred_;
 
+/* pre-reserved still-object word budget owned by this processor */
+___SIZE_TS still_words_budget_;
+
 /* bytes allocated minus occupied */
 ___F64 bytes_allocated_minus_occupied_;
 
@@ -241,6 +244,9 @@ ___SIZE_TS occupied_words_movable_;
 
 /* words occupied by still objects (excluding deferred ones) */
 ___SIZE_TS occupied_words_still_;
+
+/* words pre-reserved in per-processor still-object budgets (deferred + unused) */
+___SIZE_TS reserved_words_still_;
 
 /* the msections */
 ___msections *the_msections_;

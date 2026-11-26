@@ -32,6 +32,7 @@ ___PSDKR)
 
   words_still_objs = live_words_still + ___lifecycle_deferred_words(___ps);
   words_still_objs_deferred = 0;
+  still_words_budget = 0;
 
   /*
    * In principle the occupied_words_still could be updated here but
@@ -153,6 +154,8 @@ void ___lifecycle_handoff(___processor_state from,___processor_state to)
     to->mem.words_still_objs_deferred_+=from->mem.words_still_objs_deferred_;
     from->mem.still_objs_=0;from->mem.words_still_objs_=0;from->mem.words_still_objs_deferred_=0;
   }
+  to->mem.still_words_budget_+=from->mem.still_words_budget_;
+  from->mem.still_words_budget_=0;
   to->mem.bytes_allocated_minus_occupied_+=from->mem.bytes_allocated_minus_occupied_;
   from->mem.bytes_allocated_minus_occupied_=0;
 }

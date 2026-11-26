@@ -1580,7 +1580,7 @@
 
   (##declare (not interrupts-enabled))
 
-  (if (##eq? thread (macro-current-processor))
+  (if (##eq? thread (macro-current-thread))
 
       (##thread-end-current-thread! exception? result)
 
@@ -1689,13 +1689,18 @@
              (macro-unlock-tgroup! tgroup))
 
            ;; The thread must abandon all the blocked thread queues
-           ;; (i.e. mutexes, condvars, etc) it owns.
+           ;; (i.e. mutexes, condvars, etc) it owns. end-condvar is
+           ;; already #f so no new btq can be linked to this thread;
+           ;; release thread's lock before locking each btq to uphold
+           ;; the global btq -> ordered-threads lock hierarchy.
 
            (let loop ()
              (let ((next-btq (macro-btq-deq-next thread)))
                (if (##not (##eq? next-btq thread))
                    (begin
-                     (##btq-abandon! next-btq)
+                     (macro-unlock-thread! thread)
+                     (##btq-abandon-owned! next-btq thread)
+                     (macro-lock-thread! thread)
                      (loop)))))
 
            ;; release low-level lock of thread
@@ -1705,29 +1710,67 @@
 
            (##void)))))
 
+(define-prim (##btq-abandon-owned! btq owner-thread)
+
+  (##declare (not interrupts-enabled))
+
+  (macro-lock-btq! btq)
+  (if (##not (##eq? (macro-btq-owner btq) owner-thread))
+      (macro-unlock-btq! btq)
+      (macro-if-btq-next
+       btq
+       next-thread
+
+       (if (macro-mutex? btq)
+           (let ((new-owner (macro-thread-result next-thread)))
+             ;; Acquire all involved threads in canonical ##object-before?
+             ;; order. Handles new-owner == owner-thread (preventing
+             ;; self-deadlock) and cross-thread AB/BA races.
+             (##lock-3-threads! next-thread new-owner owner-thread)
+             (if (##eq? (macro-btq-owner btq) owner-thread)
+                 (begin
+                   (macro-btq-deq-remove! btq)
+                   (##thread-btq-remove! next-thread)
+                   (if new-owner
+                       (if (macro-thread-end-condvar new-owner)
+                           (macro-btq-link! btq new-owner)
+                           (macro-btq-unlink! btq (macro-mutex-state-abandoned)))
+                       (macro-btq-unlink! btq (macro-mutex-state-not-owned)))
+                   (macro-thread-result-set! next-thread #f)
+                   (macro-thread-resume-thunk-set!
+                    next-thread
+                    ##thread-abandoned-mutex-action!)
+                   (macro-thread-toq-remove-if-in-toq! next-thread)
+                   (macro-add-thread-to-run-queue-of-current-processor-preferably! next-thread)))
+             (##unlock-3-threads! next-thread new-owner owner-thread)
+             (macro-unlock-btq! btq))
+           (begin
+             (macro-lock-thread! owner-thread)
+             (if (##eq? (macro-btq-owner btq) owner-thread)
+                 (begin
+                   (macro-btq-deq-remove! btq)
+                   (macro-btq-unlink! btq (macro-mutex-state-abandoned))))
+             (macro-unlock-thread! owner-thread)
+             (macro-unlock-btq! btq)))
+
+       (begin
+         (macro-lock-thread! owner-thread)
+         (if (##eq? (macro-btq-owner btq) owner-thread)
+             (begin
+               (macro-btq-deq-remove! btq)
+               (macro-btq-unlink! btq (macro-mutex-state-abandoned))))
+         (macro-unlock-thread! owner-thread)
+         (macro-unlock-btq! btq)))))
+
 (define-prim (##btq-abandon! btq)
 
   (##declare (not interrupts-enabled))
 
   (macro-lock-btq! btq)
-  (macro-btq-deq-remove! btq)
-  (macro-if-btq-next
-   btq
-   next-thread
-
-   (if (macro-mutex? btq)
-       (begin
-         (macro-lock-thread! next-thread)
-         (##mutex-signal-no-reschedule! btq next-thread #t))
-       (begin
-         ;; Terminal-owner retirement cannot change runnable priority. Its
-         ;; owned list and this queue are already protected by termination.
-         (macro-btq-unlink! btq (macro-mutex-state-abandoned))
-         (macro-unlock-btq! btq)))
-
-   (begin
-     (macro-btq-unlink! btq (macro-mutex-state-abandoned))
-     (macro-unlock-btq! btq))))
+  (let ((owner (macro-btq-owner btq)))
+    (macro-unlock-btq! btq)
+    (if (macro-thread? owner)
+        (##btq-abandon-owned! btq owner))))
 
 ;;;----------------------------------------------------------------------------
 
@@ -2652,7 +2695,10 @@
 
                 (loop))
 
-              ;;TODO: shouldn't be a trylock!
+              ;; Caller holds the current processor lock, which sits below
+              ;; btq and thread in the global btq -> thread(s) -> processor
+              ;; hierarchy; trylock is required here to prevent AB/BA deadlock.
+              ;; If busy, the next heartbeat or schedule iteration retries.
               (if (macro-trylock-thread! next-thread)
                   (let ((btq (macro-thread->btq next-thread)))
                     (cond ((##not btq)
@@ -4067,25 +4113,25 @@
 
   ;; Assumes that the low-level locks of the mutex and thread are acquired.
 
-  ;;TODO: review
-  ;;(##c-code "printf(\"transferring mutex to thread %p\\n\",(void*)___ARG1);" thread);;TODO:remove
-
-  ;; remove thread from mutex's blocked thread queue
-  (##thread-btq-remove! thread)
-
-  (macro-btq-owner-set! mutex (macro-mutex-state-not-owned))
-
   (let ((new-owner (macro-thread-result thread))) ;; fetch saved new owner
+
+    ;; Acquire (thread, new-owner) in canonical ##object-before? order while
+    ;; keeping mutex locked so thread cannot be concurrently removed from btq.
+    (if (and new-owner (##not (##eq? new-owner thread)))
+        (begin
+          (macro-unlock-thread! thread)
+          (##lock-2-threads! thread new-owner)))
+
+    ;; remove thread from mutex's blocked thread queue
+    (##thread-btq-remove! thread)
+
+    (macro-btq-owner-set! mutex (macro-mutex-state-not-owned))
+
     (if new-owner
 
         (begin
 
           ;; the mutex-lock! operation specified a new-owner thread
-
-          (if (##not (##eq? new-owner thread))
-              (let loop ()
-                (if (##not (macro-trylock-thread! new-owner))
-                    (loop))));; TODO: trylock?
 
           ;; is the new-owner thread terminated?
           (if (macro-thread-end-condvar new-owner)

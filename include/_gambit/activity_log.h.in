@@ -230,10 +230,21 @@ ___EXT(___emulated_shared_memory_barrier)()
 
 /* Ordered word service. Scheme lock words keep their object layout; every
  * concurrent access uses this service, never a volatile polling load. GCC and
- * Clang atomics operate on naturally aligned word storage. Other supported
- * backends conservatively refine these orders to the existing full RMW/mutex
- * operations. Plain access is restricted to the no-thread backend or exclusive
- * initialization / physically stopped GC relocation. */
+ * Clang atomics operate on naturally aligned word storage; MSVC on Win32 uses
+ * Windows SDK ReadAcquire/WriteRelease/ReadNoFence/WriteNoFence primitives.
+ * Other supported backends conservatively refine these orders to the existing
+ * full RMW/mutex operations. Plain access is restricted to the no-thread
+ * backend or exclusive initialization / physically stopped GC relocation. */
+#if defined(__GNUC__)
+#define ___ORDERED_WORD_INLINE static __inline__
+#elif defined(_MSC_VER)
+#define ___ORDERED_WORD_INLINE static __inline
+#elif defined(__cplusplus) || (defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L)
+#define ___ORDERED_WORD_INLINE static inline
+#else
+#define ___ORDERED_WORD_INLINE static
+#endif
+
 #if defined(__ATOMIC_ACQUIRE) && defined(__ATOMIC_RELEASE) && \
     !defined(___ORDERED_WORD_FORCE_LEGACY)
 #define ___ORDERED_WORD_NATIVE 1
@@ -245,6 +256,42 @@ ___EXT(___emulated_shared_memory_barrier)()
 #define ___WORD_FETCH_ADD_RELEASE(p,v) __atomic_fetch_add(p,v,__ATOMIC_RELEASE)
 #define ___WORD_CAS_ACQUIRE(p,expected,v) \
 __atomic_compare_exchange_n(p,&(expected),v,0,__ATOMIC_ACQUIRE,__ATOMIC_RELAXED)
+#elif defined(_MSC_VER) && defined(___USE_WIN32_sync) && \
+    !defined(___ORDERED_WORD_FORCE_LEGACY)
+#define ___ORDERED_WORD_NATIVE 1
+#if ___WS == 4
+#define ___WORD_LOAD_ACQUIRE(p) \
+___CAST(___WORD,ReadAcquire(___CAST(LONG const volatile*,p)))
+#define ___WORD_LOAD_RELAXED(p) \
+___CAST(___WORD,ReadNoFence(___CAST(LONG const volatile*,p)))
+#define ___WORD_STORE_RELEASE(p,v) \
+WriteRelease(___CAST(LONG volatile*,p),___CAST(LONG,v))
+#define ___WORD_STORE_RELAXED(p,v) \
+WriteNoFence(___CAST(LONG volatile*,p),___CAST(LONG,v))
+#else
+#define ___WORD_LOAD_ACQUIRE(p) \
+___CAST(___WORD,ReadAcquire64(___CAST(LONG64 const volatile*,p)))
+#define ___WORD_LOAD_RELAXED(p) \
+___CAST(___WORD,ReadNoFence64(___CAST(LONG64 const volatile*,p)))
+#define ___WORD_STORE_RELEASE(p,v) \
+WriteRelease64(___CAST(LONG64 volatile*,p),___CAST(LONG64,v))
+#define ___WORD_STORE_RELAXED(p,v) \
+WriteNoFence64(___CAST(LONG64 volatile*,p),___CAST(LONG64,v))
+#endif
+#define ___WORD_FETCH_ADD_RELAXED(p,v) ___FETCH_AND_ADD_WORD(p,v)
+#define ___WORD_FETCH_ADD_RELEASE(p,v) ___FETCH_AND_ADD_WORD(p,v)
+___ORDERED_WORD_INLINE int ___word_cas_acquire_win32
+   (___VOLATILE ___WORD *p, ___WORD *expected, ___WORD v)
+{
+  ___WORD exp = *expected;
+  ___WORD seen = ___COMPARE_AND_SWAP_WORD(p,exp,v);
+  if (seen == exp)
+    return 1;
+  *expected = seen;
+  return 0;
+}
+#define ___WORD_CAS_ACQUIRE(p,expected,v) \
+___word_cas_acquire_win32((p),&(expected),(v))
 #else
 #define ___ORDERED_WORD_NATIVE 0
 #ifdef ___USE_sequential_sync
@@ -255,15 +302,37 @@ __atomic_compare_exchange_n(p,&(expected),v,0,__ATOMIC_ACQUIRE,__ATOMIC_RELAXED)
 /* Ticket locks are erased for the no-thread system. */
 #define ___WORD_FETCH_ADD_RELAXED(p,v) ___FETCH_AND_ADD_WORD(p,v)
 #define ___WORD_FETCH_ADD_RELEASE(p,v) ___FETCH_AND_ADD_WORD(p,v)
+___ORDERED_WORD_INLINE int ___word_cas_acquire_seq
+   (___VOLATILE ___WORD *p, ___WORD *expected, ___WORD v)
+{
+  ___WORD seen = *p;
+  if (seen == *expected)
+    {
+      *p = v;
+      return 1;
+    }
+  *expected = seen;
+  return 0;
+}
 #define ___WORD_CAS_ACQUIRE(p,expected,v) \
-(___COMPARE_AND_SWAP_WORD(p,expected,v)==(expected))
+___word_cas_acquire_seq((p),&(expected),(v))
 #else
 #define ___WORD_LOAD_ACQUIRE(p) ___COMPARE_AND_SWAP_WORD(p,0,0)
 #define ___WORD_LOAD_RELAXED(p) ___WORD_LOAD_ACQUIRE(p)
 #define ___WORD_FETCH_ADD_RELAXED(p,v) ___FETCH_AND_ADD_WORD(p,v)
 #define ___WORD_FETCH_ADD_RELEASE(p,v) ___FETCH_AND_ADD_WORD(p,v)
+___ORDERED_WORD_INLINE int ___word_cas_acquire_fallback
+   (___VOLATILE ___WORD *p, ___WORD *expected, ___WORD v)
+{
+  ___WORD exp = *expected;
+  ___WORD seen = ___COMPARE_AND_SWAP_WORD(p,exp,v);
+  if (seen == exp)
+    return 1;
+  *expected = seen;
+  return 0;
+}
 #define ___WORD_CAS_ACQUIRE(p,expected,v) \
-(___COMPARE_AND_SWAP_WORD(p,expected,v)==(expected))
+___word_cas_acquire_fallback((p),&(expected),(v))
 #define ___WORD_STORE_RELEASE(p,v) \
 do { \
   ___VOLATILE ___WORD *___ordered_p = (p); \

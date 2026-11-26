@@ -90,26 +90,17 @@ ___SIZE_TS bytes;)
   ___WORD *base;
   ___WORD *body;
   ___SIZE_TS words = ___STILL_BODY + ___WORDS(bytes);
-  ___SIZE_TS words_including_deferred = words + words_still_objs_deferred;
 
 #ifdef CALL_GC_FREQUENTLY
   if (--___gc_calls_to_punt < 0) goto invoke_gc;
 #endif
 
-  if (words_including_deferred <= ___MAX_STILL_DEFERRED)
+  if (words <= still_words_budget)
     {
       /*
-       * Allocate the still object and defer its accounting at the VM
-       * level.
-       */
-
-      /*
-       * Some objects, such as ___sFOREIGN, ___sS64VECTOR,
-       * ___sU64VECTOR, ___sF64VECTOR, ___sFLONUM and ___sBIGNUM, must
-       * have a body that is aligned on a multiple of 8 on some
-       * machines.  Here, we force alignment to a multiple of 8 even
-       * if not necessary in all cases because it is typically more
-       * efficient due to a better utilization of the cache.
+       * Fast path: consume from this processor's pre-reserved still-object
+       * budget without acquiring ALLOC_MEM_LOCK(). The budget is already
+       * accounted in reserved_words_still, preserving exact heap bounds.
        */
 
 #ifdef ___GAMBIT_DEV_RESTORE_PROBE
@@ -127,35 +118,51 @@ ___SIZE_TS bytes;)
           return ___FIX(___HEAP_OVERFLOW_ERR);
         }
 
-      words_still_objs_deferred = words_including_deferred;
+      still_words_budget -= words;
+      words_still_objs_deferred += words;
     }
   else
     {
       /*
-       * The space for the still object (and the deferred previous
-       * ones) is considerable, so the availability of the space must
-       * be checked at the VM level.  The VM's memory allocation lock
-       * must be acquired to ensure correct bookkeeping.
+       * Settle this processor's prior still-object reservation and reserve
+       * space for this allocation plus a bounded prefetch chunk to amortize
+       * ALLOC_MEM_LOCK() contention across high core counts.
        */
+      ___SIZE_TS prev_reserved;
+      ___SIZE_TS avail;
 
       ALLOC_MEM_LOCK();
 
-      if (words_including_deferred <= compute_free_heap_space_approximately())
+      prev_reserved = words_still_objs_deferred + still_words_budget;
+      if (reserved_words_still >= prev_reserved)
+        reserved_words_still -= prev_reserved;
+      else
+        reserved_words_still = 0;
+      occupied_words_still += words_still_objs_deferred;
+      words_still_objs_deferred = 0;
+      still_words_budget = 0;
+
+      avail = compute_free_heap_space_approximately();
+
+      if (words <= avail)
         {
           /*
            * There is sufficient free heap space, so no need to call GC.
            */
+          ___SIZE_TS rem = avail - words;
+          ___SIZE_TS extra = 0;
+          if (rem > 0)
+            {
+              ___SIZE_TS cap = rem / (2 * vm->processor_count + 2);
+              ___SIZE_TS chunk = (___MSECTION_SIZE >> 2);
+              extra = cap < chunk ? cap : chunk;
+            }
 
-          occupied_words_still += words_including_deferred;
+          occupied_words_still += words;
+          reserved_words_still += extra;
+          still_words_budget = extra;
 
           ALLOC_MEM_UNLOCK();
-
-          /*
-           * Space accounting for previous still objects is now accounted
-           * for at the VM level.
-           */
-
-          words_still_objs_deferred = 0;
         }
       else
         {

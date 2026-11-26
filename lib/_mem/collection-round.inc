@@ -121,6 +121,7 @@ ___collector_worker *work;)
       setup_still_objs_to_scan(work,source);
       source->mem.words_still_objs_+=source->mem.words_still_objs_deferred_;
       source->mem.words_still_objs_deferred_=0;
+      source->mem.still_words_budget_=0;
   } }
 #ifdef ENABLE_GC_ACTLOG_PHASES
   ___ACTLOG_END_PS();

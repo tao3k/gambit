@@ -49,7 +49,7 @@ ___HIDDEN int ___fdset_realloc
          int newsize),
         (___ps,
          newsize)
-____processor_state ___ps;
+___processor_state ___ps;
 int newsize;)
 {
   void *readfds = NULL;
@@ -117,6 +117,14 @@ ___processor_state ___ps;)
   ___ps->os.fdset.size = 0;
 
   return ___fdset_realloc (___ps, size);
+}
+
+___HIDDEN void ___fdset_cleanup
+   ___P((___processor_state ___ps),
+        (___ps)
+___processor_state ___ps;)
+{
+  ___fdset_realloc (___ps, 0);
 }
 
 #endif
@@ -11855,7 +11863,10 @@ ___processor_state ___ps;)
     {
       if (___set_fd_blocking_mode (___ps->os.select_abort.writing_fd, 0) < 0 ||
           ___set_fd_blocking_mode (___ps->os.select_abort.reading_fd, 0) < 0)
-        e = err_code_from_errno ();
+        {
+          e = err_code_from_errno ();
+          ___close_half_duplex_pipe (&___ps->os.select_abort, 2);
+        }
     }
 
 #endif
@@ -11872,6 +11883,13 @@ ___processor_state ___ps;)
     e = err_code_from_GetLastError ();
 
 #endif
+
+#endif
+
+#ifdef USE_POSIX
+
+  if (e != ___FIX(___NO_ERR))
+    ___fdset_cleanup (___ps);
 
 #endif
 
@@ -11897,6 +11915,12 @@ ___processor_state ___ps;)
   CloseHandle (___ps->os.select_abort); /* ignore error */
 
 #endif
+
+#endif
+
+#ifdef USE_POSIX
+
+  ___fdset_cleanup (___ps);
 
 #endif
 }

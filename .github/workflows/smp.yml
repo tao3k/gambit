@@ -143,11 +143,20 @@ jobs:
             while (!___WORD_LOAD_ACQUIRE(&ready)) {}
             ___WORD v = ___WORD_LOAD_RELAXED(&shared_val);
             pthread_join(t, 0);
-            return v == 42 ? 0 : 2;
+            if (v != 42) return 2;
+            /* Verify ___WORD_CAS_ACQUIRE writes back expected on failure */
+            ___WORD exp = 7;
+            if (___WORD_CAS_ACQUIRE(&shared_val, exp, 99)) return 3;
+            if (exp != 42) return 4;
+            if (!___WORD_CAS_ACQUIRE(&shared_val, exp, 99)) return 5;
+            if (___WORD_LOAD_ACQUIRE(&shared_val) != 99) return 6;
+            return 0;
           }
           EOF
           clang -std=c23 -Werror=comment -fsanitize=thread -O1 -Iinclude /tmp/gambit_c23_hygiene.c -lpthread -o /tmp/gambit_c23_hygiene
           /tmp/gambit_c23_hygiene
+          clang -std=c23 -Werror=comment -D___ORDERED_WORD_FORCE_LEGACY -O1 -Iinclude /tmp/gambit_c23_hygiene.c -lpthread -o /tmp/gambit_c23_hygiene_legacy
+          /tmp/gambit_c23_hygiene_legacy
 
   upstream-smp:
     name: "macOS arm64 SMP & True-Multicore"

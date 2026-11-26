@@ -117,6 +117,14 @@ static void *c7_vm_churn_worker(void *arg) {
       ___thread_set_pstate(NULL);
       break; /* Never free a VM still linked in vm_registry! */
     }
+#ifndef ___OS_WIN32
+    if (sec->os.fdset.readfds != NULL ||
+        sec->os.fdset.writefds != NULL ||
+        sec->os.fdset.exceptfds != NULL ||
+        sec->os.fdset.size != 0) {
+      atomic_fetch_add(&c7_churn_errors, 1);
+    }
+#endif
     ___thread_set_pstate(NULL);
     free(extra);
     atomic_fetch_add_explicit(&c7_churn_cycles, 1, memory_order_acq_rel);

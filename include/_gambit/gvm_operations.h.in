@@ -2175,6 +2175,11 @@ ___FIELD(FOREIGN,foreign,___FOREIGN_PTR)
 #define ___GCHASHTABLE_FLAG_UNION_FIND     64
 /* The collector repairs references; Scheme owns this table's index algorithm. */
 #define ___GCHASHTABLE_FLAG_SCHEME_INDEX   128
+/* Bit 8 is the exclusive in-situ rehash writer lock; bits 9+ count active
+ * concurrent readers (Scheme traversal/serialization cursors and post-GC lookups). */
+#define ___GCHASHTABLE_FLAG_REHASHING      256
+#define ___GCHASHTABLE_CURSOR_SHIFT        9
+#define ___GCHASHTABLE_CURSOR_UNIT         512
 
 #define ___GCHASHTABLE_NEXT_FIELD(gcht) \
 ___FIELD(WEAK,gcht,___GCHASHTABLE_NEXT)

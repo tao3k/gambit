@@ -116,6 +116,7 @@ ___virtual_machine_state ___vms;)
 
   occupied_words_movable = movable;
   occupied_words_still = still + ___lifecycle_retained_words(___vms);
+  reserved_words_still = 0;
 
   latest_gc_alloc = bytes_allocated;
 

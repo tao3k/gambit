@@ -9,10 +9,6 @@ ___SCMOBJ ht;)
   int size2 = words - ___GCHASHTABLE_KEY0;
   int i;
 
-  body[___GCHASHTABLE_FLAGS] =
-    ___FIXAND(body[___GCHASHTABLE_FLAGS],
-              ___FIXNOT(___FIX(___GCHASHTABLE_FLAG_KEY_MOVED)));
-
   if (!___FIXZEROP(___FIXAND(body[___GCHASHTABLE_FLAGS],
                              ___FIX(___GCHASHTABLE_FLAG_UNION_FIND))))
     {
@@ -237,6 +233,14 @@ ___SCMOBJ ht;)
             }
         }
     }
+
+  /* Publish all relocated key/value slots with release ordering before
+   * clearing KEY_MOVED and the exclusive REHASHING lock bit. */
+  ___WORD_STORE_RELEASE(
+    ___CAST(___VOLATILE ___WORD*, &body[___GCHASHTABLE_FLAGS]),
+    ___FIXAND(body[___GCHASHTABLE_FLAGS],
+              ___FIXNOT(___FIX(___GCHASHTABLE_FLAG_KEY_MOVED |
+                               ___GCHASHTABLE_FLAG_REHASHING))));
 }
 
 

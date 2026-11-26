@@ -9,7 +9,14 @@
  * can use its existing word service; generated hosts require native atomics. */
 #if !defined(___SINGLE_VM) && (defined(___INCLUDED_FROM_MEM) || \
     (defined(___GLOCOUNT) && ___ORDERED_WORD_NATIVE))
-static ___global_slot_page *___global_page_at(___global_slot_directory *directory, int id)
+#if defined(__GNUC__) || defined(__clang__)
+#define ___BINDING_NOINLINE __attribute__((noinline, unused))
+#elif defined(_MSC_VER)
+#define ___BINDING_NOINLINE __declspec(noinline)
+#else
+#define ___BINDING_NOINLINE
+#endif
+static ___BINDING_NOINLINE ___global_slot_page *___global_page_at(___global_slot_directory *directory, int id)
 {
   ___SIZE_T key, position, probes;
   if (directory==0 || id<0) return 0;
@@ -45,8 +52,16 @@ static ___SCMOBJ *___global_cell_address(___virtual_machine_state vm, int id)
 #if defined(___MODULE_NAME) && ___ORDERED_WORD_NATIVE
 #undef ___PRM
 #undef ___GLO
-#define ___PRM(i,glo)(___binding_vm ? ___binding_primitive(___binding_vm,&___GLOSTRUCT(i,glo)) : ___EXT(___primitive_ref)(___ps,&___GLOSTRUCT(i,glo)))
-#define ___GLO(i,glo)(___binding_vm ? ___WORD_LOAD_ACQUIRE(___binding_global(___binding_vm,&___GLOSTRUCT(i,glo))) : ___WORD_LOAD_ACQUIRE(&___GLOCELL(___GLOSTRUCT(i,glo).val)))
+#undef ___GLOBALVARPRIMREF
+#ifndef ___BINDING_NOINLINE
+#if defined(__GNUC__) || defined(__clang__)
+#define ___BINDING_NOINLINE __attribute__((noinline, unused))
+#elif defined(_MSC_VER)
+#define ___BINDING_NOINLINE __declspec(noinline)
+#else
+#define ___BINDING_NOINLINE
+#endif
+#endif
 static ___SCMOBJ *___binding_global(___virtual_machine_state vm, ___glo_struct *global)
 {
 #ifdef ___SINGLE_VM
@@ -72,4 +87,24 @@ static ___SCMOBJ ___binding_primitive(___virtual_machine_state vm, ___glo_struct
 #endif
   return ___PRMCELL(global->prm);
 }
+/* Keep the ___binding_vm branch inside a single outlined TU-local helper so
+ * giant single-host functions emit one direct call per GLO/PRM instead of
+ * thousands of ternary CFG diamonds and duplicated fallback paths. */
+static ___BINDING_NOINLINE ___SCMOBJ ___binding_glo_load
+   (___processor_state ___ps, ___virtual_machine_state vm, ___glo_struct *global)
+{
+  if (___EXPECT_TRUE(vm != 0))
+    return ___WORD_LOAD_ACQUIRE(___binding_global(vm, global));
+  return ___WORD_LOAD_ACQUIRE(&___GLOCELL(global->val));
+}
+static ___BINDING_NOINLINE ___SCMOBJ ___binding_prm_load
+   (___processor_state ___ps, ___virtual_machine_state vm, ___glo_struct *global)
+{
+  if (___EXPECT_TRUE(vm != 0))
+    return ___binding_primitive(vm, global);
+  return ___EXT(___primitive_ref)(___ps, global);
+}
+#define ___PRM(i,glo) ___binding_prm_load(___ps,___binding_vm,&___GLOSTRUCT(i,glo))
+#define ___GLO(i,glo) ___binding_glo_load(___ps,___binding_vm,&___GLOSTRUCT(i,glo))
+#define ___GLOBALVARPRIMREF(gv) ___binding_prm_load(___ps,___binding_vm,___GLOBALVARSTRUCT(gv))
 #endif

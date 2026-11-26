@@ -11,15 +11,55 @@ ___SCMOBJ key;)
   int probe2;
   int step2;
   ___SCMOBJ obj;
-  ___SCMOBJ moved;
+  ___SCMOBJ result = ___UNUSED;
+  ___BOOL pinned = 0;
+  ___VOLATILE ___WORD *flags_ptr =
+    ___CAST(___VOLATILE ___WORD*, &___GCHASHTABLE_FLAGS_FIELD(ht));
+  ___WORD flags = ___WORD_LOAD_ACQUIRE(flags_ptr);
 
-  /* Bit 8 of the flags integer counts suspended for-each/search/fold
-   * cursors. Scheme increments it around those walks. A read may rebuild
-   * address placement only while that count is zero. */
-  moved = ___GCHASHTABLE_FLAGS_FIELD(ht);
-  if (!___FIXZEROP(___FIXAND(moved, ___FIX(___GCHASHTABLE_FLAG_KEY_MOVED)))
-      && (___INT(moved) >> 8) == 0)
-    gc_hash_table_rehash_in_situ(ht);
+  /* Bit 8 (REHASHING) is an exclusive in-situ rehash lock and bits 9+ count
+   * active readers/cursors. Fast path: when neither KEY_MOVED nor REHASHING
+   * is set, this leaf function cannot trigger GC so no rehash can start
+   * concurrently and zero atomic RMWs are needed. */
+  if (!___FIXZEROP(___FIXAND(flags,
+                             ___FIX(___GCHASHTABLE_FLAG_KEY_MOVED |
+                                    ___GCHASHTABLE_FLAG_REHASHING))))
+    {
+      for (;;)
+        {
+          flags = ___WORD_LOAD_ACQUIRE(flags_ptr);
+          if (___FIXZEROP(___FIXAND(flags,
+                                    ___FIX(___GCHASHTABLE_FLAG_KEY_MOVED |
+                                           ___GCHASHTABLE_FLAG_REHASHING))))
+            break;
+          if (!___FIXZEROP(___FIXAND(flags,
+                                     ___FIX(___GCHASHTABLE_FLAG_REHASHING))))
+            {
+              ___CPU_RELAX();
+              continue;
+            }
+          if ((___INT(flags) >> ___GCHASHTABLE_CURSOR_SHIFT) == 0)
+            {
+              ___WORD want =
+                ___FIXIOR(flags, ___FIX(___GCHASHTABLE_FLAG_REHASHING));
+              if (___WORD_CAS_ACQUIRE(flags_ptr, flags, want))
+                {
+                  gc_hash_table_rehash_in_situ(ht);
+                  break;
+                }
+            }
+          else
+            {
+              ___WORD want =
+                ___FIXADD(flags, ___FIX(___GCHASHTABLE_CURSOR_UNIT));
+              if (___WORD_CAS_ACQUIRE(flags_ptr, flags, want))
+                {
+                  pinned = 1;
+                  break;
+                }
+            }
+        }
+    }
 
   size2 = ___INT(___GCHASHTABLELENGTH(ht)) - ___GCHASHTABLE_KEY0;
   ___GCHASHTABLE_HASH_STEP(probe2, step2, key, size2>>1);
@@ -28,7 +68,7 @@ ___SCMOBJ key;)
   obj = ___FIELD(WEAK,ht, probe2+___GCHASHTABLE_KEY0);
 
   if (___EQP(obj,key))
-    return ___FIELD(WEAK, ht, probe2+___GCHASHTABLE_VAL0);
+    result = ___FIELD(WEAK, ht, probe2+___GCHASHTABLE_VAL0);
   else if (!___EQP(obj,___UNUSED))
     {
       for (;;)
@@ -39,25 +79,34 @@ ___SCMOBJ key;)
           obj = ___FIELD(WEAK, ht, probe2+___GCHASHTABLE_KEY0);
 
           if (___EQP(obj,key))
-            return ___FIELD(WEAK, ht, probe2+___GCHASHTABLE_VAL0);
+            {
+              result = ___FIELD(WEAK, ht, probe2+___GCHASHTABLE_VAL0);
+              break;
+            }
           else if (___EQP(obj,___UNUSED))
             break;
         }
     }
 
-  if (!___FIXZEROP(___FIXAND(___GCHASHTABLE_FLAGS_FIELD(ht),
-                             ___FIX(___GCHASHTABLE_FLAG_KEY_MOVED))))
+  if (pinned)
     {
-      /* The probe missed while a for-each/search/fold cursor is suspended.
-       * Slot order must stay put until that walk returns. */
-      int i;
-      for (i=0; i<size2; i+=2)
-        if (___EQP(___FIELD(WEAK, ht, i+___GCHASHTABLE_KEY0), key))
-          return ___FIELD(WEAK, ht, i+___GCHASHTABLE_VAL0);
-      return ___UNUSED;
+      if (___EQP(result, ___UNUSED))
+        {
+          /* The probe missed while a cursor held the table un-rehashed.
+           * Slot order stays frozen while our reader pin is held. */
+          int i;
+          for (i=0; i<size2; i+=2)
+            if (___EQP(___FIELD(WEAK, ht, i+___GCHASHTABLE_KEY0), key))
+              {
+                result = ___FIELD(WEAK, ht, i+___GCHASHTABLE_VAL0);
+                break;
+              }
+        }
+      ___WORD_FETCH_ADD_RELEASE(flags_ptr,
+                                -___FIX(___GCHASHTABLE_CURSOR_UNIT));
     }
 
-  return ___UNUSED; /* key was not found */
+  return result;
 }
 
 
@@ -79,7 +128,9 @@ ___SCMOBJ val;)
 
   /* Mutation already requires exclusive mutator ownership. Settle address
    * placement debt before either insert, replace or delete. */
-  if (!___FIXZEROP(___FIXAND(___GCHASHTABLE_FLAGS_FIELD(ht),
+  if (!___FIXZEROP(___FIXAND(___WORD_LOAD_ACQUIRE(
+                                 ___CAST(___VOLATILE ___WORD*,
+                                         &___GCHASHTABLE_FLAGS_FIELD(ht))),
                              ___FIX(___GCHASHTABLE_FLAG_KEY_MOVED))))
     gc_hash_table_rehash_in_situ (ht);
 
@@ -307,7 +358,9 @@ ___BOOL find;)
 
   /* Even find=true compresses parent paths: this is a writer, not a pure
    * query. Rebuilding also repairs its position-encoded parent links. */
-  if (!___FIXZEROP(___FIXAND(___GCHASHTABLE_FLAGS_FIELD(ht),
+  if (!___FIXZEROP(___FIXAND(___WORD_LOAD_ACQUIRE(
+                                 ___CAST(___VOLATILE ___WORD*,
+                                         &___GCHASHTABLE_FLAGS_FIELD(ht))),
                              ___FIX(___GCHASHTABLE_FLAG_KEY_MOVED))))
     gc_hash_table_rehash_in_situ (ht);
 

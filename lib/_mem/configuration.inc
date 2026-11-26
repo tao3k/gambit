@@ -280,6 +280,7 @@
 #define still_objs              ___PSTATE_MEM(still_objs_)
 #define words_still_objs        ___PSTATE_MEM(words_still_objs_)
 #define words_still_objs_deferred ___PSTATE_MEM(words_still_objs_deferred_)
+#define still_words_budget      ___PSTATE_MEM(still_words_budget_)
 #define bytes_allocated_minus_occupied ___PSTATE_MEM(bytes_allocated_minus_occupied_)
 #define traverse_weak_refs      work->traverse_weak_refs_
 #define nonexecutable_wills     ___PSTATE_MEM(nonexecutable_wills_)
@@ -300,6 +301,7 @@
 #define overflow_reserve        ___VMSTATE_MEM(overflow_reserve_)
 #define occupied_words_movable  ___VMSTATE_MEM(occupied_words_movable_)
 #define occupied_words_still    ___VMSTATE_MEM(occupied_words_still_)
+#define reserved_words_still    ___VMSTATE_MEM(reserved_words_still_)
 #define the_msections           ___VMSTATE_MEM(the_msections_)
 #define alloc_msection          ___VMSTATE_MEM(alloc_msection_)
 #define nb_msections_assigned   ___VMSTATE_MEM(nb_msections_assigned_)
@@ -470,7 +472,7 @@
 
 #define compute_free_heap_space_approximately() \
 (heap_size - compute_msection_size(nb_msections_assigned) \
- - occupied_words_still - overflow_reserve)
+ - occupied_words_still - reserved_words_still - overflow_reserve)
 
 #define compute_free_heap_space_in_msections(nb_sections) \
 (compute_msection_space(nb_sections - nb_msections_stacks) \

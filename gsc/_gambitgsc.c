@@ -1390,6 +1390,8 @@
 "##gc-finalizing-remq"
 "##gc-hash-table-allocate"
 "##gc-hash-table-allocate2"
+"##gc-hash-table-cursor-pin!"
+"##gc-hash-table-cursor-unpin!"
 "##gc-hash-table-field-ref"
 "##gc-hash-table-field-set!"
 "##gc-hash-table-find!"
@@ -2284,6 +2286,7 @@
 "##register-module-descrs"
 "##remainder"
 "##remove"
+"##remove-module-pair"
 "##remove-registered-module"
 "##remq"
 "##rename-file"
@@ -11411,6 +11414,8 @@
 "##gc-finalizing-remq"
 "##gc-finalizing-threads"
 "##gc-hash-table-allocate"
+"##gc-hash-table-cursor-pin!"
+"##gc-hash-table-cursor-unpin!"
 "##gc-hash-table-foldl"
 "##gc-hash-table-for-each"
 "##gc-hash-table-make"
@@ -12162,9 +12167,10 @@
 "##reciprocal-cache"
 "##register-module-descr!"
 "##register-module-descrs"
-"##registered-modules"
+"##registered-modules-box"
 "##remainder"
 "##remove"
+"##remove-module-pair"
 "##remq"
 "##rename-file"
 "##repl"
@@ -17582,6 +17588,7 @@
 "##readtable-foreign-write-handler-register!"
 "##readtable?"
 "##real-part"
+"##registered-modules"
 "##remove-registered-module"
 "##repl-channel-ask"
 "##repl-channel-input-port"
@@ -21151,6 +21158,8 @@ ___DEF_OLD_SYM_GLO(___S__23__23_gc_2d_finalizing_2d_remq,___G__23__23_gc_2d_fina
 ___DEF_OLD_SYM_GLO(___S__23__23_gc_2d_finalizing_2d_threads,___G__23__23_gc_2d_finalizing_2d_threads)
 ___DEF_OLD_SYM_GLO(___S__23__23_gc_2d_hash_2d_table_2d_allocate,___G__23__23_gc_2d_hash_2d_table_2d_allocate)
 ___DEF_OLD_SYM_GLO(___S__23__23_gc_2d_hash_2d_table_2d_allocate2,___G__23__23_gc_2d_hash_2d_table_2d_allocate2)
+___DEF_OLD_SYM_GLO(___S__23__23_gc_2d_hash_2d_table_2d_cursor_2d_pin_21_,___G__23__23_gc_2d_hash_2d_table_2d_cursor_2d_pin_21_)
+___DEF_OLD_SYM_GLO(___S__23__23_gc_2d_hash_2d_table_2d_cursor_2d_unpin_21_,___G__23__23_gc_2d_hash_2d_table_2d_cursor_2d_unpin_21_)
 ___DEF_OLD_SYM_GLO(___S__23__23_gc_2d_hash_2d_table_2d_field_2d_ref,___G__23__23_gc_2d_hash_2d_table_2d_field_2d_ref)
 ___DEF_OLD_SYM_GLO(___S__23__23_gc_2d_hash_2d_table_2d_field_2d_set_21_,___G__23__23_gc_2d_hash_2d_table_2d_field_2d_set_21_)
 ___DEF_OLD_SYM_GLO(___S__23__23_gc_2d_hash_2d_table_2d_find_21_,___G__23__23_gc_2d_hash_2d_table_2d_find_21_)
@@ -22173,8 +22182,10 @@ ___DEF_OLD_SYM_GLO(___S__23__23_reciprocal_2d_cache,___G__23__23_reciprocal_2d_c
 ___DEF_OLD_SYM_GLO(___S__23__23_register_2d_module_2d_descr_21_,___G__23__23_register_2d_module_2d_descr_21_)
 ___DEF_OLD_SYM_GLO(___S__23__23_register_2d_module_2d_descrs,___G__23__23_register_2d_module_2d_descrs)
 ___DEF_OLD_SYM_GLO(___S__23__23_registered_2d_modules,___G__23__23_registered_2d_modules)
+___DEF_OLD_SYM_GLO(___S__23__23_registered_2d_modules_2d_box,___G__23__23_registered_2d_modules_2d_box)
 ___DEF_OLD_SYM_GLO(___S__23__23_remainder,___G__23__23_remainder)
 ___DEF_OLD_SYM_GLO(___S__23__23_remove,___G__23__23_remove)
+___DEF_OLD_SYM_GLO(___S__23__23_remove_2d_module_2d_pair,___G__23__23_remove_2d_module_2d_pair)
 ___DEF_OLD_SYM_GLO(___S__23__23_remove_2d_registered_2d_module,___G__23__23_remove_2d_registered_2d_module)
 ___DEF_OLD_SYM_GLO(___S__23__23_remq,___G__23__23_remq)
 ___DEF_OLD_SYM_GLO(___S__23__23_rename_2d_file,___G__23__23_rename_2d_file)

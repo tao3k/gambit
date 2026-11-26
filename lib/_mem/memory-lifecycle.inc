@@ -321,6 +321,7 @@ ___processor_state ___ps;)
   still_objs = 0;
   words_still_objs = 0;
   words_still_objs_deferred = 0;
+  still_words_budget = 0;
 
   /* Keep track of bytes allocated */
 
@@ -516,6 +517,7 @@ ___virtual_machine_state ___vms;)
 
   occupied_words_movable = 0;
   occupied_words_still = 0;
+  reserved_words_still = 0;
 
   nb_msections_assigned = 0;
   nb_msections_stacks   = 0;
@@ -627,6 +629,16 @@ ___processor_state ___ps;)
 {
   if (!___rc_prepare_cleanup (___ps))
     { rc_contract_error ("RC roots or borrows prevent memory cleanup"); return; }
+  if (still_words_budget > 0)
+    {
+      ALLOC_MEM_LOCK();
+      if (reserved_words_still >= still_words_budget)
+        reserved_words_still -= still_words_budget;
+      else
+        reserved_words_still = 0;
+      still_words_budget = 0;
+      ALLOC_MEM_UNLOCK();
+    }
   clear_fast_span (___ps);
   cleanup_rc (___ps);
 }

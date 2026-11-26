@@ -1226,7 +1226,7 @@ ___IMP_FUNC(int,___group_demand_enter)
 #define ___GROUP_DEMAND_ENTER_CALL(ps,hp,fp,sw,hw,pt,att) \
   (___group_demand_enter)((ps),(hp),(fp),(sw),(hw),(pt),(att))
 #endif
-#if !defined(___INCLUDED_FROM_MEM) && (!defined(___LBLCOUNT) || (___LBLCOUNT < 6000)) && \
+#if !defined(___INCLUDED_FROM_MEM) && (!defined(___LBLCOUNT) || (___LBLCOUNT < 3000)) && \
     defined(__GNUC__)
 /* Value-based processor-owned byte-range fast-span admission (proved equivalent
  * to allocation-limits.inc:1179-1197 in CompiledHostRefinementV2.lean & CBMC).
@@ -1283,7 +1283,7 @@ ___IMP_FUNC(void,___group_demand_commit)
 #define ___GROUP_DEMAND_COMMIT_CALL(ps,point,attempt) \
   (___group_demand_commit)((ps),(point),(attempt))
 #endif
-#if !defined(___LBLCOUNT) || (___LBLCOUNT < 6000)
+#if !defined(___LBLCOUNT) || (___LBLCOUNT < 3000)
 #ifdef ___GAMBIT_REST_OBSERVATION
 #define ___group_demand_commit(ps,point,attempt) \
   do { if (__builtin_expect((attempt) != 0 || ___REST_OBS_ACTIVE, 0)) ___GROUP_DEMAND_COMMIT_CALL((ps),(point),(attempt)); } while (0)
@@ -1310,7 +1310,7 @@ ___IMP_FUNC(void,___gate2_group_site)
         ___WORD point, ___WORD *fp, int opening), ());
 ___IMP_FUNC(void,___gate2_fast_done)
   ___P((___processor_state ps, ___WORD point), ());
-#if !defined(___LBLCOUNT) || (___LBLCOUNT < 6000)
+#if !defined(___LBLCOUNT) || (___LBLCOUNT < 3000)
 #define ___GATE2_OPEN(ps,proc,label,point,fp) \
   do { if (__builtin_expect(___REST_OBS_ACTIVE, 0)) ___EXT(___gate2_group_site)(ps,proc,label,point,fp,1); } while (0)
 #define ___GATE2_ENTER(ps,proc,label,point,fp) \

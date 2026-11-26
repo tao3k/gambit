@@ -29,6 +29,7 @@ PBT_O1_TARGETS = [
     ("c4-dynamic-o1-symkey", "c4-dynamic-o1-binding-symkey-race.scm", "C4-DYNAMIC-O1-BINDING-SYMKEY-PASS", 256.0),
     ("c5-multishot-cc", "c5-multishot-cc-cross-core-smp.scm", "C5-MULTISHOT-CC-CROSS-CORE-PASS", 256.0),
     ("c6-parameterize-denv", "c6-parameterize-denv-isolation-smp.scm", "C6-PARAMETERIZE-DENV-ISOLATION-PASS", 256.0),
+    ("t1-robustness-hardening", "t1-robustness-hardening-smp.scm", "T1-ROBUSTNESS-HARDENING-PASS", 256.0),
 ]
 
 SCALING_WORKLOADS = {

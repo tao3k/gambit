@@ -5759,15 +5759,31 @@ end-of-code
   (define-prim (##init-mod module-descr)
     #f)))
 
-(define ##registered-modules '()) ;; collection of modules registered in the system
+(define ##registered-modules '()) ;; inspection mirror of registered modules
+(define ##registered-modules-box (##vector '()))
 
 (define-prim (##lookup-registered-module module-ref)
-  (let ((x (##lookup-module module-ref ##registered-modules)))
+  (let ((x (##lookup-module module-ref (##vector-ref ##registered-modules-box 0))))
     (and x (##car x))))
 
+(define-prim (##remove-module-pair target lst)
+  (if (##eq? lst target)
+      (##cdr lst)
+      (##cons (##car lst) (##remove-module-pair target (##cdr lst)))))
+
 (define-prim (##remove-registered-module module-ref)
-  (let ((x (##lookup-module module-ref ##registered-modules)))
-    (and x (##set-car! x #f))))
+  (##declare (not interrupts-enabled))
+  (let loop ()
+    (let* ((cur (##vector-ref ##registered-modules-box 0))
+           (x (##lookup-module module-ref cur)))
+      (if x
+          (let ((next (##remove-module-pair x cur)))
+            (if (##eq? (##vector-cas! ##registered-modules-box 0 next cur) cur)
+                (begin
+                  (set! ##registered-modules next)
+                  (##void))
+                (loop)))
+          #f))))
 
 (define-prim (##lookup-module module-ref modules)
   (let loop ((lst modules))
@@ -5779,17 +5795,22 @@ end-of-code
         #f)))
 
 (define-prim (##register-module-descr! module-ref module-descr)
-  ;; TODO: make manipulation of ##registered-modules atomic
-  (let* ((module
-          (macro-make-module module-ref module-descr))
-         (x
-          (##lookup-module module-ref ##registered-modules)))
-    (if x
-        (##set-car! x module)
-        (set! ##registered-modules
-              (##cons module
-                      ##registered-modules)))
-    module))
+  ;; Lock-free persistent list update via ##vector-cas! so concurrent module
+  ;; registration/removal cannot drop entries or race with readers.
+  (##declare (not interrupts-enabled))
+  (let ((module (macro-make-module module-ref module-descr)))
+    (let loop ()
+      (let* ((cur (##vector-ref ##registered-modules-box 0))
+             (x (##lookup-module module-ref cur))
+             (next (##cons module
+                           (if x
+                               (##remove-module-pair x cur)
+                               cur))))
+        (if (##eq? (##vector-cas! ##registered-modules-box 0 next cur) cur)
+            (begin
+              (set! ##registered-modules next)
+              module)
+            (loop))))))
 
 (define-prim (##register-module-descrs module-descrs)
   (let loop1 ((i 0)
