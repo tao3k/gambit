@@ -496,6 +496,8 @@ ___WORD ___continuation_next_stack(___processor_state ___ps, ___SCMOBJ cont)
     cont=___FAL;
   else
     {
+      ___GC_WRITE_BARRIER_ALWAYS(___ps, cont, &___CONTINUATION_FRAME_FIELD(cont));
+      ___GC_WRITE_BARRIER(___ps, cont, &___CONTINUATION_DENV_FIELD(cont), denv);
       ___CONTINUATION_FRAME_FIELD(cont)=successor;
       ___CONTINUATION_DENV_FIELD(cont)=denv;
     }
@@ -648,6 +650,7 @@ ___WORD *orig_ptr;)
           *ptr = forw;
           work->frame_links_++;
 
+          record_mature_obj_start(work->arena.section, copy_header);
           publish_object_scan (work, copy_header);
           work->copied_words += words+___SUBTYPED_BODY;
           commit_copy(work,&grant);

@@ -2659,6 +2659,7 @@ end-of-code
 
    ___FRAME_STORE_RA(___R0)
    ___W_ALL
+   ___WORD_STORE_RELEASE(&___VMSTATE_FROM_PSTATE(___ps)->mem.force_major_gc_, 1);
    overflow = ___garbage_collect (___PSP 0);
    ___R_ALL
    ___SET_R0(___FRAME_FETCH_RA)
@@ -2677,6 +2678,7 @@ end-of-code
           ___BOOL overflow;
           ___FRAME_STORE_RA(___R0)
           ___W_ALL
+          ___WORD_STORE_RELEASE(&___VMSTATE_FROM_PSTATE(___ps)->mem.force_major_gc_, 1);
           overflow = ___garbage_collect (___PSP 0);
           ___R_ALL
           ___SET_R0(___FRAME_FETCH_RA)
@@ -4136,7 +4138,11 @@ end-of-code
    else
      ___RETN_GET_FS_LINK(ra,fs,link)
 
-   ___BODY_AS(___ARG1,___tFRAME)[fs-i+1] = ___ARG3;  /* what if i==link and frame is first in section???? */
+   {
+     ___WORD *___fslot = &___BODY_AS(___ARG1,___tFRAME)[fs-i+1];
+     ___GC_WRITE_BARRIER(___ps, ___ARG1, ___fslot, ___ARG3);
+     *___fslot = ___ARG3;  /* what if i==link and frame is first in section???? */
+   }
 
    ___RESULT = ___VOID;
 
@@ -4204,7 +4210,11 @@ end-of-code
        else
          ___RETN_GET_FS_LINK(ra,fs,link)
 
-       ___BODY_AS(frame,___tFRAME)[fs-i+1] = val;  /* what if i==link and frame is first in section???? */
+       {
+         ___WORD *___fslot = &___BODY_AS(frame,___tFRAME)[fs-i+1];
+         ___GC_WRITE_BARRIER(___ps, frame, ___fslot, val);
+         *___fslot = val;  /* what if i==link and frame is first in section???? */
+       }
      }
    else
      ___access_raw_continuation_frame(___ps,frame,___RAW_FRAME_SET,___ARG2,val);
@@ -4344,7 +4354,9 @@ end-of-code
          ___RESULT = ___FAL;
        else
          {
+           ___GC_WRITE_BARRIER_ALWAYS(___ps, cont, &___CONTINUATION_FRAME_FIELD(cont));
            ___CONTINUATION_FRAME_FIELD(cont) = next_frame;
+           ___GC_WRITE_BARRIER(___ps, cont, &___CONTINUATION_DENV_FIELD(cont), denv);
            ___CONTINUATION_DENV_FIELD(cont) = denv;
            ___RESULT = cont;
          }

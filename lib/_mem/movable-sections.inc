@@ -224,7 +224,16 @@ int n;)
           s->region_generation=1;
           s->region_age=___GC_REGION_YOUNG;
           s->card_dirty_any=0;
+          s->active_offset=0;
+          s->mature_words=0;
+          s->scan_end_words=0;
+          s->gc_src_offset=0;
+          s->gc_dest_offset=0;
+          s->gc_dest_words=0;
+          s->gc_is_dest=0;
+          s->gc_role=0;
           memset(___CAST(void*,section_card_bits(s)),0,SECTION_CARD_BYTES);
+          memset(___CAST(void*,section_card_starts(s)),___GC_CARD_NO_OBJ_START,SECTION_CARD_COUNT);
           s->pos = i;
           s->prev = tl;
           s->next = 0;

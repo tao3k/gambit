@@ -45,6 +45,7 @@ PBT_O1_TARGETS: list[tuple[str, str, str, float | None, str]] = [
     ("t1-robustness-hardening", "t1-robustness-hardening-smp.scm", "T1-ROBUSTNESS-HARDENING-PASS", 256.0, ""),
     ("t3-blocking-ffi-park", "t3-blocking-ffi-park-smp.scm", "T3-BLOCKING-FFI-PARK-PASS", 256.0, ""),
     ("t4-workstealing-scheduler", "t4-workstealing-scheduler-smp.scm", "T4-WORKSTEALING-SCHEDULER-PASS", 256.0, ""),
+    ("t5-generational-minor-gc", "t5-generational-minor-gc-smp.scm", "T5-GENERATIONAL-MINOR-GC-PASS", 256.0, ""),
 ]
 
 # (marker, extra_gambopt, source_code)

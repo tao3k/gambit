@@ -118,7 +118,8 @@ ___collector_worker *work;)
   /* Physical grants have already been installed and published to all R. */
   { int i; for(i=work->id;i<___COLLECTION(___vms).participant_count;i+=___COLLECTION(___vms).worker_count) {
       ___processor_state source=___PSTATE_FROM_PROCESSOR_ID(i,___vms);
-      setup_still_objs_to_scan(work,source);
+      if (!___COLLECTION(___vms).is_minor)
+        setup_still_objs_to_scan(work,source);
       source->mem.words_still_objs_+=source->mem.words_still_objs_deferred_;
       source->mem.words_still_objs_deferred_=0;
       source->mem.still_words_budget_=0;
@@ -166,6 +167,9 @@ ___UWORD rc_epoch;)
    * Source adapters preserve the established scan order and frame rewrites. */
   if (!___root_round_scan(___ps,rc_epoch))
     rc_contract_error("Frozen root union did not complete");
+
+  if (___COLLECTION(___vms).is_minor)
+    scan_remembered_set(work);
 
   mark_reachable_from_marked (work);
 
@@ -390,7 +394,7 @@ ___SIZE_TS requested_words_still;)
     ___GC_SLOT_TEST_FROZEN(___ps,rc_epoch);
 #endif
   if (is_coord)
-    ___COLLECTION(___vms).decision=plan_copy_round(___ps);
+    ___COLLECTION(___vms).decision=plan_copy_round(___ps, requested_words_still);
   BARRIER(); /* acquire the one decision; no parity changed */
   ___COLLECTION(___vms).observed[proc_id]=1;
   if (is_coord)
@@ -510,33 +514,80 @@ ___SIZE_TS requested_words_still;)
 #endif
 
   /* Weak descendants have drained on all W; each physical owner receives
-   * either one exclusive worker tail or its own disjoint empty resume span. */
+   * either one exclusive worker tail, a fresh segregated young heap, or its
+   * own disjoint empty resume span. */
   if (!___gc_resume_owner_matches(&___RESUME(___vms,proc_id),___ps))
     rc_contract_error("Restoration grant no longer belongs to its processor context");
-  if(active_worker) {
-    /* A final large-object section has no execution fudge. A counted fresh
-     * small grant restores that reserve before physical owner handoff. */
-    if(work->arena.large) {
-      if(work->local_scan_chunk_!=work->alloc_heap_chunk_start_ ||
-         work->scan_ptr_!=work->arena.cursor)
-        rc_contract_error("Large tail handoff retains unfinished local scan work");
-      *work->arena.cursor++=NULL_CHUNK_LINK;
-      require_chunk_transition(work,work->local_scan_chunk_,2,3);
-      work->chunks_completed_++;work->local_scan_chunk_=0;
-      refill_worker_arena(work);
-      require_chunk_transition(work,work->alloc_heap_chunk_start_,0,2);
-      work->local_scan_chunk_=work->alloc_heap_chunk_start_;
-      work->scan_ptr_=work->arena.cursor;
+  if (___COLLECTION(___vms).is_minor || ___COLLECTION(___vms).segregate_mature)
+    {
+      ___gc_round *g = &___COLLECTION(___vms);
+      if (active_worker)
+        {
+          if (work->local_scan_chunk_ != work->alloc_heap_chunk_start_ ||
+              work->scan_ptr_ != work->arena.cursor ||
+              work->heap_chunks_to_scan_head_ != work->heap_chunks_to_scan_tail_)
+            rc_contract_error("Restoration cannot retire unfinished scan transport");
+          require_chunk_transition(work, work->local_scan_chunk_, 2, 3);
+          work->chunks_completed_++;
+          work->local_scan_chunk_ = 0;
+          if (work->arena.section != 0)
+            {
+              ___msection *asec = work->arena.section;
+              ___WORD *hbase = asec->base + asec->gc_dest_offset;
+              if (asec->gc_is_dest == 2)
+                {
+                  ___WORD *pstart = hbase + g->promo_tail_starts[work->id];
+                  asec->gc_dest_words = (work->arena.cursor > pstart + 1)
+                    ? (work->arena.cursor - hbase)
+                    : asec->mature_words;
+                }
+              else
+                {
+                  asec->gc_dest_words = work->arena.cursor - hbase;
+                }
+            }
+          work->arena.handed_off = 1;
+        }
+      if (g->young_heap_secs[proc_id] != 0)
+        {
+          set_heap_msection(___ps, g->young_heap_secs[proc_id]);
+          alloc_stack_limit = ___RESUME(___vms, proc_id).stack_floor;
+          ___RESUME(___vms, proc_id).accepted = 1;
+        }
+      else
+        {
+          ___RESUME(___vms, proc_id).source_worker = -1;
+          if (!___gc_resume_without_arena(&___RESUME(___vms, proc_id), rc_epoch))
+            rc_contract_error("Segregated context restoration lacks its physical grant");
+        }
     }
-    if(work->local_scan_chunk_!=work->alloc_heap_chunk_start_ ||
-       work->scan_ptr_!=work->arena.cursor || work->heap_chunks_to_scan_head_!=work->heap_chunks_to_scan_tail_)
-      rc_contract_error("Restoration cannot retire unfinished scan transport");
-    require_chunk_transition(work,work->local_scan_chunk_,2,3);
-    work->chunks_completed_++;work->local_scan_chunk_=0;
-    if(!___gc_arena_handoff(&work->arena,&___RESUME(___vms,proc_id),rc_epoch))
-      rc_contract_error("Collector tail handoff lacks drained ownership");
-  } else if(!___gc_resume_without_arena(&___RESUME(___vms,proc_id),rc_epoch))
-    rc_contract_error("Context restoration lacks its physical grant");
+  else
+    {
+      if(active_worker) {
+        /* A final large-object section has no execution fudge. A counted fresh
+         * small grant restores that reserve before physical owner handoff. */
+        if(work->arena.large) {
+          if(work->local_scan_chunk_!=work->alloc_heap_chunk_start_ ||
+             work->scan_ptr_!=work->arena.cursor)
+            rc_contract_error("Large tail handoff retains unfinished local scan work");
+          *work->arena.cursor++=NULL_CHUNK_LINK;
+          require_chunk_transition(work,work->local_scan_chunk_,2,3);
+          work->chunks_completed_++;work->local_scan_chunk_=0;
+          refill_worker_arena(work);
+          require_chunk_transition(work,work->alloc_heap_chunk_start_,0,2);
+          work->local_scan_chunk_=work->alloc_heap_chunk_start_;
+          work->scan_ptr_=work->arena.cursor;
+        }
+        if(work->local_scan_chunk_!=work->alloc_heap_chunk_start_ ||
+           work->scan_ptr_!=work->arena.cursor || work->heap_chunks_to_scan_head_!=work->heap_chunks_to_scan_tail_)
+          rc_contract_error("Restoration cannot retire unfinished scan transport");
+        require_chunk_transition(work,work->local_scan_chunk_,2,3);
+        work->chunks_completed_++;work->local_scan_chunk_=0;
+        if(!___gc_arena_handoff(&work->arena,&___RESUME(___vms,proc_id),rc_epoch))
+          rc_contract_error("Collector tail handoff lacks drained ownership");
+      } else if(!___gc_resume_without_arena(&___RESUME(___vms,proc_id),rc_epoch))
+        rc_contract_error("Context restoration lacks its physical grant");
+    }
   if (!current_heap_interval_matches(___ps,alloc_heap_ptr))
     rc_contract_error("Restoration heap interval leaves its destination section");
   section_claim_at(heap_msection,tospace_offset)->heap_used=1;
@@ -551,13 +602,20 @@ ___SIZE_TS requested_words_still;)
   if (is_coord)
     {
       int k;
+      ___gc_round *g = &___COLLECTION(___vms);
       for (k = 0; k < ___vms->processor_count; k++)
-        if (!___COLLECTION(___vms).active[k])
+        if (!g->active[k])
           {
             ___processor_state pps = ___PSTATE_FROM_PROCESSOR_ID(k, ___vms);
             if (!___gc_resume_owner_matches(&___RESUME(___vms, k), pps))
               rc_contract_error("Restoration grant no longer belongs to its parked processor context");
-            if (!___gc_resume_without_arena(&___RESUME(___vms, k), rc_epoch))
+            if ((g->is_minor || g->segregate_mature) && g->young_heap_secs[k] != 0)
+              {
+                set_heap_msection(pps, g->young_heap_secs[k]);
+                pps->mem.alloc_stack_limit_ = ___RESUME(___vms, k).stack_floor;
+                ___RESUME(___vms, k).accepted = 1;
+              }
+            else if (!___gc_resume_without_arena(&___RESUME(___vms, k), rc_epoch))
               rc_contract_error("Parked context restoration lacks its physical grant");
             if (!current_heap_interval_matches(pps, pps->mem.alloc_heap_ptr_))
               rc_contract_error("Parked restoration heap interval leaves its destination section");
@@ -579,13 +637,16 @@ ___SIZE_TS requested_words_still;)
   /* Process gc hash tables and free unreachable still objects */
 
   if(active_worker) garbage_collect_cleanup_phase(work);
-  free_unmarked_still_objs(___PSPNC);
-  if (is_coord)
+  if (!___COLLECTION(___vms).is_minor)
     {
-      int k;
-      for (k = 0; k < ___vms->processor_count; k++)
-        if (!___COLLECTION(___vms).active[k])
-          free_unmarked_still_objs(___PSANC(___PSTATE_FROM_PROCESSOR_ID(k, ___vms)));
+      free_unmarked_still_objs(___PSPNC);
+      if (is_coord)
+        {
+          int k;
+          for (k = 0; k < ___vms->processor_count; k++)
+            if (!___COLLECTION(___vms).active[k])
+              free_unmarked_still_objs(___PSANC(___PSTATE_FROM_PROCESSOR_ID(k, ___vms)));
+        }
     }
   BARRIER();
   ___ps->collector=0;
@@ -605,11 +666,14 @@ ___SIZE_TS requested_words_still;)
 
 
   /* Restoration and still/weak cleanup are past their old-space reads.
-   * Mutators stay stopped. Retire source claims before resizing can free a
-   * section or a future round can grant that parity as its destination. */
+   * Mutators stay stopped. Retire source claims, finalize mature/young
+   * section partitions, and resize the heap. */
   if (is_coord &&
       !retire_drained_source_claims(___ROOT_UNION(___vms),the_msections,rc_epoch))
     rc_contract_error("Physical source retirement lacks a drained member");
+
+  if (is_coord)
+    finalize_gc_sections(___vms);
 
   /* Resize heap */
 
@@ -675,6 +739,22 @@ ___SIZE_TS requested_words_still;)
       latest_gc_user_time = user_time;
       latest_gc_sys_time = sys_time;
       latest_gc_real_time = real_time;
+
+      if (___COLLECTION(___vms).is_minor)
+        {
+          int wi;
+          ___SIZE_TS promoted = 0;
+          for (wi = 0; wi < ___COLLECTION(___vms).worker_count; wi++)
+            promoted += ___COLLECTORS(___vms)[wi].copied_words;
+          ___vms->mem.nb_minor_gcs_ += 1.0;
+          ___vms->mem.minor_gc_real_time_ += real_time;
+          ___vms->mem.minor_promoted_words_ += promoted;
+        }
+      else
+        {
+          ___vms->mem.nb_major_gcs_ += 1.0;
+          ___vms->mem.major_gc_real_time_ += real_time;
+        }
 
       ___raise_interrupt_pstate (___ps, ___INTR_GC); /* raise gc interrupt */
 

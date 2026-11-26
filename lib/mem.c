@@ -96,6 +96,7 @@ ___HIDDEN void clear_fast_span ___P((___processor_state ___ps),());
 #include "_mem/continuation-roots.inc"
 #include "_mem/rc-roots.inc"
 #include "_mem/object-scanning.inc"
+#include "_mem/generational.inc"
 #include "_mem/still-sweep.inc"
 #include "_mem/memory-lifecycle.inc"
 #include "_mem/wills.inc"

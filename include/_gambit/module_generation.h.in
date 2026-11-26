@@ -194,7 +194,7 @@ ___CLO_LOWLEVEL_TRAMPOLINE_SETUP(___ptr,___LBL(lbl));
 #endif
 #define ___END_SETUP_CLO(n) }
 #define ___CLO(x,y)___BODY_AS(x,___tSUBTYPED)[y+(___CLO_FREEVARS-1)]
-#define ___SET_CLO(x,y,z)___BODY_AS(x,___tSUBTYPED)[y+(___CLO_FREEVARS-1)]=z;
+#define ___SET_CLO(x,y,z) do { ___SCMOBJ ___wbo=(x); ___SCMOBJ ___wbv=(z); ___WORD *___wbs=&___BODY_AS(___wbo,___tSUBTYPED)[(y)+(___CLO_FREEVARS-1)]; ___GC_WRITE_BARRIER(___ps,___wbo,___wbs,___wbv); *___wbs=___wbv; } while (0);
 
 #define ___CLOSURESIZE(x)___HD_FIELDS(___SUBTYPED_HEADER(x))-___CLO_LOWLEVEL_TRAMPOLINE_SIZE
 #define ___CLOSURELENGTH(x)___FIX(___CLOSURESIZE(x))

@@ -9,6 +9,8 @@ ___SCMOBJ ht;)
   int size2 = words - ___GCHASHTABLE_KEY0;
   int i;
 
+  ___GC_WRITE_BARRIER_ALWAYS(___PSTATE, ht, body);
+
   if (!___FIXZEROP(___FIXAND(body[___GCHASHTABLE_FLAGS],
                              ___FIX(___GCHASHTABLE_FLAG_UNION_FIND))))
     {
@@ -280,9 +282,6 @@ ___collector_worker *work;)
 
               for (i=words-2; i>=___GCHASHTABLE_KEY0; i-=2)
                 {
-                  ___WORD *unmarked_body; /* used by the UNMARKED macro */
-                  int unmarked_typ;
-
                   ___WORD key = body[i];
                   ___WORD val = body[i+1];
 
@@ -321,7 +320,7 @@ ___collector_worker *work;)
                                            ___TYP(val));
                                   flags |= ___GCHASHTABLE_FLAG_KEY_MOVED;
                                 }
-                              else if (UNMARKED(val))
+                              else if (gc_obj_unmarked(work, val))
                                 {
                                   /*
                                    * Change the entry to indicate it
@@ -368,7 +367,7 @@ ___collector_worker *work;)
                               flags |= ___GCHASHTABLE_FLAG_KEY_MOVED;
                             }
                         }
-                      else if (UNMARKED(key))
+                      else if (gc_obj_unmarked(work, key))
                         {
                           /*
                            * Change the entry to indicate it has been
@@ -404,7 +403,7 @@ ___collector_worker *work;)
                                     ___TAG(___UNTAG_AS(val_head, ___FORW),
                                            ___TYP(val));
                                 }
-                              else if (UNMARKED(val))
+                              else if (gc_obj_unmarked(work, val))
                                 {
                                   /*
                                    * Change the entry to indicate it
@@ -460,7 +459,7 @@ ___collector_worker *work;)
                                 ___TAG(___UNTAG_AS(val_head, ___FORW),
                                        ___TYP(val));
                             }
-                          else if (UNMARKED(val))
+                          else if (gc_obj_unmarked(work, val))
                             {
                               /*
                                * Change the entry to indicate it
@@ -506,9 +505,6 @@ ___collector_worker *work;)
 
               for (i=words-2; i>=___GCHASHTABLE_KEY0; i-=2)
                 {
-                  ___WORD *unmarked_body; /* used by the UNMARKED macro */
-                  int unmarked_typ;
-
                   ___WORD key = body[i];
 
                   if (___MEM_ALLOCATED(key))
@@ -528,7 +524,7 @@ ___collector_worker *work;)
                                            ___TYP(key));
                           flags |= ___GCHASHTABLE_FLAG_KEY_MOVED;
                         }
-                      else if (UNMARKED(key))
+                      else if (gc_obj_unmarked(work, key))
                         {
                           /*
                            * Change the entry to indicate it has been
@@ -559,9 +555,6 @@ ___collector_worker *work;)
 
               for (i=words-2; i>=___GCHASHTABLE_KEY0; i-=2)
                 {
-                  ___WORD *unmarked_body; /* used by the UNMARKED macro */
-                  int unmarked_typ;
-
                   ___WORD val = body[i+1];
 
                   if (___MEM_ALLOCATED(val))
@@ -578,7 +571,7 @@ ___collector_worker *work;)
                           body[i+1] = ___TAG(___UNTAG_AS(head, ___FORW),
                                              ___TYP(val));
                         }
-                      else if (UNMARKED(val))
+                      else if (gc_obj_unmarked(work, val))
                         {
                           /*
                            * Change the entry to indicate it has been

@@ -392,6 +392,7 @@ void **linker;)
             ___release_scmobj (r);
           else
             {
+              ___processor_state ___ps = ___PSTATE;
               ___VECTORSET(r,___FIX(0),result)
               ___VECTORSET(r,___FIX(1),linkername)
               ___release_scmobj (result);

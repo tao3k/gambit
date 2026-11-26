@@ -508,6 +508,7 @@
 #define ___STILL_HANDLE 4
 #define ___STILL_BODY 6
 #else
+#define ___STILL_DIRTY 4
 #define ___STILL_HANDLE ___STILL_BODY
 #define ___STILL_BODY (5+1)/************/
 #endif

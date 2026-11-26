@@ -21,6 +21,9 @@ ___PSDKR)
         }
       else
         {
+#ifndef ___USE_HANDLES
+          base[___STILL_DIRTY] = 0;
+#endif
           live_words_still += base[___STILL_LENGTH];
           *last = ___CAST(___WORD,base);
           last = base + ___STILL_LINK;

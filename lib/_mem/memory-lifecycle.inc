@@ -298,6 +298,9 @@ ___processor_state ___ps;)
   ___ps->mem.src_stack_cache_epoch_ = ~___CAST(___UWORD,0);
   ___ps->mem.src_stack_cache_offset_ = 0;
   ___ps->mem.src_stack_cache_next_ = 0;
+  ___ps->mem.wb_last_sec_ = 0;
+  ___ps->mem.wb_last_epoch_ = 0;
+  ___ps->mem.wb_last_card_lo_ = 0;
   memset(&___ps->mem.card_hints_, 0, sizeof(___ps->mem.card_hints_));
 
 #ifndef ___SINGLE_THREADED_VMS
@@ -523,6 +526,30 @@ ___virtual_machine_state ___vms;)
   nb_msections_assigned = 0;
   nb_msections_stacks   = 0;
 
+  ___vms->mem.nb_msections_mature_ = 0;
+  ___vms->mem.mature_tail_ = 0;
+  ___vms->mem.mature_sections_ = 0;
+  ___vms->mem.mature_sections_cap_ = 0;
+  ___vms->mem.mature_addr_lo_ = 0;
+  ___vms->mem.mature_addr_span_ = 0;
+  ___vms->mem.mature_snapshot_epoch_ = 1;
+  ___vms->mem.occupied_words_mature_ = 0;
+  ___vms->mem.major_trigger_sections_ = 8;
+  ___vms->mem.minor_gcs_since_major_ = 0;
+  ___vms->mem.still_dirty_any_ = 0;
+  ___vms->mem.force_major_gc_ = 0;
+  {
+    const char *gen_env = getenv("GAMBIT_GEN_GC");
+    ___vms->mem.gen_gc_enabled_ = (gen_env != 0 && gen_env[0] == '0' && gen_env[1] == '\0') ? 0 : 1;
+  }
+  ___vms->mem.nb_minor_gcs_ = 0.0;
+  ___vms->mem.nb_major_gcs_ = 0.0;
+  ___vms->mem.minor_gc_real_time_ = 0.0;
+  ___vms->mem.major_gc_real_time_ = 0.0;
+  ___vms->mem.minor_promoted_words_ = 0;
+  ___vms->mem.minor_dirty_cards_scanned_ = 0;
+  ___vms->mem.minor_overflow_fallbacks_ = 0;
+
 #if ___TARGET_HEAP_SPACE_HIST_LENGTH > 0
 
   {
@@ -678,6 +705,12 @@ ___virtual_machine_state ___vms;)
     ___cleanup_mem_pstate (___PSTATE_FROM_PROCESSOR_ID(0,___vms));
 
   free_msections (&the_msections);
+  if (___vms->mem.mature_sections_ != 0)
+    {
+      ___FREE_MEM(___vms->mem.mature_sections_);
+      ___vms->mem.mature_sections_ = 0;
+      ___vms->mem.mature_sections_cap_ = 0;
+    }
 
 #ifndef ___SINGLE_VM
   /* One VM-owned block covers ordinary/primitive slots and presence bits.

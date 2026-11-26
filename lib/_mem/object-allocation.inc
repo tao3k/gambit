@@ -232,6 +232,9 @@ ___SIZE_TS bytes;)
 
 #ifdef ___USE_HANDLES
   base[___STILL_HANDLE] = ___CAST(___WORD,body);
+#else
+  base[___STILL_DIRTY] = 1;
+  ___WORD_STORE_RELEASE(&vm->mem.still_dirty_any_, 1);
 #endif
 
   base[___STILL_HEADER] = ___MAKE_HD(bytes, subtype, ___STILL);

@@ -14,9 +14,10 @@
  */
 
 /* Region age classification for generational write-barrier seam. */
-#define ___GC_REGION_YOUNG  0u
-#define ___GC_REGION_MATURE 1u
-#define ___GC_REGION_PINNED 2u
+#define ___GC_REGION_YOUNG     0u
+#define ___GC_REGION_MATURE    1u
+#define ___GC_REGION_PINNED    2u
+#define ___GC_REGION_PROMOTING 3u
 
 /* Preallocated per-region dirty-card geometry: 64 words/card (512B on 64-bit,
  * 256B on 32-bit). Prepared with region publication, never allocated in barrier. */
@@ -35,6 +36,14 @@ typedef struct ___msect
     ___WORD region_generation;     /* monotonic generation for (VM, region, gen, card) key */
     unsigned int region_age;       /* ___GC_REGION_YOUNG / MATURE / PINNED */
     ___VOLATILE ___WORD card_dirty_any; /* summary bit: 0=clean, 1=dirty card(s) present */
+    ___SIZE_TS active_offset;      /* active half (0 or M/2) for MATURE section */
+    ___SIZE_TS mature_words;       /* populated word count in active half for MATURE */
+    ___SIZE_TS scan_end_words;     /* frozen mature_words boundary for Minor GC card scan */
+    ___SIZE_TS gc_src_offset;      /* round-local frozen source half */
+    ___SIZE_TS gc_dest_offset;     /* round-local copy destination half */
+    ___SIZE_TS gc_dest_words;      /* round-local populated destination words */
+    unsigned char gc_is_dest;      /* 0=none, 1=new mature dest, 2=packed promo_tail */
+    unsigned char gc_role;         /* 0=copy/free, 1=stack_dest, 2=young_heap_dest */
     ___WORD base[1];       /* content of section */
   } ___msection;
 
@@ -164,10 +173,59 @@ ___ORDERED_WORD_INLINE void ___gc_card_reset_epoch
     }
 }
 
-/* Zero-overhead compile-time write-barrier seam for future generational minor GC. */
-#ifndef ___ENABLE_GENERATIONAL_CARD_SEAM
-#define ___GC_WRITE_BARRIER_SEAM(ps,obj,slot_ptr,val) do { (void)(ps); (void)(obj); (void)(slot_ptr); (void)(val); } while (0)
+/* Non-allocating, non-collecting generational write-barrier macros.
+ * Fast path elides immediate values (1 tag test) and stores into the processor's
+ * current young heap_msection (1 unsigned range test) with zero VM reads or calls.
+ * Cold path invokes ___gc_write_barrier_slow on mature/still/older-young targets. */
+#ifdef ___DISABLE_GENERATIONAL_GC
+#define ___GC_WRITE_BARRIER(ps,obj,slot_ptr,val) \
+  do { (void)(ps); (void)(obj); (void)(slot_ptr); (void)(val); } while (0)
+#define ___GC_WRITE_BARRIER_ALWAYS(ps,obj,slot_ptr) \
+  do { (void)(ps); (void)(obj); (void)(slot_ptr); } while (0)
+#define ___GC_WRITE_BARRIER_RANGE(ps,obj,start_ptr,words) \
+  do { (void)(ps); (void)(obj); (void)(start_ptr); (void)(words); } while (0)
+#else
+#define ___GC_WRITE_BARRIER(ps,obj,slot_ptr,val) \
+  do { \
+    ___SCMOBJ ___gwb_v = (val); \
+    if (___MEM_ALLOCATED(___gwb_v)) \
+      { \
+        ___WORD *___gwb_s = (slot_ptr); \
+        ___processor_state ___gwb_p = (ps); \
+        ___UWORD ___gwb_a = ___CAST(___UWORD, ___gwb_s); \
+        ___UWORD ___gwb_lo = ___CAST(___UWORD, ___gwb_p->mem.alloc_heap_start_); \
+        ___UWORD ___gwb_hi = ___CAST(___UWORD, ___gwb_p->mem.alloc_heap_limit_); \
+        if (___EXPECT_FALSE(___gwb_a - ___gwb_lo >= ___gwb_hi - ___gwb_lo && \
+                            ___gwb_a - ___gwb_p->mem.wb_last_card_lo_ >= (___CAST(___UWORD, ___GC_CARD_WORDS) * ___WS))) \
+          ___EXT(___gc_write_barrier_slow)(___gwb_p, (obj), ___gwb_s); \
+      } \
+  } while (0)
+#define ___GC_WRITE_BARRIER_ALWAYS(ps,obj,slot_ptr) \
+  do { \
+    ___WORD *___gwb_s = (slot_ptr); \
+    ___processor_state ___gwb_p = (ps); \
+    ___UWORD ___gwb_a = ___CAST(___UWORD, ___gwb_s); \
+    ___UWORD ___gwb_lo = ___CAST(___UWORD, ___gwb_p->mem.alloc_heap_start_); \
+    ___UWORD ___gwb_hi = ___CAST(___UWORD, ___gwb_p->mem.alloc_heap_limit_); \
+    if (___EXPECT_FALSE(___gwb_a - ___gwb_lo >= ___gwb_hi - ___gwb_lo && \
+                        ___gwb_a - ___gwb_p->mem.wb_last_card_lo_ >= (___CAST(___UWORD, ___GC_CARD_WORDS) * ___WS))) \
+      ___EXT(___gc_write_barrier_slow)(___gwb_p, (obj), ___gwb_s); \
+  } while (0)
+#define ___GC_WRITE_BARRIER_RANGE(ps,obj,start_ptr,words) \
+  do { \
+    ___SIZE_TS ___gwb_n = (words); \
+    if (___gwb_n > 0) \
+      { \
+        ___WORD *___gwb_s = (start_ptr); \
+        ___processor_state ___gwb_p = (ps); \
+        ___UWORD ___gwb_lo = ___CAST(___UWORD, ___gwb_p->mem.alloc_heap_start_); \
+        ___UWORD ___gwb_hi = ___CAST(___UWORD, ___gwb_p->mem.alloc_heap_limit_); \
+        if (___EXPECT_FALSE(___CAST(___UWORD, ___gwb_s) - ___gwb_lo >= ___gwb_hi - ___gwb_lo)) \
+          ___EXT(___gc_write_barrier_range)(___gwb_p, (obj), ___gwb_s, ___gwb_n); \
+      } \
+  } while (0)
 #endif
+#define ___GC_WRITE_BARRIER_SEAM(ps,obj,slot_ptr,val) ___GC_WRITE_BARRIER(ps,obj,slot_ptr,val)
 
 typedef struct
   {
@@ -328,8 +386,11 @@ ___UWORD src_stack_cache_epoch_;
 ___SIZE_TS src_stack_cache_offset_;
 int src_stack_cache_next_;
 
-/* bounded dirty-card hint buffer for generational write-barrier seam */
+/* bounded dirty-card hint buffer and 1-entry fast caches for generational write barrier */
 ___gc_card_hint_log card_hints_;
+___msection *wb_last_sec_;
+___UWORD wb_last_epoch_;
+___UWORD wb_last_card_lo_;
 
 #ifdef ___DEBUG_GARBAGE_COLLECT
 
@@ -457,6 +518,34 @@ ___F64 latest_gc_still_;
  */
 
 ___msection *(*custom_msection_alloc_) ___PVOID;
+
+/*
+ * Generational Minor GC state (mutated exclusively during STW GC).
+ * mature_sections_ is sorted in strictly ascending address order and
+ * strictly read-only during mutator epochs for lock-free write barriers.
+ */
+int nb_msections_mature_;
+___msection *mature_tail_;
+___msection **mature_sections_;
+int mature_sections_cap_;
+___UWORD mature_addr_lo_;
+___UWORD mature_addr_span_;
+___UWORD mature_snapshot_epoch_;
+___SIZE_TS occupied_words_mature_;
+int major_trigger_sections_;
+int minor_gcs_since_major_;
+___VOLATILE ___WORD still_dirty_any_;
+___VOLATILE ___WORD force_major_gc_;
+int gen_gc_enabled_;
+
+/* Generational GC telemetry */
+___F64 nb_minor_gcs_;
+___F64 nb_major_gcs_;
+___F64 minor_gc_real_time_;
+___F64 major_gc_real_time_;
+___SIZE_TS minor_promoted_words_;
+___SIZE_TS minor_dirty_cards_scanned_;
+___SIZE_TS minor_overflow_fallbacks_;
 
 } ___vmstate_mem;
 

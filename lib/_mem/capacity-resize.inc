@@ -114,6 +114,8 @@ ___virtual_machine_state ___vms;)
       bytes_allocated += ps->mem.bytes_allocated_minus_occupied_;
     }
 
+  movable += 2 * ___vms->mem.occupied_words_mature_;
+
   occupied_words_movable = movable;
   occupied_words_still = still + ___lifecycle_retained_words(___vms);
   reserved_words_still = 0;
@@ -225,6 +227,9 @@ ___SIZE_TS requested_words_still;)
                            nb_msections_stacks;
 
       SET_MAX(target_nb_sections, lower_bound_nb_sections);
+      if (___COLLECTION(___vms).is_minor && ___GSTATE->setup_params.max_heap == 0 &&
+          the_msections != 0 && target_nb_sections < the_msections->nb_sections)
+        target_nb_sections = the_msections->nb_sections;
       if (___GSTATE->setup_params.max_heap == 0 && ___vms->processor_count > 1)
         {
           /* Each active processor consumes a stack and heap msection from

@@ -1058,7 +1058,88 @@ ___IMP_FUNC(___SCMOBJ,___gc_hash_table_rehash)
    ___P((___SCMOBJ ht_src,
          ___SCMOBJ ht_dst),
         ());
+___IMP_FUNC(void,___gc_write_barrier_slow)
+   ___P((___processor_state ___ps,
+         ___SCMOBJ obj,
+         ___WORD *slot_ptr),
+        ());
+___IMP_FUNC(void,___gc_write_barrier_range)
+   ___P((___processor_state ___ps,
+         ___SCMOBJ obj,
+         ___WORD *start_ptr,
+         ___SIZE_TS words),
+        ());
+___IMP_FUNC(void,___gc_generational_stats)
+   ___P((___processor_state ___ps,
+         double *out_stats),
+        ());
+___IMP_FUNC(int,___gc_set_generational_enabled)
+   ___P((___processor_state ___ps,
+         int enabled),
+        ());
+#else
+extern void ___gc_write_barrier_slow
+   ___P((___processor_state ___ps,
+         ___SCMOBJ obj,
+         ___WORD *slot_ptr),
+        ());
+extern void ___gc_write_barrier_range
+   ___P((___processor_state ___ps,
+         ___SCMOBJ obj,
+         ___WORD *start_ptr,
+         ___SIZE_TS words),
+        ());
 #endif
+
+___ORDERED_WORD_INLINE ___WORD ___gc_vector_cas_barrier
+   (___processor_state ___ps,
+    ___SCMOBJ v,
+    ___SCMOBJ i,
+    ___SCMOBJ val,
+    ___SCMOBJ oldval,
+    void (*wb_slow) ___P((___processor_state, ___SCMOBJ, ___WORD*), ()))
+{
+  ___WORD *slot = ___FXINDX_WORD(___BODY_AS(v, ___tVECTOR), i);
+#ifndef ___DISABLE_GENERATIONAL_GC
+  if (___MEM_ALLOCATED(val))
+    {
+      ___UWORD a = ___CAST(___UWORD, slot);
+      ___UWORD lo = ___CAST(___UWORD, ___ps->mem.alloc_heap_start_);
+      ___UWORD hi = ___CAST(___UWORD, ___ps->mem.alloc_heap_limit_);
+      if (___EXPECT_FALSE(a - lo >= hi - lo &&
+                          a - ___ps->mem.wb_last_card_lo_ >= (___CAST(___UWORD, ___GC_CARD_WORDS) * ___WS)))
+        wb_slow(___ps, v, slot);
+    }
+#else
+  (void)___ps; (void)wb_slow;
+#endif
+  return ___COMPARE_AND_SWAP_WORD(___CAST(___VOLATILE ___WORD*, slot), oldval, val);
+}
+
+___ORDERED_WORD_INLINE ___WORD ___gc_structure_cas_barrier
+   (___processor_state ___ps,
+    ___SCMOBJ x,
+    ___SCMOBJ val,
+    ___SCMOBJ oldval,
+    ___SCMOBJ i,
+    void (*wb_slow) ___P((___processor_state, ___SCMOBJ, ___WORD*), ()))
+{
+  ___WORD *slot = ___FXINDX_WORD(___BODY_AS(x, ___tSTRUCTURE), i);
+#ifndef ___DISABLE_GENERATIONAL_GC
+  if (___MEM_ALLOCATED(val))
+    {
+      ___UWORD a = ___CAST(___UWORD, slot);
+      ___UWORD lo = ___CAST(___UWORD, ___ps->mem.alloc_heap_start_);
+      ___UWORD hi = ___CAST(___UWORD, ___ps->mem.alloc_heap_limit_);
+      if (___EXPECT_FALSE(a - lo >= hi - lo &&
+                          a - ___ps->mem.wb_last_card_lo_ >= (___CAST(___UWORD, ___GC_CARD_WORDS) * ___WS)))
+        wb_slow(___ps, x, slot);
+    }
+#else
+  (void)___ps; (void)wb_slow;
+#endif
+  return ___COMPARE_AND_SWAP_WORD(___CAST(___VOLATILE ___WORD*, slot), oldval, val);
+}
 
 #ifndef ___INCLUDED_FROM_SETUP
 ___GSTATEDECL

@@ -147,11 +147,14 @@ ___SCMOBJ val;)
       if (___EQP(obj,key))
         {
         replace_entry:
+          ___GC_WRITE_BARRIER(___PSTATE, ht, &___FIELD(WEAK, ht, probe2+___GCHASHTABLE_VAL0), val);
           ___FIELD(WEAK, ht, probe2+___GCHASHTABLE_VAL0) = val;
         }
       else if (___EQP(obj,___UNUSED))
         {
         add_entry:
+          ___GC_WRITE_BARRIER(___PSTATE, ht, &___FIELD(WEAK, ht, probe2+___GCHASHTABLE_KEY0), key);
+          ___GC_WRITE_BARRIER(___PSTATE, ht, &___FIELD(WEAK, ht, probe2+___GCHASHTABLE_VAL0), val);
           ___FIELD(WEAK, ht, probe2+___GCHASHTABLE_KEY0) = key;
           ___FIELD(WEAK, ht, probe2+___GCHASHTABLE_VAL0) = val;
           ___GCHASHTABLE_COUNT_FIELD(ht) =
@@ -183,6 +186,8 @@ ___SCMOBJ val;)
                   if (deleted2 < 0)
                     goto add_entry;
 
+                  ___GC_WRITE_BARRIER(___PSTATE, ht, &___FIELD(WEAK, ht, deleted2+___GCHASHTABLE_KEY0), key);
+                  ___GC_WRITE_BARRIER(___PSTATE, ht, &___FIELD(WEAK, ht, deleted2+___GCHASHTABLE_VAL0), val);
                   ___FIELD(WEAK, ht, deleted2+___GCHASHTABLE_KEY0) = key;
                   ___FIELD(WEAK, ht, deleted2+___GCHASHTABLE_VAL0) = val;
                   ___GCHASHTABLE_COUNT_FIELD(ht) =
@@ -436,6 +441,7 @@ ___BOOL find;)
           k1 = ___INT(k1);
 
           ___FIELD(WEAK, ht, k1_probe2+___GCHASHTABLE_VAL0) = ___SPECIAL(k1+1);
+          ___GC_WRITE_BARRIER(___PSTATE, ht, &___FIELD(WEAK, ht, key2_probe2+___GCHASHTABLE_KEY0), key2);
           ___FIELD(WEAK, ht, key2_probe2+___GCHASHTABLE_KEY0) = key2;
           ___FIELD(WEAK, ht, key2_probe2+___GCHASHTABLE_VAL0) = ___FIX(k1_probe2);
           allocated = 1;
@@ -455,6 +461,7 @@ ___BOOL find;)
           k2 = ___INT(k2);
 
           ___FIELD(WEAK, ht, k2_probe2+___GCHASHTABLE_VAL0) = ___SPECIAL(k2+1);
+          ___GC_WRITE_BARRIER(___PSTATE, ht, &___FIELD(WEAK, ht, key1_probe2+___GCHASHTABLE_KEY0), key1);
           ___FIELD(WEAK, ht, key1_probe2+___GCHASHTABLE_KEY0) = key1;
           ___FIELD(WEAK, ht, key1_probe2+___GCHASHTABLE_VAL0) = ___FIX(k2_probe2);
           allocated = 1;
@@ -466,6 +473,7 @@ ___BOOL find;)
           if (find)
             return ___FIX(5); /* keys are not in the same equiv class */
 
+          ___GC_WRITE_BARRIER(___PSTATE, ht, &___FIELD(WEAK, ht, key1_probe2+___GCHASHTABLE_KEY0), key1);
           ___FIELD(WEAK, ht, key1_probe2+___GCHASHTABLE_KEY0) = key1;
           ___FIELD(WEAK, ht, key1_probe2+___GCHASHTABLE_VAL0) = ___SPECIAL(2);
 
@@ -485,6 +493,7 @@ ___BOOL find;)
                                  ___UNUSED));
             }
 
+          ___GC_WRITE_BARRIER(___PSTATE, ht, &___FIELD(WEAK, ht, key2_probe2+___GCHASHTABLE_KEY0), key2);
           ___FIELD(WEAK, ht, key2_probe2+___GCHASHTABLE_KEY0) = key2;
           ___FIELD(WEAK, ht, key2_probe2+___GCHASHTABLE_VAL0) = ___FIX(key1_probe2);
           allocated = 2;

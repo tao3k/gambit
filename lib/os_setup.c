@@ -1309,7 +1309,10 @@ ___SCMOBJ protocol;)
           if (lst == ___NUL)
             lst = p;
           else
-            ___SETCDR(tail,p);
+            {
+              ___processor_state ___ps = ___PSTATE;
+              ___SETCDR(tail,p);
+            }
 
           tail = p;
         }
@@ -2276,6 +2279,9 @@ ___SCMOBJ chase;)
       ___FIELD(STRUCTURE,___ps->context->saved[0],___FILE_INFO_CREATION_TIME) =
         ___release_scmobj (x);
 
+      ___GC_WRITE_BARRIER_RANGE(___ps, ___ps->context->saved[0],
+        ___BODY_AS(___ps->context->saved[0], ___tSTRUCTURE),
+        ___HD_FIELDS(___SUBTYPED_HEADER(___ps->context->saved[0])));
       result = ___ps->context->saved[0];
     }
 
@@ -2385,6 +2391,9 @@ ___SCMOBJ chase;)
       ___FIELD(STRUCTURE,___ps->context->saved[0],___FILE_INFO_CREATION_TIME) =
         ___release_scmobj (x);
 
+      ___GC_WRITE_BARRIER_RANGE(___ps, ___ps->context->saved[0],
+        ___BODY_AS(___ps->context->saved[0], ___tSTRUCTURE),
+        ___HD_FIELDS(___SUBTYPED_HEADER(___ps->context->saved[0])));
       result = ___ps->context->saved[0];
     }
 
@@ -2505,6 +2514,9 @@ ___SCMOBJ user;)
 
       ___FIELD(STRUCTURE,___ps->context->saved[0],___USER_INFO_SHELL) = ___release_scmobj (x);
 
+      ___GC_WRITE_BARRIER_RANGE(___ps, ___ps->context->saved[0],
+        ___BODY_AS(___ps->context->saved[0], ___tSTRUCTURE),
+        ___HD_FIELDS(___SUBTYPED_HEADER(___ps->context->saved[0])));
       result = ___ps->context->saved[0];
     }
 
@@ -2824,6 +2836,9 @@ ___SCMOBJ group;)
         ___release_scmobj (lst);
     }
 
+  ___GC_WRITE_BARRIER_RANGE(___ps, ___ps->context->saved[0],
+    ___BODY_AS(___ps->context->saved[0], ___tSTRUCTURE),
+    ___HD_FIELDS(___SUBTYPED_HEADER(___ps->context->saved[0])));
   result = ___ps->context->saved[0];
 
  done:
@@ -2906,6 +2921,9 @@ ___SCMOBJ group;)
 
       ___FIELD(STRUCTURE,___ps->context->saved[0],3) = ___release_scmobj (x);
 
+      ___GC_WRITE_BARRIER_RANGE(___ps, ___ps->context->saved[0],
+        ___BODY_AS(___ps->context->saved[0], ___tSTRUCTURE),
+        ___HD_FIELDS(___SUBTYPED_HEADER(___ps->context->saved[0])));
       result = ___ps->context->saved[0];
     }
 

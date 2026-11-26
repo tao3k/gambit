@@ -48,26 +48,26 @@ static inline ___WORD *locate_object_scan_cell
   ___processor_state ___ps = work->carrier;
   ___msection *section;
   ___PTRDIFF_T pos;
-  ___SIZE_TS dest = ___COLLECTION(work->vm).destination_offset;
   ___SIZE_TS epoch = ___COLLECTION(work->vm).epoch;
   if (__builtin_expect(
         work->scan_state_section_ && work->scan_state_epoch_==epoch &&
-        work->scan_state_offset_==dest &&
-        header>=work->scan_state_base_+dest &&
-        header<work->scan_state_base_+dest+(___MSECTION_SIZE>>1), 1))
+        header>=work->scan_state_base_+work->scan_state_offset_ &&
+        header<work->scan_state_base_+work->scan_state_offset_+(___MSECTION_SIZE>>1), 1))
     {
       section=work->scan_state_section_;
-      pos=header-(work->scan_state_base_+dest);
+      pos=header-(work->scan_state_base_+work->scan_state_offset_);
     }
   else
     {
+      ___SIZE_TS sdest;
       section = ___gc_find_msection_cached(work, the_msections, header);
-      if (!section) goto outside;
-      pos=header-section->base-dest;
+      if (!section || !section->gc_is_dest) goto outside;
+      sdest = section->gc_dest_offset;
+      pos=header-section->base-sdest;
       if (pos < 0 || pos >= (___MSECTION_SIZE>>1)) goto outside;
       work->scan_state_section_=section;
       work->scan_state_base_=section->base;
-      work->scan_state_offset_=dest;
+      work->scan_state_offset_=sdest;
       work->scan_state_epoch_=epoch;
     }
   {
@@ -117,21 +117,21 @@ ___WORD *body;)
   ___processor_state ___ps = work->carrier;
   ___virtual_machine_state vms = work->vm;
   ___WORD *header = body-1;
-  ___SIZE_TS source_off = (___MSECTION_SIZE>>1) - ___COLLECTION(vms).destination_offset;
   ___SIZE_TS epoch = ___COLLECTION(vms).epoch;
   if (__builtin_expect(
-        work->census_section_ && work->census_epoch_ == epoch &&
-        work->census_offset_ == source_off, 1))
+        work->census_section_ && work->census_epoch_ == epoch, 1))
     {
       ___UWORD address = ___CAST(___UWORD, header);
-      ___UWORD sbase = ___CAST(___UWORD, work->census_base_ + source_off);
+      ___UWORD sbase = ___CAST(___UWORD, work->census_base_ + work->census_offset_);
       if (__builtin_expect(address >= sbase && address - sbase < (___MSECTION_SIZE>>1) * ___WS, 1))
         return work->census_section_;
     }
   {
     ___msection *section = ___gc_find_msection_cached(work, the_msections, header);
-    if (section != 0)
+    if (section != 0 &&
+        (!___COLLECTION(vms).is_minor || section->region_age != ___GC_REGION_MATURE))
       {
+        ___SIZE_TS source_off = section->gc_src_offset;
         ___UWORD address = ___CAST(___UWORD,header);
         ___UWORD base = ___CAST(___UWORD,section->base);
         ___SIZE_TS pos = (address-base)/___WS;
@@ -204,8 +204,7 @@ static inline void prepare_copy_request
 {
   ___gc_copy_request *r = &work->copy_request;
   ___UWORD first = ___CAST(___UWORD,source);
-  ___UWORD base = ___CAST(___UWORD,section->base) +
-    ((___MSECTION_SIZE>>1)-___COLLECTION(work->vm).destination_offset)*___WS;
+  ___UWORD base = ___CAST(___UWORD,section->base + section->gc_src_offset);
   ___SIZE_TS half = ___MSECTION_SIZE>>1;
   ___SIZE_TS destination;
   if (__builtin_expect(body_words < 0 || body_words > half-4, 0))
@@ -237,7 +236,9 @@ static inline void prepare_copy_request
   r->state = 1;
 }
 
-#ifndef ___GC_COPY_CONTROL
+#ifdef ___GC_COPY_CONTROL
+#define ___GC_COPY_CONTROL_ACTIVE 1
+#else
 #define ___GC_COPY_CONTROL(work,body,head) ((void)0)
 #endif
 #ifndef ___GC_ROOT_CONTROL
@@ -323,6 +324,7 @@ static inline void commit_copy
   if (__builtin_expect(grant->header != grant->begin, 0))
     {
       *grant->begin = ___MAKE_HD_WORDS(0,___sVECTOR);
+      record_mature_obj_start(work->arena.section, grant->begin);
       publish_object_scan(work,grant->begin);
     }
   work->copy_padding_words_ += (grant->past-grant->begin)-(grant->words+1);
@@ -398,8 +400,7 @@ ___WORD n;)
   ___processor_state ___ps = work->carrier;
   ___WORD *alloc = work->arena.cursor;
   const int single_worker = (___COLLECTION(work->vm).worker_count <= 1);
-  const ___SIZE_TS dest_off = ___COLLECTION(work->vm).destination_offset;
-  const ___SIZE_TS source_off = (___MSECTION_SIZE>>1) - dest_off;
+  const int is_minor = ___COLLECTION(work->vm).is_minor;
   const ___SIZE_TS half_bytes = (___MSECTION_SIZE>>1) * ___WS;
   const ___SIZE_TS epoch = ___COLLECTION(work->vm).epoch;
 
@@ -441,11 +442,10 @@ ___WORD n;)
                 ___msection *source_section = 0;
 
                 /* Single cached lookup distinguishes frozen fromspace source
-                 * from destination revisit without two find_msection calls. */
+                 * from mature/destination revisit without two find_msection calls. */
                 if (__builtin_expect(
                       work->census_section_ && work->census_epoch_ == epoch &&
-                      work->census_offset_ == source_off &&
-                      addr - ___CAST(___UWORD, work->census_base_ + source_off) < half_bytes, 1))
+                      addr - ___CAST(___UWORD, work->census_base_ + work->census_offset_) < half_bytes, 1))
                   {
                     source_section = work->census_section_;
                   }
@@ -454,20 +454,30 @@ ___WORD n;)
                     ___msection *sec = ___gc_find_msection_cached(work, the_msections, header);
                     if (__builtin_expect(sec != 0, 1))
                       {
-                        ___UWORD sbase = ___CAST(___UWORD, sec->base + source_off);
-                        if (addr - sbase < half_bytes)
+                        if (is_minor && sec->region_age == ___GC_REGION_MATURE)
                           {
-                            work->census_section_ = sec;
-                            work->census_base_ = sec->base;
-                            work->census_offset_ = source_off;
-                            work->census_epoch_ = epoch;
-                            source_section = sec;
-                          }
-                        else if (addr - ___CAST(___UWORD, sec->base + dest_off) < half_bytes)
-                          {
-                            work->destination_revisits++;
+                            finish_tail(work);
                             continue;
                           }
+                        {
+                          ___SIZE_TS s_off = sec->gc_src_offset;
+                          ___UWORD sbase = ___CAST(___UWORD, sec->base + s_off);
+                          if (addr - sbase < half_bytes)
+                            {
+                              work->census_section_ = sec;
+                              work->census_base_ = sec->base;
+                              work->census_offset_ = s_off;
+                              work->census_epoch_ = epoch;
+                              source_section = sec;
+                            }
+                          else if (sec->gc_is_dest &&
+                                   addr - ___CAST(___UWORD, sec->base + sec->gc_dest_offset) < half_bytes)
+                            {
+                              work->destination_revisits++;
+                              finish_tail(work);
+                              continue;
+                            }
+                        }
                       }
                     if (__builtin_expect(source_section == 0, 0))
                       source_section = require_fromspace_copy_source (work, cell, body);
@@ -559,10 +569,12 @@ ___WORD n;)
                       *alloc++ = *body++;
                       words--;
                     }
+                  record_mature_obj_start(work->arena.section, copy_header);
                   publish_object_scan (work, copy_header);
                   if (__builtin_expect(alloc != grant.past, 0))
                     {
                       *alloc = ___MAKE_HD_WORDS(0,___sVECTOR);
+                      record_mature_obj_start(work->arena.section, alloc);
                       publish_object_scan(work,alloc++);
                     }
                   commit_copy(work,&grant);
@@ -579,6 +591,11 @@ ___WORD n;)
               }
             else if (head_typ == ___STILL)
               {
+                if (is_minor)
+                  {
+                    finish_tail(work);
+                    continue;
+                  }
                 if (single_worker)
                   {
                     if (body[___STILL_MARK - ___STILL_BODY] == -1)

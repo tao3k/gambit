@@ -990,7 +990,9 @@ end-of-code
 #<<end-of-code
   void *src = ___CAST(void*,&___VECTORELEM(___ARG1,___INT(___ARG2)));
   void *dst = ___CAST(void*,&___VECTORELEM(___ARG4,___INT(___ARG5)));
-  ___SIZE_TS len = ___INT(___FIXSUB(___ARG3,___ARG2)) * ___WS;
+  ___SIZE_TS count = ___INT(___FIXSUB(___ARG3,___ARG2));
+  ___SIZE_TS len = count * ___WS;
+  ___GC_WRITE_BARRIER_RANGE(___ps, ___ARG4, ___CAST(___WORD*,dst), count);
 end-of-code
 )
                 ((string)

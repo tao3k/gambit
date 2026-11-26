@@ -706,10 +706,9 @@ ___HIDDEN void validate_old_obj(___collector_worker *work, ___WORD obj)
               int i2 = find_msection (work->vm->mem.the_msections_, hd_ptr2);
               if (i2 >= 0 && i2 < work->vm->mem.the_msections_->nb_sections)
                 {
-                  ___PTRDIFF_T pos2 = hd_ptr2 -
-                                      (work->vm->mem.the_msections_->sections[i2]->base +
-                                       ___COLLECTION(work->vm).destination_offset);
-                  if (pos2 < 0 || pos2 >= ___MSECTION_SIZE>>1)
+                  ___msection *sec2 = work->vm->mem.the_msections_->sections[i2];
+                  ___PTRDIFF_T pos2 = hd_ptr2 - (sec2->base + sec2->gc_dest_offset);
+                  if (!sec2->gc_is_dest || pos2 < 0 || pos2 >= ___MSECTION_SIZE>>1)
                     bug (work, obj, 0, "was copied outside of tospace");
                   else if (___HD_TYP((*hd_ptr2)) != ___MOVABLE0)
                     bug (work, obj, 0, "was copied and copy is not ___MOVABLE0");
@@ -721,9 +720,13 @@ ___HIDDEN void validate_old_obj(___collector_worker *work, ___WORD obj)
             bug (work, obj, ___HTB, "should be ___MOVABLE0");
           else
             {
-              pos -= ___COLLECTION(work->vm).destination_offset;
-              if (pos >= 0 && pos < ___MSECTION_SIZE>>1)
-                bug (work, obj, 0, "is in tospace");
+              ___msection *sec = work->vm->mem.the_msections_->sections[i];
+              if (!(___COLLECTION(work->vm).is_minor && sec->region_age == ___GC_REGION_MATURE))
+                {
+                  ___PTRDIFF_T src_pos = pos - sec->gc_src_offset;
+                  if (src_pos < 0 || src_pos >= ___MSECTION_SIZE>>1)
+                    bug (work, obj, 0, "is in tospace");
+                }
             }
           return;
         }

@@ -1439,8 +1439,8 @@ ___END_ALLOC_PAIR();}
 #define ___CONS(x,y)(___ALLOC_PAIR_EXPR(x,y),___GET_PAIR())
 #define ___XCONS(x,y)(___ALLOC_PAIR_EXPR(y,x),___GET_PAIR())
 
-#define ___SETCAR(obj,car)___CAR_FIELD(obj)=car;
-#define ___SETCDR(obj,cdr)___CDR_FIELD(obj)=cdr;
+#define ___SETCAR(obj,car) do { ___SCMOBJ ___wbo=(obj); ___SCMOBJ ___wbv=(car); ___WORD *___wbs=&___CAR_FIELD(___wbo); ___GC_WRITE_BARRIER(___ps,___wbo,___wbs,___wbv); *___wbs=___wbv; } while (0);
+#define ___SETCDR(obj,cdr) do { ___SCMOBJ ___wbo=(obj); ___SCMOBJ ___wbv=(cdr); ___WORD *___wbs=&___CDR_FIELD(___wbo); ___GC_WRITE_BARRIER(___ps,___wbo,___wbs,___wbv); *___wbs=___wbv; } while (0);
 #define ___CAR(obj)___CAR_FIELD(obj)
 #define ___CDR(obj)___CDR_FIELD(obj)
 #define ___CAAR(obj)___CAR(___CAR(obj))
@@ -1563,12 +1563,12 @@ ___ADD_SUBTYPED_ELEM(0,val), \
 ___END_ALLOC_SUBTYPED(___BOX_SIZE), \
 ___GET_SUBTYPED(___BOX_SIZE))
 #define ___UNBOX(b)___BODY_AS(b,___tBOXVALUES)[0]
-#define ___SETBOX(b,val)___BODY_AS(b,___tBOXVALUES)[0]=val;
+#define ___SETBOX(b,val) do { ___SCMOBJ ___wbo=(b); ___SCMOBJ ___wbv=(val); ___WORD *___wbs=&___BODY_AS(___wbo,___tBOXVALUES)[0]; ___GC_WRITE_BARRIER(___ps,___wbo,___wbs,___wbv); *___wbs=___wbv; } while (0);
 
 #define ___VALUESSIZE(v)___HD_FIELDS(___SUBTYPED_HEADER(v))
 #define ___VALUESLENGTH(v)___HD_FIELDS_FIX(___SUBTYPED_HEADER(v))
 #define ___VALUESREF(v,i)___FETCH_WORD_FX(___BODY_AS(v,___tBOXVALUES),i)
-#define ___VALUESSET(v,i,val)___STORE_WORD_FX(___BODY_AS(v,___tBOXVALUES),i,val);
+#define ___VALUESSET(v,i,val) do { ___SCMOBJ ___wbo=(v); ___SCMOBJ ___wbv=(val); ___WORD *___wbs=___FXINDX_WORD(___BODY_AS(___wbo,___tBOXVALUES),(i)); ___GC_WRITE_BARRIER(___ps,___wbo,___wbs,___wbv); *___wbs=___wbv; } while (0);
 
 #define ___MAKEVALUESSMALL1(size)___MAKEVALUESSMALL2(size,___FIX(0))
 #define ___MAKEVALUESSMALL2(size,fill) \
@@ -1593,9 +1593,9 @@ ___VECTUPDATESMALL(___BODY_AS(v,___tBOXVALUES),___INT(i),val,___VALUESSIZE(v),__
 #define ___VECTORSIZE(v)___HD_FIELDS(___VECTOR_HEADER(v))
 #define ___VECTORLENGTH(v)___HD_FIELDS_FIX(___VECTOR_HEADER(v))
 #define ___VECTORREF(v,i)___FETCH_WORD_FX(___BODY_AS(v,___tVECTOR),i)
-#define ___VECTORSET(v,i,val)___STORE_WORD_FX(___BODY_AS(v,___tVECTOR),i,val);
+#define ___VECTORSET(v,i,val) do { ___SCMOBJ ___wbo=(v); ___SCMOBJ ___wbv=(val); ___WORD *___wbs=___FXINDX_WORD(___BODY_AS(___wbo,___tVECTOR),(i)); ___GC_WRITE_BARRIER(___ps,___wbo,___wbs,___wbv); *___wbs=___wbv; } while (0);
 #define ___VECTORSHRINK(v,i)___temp=(v);___VECTOR_HEADER_SET(___temp,(___VECTOR_HEADER(___temp)&~___LMASK)+((i)<<(___LF-___TB_FIXNUM+___LWS)));
-#define ___VECTORCAS(v,i,val,oldval)___COMPARE_AND_SWAP_WORD(___FXINDX_WORD(___BODY_AS(v,___tVECTOR),i),oldval,val)
+#define ___VECTORCAS(v,i,val,oldval)___gc_vector_cas_barrier(___ps,(v),(i),(val),(oldval),___EXT(___gc_write_barrier_slow))
 #define ___VECTORINC(v,i,val)___FETCH_AND_ADD_WORD(___FXINDX_WORD(___BODY_AS(v,___tVECTOR),i),val)
 #define ___VECTORINBOUNDSP(v,i)(___CAST(___UWORD,___INT(i))<___VECTORSIZE(v))
 
@@ -1946,11 +1946,11 @@ ___FIELD(STRUCTURE,obj,___STRUCTURE_TYPE)
 
 #define ___STRUCTURELENGTH(obj)___FIX(___HD_FIELDS(___SUBTYPED_HEADER(obj)))
 #define ___STRUCTURETYPE(obj)___STRUCTURE_TYPE_FIELD(obj)
-#define ___STRUCTURETYPESET(obj,descr)___STRUCTURE_TYPE_FIELD(obj) = descr;
+#define ___STRUCTURETYPESET(obj,descr) do { ___SCMOBJ ___wbo=(obj); ___SCMOBJ ___wbv=(descr); ___WORD *___wbs=&___STRUCTURE_TYPE_FIELD(___wbo); ___GC_WRITE_BARRIER(___ps,___wbo,___wbs,___wbv); *___wbs=___wbv; } while (0);
 #define ___STRUCTUREDIOP(x,typeid)___IS_NOT_DOUBLE_AND(x,___IS_ND_STRUCTURE(x)&&___TYPEID(___STRUCTURETYPE(___temp))==(typeid))
 #define ___UNCHECKEDSTRUCTUREREF(x,i,type,proc)___FETCH_WORD_FX(___BODY_AS(x,___tSTRUCTURE),i)
-#define ___UNCHECKEDSTRUCTURESET(x,val,i,type,proc)___STORE_WORD_FX(___BODY_AS(x,___tSTRUCTURE),i,val);
-#define ___UNCHECKEDSTRUCTURECAS(x,val,oldval,i,type,proc)___COMPARE_AND_SWAP_WORD(___FXINDX_WORD(___BODY_AS(x,___tSTRUCTURE),i),oldval,val)
+#define ___UNCHECKEDSTRUCTURESET(x,val,i,type,proc) do { ___SCMOBJ ___wbo=(x); ___SCMOBJ ___wbv=(val); ___WORD *___wbs=___FXINDX_WORD(___BODY_AS(___wbo,___tSTRUCTURE),(i)); ___GC_WRITE_BARRIER(___ps,___wbo,___wbs,___wbv); *___wbs=___wbv; } while (0);
+#define ___UNCHECKEDSTRUCTURECAS(x,val,oldval,i,type,proc)___gc_structure_cas_barrier(___ps,(x),(val),(oldval),(i),___EXT(___gc_write_barrier_slow))
 
 
 #define ___RATNUM_SIZE 2
@@ -2016,7 +2016,7 @@ ___FIELD(PROMISE,prom,___PROMISE_STATE)
  ___GET_SUBTYPED(___PROMISE_SIZE))
 
 #define ___PROMISESTATE(prom)___PROMISE_STATE_FIELD(prom)
-#define ___PROMISESTATESET(prom,val)___PROMISE_STATE_FIELD(prom) = val;
+#define ___PROMISESTATESET(prom,val) do { ___SCMOBJ ___wbo=(prom); ___SCMOBJ ___wbv=(val); ___WORD *___wbs=&___PROMISE_STATE_FIELD(___wbo); ___GC_WRITE_BARRIER(___ps,___wbo,___wbs,___wbv); *___wbs=___wbv; } while (0);
 
 
 #define ___CONTINUATION_SIZE 2
@@ -2037,10 +2037,10 @@ ___END_ALLOC_SUBTYPED(___CONTINUATION_SIZE), \
 ___GET_SUBTYPED(___CONTINUATION_SIZE))
 
 #define ___CONTINUATIONFRAME(cont)___CONTINUATION_FRAME_FIELD(cont)
-#define ___CONTINUATIONFRAMESET(cont,val)___CONTINUATION_FRAME_FIELD(cont) = val;
+#define ___CONTINUATIONFRAMESET(cont,val) do { ___SCMOBJ ___wbo=(cont); ___SCMOBJ ___wbv=(val); ___WORD *___wbs=&___CONTINUATION_FRAME_FIELD(___wbo); ___GC_WRITE_BARRIER_ALWAYS(___ps,___wbo,___wbs); *___wbs=___wbv; } while (0);
 
 #define ___CONTINUATIONDENV(cont)___CONTINUATION_DENV_FIELD(cont)
-#define ___CONTINUATIONDENVSET(cont,val)___CONTINUATION_DENV_FIELD(cont) = val;
+#define ___CONTINUATIONDENVSET(cont,val) do { ___SCMOBJ ___wbo=(cont); ___SCMOBJ ___wbv=(val); ___WORD *___wbs=&___CONTINUATION_DENV_FIELD(___wbo); ___GC_WRITE_BARRIER(___ps,___wbo,___wbs,___wbv); *___wbs=___wbv; } while (0);
 
 #define ___END_OF_CONT_MARKER ___VOID
 
@@ -2089,9 +2089,9 @@ ___END_ALLOC_SUBTYPED(___KEYWORD_SIZE), \
 ___GET_SUBTYPED(___KEYWORD_SIZE))
 
 #define ___SYMBOLNAME(sym)___SYMKEY_NAME_FIELD(sym)
-#define ___SYMBOLNAMESET(sym,val)___SYMKEY_NAME_FIELD(sym) = val;
+#define ___SYMBOLNAMESET(sym,val) do { ___SCMOBJ ___wbo=(sym); ___SCMOBJ ___wbv=(val); ___WORD *___wbs=&___SYMKEY_NAME_FIELD(___wbo); ___GC_WRITE_BARRIER(___ps,___wbo,___wbs,___wbv); *___wbs=___wbv; } while (0);
 #define ___KEYWORDNAME(key)___SYMKEY_NAME_FIELD(key)
-#define ___KEYWORDNAMESET(key,val)___SYMKEY_NAME_FIELD(key) = val;
+#define ___KEYWORDNAMESET(key,val) do { ___SCMOBJ ___wbo=(key); ___SCMOBJ ___wbv=(val); ___WORD *___wbs=&___SYMKEY_NAME_FIELD(___wbo); ___GC_WRITE_BARRIER(___ps,___wbo,___wbs,___wbv); *___wbs=___wbv; } while (0);
 
 #define ___SYMBOLHASH(sym)___SYMKEY_HASH_FIELD(sym)
 #define ___SYMBOLHASHSET(sym,val)___SYMKEY_HASH_FIELD(sym) = val;
@@ -2135,10 +2135,10 @@ ___END_ALLOC_SUBTYPED(___WILL_SIZE), \
 ___GET_SUBTYPED(___WILL_SIZE))
 
 #define ___WILLTESTATOR(will)___WILL_TESTATOR_FIELD(will)
-#define ___WILLTESTATORSET(will,val)___WILL_TESTATOR_FIELD(will) = val;
+#define ___WILLTESTATORSET(will,val) do { ___SCMOBJ ___wbo=(will); ___SCMOBJ ___wbv=(val); ___WORD *___wbs=&___WILL_TESTATOR_FIELD(___wbo); ___GC_WRITE_BARRIER(___ps,___wbo,___wbs,___wbv); *___wbs=___wbv; } while (0);
 
 #define ___WILLACTION(will)___WILL_ACTION_FIELD(will)
-#define ___WILLACTIONSET(will,val)___WILL_ACTION_FIELD(will) = val;
+#define ___WILLACTIONSET(will,val) do { ___SCMOBJ ___wbo=(will); ___SCMOBJ ___wbv=(val); ___WORD *___wbs=&___WILL_ACTION_FIELD(___wbo); ___GC_WRITE_BARRIER(___ps,___wbo,___wbs,___wbv); *___wbs=___wbv; } while (0);
 
 
 #define ___FOREIGN_SIZE       3
@@ -2204,7 +2204,7 @@ ___FIELD(WEAK,gcht,___GCHASHTABLE_FREE)
 
 #define ___GCHASHTABLELENGTH(gcht)___HD_FIELDS_FIX(___SUBTYPED_TO_BODY(gcht)[-1])
 #define ___GCHASHTABLEFIELDREF(gcht,i)*___CAST(___WORD*,___CAST(___WORD,___BODY_AS(gcht,___tWEAK))+((i)<<(___LWS-___TB_FIXNUM)))
-#define ___GCHASHTABLEFIELDSET(gcht,i,val)*___CAST(___WORD*,___CAST(___WORD,___BODY_AS(gcht,___tWEAK))+((i)<<(___LWS-___TB_FIXNUM)))=val;
+#define ___GCHASHTABLEFIELDSET(gcht,i,val) do { ___SCMOBJ ___wbo=(gcht); ___SCMOBJ ___wbv=(val); ___WORD *___wbs=___CAST(___WORD*,___CAST(___WORD,___BODY_AS(___wbo,___tWEAK))+(((i))<<(___LWS-___TB_FIXNUM))); ___GC_WRITE_BARRIER(___ps,___wbo,___wbs,___wbv); *___wbs=___wbv; } while (0);
 
 #if ___WS == 4
 
@@ -2455,7 +2455,9 @@ else \
     ___ps->context->stack_break = ___fp; \
   } \
 thread = ___CURRENTTHREAD; \
-___CONTINUATION_FRAME_FIELD(___THREAD_CONT_FIELD(thread)) = frame;
+{ ___SCMOBJ ___wbc = ___THREAD_CONT_FIELD(thread); \
+  ___GC_WRITE_BARRIER_ALWAYS(___ps, ___wbc, &___CONTINUATION_FRAME_FIELD(___wbc)); \
+  ___CONTINUATION_FRAME_FIELD(___wbc) = frame; }
 
 
 #define ___JUMP_THREAD_SAVE1(jump) \
@@ -2515,7 +2517,9 @@ thread = ___CURRENTTHREAD; \
 frame = ___CONTINUATION_FRAME_FIELD(cont); \
 ___SET_FP(___ps->context->stack_break) \
 ___SET_STK(-___BREAK_FRAME_NEXT,frame) \
-___CONTINUATION_FRAME_FIELD(___THREAD_CONT_FIELD(thread)) = frame; \
+{ ___SCMOBJ ___wbc = ___THREAD_CONT_FIELD(thread); \
+  ___GC_WRITE_BARRIER_ALWAYS(___ps, ___wbc, &___CONTINUATION_FRAME_FIELD(___wbc)); \
+  ___CONTINUATION_FRAME_FIELD(___wbc) = frame; } \
 ___SET_R0(___ps->handler_break)
 
 #define ___JUMP_THREAD_PARK2(jump) \
@@ -2852,10 +2856,14 @@ ___SET_FP(___ps->context->stack_break) \
 ___SET_STK(-___BREAK_FRAME_NEXT,___CONTINUATION_FRAME_FIELD(cont)) \
 temp = ___CONTINUATION_DENV_FIELD(cont); \
 thread = ___CURRENTTHREAD; \
+___GC_WRITE_BARRIER(___ps, thread, &___THREAD_DENV_FIELD(thread), temp); \
 ___THREAD_DENV_FIELD(thread) = temp; \
 temp = ___ENV_PARAM_VAL_FIELD(___DENV_LOCAL_FIELD(temp)); \
+___GC_WRITE_BARRIER(___ps, thread, &___THREAD_DENV_CACHE1_FIELD(thread), temp); \
 ___THREAD_DENV_CACHE1_FIELD(thread) = temp; \
+___GC_WRITE_BARRIER(___ps, thread, &___THREAD_DENV_CACHE2_FIELD(thread), temp); \
 ___THREAD_DENV_CACHE2_FIELD(thread) = temp; \
+___GC_WRITE_BARRIER(___ps, thread, &___THREAD_DENV_CACHE3_FIELD(thread), temp); \
 ___THREAD_DENV_CACHE3_FIELD(thread) = temp; \
 ___SET_R0(___ps->handler_break)
 
@@ -2920,10 +2928,14 @@ ___SET_R0(___ps->handler_break)
   ___SET_STK(-___BREAK_FRAME_NEXT,___CONTINUATION_FRAME_FIELD(cont)) \
   temp = ___CONTINUATION_DENV_FIELD(cont); \
   thread = ___CURRENTTHREAD; \
+  ___GC_WRITE_BARRIER(___ps, thread, &___THREAD_DENV_FIELD(thread), temp); \
   ___THREAD_DENV_FIELD(thread) = temp; \
   temp = ___ENV_PARAM_VAL_FIELD(___DENV_LOCAL_FIELD(temp)); \
+  ___GC_WRITE_BARRIER(___ps, thread, &___THREAD_DENV_CACHE1_FIELD(thread), temp); \
   ___THREAD_DENV_CACHE1_FIELD(thread) = temp; \
+  ___GC_WRITE_BARRIER(___ps, thread, &___THREAD_DENV_CACHE2_FIELD(thread), temp); \
   ___THREAD_DENV_CACHE2_FIELD(thread) = temp; \
+  ___GC_WRITE_BARRIER(___ps, thread, &___THREAD_DENV_CACHE3_FIELD(thread), temp); \
   ___THREAD_DENV_CACHE3_FIELD(thread) = temp; \
   ___JUMPPRM(___NOTHING,___ps->handler_break) \
 }

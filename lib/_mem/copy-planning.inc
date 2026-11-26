@@ -24,20 +24,21 @@ static inline int census_claim(___collector_worker *work, ___WORD *source,
    * cross-section pointers hit the worker-private 64-entry direct cache. */
   if(__builtin_expect(
        work->census_section_ && work->census_epoch_==___COLLECTION(work->vm).epoch &&
-       work->census_offset_==c->source_offset &&
-       source>=work->census_base_+c->source_offset &&
-       source<work->census_base_+c->source_offset+half, 1)) {
+       source>=work->census_base_+work->census_offset_ &&
+       source<work->census_base_+work->census_offset_+half, 1)) {
     section=work->census_section_;
   } else {
     section=___gc_find_msection_cached(work, the_msections, source);
     if(__builtin_expect(!section, 0)) goto invalid;
+    if(___COLLECTION(work->vm).is_minor && section->region_age==___GC_REGION_MATURE)
+      return 0;
     work->census_section_=section;
     work->census_base_=section->base;
-    work->census_offset_=c->source_offset;
+    work->census_offset_=section->gc_src_offset;
     work->census_epoch_=___COLLECTION(work->vm).epoch;
   }
   { ___UWORD address=___CAST(___UWORD,source);
-    ___UWORD base=___CAST(___UWORD,section->base+c->source_offset);
+    ___UWORD base=___CAST(___UWORD,section->base+section->gc_src_offset);
     if(__builtin_expect(address<base || address-base>=half*___WS || (address-base)%___WS, 0)) goto invalid;
     at=(address-base)/___WS;
   }
@@ -147,6 +148,7 @@ ___HIDDEN void census_array(___collector_worker *work, ___WORD *start, ___WORD n
     body=___BODY0(value);head=body[-1];type=___HD_TYP(head);
     if(type==___PERM)continue;
     if(type==___STILL) {
+      if(___COLLECTION(work->vm).is_minor) continue;
       ___WORD *mark=body+___STILL_MARK-___STILL_BODY;
       if(*mark)continue;
       *mark=1;++c->still;census_enqueue(work,value);continue;
@@ -298,7 +300,7 @@ ___HIDDEN void census_drain(___collector_worker *work)
   }
 }
 
-___HIDDEN int plan_copy_round(___processor_state ps)
+___HIDDEN int plan_copy_round(___processor_state ps, ___SIZE_TS requested_words_still)
 {
   ___virtual_machine_state vm=___VMSTATE_FROM_PSTATE(ps);
   ___root_round *round=___ROOT_UNION(vm);
@@ -320,21 +322,35 @@ ___HIDDEN int plan_copy_round(___processor_state ps)
       c->state=___GC_PLAN_RETAINED;return 3;
     }
   }
-  c->count=c->next=0;c->source_words=c->destination_words=0;
-  c->objects=c->frames=c->still=0;c->small_words=c->small_max=0;
-  c->largest_request=c->large_count=0;c->failed=0;
-  c->source_offset=ps->mem.tospace_offset_;c->state=___GC_PLAN_READING;
   for(i=0;i<n;i++)g->observed[i]=0;
   if(custom_msection_alloc || w<1 || w>n ||
      ___WORD_LOAD_ACQUIRE(&g->requested_workers)<0 ||
      ___WORD_LOAD_ACQUIRE(&g->requested_workers)>n)goto refuse;
-  for(section=the_msections->head;section;section=section->next)
-    memset(section->base+___MSECTION_SIZE,0,___msection_scan_words(___MSECTION_SIZE)*___WS);
-  for(i=0;i<n;i++) {
-    ___WORD *base=___CAST(___WORD*,round->members[i].owner->mem.still_objs_);
-    while(base) {base[___STILL_MARK]=0;base=___CAST(___WORD*,base[___STILL_LINK]);}
+
+  prepare_generational_round(ps, requested_words_still);
+
+ retry_major:
+  c->count=c->next=0;c->source_words=c->destination_words=0;
+  c->objects=c->frames=c->still=0;c->small_words=c->small_max=0;
+  c->largest_request=c->large_count=0;c->failed=0;
+  c->source_offset=ps->mem.tospace_offset_;c->state=___GC_PLAN_READING;
+
+  if (g->is_minor) {
+    for(section=g->young_head;section;section=section->next) {
+      memset(section->base+___MSECTION_SIZE,0,___msection_scan_words(___MSECTION_SIZE)*___WS);
+      if(section==alloc_msection) break;
+    }
+  } else {
+    for(section=the_msections->head;section;section=section->next)
+      memset(section->base+___MSECTION_SIZE,0,___msection_scan_words(___MSECTION_SIZE)*___WS);
+    for(i=0;i<n;i++) {
+      ___WORD *base=___CAST(___WORD*,round->members[i].owner->mem.still_objs_);
+      while(base) {base[___STILL_MARK]=0;base=___CAST(___WORD*,base[___STILL_LINK]);}
+    }
   }
+
   work->sec_cache_epoch_=0;work->sec_cache_nb_sections_=-1;
+  work->census_section_=0;work->census_epoch_=0;
   work->census=c;ps->collector=work;work->traverse_weak_refs_=1;
   mark_vm_scmobj(work, vm);mark_symkey_tables(___PSP ___GSTATE);
   for(i=0;i<n && !c->failed;i++) {
@@ -349,10 +365,12 @@ ___HIDDEN int plan_copy_round(___processor_state ps)
     mark_registers(work, m->context);mark_saved(work, m->context);
     mark_type_cache(work, m->context);mark_processor_scmobj(work, m->context);
     census_continuation(work,m,&round->resume[i],c->source_offset);
-    base=___CAST(___WORD*,m->owner->mem.still_objs_);
-    while(base) {
-      if(base[___STILL_REFCOUNT]!=0) {___WORD value=___SUBTYPED_FROM_BODY(base+___STILL_BODY);census_array(work,&value,1);}
-      base=___CAST(___WORD*,base[___STILL_LINK]);
+    if (!g->is_minor) {
+      base=___CAST(___WORD*,m->owner->mem.still_objs_);
+      while(base) {
+        if(base[___STILL_REFCOUNT]!=0) {___WORD value=___SUBTYPED_FROM_BODY(base+___STILL_BODY);census_array(work,&value,1);}
+        base=___CAST(___WORD*,base[___STILL_LINK]);
+      }
     }
     { ___WORD lists[2]={m->owner->mem.executable_wills_,m->owner->mem.nonexecutable_wills_};int j;
       for(j=0;j<2;j++) {___WORD list=lists[j];while(___UNTAG(list)!=0 && !c->failed) {
@@ -361,39 +379,16 @@ ___HIDDEN int plan_copy_round(___processor_state ps)
       }}
     }
   }
+  if (g->is_minor && !c->failed)
+    scan_remembered_set(work);
   census_drain(work);work->census=0;ps->collector=0;
   if(c->failed)goto refuse;
   /* Threshold markers each charge at least MSECTION_CHUNK successful words.
    * Large requests are isolated events, not part of the small no-fit bound. */
   if(!___gc_copy_section_bound(w,c->small_words,c->small_max,c->large_count,
        capacity,___MSECTION_CHUNK,&k))goto refuse;
-  /* Root sections and the copy range are distinct list slots. When the
-   * certificate is only short of mapped sections, grow to n+k before
-   * refusing. A soft-limit collection then does not become heap overflow
-   * while one more section would hold the same plan. */
-  if(the_msections==0 || !___gc_copy_plan_fits(n,k,the_msections->nb_sections)) {
-    ___SIZE_TS max_heap;
-    int need;
-    /* n and k are signed counts. Refuse before the addition when the sum
-     * is not representable; a later positive test cannot undo that overflow. */
-    if(n<0 || k<0 || k>INT_MAX-n)goto refuse;
-    need=n+k;
-    max_heap=___GSTATE->setup_params.max_heap;
-    if(need>0 && max_heap==0)
-      adjust_msections(&the_msections, need);
-    else if(need>0) {
-      /* Byte cap, word size and still words share one remaining-section
-       * count. Subtract still usage only after it fits in the cap. */
-      ___SIZE_TS cap=max_heap>>___LWS;
-      ___SIZE_TS still=occupied_words_still;
-      if(still>=0 && still<=cap &&
-         (___SIZE_TS)need<=(cap-still)/___MSECTION_SIZE)
-        adjust_msections(&the_msections, need);
-    }
-    if(the_msections==0 || !___gc_copy_plan_fits(n,k,the_msections->nb_sections))
-      goto refuse;
-  }
-  section=the_msections->head;
+
+  /* Verify resume grants and stack extents before assigning destination roles. */
   for(i=0;i<n;i++) {
     ___gc_resume_space *r=&round->resume[i];
     ___root_member *m=&round->members[i];
@@ -401,9 +396,7 @@ ___HIDDEN int plan_copy_round(___processor_state ps)
     ___WORD *fp, *brk, *half_base, *half_past, *cell;
     ___SIZE_TS length=0;
     section_claim *claim;
-    /* The census gate already stored this owner's stack. Do not replace it
-     * with find_msection: a foreign active stack can contain fp. */
-    if(!section || m->owner==0 || !context || r->source_section==0 ||
+    if(m->owner==0 || !context || r->source_section==0 ||
        r->source_section!=m->owner->mem.stack_msection_ ||
        r->owner!=m->owner || r->context!=context ||
        r->source_half!=c->source_offset)goto refuse;
@@ -420,18 +413,184 @@ ___HIDDEN int plan_copy_round(___processor_state ps)
        !___gc_stack_cell_inside(fp,length,cell) ||
        length>(___MSECTION_SIZE>>1)-___MSECTION_FUDGE ||
        (g->proc_worker[i]<0 && restore_loan_words(length)<___MSECTION_FUDGE+2))goto refuse;
-    r->stack_section=section;r->context=context;r->owner=m->owner;
-    r->epoch=round->epoch;
-    r->accepted=r->restored=r->loan_used=r->copy_admitted=0;
-    section=section->next;
   }
-  g->copy_first=section;
-  for(i=0;i<k;i++) {if(!section)goto refuse;section=section->next;}
-  g->copy_past=section;g->planned_copy_sections=(int)k;
-  g->issued_copy_sections=w;g->large_sections=0;
+
+  /* Reserve sections according to round mode: Minor GC, segregated Major GC,
+   * or classic non-segregated Major GC. */
+  {
+    int nm = g->is_minor ? vm->mem.nb_msections_mature_ : 0;
+    int want_young_heaps = (g->is_minor || g->segregate_mature) ? n : 0;
+    int compat = 0;
+    int need_compat;
+    int need;
+    ___msection *old_tail;
+
+    for (section = g->is_minor ? g->young_head : the_msections->head;
+         section != 0;
+         section = section->next)
+      if (section->gc_src_offset == c->source_offset)
+        compat++;
+
+    if (n < 0 || k < 0 || nm < 0 || k > INT_MAX - nm - n - want_young_heaps)
+      goto refuse;
+
+    need_compat = n + want_young_heaps;
+    need = nm + need_compat + k;
+    if (compat < need_compat && the_msections != 0)
+      {
+        int extra = need_compat - compat;
+        if (extra <= INT_MAX - the_msections->nb_sections &&
+            the_msections->nb_sections + extra > need)
+          need = the_msections->nb_sections + extra;
+      }
+
+    if (the_msections == 0 || the_msections->nb_sections < need || compat < need_compat)
+      {
+        ___SIZE_TS max_heap = ___GSTATE->setup_params.max_heap;
+        old_tail = the_msections ? the_msections->tail : 0;
+        if (need > 0 && max_heap == 0)
+          adjust_msections(&the_msections, need);
+        else if (need > 0)
+          {
+            ___SIZE_TS cap = max_heap >> ___LWS;
+            ___SIZE_TS still = occupied_words_still;
+            if (still >= 0 && still <= cap &&
+                (___SIZE_TS)need <= (cap - still) / ___MSECTION_SIZE)
+              adjust_msections(&the_msections, need);
+          }
+        if (the_msections != 0)
+          {
+            ___msection *s = old_tail ? old_tail->next : the_msections->head;
+            while (s != 0)
+              {
+                s->gc_src_offset = c->source_offset;
+                s->gc_dest_offset = 0;
+                s->gc_dest_words = 0;
+                s->gc_is_dest = 0;
+                s->gc_role = 0;
+                compat++;
+                s = s->next;
+              }
+            if (g->young_head == 0)
+              g->young_head = g->old_mature_tail ? g->old_mature_tail->next : the_msections->head;
+          }
+      }
+
+    if (g->is_minor &&
+        (the_msections == 0 || the_msections->nb_sections < need || compat < need_compat))
+      {
+        /* Tight max_heap prevented Minor GC; transparently retry as Major GC. */
+        downgrade_minor_to_major(ps);
+        goto retry_major;
+      }
+
+    if (!g->is_minor && want_young_heaps > 0 &&
+        (the_msections == 0 || the_msections->nb_sections < need || compat < need_compat))
+      {
+        /* Tight max_heap in Major GC: drop dedicated young heap sections and
+         * use stack-section loan fallback (or classic mode if no mature exists). */
+        int loans_ok = 1;
+        for (i = 0; i < n; i++)
+          if (restore_loan_words(round->resume[i].source_words) < ___MSECTION_FUDGE + 2)
+            loans_ok = 0;
+        if (loans_ok)
+          {
+            want_young_heaps = 0;
+            need_compat = n;
+            need = n + k;
+          }
+        else if (vm->mem.nb_msections_mature_ == 0)
+          {
+            g->segregate_mature = 0;
+            want_young_heaps = 0;
+            need_compat = n;
+            need = n + k;
+          }
+        if (the_msections == 0 || the_msections->nb_sections < need || compat < need_compat)
+          {
+            ___SIZE_TS max_heap = ___GSTATE->setup_params.max_heap;
+            old_tail = the_msections ? the_msections->tail : 0;
+            if (need > 0 && max_heap > 0)
+              {
+                ___SIZE_TS cap = max_heap >> ___LWS;
+                ___SIZE_TS still = occupied_words_still;
+                if (still >= 0 && still <= cap &&
+                    (___SIZE_TS)need <= (cap - still) / ___MSECTION_SIZE)
+                  adjust_msections(&the_msections, need);
+              }
+            if (the_msections != 0)
+              {
+                ___msection *s = old_tail ? old_tail->next : the_msections->head;
+                while (s != 0)
+                  {
+                    s->gc_src_offset = c->source_offset;
+                    s->gc_dest_offset = 0;
+                    s->gc_dest_words = 0;
+                    s->gc_is_dest = 0;
+                    s->gc_role = 0;
+                    compat++;
+                    s = s->next;
+                  }
+              }
+          }
+        if (the_msections == 0 || the_msections->nb_sections < need || compat < need_compat)
+          goto refuse;
+      }
+    else if (the_msections == 0 || !___gc_copy_plan_fits(n, k, the_msections->nb_sections))
+      goto refuse;
+
+    /* Assign stack sections (gc_role = 1) from compatible sections. */
+    section = g->is_minor ? g->young_head : the_msections->head;
+    for (i = 0; i < n; i++)
+      {
+        ___gc_resume_space *r = &round->resume[i];
+        ___root_member *m = &round->members[i];
+        while (section != 0 && (section->gc_role != 0 || section->gc_src_offset != c->source_offset))
+          section = section->next;
+        if (!section) goto refuse;
+        section->gc_role = 1;
+        r->stack_section = section;
+        r->context = m->context;
+        r->owner = m->owner;
+        r->epoch = round->epoch;
+        r->accepted = r->restored = r->loan_used = r->copy_admitted = 0;
+        section = section->next;
+      }
+
+    /* Assign dedicated fresh young heap sections (gc_role = 2) when segregated. */
+    for (i = 0; i < n; i++)
+      g->young_heap_secs[i] = 0;
+    if (want_young_heaps > 0)
+      {
+        for (i = 0; i < n; i++)
+          {
+            while (section != 0 && (section->gc_role != 0 || section->gc_src_offset != c->source_offset))
+              section = section->next;
+            if (!section) goto refuse;
+            section->gc_role = 2;
+            g->young_heap_secs[i] = section;
+            section = section->next;
+          }
+      }
+
+    /* Reserve k copy-destination sections (gc_role == 0). */
+    section = next_copy_plan_section(g->is_minor ? g->young_head : the_msections->head);
+    g->copy_first = section;
+    g->copy_cursor = section;
+    for (i = 0; i < k; i++)
+      {
+        if (!section) goto refuse;
+        section = next_copy_plan_section(section->next);
+      }
+    g->copy_past = section;
+  }
+
+  g->planned_copy_sections=(int)k;
+  g->issued_copy_sections=w - g->promo_tail_count;
+  g->large_sections=0;
   g->source_words=c->source_words;g->source_sections=nb_msections_assigned;
   g->destination_offset=(___MSECTION_SIZE>>1)-c->source_offset;
   c->count=c->next=0;c->state=___GC_PLAN_ACCEPTED;return 1;
-refuse:
+ refuse:
   work->census=0;ps->collector=0;c->count=c->next=0;c->state=___GC_PLAN_REFUSED;return 2;
 }

@@ -1219,15 +1219,44 @@ int ___rest_chain_control_probe(___processor_state ps, int which, long *loads)
  * chunk-link words remain outside the usable copy limit. */
 ___HIDDEN void prepare_worker_msection
  (___collector_worker *work, ___msection *section,
-  ___WORD *base, ___WORD *limit)
+  ___SIZE_TS dest_off, ___SIZE_TS start_off, int is_promo_tail)
 {
-  section_claim_at(section,___COLLECTION(work->vm).destination_offset)->heap_used=1;
+  ___gc_round *g = &___COLLECTION(work->vm);
+  ___WORD *half_base = section->base + dest_off;
+  ___WORD *base = half_base + start_off;
+  ___WORD *limit = half_base + (___MSECTION_SIZE >> 1);
+  unsigned char *starts = section_card_starts(section);
+  unsigned int card_lo =
+    ___CAST(unsigned int, (dest_off + start_off) >> ___GC_CARD_SHIFT_WORDS);
+  unsigned int card_hi =
+    ___CAST(unsigned int, (dest_off + (___MSECTION_SIZE >> 1)) >> ___GC_CARD_SHIFT_WORDS);
+
+  section->gc_dest_offset = dest_off;
+  section->gc_is_dest = is_promo_tail ? 2 : 1;
+  if (card_lo < card_hi)
+    memset(starts + card_lo, ___GC_CARD_NO_OBJ_START, card_hi - card_lo);
+
+  if (is_promo_tail)
+    {
+      if (start_off > section->mature_words)
+        {
+          ___SIZE_TS pad = start_off - section->mature_words;
+          ___WORD *filler = half_base + section->mature_words;
+          *filler = ___MAKE_HD_WORDS(pad - 1, ___sU8VECTOR);
+          record_mature_obj_start(section, filler);
+        }
+    }
+  else if (!g->is_minor && !g->segregate_mature)
+    {
+      section_claim_at(section, dest_off)->heap_used = 1;
+    }
+
   work->arena.section = section;
   work->arena.base = work->arena.cursor = base;
-  work->arena.physical_limit=limit-1;
-  work->arena.large=work->copy_request.state!=0 &&
-    work->copy_request.destination_words>(___MSECTION_SIZE>>1)-___MSECTION_FUDGE-3;
-  work->arena.limit=limit-2-(work->arena.large?0:___MSECTION_FUDGE);
+  work->arena.physical_limit = limit - 1;
+  work->arena.large = (!is_promo_tail) && work->copy_request.state != 0 &&
+    work->copy_request.destination_words > (___MSECTION_SIZE >> 1) - ___MSECTION_FUDGE - 3;
+  work->arena.limit = limit - 2 - (work->arena.large ? 0 : ___MSECTION_FUDGE);
   work->arena.pending = work->arena.pending_past = 0;
   *work->arena.cursor++ = NULL_CHUNK_LINK;
   start_heap_chunk(work);
@@ -1239,47 +1268,53 @@ ___HIDDEN void prepare_worker_msection
 ___HIDDEN void refill_worker_arena (___collector_worker *work)
 {
   ___processor_state ___ps = work->carrier;
+  ___gc_round *g = &___COLLECTION(work->vm);
   ___msection *ms;
-  ___WORD *base, *limit;
-  ___gc_resume_space *r = work->reserve;
+  ___SIZE_TS dest_off;
   if (work->arena.pending || work->arena.handed_off)
     fatal_heap_overflow();
+  if (work->arena.section != 0)
+    work->arena.section->gc_dest_words =
+      work->arena.cursor - (work->arena.section->base + work->arena.section->gc_dest_offset);
   work->arena.retired_words += work->arena.cursor-work->arena.base;
   ALLOC_MEM_LOCK();
-  ms=alloc_msection->next;
-  if(___COLLECTION(work->vm).decision!=1 ||
-     ___COLLECTION(work->vm).issued_copy_sections>=___COLLECTION(work->vm).planned_copy_sections ||
-     ms==___COLLECTION(work->vm).copy_past || ms==0) {
+  ms = next_copy_plan_section(g->copy_cursor);
+  if(g->decision!=1 ||
+     g->issued_copy_sections>=g->planned_copy_sections ||
+     ms==g->copy_past || ms==0) {
     ALLOC_MEM_UNLOCK();rc_contract_error("Admitted copy layout exhausted: census/packing refinement violation");return;
   }
+  g->copy_cursor = next_copy_plan_section(ms->next);
   alloc_msection=ms;nb_msections_assigned++;
-  ++___COLLECTION(work->vm).issued_copy_sections;
+  ++g->issued_copy_sections;
   ALLOC_MEM_UNLOCK();
-  if (ms != 0)
-    {
-      base = ms->base + ___COLLECTION(work->vm).destination_offset;
-      limit = base + (___MSECTION_SIZE>>1);
-    }
-  else
-    {
-      rc_contract_error("Copying cannot borrow a context restoration interval");return;
-    }
+  dest_off = g->is_minor ? g->destination_offset : ((___MSECTION_SIZE >> 1) - ms->gc_src_offset);
   work->arena.refills++;
-  prepare_worker_msection(work,ms,base,limit);
+  prepare_worker_msection(work, ms, dest_off, 0, 0);
 }
 
 
 /* Old-space roots, work queues, restore readers and cleanup are drained.
  * The caller runs once, with all mutators still behind the GC barrier. */
-___HIDDEN void retire_section_claims(___msections *sections, ___SIZE_TS offset)
+___HIDDEN void retire_section_claims(___msections *sections, ___SIZE_TS offset, int is_minor)
 {
   ___msection *section;
   for(section=sections->head; section; section=section->next)
     {
-      *section_claim_at(section,offset)=(section_claim){0};
-      if (section->card_dirty_any)
-        ___gc_card_clear_section(section, section_card_bits(section), ___MSECTION_SIZE);
-      section->region_generation++;
+      if (is_minor)
+        {
+          if (section->region_age == ___GC_REGION_MATURE)
+            continue;
+          *section_claim_at(section, offset) = (section_claim){0};
+          section->region_generation++;
+        }
+      else
+        {
+          *section_claim_at(section, section->gc_src_offset) = (section_claim){0};
+          if (section->card_dirty_any)
+            ___gc_card_clear_section(section, section_card_bits(section), ___MSECTION_SIZE);
+          section->region_generation++;
+        }
     }
 }
 
@@ -1293,6 +1328,7 @@ ___HIDDEN ___BOOL retire_drained_source_claims(___root_round *round,
   ___SIZE_TS destination=round->collection.destination_offset;
   ___SIZE_TS source;
   ___msection *section;
+  int is_minor = round->collection.is_minor;
   int i;
   if (round->state!=___ROOT_ROUND_DRAINING || round->epoch!=epoch ||
       round->collection.epoch!=epoch || (destination!=0 && destination!=half) ||
@@ -1301,8 +1337,12 @@ ___HIDDEN ___BOOL retire_drained_source_claims(___root_round *round,
     return 0;
   source=half-destination;
   for(section=sections->head; section; section=section->next)
-    if (___SECTION_PIN_LOAD_ACQ(&section_claim_at(section,source)->source_pins))
-      return 0;
+    {
+      if (is_minor && section->region_age == ___GC_REGION_MATURE)
+        continue;
+      if (___SECTION_PIN_LOAD_ACQ(&section_claim_at(section, is_minor ? source : section->gc_src_offset)->source_pins))
+        return 0;
+    }
   for (i=0;i<round->participants;i++) {
     const ___root_member *member=&round->members[i];
     const ___gc_resume_space *resume=&round->resume[i];
@@ -1312,7 +1352,7 @@ ___HIDDEN ___BOOL retire_drained_source_claims(___root_round *round,
         !resume->restored || !resume->source_drained)
       return 0;
   }
-  retire_section_claims(sections,source);
+  retire_section_claims(sections, source, is_minor);
   return 1;
 }
 
@@ -1336,18 +1376,18 @@ ___virtual_machine_state ___vms;)
 #undef ___VMSTATE_MEM
 #define ___VMSTATE_MEM(var) ___vms->mem.var
 
-  ___msection *alloc = the_msections->head;
-  int np = ___COLLECTION(___vms).participant_count;
-  int nw=___COLLECTION(___vms).worker_count;
+  ___gc_round *g = &___COLLECTION(___vms);
+  int np = g->participant_count;
+  int nw = g->worker_count;
   int i;
   /* All source and restoration admission precedes the first space flip. The
    * next planner must supply the complete copy envelope, not local headroom. */
-  if(___COLLECTION(___vms).decision!=1 ||
-     ___COLLECTION(___vms).census.state!=___GC_PLAN_ACCEPTED ||
-     np<1 || nw<1 || nw>np || np+___COLLECTION(___vms).planned_copy_sections>the_msections->nb_sections)
+  if(g->decision!=1 ||
+     g->census.state!=___GC_PLAN_ACCEPTED ||
+     np<1 || nw<1 || nw>np || np+g->planned_copy_sections>the_msections->nb_sections)
     rc_contract_error("Physical setup requires the all-participant accepted plan");
-  ___COLLECTION(___vms).destination_offset=(___MSECTION_SIZE>>1)-
-    ___PSTATE_FROM_PROCESSOR_ID(___COLLECTION(___vms).coordinator_id,___vms)->mem.tospace_offset_;
+  g->destination_offset=(___MSECTION_SIZE>>1)-
+    ___PSTATE_FROM_PROCESSOR_ID(g->coordinator_id,___vms)->mem.tospace_offset_;
   for(i=0;i<np;i++) {
     ___processor_state owner=___PSTATE_FROM_PROCESSOR_ID(i,___vms);
     ___gc_resume_space *granted=&___RESUME(___vms,i);
@@ -1365,36 +1405,54 @@ ___virtual_machine_state ___vms;)
        !___gc_stack_cell_inside(granted->source_fp, length,
          ___gc_stack_first_read_cell(granted->source_fp)) ||
        length>(___MSECTION_SIZE>>1) ||
-       owner->mem.tospace_offset_==___COLLECTION(___vms).destination_offset ||
-       (___COLLECTION(___vms).proc_worker[i]<0 && restore_loan_words(length)<___MSECTION_FUDGE+2)) fatal_heap_overflow();
+       owner->mem.tospace_offset_==g->destination_offset ||
+       (g->proc_worker[i]<0 && restore_loan_words(length)<___MSECTION_FUDGE+2)) fatal_heap_overflow();
   }
-  { ___msection *section=the_msections->head;
+  if (g->is_minor) {
+    ___msection *section;
+    for (section = g->young_head; section != 0; section = section->next)
+      section->copy_gate = 0;
+    for (i = 0; i < g->promo_tail_count; i++)
+      {
+        g->promo_tails[i]->copy_gate = 0;
+        memset(g->promo_tails[i]->base + ___MSECTION_SIZE, 0,
+               ___msection_scan_words(___MSECTION_SIZE) * ___WS);
+      }
+    for (section = next_copy_plan_section(g->copy_first);
+         section != 0 && section != g->copy_past;
+         section = next_copy_plan_section(section->next))
+      memset(section->base + ___MSECTION_SIZE, 0,
+             ___msection_scan_words(___MSECTION_SIZE) * ___WS);
+  } else {
+    ___msection *section=the_msections->head;
     while(section) { section->copy_gate=0;
       memset(section->base+___MSECTION_SIZE,0,___msection_scan_words(___MSECTION_SIZE)*___WS);
-      section=section->next; } }
+      section=section->next; }
+  }
   /* Context restoration and worker destinations are separate physical grants.
    * RC/still chains and other root-domain state stay in the existing context. */
   for (i=0; i<np; i++)
     {
       ___processor_state ___ps = ___PSTATE_FROM_PROCESSOR_ID(i,___vms);
       ___gc_resume_space *r = &___RESUME(___vms,i);
+      ___msection *ssec = r->stack_section;
       ___SIZE_TS length;
       ___SIZE_TS loan;
-      if(r->stack_section!=alloc || r->context!=___ps->context ||
-         r->owner!=___ps || r->epoch!=___COLLECTION(___vms).epoch ||
+      if(!ssec || ssec->gc_role != 1 || r->context!=___ps->context ||
+         r->owner!=___ps || r->epoch!=g->epoch ||
          ___ps->context->fp!=r->source_fp ||
          ___ps->context->stack_break!=r->source_break)
         rc_contract_error("Restoration grant changed after preflight");
       length = r->source_words;
-      tospace_offset = ___COLLECTION(___vms).destination_offset;
+      tospace_offset = g->destination_offset;
       msection_free_list = 0;
       words_prev_msections = 0;
       heap_msection = 0;
-      set_stack_msection(___ps,alloc);
+      set_stack_msection(___ps,ssec);
       r->context = ___ps->context;
       r->owner = ___ps;
-      r->epoch = ___COLLECTION(___vms).epoch;
-      r->stack_section = alloc;
+      r->epoch = g->epoch;
+      r->stack_section = ssec;
       r->loan_base = alloc_stack_limit;
       /* Keep the old 3/4 fallback ceiling, capped by the actual restoration
        * footprint plus stack fudge. This does not enlarge the copy grant. */
@@ -1402,14 +1460,14 @@ ___virtual_machine_state ___vms;)
       r->loan_limit = r->loan_base+loan;
       r->stack_floor = alloc_stack_limit;
       r->loan_used = r->accepted = r->restored = r->copy_admitted = r->source_drained = 0;
-      r->source_worker = ___COLLECTION(___vms).proc_worker[i];
-      alloc = alloc->next;
+      r->source_worker = g->proc_worker[i];
     }
 
+  g->copy_cursor = g->copy_first;
   for (i=0; i<nw; i++)
     {
       ___collector_worker *work = &___COLLECTORS(___vms)[i];
-      int w_proc = ___COLLECTION(___vms).worker_proc[i];
+      int w_proc = g->worker_proc[i];
       ___processor_state ___ps = ___PSTATE_FROM_PROCESSOR_ID(w_proc, ___vms);
       work->id = i;
       work->carrier = ___ps;
@@ -1448,14 +1506,23 @@ ___virtual_machine_state ___vms;)
       work->sec_cache_nb_sections_ = -1;
       work->reserve = &___RESUME(___vms,
         ___PROCESSOR_ID(___ps,___vms));
-      work->arena.epoch = ___COLLECTION(___vms).epoch;
+      work->arena.epoch = g->epoch;
       work->arena.retired_words = work->arena.refills = 0;
       work->arena.handed_off = 0;
-      prepare_worker_msection(work,alloc,
-        alloc->base+___COLLECTION(___vms).destination_offset,
-        alloc->base+___COLLECTION(___vms).destination_offset+(___MSECTION_SIZE>>1));
-      alloc_msection = alloc;
-      alloc = alloc->next;
+      if (i < g->promo_tail_count)
+        {
+          prepare_worker_msection(work, g->promo_tails[i],
+                                  g->promo_tails[i]->active_offset,
+                                  g->promo_tail_starts[i], 1);
+        }
+      else
+        {
+          ___msection *csec = next_copy_plan_section(g->copy_cursor);
+          ___SIZE_TS doff = g->is_minor ? g->destination_offset : ((___MSECTION_SIZE >> 1) - csec->gc_src_offset);
+          prepare_worker_msection(work, csec, doff, 0, 0);
+          alloc_msection = csec;
+          g->copy_cursor = next_copy_plan_section(csec->next);
+        }
       scan_ptr = alloc_heap_chunk_start;
       require_chunk_transition(work,alloc_heap_chunk_start,0,2);
       work->local_scan_chunk_ = alloc_heap_chunk_start;
@@ -1469,7 +1536,8 @@ ___virtual_machine_state ___vms;)
       still_objs_to_scan = 0;
     }
 
-  nb_msections_assigned = np+nw;
+  g->issued_copy_sections = nw - g->promo_tail_count;
+  nb_msections_assigned = np + nw;
   nb_msections_stacks   = np;
 
 #ifndef ___SINGLE_THREADED_VMS

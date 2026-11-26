@@ -273,11 +273,23 @@ typedef struct ___gc_round_struct
     int decision; /* 0 undecided, 1 accepted, 2 known refusal, 3 retained */
     int observed[___MAX_PROCESSORS];
     int planned_copy_sections, issued_copy_sections, large_sections;
-    ___msection *copy_first, *copy_past;
+    ___msection *copy_first, *copy_past, *copy_cursor;
     ___WORD *invalid_copy_cell;
     ___WORD *invalid_copy_body;
     int invalid_copy_worker;
     ___VOLATILE ___WORD frame_gate; /* GC stack/link writers and readers */
+    /* Generational Minor GC & mature segregation state for this round */
+    int is_minor;
+    int segregate_mature;
+    int card_overflow;
+    int hint_count;
+    ___msection *young_head;
+    ___msection *old_mature_tail;
+    int promo_tail_count;
+    ___msection *promo_tails[___MAX_PROCESSORS];
+    ___SIZE_TS promo_tail_starts[___MAX_PROCESSORS];
+    ___msection *young_heap_secs[___MAX_PROCESSORS];
+    ___gc_card_hint hints[___MAX_PROCESSORS * ___GC_CARD_HINT_CAPACITY];
   } ___gc_round;
 static inline void ___gc_copy_acquire (___VOLATILE ___WORD *gate)
 {

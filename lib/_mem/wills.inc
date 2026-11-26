@@ -1,7 +1,10 @@
 #line 5423 ___MEM_SOURCE_FILE
 ___HIDDEN void determine_will_executability
-   ___P((___WORD list),
-        (list)
+   ___P((___collector_worker *work,
+         ___WORD list),
+        (work,
+         list)
+___collector_worker *work;
 ___WORD list;)
 {
   while (___UNTAG(list) != 0)
@@ -9,9 +12,6 @@ ___WORD list;)
       ___WORD* will_body = ___UNTAG(list) + ___SUBTYPED_BODY;
       ___WORD will_head = will_body[-1];
       ___WORD testator;
-
-      ___WORD *unmarked_body; /* used by the UNMARKED macro */
-      int unmarked_typ;
 
       if (___TESTTYPE(will_head, ___FORW)) /* was will forwarded? */
         will_body = ___BODY0_AS(will_head,___FORW);
@@ -21,7 +21,7 @@ ___WORD list;)
       testator = will_body[___WILL_TESTATOR];
 
       if (___MEM_ALLOCATED(testator) &&
-          UNMARKED(testator)) /* testator was not marked? */
+          gc_obj_unmarked(work, testator)) /* testator was not marked? */
         {
           /*
            * All paths to testator object from roots pass through
@@ -49,7 +49,7 @@ ___processor_state source;)
   reference_location = IN_WILL_LIST;
 #endif
 
-  determine_will_executability (source->mem.nonexecutable_wills_);
+  determine_will_executability (work, source->mem.nonexecutable_wills_);
 
   /*
    * Finish scanning the wills whose testator object remains to be

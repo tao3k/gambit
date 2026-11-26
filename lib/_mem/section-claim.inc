@@ -25,8 +25,13 @@ typedef struct section_claim
 #define RAW_STACK_MAP_BYTES (((___MSECTION_SIZE>>1)+3)/4)
 #define SECTION_CLAIM_TAIL_BYTES \
   ((2*sizeof(section_claim)+2*RAW_STACK_MAP_BYTES+___WS-1) & ~(___CAST(___SIZE_T,___WS)-1))
+#define SECTION_CARD_COUNT ___msection_card_count(___MSECTION_SIZE)
 #define SECTION_CARD_BYTES (___msection_card_words(___MSECTION_SIZE)*___WS)
-#define SECTION_BYTES (___sizeof_msection(___MSECTION_SIZE)+SECTION_CLAIM_TAIL_BYTES+SECTION_CARD_BYTES)
+#define SECTION_CARD_START_BYTES \
+  ((SECTION_CARD_COUNT + ___WS - 1) & ~(___CAST(___SIZE_T,___WS) - 1))
+#define SECTION_BYTES \
+  (___sizeof_msection(___MSECTION_SIZE)+SECTION_CLAIM_TAIL_BYTES+SECTION_CARD_BYTES+SECTION_CARD_START_BYTES)
+#define ___GC_CARD_NO_OBJ_START 0xFFu
 
 static inline section_claim *section_claim_at(___msection *section, ___SIZE_TS offset)
 {
@@ -40,6 +45,30 @@ static inline ___VOLATILE ___WORD *section_card_bits(___msection *section)
   char *tail = ___CAST(char*, section->base+___MSECTION_SIZE+
                        ___msection_scan_words(___MSECTION_SIZE));
   return ___CAST(___VOLATILE ___WORD*, tail + SECTION_CLAIM_TAIL_BYTES);
+}
+
+static inline unsigned char *section_card_starts(___msection *section)
+{
+  char *tail = ___CAST(char*, section->base+___MSECTION_SIZE+
+                       ___msection_scan_words(___MSECTION_SIZE));
+  return ___CAST(unsigned char*, tail + SECTION_CARD_BYTES + SECTION_CLAIM_TAIL_BYTES);
+}
+
+static inline void record_mature_obj_start(___msection *sec, ___WORD *hdr)
+{
+  unsigned char *starts = section_card_starts(sec);
+  ___SIZE_TS off = hdr - sec->base;
+  unsigned int card = ___CAST(unsigned int, off >> ___GC_CARD_SHIFT_WORDS);
+  unsigned int in_card = ___CAST(unsigned int, off & (___GC_CARD_WORDS - 1));
+  if (starts[card] == ___GC_CARD_NO_OBJ_START)
+    starts[card] = ___CAST(unsigned char, in_card);
+}
+
+static inline ___msection *next_copy_plan_section(___msection *cur)
+{
+  while (cur != 0 && cur->gc_role != 0)
+    cur = cur->next;
+  return cur;
 }
 
 #endif

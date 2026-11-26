@@ -246,6 +246,145 @@ ___WORD head;)
 }
 
 
+/* Scan an in-place mature movable or dirty still object during Minor GC
+ * (and Minor GC preflight census). Unlike scan(), this object was not copied
+ * in the current round: it has no scan-state bitmap entry and its body[0]
+ * was NOT tail-marked, so all pointer fields including body[0] are scanned. */
+___HIDDEN void scan_mature_object
+   (___collector_worker *work,
+    ___WORD *body,
+    ___WORD head)
+{
+  ___SIZE_TS words = ___HD_WORDS(head);
+  int subtype = ___HD_SUBTYPE(head);
+
+#ifdef ENABLE_CONSISTENCY_CHECKS
+  reference_location = IN_OBJECT;
+  container_body = body;
+#endif
+
+  switch (subtype)
+    {
+    case ___sFOREIGN:
+    case ___sSTRING:
+    case ___sS8VECTOR:
+    case ___sU8VECTOR:
+    case ___sS16VECTOR:
+    case ___sU16VECTOR:
+    case ___sS32VECTOR:
+    case ___sU32VECTOR:
+    case ___sS64VECTOR:
+    case ___sU64VECTOR:
+    case ___sF32VECTOR:
+    case ___sF64VECTOR:
+    case ___sFLONUM:
+    case ___sBIGNUM:
+      break;
+
+    case ___sWEAK:
+      if (words == ___WILL_SIZE)
+        {
+          if (traverse_weak_refs || (body[___WILL_NEXT] & ___EXECUTABLE_WILL))
+            mark_array (work, body+1, 2);
+          else
+            {
+              mark_array (work, body+2, 1);
+              if (work->census == 0)
+                body[0] = body[0] | ___UNMARKED_TESTATOR_WILL;
+            }
+        }
+      else
+        {
+          int flags = ___INT(body[___GCHASHTABLE_FLAGS]);
+          int i;
+
+          if ((flags & ___GCHASHTABLE_FLAG_WEAK_KEYS) == 0 &&
+              (flags & ___GCHASHTABLE_FLAG_MEM_ALLOC_KEYS))
+            {
+              for (i=words-2; i>=___GCHASHTABLE_KEY0; i-=2)
+                {
+                  ___SCMOBJ key = body[i];
+                  mark_array (work, body+i, 1);
+                  if (work->census == 0 && body[i] != key)
+                    body[___GCHASHTABLE_FLAGS] =
+                      ___FIXIOR(body[___GCHASHTABLE_FLAGS],
+                                ___FIX(___GCHASHTABLE_FLAG_KEY_MOVED));
+                }
+            }
+
+          if ((flags & ___GCHASHTABLE_FLAG_WEAK_VALS) == 0)
+            {
+              for (i=words-1; i>=___GCHASHTABLE_VAL0; i-=2)
+                mark_array (work, body+i, 1);
+            }
+
+          if (work->census == 0)
+            {
+              body[0] = reached_gc_hash_tables;
+              reached_gc_hash_tables = ___CAST(___WORD, body);
+            }
+        }
+      break;
+
+    case ___sSYMBOL:
+    case ___sKEYWORD:
+      mark_array (work, body, 1);
+      break;
+
+    case ___sCONTINUATION:
+      mark_captured_continuation (work, &body[___CONTINUATION_FRAME]);
+      mark_array (work, body+1, words-1);
+      break;
+
+    case ___sFRAME:
+      {
+        ___frame_descriptor descriptor;
+        ___WORD *fp = body + ___FRAME_EXTRA_SLOTS;
+        ___WORD ra = body[0];
+        ___WORD frame;
+
+        acquire_frame_access(work);
+        if (ra == ___GSTATE->internal_return)
+          {
+            ___WORD actual_ra = body[___FRAME_RETI_RA];
+            descriptor = ___decode_frame_descriptor (___LABEL_DESCR_GET(actual_ra), 1);
+          }
+        else
+          {
+            descriptor = ___decode_frame_descriptor (___LABEL_DESCR_GET(ra), 0);
+          }
+        if (descriptor.fs <= 0 || descriptor.link < 0 ||
+            descriptor.link >= descriptor.fs ||
+            words != descriptor.fs + ___FRAME_EXTRA_SLOTS)
+          {
+            static char *msgs[] = { "GC mature frame payload/descriptor mismatch", NULL };
+            ___fatal_error(msgs);
+          }
+        fp += descriptor.fs;
+        frame = ___FP_STK(fp, descriptor.link + 1);
+        mark_frame (work, fp, &descriptor);
+        if (work->census != 0)
+          census_capture(work, &___FP_STK(fp, descriptor.link + 1));
+        else if (___FIXNUMP(frame) && frame != ___END_OF_CONT_MARKER)
+          mark_captured_continuation_locked(work, &___FP_STK(fp, descriptor.link + 1));
+        else
+          mark_array(work, &___FP_STK(fp, descriptor.link + 1), 1);
+        mark_array (work, &body[0], 1);
+        release_frame_access(work);
+      }
+      break;
+
+    case ___sPROCEDURE:
+      mark_array (work, body + ___CLO_FREEVARS, words - ___CLO_FREEVARS);
+      break;
+
+    default:
+      mark_array (work, body, words);
+      break;
+    }
+}
+
+
 #define scan_no_fast_path(ptr, head) \
 do { \
   work->active_scan_object_ = (ptr)+1; \

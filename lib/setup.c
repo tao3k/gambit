@@ -296,7 +296,10 @@ ___SCMOBJ intr;)
   if (tail == ___NUL)
     ___PROCESSOR_INTERRUPTS_HEAD_FIELD(ps) = intr;
   else
-    ___FIELD(VECTOR,tail,0) = intr;
+    {
+      ___GC_WRITE_BARRIER(___ps, tail, &___FIELD(VECTOR,tail,0), intr);
+      ___FIELD(VECTOR,tail,0) = intr;
+    }
 
   ___SHARED_MEMORY_BARRIER(); /* make sure write happens promptly */
 
@@ -1812,6 +1815,7 @@ static ___SCMOBJ current_vm_resize_request(___PSD ___SCMOBJ thunk,
   if(sop.arg[1]==-1) {
     /* Exactly one retry follows a complete GC and owner-effect return. An
      * actually live affine resource still refuses without membership change. */
+    ___WORD_STORE_RELEASE(&___VMSTATE_FROM_PSTATE(___ps)->mem.force_major_gc_, 1);
     ___garbage_collect(___PSP 0);
     sop.op=OP_VM_RESIZE;sop.arg[0]=___CAST(___WORD,cell);sop.arg[1]=target;
     on_all_processors(___PSP &sop);
@@ -6910,6 +6914,18 @@ ___HIDDEN void setup_dynamic_linking ___PVOID
 
   ___GSTATE->___gc_hash_table_rehash
     = ___gc_hash_table_rehash;
+
+  ___GSTATE->___gc_write_barrier_slow
+    = ___gc_write_barrier_slow;
+
+  ___GSTATE->___gc_write_barrier_range
+    = ___gc_write_barrier_range;
+
+  ___GSTATE->___gc_generational_stats
+    = ___gc_generational_stats;
+
+  ___GSTATE->___gc_set_generational_enabled
+    = ___gc_set_generational_enabled;
 
   ___GSTATE->___cleanup
     = ___cleanup;

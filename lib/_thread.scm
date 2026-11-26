@@ -690,7 +690,10 @@
 
 (##define-macro (macro-struct-slot-release-set! obj idx val)
   `(##c-code
-    "___WORD_STORE_RELEASE(___CAST(___VOLATILE ___WORD*, ___FXINDX_WORD(___BODY_AS(___ARG1, ___tSTRUCTURE), ___ARG2)), ___ARG3); ___RESULT = ___VOID;"
+    "___WORD *___s = ___FXINDX_WORD(___BODY_AS(___ARG1, ___tSTRUCTURE), ___ARG2);
+     ___GC_WRITE_BARRIER(___ps, ___ARG1, ___s, ___ARG3);
+     ___WORD_STORE_RELEASE(___CAST(___VOLATILE ___WORD*, ___s), ___ARG3);
+     ___RESULT = ___VOID;"
     ,obj ,idx ,val))
 
 (##define-macro (macro-shared-memory-barrier!)
