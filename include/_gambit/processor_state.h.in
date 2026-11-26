@@ -1,5 +1,13 @@
 /* Processor structure */
 
+#ifndef ___CACHE_LINE_SIZE
+#if defined(__aarch64__) || defined(__arm64__) || defined(_M_ARM64) || defined(__powerpc64__)
+#define ___CACHE_LINE_SIZE 128
+#else
+#define ___CACHE_LINE_SIZE 64
+#endif
+#endif
+
 /* Scheme execution roots are owned by the VM, not the native carrier.
  * This storage step keeps the existing synchronous binding and collector.
  * It does not authorize live rebinding or independent context retirement. */
@@ -25,8 +33,8 @@ typedef struct ___execution_context_struct
     ___WORD processor_scmobj[___SUBTYPED_BODY+___PROCESSOR_SIZE+___PADDING_SIZE]; /* Scheme processor object */
     ___binding_view binding_view; /* VM identity only; no address/value cache */
 #if ___MAX_PROCESSORS > 1
-    /* Isolate adjacent execution_contexts[i] across 128-byte Apple Silicon & 64-byte x86 cache lines */
-    char cache_line_guard[128];
+    /* Isolate adjacent execution_contexts[i] across architecture cache-line granules */
+    char cache_line_guard[___CACHE_LINE_SIZE];
 #endif
   } ___execution_context;
 
@@ -191,8 +199,8 @@ typedef struct ___aligned_processor_state_struct
                  (___PSTATE_ALIGN_MODULUS + sizeof(___processor_state_struct))
                  % ___PSTATE_ALIGN_MULTIPLIER];
 #endif
-    /* Guarantee >= 128B cache-line separation between pstate[i].heap_fast_* and pstate[i+1].stack_trip/temp1..4 */
-    char cache_line_guard[128];
+    /* Guarantee cache-line separation between pstate[i].heap_fast_* and pstate[i+1].stack_trip/temp1..4 */
+    char cache_line_guard[___CACHE_LINE_SIZE];
 #endif
   } ___aligned_processor_state_struct;
 

@@ -202,7 +202,9 @@ c-end
                            (let loop ((i 0) (acc 0))
                              (if (< i 2000)
                                  (let ((v (make-vector 32 (+ wid i))))
-                                   (if (= (modulo i 80) 0) (##gc))
+                                   ;; 50 explicit GCs per worker guarantees >= 50 total GCs even
+                                   ;; if all 4 p4 processors coalesce every STW GC in lockstep.
+                                   (if (= (modulo i 40) 0) (##gc))
                                    (loop (+ i 1) (+ acc (vector-ref v 0))))
                                  acc)))
                          (string-append "c7-mut-" (number->string wid)))))

@@ -112,7 +112,7 @@ ___HIDDEN void cleanup_rc(___processor_state ps)
    * address remains in the detached domain; last native release reclaims it. */
   if (d->round != 0) {
     if (d->round->collection.census.queue != 0)
-      ___FREE_MEM(d->round->collection.census.queue);
+      census_queue_free(d->round->collection.census.queue, d->round->collection.census.capacity);
     ___FREE_MEM(d->round); d->round=0;
   }
   /* Lifecycle closure has excluded the cooperative activation owner. Only

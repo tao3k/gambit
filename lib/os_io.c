@@ -1178,11 +1178,15 @@ ___time timeout;)
       for (i = 0; i < read_pos; i++)
         {
           ___device *d = devs[i];
+          /* FOR_EVENT (0 <= i < event_pos) polls process exit status via
+           * waitpid(WNOHANG) and never touches read_fd/write_fd; do not treat
+           * half-closed stdin/stdout as a closing event (avoids 0s busy-spin),
+           * while still fencing active close_in_progress > 0 below. */
           int dir = (i >= write_pos
                      ? ___DIRECTION_RD
                      : (i >= event_pos
                         ? ___DIRECTION_WR
-                        : (___DIRECTION_RD | ___DIRECTION_WR)));
+                        : 0));
           if (d == NULL)
             {
               dev_borrow[i] = 0;
@@ -1721,7 +1725,7 @@ ___time timeout;)
                          ? ___DIRECTION_RD
                          : (i >= event_pos
                             ? ___DIRECTION_WR
-                            : (___DIRECTION_RD | ___DIRECTION_WR)));
+                            : 0));
               if ((d->close_pending_mask & dir) != 0)
                 dev_borrow[i] = 3;
               if (--d->select_active == 0 && d->close_waiters > 0)
@@ -9653,9 +9657,131 @@ int options;)
               if (strchr (argv[0], '/') != NULL)
                 status = posix_spawn (&pid, argv[0], &direct_actions,
                                       &direct_attr, argv, spawn_env);
-              else
+              else if (env == NULL)
                 status = posix_spawnp (&pid, argv[0], &direct_actions,
                                        &direct_attr, argv, spawn_env);
+              else
+                {
+                  /*
+                   * posix_spawnp() searches the parent process's PATH, not
+                   * spawn_env's PATH.  When a custom child environment is
+                   * supplied for a bare executable name, resolve along the
+                   * child's PATH= (or default "/usr/bin:/bin") matching POSIX
+                   * execvp semantics while staying 100% fork()-free.
+                   */
+                  const char *child_path = NULL;
+                  char **ep;
+                  size_t prog_len = strlen (argv[0]);
+                  size_t dir_len = (dir != NULL) ? strlen (dir) : 0;
+                  int saved_eacces = 0;
+
+                  for (ep = spawn_env; ep != NULL && *ep != NULL; ep++)
+                    {
+                      if (strncmp (*ep, "PATH=", 5) == 0)
+                        {
+                          child_path = *ep + 5;
+                          break;
+                        }
+                    }
+                  if (child_path == NULL)
+                    child_path = "/usr/bin:/bin";
+
+                  status = ENOENT;
+                  if (prog_len > 0)
+                    {
+                      const char *p = child_path;
+                      for (;;)
+                        {
+                          const char *colon = strchr (p, ':');
+                          size_t seg_len = (colon != NULL) ? (size_t)(colon - p) : strlen (p);
+                          char cand[PATH_MAX];
+                          size_t pos = 0;
+                          int too_long = 0;
+
+                          if (seg_len == 0)
+                            {
+                              if (dir != NULL && dir_len > 0)
+                                {
+                                  if (dir_len >= sizeof (cand))
+                                    too_long = 1;
+                                  else
+                                    {
+                                      memcpy (cand, dir, dir_len);
+                                      pos = dir_len;
+                                    }
+                                }
+                              else
+                                {
+                                  cand[0] = '.';
+                                  pos = 1;
+                                }
+                            }
+                          else if (p[0] != '/' && dir != NULL && dir_len > 0)
+                            {
+                              if (dir_len + 1 + seg_len >= sizeof (cand))
+                                too_long = 1;
+                              else
+                                {
+                                  memcpy (cand, dir, dir_len);
+                                  pos = dir_len;
+                                  if (cand[pos - 1] != '/')
+                                    cand[pos++] = '/';
+                                  memcpy (cand + pos, p, seg_len);
+                                  pos += seg_len;
+                                }
+                            }
+                          else
+                            {
+                              if (seg_len >= sizeof (cand))
+                                too_long = 1;
+                              else
+                                {
+                                  memcpy (cand, p, seg_len);
+                                  pos = seg_len;
+                                }
+                            }
+
+                          if (!too_long)
+                            {
+                              if (pos > 0 && cand[pos - 1] != '/')
+                                {
+                                  if (pos + 1 >= sizeof (cand))
+                                    too_long = 1;
+                                  else
+                                    cand[pos++] = '/';
+                                }
+                              if (!too_long && pos + prog_len + 1 <= sizeof (cand))
+                                {
+                                  memcpy (cand + pos, argv[0], prog_len + 1);
+                                  status = posix_spawn (&pid, cand, &direct_actions,
+                                                        &direct_attr, argv, spawn_env);
+                                  if (status == 0)
+                                    break;
+                                  if (status == EACCES)
+                                    saved_eacces = EACCES;
+                                  else if (status != ENOENT && status != ENOTDIR && status != EISDIR)
+                                    break;
+                                }
+                              else
+                                {
+                                  status = ENAMETOOLONG;
+                                }
+                            }
+                          else
+                            {
+                              status = ENAMETOOLONG;
+                            }
+
+                          if (colon == NULL)
+                            {
+                              if (saved_eacces != 0)
+                                status = saved_eacces;
+                              break;
+                            }
+                          p = colon + 1;
+                        }
+                    }
+                }
             }
 
           if (actions_init)

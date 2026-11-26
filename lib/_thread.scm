@@ -3757,13 +3757,17 @@
                          (if (##eq? absrel-timeout (macro-absent-obj))
                              #f
                              absrel-timeout))))
-                (if (##mutex-signal-and-condvar-wait!
-                     mutex (macro-mailbox-condvar mb) timeout)
-                    (loop #t timeout)
-                    (if (##eq? timeout-val (macro-absent-obj))
-                        (##raise-mailbox-receive-timeout-exception
-                         prim absrel-timeout timeout-val)
-                        timeout-val))))))))
+                (begin
+                  ;; Record active mailbox waiter under mailbox mutex (strict DRF)
+                  ;; so ##thread-send-with-mb can skip condvar spinlock when idle.
+                  (macro-condvar-name-set! (macro-mailbox-condvar mb) #t)
+                  (if (##mutex-signal-and-condvar-wait!
+                       mutex (macro-mailbox-condvar mb) timeout)
+                      (loop #t timeout)
+                      (if (##eq? timeout-val (macro-absent-obj))
+                          (##raise-mailbox-receive-timeout-exception
+                           prim absrel-timeout timeout-val)
+                          timeout-val)))))))))
 
 (define-prim (thread-mailbox-next
               #!optional
@@ -3807,15 +3811,23 @@
           (or mb (##thread-mailbox-get! thread)))
          (mutex
           (macro-mailbox-mutex mb))
+         (cv
+          (macro-mailbox-condvar mb))
          (cell
           (##cons obj '())))
     ;; Keep the detached cell rooted across heap checks and the mutex wait.
     ;; Commit only links an initialized cell, without allocating under permit.
+    ;; Strict DRF waiter check under `mutex` skips condvar spinlock when no
+    ;; receiver is waiting (verified in adaptive_heap_scaling_pso.c).
     (##check-heap-limit)
     (macro-mutex-lock-anonymously! mutex #f)
     (macro-fifo-link-tail-cell! (macro-mailbox-fifo mb) cell)
-    (macro-mutex-unlock! mutex)
-    (##condvar-signal-no-reschedule! (macro-mailbox-condvar mb) #f)
+    (let ((need-signal? (macro-condvar-name cv)))
+      (if need-signal?
+          (macro-condvar-name-set! cv #f))
+      (macro-mutex-unlock! mutex)
+      (if need-signal?
+          (##condvar-signal-no-reschedule! cv #f)))
     (##void)))
 
 (define-prim (##thread-send thread obj)

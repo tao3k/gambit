@@ -5942,6 +5942,22 @@ ___SIZE_T bytes;)
 }
 
 
+static int ___live_percent_explicit_flag = 0;
+
+int ___live_percent_is_explicit ___PVOID
+{
+  return ___live_percent_explicit_flag;
+}
+
+void ___set_live_percent_explicit
+   ___P((int flag),
+        (flag)
+int flag;)
+{
+  ___live_percent_explicit_flag = flag ? 1 : 0;
+}
+
+
 ___EXP_FUNC(int,___get_live_percent) ___PVOID
 {
   return ___GSTATE->setup_params.live_percent;
@@ -5954,6 +5970,7 @@ ___EXP_FUNC(void,___set_live_percent)
 int percent;)
 {
   ___GSTATE->setup_params.live_percent = percent;
+  ___live_percent_explicit_flag = (percent > 0 && percent <= 100) ? 1 : 0;
 }
 
 

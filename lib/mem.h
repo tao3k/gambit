@@ -149,6 +149,8 @@ extern ___BOOL ___garbage_collect_pstate
          ___SIZE_TS requested_words_still),
         ());
 
+extern void ___gc_request_contraction ___PVOID;
+
 
 #ifdef ___DEBUG_STACK_LIMIT
 

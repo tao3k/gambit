@@ -29,6 +29,28 @@
 #define ___OPTIMIZED_MODULE_LIMIT @CONF_OPTIMIZED_MODULE_LIMIT@
 #endif
 
+#ifndef ___OPTIMIZED_HOST_LIMIT
+#define ___OPTIMIZED_HOST_LIMIT @CONF_OPTIMIZED_HOST_LIMIT@
+#endif
+
+/*
+ * STW drained-fromspace OS page reclamation policy (--enable-gc-fromspace-reclaim):
+ *   0  : adaptive (derives section threshold from physical RAM, cache/min_heap, and max_heap)
+ *   <0 : disabled (zero reclamation syscalls)
+ *   >0 : explicit minimum msection count to trigger reclamation
+ */
+#ifndef ___GC_FROM_RECLAIM_MIN_SECTIONS
+#define ___GC_FROM_RECLAIM_MIN_SECTIONS @CONF_GC_FROM_RECLAIM_MIN_SECTIONS@
+#endif
+
+#ifndef ___GC_ADAPTIVE_SIZING
+#define ___GC_ADAPTIVE_SIZING @CONF_GC_ADAPTIVE_SIZING@
+#endif
+
+#ifndef ___GC_HEAP_CONTRACTION_MODE
+#define ___GC_HEAP_CONTRACTION_MODE @CONF_GC_HEAP_CONTRACTION_MODE@
+#endif
+
 /* The completed Scheme producer owns physical host layout. The configured
  * policy remains available to bootstrap sources and embedded-C units whose
  * host assumptions have not been replaced. These are protocol tags, not a
@@ -76,6 +98,14 @@
 #endif
 #else
 #define ___GNUC_HOST_FUNCTION_ATTRIBUTES
+#endif
+#endif
+
+#ifndef ___GNUC_HOST_FUNCTION_ATTRIBUTES_UNOPTIMIZED
+#if !__clang__ && ___GNUC_VERSION >= 400000
+#define ___GNUC_HOST_FUNCTION_ATTRIBUTES_UNOPTIMIZED @CONF_GNUC_HOST_FUNCTION_ATTRIBUTES_UNOPTIMIZED_MODULE@
+#else
+#define ___GNUC_HOST_FUNCTION_ATTRIBUTES_UNOPTIMIZED
 #endif
 #endif
 

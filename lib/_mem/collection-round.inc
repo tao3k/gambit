@@ -727,10 +727,23 @@ ___SIZE_TS requested_words_still;)
         major_remark_phase_d_coord(___vms);
     }
 
-  /* Resize heap */
+  /* Resize heap, reclaim drained non-mature/opposite semispace pages, and
+   * relieve C-heap allocator pressure after substantial malloc-still sweeps. */
 
   if (is_coord)
-    ___COLLECTION(___vms).overflow = resize_heap (___vms, requested_words_still);
+    {
+      ___COLLECTION(___vms).overflow = resize_heap (___vms, requested_words_still);
+      if (custom_msection_alloc==0)
+        reclaim_drained_source_pages(___vms,
+                                     the_msections,
+                                     (___MSECTION_SIZE >> 1) - ___COLLECTION(___vms).destination_offset,
+                                     ___COLLECTION(___vms).is_minor,
+                                     ___GSTATE->setup_params.min_heap,
+                                     ___GSTATE->setup_params.max_heap);
+      if (gc_take_freed_malloc_still_words() >=
+          ((___SIZE_T)(4u * 1024u * 1024u) / ___WS))
+        os_heap_pressure_relief();
+    }
 
   BARRIER();
 

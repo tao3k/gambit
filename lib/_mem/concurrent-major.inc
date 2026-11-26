@@ -1551,11 +1551,12 @@ ___HIDDEN void major_remark_phase_c_parallel
           if (dead)
             {
               ___WORD head = base[___STILL_HEADER];
-              my_reclaimed_still += base[___STILL_LENGTH];
+              ___SIZE_TS len = base[___STILL_LENGTH];
+              my_reclaimed_still += len;
               if (___HD_SUBTYPE(head) == ___sFOREIGN)
                 ___lifecycle_defer(ps, base);
-              else
-                free_mem_aligned_heap(base);
+              else if (!free_mem_aligned_heap_ex(base) && len > 0)
+                gc_record_freed_malloc_still_words((___SIZE_T)len);
             }
           else
             {

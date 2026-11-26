@@ -361,9 +361,13 @@
                 options
                 (##cons (##list 'linker-name link-name) options))))
       (and (or input-is-target-file?
-               (c#cf filename-or-source
-                     options
-                     (lambda () target-filename)))
+               (and (c#cf filename-or-source
+                          options
+                          (lambda () target-filename))
+                    ;; Contract dead Scheme->C codegen heap before spawning
+                    ;; the C compiler subprocess (cc1) to eliminate gsc+cc1
+                    ;; dual-peak coexistence across parallel build workers.
+                    (begin (##gc) #t)))
            (let* ((target-filename-relative-to-output-dir
                    (##path-relative-to-dir target-filename output-dir))
                   (exit-status

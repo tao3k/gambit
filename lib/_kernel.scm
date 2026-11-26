@@ -2686,6 +2686,7 @@ end-of-code
           ___BOOL overflow;
           ___FRAME_STORE_RA(___R0)
           ___W_ALL
+          ___gc_request_contraction ();
           ___WORD_STORE_RELEASE(&___VMSTATE_FROM_PSTATE(___ps)->mem.force_major_gc_, 1);
           overflow = ___garbage_collect (___PSP 0);
           ___R_ALL

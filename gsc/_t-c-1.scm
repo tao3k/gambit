@@ -237,7 +237,7 @@
                         (".M"    . Objective-C++)
                         (".mm"   . Objective-C++))
                       '()
-                      '()
+                      '((cfg-host-limit fixnum))
                       0)))
 
     (define (begin! sem-changing-opts
@@ -245,6 +245,8 @@
                     info-port)
 
       (set! targ-info-port info-port)
+      (set! targ-active-cfg-host-limit
+            (get-option sem-preserving-opts 'cfg-host-limit #f))
 
       (target-dump-set!              targ targ-dump)
       (target-link-info-set!         targ targ-link-info)
@@ -1184,15 +1186,50 @@
 ;; and possible fallthrough inside one physical C host, pins canonical entry
 ;; (block 0 & block 1) and any 0-val-lbl dead components to host 0, and caps
 ;; per-host block count to collapse quadratic GCC SSA/RA memory & compile time.
-(define targ-auto-cfg-host-threshold 400)
-(define targ-cfg-host-target-blocks 200)
-(define targ-cfg-host-max-bins 64)
+;; Flag-driven & CFG-adaptive contiguous host partitioning for oversized
+;; pure-Scheme procedures (proved in CfgHostPartitionRefinement.lean,
+;; cfg_host_partition.qnt, and compiled-host/cfg-host-partition/harness.c).
+;; Controlled via `-cfg-host-limit N` (C target semantics-preserving option) or
+;; `(targ-cfg-host-limit)` alongside `(targ-auto-cfg-host-layout?)`:
+;;   < 0 : adaptive (scales per-host block target from Gambit's -compactness,
+;;         dominates largest indivisible component S_max, bounds hosts to
+;;         O(sqrt(N)), and requires >= 25% quadratic SSA reduction 4*sum(B^2)<=3*N^2)
+;;   = 0 : disabled for automatic partitioning (only splits when forced)
+;;   > 0 : explicit per-host block target N (auto-triggers at >= 2*N blocks)
+(define targ-cfg-host-limit (make-parameter -1))
+(define targ-active-cfg-host-limit #f)
+
+(define (targ-effective-cfg-host-limit)
+  (let ((opt (if (fixnum? targ-active-cfg-host-limit)
+                 targ-active-cfg-host-limit
+                 (targ-cfg-host-limit))))
+    (if (fixnum? opt) opt -1)))
+
+(define (targ-adaptive-cfg-base-target limit)
+  (if (> limit 0)
+      limit
+      (let* ((raw-c (targ-compactness))
+             (c (if (fixnum? raw-c)
+                    (max 0 (min 9 raw-c))
+                    targ-default-compactness)))
+        (- 448 (* c 32)))))
+
+(define (targ-isqrt n)
+  (if (< n 2)
+      n
+      (let loop ((x (quotient n 2)))
+        (let ((nx (quotient (+ x (quotient n x)) 2)))
+          (if (>= nx x) x (loop nx))))))
 
 (define (targ-plan-cfg-hosts obj #!optional (forced? #f))
-  (let* ((proc (car obj))
+  (let* ((limit (targ-effective-cfg-host-limit))
+         (base-target (targ-adaptive-cfg-base-target limit))
+         (auto-min-blocks (* 2 base-target))
+         (proc (car obj))
          (info (cadr obj))
          (code-vec (vector-ref info 0)))
-    (and (or forced? (>= (stretchable-vector-length code-vec) targ-auto-cfg-host-threshold))
+    (and (or forced? (and (not (= limit 0))
+                          (>= (stretchable-vector-length code-vec) auto-min-blocks)))
          (let* ((unique-name (targ-unique-name proc))
                 (code (stretchable-vector->list code-vec))
                 (val-lbls (vector-ref info 1))
@@ -1204,7 +1241,7 @@
                            (split (cdr rest) (list (car rest)) (cons (reverse block) result)))
                           (else (split (cdr rest) (cons (car rest) block) result))))))
                 (count (vector-length blocks)))
-           (and (or forced? (>= count targ-auto-cfg-host-threshold))
+           (and (or forced? (and (not (= limit 0)) (>= count auto-min-blocks)))
                 (let ((parents (make-vector count))
                       (labels (make-table 'test: eq?))
                       (owners (make-table 'test: eq?))
@@ -1315,10 +1352,10 @@
                            (let* ((entry-root (find 0))
                                   (val-roots (keep (lambda (r) (table-ref comp-has-val r #f)) ordered-roots))
                                   (non-val-roots (keep (lambda (r) (not (table-ref comp-has-val r #f))) ordered-roots))
-                                  (max-hosts targ-cfg-host-max-bins)
-                                  (target (if (and forced? (< count targ-auto-cfg-host-threshold))
+                                  (max-hosts (max 2 (targ-isqrt count)))
+                                  (target (if (and forced? (< count auto-min-blocks))
                                               (max 1 (quotient (+ count 3) 4))
-                                              (max targ-cfg-host-target-blocks
+                                              (max base-target
                                                    (quotient (+ count max-hosts -1) max-hosts)))))
                              (and (>= (length val-roots) 2)
                                   (eqv? (car val-roots) entry-root)
@@ -1333,7 +1370,8 @@
                                                (nb-hosts (length all-groups))
                                                (block-hosts (make-vector count 0))
                                                (bins (make-vector nb-hosts '()))
-                                               (host-entries (make-vector nb-hosts '())))
+                                               (host-entries (make-vector nb-hosts '()))
+                                               (sum-sq 0))
                                           (and (>= nb-hosts 2)
                                                (begin
                                                  (let assign ((gs all-groups) (h 0))
@@ -1348,32 +1386,39 @@
                                                                  (set! idxs (cons b idxs)))
                                                                (table-ref comp-blocks r '())))
                                                             (car gs))
+                                                           (let ((blen (length idxs)))
+                                                             (set! sum-sq (+ sum-sq (* blen blen))))
                                                            (vector-set! bins h (sort-list idxs <)))
                                                          (assign (cdr gs) (+ h 1)))))
-                                                 (for-each
-                                                  (lambda (label)
-                                                    (let ((h (vector-ref block-hosts
-                                                                         (table-ref labels (targ-lbl-num label)))))
-                                                      (vector-set! host-entries h
-                                                                   (cons label (vector-ref host-entries h)))))
-                                                  val-lbls)
-                                                 (let emit-plan ((h 0) (result '()))
-                                                   (if (= h nb-hosts)
-                                                       (and (every? pair? (map (lambda (host) (vector-ref host 0)) result))
-                                                            (vector 'cfg (reverse result) owners))
-                                                       (let* ((indices (vector-ref bins h))
-                                                              (pieces (flatten-blocks indices))
-                                                              (entries (reverse (vector-ref host-entries h))))
-                                                         (let bind ((rs entries) (slot 1))
-                                                           (if (pair? rs)
-                                                               (begin
-                                                                 (table-set! owners (car rs) (cons h slot))
-                                                                 (bind (cdr rs) (+ slot 1)))))
-                                                         (emit-plan (+ h 1)
-                                                                    (cons (vector entries pieces) result))))))))
+                                                 ;; Adaptive cost-benefit gate: require >= 25% quadratic
+                                                 ;; SSA/RA reduction (4*sum(B_h^2) <= 3*N^2) unless forced.
+                                                 (and (or forced? (<= (* 4 sum-sq) (* 3 (* count count))))
+                                                      (begin
+                                                        (for-each
+                                                         (lambda (label)
+                                                           (let ((h (vector-ref block-hosts
+                                                                                (table-ref labels (targ-lbl-num label)))))
+                                                             (vector-set! host-entries h
+                                                                          (cons label (vector-ref host-entries h)))))
+                                                         val-lbls)
+                                                        (let emit-plan ((h 0) (result '()))
+                                                          (if (= h nb-hosts)
+                                                              (and (every? pair? (map (lambda (host) (vector-ref host 0)) result))
+                                                                   (vector 'cfg (reverse result) owners))
+                                                              (let* ((indices (vector-ref bins h))
+                                                                     (pieces (flatten-blocks indices))
+                                                                     (entries (reverse (vector-ref host-entries h))))
+                                                                (let bind ((rs entries) (slot 1))
+                                                                  (if (pair? rs)
+                                                                      (begin
+                                                                        (table-set! owners (car rs) (cons h slot))
+                                                                        (bind (cdr rs) (+ slot 1)))))
+                                                                (emit-plan (+ h 1)
+                                                                           (cons (vector entries pieces) result))))))))))
                                         (let* ((r (car rest))
                                                (sz (table-ref comp-size r)))
-                                          (if (and (>= cur-sz target)
+                                          (if (and (or (>= cur-sz target)
+                                                       (> (+ cur-sz sz) target))
                                                    (< (+ (length groups) 2) max-hosts))
                                               (pack (cdr rest) (list r) sz (cons (reverse cur-roots) groups))
                                               (pack (cdr rest) (cons r cur-roots) (+ cur-sz sz) groups))))))))))))))))
@@ -1395,14 +1440,21 @@
   ;; User-authored C can refer to host-local state and labels outside
   ;; the structured edge graph. Ordinary append nodes also carry
   ;; compiler-owned constructs such as DEF_GLBL and remain eligible.
-  (let* ((code-vec (vector-ref (cadr obj) 0)))
-    (and (or forced? (>= (stretchable-vector-length code-vec) targ-auto-cfg-host-threshold))
-         (let ((code (stretchable-vector->list code-vec)))
-           (and (every? (lambda (node) (not (and (pair? node) (eq? (car node) 'opaque-c)))) code)
-                (if forced?
-                    (or (targ-plan-cfg-hosts obj #t)
-                        (targ-plan-return-host obj))
-                    (targ-plan-cfg-hosts obj #f)))))))
+  ;; Symbolic unit-plan fixtures (e.g. frame-spec.scm) pass mock atoms.
+  (and (pair? obj)
+       (pair? (cdr obj))
+       (vector? (cadr obj))
+       (let* ((limit (targ-effective-cfg-host-limit))
+              (auto-min-blocks (* 2 (targ-adaptive-cfg-base-target limit)))
+              (code-vec (vector-ref (cadr obj) 0)))
+         (and (or forced? (and (not (= limit 0))
+                               (>= (stretchable-vector-length code-vec) auto-min-blocks)))
+              (let ((code (stretchable-vector->list code-vec)))
+                (and (every? (lambda (node) (not (and (pair? node) (eq? (car node) 'opaque-c)))) code)
+                     (if forced?
+                         (or (targ-plan-cfg-hosts obj #t)
+                             (targ-plan-return-host obj))
+                         (targ-plan-cfg-hosts obj #f))))))))
 
 (define (targ-plan-c-scope c-decls c-procs c-inits c-objs)
   ;; Preserve compiler-produced function boundaries instead of conflating
@@ -1439,7 +1491,10 @@
             label-count
             (and (not configured?)
                  (not declared?)
-                 (or forced? (targ-auto-cfg-host-layout?))
+                 (or forced?
+                     (targ-auto-cfg-host-layout?)
+                     (and (fixnum? targ-active-cfg-host-limit)
+                          (> targ-active-cfg-host-limit 0)))
                  (let ((placements (make-table 'test: eq?)))
                    (for-each
                     (lambda (proc)
@@ -2489,12 +2544,29 @@
       (targ-line))
 
     (define (emit-host physical-host labels pieces next)
+    (let ((host-lbl-count (length labels)))
     (def "PH_PROC" physical-host)
     (def "PH_LBL0" (caddr p))
+    (if (> host-lbl-count 256)
+      (begin
+        (targ-display "#undef ___PH_ATTRS")
+        (targ-line)
+        (targ-display "#if defined(___OPTIMIZED_HOST_LIMIT) && ___OPTIMIZED_HOST_LIMIT > 0 && ")
+        (targ-display host-lbl-count)
+        (targ-display " > ___OPTIMIZED_HOST_LIMIT")
+        (targ-line)
+        (targ-display "#define ___PH_ATTRS ___GNUC_HOST_FUNCTION_ATTRIBUTES_UNOPTIMIZED")
+        (targ-line)
+        (targ-display "#else")
+        (targ-line)
+        (targ-display "#define ___PH_ATTRS ___GNUC_HOST_FUNCTION_ATTRIBUTES")
+        (targ-line)
+        (targ-display "#endif")
+        (targ-line)))
 
     (targ-begin-cod rd-res wr-res
                     "BEGIN_P_COD" 'pd- 'pr- 'pw-
-                    (list "BEGIN_P_HLBL_AT" (length labels))
+                    (list "BEGIN_P_HLBL_AT" host-lbl-count)
                     "DEF_P_HLBL_INTRO_AT" "DEF_P_HLBL" "END_P_HLBL"
                     (list obj) labels)
 
@@ -2539,7 +2611,14 @@
 
     (targ-end-cod "END_P_COD")
 
-    (targ-line))
+    (if (> host-lbl-count 256)
+      (begin
+        (targ-display "#undef ___PH_ATTRS")
+        (targ-line)
+        (targ-display "#define ___PH_ATTRS ___GNUC_HOST_FUNCTION_ATTRIBUTES")
+        (targ-line)))
+
+    (targ-line)))
 
     (let ((labels (vector-ref info 1)))
       (cond

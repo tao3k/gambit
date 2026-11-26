@@ -1,31 +1,4 @@
 #line 4401 ___MEM_SOURCE_FILE
-___HIDDEN ___SIZE_TS max_target_heap_space_in_recent_history
-    ___P((___virtual_machine_state ___vms),
-         (___vms)
-___virtual_machine_state ___vms;)
-{
-#undef ___VMSTATE_MEM
-#define ___VMSTATE_MEM(var) ___vms->mem.var
-
-  ___SIZE_TS max_target_heap_space = 0;
-
-#if ___TARGET_HEAP_SPACE_HIST_LENGTH > 0
-
-  int i;
-
-  for (i=0; i<___TARGET_HEAP_SPACE_HIST_LENGTH; i++)
-    if (target_heap_space_hist[i] > max_target_heap_space)
-      max_target_heap_space = target_heap_space_hist[i];
-
-#endif
-
-  return max_target_heap_space;
-
-#undef ___VMSTATE_MEM
-#define ___VMSTATE_MEM(var) ___VMSTATE_FROM_PSTATE(___ps)->mem.var
-}
-
-
 ___HIDDEN void add_to_target_heap_space_history
     ___P((___virtual_machine_state ___vms,
           ___SIZE_TS target_heap_space),
@@ -51,6 +24,62 @@ ___SIZE_TS target_heap_space;)
 }
 
 
+#ifndef ___GC_ADAPTIVE_SIZING
+#define ___GC_ADAPTIVE_SIZING 1
+#endif
+
+/* CBMC-verified hardware-adaptive large-heap live_percent damping
+ * (dev/refactoring/modern-c/models/cbmc/adaptive_heap_scaling_pso.c):
+ * honors explicit -:l<N> / ___set_live_percent verbatim; otherwise keeps
+ * 50% on small/medium heaps (<= soft_budget/8) and smoothly ramps up to 80%
+ * as live heap approaches soft_budget/2 (soft_budget = RAM / max(2, CPUs),
+ * clamped by max_heap). */
+___HIDDEN int gc_adaptive_live_percent
+   (___SIZE_TS live_words,
+    int explicit_flag,
+    int configured_pct,
+    ___SIZE_T max_heap_bytes)
+{
+#if ___GC_ADAPTIVE_SIZING && defined(___USE_MMAP_MSECTIONS)
+  uint64_t phys_mem_bytes, cpu_count, live_bytes, ram_mib, cap_mib;
+  uint32_t eff_cpus, soft_mib, live_mib, lo, hi, span, delta, extra;
+  if (explicit_flag || configured_pct != ___DEFAULT_LIVE_PERCENT || live_words <= 0)
+    return configured_pct;
+  phys_mem_bytes = (uint64_t)msection_os_phys_memory_bytes();
+  cpu_count = (uint64_t)msection_os_cpu_count();
+  if (phys_mem_bytes == 0u && max_heap_bytes == 0u)
+    return configured_pct;
+  eff_cpus = (cpu_count >= 2u) ? (uint32_t)((cpu_count > 1024u) ? 1024u : cpu_count) : 2u;
+  ram_mib = phys_mem_bytes >> 20;
+  cap_mib = ((uint64_t)max_heap_bytes) >> 20;
+  if (ram_mib > (uint64_t)0xffffffffu) ram_mib = (uint64_t)0xffffffffu;
+  if (cap_mib > (uint64_t)0xffffffffu) cap_mib = (uint64_t)0xffffffffu;
+  soft_mib = (ram_mib > 0u) ? ((uint32_t)ram_mib / eff_cpus) : (uint32_t)cap_mib;
+  if (cap_mib > 0u && (uint32_t)cap_mib < soft_mib)
+    soft_mib = (uint32_t)cap_mib;
+  live_bytes = ((uint64_t)live_words) << ___LWS;
+  live_mib = ((live_bytes >> 20) > (uint64_t)0xffffffffu)
+               ? (uint32_t)0xffffffffu
+               : (uint32_t)(live_bytes >> 20);
+  lo = soft_mib >> 3;
+  hi = soft_mib >> 1;
+  if (hi <= lo || live_mib <= lo)
+    return 50;
+  if (live_mib >= hi)
+    return 80;
+  span = hi - lo;
+  delta = live_mib - lo;
+  extra = (delta <= (0xffffffffu / 30u)) ? ((delta * 30u) / span) : ((delta / span) * 30u);
+  if (extra > 30u) extra = 30u;
+  return 50 + (int)extra;
+#else
+  (void)live_words;
+  (void)explicit_flag;
+  (void)max_heap_bytes;
+  return configured_pct;
+#endif
+}
+
 ___HIDDEN ___SIZE_TS adjust_heap
    ___P((___SIZE_TS live),
         (live)
@@ -60,8 +89,16 @@ ___SIZE_TS live;)
 
   if (___GSTATE->setup_params.adjust_heap_hook != 0)
     target_heap_space = ___GSTATE->setup_params.adjust_heap_hook (live);
-  else if (___GSTATE->setup_params.live_percent < 100)
-    target_heap_space = live / ___GSTATE->setup_params.live_percent * 100;
+  else
+    {
+      int eff_pct = gc_adaptive_live_percent
+        (live,
+         ___live_percent_is_explicit(),
+         ___GSTATE->setup_params.live_percent,
+         ___GSTATE->setup_params.max_heap);
+      if (eff_pct > 0 && eff_pct < 100)
+        target_heap_space = live / eff_pct * 100;
+    }
 
   SET_MAX(target_heap_space,
           ___CAST(___SIZE_TS,(___GSTATE->setup_params.min_heap >> ___LWS)));
@@ -148,7 +185,13 @@ ___processor_state ___ps;)
   avail = 0;
   ___ps->mem.gc_calls_to_punt_ = 2000;
 #else
-  avail = compute_free_heap_space_approximately()/2;
+  {
+    ___SIZE_TS free_approx = compute_free_heap_space_approximately();
+    int np = ___VMSTATE_FROM_PSTATE(___ps)->processor_count;
+    int div = (np <= 1) ? 2 : (np + 1);
+    if (div > 8) div = 8;
+    avail = (free_approx > 0) ? (free_approx / div) : 0;
+  }
   SET_MAX(avail,0);
 #endif
 
@@ -685,10 +728,15 @@ ___SCMOBJ ___setup_mem ___PVOID
       ___GSTATE->setup_params.live_percent > 100)
     {
       /*
-       * Choose a reasonable minimum live percent.
+       * Choose a reasonable minimum live percent (adaptive large-heap enabled).
        */
 
+      ___set_live_percent_explicit (0);
       ___GSTATE->setup_params.live_percent = ___DEFAULT_LIVE_PERCENT;
+    }
+  else
+    {
+      ___set_live_percent_explicit (1);
     }
 
   /*

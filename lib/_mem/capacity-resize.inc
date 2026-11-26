@@ -127,6 +127,112 @@ ___virtual_machine_state ___vms;)
 }
 
 
+#ifndef ___GC_HEAP_CONTRACTION_MODE
+#define ___GC_HEAP_CONTRACTION_MODE 1
+#endif
+
+static ___VOLATILE int gc_explicit_contraction_hint_ = 0;
+
+void ___gc_request_contraction ___PVOID
+{
+#if ___GC_HEAP_CONTRACTION_MODE > 0
+#if defined(__ATOMIC_RELEASE)
+  __atomic_store_n(&gc_explicit_contraction_hint_, 1, __ATOMIC_RELEASE);
+#else
+  gc_explicit_contraction_hint_ = 1;
+#endif
+#endif
+}
+
+___HIDDEN int gc_take_contraction_hint ___PVOID
+{
+#if ___GC_HEAP_CONTRACTION_MODE > 0
+#if defined(__ATOMIC_ACQ_REL)
+  return __atomic_exchange_n(&gc_explicit_contraction_hint_, 0, __ATOMIC_ACQ_REL);
+#else
+  int v = gc_explicit_contraction_hint_;
+  gc_explicit_contraction_hint_ = 0;
+  return v;
+#endif
+#else
+  return 0;
+#endif
+}
+
+___HIDDEN uint32_t gc_isqrt_u32(uint32_t n)
+{
+  uint32_t x = 0;
+  uint32_t bit = (uint32_t)1u << 14;
+  while (bit > n) bit >>= 2;
+  while (bit != 0u)
+    {
+      if (n >= x + bit)
+        {
+          n -= x + bit;
+          x = (x >> 1) + bit;
+        }
+      else
+        x >>= 1;
+      bit >>= 2;
+    }
+  return x;
+}
+
+/* Sub-linear SMP extra nursery headroom (AdaptiveHeapScalingRefinement.lean):
+ * avoids O(P) linear 2*P floor bloat at P=8..64 while preserving refill room. */
+___HIDDEN int gc_smp_nursery_headroom(int processor_count)
+{
+  if (processor_count <= 1) return 1;
+  if (processor_count <= 2) return processor_count;
+  if (processor_count > 1024) processor_count = 1024;
+  return 2 + (int)gc_isqrt_u32((uint32_t)processor_count);
+}
+
+___HIDDEN ___SIZE_TS decay_target_heap_space_history
+   (___virtual_machine_state ___vms,
+    ___SIZE_TS current_target,
+    int force_contract)
+{
+#undef ___VMSTATE_MEM
+#define ___VMSTATE_MEM(var) ___vms->mem.var
+  ___SIZE_TS max_h = 0;
+#if ___TARGET_HEAP_SPACE_HIST_LENGTH > 0
+  int i;
+  for (i = 0; i < ___TARGET_HEAP_SPACE_HIST_LENGTH; i++)
+    {
+      ___SIZE_TS e = target_heap_space_hist[i];
+#if ___GC_HEAP_CONTRACTION_MODE > 0
+      if (force_contract)
+        {
+          e = (e > current_target) ? current_target : e;
+          target_heap_space_hist[i] = e;
+        }
+      else if (current_target > 0 && e > 0 &&
+               (___SIZE_T)current_target <= (~(___SIZE_T)0) / 2u &&
+               (___SIZE_T)current_target * 2u < (___SIZE_T)e)
+        {
+          ___SIZE_TS decayed = e - (e / 4);
+          e = (decayed > current_target) ? decayed : current_target;
+          target_heap_space_hist[i] = e;
+        }
+#else
+      (void)current_target;
+      (void)force_contract;
+#endif
+      if (e > max_h)
+        max_h = e;
+    }
+#else
+  (void)___vms;
+  (void)current_target;
+  (void)force_contract;
+#endif
+  return max_h;
+#undef ___VMSTATE_MEM
+#define ___VMSTATE_MEM(var) ___VMSTATE_FROM_PSTATE(___ps)->mem.var
+}
+
+
 ___HIDDEN ___BOOL resize_heap
    ___P((___virtual_machine_state ___vms,
          ___SIZE_TS requested_words_still),
@@ -143,11 +249,16 @@ ___SIZE_TS requested_words_still;)
   ___SIZE_TS ths;
   ___SIZE_TS target_movable_space;
   int target_nb_sections;
-  int recent_history;
+  ___SIZE_TS recent_history;
+  int force_contract = gc_take_contraction_hint();
   int lower_bound_nb_sections;
   int upper_bound_nb_sections;
   ___SIZE_TS live;
   ___SIZE_TS free_space;
+
+  if (___COLLECTION(___vms).major_action == 3 &&
+      ___vms->mem.major_last_reclaimed_sections_ > 0)
+    force_contract = 1;
 
   /*
    * Compute the space occupied by live objects.
@@ -173,13 +284,6 @@ ___SIZE_TS requested_words_still;)
   SET_MAX(lower_bound_nb_sections,
           (compute_nb_msections_needed(occupied_words_movable) +
            nb_msections_stacks));
-
-  /*
-   * Use the recent target heap space history to avoid shrinking the
-   * heap size abruptly.
-   */
-
-  recent_history = max_target_heap_space_in_recent_history (___vms);
 
   /*
    * Determine how to resize the heap assuming the requested space is
@@ -213,6 +317,8 @@ ___SIZE_TS requested_words_still;)
 
       target_heap_space = adjust_heap (live) + normal_overflow_reserve;
 
+      recent_history = decay_target_heap_space_history (___vms, target_heap_space, force_contract);
+
       ths = target_heap_space; /* remember target_heap_space for history */
 
       if (___COLLECTION(___vms).major_action != 3 ||
@@ -237,14 +343,12 @@ ___SIZE_TS requested_words_still;)
         target_nb_sections = the_msections->nb_sections;
       if (___GSTATE->setup_params.max_heap == 0 && ___vms->processor_count > 1)
         {
-          /* Each active processor consumes a stack and heap msection from
-           * nb_msections_assigned. Keep per-processor nursery headroom above
-           * normal_overflow_reserve so default-heap SMP mutators do not
-           * starve compute_free_heap_space_approximately() and amplify GCs. */
+          /* Keep sub-linear shared SMP nursery headroom above normal_overflow_reserve
+           * so default-heap mutators do not amplify GCs without O(P) linear floor bloat. */
           int smp_nursery_sections =
             nb_msections_assigned +
             compute_nb_msections_needed(normal_overflow_reserve) +
-            2 * ___vms->processor_count;
+            gc_smp_nursery_headroom(___vms->processor_count);
           SET_MAX(target_nb_sections, smp_nursery_sections);
         }
       upper_bound_nb_sections = target_nb_sections;

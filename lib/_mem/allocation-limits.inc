@@ -1061,9 +1061,10 @@ int ___heap_continue_on_free_section(___processor_state ___ps)
   if (!___ps || !___ps->context) return 0;
   hp=___ps->context->hp;
   if (!___ps->heap_limit || hp<=___ps->heap_limit) return 0;
-  /* Assigned sections are not a heap limit. With no byte cap, reserve more
-   * before a census. The next bump publishes one of those sections. */
-  if (compute_free_heap_space_approximately()<___MSECTION_SIZE &&
+  /* Assigned sections are not a heap limit before GC admission opens.
+   * Once GC is admitted, do not bypass collection by growing the pool here. */
+  if (!___lifecycle_gc_admitted(___ps) &&
+      compute_free_heap_space_approximately()<___MSECTION_SIZE &&
       ___GSTATE->setup_params.max_heap==0 && the_msections) {
     int n, add, grown;
     ALLOC_MEM_LOCK();

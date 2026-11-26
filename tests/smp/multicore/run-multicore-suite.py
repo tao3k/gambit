@@ -42,6 +42,8 @@ PBT_O1_TARGETS: list[tuple[str, str, str, float | None, str]] = [
     ("c9-rest-kw-nursery", "c9-rest-keyword-nursery-contention-smp.scm", "C9-REST-KEYWORD-NURSERY-CONTENTION-PASS", 256.0, ",m65536"),
     ("c10-cas-lockfree-ws", "c10-cas-lockfree-workstealing-smp.scm", "C10-CAS-LOCKFREE-WORKSTEALING-PASS", 256.0, ""),
     ("c11-p02-binding-read", "c11-p02-binding-read-mutation-barrier-smp.scm", "C11-P02-BINDING-READ-BARRIER-PASS", 256.0, ""),
+    ("c12-memory-scaling-contraction", "c12-memory-scaling-contraction-smp.scm", "C12-MEMORY-SCALING-CONTRACTION-PASS", 256.0, ""),
+    ("c13-gerbil-compiler-shape-memory", "c13-gerbil-compiler-shape-memory-smp.scm", "C13-GERBIL-COMPILER-SHAPE-MEMORY-PASS", 256.0, ""),
     ("t1-robustness-hardening", "t1-robustness-hardening-smp.scm", "T1-ROBUSTNESS-HARDENING-PASS", 256.0, ""),
     ("t3-blocking-ffi-park", "t3-blocking-ffi-park-smp.scm", "T3-BLOCKING-FFI-PARK-PASS", 256.0, ""),
     ("t4-workstealing-scheduler", "t4-workstealing-scheduler-smp.scm", "T4-WORKSTEALING-SCHEDULER-PASS", 256.0, ""),

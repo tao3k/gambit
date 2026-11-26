@@ -525,9 +525,101 @@ AC_ARG_ENABLE(optimized-module-limit,
 
 CONF_OPTIMIZED_MODULE_LIMIT="$ENABLE_OPTIMIZED_MODULE_LIMIT"
 
+AC_ARG_ENABLE(optimized-host-limit,
+              AS_HELP_STRING([--enable-optimized-host-limit@<:@=auto|0|N@:>@],
+                             [set the maximal size of a single C host procedure to use the normal C compilation optimization level (auto derives max(1, optimized-module-limit / 8) when optimized-module-limit > 0 else 0; 0 deactivates per-host lowering; default is auto)]),
+              ENABLE_OPTIMIZED_HOST_LIMIT=$enableval,
+              ENABLE_OPTIMIZED_HOST_LIMIT=auto)
+
+case "$ENABLE_OPTIMIZED_HOST_LIMIT" in
+  auto|yes)
+    if test "$ENABLE_OPTIMIZED_MODULE_LIMIT" = "0" || test "$ENABLE_OPTIMIZED_MODULE_LIMIT" = "no"; then
+      CONF_OPTIMIZED_HOST_LIMIT="0"
+    else
+      CONF_OPTIMIZED_HOST_LIMIT=`expr "$ENABLE_OPTIMIZED_MODULE_LIMIT" / 8`
+      if test "$CONF_OPTIMIZED_HOST_LIMIT" -lt 1 2>/dev/null; then
+        CONF_OPTIMIZED_HOST_LIMIT="1"
+      fi
+    fi
+    ;;
+  off|no)
+    CONF_OPTIMIZED_HOST_LIMIT="0"
+    ;;
+  *)
+    CONF_OPTIMIZED_HOST_LIMIT="$ENABLE_OPTIMIZED_HOST_LIMIT"
+    ;;
+esac
+
 AC_SUBST(CONF_OPTIMIZED_MODULE_LIMIT)
+AC_SUBST(CONF_OPTIMIZED_HOST_LIMIT)
 AC_SUBST(CONF_GNUC_HOST_FUNCTION_ATTRIBUTES_UNOPTIMIZED_MODULE)
 AC_SUBST(CONF_GNUC_HOST_FUNCTION_ATTRIBUTES_OPTIMIZED_MODULE)
+
+###############################################################################
+#
+# Configure STW drained-fromspace OS page reclamation policy:
+#   auto (default): adapt section threshold to machine RAM, cache/min_heap, and max_heap
+#   off / no      : disable page reclamation (zero syscalls)
+#   N (N >= 1)    : explicit minimum msection threshold
+
+AC_ARG_ENABLE(gc-fromspace-reclaim,
+              AS_HELP_STRING([--enable-gc-fromspace-reclaim@<:@=auto|off|N@:>@],
+                             [STW drained-fromspace OS page reclamation policy: auto adapts to machine RAM, cache, and max_heap; off disables; N>=1 sets explicit minimum section threshold (default is auto)]),
+              ENABLE_GC_FROMSPACE_RECLAIM=$enableval,
+              ENABLE_GC_FROMSPACE_RECLAIM=auto)
+
+case "$ENABLE_GC_FROMSPACE_RECLAIM" in
+  auto|yes)
+    CONF_GC_FROM_RECLAIM_MIN_SECTIONS="0"
+    ;;
+  off|no)
+    CONF_GC_FROM_RECLAIM_MIN_SECTIONS="-1"
+    ;;
+  *)
+    CONF_GC_FROM_RECLAIM_MIN_SECTIONS="$ENABLE_GC_FROMSPACE_RECLAIM"
+    ;;
+esac
+
+AC_SUBST(CONF_GC_FROM_RECLAIM_MIN_SECTIONS)
+
+###############################################################################
+#
+# Configure hardware-adaptive large-heap live_percent damping and
+# collapse-aware heap contraction (zero hardcodes, explicit -:l<N> preserved):
+
+AC_ARG_ENABLE(gc-adaptive-sizing,
+              AS_HELP_STRING([--enable-gc-adaptive-sizing@<:@=auto|off@:>@],
+                             [hardware-adaptive large-heap live_percent damping honoring explicit -:l<N> (default is auto)]),
+              ENABLE_GC_ADAPTIVE_SIZING=$enableval,
+              ENABLE_GC_ADAPTIVE_SIZING=auto)
+
+case "$ENABLE_GC_ADAPTIVE_SIZING" in
+  off|no|0)
+    CONF_GC_ADAPTIVE_SIZING="0"
+    ;;
+  *)
+    CONF_GC_ADAPTIVE_SIZING="1"
+    ;;
+esac
+
+AC_SUBST(CONF_GC_ADAPTIVE_SIZING)
+
+AC_ARG_ENABLE(gc-heap-contraction,
+              AS_HELP_STRING([--enable-gc-heap-contraction@<:@=auto|legacy@:>@],
+                             [collapse-aware heap contraction history decay vs legacy 16-GC max ratchet (default is auto)]),
+              ENABLE_GC_HEAP_CONTRACTION=$enableval,
+              ENABLE_GC_HEAP_CONTRACTION=auto)
+
+case "$ENABLE_GC_HEAP_CONTRACTION" in
+  legacy|off|no|0)
+    CONF_GC_HEAP_CONTRACTION_MODE="0"
+    ;;
+  *)
+    CONF_GC_HEAP_CONTRACTION_MODE="1"
+    ;;
+esac
+
+AC_SUBST(CONF_GC_HEAP_CONTRACTION_MODE)
 
 ###############################################################################
 #
@@ -2434,11 +2526,6 @@ if test "$C_COMP_GNUC" = yes; then
 
   fi
 
-  if test "$DASH_fexpensive_optimizations" != ""; then
-    # turn off expensive optimizations when module is beyond normal limit
-    CONF_GNUC_HOST_FUNCTION_ATTRIBUTES_UNOPTIMIZED_MODULE="__attribute__ ((optimize (\"no-expensive-optimizations\")))"
-  fi
-
   # preprocessor options:
   AC_CHECK_C_COMPILER_OPT(-no-cpp-precomp,DASH_no_cpp_precomp)
 
@@ -2539,6 +2626,22 @@ if test "$C_COMP_GNUC" = yes; then
     AC_CHECK_C_COMPILER_OPT(-fmodulo-sched,DASH_fmodulo_sched)
     AC_CHECK_C_COMPILER_OPT(-freschedule-modulo-scheduled-loops,DASH_freschedule_modulo_scheduled_loops)
 
+  fi
+
+  if test "$DASH_fexpensive_optimizations" != ""; then
+    # turn off expensive and quadratic scheduling/invariant passes when module
+    # exceeds --enable-optimized-module-limit (preserving -O1 codegen and all flags)
+    unopt_host_opts="\"no-expensive-optimizations\""
+    if test "$DASH_fschedule_insns2" != ""; then
+      unopt_host_opts="$unopt_host_opts, \"no-schedule-insns2\""
+    fi
+    if test "$DASH_fno_move_loop_invariants" != ""; then
+      unopt_host_opts="$unopt_host_opts, \"no-move-loop-invariants\""
+    fi
+    if test "$DASH_fmodulo_sched" != ""; then
+      unopt_host_opts="$unopt_host_opts, \"no-modulo-sched\""
+    fi
+    CONF_GNUC_HOST_FUNCTION_ATTRIBUTES_UNOPTIMIZED_MODULE="__attribute__ ((optimize ($unopt_host_opts)))"
   fi
 
   # code generation options:

@@ -106,6 +106,8 @@ extern int ___leave_blocking_ffi_all
 extern ___SCMOBJ ___current_vm_resize_ticket(___PSD ___SCMOBJ thunk, int target);
 extern ___SCMOBJ ___startup_ready_status(___PSD ___SCMOBJ ticket);
 extern ___SCMOBJ ___startup_ready(___PSDNC);
+extern int ___live_percent_is_explicit ___PVOID;
+extern void ___set_live_percent_explicit ___P((int flag), ());
 
 
 #ifdef ___SINGLE_THREADED_VMS

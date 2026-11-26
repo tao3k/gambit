@@ -91,8 +91,13 @@
 #define ___R_ALL ___SM(___MR_ALL,___PR_ALL)
 #define ___W_ALL ___SM(___MW_ALL,___PW_ALL)
 
+#ifndef ___PH_ATTRS
+#define ___PH_ATTRS ___GNUC_HOST_FUNCTION_ATTRIBUTES
+#endif
+#define ___HOST_ATTRS ___SM(___GNUC_HOST_FUNCTION_ATTRIBUTES,___PH_ATTRS)
+
 #define ___BEGIN_COD \
-___HIDDEN void ___GNUC_HOST_FUNCTION_ATTRIBUTES ___HOST_PROC ___P((___processor_state ___ps),(___ps) \
+___HIDDEN void ___HOST_ATTRS ___HOST_PROC ___P((___processor_state ___ps),(___ps) \
 ___processor_state ___ps;) { \
 ___virtual_machine_state const ___binding_vm = ___ps->context->binding_view.vm; \
 ___WORD ___pc; { ___WORD ___start, ___temp; \

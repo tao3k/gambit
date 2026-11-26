@@ -114,13 +114,16 @@ ___HIDDEN void census_enqueue_grow(___collector_worker *work, ___SCMOBJ value)
   }
   /* Both superseded and replacement buffers have a VM-owned publication
    * slot. Interruption of malloc/copy/free is never an idempotent retry. */
-  c->state=___GC_PLAN_ALLOCATING;
-  c->replacement=___CAST(___SCMOBJ*,___ALLOC_MEM(capacity*sizeof(*c->queue)));
-  if(c->replacement==0) {c->state=___GC_PLAN_READING;c->failed=1;return;}
-  if(c->count)memcpy(c->replacement,c->queue,c->count*sizeof(*c->queue));
-  c->retired=c->queue;c->queue=c->replacement;c->replacement=0;
-  if(c->retired)___FREE_MEM(c->retired);
-  c->retired=0;c->capacity=capacity;c->state=___GC_PLAN_READING;
+  {
+    ___SIZE_T old_cap = c->capacity;
+    c->state=___GC_PLAN_ALLOCATING;
+    c->replacement=census_queue_alloc(capacity);
+    if(c->replacement==0) {c->state=___GC_PLAN_READING;c->failed=1;return;}
+    if(c->count)memcpy(c->replacement,c->queue,c->count*sizeof(*c->queue));
+    c->retired=c->queue;c->queue=c->replacement;c->replacement=0;
+    if(c->retired)census_queue_free(c->retired, old_cap);
+    c->retired=0;c->capacity=capacity;c->state=___GC_PLAN_READING;
+  }
   if(capacity*sizeof(*c->queue)>c->peak_bytes)c->peak_bytes=capacity*sizeof(*c->queue);
   c->queue[c->count++]=value;
 }
@@ -637,7 +640,19 @@ ___HIDDEN int plan_copy_round(___processor_state ps, ___SIZE_TS requested_words_
   g->large_sections=0;
   g->source_words=c->source_words;g->source_sections=nb_msections_assigned;
   g->destination_offset=(___MSECTION_SIZE>>1)-c->source_offset;
-  c->count=c->next=0;c->state=___GC_PLAN_ACCEPTED;return 1;
+  c->count=c->next=0;c->state=___GC_PLAN_ACCEPTED;
+  if(c->queue && !c->replacement && !c->retired &&
+     c->capacity > (___CENSUS_QUEUE_RETAIN_MAX_BYTES / sizeof(*c->queue))) {
+    census_queue_free(c->queue, c->capacity);
+    c->queue=0; c->capacity=0;
+  }
+  return 1;
  refuse:
-  work->census=0;ps->collector=0;c->count=c->next=0;c->state=___GC_PLAN_REFUSED;return 2;
+  work->census=0;ps->collector=0;c->count=c->next=0;c->state=___GC_PLAN_REFUSED;
+  if(c->queue && !c->replacement && !c->retired &&
+     c->capacity > (___CENSUS_QUEUE_RETAIN_MAX_BYTES / sizeof(*c->queue))) {
+    census_queue_free(c->queue, c->capacity);
+    c->queue=0; c->capacity=0;
+  }
+  return 2;
 }

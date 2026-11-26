@@ -1,4 +1,28 @@
 #line 4334 ___MEM_SOURCE_FILE
+static ___VOLATILE ___SIZE_T gc_freed_malloc_still_words_ = 0;
+
+___HIDDEN void gc_record_freed_malloc_still_words(___SIZE_T words)
+{
+  if (words == 0)
+    return;
+#if defined(__ATOMIC_RELAXED)
+  (void)__atomic_fetch_add(&gc_freed_malloc_still_words_, words, __ATOMIC_RELAXED);
+#else
+  gc_freed_malloc_still_words_ += words;
+#endif
+}
+
+___HIDDEN ___SIZE_T gc_take_freed_malloc_still_words ___PVOID
+{
+#if defined(__ATOMIC_ACQ_REL)
+  return __atomic_exchange_n(&gc_freed_malloc_still_words_, (___SIZE_T)0, __ATOMIC_ACQ_REL);
+#else
+  ___SIZE_T w = gc_freed_malloc_still_words_;
+  gc_freed_malloc_still_words_ = 0;
+  return w;
+#endif
+}
+
 ___HIDDEN void sweep_young_still_objs
    ___P((___PSDNC),
         (___PSVNC)
@@ -7,6 +31,7 @@ ___PSDKR)
   ___PSGET
   ___WORD *base = ___CAST(___WORD*, young_still_objs);
   ___SIZE_TS promoted_words = 0;
+  ___SIZE_T freed_malloc_words = 0;
 
   young_still_objs = 0;
   words_still_objs_young = 0;
@@ -20,7 +45,11 @@ ___PSDKR)
           if (___HD_SUBTYPE(head) == ___sFOREIGN)
             ___lifecycle_defer(___ps, base);
           else
-            free_mem_aligned_heap(base);
+            {
+              ___SIZE_TS len = base[___STILL_LENGTH];
+              if (!free_mem_aligned_heap_ex(base) && len > 0)
+                freed_malloc_words += (___SIZE_T)len;
+            }
         }
       else
         {
@@ -40,6 +69,8 @@ ___PSDKR)
       base = ___CAST(___WORD*, link);
     }
 
+  gc_record_freed_malloc_still_words(freed_malloc_words);
+
   words_still_objs_mature += promoted_words;
   words_still_objs = words_still_objs_mature + ___lifecycle_deferred_words(___ps);
   words_still_objs_deferred = 0;
@@ -57,6 +88,7 @@ ___PSDKR)
   ___WORD *base = ___CAST(___WORD*,*last);
   ___WORD *young = ___CAST(___WORD*,young_still_objs);
   ___SIZE_TS live_words_still = 0;
+  ___SIZE_T freed_malloc_words = 0;
 
   young_still_objs = 0;
   words_still_objs_young = 0;
@@ -69,7 +101,12 @@ ___PSDKR)
           ___WORD head = base[___STILL_BODY-1];
           if (___HD_SUBTYPE(head) == ___sFOREIGN)
             ___lifecycle_defer(___ps,base);
-          else free_mem_aligned_heap(base);
+          else
+            {
+              ___SIZE_TS len = base[___STILL_LENGTH];
+              if (!free_mem_aligned_heap_ex(base) && len > 0)
+                freed_malloc_words += (___SIZE_T)len;
+            }
         }
       else
         {
@@ -91,7 +128,12 @@ ___PSDKR)
           ___WORD head = young[___STILL_BODY-1];
           if (___HD_SUBTYPE(head) == ___sFOREIGN)
             ___lifecycle_defer(___ps,young);
-          else free_mem_aligned_heap(young);
+          else
+            {
+              ___SIZE_TS len = young[___STILL_LENGTH];
+              if (!free_mem_aligned_heap_ex(young) && len > 0)
+                freed_malloc_words += (___SIZE_T)len;
+            }
         }
       else
         {
@@ -106,6 +148,8 @@ ___PSDKR)
     }
 
   *last = 0;
+
+  gc_record_freed_malloc_still_words(freed_malloc_words);
 
   words_still_objs_mature = live_words_still;
   words_still_objs = live_words_still + ___lifecycle_deferred_words(___ps);
