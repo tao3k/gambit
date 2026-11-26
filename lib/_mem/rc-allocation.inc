@@ -1938,27 +1938,31 @@ ___BOOL ___rest_fast_grant_fits(___processor_state ps, ___WORD *hp, ___WORD *fp,
   /* Lock-free processor-owned fast_span leaf bypass: mirrors ___group_demand_enter
    * (zero copy_gate lock, zero ___PSTATE TLS, zero shared writes) when no attempt
    * injection or observation trace is active. */
-  if (__builtin_expect(
-        ___WORD_LOAD_RELAXED(&rest_attempt_active_flag) == 0 &&
+  {
+    int obs_idle = 1;
 #ifdef ___GAMBIT_REST_OBSERVATION
-        __atomic_load_n(&rest_observation_map, __ATOMIC_ACQUIRE) == 0 &&
+    obs_idle = (__atomic_load_n(&rest_observation_map, __ATOMIC_ACQUIRE) == 0);
 #endif
-        ___WORD_LOAD_ACQUIRE(&rest_observation_admission_captured) != 0 &&
-        ps != 0 && ps->context != 0 && hp != 0 && fp != 0 &&
-        ps->context->hp == hp && np >= 0 && stack_slots >= 0 &&
-        rest_batch_words(pending, np, &words),
-        1))
-    {
-      ___UWORD sd = ___CAST(___UWORD, fp) - ps->stack_fast_floor_b;
-      ___UWORD hd = ___CAST(___UWORD, hp) - ps->heap_fast_lo_b;
-      if (__builtin_expect(
-            sd < ps->stack_fast_limit_b &&
-            (sd / sizeof(___WORD)) >= (___UWORD)stack_slots &&
-            hd < ps->heap_fast_bytes &&
-            ((ps->heap_fast_bytes - hd) / sizeof(___WORD)) >= (___UWORD)words,
-            1))
-        return 1;
-    }
+    if (__builtin_expect(
+          obs_idle &&
+          ___WORD_LOAD_RELAXED(&rest_attempt_active_flag) == 0 &&
+          ___WORD_LOAD_ACQUIRE(&rest_observation_admission_captured) != 0 &&
+          ps != 0 && ps->context != 0 && hp != 0 && fp != 0 &&
+          ps->context->hp == hp && np >= 0 && stack_slots >= 0 &&
+          rest_batch_words(pending, np, &words),
+          1))
+      {
+        ___UWORD sd = ___CAST(___UWORD, fp) - ps->stack_fast_floor_b;
+        ___UWORD hd = ___CAST(___UWORD, hp) - ps->heap_fast_lo_b;
+        if (__builtin_expect(
+              sd < ps->stack_fast_limit_b &&
+              (sd / sizeof(___WORD)) >= (___UWORD)stack_slots &&
+              hd < ps->heap_fast_bytes &&
+              ((ps->heap_fast_bytes - hd) / sizeof(___WORD)) >= (___UWORD)words,
+              1))
+          return 1;
+      }
+  }
 
   if (__builtin_expect(___WORD_LOAD_ACQUIRE(&rest_attempt_active_flag) != 0, 0) &&
       rest_force_slow && rest_attempt_here(ps)) {
