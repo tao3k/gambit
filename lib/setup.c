@@ -234,6 +234,10 @@ ___processor_state ___ps;)
   ___WORD ___temp;
 
   ___STACK_TRIP_OFF();
+  /* Dekker Store-Load fence: make ___STACK_TRIP_OFF visible before reading
+   * intr_flag[] so a concurrent ___raise_interrupt_pstate cannot have its
+   * ___STACK_TRIP_ON wiped out on TSO/PSO/ARM64. */
+  ___SHARED_MEMORY_BARRIER();
 
   ___temp = ___INT(___INTERRUPT_AFTER_MASKING(___INTERRUPT_FLAGS()));
 
@@ -270,6 +274,7 @@ ___EXP_FUNC(void,___refresh_interrupts_pstate)
 ___processor_state ___ps;)
 {
   ___STACK_TRIP_OFF();
+  ___SHARED_MEMORY_BARRIER();
   ___STACK_TRIP_ON_IF_INTERRUPT_REQ();
 }
 
@@ -294,11 +299,15 @@ ___SCMOBJ intr;)
   ___PROCESSOR_INTERRUPTS_TAIL_FIELD(ps) = intr;
 
   if (tail == ___NUL)
-    ___PROCESSOR_INTERRUPTS_HEAD_FIELD(ps) = intr;
+    ___WORD_STORE_RELEASE(&___PROCESSOR_INTERRUPTS_HEAD_FIELD(ps), intr);
   else
     {
-      ___GC_WRITE_BARRIER(___ps, tail, &___FIELD(VECTOR,tail,0), intr);
-      ___FIELD(VECTOR,tail,0) = intr;
+      /* ___ps is the target processor (possibly remote); never touch its
+       * per-processor card hint log or SATB buffer from another core. */
+      ___gc_write_barrier_slot_vm(___VMSTATE_FROM_PSTATE(___ps),
+                                  tail,
+                                  &___FIELD(VECTOR,tail,0));
+      ___WORD_STORE_RELAXED(&___FIELD(VECTOR,tail,0), intr);
     }
 
   ___SHARED_MEMORY_BARRIER(); /* make sure write happens promptly */
@@ -1581,6 +1590,9 @@ ___processor_state ___ps;)
         life->sync_parked_count--;
     }
   ___ps->ffi_park_depth = 0;
+  /* Adopt active Concurrent SATB Major GC phase before returning to Scheme. */
+  ___ps->mem.satb_active_ =
+    (___WORD_LOAD_ACQUIRE(&___vms->mem.major_phase_) == ___GC_MAJOR_MARKING) ? 1 : 0;
   ___CONDVAR_BROADCAST(life->sync_part_cv);
   ___MUTEX_UNLOCK(life->sync_part_mut);
   /* Drain owner-affine foreign finalizers deferred during GCs while parked. */
@@ -6950,6 +6962,30 @@ ___HIDDEN void setup_dynamic_linking ___PVOID
 
   ___GSTATE->___gc_set_generational_enabled
     = ___gc_set_generational_enabled;
+
+  ___GSTATE->___gc_satb_barrier_slot
+    = ___gc_satb_barrier_slot;
+
+  ___GSTATE->___gc_satb_barrier_val
+    = ___gc_satb_barrier_val;
+
+  ___GSTATE->___gc_satb_barrier_range
+    = ___gc_satb_barrier_range;
+
+  ___GSTATE->___gc_concurrent_major_stats
+    = ___gc_concurrent_major_stats;
+
+  ___GSTATE->___gc_set_concurrent_major_enabled
+    = ___gc_set_concurrent_major_enabled;
+
+  ___GSTATE->___gc_start_concurrent_major
+    = ___gc_start_concurrent_major;
+
+  ___GSTATE->___gc_major_mark_slice
+    = ___gc_major_mark_slice;
+
+  ___GSTATE->___gc_major_mark_idle_slice
+    = ___gc_major_mark_idle_slice;
 
   ___GSTATE->___cleanup
     = ___cleanup;

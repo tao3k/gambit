@@ -106,6 +106,14 @@ ___SCMOBJ key;)
                                 -___FIX(___GCHASHTABLE_CURSOR_UNIT));
     }
 
+#ifndef ___DISABLE_GENERATIONAL_GC
+  /* Weak-table read-barrier: shade returned heap target during active SATB marking
+   * so weak resurrection into a mutator strong root can never be swept (Mutant 6). */
+  if (___EXPECT_FALSE(___PSTATE->mem.satb_active_ != 0 &&
+                      ___MEM_ALLOCATED(result)))
+    ___gc_satb_barrier_val(___PSTATE, result);
+#endif
+
   return result;
 }
 
@@ -126,13 +134,36 @@ ___SCMOBJ val;)
   int step2;
   ___SCMOBJ obj;
 
-  /* Mutation already requires exclusive mutator ownership. Settle address
-   * placement debt before either insert, replace or delete. */
-  if (!___FIXZEROP(___FIXAND(___WORD_LOAD_ACQUIRE(
-                                 ___CAST(___VOLATILE ___WORD*,
-                                         &___GCHASHTABLE_FLAGS_FIELD(ht))),
-                             ___FIX(___GCHASHTABLE_FLAG_KEY_MOVED))))
-    gc_hash_table_rehash_in_situ (ht);
+  /* Mutation requires exclusive mutator ownership; also synchronize against
+   * any active reader/concurrent-GC cursor pin before in-situ rehash. */
+  {
+    ___VOLATILE ___WORD *flags_ptr =
+      ___CAST(___VOLATILE ___WORD*, &___GCHASHTABLE_FLAGS_FIELD(ht));
+    ___WORD flags = ___WORD_LOAD_ACQUIRE(flags_ptr);
+    if (!___FIXZEROP(___FIXAND(flags, ___FIX(___GCHASHTABLE_FLAG_KEY_MOVED))))
+      {
+        for (;;)
+          {
+            flags = ___WORD_LOAD_ACQUIRE(flags_ptr);
+            if (___FIXZEROP(___FIXAND(flags, ___FIX(___GCHASHTABLE_FLAG_KEY_MOVED))))
+              break;
+            if (!___FIXZEROP(___FIXAND(flags, ___FIX(___GCHASHTABLE_FLAG_REHASHING))) ||
+                (___INT(flags) >> ___GCHASHTABLE_CURSOR_SHIFT) != 0)
+              {
+                ___CPU_RELAX();
+                continue;
+              }
+            {
+              ___WORD want = ___FIXIOR(flags, ___FIX(___GCHASHTABLE_FLAG_REHASHING));
+              if (___WORD_CAS_ACQUIRE(flags_ptr, flags, want))
+                {
+                  gc_hash_table_rehash_in_situ (ht);
+                  break;
+                }
+            }
+          }
+      }
+  }
 
   size2 = ___INT(___GCHASHTABLELENGTH(ht)) - ___GCHASHTABLE_KEY0;
   ___GCHASHTABLE_HASH_STEP(probe2, step2, key, size2>>1);
@@ -148,15 +179,15 @@ ___SCMOBJ val;)
         {
         replace_entry:
           ___GC_WRITE_BARRIER(___PSTATE, ht, &___FIELD(WEAK, ht, probe2+___GCHASHTABLE_VAL0), val);
-          ___FIELD(WEAK, ht, probe2+___GCHASHTABLE_VAL0) = val;
+          ___WORD_STORE_RELAXED(&___FIELD(WEAK, ht, probe2+___GCHASHTABLE_VAL0), val);
         }
       else if (___EQP(obj,___UNUSED))
         {
         add_entry:
           ___GC_WRITE_BARRIER(___PSTATE, ht, &___FIELD(WEAK, ht, probe2+___GCHASHTABLE_KEY0), key);
           ___GC_WRITE_BARRIER(___PSTATE, ht, &___FIELD(WEAK, ht, probe2+___GCHASHTABLE_VAL0), val);
-          ___FIELD(WEAK, ht, probe2+___GCHASHTABLE_KEY0) = key;
-          ___FIELD(WEAK, ht, probe2+___GCHASHTABLE_VAL0) = val;
+          ___WORD_STORE_RELAXED(&___FIELD(WEAK, ht, probe2+___GCHASHTABLE_KEY0), key);
+          ___WORD_STORE_RELAXED(&___FIELD(WEAK, ht, probe2+___GCHASHTABLE_VAL0), val);
           ___GCHASHTABLE_COUNT_FIELD(ht) =
             ___FIXADD(___GCHASHTABLE_COUNT_FIELD(ht), ___FIX(1));
           if (___FIXNEGATIVEP(___GCHASHTABLE_FREE_FIELD(ht) =
@@ -188,8 +219,8 @@ ___SCMOBJ val;)
 
                   ___GC_WRITE_BARRIER(___PSTATE, ht, &___FIELD(WEAK, ht, deleted2+___GCHASHTABLE_KEY0), key);
                   ___GC_WRITE_BARRIER(___PSTATE, ht, &___FIELD(WEAK, ht, deleted2+___GCHASHTABLE_VAL0), val);
-                  ___FIELD(WEAK, ht, deleted2+___GCHASHTABLE_KEY0) = key;
-                  ___FIELD(WEAK, ht, deleted2+___GCHASHTABLE_VAL0) = val;
+                  ___WORD_STORE_RELAXED(&___FIELD(WEAK, ht, deleted2+___GCHASHTABLE_KEY0), key);
+                  ___WORD_STORE_RELAXED(&___FIELD(WEAK, ht, deleted2+___GCHASHTABLE_VAL0), val);
                   ___GCHASHTABLE_COUNT_FIELD(ht) =
                     ___FIXADD(___GCHASHTABLE_COUNT_FIELD(ht), ___FIX(1));
 
@@ -205,8 +236,10 @@ ___SCMOBJ val;)
       if (___EQP(obj,key))
         {
         delete_entry:
-          ___FIELD(WEAK, ht, probe2+___GCHASHTABLE_KEY0) = ___DELETED;
-          ___FIELD(WEAK, ht, probe2+___GCHASHTABLE_VAL0) = ___UNUSED;
+          ___GC_WRITE_BARRIER_ALWAYS(___PSTATE, ht, &___FIELD(WEAK, ht, probe2+___GCHASHTABLE_KEY0));
+          ___GC_WRITE_BARRIER_ALWAYS(___PSTATE, ht, &___FIELD(WEAK, ht, probe2+___GCHASHTABLE_VAL0));
+          ___WORD_STORE_RELAXED(&___FIELD(WEAK, ht, probe2+___GCHASHTABLE_KEY0), ___DELETED);
+          ___WORD_STORE_RELAXED(&___FIELD(WEAK, ht, probe2+___GCHASHTABLE_VAL0), ___UNUSED);
           ___GCHASHTABLE_COUNT_FIELD(ht) =
             ___FIXSUB(___GCHASHTABLE_COUNT_FIELD(ht),
                       ___FIX(1));
@@ -362,12 +395,35 @@ ___BOOL find;)
   ___SCMOBJ k2_probe2 = ___FIX(0);
 
   /* Even find=true compresses parent paths: this is a writer, not a pure
-   * query. Rebuilding also repairs its position-encoded parent links. */
-  if (!___FIXZEROP(___FIXAND(___WORD_LOAD_ACQUIRE(
-                                 ___CAST(___VOLATILE ___WORD*,
-                                         &___GCHASHTABLE_FLAGS_FIELD(ht))),
-                             ___FIX(___GCHASHTABLE_FLAG_KEY_MOVED))))
-    gc_hash_table_rehash_in_situ (ht);
+   * query. Synchronize against active reader/concurrent-GC cursor pins. */
+  {
+    ___VOLATILE ___WORD *flags_ptr =
+      ___CAST(___VOLATILE ___WORD*, &___GCHASHTABLE_FLAGS_FIELD(ht));
+    ___WORD flags = ___WORD_LOAD_ACQUIRE(flags_ptr);
+    if (!___FIXZEROP(___FIXAND(flags, ___FIX(___GCHASHTABLE_FLAG_KEY_MOVED))))
+      {
+        for (;;)
+          {
+            flags = ___WORD_LOAD_ACQUIRE(flags_ptr);
+            if (___FIXZEROP(___FIXAND(flags, ___FIX(___GCHASHTABLE_FLAG_KEY_MOVED))))
+              break;
+            if (!___FIXZEROP(___FIXAND(flags, ___FIX(___GCHASHTABLE_FLAG_REHASHING))) ||
+                (___INT(flags) >> ___GCHASHTABLE_CURSOR_SHIFT) != 0)
+              {
+                ___CPU_RELAX();
+                continue;
+              }
+            {
+              ___WORD want = ___FIXIOR(flags, ___FIX(___GCHASHTABLE_FLAG_REHASHING));
+              if (___WORD_CAS_ACQUIRE(flags_ptr, flags, want))
+                {
+                  gc_hash_table_rehash_in_situ (ht);
+                  break;
+                }
+            }
+          }
+      }
+  }
 
   size2 = ___INT(___GCHASHTABLELENGTH(ht)) - ___GCHASHTABLE_KEY0;
 

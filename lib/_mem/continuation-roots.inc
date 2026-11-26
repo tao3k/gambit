@@ -494,8 +494,8 @@ ___WORD ___continuation_next_stack(___processor_state ___ps, ___SCMOBJ cont)
     {
       ___GC_WRITE_BARRIER_ALWAYS(___ps, cont, &___CONTINUATION_FRAME_FIELD(cont));
       ___GC_WRITE_BARRIER(___ps, cont, &___CONTINUATION_DENV_FIELD(cont), denv);
-      ___CONTINUATION_FRAME_FIELD(cont)=successor;
-      ___CONTINUATION_DENV_FIELD(cont)=denv;
+      ___WORD_STORE_RELAXED(&___CONTINUATION_FRAME_FIELD(cont), successor);
+      ___WORD_STORE_RELAXED(&___CONTINUATION_DENV_FIELD(cont), denv);
     }
   ___gc_copy_release(&section->copy_gate);
   return cont;

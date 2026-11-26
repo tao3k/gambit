@@ -1265,6 +1265,38 @@ typedef struct ___global_state_struct
        ___P((___processor_state ___ps,
              int enabled),
             ());
+    void (*___gc_satb_barrier_slot)
+       ___P((___processor_state ___ps,
+             ___WORD *slot_ptr),
+            ());
+    void (*___gc_satb_barrier_val)
+       ___P((___processor_state ___ps,
+             ___SCMOBJ old_val),
+            ());
+    void (*___gc_satb_barrier_range)
+       ___P((___processor_state ___ps,
+             ___WORD *start_ptr,
+             ___SIZE_TS words),
+            ());
+    void (*___gc_concurrent_major_stats)
+       ___P((___processor_state ___ps,
+             double *out_stats),
+            ());
+    int (*___gc_set_concurrent_major_enabled)
+       ___P((___processor_state ___ps,
+             int enabled),
+            ());
+    int (*___gc_start_concurrent_major)
+       ___P((___processor_state ___ps,
+             int finish_now),
+            ());
+    ___SIZE_TS (*___gc_major_mark_slice)
+       ___P((___processor_state ___ps,
+             ___SIZE_TS budget_words),
+            ());
+    int (*___gc_major_mark_idle_slice)
+       ___P((___processor_state ___ps),
+            ());
     ___BOOL (*___cleanup) ___PVOID;
     void (*___cleanup_and_exit_process)
        ___P((int status),

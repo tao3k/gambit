@@ -8,10 +8,13 @@ ___SCMOBJ ht;)
   ___SIZE_TS words = ___HD_WORDS(body[-1]);
   int size2 = words - ___GCHASHTABLE_KEY0;
   int i;
+  ___WORD ht_flags;
 
-  ___GC_WRITE_BARRIER_RANGE(___PSTATE, ht, body, words);
+  ___GC_WRITE_BARRIER_RANGE(___PSTATE, ht, body + ___GCHASHTABLE_KEY0, size2);
 
-  if (!___FIXZEROP(___FIXAND(body[___GCHASHTABLE_FLAGS],
+  ht_flags =
+    ___WORD_LOAD_ACQUIRE(___CAST(___VOLATILE ___WORD*, &body[___GCHASHTABLE_FLAGS]));
+  if (!___FIXZEROP(___FIXAND(ht_flags,
                              ___FIX(___GCHASHTABLE_FLAG_UNION_FIND))))
     {
 #if 0
@@ -76,7 +79,7 @@ ___SCMOBJ ht;)
         }
     }
 
-  if (___FIXZEROP(___FIXAND(body[___GCHASHTABLE_FLAGS],
+  if (___FIXZEROP(___FIXAND(ht_flags,
                             ___FIX(___GCHASHTABLE_FLAG_MEM_ALLOC_KEYS))))
     {
       /*
@@ -238,11 +241,15 @@ ___SCMOBJ ht;)
 
   /* Publish all relocated key/value slots with release ordering before
    * clearing KEY_MOVED and the exclusive REHASHING lock bit. */
-  ___WORD_STORE_RELEASE(
-    ___CAST(___VOLATILE ___WORD*, &body[___GCHASHTABLE_FLAGS]),
-    ___FIXAND(body[___GCHASHTABLE_FLAGS],
-              ___FIXNOT(___FIX(___GCHASHTABLE_FLAG_KEY_MOVED |
-                               ___GCHASHTABLE_FLAG_REHASHING))));
+  {
+    ___VOLATILE ___WORD *flags_ptr =
+      ___CAST(___VOLATILE ___WORD*, &body[___GCHASHTABLE_FLAGS]);
+    ___WORD_STORE_RELEASE(
+      flags_ptr,
+      ___FIXAND(___WORD_LOAD_ACQUIRE(flags_ptr),
+                ___FIXNOT(___FIX(___GCHASHTABLE_FLAG_KEY_MOVED |
+                                 ___GCHASHTABLE_FLAG_REHASHING))));
+  }
 }
 
 

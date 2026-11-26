@@ -515,10 +515,14 @@
 /* Still object metadata flags packed in ___STILL_DIRTY (zero ABI churn):
  *   bit 0: mature object contains a mutated pointer slot (remembered-set)
  *   bit 1: young still object allocated since last GC (on young_still_objs_)
- *   bits 2..7: reserved for Slice 2 Concurrent SATB Major GC mark color/epoch */
+ *   bits 2..3: Slice 2 Concurrent SATB Major GC alternating epoch mark bits */
 #define ___STILL_FLAG_DIRTY 1
 #define ___STILL_FLAG_YOUNG 2
+#define ___STILL_FLAG_MAJOR_MARK0 4
+#define ___STILL_FLAG_MAJOR_MARK1 8
 #define ___STILL_MAJOR_COLOR_MASK 0xFC
+#define ___STILL_MAJOR_MARK_BIT(epoch) \
+  (((epoch) & 1) ? ___STILL_FLAG_MAJOR_MARK1 : ___STILL_FLAG_MAJOR_MARK0)
 #define ___STILL_HANDLE ___STILL_BODY
 #define ___STILL_BODY (5+1)/************/
 #endif

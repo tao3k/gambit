@@ -92,12 +92,25 @@ ___HIDDEN void publish_fast_span ___P((___processor_state ___ps),());
 ___HIDDEN void clear_fast_span ___P((___processor_state ___ps),());
 #include "_mem/heap-sections.inc"
 #include "_mem/startup-reservation.inc"
+___HIDDEN void major_shade_mature_movable(___virtual_machine_state vm, ___msection *sec, ___WORD *header, ___WORD head);
+___HIDDEN void major_shade_mature_still(___virtual_machine_state vm, ___WORD *base, ___WORD head);
+___HIDDEN void major_register_weak_table(___virtual_machine_state vm, ___SCMOBJ ht);
+___HIDDEN int major_has_pending_mark_work(___virtual_machine_state vm);
+___HIDDEN void major_initial_mark_begin(___virtual_machine_state vm);
+___HIDDEN void major_minor_gc_drain_satb(___virtual_machine_state vm);
+___HIDDEN void major_remark_phase_a_prepare(___virtual_machine_state vm);
+___HIDDEN void major_remark_phase_a_parallel(___virtual_machine_state vm, int w_id, int w_cnt);
+___HIDDEN void major_remark_phase_b_coord(___virtual_machine_state vm);
+___HIDDEN void major_remark_phase_c_parallel(___virtual_machine_state vm, int w_id, int w_cnt);
+___HIDDEN void major_remark_phase_d_coord(___virtual_machine_state vm);
+___HIDDEN void major_abort_for_full_compacting_gc(___virtual_machine_state vm);
 #include "_mem/copy-reservations.inc"
 #include "_mem/continuation-roots.inc"
 #include "_mem/rc-roots.inc"
 #include "_mem/object-scanning.inc"
 #include "_mem/generational.inc"
 #include "_mem/still-sweep.inc"
+#include "_mem/concurrent-major.inc"
 #include "_mem/memory-lifecycle.inc"
 #include "_mem/wills.inc"
 #include "_mem/weak-tables.inc"

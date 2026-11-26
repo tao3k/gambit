@@ -281,6 +281,7 @@ typedef struct ___gc_round_struct
     /* Generational Minor GC & mature segregation state for this round */
     int is_minor;
     int segregate_mature;
+    int major_action; /* 0=none, 1=start, 2=drain_satb, 3=remark_sweep, 4=abort */
     int has_wills;
     int has_young_still;
     int card_overflow;
@@ -290,6 +291,12 @@ typedef struct ___gc_round_struct
     int promo_tail_count;
     ___msection *promo_tails[___MAX_PROCESSORS];
     ___SIZE_TS promo_tail_starts[___MAX_PROCESSORS];
+    ___SIZE_TS promo_tail_ends[___MAX_PROCESSORS];
+    unsigned char promo_tail_is_hole[___MAX_PROCESSORS];
+    int major_sweep_nm;
+    ___F64 major_remark_r0;
+    ___SIZE_TS major_reclaimed_still[___MAX_PROCESSORS];
+    ___SIZE_TS major_live_still[___MAX_PROCESSORS];
     ___msection *young_heap_secs[___MAX_PROCESSORS];
     ___gc_card_hint hints[___MAX_PROCESSORS * ___GC_CARD_HINT_CAPACITY];
   } ___gc_round;

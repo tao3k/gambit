@@ -215,7 +215,9 @@ ___SIZE_TS requested_words_still;)
 
       ths = target_heap_space; /* remember target_heap_space for history */
 
-      SET_MAX(ths, recent_history);
+      if (___COLLECTION(___vms).major_action != 3 ||
+          ___vms->mem.major_last_reclaimed_sections_ == 0)
+        SET_MAX(ths, recent_history);
 
       target_movable_space = ths - occupied_words_still;
 
@@ -227,7 +229,10 @@ ___SIZE_TS requested_words_still;)
                            nb_msections_stacks;
 
       SET_MAX(target_nb_sections, lower_bound_nb_sections);
-      if (___COLLECTION(___vms).is_minor && ___GSTATE->setup_params.max_heap == 0 &&
+      if (___COLLECTION(___vms).is_minor &&
+          (___COLLECTION(___vms).major_action != 3 ||
+           ___vms->mem.major_last_reclaimed_sections_ == 0) &&
+          ___GSTATE->setup_params.max_heap == 0 &&
           the_msections != 0 && target_nb_sections < the_msections->nb_sections)
         target_nb_sections = the_msections->nb_sections;
       if (___GSTATE->setup_params.max_heap == 0 && ___vms->processor_count > 1)

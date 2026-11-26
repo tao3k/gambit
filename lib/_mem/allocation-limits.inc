@@ -1382,6 +1382,16 @@ ___PSDKR)
 
   prepare_mem_pstate (___ps);
 
+#ifndef ___DISABLE_GENERATIONAL_GC
+  if (___EXPECT_FALSE(___ps->mem.satb_active_ != 0 && ___ps->primlock_depth == 0))
+    {
+      ___virtual_machine_state vm = ___VMSTATE_FROM_PSTATE(___ps);
+      ___SIZE_TS budget =
+        (___WORD_LOAD_ACQUIRE(&vm->mem.major_mark_stack_count_) > 4096) ? 49152 : 32768;
+      ___gc_major_mark_slice(___ps, budget);
+    }
+#endif
+
   return 0;
 }
 

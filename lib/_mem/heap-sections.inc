@@ -1216,27 +1216,29 @@ int ___rest_chain_control_probe(___processor_state ps, int which, long *loads)
 
 /* Install a VM-assigned destination interval. No context heap cursor is
  * read or written by copying, including its slow refill path. Two terminal
- * chunk-link words remain outside the usable copy limit. */
+ * chunk-link words remain outside the usable copy limit.
+ * promo_mode: 0 = fresh section (gc_is_dest=1), 1 = mature tail append
+ * (gc_is_dest=2), 2 = IDLE Immix dead-line hole (gc_is_dest=3, end_off=hole_hi). */
 ___HIDDEN void prepare_worker_msection
  (___collector_worker *work, ___msection *section,
-  ___SIZE_TS dest_off, ___SIZE_TS start_off, int is_promo_tail)
+  ___SIZE_TS dest_off, ___SIZE_TS start_off, ___SIZE_TS end_off, int promo_mode)
 {
   ___gc_round *g = &___COLLECTION(work->vm);
   ___WORD *half_base = section->base + dest_off;
   ___WORD *base = half_base + start_off;
-  ___WORD *limit = half_base + (___MSECTION_SIZE >> 1);
+  ___WORD *limit = half_base + end_off;
   unsigned char *starts = section_card_starts(section);
   unsigned int card_lo =
     ___CAST(unsigned int, (dest_off + start_off) >> ___GC_CARD_SHIFT_WORDS);
   unsigned int card_hi =
-    ___CAST(unsigned int, (dest_off + (___MSECTION_SIZE >> 1)) >> ___GC_CARD_SHIFT_WORDS);
+    ___CAST(unsigned int, (dest_off + end_off) >> ___GC_CARD_SHIFT_WORDS);
 
   section->gc_dest_offset = dest_off;
-  section->gc_is_dest = is_promo_tail ? 2 : 1;
+  section->gc_is_dest = (promo_mode == 2) ? 3 : (promo_mode ? 2 : 1);
   if (card_lo < card_hi)
     memset(starts + card_lo, ___GC_CARD_NO_OBJ_START, card_hi - card_lo);
 
-  if (is_promo_tail)
+  if (promo_mode == 1)
     {
       if (start_off > section->mature_words)
         {
@@ -1246,7 +1248,7 @@ ___HIDDEN void prepare_worker_msection
           record_mature_obj_start(section, filler);
         }
     }
-  else if (!g->is_minor && !g->segregate_mature)
+  else if (promo_mode == 0 && !g->is_minor && !g->segregate_mature)
     {
       section_claim_at(section, dest_off)->heap_used = 1;
     }
@@ -1254,9 +1256,14 @@ ___HIDDEN void prepare_worker_msection
   work->arena.section = section;
   work->arena.base = work->arena.cursor = base;
   work->arena.physical_limit = limit - 1;
-  work->arena.large = (!is_promo_tail) && work->copy_request.state != 0 &&
+  work->arena.large = (promo_mode == 0) && work->copy_request.state != 0 &&
     work->copy_request.destination_words > (___MSECTION_SIZE >> 1) - ___MSECTION_FUDGE - 3;
-  work->arena.limit = limit - 2 - (work->arena.large ? 0 : ___MSECTION_FUDGE);
+  if (promo_mode == 2)
+    /* Immix hole is strictly a Minor GC promotion arena (never handed off to
+     * mutators); reserve 3 words for up to 2 chunk terminators + closing filler. */
+    work->arena.limit = limit - 3;
+  else
+    work->arena.limit = limit - 2 - (work->arena.large ? 0 : ___MSECTION_FUDGE);
   work->arena.pending = work->arena.pending_past = 0;
   *work->arena.cursor++ = NULL_CHUNK_LINK;
   start_heap_chunk(work);
@@ -1290,7 +1297,7 @@ ___HIDDEN void refill_worker_arena (___collector_worker *work)
   ALLOC_MEM_UNLOCK();
   dest_off = g->is_minor ? g->destination_offset : ((___MSECTION_SIZE >> 1) - ms->gc_src_offset);
   work->arena.refills++;
-  prepare_worker_msection(work, ms, dest_off, 0, 0);
+  prepare_worker_msection(work, ms, dest_off, 0, (___MSECTION_SIZE >> 1), 0);
 }
 
 
@@ -1515,13 +1522,15 @@ ___virtual_machine_state ___vms;)
         {
           prepare_worker_msection(work, g->promo_tails[i],
                                   g->promo_tails[i]->active_offset,
-                                  g->promo_tail_starts[i], 1);
+                                  g->promo_tail_starts[i],
+                                  g->promo_tail_ends[i],
+                                  g->promo_tail_is_hole[i] ? 2 : 1);
         }
       else
         {
           ___msection *csec = next_copy_plan_section(g->copy_cursor);
           ___SIZE_TS doff = g->is_minor ? g->destination_offset : ((___MSECTION_SIZE >> 1) - csec->gc_src_offset);
-          prepare_worker_msection(work, csec, doff, 0, 0);
+          prepare_worker_msection(work, csec, doff, 0, (___MSECTION_SIZE >> 1), 0);
           alloc_msection = csec;
           g->copy_cursor = next_copy_plan_section(csec->next);
         }

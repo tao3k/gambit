@@ -29,8 +29,12 @@ typedef struct section_claim
 #define SECTION_CARD_BYTES (___msection_card_words(___MSECTION_SIZE)*___WS)
 #define SECTION_CARD_START_BYTES \
   ((SECTION_CARD_COUNT + ___WS - 1) & ~(___CAST(___SIZE_T,___WS) - 1))
+/* Per-section concurrent Major mark bitmap: 1 bit per word in the active half. */
+#define SECTION_MAJOR_MARK_WORDS \
+  ((((___MSECTION_SIZE >> 1) + ___WORD_WIDTH - 1) / ___WORD_WIDTH))
+#define SECTION_MAJOR_MARK_BYTES (SECTION_MAJOR_MARK_WORDS * ___WS)
 #define SECTION_BYTES \
-  (___sizeof_msection(___MSECTION_SIZE)+SECTION_CLAIM_TAIL_BYTES+SECTION_CARD_BYTES+SECTION_CARD_START_BYTES)
+  (___sizeof_msection(___MSECTION_SIZE)+SECTION_CLAIM_TAIL_BYTES+SECTION_CARD_BYTES+SECTION_CARD_START_BYTES+SECTION_MAJOR_MARK_BYTES)
 #define ___GC_CARD_NO_OBJ_START 0xFFu
 
 static inline section_claim *section_claim_at(___msection *section, ___SIZE_TS offset)
@@ -52,6 +56,14 @@ static inline unsigned char *section_card_starts(___msection *section)
   char *tail = ___CAST(char*, section->base+___MSECTION_SIZE+
                        ___msection_scan_words(___MSECTION_SIZE));
   return ___CAST(unsigned char*, tail + SECTION_CARD_BYTES + SECTION_CLAIM_TAIL_BYTES);
+}
+
+static inline ___VOLATILE ___WORD *section_major_mark_bits(___msection *section)
+{
+  char *tail = ___CAST(char*, section->base+___MSECTION_SIZE+
+                       ___msection_scan_words(___MSECTION_SIZE));
+  return ___CAST(___VOLATILE ___WORD*,
+                 tail + SECTION_CLAIM_TAIL_BYTES + SECTION_CARD_BYTES + SECTION_CARD_START_BYTES);
 }
 
 static inline void record_mature_obj_start(___msection *sec, ___WORD *hdr)

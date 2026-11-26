@@ -98636,11 +98636,21 @@ ___DEF_GLBL(___L__23__23_subvector_2d_move_21_)
 #define ___ARG4 ___R2
 #define ___ARG5 ___R3
 { ___SCMOBJ ___RESULT;
-{  void *src = ___CAST(void*,&___VECTORELEM(___ARG1,___INT(___ARG2)));
-  void *dst = ___CAST(void*,&___VECTORELEM(___ARG4,___INT(___ARG5)));
+{  ___WORD *src = &___VECTORELEM(___ARG1,___INT(___ARG2));
+  ___WORD *dst = &___VECTORELEM(___ARG4,___INT(___ARG5));
   ___SIZE_TS count = ___INT(___FIXSUB(___ARG3,___ARG2));
-  ___SIZE_TS len = count * ___WS;
-  ___GC_WRITE_BARRIER_RANGE(___ps, ___ARG4, ___CAST(___WORD*,dst), count);  memmove (dst, src, len);
+  ___SIZE_TS i;
+  ___GC_WRITE_BARRIER_RANGE(___ps, ___ARG4, dst, count);
+  if (dst < src || dst >= src + count)
+    {
+      for (i = 0; i < count; i++)
+        ___WORD_STORE_RELAXED(&dst[i], ___WORD_LOAD_RELAXED(&src[i]));
+    }
+  else if (dst > src)
+    {
+      for (i = count; i > 0; i--)
+        ___WORD_STORE_RELAXED(&dst[i - 1], ___WORD_LOAD_RELAXED(&src[i - 1]));
+    }
   ___RESULT = ___ARG4;
 }
 
@@ -148780,9 +148790,21 @@ ___DEF_SLBL(2,___L2__23__23_values_2d_copy)
 #define ___ARG4 ___R1
 #define ___ARG5 ___FIX(0L)
 { ___SCMOBJ ___RESULT;
-{  void *src = ___CAST(void*,&___FIELD(BOXVALUES,___ARG1,___INT(___ARG2)));
-  void *dst = ___CAST(void*,&___FIELD(BOXVALUES,___ARG4,___INT(___ARG5)));
-  ___SIZE_TS len = ___INT(___FIXSUB(___ARG3,___ARG2)) * ___WS;  memmove (dst, src, len);
+{  ___WORD *src = &___FIELD(BOXVALUES,___ARG1,___INT(___ARG2));
+  ___WORD *dst = &___FIELD(BOXVALUES,___ARG4,___INT(___ARG5));
+  ___SIZE_TS count = ___INT(___FIXSUB(___ARG3,___ARG2));
+  ___SIZE_TS i;
+  ___GC_WRITE_BARRIER_RANGE(___ps, ___ARG4, dst, count);
+  if (dst < src || dst >= src + count)
+    {
+      for (i = 0; i < count; i++)
+        ___WORD_STORE_RELAXED(&dst[i], ___WORD_LOAD_RELAXED(&src[i]));
+    }
+  else if (dst > src)
+    {
+      for (i = count; i > 0; i--)
+        ___WORD_STORE_RELAXED(&dst[i - 1], ___WORD_LOAD_RELAXED(&src[i - 1]));
+    }
   ___RESULT = ___ARG4;
 }
 
@@ -148846,9 +148868,21 @@ ___DEF_SLBL(2,___L2__23__23_values_2d_delete)
 #define ___ARG4 ___R1
 #define ___ARG5 ___FIX(0L)
 { ___SCMOBJ ___RESULT;
-{  void *src = ___CAST(void*,&___FIELD(BOXVALUES,___ARG1,___INT(___ARG2)));
-  void *dst = ___CAST(void*,&___FIELD(BOXVALUES,___ARG4,___INT(___ARG5)));
-  ___SIZE_TS len = ___INT(___FIXSUB(___ARG3,___ARG2)) * ___WS;  memmove (dst, src, len);
+{  ___WORD *src = &___FIELD(BOXVALUES,___ARG1,___INT(___ARG2));
+  ___WORD *dst = &___FIELD(BOXVALUES,___ARG4,___INT(___ARG5));
+  ___SIZE_TS count = ___INT(___FIXSUB(___ARG3,___ARG2));
+  ___SIZE_TS i;
+  ___GC_WRITE_BARRIER_RANGE(___ps, ___ARG4, dst, count);
+  if (dst < src || dst >= src + count)
+    {
+      for (i = 0; i < count; i++)
+        ___WORD_STORE_RELAXED(&dst[i], ___WORD_LOAD_RELAXED(&src[i]));
+    }
+  else if (dst > src)
+    {
+      for (i = count; i > 0; i--)
+        ___WORD_STORE_RELAXED(&dst[i - 1], ___WORD_LOAD_RELAXED(&src[i - 1]));
+    }
   ___RESULT = ___ARG4;
 }
 
@@ -148866,9 +148900,21 @@ ___DEF_SLBL(2,___L2__23__23_values_2d_delete)
 #define ___ARG4 ___R1
 #define ___ARG5 ___STK(-5)
 { ___SCMOBJ ___RESULT;
-{  void *src = ___CAST(void*,&___FIELD(BOXVALUES,___ARG1,___INT(___ARG2)));
-  void *dst = ___CAST(void*,&___FIELD(BOXVALUES,___ARG4,___INT(___ARG5)));
-  ___SIZE_TS len = ___INT(___FIXSUB(___ARG3,___ARG2)) * ___WS;  memmove (dst, src, len);
+{  ___WORD *src = &___FIELD(BOXVALUES,___ARG1,___INT(___ARG2));
+  ___WORD *dst = &___FIELD(BOXVALUES,___ARG4,___INT(___ARG5));
+  ___SIZE_TS count = ___INT(___FIXSUB(___ARG3,___ARG2));
+  ___SIZE_TS i;
+  ___GC_WRITE_BARRIER_RANGE(___ps, ___ARG4, dst, count);
+  if (dst < src || dst >= src + count)
+    {
+      for (i = 0; i < count; i++)
+        ___WORD_STORE_RELAXED(&dst[i], ___WORD_LOAD_RELAXED(&src[i]));
+    }
+  else if (dst > src)
+    {
+      for (i = count; i > 0; i--)
+        ___WORD_STORE_RELAXED(&dst[i - 1], ___WORD_LOAD_RELAXED(&src[i - 1]));
+    }
   ___RESULT = ___ARG4;
 }
 
@@ -148960,9 +149006,21 @@ ___DEF_SLBL(2,___L2__23__23_values_2d_insert)
 #define ___ARG4 ___R1
 #define ___ARG5 ___FIX(0L)
 { ___SCMOBJ ___RESULT;
-{  void *src = ___CAST(void*,&___FIELD(BOXVALUES,___ARG1,___INT(___ARG2)));
-  void *dst = ___CAST(void*,&___FIELD(BOXVALUES,___ARG4,___INT(___ARG5)));
-  ___SIZE_TS len = ___INT(___FIXSUB(___ARG3,___ARG2)) * ___WS;  memmove (dst, src, len);
+{  ___WORD *src = &___FIELD(BOXVALUES,___ARG1,___INT(___ARG2));
+  ___WORD *dst = &___FIELD(BOXVALUES,___ARG4,___INT(___ARG5));
+  ___SIZE_TS count = ___INT(___FIXSUB(___ARG3,___ARG2));
+  ___SIZE_TS i;
+  ___GC_WRITE_BARRIER_RANGE(___ps, ___ARG4, dst, count);
+  if (dst < src || dst >= src + count)
+    {
+      for (i = 0; i < count; i++)
+        ___WORD_STORE_RELAXED(&dst[i], ___WORD_LOAD_RELAXED(&src[i]));
+    }
+  else if (dst > src)
+    {
+      for (i = count; i > 0; i--)
+        ___WORD_STORE_RELAXED(&dst[i - 1], ___WORD_LOAD_RELAXED(&src[i - 1]));
+    }
   ___RESULT = ___ARG4;
 }
 
@@ -148980,9 +149038,21 @@ ___DEF_SLBL(2,___L2__23__23_values_2d_insert)
 #define ___ARG4 ___R1
 #define ___ARG5 ___R2
 { ___SCMOBJ ___RESULT;
-{  void *src = ___CAST(void*,&___FIELD(BOXVALUES,___ARG1,___INT(___ARG2)));
-  void *dst = ___CAST(void*,&___FIELD(BOXVALUES,___ARG4,___INT(___ARG5)));
-  ___SIZE_TS len = ___INT(___FIXSUB(___ARG3,___ARG2)) * ___WS;  memmove (dst, src, len);
+{  ___WORD *src = &___FIELD(BOXVALUES,___ARG1,___INT(___ARG2));
+  ___WORD *dst = &___FIELD(BOXVALUES,___ARG4,___INT(___ARG5));
+  ___SIZE_TS count = ___INT(___FIXSUB(___ARG3,___ARG2));
+  ___SIZE_TS i;
+  ___GC_WRITE_BARRIER_RANGE(___ps, ___ARG4, dst, count);
+  if (dst < src || dst >= src + count)
+    {
+      for (i = 0; i < count; i++)
+        ___WORD_STORE_RELAXED(&dst[i], ___WORD_LOAD_RELAXED(&src[i]));
+    }
+  else if (dst > src)
+    {
+      for (i = count; i > 0; i--)
+        ___WORD_STORE_RELAXED(&dst[i - 1], ___WORD_LOAD_RELAXED(&src[i - 1]));
+    }
   ___RESULT = ___ARG4;
 }
 
@@ -149052,9 +149122,21 @@ ___DEF_GLBL(___L__23__23_subvalues_2d_move_21_)
 #define ___ARG4 ___R2
 #define ___ARG5 ___R3
 { ___SCMOBJ ___RESULT;
-{  void *src = ___CAST(void*,&___FIELD(BOXVALUES,___ARG1,___INT(___ARG2)));
-  void *dst = ___CAST(void*,&___FIELD(BOXVALUES,___ARG4,___INT(___ARG5)));
-  ___SIZE_TS len = ___INT(___FIXSUB(___ARG3,___ARG2)) * ___WS;  memmove (dst, src, len);
+{  ___WORD *src = &___FIELD(BOXVALUES,___ARG1,___INT(___ARG2));
+  ___WORD *dst = &___FIELD(BOXVALUES,___ARG4,___INT(___ARG5));
+  ___SIZE_TS count = ___INT(___FIXSUB(___ARG3,___ARG2));
+  ___SIZE_TS i;
+  ___GC_WRITE_BARRIER_RANGE(___ps, ___ARG4, dst, count);
+  if (dst < src || dst >= src + count)
+    {
+      for (i = 0; i < count; i++)
+        ___WORD_STORE_RELAXED(&dst[i], ___WORD_LOAD_RELAXED(&src[i]));
+    }
+  else if (dst > src)
+    {
+      for (i = count; i > 0; i--)
+        ___WORD_STORE_RELAXED(&dst[i - 1], ___WORD_LOAD_RELAXED(&src[i - 1]));
+    }
   ___RESULT = ___ARG4;
 }
 

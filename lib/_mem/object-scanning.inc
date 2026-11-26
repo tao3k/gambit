@@ -129,8 +129,15 @@ ___WORD head;)
                 mark_array (work, body+i, 1); /* mark objects in value fields */
             }
 
-          if(work->census==0) { body[0] = reached_gc_hash_tables;
-            reached_gc_hash_tables = ___CAST(___WORD,body); }
+          if(work->census==0) {
+            body[0] = reached_gc_hash_tables;
+            reached_gc_hash_tables = ___CAST(___WORD,body);
+            if (___EXPECT_FALSE(
+                  ___COLLECTION(work->vm).is_minor &&
+                  ___WORD_LOAD_RELAXED(&work->vm->mem.major_phase_) == ___GC_MAJOR_MARKING &&
+                  (flags & (___GCHASHTABLE_FLAG_WEAK_KEYS | ___GCHASHTABLE_FLAG_WEAK_VALS)) != 0))
+              major_register_weak_table(work->vm, ___SUBTYPED_FROM_BODY(body));
+          }
         }
       break;
 
@@ -319,6 +326,11 @@ ___HIDDEN void scan_mature_object
             {
               body[0] = reached_gc_hash_tables;
               reached_gc_hash_tables = ___CAST(___WORD, body);
+              if (___EXPECT_FALSE(
+                    ___COLLECTION(work->vm).is_minor &&
+                    ___WORD_LOAD_RELAXED(&work->vm->mem.major_phase_) == ___GC_MAJOR_MARKING &&
+                    (flags & (___GCHASHTABLE_FLAG_WEAK_KEYS | ___GCHASHTABLE_FLAG_WEAK_VALS)) != 0))
+                major_register_weak_table(work->vm, ___SUBTYPED_FROM_BODY(body));
             }
         }
       break;

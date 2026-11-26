@@ -3,7 +3,7 @@ on:
   pull_request:
     paths: ['include/**', 'lib/**', 'gsc/**', 'gsi/**', 'tests/**', 'configure*', 'makefile.in', '.github/workflows/smp.yml', '.github/actions/gambit-*/**']
   push:
-    branches: [modern-c]
+    branches: [master]
   workflow_dispatch:
 
 permissions:
@@ -36,9 +36,10 @@ jobs:
             include/gambit.h include/config.h
       - uses: actions/upload-artifact@v4
         with:
-          name: gambit-smp-linux-runtime-${{ github.run_id }}-${{ github.run_attempt }}
+          name: gambit-smp-linux-runtime-${{ github.run_id }}
           path: gambit-smp-linux-runtime.tar
           retention-days: 3
+          overwrite: true
 
   smp-multicore-pbt:
     name: "True-Multicore PBT (${{ matrix.topology }})"
@@ -55,7 +56,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y gcc make time
       - uses: actions/download-artifact@v4
         with:
-          name: gambit-smp-linux-runtime-${{ github.run_id }}-${{ github.run_attempt }}
+          name: gambit-smp-linux-runtime-${{ github.run_id }}
       - name: Unpack SMP runtime
         run: tar -xf gambit-smp-linux-runtime.tar
       - uses: ./.github/actions/gambit-multicore-pbt
@@ -86,7 +87,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y gcc make time
       - uses: actions/download-artifact@v4
         with:
-          name: gambit-smp-linux-runtime-${{ github.run_id }}-${{ github.run_attempt }}
+          name: gambit-smp-linux-runtime-${{ github.run_id }}
       - name: Unpack SMP runtime
         run: tar -xf gambit-smp-linux-runtime.tar
       - name: Official interpreted units with two processors
@@ -119,7 +120,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y clang
       - uses: actions/download-artifact@v4
         with:
-          name: gambit-smp-linux-runtime-${{ github.run_id }}-${{ github.run_attempt }}
+          name: gambit-smp-linux-runtime-${{ github.run_id }}
       - name: Unpack configured headers
         run: tar -xf gambit-smp-linux-runtime.tar include/gambit.h include/config.h
       - name: Verify Clang -std=c23 -Werror=comment header cleanliness and TSan runtime
@@ -473,6 +474,7 @@ jobs:
 
   upstream-smp:
     name: "macOS arm64 SMP & True-Multicore"
+    needs: smp-build-linux
     runs-on: macos-latest
     timeout-minutes: 40
     steps:

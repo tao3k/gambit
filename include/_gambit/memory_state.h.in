@@ -44,8 +44,23 @@ typedef struct ___msect
     ___SIZE_TS gc_dest_words;      /* round-local populated destination words */
     unsigned char gc_is_dest;      /* 0=none, 1=new mature dest, 2=packed promo_tail */
     unsigned char gc_role;         /* 0=copy/free, 1=stack_dest, 2=young_heap_dest */
+    /* Slice 2: Non-moving Immix Mark-Region & Concurrent SATB Major GC metadata */
+    ___UWORD major_mark_epoch;         /* major cycle epoch owning section mark bitmap */
+    ___SIZE_TS major_snapshot_words;   /* words < this are snapshot; >= are BLACK */
+    ___VOLATILE ___WORD major_live_words; /* marked live words in current Major cycle */
+    ___UWORD major_line_live[8];       /* 512 bits: 1 bit per 128-word Immix line */
+    unsigned char major_evacuate;      /* 1 = fragmented (<50% live), 2 = 100%-dead unlink */
+    ___SIZE_TS major_hole_start;       /* 64-word card-aligned start of largest dead Immix hole */
+    ___SIZE_TS major_hole_end;         /* 64-word card-aligned end of largest dead Immix hole */
     ___WORD base[1];       /* content of section */
   } ___msection;
+
+/* Concurrent SATB Major GC phases & bounded per-processor SATB / local mark buffers */
+#define ___GC_MAJOR_IDLE           0
+#define ___GC_MAJOR_MARKING        1
+#define ___GC_MAJOR_SWEEPING       2
+#define ___GC_SATB_BUF_CAP         256
+#define ___GC_MAJOR_LOCAL_MARK_CAP 128
 
 /* Destination scan ownership is outside Scheme payload/header coordinates. */
 #define ___msection_scan_words(n) (((n)/2+(___WORD_WIDTH/2)-1)/(___WORD_WIDTH/2))
@@ -188,10 +203,12 @@ ___ORDERED_WORD_INLINE void ___gc_card_reset_epoch
 #define ___GC_WRITE_BARRIER(ps,obj,slot_ptr,val) \
   do { \
     ___SCMOBJ ___gwb_v = (val); \
+    ___WORD *___gwb_s = (slot_ptr); \
+    ___processor_state ___gwb_p = (ps); \
+    if (___EXPECT_FALSE(___gwb_p->mem.satb_active_ != 0)) \
+      ___EXT(___gc_satb_barrier_slot)(___gwb_p, ___gwb_s); \
     if (___MEM_ALLOCATED(___gwb_v)) \
       { \
-        ___WORD *___gwb_s = (slot_ptr); \
-        ___processor_state ___gwb_p = (ps); \
         ___UWORD ___gwb_a = ___CAST(___UWORD, ___gwb_s); \
         ___UWORD ___gwb_lo = ___CAST(___UWORD, ___gwb_p->mem.alloc_heap_start_); \
         ___UWORD ___gwb_hi = ___CAST(___UWORD, ___gwb_p->mem.alloc_heap_limit_); \
@@ -204,12 +221,16 @@ ___ORDERED_WORD_INLINE void ___gc_card_reset_epoch
   do { \
     ___WORD *___gwb_s = (slot_ptr); \
     ___processor_state ___gwb_p = (ps); \
-    ___UWORD ___gwb_a = ___CAST(___UWORD, ___gwb_s); \
-    ___UWORD ___gwb_lo = ___CAST(___UWORD, ___gwb_p->mem.alloc_heap_start_); \
-    ___UWORD ___gwb_hi = ___CAST(___UWORD, ___gwb_p->mem.alloc_heap_limit_); \
-    if (___EXPECT_FALSE(___gwb_a - ___gwb_lo >= ___gwb_hi - ___gwb_lo && \
-                        ___gwb_a - ___gwb_p->mem.wb_last_card_lo_ >= (___CAST(___UWORD, ___GC_CARD_WORDS) * ___WS))) \
-      ___EXT(___gc_write_barrier_slow)(___gwb_p, (obj), ___gwb_s); \
+    if (___EXPECT_FALSE(___gwb_p->mem.satb_active_ != 0)) \
+      ___EXT(___gc_satb_barrier_slot)(___gwb_p, ___gwb_s); \
+    { \
+      ___UWORD ___gwb_a = ___CAST(___UWORD, ___gwb_s); \
+      ___UWORD ___gwb_lo = ___CAST(___UWORD, ___gwb_p->mem.alloc_heap_start_); \
+      ___UWORD ___gwb_hi = ___CAST(___UWORD, ___gwb_p->mem.alloc_heap_limit_); \
+      if (___EXPECT_FALSE(___gwb_a - ___gwb_lo >= ___gwb_hi - ___gwb_lo && \
+                          ___gwb_a - ___gwb_p->mem.wb_last_card_lo_ >= (___CAST(___UWORD, ___GC_CARD_WORDS) * ___WS))) \
+        ___EXT(___gc_write_barrier_slow)(___gwb_p, (obj), ___gwb_s); \
+    } \
   } while (0)
 #define ___GC_WRITE_BARRIER_RANGE(ps,obj,start_ptr,words) \
   do { \
@@ -218,10 +239,14 @@ ___ORDERED_WORD_INLINE void ___gc_card_reset_epoch
       { \
         ___WORD *___gwb_s = (start_ptr); \
         ___processor_state ___gwb_p = (ps); \
-        ___UWORD ___gwb_lo = ___CAST(___UWORD, ___gwb_p->mem.alloc_heap_start_); \
-        ___UWORD ___gwb_hi = ___CAST(___UWORD, ___gwb_p->mem.alloc_heap_limit_); \
-        if (___EXPECT_FALSE(___CAST(___UWORD, ___gwb_s) - ___gwb_lo >= ___gwb_hi - ___gwb_lo)) \
-          ___EXT(___gc_write_barrier_range)(___gwb_p, (obj), ___gwb_s, ___gwb_n); \
+        if (___EXPECT_FALSE(___gwb_p->mem.satb_active_ != 0)) \
+          ___EXT(___gc_satb_barrier_range)(___gwb_p, ___gwb_s, ___gwb_n); \
+        { \
+          ___UWORD ___gwb_lo = ___CAST(___UWORD, ___gwb_p->mem.alloc_heap_start_); \
+          ___UWORD ___gwb_hi = ___CAST(___UWORD, ___gwb_p->mem.alloc_heap_limit_); \
+          if (___EXPECT_FALSE(___CAST(___UWORD, ___gwb_s) - ___gwb_lo >= ___gwb_hi - ___gwb_lo)) \
+            ___EXT(___gc_write_barrier_range)(___gwb_p, (obj), ___gwb_s, ___gwb_n); \
+        } \
       } \
   } while (0)
 #endif
@@ -314,6 +339,9 @@ ___WORD *alloc_heap_ptr_;
 /* allocation limit for movable objects in heap_msection */
 ___WORD *alloc_heap_limit_;
 
+/* Slice 2: hot SATB active flag co-located on the heap_limit cache line */
+___VOLATILE ___WORD satb_active_;
+
 /* start of current group of movable objects being copied by mark_array */
 ___WORD *alloc_heap_chunk_start_;
 
@@ -400,6 +428,13 @@ ___gc_card_hint_log card_hints_;
 ___msection *wb_last_sec_;
 ___UWORD wb_last_epoch_;
 ___UWORD wb_last_card_lo_;
+
+/* Slice 2: per-processor out-of-line SATB & local mark buffers (keeps pstate within 1 page) */
+unsigned int satb_count_;
+unsigned int satb_overflow_;
+___SCMOBJ *satb_buf_;
+unsigned int major_mark_local_count_;
+___SCMOBJ *major_mark_local_buf_;
 
 #ifdef ___DEBUG_GARBAGE_COLLECT
 
@@ -548,6 +583,7 @@ ___SIZE_TS major_trigger_still_words_;
 int promo_cand_count_;
 ___msection *promo_cands_[___MAX_PROCESSORS * 2];
 ___VOLATILE ___WORD still_dirty_any_;
+___VOLATILE ___WORD card_overflow_any_;
 ___VOLATILE ___WORD force_major_gc_;
 int gen_gc_enabled_;
 
@@ -559,6 +595,37 @@ ___F64 major_gc_real_time_;
 ___SIZE_TS minor_promoted_words_;
 ___SIZE_TS minor_dirty_cards_scanned_;
 ___SIZE_TS minor_overflow_fallbacks_;
+
+/* Slice 2: Concurrent SATB Major GC & Non-Moving Mark-Region state */
+___VOLATILE ___WORD major_phase_;
+___UWORD major_epoch_;
+___VOLATILE ___WORD satb_overflow_;
+___VOLATILE ___WORD major_mark_lock_;
+___VOLATILE ___WORD major_request_start_;
+___VOLATILE ___WORD major_remark_working_;
+___SCMOBJ *major_mark_stack_;
+___VOLATILE ___WORD major_mark_stack_count_;
+___SIZE_TS major_mark_stack_cap_;
+___SCMOBJ *major_weak_tables_;
+___SIZE_TS major_weak_tables_count_;
+___SIZE_TS major_weak_tables_cap_;
+___WORD **major_still_bases_;
+___SIZE_TS major_still_bases_count_;
+___SIZE_TS major_still_bases_cap_;
+___UWORD major_still_lo_;
+___UWORD major_still_span_;
+int major_evacuate_count_;
+___SIZE_TS major_last_reclaimed_sections_;
+int concurrent_major_enabled_;
+___F64 nb_concurrent_major_cycles_;
+___F64 concurrent_major_mark_slices_;
+___F64 concurrent_major_marked_words_;
+___F64 concurrent_major_reclaimed_sections_;
+___F64 concurrent_major_reclaimed_still_words_;
+___F64 concurrent_major_remark_real_time_;
+___F64 concurrent_major_satb_logged_;
+___F64 concurrent_major_holes_recycled_;
+___F64 concurrent_major_idle_slices_;
 
 } ___vmstate_mem;
 

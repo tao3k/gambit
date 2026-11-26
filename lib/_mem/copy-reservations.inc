@@ -456,6 +456,10 @@ ___WORD n;)
                       {
                         if (is_minor && sec->region_age == ___GC_REGION_MATURE)
                           {
+                            if (___EXPECT_FALSE(
+                                  ___WORD_LOAD_RELAXED(&work->vm->mem.major_phase_) == ___GC_MAJOR_MARKING &&
+                                  !traverse_weak_refs))
+                              major_shade_mature_movable(work->vm, sec, header, head);
                             finish_tail(work);
                             continue;
                           }
@@ -595,6 +599,10 @@ ___WORD n;)
                 if (is_minor &&
                     (body[___STILL_DIRTY - ___STILL_BODY] & ___STILL_FLAG_YOUNG) == 0)
                   {
+                    if (___EXPECT_FALSE(
+                          ___WORD_LOAD_RELAXED(&work->vm->mem.major_phase_) == ___GC_MAJOR_MARKING &&
+                          !traverse_weak_refs))
+                      major_shade_mature_still(work->vm, body - ___STILL_BODY, head);
                     finish_tail(work);
                     continue;
                   }

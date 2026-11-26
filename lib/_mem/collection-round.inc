@@ -473,7 +473,14 @@ ___SIZE_TS requested_words_still;)
       }
     }
   }
-  if(is_coord) setup_stack_heap_vmstate(___vms);
+  if(is_coord)
+    {
+      setup_stack_heap_vmstate(___vms);
+      if (___COLLECTION(___vms).major_action == ___GC_MAJOR_ACTION_ABORT)
+        major_abort_for_full_compacting_gc(___vms);
+      else if (___COLLECTION(___vms).major_action == ___GC_MAJOR_ACTION_START)
+        major_initial_mark_begin(___vms);
+    }
   BARRIER();
   worker_idx=___COLLECTION(___vms).proc_worker[proc_id];
   active_worker=(worker_idx>=0);
@@ -536,7 +543,11 @@ ___SIZE_TS requested_words_still;)
             {
               ___msection *asec = work->arena.section;
               ___WORD *hbase = asec->base + asec->gc_dest_offset;
-              if (asec->gc_is_dest == 2)
+              if (asec->gc_is_dest == 3)
+                {
+                  asec->gc_dest_words = work->arena.cursor - hbase;
+                }
+              else if (asec->gc_is_dest == 2)
                 {
                   ___WORD *pstart = hbase + g->promo_tail_starts[work->id];
                   asec->gc_dest_words = (work->arena.cursor > pstart + 1)
@@ -687,7 +698,34 @@ ___SIZE_TS requested_words_still;)
     rc_contract_error("Physical source retirement lacks a drained member");
 
   if (is_coord)
-    finalize_gc_sections(___vms);
+    {
+      finalize_gc_sections(___vms);
+      if (___COLLECTION(___vms).major_action == ___GC_MAJOR_ACTION_DRAIN_SATB)
+        major_minor_gc_drain_satb(___vms);
+      else if (___COLLECTION(___vms).major_action == ___GC_MAJOR_ACTION_REMARK)
+        major_remark_phase_a_prepare(___vms);
+    }
+
+  if (___COLLECTION(___vms).major_action == ___GC_MAJOR_ACTION_REMARK)
+    {
+      /* 4-Barrier Parallel STW Remark & Parallel Non-Moving Immix Sweep:
+       *   R-A: Parallel SATB + local mark buffer + global mark-stack drain
+       *   R-B: Coordinator overflow recovery + mature wills + atomic weak clearing
+       *   R-C: Parallel non-moving section sweep & Immix hole scan + mature still sweep
+       *   R-D: Coordinator O(1) dead-section unlink + adaptive 1.5x trigger advance */
+      BARRIER();
+      if (active_worker)
+        major_remark_phase_a_parallel(___vms, worker_idx, ___COLLECTION(___vms).worker_count);
+      BARRIER();
+      if (is_coord)
+        major_remark_phase_b_coord(___vms);
+      BARRIER();
+      if (active_worker)
+        major_remark_phase_c_parallel(___vms, worker_idx, ___COLLECTION(___vms).worker_count);
+      BARRIER();
+      if (is_coord)
+        major_remark_phase_d_coord(___vms);
+    }
 
   /* Resize heap */
 

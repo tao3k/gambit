@@ -79,9 +79,20 @@ ___WORD *slot_ptr;)
       ___WORD flags = ___WORD_LOAD_RELAXED(&base[___STILL_DIRTY]);
       if ((flags & (___STILL_FLAG_YOUNG | ___STILL_FLAG_DIRTY)) == 0)
         {
-          ___WORD_STORE_RELEASE(&base[___STILL_DIRTY], ___STILL_FLAG_DIRTY);
+          ___WORD_FETCH_OR_RELEASE(&base[___STILL_DIRTY], ___STILL_FLAG_DIRTY);
           ___WORD_STORE_RELEASE(&vm->mem.still_dirty_any_, 1);
         }
+      /* Cache strictly interior 512B card of this already-dirty/young still
+       * object so sequential mutations to large still vectors/tables elide
+       * redundant slow-barrier calls (SATB check still runs before this cache). */
+      {
+        ___UWORD card_bytes = ___CAST(___UWORD, ___GC_CARD_WORDS) * ___WS;
+        ___UWORD card_lo = ___CAST(___UWORD, slot_ptr) & ~(card_bytes - 1);
+        ___UWORD body_lo = ___CAST(___UWORD, ___BODY0(obj));
+        ___UWORD body_hi = body_lo + ___CAST(___UWORD, ___HD_WORDS(head)) * ___WS;
+        if (card_lo >= body_lo && card_lo < body_hi && body_hi - card_lo >= card_bytes)
+          ___ps->mem.wb_last_card_lo_ = card_lo;
+      }
 #endif
       return;
     }
@@ -101,6 +112,77 @@ ___WORD *slot_ptr;)
         ___gc_card_mark_in_section(sec, section_card_bits(sec), word_off,
                                    ___MSECTION_SIZE, &___ps->mem.card_hints_);
         ___ps->mem.wb_last_card_lo_ = ___CAST(___UWORD, sec->base + card_word_base);
+      }
+  }
+}
+
+/* Cross-processor-safe card barrier for C runtime writes where the caller's
+ * processor_state is not passed (e.g. ___raise_high_level_interrupt_pstate).
+ * Marks the mature card/still dirty flag atomically without touching any
+ * remote processor's per-processor hint log or SATB buffer. */
+void ___gc_write_barrier_slot_vm
+   ___P((___virtual_machine_state vm,
+         ___SCMOBJ obj,
+         ___WORD *slot_ptr),
+        (vm,
+         obj,
+         slot_ptr)
+___virtual_machine_state vm;
+___SCMOBJ obj;
+___WORD *slot_ptr;)
+{
+  ___WORD head;
+  int htyp;
+
+  if (vm == 0 || !___MEM_ALLOCATED(obj) || slot_ptr == 0)
+    return;
+
+  head = ___HEADER(obj);
+  htyp = ___HD_TYP(head);
+
+  if (htyp == ___STILL)
+    {
+#ifndef ___USE_HANDLES
+      ___WORD *base = ___BODY0(obj) - ___STILL_BODY;
+      ___WORD flags = ___WORD_LOAD_RELAXED(&base[___STILL_DIRTY]);
+      if ((flags & (___STILL_FLAG_YOUNG | ___STILL_FLAG_DIRTY)) == 0)
+        {
+          ___WORD_FETCH_OR_RELEASE(&base[___STILL_DIRTY], ___STILL_FLAG_DIRTY);
+          ___WORD_STORE_RELEASE(&vm->mem.still_dirty_any_, 1);
+        }
+#endif
+      return;
+    }
+
+  if (htyp != ___MOVABLE0)
+    return;
+
+  {
+    int nm = vm->mem.nb_msections_mature_;
+    ___UWORD addr = ___CAST(___UWORD, slot_ptr);
+    if (nm > 0 && addr - vm->mem.mature_addr_lo_ < vm->mem.mature_addr_span_)
+      {
+        ___msection **arr = vm->mem.mature_sections_;
+        ___UWORD half_bytes = ___CAST(___UWORD, ___MSECTION_SIZE >> 1) * ___WS;
+        int lo = 0, hi = nm - 1;
+        ___msection *sec;
+        while (lo < hi)
+          {
+            int mid = lo + ((hi - lo + 1) >> 1);
+            if (___CAST(___UWORD, arr[mid]->base) <= addr)
+              lo = mid;
+            else
+              hi = mid - 1;
+          }
+        sec = arr[lo];
+        if (addr - ___CAST(___UWORD, sec->base + sec->active_offset) < half_bytes)
+          {
+            ___SIZE_TS word_off =
+              ___CAST(___SIZE_TS, (addr - ___CAST(___UWORD, sec->base)) / ___WS);
+            ___gc_card_mark_in_section(sec, section_card_bits(sec), word_off,
+                                       ___MSECTION_SIZE, 0);
+            ___WORD_STORE_RELEASE(&vm->mem.card_overflow_any_, 1);
+          }
       }
   }
 }
@@ -137,7 +219,7 @@ ___SIZE_TS words;)
       ___WORD flags = ___WORD_LOAD_RELAXED(&base[___STILL_DIRTY]);
       if ((flags & (___STILL_FLAG_YOUNG | ___STILL_FLAG_DIRTY)) == 0)
         {
-          ___WORD_STORE_RELEASE(&base[___STILL_DIRTY], ___STILL_FLAG_DIRTY);
+          ___WORD_FETCH_OR_RELEASE(&base[___STILL_DIRTY], ___STILL_FLAG_DIRTY);
           ___WORD_STORE_RELEASE(&vm->mem.still_dirty_any_, 1);
         }
 #endif
@@ -288,6 +370,12 @@ ___HIDDEN void collect_minor_card_hints(___virtual_machine_state vm)
   int np = g->participant_count;
   int p, count = 0, overflow = 0;
 
+  if (___WORD_LOAD_ACQUIRE(&vm->mem.card_overflow_any_) != 0)
+    {
+      overflow = 1;
+      ___WORD_STORE_RELEASE(&vm->mem.card_overflow_any_, 0);
+    }
+
   for (p = 0; p < np; p++)
     {
       ___processor_state ps = ___PSTATE_FROM_PROCESSOR_ID(p, vm);
@@ -346,12 +434,50 @@ ___HIDDEN int section_has_promo_room(___msection *sec, ___SIZE_TS *start_w_out)
   return 0;
 }
 
+___HIDDEN ___SIZE_TS section_best_promo_span
+   (___msection *sec,
+    int allow_hole,
+    ___SIZE_TS *start_w_out,
+    ___SIZE_TS *end_w_out,
+    int *is_hole_out)
+{
+  ___SIZE_TS tail_start = 0, tail_room = 0;
+  ___SIZE_TS hole_room = 0;
+  if (section_has_promo_room(sec, &tail_start))
+    tail_room = (___MSECTION_SIZE >> 1) - tail_start;
+  if (allow_hole &&
+      sec->major_hole_end > sec->major_hole_start &&
+      (sec->major_hole_end - sec->major_hole_start) >= 512)
+    hole_room = sec->major_hole_end - sec->major_hole_start;
+
+  /* Prefer Immix hole recycling whenever a substantial dead hole exists
+   * (>= 1024 words or larger than tail room) to keep mature RSS tightly bounded. */
+  if (hole_room > 0 && (hole_room >= 1024 || hole_room >= tail_room))
+    {
+      if (start_w_out != 0) *start_w_out = sec->major_hole_start;
+      if (end_w_out != 0) *end_w_out = sec->major_hole_end;
+      if (is_hole_out != 0) *is_hole_out = 1;
+      return hole_room;
+    }
+  if (tail_room > 0)
+    {
+      if (start_w_out != 0) *start_w_out = tail_start;
+      if (end_w_out != 0) *end_w_out = (___MSECTION_SIZE >> 1);
+      if (is_hole_out != 0) *is_hole_out = 0;
+      return tail_room;
+    }
+  return 0;
+}
+
 ___HIDDEN void promo_cand_add(___virtual_machine_state vm, ___msection *sec)
 {
   int cap = ___MAX_PROCESSORS * 2;
   int i;
-  ___SIZE_TS sw;
-  if (sec == 0 || sec->region_age != ___GC_REGION_MATURE || !section_has_promo_room(sec, &sw))
+  ___SIZE_TS room;
+  if (sec == 0 || sec->region_age != ___GC_REGION_MATURE)
+    return;
+  room = section_best_promo_span(sec, 1, 0, 0, 0);
+  if (room == 0)
     return;
   for (i = 0; i < vm->mem.promo_cand_count_; i++)
     if (vm->mem.promo_cands_[i] == sec)
@@ -363,10 +489,17 @@ ___HIDDEN void promo_cand_add(___virtual_machine_state vm, ___msection *sec)
     }
   {
     int worst = 0;
+    ___SIZE_TS worst_room = section_best_promo_span(vm->mem.promo_cands_[0], 1, 0, 0, 0);
     for (i = 1; i < cap; i++)
-      if (vm->mem.promo_cands_[i]->mature_words > vm->mem.promo_cands_[worst]->mature_words)
-        worst = i;
-    if (sec->mature_words < vm->mem.promo_cands_[worst]->mature_words)
+      {
+        ___SIZE_TS r = section_best_promo_span(vm->mem.promo_cands_[i], 1, 0, 0, 0);
+        if (r < worst_room)
+          {
+            worst = i;
+            worst_room = r;
+          }
+      }
+    if (room > worst_room)
       vm->mem.promo_cands_[worst] = sec;
   }
 }
@@ -407,6 +540,7 @@ ___HIDDEN void prepare_generational_round
   if (!vm->mem.gen_gc_enabled_)
     can_gen = 0;
   g->is_minor = 0;
+  g->major_action = 0;
   g->has_wills = 0;
   g->has_young_still = 0;
   g->card_overflow = 0;
@@ -430,6 +564,8 @@ ___HIDDEN void prepare_generational_round
         g->young_heap_secs[i] = 0;
         g->promo_tails[i] = 0;
         g->promo_tail_starts[i] = 0;
+        g->promo_tail_ends[i] = 0;
+        g->promo_tail_is_hole[i] = 0;
       }
   }
 
@@ -437,14 +573,18 @@ ___HIDDEN void prepare_generational_round
       force_major == 0 &&
       (requested_words_still == 0 ||
        (___GSTATE->setup_params.max_heap == 0 && g->has_young_still)) &&
-      vm->mem.nb_msections_mature_ > 0 &&
-      vm->mem.nb_msections_mature_ < vm->mem.major_trigger_sections_ &&
-      vm->mem.mature_still_words_ < vm->mem.major_trigger_still_words_ &&
-      vm->mem.minor_gcs_since_major_ < 64 &&
       g->worker_count >= 1 &&
       np == vm->processor_count)
     {
       int ok = 1;
+      ___WORD phase = ___WORD_LOAD_ACQUIRE(&vm->mem.major_phase_);
+      ___WORD req_start = ___WORD_LOAD_ACQUIRE(&vm->mem.major_request_start_);
+      int major_due = (vm->mem.nb_msections_mature_ >= vm->mem.major_trigger_sections_ ||
+                       vm->mem.mature_still_words_ >= vm->mem.major_trigger_still_words_ ||
+                       vm->mem.minor_gcs_since_major_ >= 64);
+      int need_compact = (vm->mem.major_evacuate_count_ >= 4 &&
+                          vm->mem.major_evacuate_count_ * 3 >= vm->mem.nb_msections_mature_);
+
       if (___GSTATE->setup_params.max_heap > 0)
         {
           ___SIZE_TS cap_secs =
@@ -452,15 +592,48 @@ ___HIDDEN void prepare_generational_round
           if (___CAST(___SIZE_TS, vm->mem.nb_msections_mature_ + 2 * np + 2) > cap_secs)
             ok = 0;
         }
-      if (ok)
-        g->is_minor = 1;
+
+      if (ok && phase == ___GC_MAJOR_MARKING)
+        {
+          g->is_minor = 1;
+          if (!major_has_pending_mark_work(vm) ||
+              req_start == 2 ||
+              vm->mem.minor_gcs_since_major_ >= 8 ||
+              vm->mem.nb_msections_mature_ >= vm->mem.major_trigger_sections_ * 2 ||
+              vm->mem.mature_still_words_ >= vm->mem.major_trigger_still_words_ * 2)
+            g->major_action = 3; /* ___GC_MAJOR_ACTION_REMARK */
+          else
+            g->major_action = 2; /* ___GC_MAJOR_ACTION_DRAIN_SATB */
+        }
+      else if (ok && phase == ___GC_MAJOR_IDLE)
+        {
+          if (major_due || req_start != 0)
+            {
+              if (vm->mem.concurrent_major_enabled_ != 0 &&
+                  !need_compact &&
+                  (vm->mem.nb_msections_mature_ > 0 || vm->mem.mature_still_words_ > 0))
+                {
+                  g->is_minor = 1;
+                  g->major_action = 1; /* ___GC_MAJOR_ACTION_START */
+                }
+            }
+          else if (vm->mem.nb_msections_mature_ > 0)
+            {
+              g->is_minor = 1;
+            }
+        }
     }
+
+  if (!g->is_minor && ___WORD_LOAD_ACQUIRE(&vm->mem.major_phase_) != ___GC_MAJOR_IDLE)
+    g->major_action = 4; /* ___GC_MAJOR_ACTION_ABORT */
 
   if (g->is_minor)
     {
       /* Mature sections maintain gc_dest_*==0, gc_role==0, gc_src_offset==active_offset,
        * and scan_end_words==mature_words across Minor GCs. Walk ONLY young sections O(Y). */
       int max_tails = g->worker_count;
+      int allow_hole = (___WORD_LOAD_ACQUIRE(&vm->mem.major_phase_) == ___GC_MAJOR_IDLE &&
+                        g->major_action != 1);
       int ci;
       for (sec = g->young_head; sec != 0; sec = sec->next)
         {
@@ -474,31 +647,45 @@ ___HIDDEN void prepare_generational_round
 
       collect_minor_card_hints(vm);
 
-      /* Select up to worker_count least-full mature promotion tails from the O(W)
-       * candidate cache instead of linearly scanning all M mature sections. */
+      /* Select up to worker_count roomiest mature promotion tails or IDLE Immix
+       * dead-line holes from the O(W) candidate cache. */
       for (ci = 0; ci < vm->mem.promo_cand_count_; ci++)
         {
-          ___SIZE_TS start_w;
+          ___SIZE_TS start_w = 0, end_w = 0, room;
+          int is_hole = 0;
           sec = vm->mem.promo_cands_[ci];
-          if (sec == 0 || sec->region_age != ___GC_REGION_MATURE ||
-              !section_has_promo_room(sec, &start_w))
+          if (sec == 0 || sec->region_age != ___GC_REGION_MATURE)
+            continue;
+          room = section_best_promo_span(sec, allow_hole, &start_w, &end_w, &is_hole);
+          if (room == 0)
             continue;
           if (g->promo_tail_count < max_tails)
             {
               int idx = g->promo_tail_count++;
               g->promo_tails[idx] = sec;
               g->promo_tail_starts[idx] = start_w;
+              g->promo_tail_ends[idx] = end_w;
+              g->promo_tail_is_hole[idx] = ___CAST(unsigned char, is_hole);
             }
           else
             {
               int worst = 0, j;
+              ___SIZE_TS worst_room = g->promo_tail_ends[0] - g->promo_tail_starts[0];
               for (j = 1; j < max_tails; j++)
-                if (g->promo_tail_starts[j] > g->promo_tail_starts[worst])
-                  worst = j;
-              if (start_w < g->promo_tail_starts[worst])
+                {
+                  ___SIZE_TS r = g->promo_tail_ends[j] - g->promo_tail_starts[j];
+                  if (r < worst_room)
+                    {
+                      worst = j;
+                      worst_room = r;
+                    }
+                }
+              if (room > worst_room)
                 {
                   g->promo_tails[worst] = sec;
                   g->promo_tail_starts[worst] = start_w;
+                  g->promo_tail_ends[worst] = end_w;
+                  g->promo_tail_is_hole[worst] = ___CAST(unsigned char, is_hole);
                 }
             }
         }
@@ -532,6 +719,7 @@ ___HIDDEN void downgrade_minor_to_major(___processor_state ps)
   ___SIZE_TS young_src_off = ps->mem.tospace_offset_;
   ___msection *sec;
   g->is_minor = 0;
+  g->major_action = (___WORD_LOAD_ACQUIRE(&vm->mem.major_phase_) != ___GC_MAJOR_IDLE) ? 4 : 0;
   g->card_overflow = 0;
   g->hint_count = 0;
   g->promo_tail_count = 0;
@@ -882,8 +1070,10 @@ ___HIDDEN void finalize_gc_sections(___virtual_machine_state vm)
               ___WORD *base = ___CAST(___WORD*, ___PSTATE_FROM_PROCESSOR_ID(p, vm)->mem.still_objs_);
               while (base != 0)
                 {
-                  if (base[___STILL_DIRTY] != 0)
-                    base[___STILL_DIRTY] = 0;
+                  if ((base[___STILL_DIRTY] & ___STILL_FLAG_DIRTY) != 0)
+                    ___WORD_FETCH_AND_RELEASE(
+                      &base[___STILL_DIRTY],
+                      ~___CAST(___WORD, ___STILL_FLAG_DIRTY));
                   base = ___CAST(___WORD*, base[___STILL_LINK]);
                 }
             }
@@ -928,7 +1118,57 @@ ___HIDDEN void finalize_gc_sections(___virtual_machine_state vm)
           ___msection *s = g->promo_tails[i];
           if (s != 0)
             {
-              if (s->gc_is_dest == 2)
+              if (s->gc_is_dest == 3)
+                {
+                  /* Close recycled Immix dead-line hole [hole_lo, hole_hi) strictly
+                   * after all parallel chunk-stealing workers drained behind BARRIER(). */
+                  ___WORD *hbase = s->base + s->active_offset;
+                  ___SIZE_TS hole_lo = g->promo_tail_starts[i];
+                  ___SIZE_TS hole_hi = g->promo_tail_ends[i];
+                  ___SIZE_TS cur_off = s->gc_dest_words;
+                  unsigned char *starts = section_card_starts(s);
+                  unsigned int lo_card =
+                    ___CAST(unsigned int, (s->active_offset + hole_lo) >> ___GC_CARD_SHIFT_WORDS);
+
+                  if (cur_off <= hole_lo + 1 || cur_off >= hole_hi)
+                    {
+                      /* Empty hole (nothing promoted): restore single filler & retain hole. */
+                      hbase[hole_lo] = ___MAKE_HD_WORDS(hole_hi - hole_lo - 1, ___sU8VECTOR);
+                      starts[lo_card] = 0;
+                      s->major_hole_start = hole_lo;
+                      s->major_hole_end = hole_hi;
+                    }
+                  else
+                    {
+                      ___SIZE_TS next_lo = (cur_off + ___GC_CARD_WORDS - 1) &
+                                           ~___CAST(___SIZE_TS, ___GC_CARD_WORDS - 1);
+                      /* Replace initial NULL_CHUNK_LINK at hole_lo with 1-word leaf filler. */
+                      hbase[hole_lo] = ___MAKE_HD_WORDS(0, ___sU8VECTOR);
+                      starts[lo_card] = 0;
+                      if (hole_hi > next_lo && (hole_hi - next_lo) >= 512)
+                        {
+                          if (next_lo > cur_off)
+                            {
+                              hbase[cur_off] = ___MAKE_HD_WORDS(next_lo - cur_off - 1, ___sU8VECTOR);
+                              record_mature_obj_start(s, hbase + cur_off);
+                            }
+                          hbase[next_lo] = ___MAKE_HD_WORDS(hole_hi - next_lo - 1, ___sU8VECTOR);
+                          record_mature_obj_start(s, hbase + next_lo);
+                          s->major_hole_start = next_lo;
+                          s->major_hole_end = hole_hi;
+                        }
+                      else
+                        {
+                          hbase[cur_off] = ___MAKE_HD_WORDS(hole_hi - cur_off - 1, ___sU8VECTOR);
+                          record_mature_obj_start(s, hbase + cur_off);
+                          s->major_hole_start = 0;
+                          s->major_hole_end = 0;
+                        }
+                      vm->mem.concurrent_major_holes_recycled_ += 1.0;
+                    }
+                  s->region_age = ___GC_REGION_MATURE;
+                }
+              else if (s->gc_is_dest == 2)
                 {
                   if (s->gc_dest_words > s->mature_words)
                     vm->mem.occupied_words_mature_ += (s->gc_dest_words - s->mature_words);
@@ -951,7 +1191,7 @@ ___HIDDEN void finalize_gc_sections(___virtual_machine_state vm)
           {
             ___msection *s = vm->mem.promo_cands_[i];
             if (s != 0 && s->region_age == ___GC_REGION_MATURE &&
-                section_has_promo_room(s, 0))
+                section_best_promo_span(s, 1, 0, 0, 0) > 0)
               vm->mem.promo_cands_[out++] = s;
           }
         vm->mem.promo_cand_count_ = out;
@@ -982,6 +1222,24 @@ ___HIDDEN void finalize_gc_sections(___virtual_machine_state vm)
               cur->gc_role = 0;
               cur->card_dirty_any = 0;
               memset(___CAST(void*, section_card_bits(cur)), 0, SECTION_CARD_BYTES);
+              if (___WORD_LOAD_ACQUIRE(&vm->mem.major_phase_) == ___GC_MAJOR_MARKING)
+                {
+                  cur->major_mark_epoch = vm->mem.major_epoch_;
+                  cur->major_snapshot_words = 0;
+                  cur->major_live_words = ___CAST(___WORD, cur->mature_words);
+                  cur->major_evacuate = 0;
+                  cur->major_hole_start = 0;
+                  cur->major_hole_end = 0;
+                }
+              else
+                {
+                  cur->major_mark_epoch = 0;
+                  cur->major_snapshot_words = 0;
+                  cur->major_live_words = 0;
+                  cur->major_evacuate = 0;
+                  cur->major_hole_start = 0;
+                  cur->major_hole_end = 0;
+                }
               cur->region_generation++;
               new_mat_count++;
               vm->mem.occupied_words_mature_ += cur->mature_words;
@@ -1102,6 +1360,12 @@ ___HIDDEN void finalize_gc_sections(___virtual_machine_state vm)
           sec->gc_is_dest = 0;
           sec->gc_dest_offset = 0;
           sec->gc_dest_words = 0;
+          sec->major_mark_epoch = 0;
+          sec->major_snapshot_words = 0;
+          sec->major_live_words = 0;
+          sec->major_evacuate = 0;
+          sec->major_hole_start = 0;
+          sec->major_hole_end = 0;
 
           if (sec->region_age == ___GC_REGION_MATURE)
             {
@@ -1179,17 +1443,19 @@ ___HIDDEN void finalize_gc_sections(___virtual_machine_state vm)
       vm->mem.nb_msections_mature_ = mature_count;
       vm->mem.mature_tail_ = mat_tail;
       vm->mem.occupied_words_mature_ = mature_words_total;
+      vm->mem.major_evacuate_count_ = 0;
       vm->mem.alloc_msection_ = act_tail ? act_tail : mat_tail;
       vm->mem.nb_msections_assigned_ = mature_count + active_young_count;
       vm->mem.nb_msections_stacks_ = np;
 
       {
         int trig = mature_count * 2;
-        ___SIZE_TS still_trig = vm->mem.mature_still_words_ * 2;
+        ___SIZE_TS mstill = vm->mem.mature_still_words_;
+        ___SIZE_TS still_trig = mstill + (mstill >> 1);
         if (trig < mature_count + 8)
           trig = mature_count + 8;
-        if (still_trig < 4 * ___MSECTION_SIZE)
-          still_trig = 4 * ___MSECTION_SIZE;
+        if (still_trig < 2 * ___MSECTION_SIZE)
+          still_trig = 2 * ___MSECTION_SIZE;
         vm->mem.major_trigger_sections_ = trig;
         vm->mem.major_trigger_still_words_ = still_trig;
         vm->mem.minor_gcs_since_major_ = 0;

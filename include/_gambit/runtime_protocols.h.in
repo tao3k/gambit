@@ -1077,6 +1077,38 @@ ___IMP_FUNC(int,___gc_set_generational_enabled)
    ___P((___processor_state ___ps,
          int enabled),
         ());
+___IMP_FUNC(void,___gc_satb_barrier_slot)
+   ___P((___processor_state ___ps,
+         ___WORD *slot_ptr),
+        ());
+___IMP_FUNC(void,___gc_satb_barrier_val)
+   ___P((___processor_state ___ps,
+         ___SCMOBJ old_val),
+        ());
+___IMP_FUNC(void,___gc_satb_barrier_range)
+   ___P((___processor_state ___ps,
+         ___WORD *start_ptr,
+         ___SIZE_TS words),
+        ());
+___IMP_FUNC(void,___gc_concurrent_major_stats)
+   ___P((___processor_state ___ps,
+         double *out_stats),
+        ());
+___IMP_FUNC(int,___gc_set_concurrent_major_enabled)
+   ___P((___processor_state ___ps,
+         int enabled),
+        ());
+___IMP_FUNC(int,___gc_start_concurrent_major)
+   ___P((___processor_state ___ps,
+         int finish_now),
+        ());
+___IMP_FUNC(___SIZE_TS,___gc_major_mark_slice)
+   ___P((___processor_state ___ps,
+         ___SIZE_TS budget_words),
+        ());
+___IMP_FUNC(int,___gc_major_mark_idle_slice)
+   ___P((___processor_state ___ps),
+        ());
 #else
 extern void ___gc_write_barrier_slow
    ___P((___processor_state ___ps,
@@ -1089,7 +1121,37 @@ extern void ___gc_write_barrier_range
          ___WORD *start_ptr,
          ___SIZE_TS words),
         ());
+extern void ___gc_satb_barrier_slot
+   ___P((___processor_state ___ps,
+         ___WORD *slot_ptr),
+        ());
+extern void ___gc_satb_barrier_val
+   ___P((___processor_state ___ps,
+         ___SCMOBJ old_val),
+        ());
+extern void ___gc_satb_barrier_range
+   ___P((___processor_state ___ps,
+         ___WORD *start_ptr,
+         ___SIZE_TS words),
+        ());
+extern int ___gc_major_mark_idle_slice
+   ___P((___processor_state ___ps),
+        ());
 #endif
+
+___ORDERED_WORD_INLINE ___SCMOBJ ___gc_satb_read_barrier
+   (___processor_state ___ps,
+    ___SCMOBJ val,
+    void (*satb_val) ___P((___processor_state, ___SCMOBJ), ()))
+{
+#ifndef ___DISABLE_GENERATIONAL_GC
+  if (___EXPECT_FALSE(___ps->mem.satb_active_ != 0 && ___MEM_ALLOCATED(val)))
+    satb_val(___ps, val);
+#else
+  (void)___ps; (void)satb_val;
+#endif
+  return val;
+}
 
 ___ORDERED_WORD_INLINE ___WORD ___gc_vector_cas_barrier
    (___processor_state ___ps,
@@ -1097,10 +1159,13 @@ ___ORDERED_WORD_INLINE ___WORD ___gc_vector_cas_barrier
     ___SCMOBJ i,
     ___SCMOBJ val,
     ___SCMOBJ oldval,
-    void (*wb_slow) ___P((___processor_state, ___SCMOBJ, ___WORD*), ()))
+    void (*wb_slow) ___P((___processor_state, ___SCMOBJ, ___WORD*), ()),
+    void (*satb_val) ___P((___processor_state, ___SCMOBJ), ()))
 {
   ___WORD *slot = ___FXINDX_WORD(___BODY_AS(v, ___tVECTOR), i);
 #ifndef ___DISABLE_GENERATIONAL_GC
+  if (___EXPECT_FALSE(___ps->mem.satb_active_ != 0 && ___MEM_ALLOCATED(oldval)))
+    satb_val(___ps, oldval);
   if (___MEM_ALLOCATED(val))
     {
       ___UWORD a = ___CAST(___UWORD, slot);
@@ -1111,7 +1176,7 @@ ___ORDERED_WORD_INLINE ___WORD ___gc_vector_cas_barrier
         wb_slow(___ps, v, slot);
     }
 #else
-  (void)___ps; (void)wb_slow;
+  (void)___ps; (void)wb_slow; (void)satb_val;
 #endif
   return ___COMPARE_AND_SWAP_WORD(___CAST(___VOLATILE ___WORD*, slot), oldval, val);
 }
@@ -1122,10 +1187,13 @@ ___ORDERED_WORD_INLINE ___WORD ___gc_structure_cas_barrier
     ___SCMOBJ val,
     ___SCMOBJ oldval,
     ___SCMOBJ i,
-    void (*wb_slow) ___P((___processor_state, ___SCMOBJ, ___WORD*), ()))
+    void (*wb_slow) ___P((___processor_state, ___SCMOBJ, ___WORD*), ()),
+    void (*satb_val) ___P((___processor_state, ___SCMOBJ), ()))
 {
   ___WORD *slot = ___FXINDX_WORD(___BODY_AS(x, ___tSTRUCTURE), i);
 #ifndef ___DISABLE_GENERATIONAL_GC
+  if (___EXPECT_FALSE(___ps->mem.satb_active_ != 0 && ___MEM_ALLOCATED(oldval)))
+    satb_val(___ps, oldval);
   if (___MEM_ALLOCATED(val))
     {
       ___UWORD a = ___CAST(___UWORD, slot);
@@ -1136,7 +1204,7 @@ ___ORDERED_WORD_INLINE ___WORD ___gc_structure_cas_barrier
         wb_slow(___ps, x, slot);
     }
 #else
-  (void)___ps; (void)wb_slow;
+  (void)___ps; (void)wb_slow; (void)satb_val;
 #endif
   return ___COMPARE_AND_SWAP_WORD(___CAST(___VOLATILE ___WORD*, slot), oldval, val);
 }

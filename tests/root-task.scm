@@ -140,6 +140,7 @@ c-end
   (begin
    (c-declare #<<c-end
 #include "rc.h"
+#include <stdlib.h>
 static int bank_test_fault,bank_test_calls,bank_test_entered;
 static ___SCMOBJ bank_test_begin_sfun(___processor_state ps, ___WORD nargs,
                                       ___SCMOBJ proc, void **scope)

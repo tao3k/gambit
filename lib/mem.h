@@ -9,6 +9,7 @@
 
 extern ___BOOL ___binding_context_admit ___P((___processor_state ps), ());
 extern void ___binding_context_close ___P((___processor_state ps), ());
+extern void ___gc_write_barrier_slot_vm ___P((___virtual_machine_state vm, ___SCMOBJ obj, ___WORD *slot_ptr), ());
 
 
 

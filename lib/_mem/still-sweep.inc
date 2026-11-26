@@ -25,7 +25,13 @@ ___PSDKR)
       else
         {
 #ifndef ___USE_HANDLES
-          base[___STILL_DIRTY] = 0;
+          {
+            ___virtual_machine_state vm = ___VMSTATE_FROM_PSTATE(___ps);
+            if (___WORD_LOAD_RELAXED(&vm->mem.major_phase_) == ___GC_MAJOR_MARKING)
+              base[___STILL_DIRTY] = ___STILL_MAJOR_MARK_BIT(vm->mem.major_epoch_);
+            else
+              base[___STILL_DIRTY] = 0;
+          }
 #endif
           promoted_words += base[___STILL_LENGTH];
           base[___STILL_LINK] = still_objs;

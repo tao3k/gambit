@@ -23373,7 +23373,7 @@ ___DEF_GLBL(___L__23__23_frame_2d_set_21_)
      {
        ___WORD *___fslot = ___frame_heap_slot_ptr(body, &descriptor, i);
        ___GC_WRITE_BARRIER(___ps, ___ARG1, ___fslot, ___ARG3);
-       *___fslot = ___ARG3;
+       ___WORD_STORE_RELAXED(___fslot, ___ARG3);
      }
 
    ___RESULT = ___VOID;
@@ -23481,7 +23481,7 @@ ___DEF_GLBL(___L__23__23_continuation_2d_set_21_)
          {
            ___WORD *___fslot = ___frame_heap_slot_ptr(body, &descriptor, i);
            ___GC_WRITE_BARRIER(___ps, frame, ___fslot, val);
-           *___fslot = val;
+           ___WORD_STORE_RELAXED(___fslot, val);
          }
      }
    else
@@ -23734,9 +23734,9 @@ ___DEF_GLBL(___L__23__23_continuation_2d_next_21_)
            else
              {
                ___GC_WRITE_BARRIER_ALWAYS(___ps, cont, &___CONTINUATION_FRAME_FIELD(cont));
-               ___CONTINUATION_FRAME_FIELD(cont) = next_frame;
+               ___WORD_STORE_RELAXED(&___CONTINUATION_FRAME_FIELD(cont), next_frame);
                ___GC_WRITE_BARRIER(___ps, cont, &___CONTINUATION_DENV_FIELD(cont), denv);
-               ___CONTINUATION_DENV_FIELD(cont) = denv;
+               ___WORD_STORE_RELAXED(&___CONTINUATION_DENV_FIELD(cont), denv);
                ___RESULT = cont;
              }
          }

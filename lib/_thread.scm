@@ -2865,11 +2865,14 @@
     (macro-unlock-current-vm!)
 
     ;; Dekker store-load fence: idle publication must be globally visible
-    ;; before checking own queue and per-processor unpinned-enqueue epochs.
+    ;; before checking own queue, per-processor unpinned-enqueue epochs,
+    ;; and pending processor interrupts / high-level interrupt queue.
     (macro-shared-memory-barrier!)
 
     (if (or (macro-processor-runq-nonempty? processor)
-            (##not (##fx= (##vm-enqueue-epoch-sum) expected-epoch)))
+            (##not (##fx= (##vm-enqueue-epoch-sum) expected-epoch))
+            (##not (##null? (macro-struct-slot-acquire processor 20)))
+            (##c-code "___RESULT = ___BOOLEAN(___INTERRUPT_REQ(___INTERRUPT_FLAGS()));"))
         (begin
           (macro-lock-current-vm!)
           (if (##not (##eq? (macro-processor-deq-next processor) processor))
@@ -3332,14 +3335,27 @@
 
                            (macro-unlock-current-processor!)
 
-                           (if (##fx> np 1)
-                               (##wait-idle-if-unchanged! epoch0)
-                               (##wait! #f #t))
+                           ;; Slice 2 v2: before sleeping, perform one bounded cooperative
+                           ;; concurrent Major GC mark slice if marking is active.
+                           (if (##c-code "___RESULT = ___BOOLEAN(___EXT(___gc_major_mark_idle_slice)(___ps));")
+                               (begin
+                                 (##c-code "___STACK_TRIP_ON_IF_INTERRUPT_REQ(); ___RESULT = ___VOID;")
+                                 (##service-interrupts!)
+                                 (if (##not (##null? (macro-struct-slot-acquire (macro-current-processor) 20)))
+                                     (##other-interrupt!))
+                                 (##thread-schedule!))
+                               (begin
+                                 (if (##fx> np 1)
+                                     (##wait-idle-if-unchanged! epoch0)
+                                     (##wait! #f #t))
 
-                           (##service-interrupts!) ;;TODO:remove
+                                 (##c-code "___STACK_TRIP_ON_IF_INTERRUPT_REQ(); ___RESULT = ___VOID;")
+                                 (##service-interrupts!) ;;TODO:remove
+                                 (if (##not (##null? (macro-struct-slot-acquire (macro-current-processor) 20)))
+                                     (##other-interrupt!))
 
-                           ;; schedule next runnable thread
-                           (##thread-schedule!))
+                                 ;; schedule next runnable thread
+                                 (##thread-schedule!))))
 
                          (begin
 
@@ -3363,7 +3379,10 @@
                              ;; release low-level lock of processor
                              (macro-unlock-current-processor!)
 
+                             (##c-code "___STACK_TRIP_ON_IF_INTERRUPT_REQ(); ___RESULT = ___VOID;")
                              (##service-interrupts!) ;;TODO:remove
+                             (if (##not (##null? (macro-struct-slot-acquire (macro-current-processor) 20)))
+                                 (##other-interrupt!))
 
                              (cond ((##not (##fx< code 0)) ;; no error?
                                     (##thread-schedule!))

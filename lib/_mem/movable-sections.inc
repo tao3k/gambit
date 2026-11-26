@@ -232,8 +232,16 @@ int n;)
           s->gc_dest_words=0;
           s->gc_is_dest=0;
           s->gc_role=0;
+          s->major_mark_epoch=0;
+          s->major_snapshot_words=0;
+          s->major_live_words=0;
+          memset(s->major_line_live,0,sizeof(s->major_line_live));
+          s->major_evacuate=0;
+          s->major_hole_start=0;
+          s->major_hole_end=0;
           memset(___CAST(void*,section_card_bits(s)),0,SECTION_CARD_BYTES);
           memset(___CAST(void*,section_card_starts(s)),___GC_CARD_NO_OBJ_START,SECTION_CARD_COUNT);
+          memset(___CAST(void*,section_major_mark_bits(s)),0,SECTION_MAJOR_MARK_BYTES);
           s->pos = i;
           s->prev = tl;
           s->next = 0;

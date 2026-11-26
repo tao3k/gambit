@@ -308,6 +308,24 @@ ___processor_state ___ps;)
   ___ps->mem.wb_last_epoch_ = 0;
   ___ps->mem.wb_last_card_lo_ = 0;
   memset(&___ps->mem.card_hints_, 0, sizeof(___ps->mem.card_hints_));
+  ___ps->mem.satb_active_ = 0;
+  ___ps->mem.satb_count_ = 0;
+  ___ps->mem.satb_overflow_ = 0;
+  ___ps->mem.satb_buf_ =
+    ___CAST(___SCMOBJ*, ___ALLOC_MEM(___GC_SATB_BUF_CAP * sizeof(___SCMOBJ)));
+  ___ps->mem.major_mark_local_count_ = 0;
+  ___ps->mem.major_mark_local_buf_ =
+    ___CAST(___SCMOBJ*, ___ALLOC_MEM(___GC_MAJOR_LOCAL_MARK_CAP * sizeof(___SCMOBJ)));
+  if (___ps->mem.satb_buf_ == 0 || ___ps->mem.major_mark_local_buf_ == 0)
+    {
+      if (___ps->mem.satb_buf_ != 0)
+        { ___FREE_MEM(___ps->mem.satb_buf_); ___ps->mem.satb_buf_ = 0; }
+      if (___ps->mem.major_mark_local_buf_ != 0)
+        { ___FREE_MEM(___ps->mem.major_mark_local_buf_); ___ps->mem.major_mark_local_buf_ = 0; }
+      cleanup_rc (___ps);
+      ___cleanup_actlog_pstate (___ps);
+      return ___FIX(___HEAP_OVERFLOW_ERR);
+    }
 
 #ifndef ___SINGLE_THREADED_VMS
   if (___PROCESSOR_ID(___ps,___vms)>0 && ___vms->lifecycle != 0 &&
@@ -315,7 +333,14 @@ ___processor_state ___ps;)
     {
       ___resize_slot *slot=&___vms->lifecycle->slots[___PROCESSOR_ID(___ps,___vms)];
       if (slot->phase!=___RESIZE_RESERVED || slot->stack==0 || slot->heap==0 || slot->stack==slot->heap)
-        { ___rc_prepare_cleanup(___ps); cleanup_rc(___ps); ___cleanup_actlog_pstate(___ps); return ___FIX(___UNKNOWN_ERR); }
+        {
+          if (___ps->mem.satb_buf_ != 0)
+            { ___FREE_MEM(___ps->mem.satb_buf_); ___ps->mem.satb_buf_ = 0; }
+          if (___ps->mem.major_mark_local_buf_ != 0)
+            { ___FREE_MEM(___ps->mem.major_mark_local_buf_); ___ps->mem.major_mark_local_buf_ = 0; }
+          ___rc_prepare_cleanup(___ps); cleanup_rc(___ps); ___cleanup_actlog_pstate(___ps);
+          return ___FIX(___UNKNOWN_ERR);
+        }
       set_stack_msection(___ps,slot->stack);
       set_heap_msection(___ps,slot->heap);
     }
@@ -428,7 +453,11 @@ ___virtual_machine_state ___vms;)
 
   /* Fresh VM setup owns every fixed source slot before any PS publication. */
   for (source=0; source<___MAX_PROCESSORS; ++source)
-    ___PSTATE_FROM_PROCESSOR_ID(source,___vms)->mem.rc_domain_ = 0;
+    {
+      ___PSTATE_FROM_PROCESSOR_ID(source,___vms)->mem.rc_domain_ = 0;
+      ___PSTATE_FROM_PROCESSOR_ID(source,___vms)->mem.satb_buf_ = 0;
+      ___PSTATE_FROM_PROCESSOR_ID(source,___vms)->mem.major_mark_local_buf_ = 0;
+    }
 
 #ifndef ___SINGLE_THREADED_VMS
 
@@ -549,6 +578,7 @@ ___virtual_machine_state ___vms;)
   ___vms->mem.major_trigger_still_words_ = 4 * ___MSECTION_SIZE;
   ___vms->mem.promo_cand_count_ = 0;
   ___vms->mem.still_dirty_any_ = 0;
+  ___vms->mem.card_overflow_any_ = 0;
   ___vms->mem.force_major_gc_ = 0;
   {
     const char *gen_env = getenv("GAMBIT_GEN_GC");
@@ -561,6 +591,44 @@ ___virtual_machine_state ___vms;)
   ___vms->mem.minor_promoted_words_ = 0;
   ___vms->mem.minor_dirty_cards_scanned_ = 0;
   ___vms->mem.minor_overflow_fallbacks_ = 0;
+
+  ___vms->mem.major_phase_ = ___GC_MAJOR_IDLE;
+  ___vms->mem.major_epoch_ = 0;
+  ___vms->mem.satb_overflow_ = 0;
+  ___vms->mem.major_mark_lock_ = 0;
+  ___vms->mem.major_request_start_ = 0;
+  ___vms->mem.major_remark_working_ = 0;
+  ___vms->mem.major_mark_stack_ = 0;
+  ___vms->mem.major_mark_stack_count_ = 0;
+  ___vms->mem.major_mark_stack_cap_ = 0;
+  ___vms->mem.major_weak_tables_ = 0;
+  ___vms->mem.major_weak_tables_count_ = 0;
+  ___vms->mem.major_weak_tables_cap_ = 0;
+  ___vms->mem.major_still_bases_ = 0;
+  ___vms->mem.major_still_bases_count_ = 0;
+  ___vms->mem.major_still_bases_cap_ = 0;
+  ___vms->mem.major_still_lo_ = 0;
+  ___vms->mem.major_still_span_ = 0;
+  ___vms->mem.major_evacuate_count_ = 0;
+  ___vms->mem.major_last_reclaimed_sections_ = 0;
+#ifdef ___USE_HANDLES
+  ___vms->mem.concurrent_major_enabled_ = 0;
+#else
+  {
+    const char *cm_env = getenv("GAMBIT_CONCURRENT_MAJOR");
+    ___vms->mem.concurrent_major_enabled_ =
+      (cm_env != 0 && cm_env[0] == '0' && cm_env[1] == '\0') ? 0 : 1;
+  }
+#endif
+  ___vms->mem.nb_concurrent_major_cycles_ = 0.0;
+  ___vms->mem.concurrent_major_mark_slices_ = 0.0;
+  ___vms->mem.concurrent_major_marked_words_ = 0.0;
+  ___vms->mem.concurrent_major_reclaimed_sections_ = 0.0;
+  ___vms->mem.concurrent_major_reclaimed_still_words_ = 0.0;
+  ___vms->mem.concurrent_major_remark_real_time_ = 0.0;
+  ___vms->mem.concurrent_major_satb_logged_ = 0.0;
+  ___vms->mem.concurrent_major_holes_recycled_ = 0.0;
+  ___vms->mem.concurrent_major_idle_slices_ = 0.0;
 
 #if ___TARGET_HEAP_SPACE_HIST_LENGTH > 0
 
@@ -680,6 +748,18 @@ ___processor_state ___ps;)
       ALLOC_MEM_UNLOCK();
     }
   clear_fast_span (___ps);
+  if (___ps->mem.satb_buf_ != 0)
+    {
+      ___FREE_MEM(___ps->mem.satb_buf_);
+      ___ps->mem.satb_buf_ = 0;
+      ___ps->mem.satb_count_ = 0;
+    }
+  if (___ps->mem.major_mark_local_buf_ != 0)
+    {
+      ___FREE_MEM(___ps->mem.major_mark_local_buf_);
+      ___ps->mem.major_mark_local_buf_ = 0;
+      ___ps->mem.major_mark_local_count_ = 0;
+    }
   cleanup_rc (___ps);
 }
 
@@ -722,6 +802,24 @@ ___virtual_machine_state ___vms;)
       ___FREE_MEM(___vms->mem.mature_sections_);
       ___vms->mem.mature_sections_ = 0;
       ___vms->mem.mature_sections_cap_ = 0;
+    }
+  if (___vms->mem.major_mark_stack_ != 0)
+    {
+      ___FREE_MEM(___vms->mem.major_mark_stack_);
+      ___vms->mem.major_mark_stack_ = 0;
+      ___vms->mem.major_mark_stack_cap_ = 0;
+    }
+  if (___vms->mem.major_weak_tables_ != 0)
+    {
+      ___FREE_MEM(___vms->mem.major_weak_tables_);
+      ___vms->mem.major_weak_tables_ = 0;
+      ___vms->mem.major_weak_tables_cap_ = 0;
+    }
+  if (___vms->mem.major_still_bases_ != 0)
+    {
+      ___FREE_MEM(___vms->mem.major_still_bases_);
+      ___vms->mem.major_still_bases_ = 0;
+      ___vms->mem.major_still_bases_cap_ = 0;
     }
 
 #ifndef ___SINGLE_VM
