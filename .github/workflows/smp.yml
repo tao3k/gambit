@@ -26,7 +26,7 @@ jobs:
       - name: Package built SMP runtime for modular test jobs
         run: |
           tar -cf gambit-smp-linux-runtime.tar \
-            bin gsi/gsi gsc/gsc lib/libgambit.a lib/libgambitgsi.a lib/libgambitgsc.a \
+            bin gsi/gsi gsc/gsc lib/libgambit.a gsi/libgambitgsi.a gsc/libgambitgsc.a \
             lib/_gambit.c lib/_gambit#.scm lib/gambit#.scm lib/header.scm lib/lifecycle.h \
             lib/mem.h lib/os.h lib/os_base.h lib/os_thread.h lib/setup.h lib/collector.h \
             lib/root.h lib/rc.h \

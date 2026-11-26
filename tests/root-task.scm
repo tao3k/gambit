@@ -1794,30 +1794,29 @@ c-end
    (c-declare #<<c-end
 #include "rc.h"
 #include "c_intf.h"
-#include <stdatomic.h>
 #include <stdio.h>
 struct collector_test_owner { int id; ___thread thread; };
 static struct collector_test_owner collector_test_owners[___MAX_PROCESSORS];
 static ___SCMOBJ collector_test_foreign[___MAX_PROCESSORS];
-static _Atomic int collector_test_release_count[___MAX_PROCESSORS];
-static _Atomic int collector_test_bad_release;
+static ___VOLATILE ___WORD collector_test_release_count[___MAX_PROCESSORS];
+static ___VOLATILE ___WORD collector_test_bad_release;
 static ___SIZE_TS collector_test_frame_peak;
 static ___SCMOBJ collector_test_release(void *payload)
 {
-  struct collector_test_owner *owner=payload;
+  struct collector_test_owner *owner=___CAST(struct collector_test_owner*,payload);
   ___processor_state ps=___PSTATE;
 #ifdef ___USE_POSIX_THREAD_SYSTEM
   if(!pthread_equal(pthread_self(),owner->thread.thread_id))
-    atomic_fetch_add(&collector_test_bad_release,1);
+    ___WORD_FETCH_ADD_RELAXED(&collector_test_bad_release,1);
 #endif
   if(___PROCESSOR_ID(ps,___VMSTATE_FROM_PSTATE(ps))!=owner->id)
-    atomic_fetch_add(&collector_test_bad_release,1);
+    ___WORD_FETCH_ADD_RELAXED(&collector_test_bad_release,1);
   /* An affine callback belongs after this owner's whole-round root release,
    * not inside the collector's stopped scan/sweep interval. */
   if(ps->mem.rc_domain_->phase!=___RC_OPEN ||
      ps->mem.rc_domain_->joined_round || ps->mem.rc_domain_->task.scan_leases)
-    atomic_fetch_add(&collector_test_bad_release,1);
-  atomic_fetch_add(&collector_test_release_count[owner->id],1);
+    ___WORD_FETCH_ADD_RELAXED(&collector_test_bad_release,1);
+  ___WORD_FETCH_ADD_RELAXED(&collector_test_release_count[owner->id],1);
   return ___FIX(___NO_ERR);
 }
 c-end
@@ -1851,15 +1850,15 @@ c-end
 ___processor_state ps=___PSTATE;
 int id=___PROCESSOR_ID(ps,___VMSTATE_FROM_PSTATE(ps));
 /* Query only: the runtime, not this assertion, drains the owner queue. */
-___result=atomic_load(&collector_test_release_count[id])==1 &&
- atomic_load(&collector_test_bad_release)==0 &&
+___result=___WORD_LOAD_ACQUIRE(&collector_test_release_count[id])==1 &&
+ ___WORD_LOAD_ACQUIRE(&collector_test_bad_release)==0 &&
  ps->mem.rc_domain_->phase==___RC_OPEN && !ps->mem.rc_domain_->joined_round;
 c-end
 ))
    (define collector-owners-released?
     (c-lambda (int) bool #<<c-end
-int i,ok=atomic_load(&collector_test_bad_release)==0;
-for(i=0;i<___arg1;i++) ok=ok && atomic_load(&collector_test_release_count[i])==1;
+int i,ok=___WORD_LOAD_ACQUIRE(&collector_test_bad_release)==0;
+for(i=0;i<___arg1;i++) ok=ok && ___WORD_LOAD_ACQUIRE(&collector_test_release_count[i])==1;
 ___result=ok;
 c-end
 ))

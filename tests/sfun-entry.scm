@@ -35,6 +35,7 @@
 #include "rc.h"
 #include "lifecycle.h"
 #include "os_thread.h"
+#include <stdio.h>
 #include <stdlib.h>
 extern int sfun_entry_callback(___SCMOBJ,___SCMOBJ,int);
 extern int sfun_entry_driver(___SCMOBJ,___SCMOBJ,int);

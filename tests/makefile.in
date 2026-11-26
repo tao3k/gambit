@@ -542,13 +542,17 @@ test-mutex-suspension: mutex-suspension@exe@
 	@SETDLPATH@ ./mutex-suspension@exe@ -:p1 --wait-io
 	@SETDLPATH@ ./mutex-suspension@exe@ -:p2 --wait-io
 
+.PHONY: test-obj-rts-build
+test-obj-rts-build:
+	@BUILD_OBJ_RTS@
+
 # SMP startup transaction. Reuse the configured compiler, official GSC and Make.
 # The fault adapter renames only this test setup consumer; production has no hook.
 .PHONY: test-startup-publication
 test-startup-publication:
 	@SETDLPATH@ $(rootfromhere)/gsc/gsc@exe@ -:p1,~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f -exe -cc-options "-I$(srcdirpfx)$(rootfromhere)/lib" -o startup-publication@exe@ $(srcdirpfx)startup-publication.scm
 	@SETDLPATH@ ./startup-publication@exe@ -:p1 --nonzero
-	$(C_COMPILER) $(FLAGS_OPT_RTS) $(FLAGS_OBJ) $(DEFS) -I$(srcdirpfx)$(rootfromhere)/include -I$(srcdirpfx)$(rootfromhere)/lib -D___LIBRARY -D___thread_create=test_startup_create -D___thread_join=test_startup_join -D___reserve_resize=test_startup_reserve -D___alloc_rc=test_startup_alloc -D___refund_resize=test_startup_refund -D___make_sfun_stack_marker_root=test_startup_marker -Dpthread_mutex_init=test_startup_mutex_init -Dpthread_cond_init=test_startup_cond_init -c -o startup-setup@obj@ $(srcdirpfx)$(rootfromhere)/lib/setup.c
+	$(MAKE) test-obj-rts-build BUILD_OBJ_OUTPUT_FILENAME_PARAM=startup-setup@obj@ BUILD_OBJ_INPUT_FILENAMES_PARAM=$(srcdirpfx)$(rootfromhere)/lib/setup.c BUILD_OBJ_CC_OPTIONS_PARAM="$(DEFS) -I$(srcdirpfx)$(rootfromhere)/lib -D___LIBRARY -D___thread_create=test_startup_create -D___thread_join=test_startup_join -D___reserve_resize=test_startup_reserve -D___alloc_rc=test_startup_alloc -D___refund_resize=test_startup_refund -D___make_sfun_stack_marker_root=test_startup_marker -Dpthread_mutex_init=test_startup_mutex_init -Dpthread_cond_init=test_startup_cond_init"
 	@SETDLPATH@ $(rootfromhere)/gsc/gsc@exe@ -:p1,~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f -exe -cc-options "-I$(srcdirpfx)$(rootfromhere)/lib" -ld-options-prelude startup-setup@obj@ -o startup-faults@exe@ $(srcdirpfx)startup-publication.scm
 	@SETDLPATH@ ./startup-faults@exe@ -:p1
 	@SETDLPATH@ ./startup-faults@exe@ -:p1 --marker-gc
@@ -579,7 +583,7 @@ test-tcl-command: $(srcdirpfx)$(rootfromhere)/examples/tcltk/command.h
 # Interpose only allocation/borrow refusal and the collecting allocator boundary.
 .PHONY: test-marker-input
 test-marker-input:
-	$(C_COMPILER) $(FLAGS_OPT_RTS) $(FLAGS_OBJ) $(DEFS) -I$(srcdirpfx)$(rootfromhere)/include -I$(srcdirpfx)$(rootfromhere)/lib -D___LIBRARY -D___make_vector=test_marker_vector -D___alloc_rc=test_marker_alloc -D___borrow_rc_root=test_marker_borrow -c -o marker-input-c-intf@obj@ $(srcdirpfx)$(rootfromhere)/lib/c_intf.c
+	$(MAKE) test-obj-rts-build BUILD_OBJ_OUTPUT_FILENAME_PARAM=marker-input-c-intf@obj@ BUILD_OBJ_INPUT_FILENAMES_PARAM=$(srcdirpfx)$(rootfromhere)/lib/c_intf.c BUILD_OBJ_CC_OPTIONS_PARAM="$(DEFS) -I$(srcdirpfx)$(rootfromhere)/lib -D___LIBRARY -D___make_vector=test_marker_vector -D___alloc_rc=test_marker_alloc -D___borrow_rc_root=test_marker_borrow"
 	@SETDLPATH@ $(rootfromhere)/gsc/gsc@exe@ -:~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f -prelude "(define-cond-expand-feature marker-input-test)" -exe -cc-options "-DHAVE_CONFIG_H -D___TEST_MARKER_INPUT -I$(srcdirpfx)$(rootfromhere)/include -I$(srcdirpfx)$(rootfromhere)/lib" -ld-options-prelude "marker-input-c-intf@obj@" -o root-task-marker@exe@ $(srcdirpfx)root-task.scm
 	@SETDLPATH@ ./root-task-marker@exe@ -:p1 --marker-input
 	rm -f root-task-marker@exe@ marker-input-c-intf@obj@
@@ -592,16 +596,17 @@ test-symkey-callback:
 	rm -f root-task-callback@exe@ root-task-input.dat
 
 .PHONY: test-vm-lifecycle
-# These existing environment variables belong to the actual build product.
-# GSC compiles deep-directory inputs from a different cwd.
-vm-lifecycle@exe@ vm-lifecycle-host@exe@: export GAMBITDIR_INCLUDE := $(abspath $(GAMBITDIR_INCLUDE))
-vm-lifecycle@exe@ vm-lifecycle-host@exe@: export GAMBITDIR_LIB := $(abspath $(GAMBITDIR_LIB))
-
+# Compile from tests/ with pure relative paths so native Windows toolchains
+# (MSVC/MinGW) do not receive MSYS POSIX $(abspath ...) paths.
 vm-lifecycle@exe@: $(srcdirpfx)smp/gc/vm-lifecycle.scm $(SMP_TEST_BUILD_DEPS)
-	@SETDLPATH@ $(abspath $(rootfromhere)/gsc/gsc@exe@) -:p1,~~bin=$(abspath $(srcdirpfx)$(rootfromhere)/bin),~~lib=$(abspath $(srcdirpfx)$(rootfromhere)/lib),~~include=$(abspath $(srcdirpfx)$(rootfromhere)/include) -f -exe -cc-options "-I$(abspath $(srcdirpfx)$(rootfromhere)/lib)" -o $(abspath vm-lifecycle@exe@) $(abspath $(srcdirpfx)smp/gc/vm-lifecycle.scm)
+	cp $(srcdirpfx)smp/gc/vm-lifecycle.scm vm-lifecycle.scm
+	@SETDLPATH@ $(rootfromhere)/gsc/gsc@exe@ -:p1,~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f -exe -cc-options "-I$(srcdirpfx)$(rootfromhere)/lib" -o vm-lifecycle@exe@ vm-lifecycle.scm
+	rm -f vm-lifecycle.scm vm-lifecycle.c vm-lifecycle_.c vm-lifecycle@obj@ vm-lifecycle_@obj@
 
 vm-lifecycle-host@exe@: $(srcdirpfx)smp/gc/vm-lifecycle-host.scm $(SMP_TEST_BUILD_DEPS)
-	@SETDLPATH@ $(abspath $(rootfromhere)/gsc/gsc@exe@) -:p1,~~bin=$(abspath $(srcdirpfx)$(rootfromhere)/bin),~~lib=$(abspath $(srcdirpfx)$(rootfromhere)/lib),~~include=$(abspath $(srcdirpfx)$(rootfromhere)/include) -f -exe -cc-options "-I$(abspath $(srcdirpfx)$(rootfromhere)/lib) -I$(abspath $(srcdirpfx).) -D___LIBRARY" -o $(abspath vm-lifecycle-host@exe@) $(abspath $(srcdirpfx)smp/gc/vm-lifecycle-host.scm)
+	cp $(srcdirpfx)smp/gc/vm-lifecycle-host.scm vm-lifecycle-host.scm
+	@SETDLPATH@ $(rootfromhere)/gsc/gsc@exe@ -:p1,~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f -exe -cc-options "-I$(srcdirpfx)$(rootfromhere)/lib -I$(srcdirpfx). -D___LIBRARY" -o vm-lifecycle-host@exe@ vm-lifecycle-host.scm
+	rm -f vm-lifecycle-host.scm vm-lifecycle-host.c vm-lifecycle-host_.c vm-lifecycle-host@obj@ vm-lifecycle-host_@obj@
 
 test-vm-lifecycle: vm-lifecycle@exe@ vm-lifecycle-host@exe@
 	@SETDLPATH@ ./vm-lifecycle@exe@ -:p1
@@ -621,16 +626,16 @@ test-binding-activation: binding-activation@exe@
 
 # One generated activation and its actual c_intf.c callout-failure controls.
 sfun-entry-fault@obj@: sfun-entry-fault.c $(SMP_TEST_BUILD_DEPS)
-	$(C_COMPILER) $(FLAGS_OPT_RTS) $(FLAGS_OBJ) $(DEFS) -I$(srcdirpfx)$(rootfromhere)/include -I$(srcdirpfx)$(rootfromhere)/lib -D___LIBRARY -c -o $@ $(srcdirpfx)sfun-entry-fault.c
+	$(MAKE) test-obj-rts-build BUILD_OBJ_OUTPUT_FILENAME_PARAM=$@ BUILD_OBJ_INPUT_FILENAMES_PARAM=$(srcdirpfx)sfun-entry-fault.c BUILD_OBJ_CC_OPTIONS_PARAM="$(DEFS) -I$(srcdirpfx)$(rootfromhere)/lib -D___LIBRARY"
 
 sfun-entry-c-intf@obj@: $(rootfromhere)/lib/c_intf.c $(rootfromhere)/lib/_c_intf/sfun-entry.inc $(SMP_TEST_BUILD_DEPS)
-	$(C_COMPILER) $(FLAGS_OPT_RTS) $(FLAGS_OBJ) $(DEFS) -I$(srcdirpfx)$(rootfromhere)/include -I$(srcdirpfx)$(rootfromhere)/lib -D___LIBRARY -D___alloc_rc_roots=sfun_test_allocate_root_bank -D___make_vector=sfun_test_make_vector -D___c_closure_self=sfun_test_closure_self -c -o $@ $(srcdirpfx)$(rootfromhere)/lib/c_intf.c
+	$(MAKE) test-obj-rts-build BUILD_OBJ_OUTPUT_FILENAME_PARAM=$@ BUILD_OBJ_INPUT_FILENAMES_PARAM=$(srcdirpfx)$(rootfromhere)/lib/c_intf.c BUILD_OBJ_CC_OPTIONS_PARAM="$(DEFS) -I$(srcdirpfx)$(rootfromhere)/lib -D___LIBRARY -D___alloc_rc_roots=sfun_test_allocate_root_bank -D___make_vector=sfun_test_make_vector -D___c_closure_self=sfun_test_closure_self"
 
 sfun-entry@exe@: sfun-entry.scm root-task-replay.scm sfun-entry-fault@obj@ $(SMP_TEST_BUILD_DEPS)
-	@SETDLPATH@ $(rootfromhere)/gsc/gsc@exe@ -:p1,~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f -exe -cc-options "-I$(srcdirpfx)$(rootfromhere)/lib" -ld-options "sfun-entry-fault@obj@" -o $@ $(srcdirpfx)sfun-entry.scm
+	@SETDLPATH@ $(rootfromhere)/gsc/gsc@exe@ -:p1,~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f -exe -cc-options "-I$(srcdirpfx)$(rootfromhere)/lib" -ld-options-prelude "sfun-entry-fault@obj@" -o $@ $(srcdirpfx)sfun-entry.scm
 
 sfun-entry-probe@exe@: sfun-entry.scm root-task-replay.scm sfun-entry-c-intf@obj@ sfun-entry-fault@obj@ $(SMP_TEST_BUILD_DEPS)
-	@SETDLPATH@ $(rootfromhere)/gsc/gsc@exe@ -:p1,~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f -exe -cc-options "-I$(srcdirpfx)$(rootfromhere)/lib" -ld-options "sfun-entry-c-intf@obj@ sfun-entry-fault@obj@" -o $@ $(srcdirpfx)sfun-entry.scm
+	@SETDLPATH@ $(rootfromhere)/gsc/gsc@exe@ -:p1,~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f -exe -cc-options "-I$(srcdirpfx)$(rootfromhere)/lib" -ld-options-prelude "sfun-entry-c-intf@obj@ sfun-entry-fault@obj@" -o $@ $(srcdirpfx)sfun-entry.scm
 
 .PHONY: test-sfun-entry
 test-sfun-entry: sfun-entry@exe@ sfun-entry-probe@exe@
