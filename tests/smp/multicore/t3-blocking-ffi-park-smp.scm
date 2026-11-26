@@ -1,6 +1,6 @@
 ;;; Adversarial SMP PBT for Tier 3.3 Blocking-FFI Participation Park/Unpark:
 ;;; 1. Non-blocking STW GC while any processor (including Processor 0!) is parked
-;;;    in native blocking C (usleep), with moving-root graph integrity checks.
+;;;    in native blocking C (nanosleep), with moving-root graph integrity checks.
 ;;; 2. Cross-core pthread_cond_wait non-deadlock proof: parked thread waits on
 ;;;    condvar while active thread performs 30 STW GCs before signaling.
 ;;; 3. Nested c-define Scheme callback re-entry (auto-unpark -> GC -> auto-repark)
@@ -11,8 +11,16 @@
 
 (c-declare #<<c-declare-end
 #include <pthread.h>
-#include <unistd.h>
 #include <stdint.h>
+#include <time.h>
+#include <unistd.h>
+
+static void t3_sleep_us(int usec) {
+  struct timespec ts;
+  ts.tv_sec = usec / 1000000;
+  ts.tv_nsec = (long)(usec % 1000000) * 1000L;
+  nanosleep(&ts, NULL);
+}
 
 static pthread_mutex_t t3_cond_mut = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t  t3_cond_cv  = PTHREAD_COND_INITIALIZER;
@@ -43,7 +51,7 @@ static int t3_park_sleep_us(int usec) {
 
   ___BEGIN_BLOCKING_FFI
   ___WORD_FETCH_ADD_RELEASE(&t3_park_active, 1);
-  usleep((useconds_t)usec);
+  t3_sleep_us(usec);
   ___WORD_FETCH_ADD_RELEASE(&t3_park_active, -1);
   ___END_BLOCKING_FFI
   return pid;
@@ -106,10 +114,10 @@ static int t3_nested_park_callback(int seed) {
   ___BEGIN_BLOCKING_FFI
   ___BEGIN_BLOCKING_FFI
   if (t3_current_park_depth() != 2) return -101;
-  usleep(2000);
+  t3_sleep_us(2000);
   res = t3_scheme_cb(seed);
   if (t3_current_park_depth() != 2) return -102;
-  usleep(2000);
+  t3_sleep_us(2000);
   ___END_BLOCKING_FFI
   if (t3_current_park_depth() != 1) return -103;
   ___END_BLOCKING_FFI

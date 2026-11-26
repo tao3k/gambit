@@ -16,6 +16,18 @@
 #include <stdatomic.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <time.h>
+
+static void c7_retry_backoff(int tries) {
+  if (tries < 32) {
+    sched_yield();
+  } else {
+    struct timespec ts;
+    ts.tv_sec = 0;
+    ts.tv_nsec = 200000L; /* 200 us backoff under oversubscribed CI vCPUs */
+    nanosleep(&ts, NULL);
+  }
+}
 
 extern void ___thread_set_pstate(___processor_state);
 
@@ -79,19 +91,21 @@ static void *c7_vm_churn_worker(void *arg) {
     }
     /* Retry transient vm_registry_try_write() contention with heartbeat vm_registry_flush */
     ___SCMOBJ se = ___FIX(___UNKNOWN_ERR);
-    for (int tries = 0; tries < 256; ++tries) {
+    for (int tries = 0; tries < 512; ++tries) {
       se = ___setup_vmstate(extra);
       if (se == ___FIX(___NO_ERR)) break;
       atomic_fetch_add(&c7_registry_retries, 1);
-      sched_yield();
+      c7_retry_backoff(tries);
     }
     if (se != ___FIX(___NO_ERR)) {
+      fprintf(stderr, "c7: setup_vmstate failed after retries (se=%ld)\n", (long)se);
       atomic_fetch_add(&c7_churn_errors, 1);
       free(extra);
       break;
     }
     ___WORD inc = extra->lifecycle ? extra->lifecycle->incarnation : 0;
     if (inc <= last_incarnation) {
+      fprintf(stderr, "c7: incarnation non-monotonic (%ld <= %ld)\n", (long)inc, (long)last_incarnation);
       atomic_fetch_add(&c7_churn_errors, 1);
     }
     last_incarnation = inc;
@@ -99,6 +113,7 @@ static void *c7_vm_churn_worker(void *arg) {
     ___thread_set_pstate(sec);
     /* Exercise reader borrow/close exclusion on the secondary VM */
     if (!___lifecycle_members_begin(extra) || ___lifecycle_members_close(extra)) {
+      fprintf(stderr, "c7: lifecycle_members_begin/close failed\n");
       atomic_fetch_add(&c7_churn_errors, 1);
     }
     ___lifecycle_members_end(extra);
@@ -106,13 +121,15 @@ static void *c7_vm_churn_worker(void *arg) {
      * when vm_registry_try_write() collides with heartbeat vm_registry_flush.
      * Caller MUST retry unlink while DRAINED and NEVER free(extra) while linked! */
     int cleaned = 0;
-    for (int tries = 0; tries < 256; ++tries) {
+    for (int tries = 0; tries < 512; ++tries) {
       if (___cleanup_vmstate(extra)) { cleaned = 1; break; }
       if (!extra->lifecycle || extra->lifecycle->phase != ___VM_DRAINED) break;
       atomic_fetch_add(&c7_registry_retries, 1);
-      sched_yield();
+      c7_retry_backoff(tries);
     }
     if (!cleaned) {
+      fprintf(stderr, "c7: cleanup_vmstate failed (phase=%d)\n",
+              extra->lifecycle ? (int)extra->lifecycle->phase : -1);
       atomic_fetch_add(&c7_churn_errors, 1);
       ___thread_set_pstate(NULL);
       break; /* Never free a VM still linked in vm_registry! */

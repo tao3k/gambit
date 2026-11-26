@@ -677,6 +677,88 @@
 
 ;;;----------------------------------------------------------------------------
 
+;;; Tier 3.2 atomic scheduler primitives (Dekker wakeup & lock-free steal peek).
+;;; Uses existing processor slot 15 (unused-field15, sole writer = owning proc):
+;;;   bits 0..21  (#x3fffff)  : monotonic unpinned-enqueue epoch (sole writer)
+;;;   bits 22..28 (#x1fc00000): per-processor rotating steal cursor (sole writer)
+;;; All values stay within positive 29-bit fixnum range (32-bit & 64-bit safe).
+
+(##define-macro (macro-struct-slot-acquire obj idx)
+  `(##c-code
+    "___RESULT = ___WORD_LOAD_ACQUIRE(___CAST(___VOLATILE ___WORD*, ___FXINDX_WORD(___BODY_AS(___ARG1, ___tSTRUCTURE), ___ARG2)));"
+    ,obj ,idx))
+
+(##define-macro (macro-struct-slot-release-set! obj idx val)
+  `(##c-code
+    "___WORD_STORE_RELEASE(___CAST(___VOLATILE ___WORD*, ___FXINDX_WORD(___BODY_AS(___ARG1, ___tSTRUCTURE), ___ARG2)), ___ARG3); ___RESULT = ___VOID;"
+    ,obj ,idx ,val))
+
+(##define-macro (macro-shared-memory-barrier!)
+  `(##c-code "___SHARED_MEMORY_BARRIER(); ___RESULT = ___VOID;"))
+
+(##define-macro (macro-cpu-relax!)
+  `(##c-code "___CPU_RELAX(); ___RESULT = ___VOID;"))
+
+(##define-macro (macro-processor-runq-nonempty? proc)
+  `(let ((p ,proc))
+     (##not (##eq? (macro-struct-slot-acquire p 7) p))))
+
+(##define-macro (macro-vm-idle-processor-count-acquire vm)
+  `(macro-struct-slot-acquire ,vm 19))
+
+(##define-macro (macro-vm-idle-processor-count-release-set! vm count)
+  `(macro-struct-slot-release-set! ,vm 19 ,count))
+
+(##define-macro (macro-processor-enqueue-epoch-acquire proc)
+  `(let ((w (macro-struct-slot-acquire ,proc 15)))
+     (if (##fixnum? w) (##fxand w #x3fffff) 0)))
+
+(##define-macro (macro-processor-steal-cursor-advance! proc np)
+  `(##c-code
+    "___SCMOBJ p = ___ARG1;
+     ___WORD span = ___INT(___ARG2) - 1;
+     ___VOLATILE ___WORD *slot15 =
+       ___CAST(___VOLATILE ___WORD*, &___BODY_AS(p, ___tSTRUCTURE)[15]);
+     ___WORD raw = *slot15;
+     ___WORD bits = ___FIXNUMP(raw) ? raw : ___FIX(0);
+     ___WORD epoch = ___FIXAND(bits, ___FIX(0x3fffff));
+     ___WORD cur = (___INT(bits) >> 22) & 0x7f;
+     ___WORD next = (span > 0) ? ((cur + 1 >= span) ? 0 : cur + 1) : 0;
+     ___WORD_STORE_RELAXED(slot15, ___FIXIOR(___FIX(next << 22), epoch));
+     ___RESULT = ___FIX(next);"
+    ,proc ,np))
+
+(define-prim (##vm-enqueue-epoch-sum)
+  (##declare (not interrupts-enabled))
+  (let ((np (##current-vm-processor-count)))
+    (let loop ((i 0) (acc 0))
+      (if (##fx< i np)
+          (loop (##fx+ i 1)
+                (##fxand (##fx+ acc (macro-processor-enqueue-epoch-acquire (##processor i)))
+                         #x3ffffff))
+          acc))))
+
+(##define-macro (macro-notify-idle-after-local-enqueue! proc)
+  `(if (##c-code
+        "___SCMOBJ proc = ___ARG1;
+         ___SCMOBJ vm = ___ARG2;
+         ___VOLATILE ___WORD *slot15 =
+           ___CAST(___VOLATILE ___WORD*, &___BODY_AS(proc, ___tSTRUCTURE)[15]);
+         ___WORD raw = *slot15;
+         ___WORD bits = ___FIXNUMP(raw) ? raw : ___FIX(0);
+         ___WORD epoch = ___FIXAND(___FIXADD(___FIXAND(bits, ___FIX(0x3fffff)), ___FIX(1)), ___FIX(0x3fffff));
+         ___WORD cursor = ___FIXAND(bits, ___FIX(0x1fc00000));
+         ___WORD_STORE_RELEASE(slot15, ___FIXIOR(cursor, epoch));
+         ___SHARED_MEMORY_BARRIER();
+         ___WORD idle = ___WORD_LOAD_ACQUIRE(
+           ___CAST(___VOLATILE ___WORD*, &___BODY_AS(vm, ___tSTRUCTURE)[19]));
+         ___RESULT = ___BOOLEAN(___FIXGT(idle, ___FIX(0)));"
+        ,proc
+        (macro-current-vm))
+       (##wake-up-one-processor)))
+
+;;;----------------------------------------------------------------------------
+
 ;;; Operations on processor run queues.
 
 (##define-macro (macro-add-thread-to-run-queue-of-current-processor-without-locking! thread)
@@ -702,8 +784,9 @@
             (macro-unlock-processor! processor)
             (##wait-abort! processor)))
         (begin
-          ;; Preserve cache/cohort locality for mutex handoffs by keeping
-          ;; unpinned mutex waiters on the unlocking processor's run queue.
+          ;; Preserve L1 cache/cohort locality for synchronous mutex and
+          ;; thread-interrupt handoffs without cross-core wake storms;
+          ;; active siblings can still steal via lock-free peek + HoL bypass.
           (macro-add-thread-to-run-queue-of-current-processor! thread)))))
 
 (##define-macro (macro-add-thread-to-run-queue-of-current-processor-preferably! thread)
@@ -714,7 +797,8 @@
   (##declare (not interrupts-enabled))
 
   (define (add-to-current-processor!)
-    (macro-add-thread-to-run-queue-of-current-processor! thread))
+    (macro-add-thread-to-run-queue-of-current-processor! thread)
+    (macro-notify-idle-after-local-enqueue! (macro-current-processor)))
 
   (let ((pinned (macro-thread-pinned thread)))
     (if pinned
@@ -726,7 +810,7 @@
             (macro-unlock-processor! processor)
             (##wait-abort! processor)))
         (let ((vm (macro-current-vm)))
-          (if (or (##fx<= (macro-vm-idle-processor-count vm) 0)
+          (if (or (##fx<= (macro-vm-idle-processor-count-acquire vm) 0)
                   (##not (macro-trylock-current-vm!)))
               (add-to-current-processor!)
               (let ((processor (macro-processor-deq-head vm)))
@@ -739,7 +823,7 @@
                       ;; a processor that is currently idle was found
                       (macro-processor-deq-remove! processor)
                       (macro-processor-deq-init! processor)
-                      (macro-vm-idle-processor-count-set!
+                      (macro-vm-idle-processor-count-release-set!
                        vm
                        (##fx- (macro-vm-idle-processor-count vm) 1))
                       (macro-unlock-current-vm!)
@@ -2742,7 +2826,7 @@
     (if (##eq? (macro-processor-deq-next processor) processor)
         (begin
           (macro-processor-deq-insert-at-tail! vm processor)
-          (macro-vm-idle-processor-count-set!
+          (macro-vm-idle-processor-count-release-set!
            vm
            (##fx+ (macro-vm-idle-processor-count vm) 1))))
     (macro-unlock-current-vm!)
@@ -2754,12 +2838,59 @@
           (begin
             (macro-processor-deq-remove! processor)
             (macro-processor-deq-init! processor)
-            (macro-vm-idle-processor-count-set!
+            (macro-vm-idle-processor-count-release-set!
              vm
              (##fx- (macro-vm-idle-processor-count vm) 1))))
       (macro-unlock-current-vm!)
 
       code)))
+
+(define-prim (##wait-idle-if-unchanged! expected-epoch)
+
+  (##declare (not interrupts-enabled))
+
+  (let ((processor (macro-current-processor))
+        (vm (macro-current-vm)))
+
+    (macro-lock-current-vm!)
+    (if (##eq? (macro-processor-deq-next processor) processor)
+        (begin
+          (macro-processor-deq-insert-at-tail! vm processor)
+          (macro-vm-idle-processor-count-release-set!
+           vm
+           (##fx+ (macro-vm-idle-processor-count vm) 1))))
+    (macro-unlock-current-vm!)
+
+    ;; Dekker store-load fence: idle publication must be globally visible
+    ;; before checking own queue and per-processor unpinned-enqueue epochs.
+    (macro-shared-memory-barrier!)
+
+    (if (or (macro-processor-runq-nonempty? processor)
+            (##not (##fx= (##vm-enqueue-epoch-sum) expected-epoch)))
+        (begin
+          (macro-lock-current-vm!)
+          (if (##not (##eq? (macro-processor-deq-next processor) processor))
+              (begin
+                (macro-processor-deq-remove! processor)
+                (macro-processor-deq-init! processor)
+                (macro-vm-idle-processor-count-release-set!
+                 vm
+                 (##fx- (macro-vm-idle-processor-count vm) 1))))
+          (macro-unlock-current-vm!)
+          0)
+        (let ((code (##os-condvar-select! #f #t)))
+
+          (macro-lock-current-vm!)
+          (if (##not (##eq? (macro-processor-deq-next processor) processor))
+              (begin
+                (macro-processor-deq-remove! processor)
+                (macro-processor-deq-init! processor)
+                (macro-vm-idle-processor-count-release-set!
+                 vm
+                 (##fx- (macro-vm-idle-processor-count vm) 1))))
+          (macro-unlock-current-vm!)
+
+          code))))
 
 (define-prim (##wait-abort! processor)
 
@@ -2771,7 +2902,7 @@
         (begin
           (macro-processor-deq-remove! processor)
           (macro-processor-deq-init! processor)
-          (macro-vm-idle-processor-count-set!
+          (macro-vm-idle-processor-count-release-set!
            vm
            (##fx- (macro-vm-idle-processor-count vm) 1))))
     (macro-unlock-current-vm!))
@@ -2788,14 +2919,27 @@
 
   (##declare (not interrupts-enabled))
 
-  (macro-lock-current-vm!)
-  (let ((processor (macro-processor-deq-head (macro-current-vm))))
-    (macro-unlock-current-vm!)
-    (if (##not (##eq? processor (macro-current-vm)))
+  (let ((vm (macro-current-vm)))
+    (if (##fx<= (macro-vm-idle-processor-count-acquire vm) 0)
+        #f
         (begin
-          (##wait-abort! processor)
-          #t)
-        #f)))
+          ;; Single VM lock hold: atomically pop head idle processor so
+          ;; concurrent producers cannot peek and wake the same core twice.
+          (macro-lock-current-vm!)
+          (let ((processor (macro-processor-deq-head vm)))
+            (if (##not (##eq? processor vm))
+                (begin
+                  (macro-processor-deq-remove! processor)
+                  (macro-processor-deq-init! processor)
+                  (macro-vm-idle-processor-count-release-set!
+                   vm
+                   (##fx- (macro-vm-idle-processor-count vm) 1))
+                  (macro-unlock-current-vm!)
+                  (##wait-abort-no-remove! processor)
+                  #t)
+                (begin
+                  (macro-unlock-current-vm!)
+                  #f)))))))
 
 (define-prim (##waiting-processors);;;;for debugging
   (macro-lock-current-vm!)
@@ -2971,6 +3115,12 @@
 
   (##declare (not interrupts-enabled))
 
+  (##thread-schedule-with-acquired-processor-retry! 0))
+
+(define-prim (##thread-schedule-with-acquired-processor-retry! steal-retry)
+
+  (##declare (not interrupts-enabled))
+
   ;; Assumes that exclusive access to the processor has been acquired.
 
   ;; Try extracting the thread at the head of this processor's run queue.
@@ -3059,186 +3209,178 @@
 
      ;; There are no runnable threads locally, so try to steal a
      ;; thread from the run queue of another processor.
+     ;;
+     ;; Tier 3.2 work-stealing improvements:
+     ;; 1. Snapshot global unpinned-enqueue epoch BEFORE scanning victims
+     ;;    so ##wait-idle-if-unchanged! forms a complete Dekker fence.
+     ;; 2. Advance per-processor rotating victim cursor to prevent convoying.
+     ;; 3. Lock-free acquire peek (##processor-runq-nonempty?) skips empty
+     ;;    victims with zero ticket-lock RMW / cache-line invalidations.
+     ;; 4. Bounded rbtree successor scan (up to 4 nodes) bypasses pinned
+     ;;    head-of-line threads when stealing from a non-empty victim.
+     ;; 5. Bounded retry (up to 3 passes) when a non-empty victim was
+     ;;    transiently contended, avoiding premature kernel select() sleep.
 
-     ;; Make a reasonable attempt to steal a thread from the run
-     ;; queues of other processors.
+     (let* ((np (##current-vm-processor-count))
+            (self-proc (macro-current-processor))
+            (self-id (##current-processor-id))
+            (epoch0 (if (##fx> np 1) (##vm-enqueue-epoch-sum) 0))
+            (span (##fx- np 1))
+            (start (if (##fx> span 0)
+                       (macro-processor-steal-cursor-advance! self-proc np)
+                       0)))
 
-     (let loop ((i (##fx- (##current-vm-processor-count) 1)))
-       (if (##fx> i 0)
+       (let loop ((k 0) (saw-contended? #f))
+         (if (##fx< k span)
 
-           (let* ((id
-                   (##fxmodulo (##fx+ (##current-processor-id) i)
-                               (##current-vm-processor-count)))
-                  (victim-processor
-                   (##processor id)))
+             (let* ((off (let ((s (##fx+ start k)))
+                           (##fx+ 1 (if (##fx>= s span) (##fx- s span) s))))
+                    (id (let ((s (##fx+ self-id off)))
+                          (if (##fx>= s np) (##fx- s np) s)))
+                    (victim-processor (##processor id)))
 
-             ;; Try to lock the victim processor, but don't block.
+               (if (##not (macro-processor-runq-nonempty? victim-processor))
 
-             (if (##not (macro-trylock-processor! victim-processor))
+                   ;; Empty victim queue: skip without touching its lock.
+                   (loop (##fx+ k 1) saw-contended?)
+
+                   ;; Victim appears non-empty; attempt non-blocking lock.
+                   (if (##not (macro-trylock-processor! victim-processor))
+
+                       (loop (##fx+ k 1) #t)
+
+                       ;; Walk up to 4 in-order candidates to bypass pinned
+                       ;; head-of-line threads or momentarily locked threads.
+                       (let scan ((cand (macro-btq-leftmost victim-processor))
+                                  (hops 0)
+                                  (local-contended? saw-contended?))
+                         (cond ((or (##eq? cand victim-processor)
+                                    (##fx>= hops 4))
+                                (macro-unlock-processor! victim-processor)
+                                (loop (##fx+ k 1) local-contended?))
+
+                               ((macro-thread-pinned cand)
+                                (scan (##thread-priority-successor
+                                       cand
+                                       victim-processor)
+                                      (##fx+ hops 1)
+                                      local-contended?))
+
+                               ((##not (macro-trylock-thread! cand))
+                                (scan (##thread-priority-successor
+                                       cand
+                                       victim-processor)
+                                      (##fx+ hops 1)
+                                      #t))
+
+                               (else
+                                ;; remove the thread from the victim run queue
+                                (##btq-remove! cand)
+
+                                ;; release low-level lock of victim processor
+                                (macro-unlock-processor! victim-processor)
+
+                                ;; resume execution of the stolen thread
+                                (macro-thread-restore!
+                                 cand
+                                 (lambda ()
+
+                                   ;; release low-level lock of stolen thread
+                                   (macro-unlock-current-thread!)
+
+                                   ;; release low-level lock of processor
+                                   (macro-unlock-current-processor!)
+
+                                   (##thread-resume-execution!)))))))))
+
+             ;; No thread stolen on this pass.
+             (if (and saw-contended? (##fx< steal-retry 3))
+
+                 (begin
+                   ;; A non-empty victim was transiently contended; briefly
+                   ;; yield our processor lock, relax, and retry before
+                   ;; falling into kernel wait.
+                   (macro-unlock-current-processor!)
+                   (macro-cpu-relax!)
+                   (macro-lock-current-processor!)
+                   (##thread-schedule-with-acquired-processor-retry!
+                    (##fx+ steal-retry 1)))
 
                  (begin
 
-                   ;; Try another victim rather than blocking.
+                   ;; Check if there are threads waiting for a timeout
+                   ;; or for a device to become ready.
 
-                   (loop (##fx- i 1)))
+                   (let ((next-sleeper
+                          (macro-toq-leftmost (macro-current-processor)))
+                         (next-condvar
+                          (macro-btq-deq-next (macro-current-processor))))
 
-                 (begin
+                     (if (and (##eq? next-sleeper (macro-current-processor))
+                              (##eq? next-condvar (macro-current-processor)))
 
-                   ;; Extract the thread at the head of the victim
-                   ;; processor's run queue, if it is non-empty.
+                         (begin
 
-                   (macro-if-btq-next
-                    victim-processor
-                    stolen-thread
+                           ;; This processor has no runnable threads
+                           ;; and no sleeping threads and it is not
+                           ;; waiting for a device to become ready.
+                           ;; Release processor lock and sleep only if no
+                           ;; concurrent unpinned enqueue bumped epoch0.
 
-                    (begin
+                           (macro-unlock-current-processor!)
 
-                      ;; The victim processor has a thread we can
-                      ;; steal on its run queue. But to avoid
-                      ;; deadlock, for the same reasons explained
-                      ;; above, the stolen-thread must be locked first
-                      ;; without blocking.
+                           (if (##fx> np 1)
+                               (##wait-idle-if-unchanged! epoch0)
+                               (##wait! #f #t))
 
-                      ;; Try to lock the stolen thread, but don't block.
+                           (##service-interrupts!) ;;TODO:remove
 
-                      (if (or (macro-thread-pinned stolen-thread)
-                              (##not (macro-trylock-thread! stolen-thread)))
+                           ;; schedule next runnable thread
+                           (##thread-schedule!))
 
-                          (begin
+                         (begin
 
-                            ;; The thread is pinned or we couldn't
-                            ;; lock it.
+                           ;; Wait for the next timeout or for a device
+                           ;; to become ready.
 
-                            ;; release low-level lock of victim processor
-                            (macro-unlock-processor! victim-processor)
+                           (let ((code
+                                  (##thread-check-devices!
+                                   (if (##eq? next-sleeper
+                                              (macro-current-processor))
+                                       #t ;; no sleeper -> use infinite timeout
+                                       (macro-thread-floats next-sleeper)))))
 
-                            ;; try another victim processor
-                            (loop (##fx- i 1)))
+                             ;; ##thread-check-devices! only returns
+                             ;; after a device becomes ready or the
+                             ;; timeout is reached or an interrupt is
+                             ;; received or an error is detected.
 
-                          (begin
+                             (##thread-check-timeouts!)
 
-                            ;; remove the thread from the run queue
-                            (##btq-remove! stolen-thread)
+                             ;; release low-level lock of processor
+                             (macro-unlock-current-processor!)
 
-                            ;; release low-level lock of processor
-                            (macro-unlock-processor! victim-processor)
+                             (##service-interrupts!) ;;TODO:remove
 
-                            ;; resume execution of the thread (this
-                            ;; sets the processor's current thread,
-                            ;; and the thread's last-processor field)
-                            (macro-thread-restore!
-                             stolen-thread
-                             (lambda ()
+                             (cond ((##not (##fx< code 0)) ;; no error?
+                                    (##thread-schedule!))
 
-                               ;; release low-level lock of stolen thread
-                               (macro-unlock-current-thread!)
+                                   ((##fx= code ##err-code-EINTR)
 
-                               ;; release low-level lock of processor
-                               (macro-unlock-current-processor!)
+                                    (##thread-schedule!))
 
-                               (##thread-resume-execution!))))))
+                                   (else
 
-                    (begin
+                                    ;; there was an error that cannot
+                                    ;; be handled, so force the
+                                    ;; primordial thread to wakeup and
+                                    ;; raise a "scheduler error"
+                                    ;; exception
 
-                      ;; The victim processor's run queue is
-                      ;; empty.
+                                    (##thread-report-scheduler-error! code)
 
-                      ;; release low-level lock of victim processor
-                      (macro-unlock-processor! victim-processor)
-
-                      ;; try another victim processor
-                      (loop (##fx- i 1)))))))
-
-           (begin
-
-             ;; A thread was not stolen from another processor.  Note
-             ;; that while trying to steal, some threads may have been
-             ;; added to the run queues of other processors, so at
-             ;; this point it might be possible to steal a thread. But
-             ;; it is ok to be approximative in order to avoid a
-             ;; centralized lock.
-
-             ;; Check if there are threads waiting for a timeout
-             ;; or for a device to become ready.
-
-             (let ((next-sleeper
-                    (macro-toq-leftmost (macro-current-processor)));;TODO: use (macro-if-toq-next ...)
-                   (next-condvar
-                    (macro-btq-deq-next (macro-current-processor))))
-
-               ;;(##c-code "printf(\"no runnable threads\\n\");");;TODO: remove
-
-               (if (and (##eq? next-sleeper (macro-current-processor))
-                        (##eq? next-condvar (macro-current-processor)))
-
-                   (begin
-
-                     ;; This processor has no runnable threads
-                     ;; and no sleeping threads and it is not
-                     ;; waiting for a device to become ready.
-                     ;; To avoid wasting CPU time, the processor
-                     ;; will be put in a waiting state until
-                     ;; another processor has work to share.
-
-                     ;;(##c-code "printf(\"P%d ##wait! in ##thread-schedule!\\n\",___INT(___ARG1));" (##current-processor-id));;TODO: remove
-
-                     ;; release low-level lock of processor
-                     (macro-unlock-current-processor!)
-
-                     (##wait! #f #t)
-
-                     (##service-interrupts!) ;;TODO:remove
-
-                     ;; schedule next runnable thread
-                     (##thread-schedule!))
-
-                   (begin
-
-                     ;; Wait for the next timeout or for a device
-                     ;; to become ready.
-
-                     ;;(##c-code "printf(\"check-devices!\\n\");");;TODO: remove
-
-                     (let ((code
-                            (##thread-check-devices!
-                             (if (##eq? next-sleeper
-                                        (macro-current-processor))
-                                 #t ;; no sleeper -> use infinite timeout
-                                 (macro-thread-floats next-sleeper)))))
-
-                       ;; ##thread-check-devices! only returns
-                       ;; after a device becomes ready or the
-                       ;; timeout is reached or an interrupt is
-                       ;; received or an error is detected.
-
-                       (##thread-check-timeouts!)
-
-                       ;; release low-level lock of processor
-                       (macro-unlock-current-processor!)
-
-                       (##service-interrupts!) ;;TODO:remove
-
-                       (cond ((##not (##fx< code 0)) ;; no error?
-                              (##thread-schedule!))
-
-                             ((##fx= code ##err-code-EINTR)
-
-                              ;;(##c-code "printf(\"EINTR\\n\");")
-                              (##thread-schedule!))
-
-                             (else
-
-                              ;; there was an error that cannot
-                              ;; be handled, so force the
-                              ;; primordial thread to wakeup (it
-                              ;; can't be currently runnable) and
-                              ;; raise a "scheduler error"
-                              ;; exception
-
-                              (##thread-report-scheduler-error! code)
-
-                              ;; schedule next runnable thread
-                              (##thread-schedule!)))))))))))))
+                                    ;; schedule next runnable thread
+                                    (##thread-schedule!)))))))))))))))
 
 (define-prim (##thread-report-scheduler-error! code)
 

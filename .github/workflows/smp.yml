@@ -129,6 +129,7 @@ jobs:
           #define ___DONT_HAVE_CONFIG_H
           #include "gambit.h"
           #include <pthread.h>
+          #include <stdint.h>
 
           static ___VOLATILE ___WORD shared_val = 0;
           static ___VOLATILE ___WORD ready = 0;
@@ -319,6 +320,51 @@ jobs:
             return 0;
           }
 
+          /* 5. Mirror of Tier 3.2 Dekker per-processor enqueue-epoch / idle-count wakeup protocol */
+          static ___VOLATILE ___WORD t32_epoch = 0;
+          static ___VOLATILE ___WORD t32_idle = 0;
+          static ___VOLATILE ___WORD t32_work = 0;
+          static ___VOLATILE ___WORD t32_consumed = 0;
+          static ___VOLATILE ___WORD t32_stop = 0;
+          static pthread_mutex_t t32_mut = PTHREAD_MUTEX_INITIALIZER;
+          static pthread_cond_t  t32_cv  = PTHREAD_COND_INITIALIZER;
+          static int t32_pipe_woken = 0;
+
+          static void *t32_consumer(void *arg) {
+            (void)arg;
+            ___WORD last = 0;
+            for (;;) {
+              ___WORD e0 = ___WORD_LOAD_ACQUIRE(&t32_epoch);
+              ___WORD w = ___WORD_LOAD_ACQUIRE(&t32_work);
+              if (w > last) {
+                last = w;
+                ___WORD_STORE_RELEASE(&t32_consumed, last);
+                if (last >= 1000) break;
+                continue;
+              }
+              if (___WORD_LOAD_ACQUIRE(&t32_stop) && ___WORD_LOAD_ACQUIRE(&t32_work) == last)
+                break;
+              /* Publish idle -> Dekker MB -> re-check epoch vs e0 */
+              pthread_mutex_lock(&t32_mut);
+              ___WORD_STORE_RELEASE(&t32_idle, 1);
+              pthread_mutex_unlock(&t32_mut);
+              ___SHARED_MEMORY_BARRIER();
+              if (___WORD_LOAD_ACQUIRE(&t32_epoch) != e0 || ___WORD_LOAD_ACQUIRE(&t32_stop)) {
+                pthread_mutex_lock(&t32_mut);
+                ___WORD_STORE_RELEASE(&t32_idle, 0);
+                pthread_mutex_unlock(&t32_mut);
+                continue;
+              }
+              pthread_mutex_lock(&t32_mut);
+              while (___WORD_LOAD_ACQUIRE(&t32_idle) == 1 && !t32_pipe_woken)
+                pthread_cond_wait(&t32_cv, &t32_mut);
+              t32_pipe_woken = 0;
+              ___WORD_STORE_RELEASE(&t32_idle, 0);
+              pthread_mutex_unlock(&t32_mut);
+            }
+            return 0;
+          }
+
           int main(void) {
             pthread_t t;
             if (pthread_create(&t, 0, writer, 0) != 0) return 1;
@@ -388,6 +434,37 @@ jobs:
             ___gc_card_clear_section(&t31_mature_sec, t31_mature_cards, T31_SEC_WORDS);
             if (___WORD_LOAD_ACQUIRE(&t31_mature_sec.card_dirty_any) != 0) return 16;
             if (___gc_card_is_dirty(t31_mature_cards, 0)) return 17;
+
+            /* 5. Stress Tier 3.2 Dekker per-processor enqueue-epoch / idle-count wakeup protocol */
+            {
+              pthread_t c32;
+              if (pthread_create(&c32, 0, t32_consumer, 0) != 0) return 18;
+              for (int r = 1; r <= 1000; r++) {
+                ___WORD_STORE_RELEASE(&t32_work, (___WORD)r);
+                ___WORD_STORE_RELEASE(&t32_epoch, (___WORD)r);
+                ___SHARED_MEMORY_BARRIER();
+                if (___WORD_LOAD_ACQUIRE(&t32_idle) > 0) {
+                  pthread_mutex_lock(&t32_mut);
+                  if (___WORD_LOAD_ACQUIRE(&t32_idle) > 0) {
+                    ___WORD_STORE_RELEASE(&t32_idle, 0);
+                    t32_pipe_woken = 1;
+                    pthread_cond_signal(&t32_cv);
+                  }
+                  pthread_mutex_unlock(&t32_mut);
+                }
+                while (___WORD_LOAD_ACQUIRE(&t32_consumed) < (___WORD)r)
+                  ___CPU_RELAX();
+              }
+              ___WORD_STORE_RELEASE(&t32_stop, 1);
+              ___SHARED_MEMORY_BARRIER();
+              pthread_mutex_lock(&t32_mut);
+              t32_pipe_woken = 1;
+              ___WORD_STORE_RELEASE(&t32_idle, 0);
+              pthread_cond_signal(&t32_cv);
+              pthread_mutex_unlock(&t32_mut);
+              pthread_join(c32, 0);
+              if (___WORD_LOAD_ACQUIRE(&t32_consumed) != 1000) return 19;
+            }
             return 0;
           }
           EOF
