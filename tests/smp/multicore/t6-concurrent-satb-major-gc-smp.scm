@@ -33,8 +33,13 @@
 #include <windows.h>
 static void t6_sleep_ms(int ms) { Sleep((DWORD)ms); }
 #else
-#include <unistd.h>
-static void t6_sleep_ms(int ms) { usleep((useconds_t)ms * 1000u); }
+#include <time.h>
+static void t6_sleep_ms(int ms) {
+  struct timespec ts;
+  ts.tv_sec = ms / 1000;
+  ts.tv_nsec = (long)(ms % 1000) * 1000000L;
+  nanosleep(&ts, NULL);
+}
 #endif
 c-end
 )
