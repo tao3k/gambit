@@ -71,7 +71,7 @@ runs:
         # re-emit lib/*.c with the active --enable-smp cond-expand feature so
         # _thread#.scm / _thread.scm SMP scheduler & migration primitives are compiled in.
         cp gsc/gsc gsc-boot
-        touch lib/_thread#.scm lib/_thread.scm lib/_io.scm lib/_repl.scm
+        touch lib/_kernel.scm lib/_std#.scm lib/_std.scm lib/_thread#.scm lib/_thread.scm lib/_io.scm lib/_repl.scm
         "${TIMEOUT_BIN}" --kill-after=2s "${BUILD_TIMEOUT}s" make -j"${workers}" -C lib GAMBOPT=p1 phase1
         grep -q 'thread_2d_migrate_2d_to_21_' lib/_thread.c
         "${TIMEOUT_BIN}" --kill-after=2s "${BUILD_TIMEOUT}s" make -j"${workers}" GAMBOPT=p1 core

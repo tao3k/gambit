@@ -9,7 +9,7 @@ ___SCMOBJ ht;)
   int size2 = words - ___GCHASHTABLE_KEY0;
   int i;
 
-  ___GC_WRITE_BARRIER_ALWAYS(___PSTATE, ht, body);
+  ___GC_WRITE_BARRIER_RANGE(___PSTATE, ht, body, words);
 
   if (!___FIXZEROP(___FIXAND(body[___GCHASHTABLE_FLAGS],
                              ___FIX(___GCHASHTABLE_FLAG_UNION_FIND))))

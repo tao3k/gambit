@@ -434,6 +434,29 @@ ___HIDDEN int plan_copy_round(___processor_state ps, ___SIZE_TS requested_words_
     if (n < 0 || k < 0 || nm < 0 || k > INT_MAX - nm - n - want_young_heaps)
       goto refuse;
 
+    if (!g->is_minor && want_young_heaps > 0 && ___GSTATE->setup_params.max_heap > 0)
+      {
+        ___SIZE_TS cap_secs =
+          (___GSTATE->setup_params.max_heap >> ___LWS) / ___MSECTION_SIZE;
+        if (___CAST(___SIZE_TS, k + 2 * n + 2) > cap_secs)
+          {
+            if (the_msections != 0 && compat == the_msections->nb_sections)
+              {
+                g->segregate_mature = 0;
+                want_young_heaps = 0;
+              }
+            else
+              {
+                int loans_ok = 1;
+                for (i = 0; i < n; i++)
+                  if (restore_loan_words(round->resume[i].source_words) < ___MSECTION_FUDGE + 2)
+                    loans_ok = 0;
+                if (loans_ok)
+                  want_young_heaps = 0;
+              }
+          }
+      }
+
     need_compat = n + want_young_heaps;
     need = nm + need_compat + k;
     if (compat < need_compat && the_msections != 0)

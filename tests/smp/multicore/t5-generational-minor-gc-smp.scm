@@ -132,8 +132,18 @@
               (let ((yk (cons 'key (+ base 16)))
                     (yv (make-young-payload (+ base 17))))
                 (table-set! m-table yk yv)
-                ;; Trigger automatic Minor GC(s) via young allocation churn
-                (churn-young! 18000)
+                ;; Trigger at least one automatic GC per wave regardless of host
+                ;; CPU L3-cache-derived default min_heap (stopping if either a
+                ;; Minor GC or a tight-max_heap Major fallback fires).
+                (let* ((sw0 (gc-gen-stats))
+                       (g0 (+ (stat-minor sw0) (stat-major sw0))))
+                  (let churn-wave ((tries 0))
+                    (let ((sw (gc-gen-stats)))
+                      (if (and (< tries 40)
+                               (= (+ (stat-minor sw) (stat-major sw)) g0))
+                          (begin
+                            (churn-young! 12000)
+                            (churn-wave (+ tries 1)))))))
                 ;; Verify EVERY single young reference survived intact
                 (check-payload (car m-pair) (+ base 1) "pair-car")
                 (check-payload (cdr m-pair) (+ base 2) "pair-cdr")

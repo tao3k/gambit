@@ -342,6 +342,13 @@ ___HIDDEN void prepare_generational_round
 #endif
   if (vm->mem.custom_msection_alloc_ != 0)
     can_gen = 0;
+  if (___GSTATE->setup_params.max_heap > 0)
+    {
+      ___SIZE_TS cap_secs =
+        (___GSTATE->setup_params.max_heap >> ___LWS) / ___MSECTION_SIZE;
+      if (cap_secs < ___CAST(___SIZE_TS, 2 * np + 10))
+        can_gen = 0;
+    }
 
   /* Keep mature segregation active whenever generational GC is enabled or
    * mature sections with independent active_offset already exist. */
