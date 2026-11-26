@@ -812,3 +812,16 @@ ___END_CFUN_CTX \
 #define ___BEGIN_CFUN_VARIANT_TO_SCMOBJ(c,s)___IF_CTOS3(___VARIANT_to_SCMOBJ,c,&s,___RETURN_POS){
 #define ___END_CFUN_VARIANT_TO_SCMOBJ(c,s)___EXT(___release_scmobj)(s);}
 
+/* Blocking-FFI participation park/unpark boundaries.
+ * A C foreign function (called via c-lambda, after ___BEGIN_CFUN_CTX has
+ * flushed GVM registers/hp/fp to ___ps->context) may bracket long-running or
+ * blocking native work with ___BEGIN_BLOCKING_FFI ... ___END_BLOCKING_FFI so
+ * stop-the-world GC on other SMP processors proceeds without waiting for this
+ * OS thread. While parked, the caller must not access the Scheme heap or
+ * unrooted ___SCMOBJ values; re-entrant c-define callbacks automatically
+ * unpark on entry and re-park on normal return. */
+#define ___BEGIN_BLOCKING_FFI_PS(ps) ___EXT(___enter_blocking_ffi)((ps));
+#define ___END_BLOCKING_FFI_PS(ps)   ___EXT(___leave_blocking_ffi)((ps));
+#define ___BEGIN_BLOCKING_FFI        ___BEGIN_BLOCKING_FFI_PS(___PSTATE)
+#define ___END_BLOCKING_FFI          ___END_BLOCKING_FFI_PS(___PSTATE)
+

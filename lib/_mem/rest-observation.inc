@@ -18,6 +18,7 @@ _Static_assert(__atomic_always_lock_free(8,0), "observation atomics must be lock
 
 int ___rest_observation_active;
 static uint64_t *rest_observation_map;
+static int rest_observation_env_probed;
 static uint64_t rest_observation_case_id;
 #ifdef ___MEM_SOURCE_FILE
 /* A focused group uses a different case process from the rest fixtures.
@@ -153,8 +154,12 @@ int ___rest_observation_open(const char *path)
   int fd;
   struct stat st;
   uint64_t *map;
-  if (rest_observation_map) return 1;
-  if (!path) path=getenv("GAMBIT_REST_OBSERVATION");
+  if (__atomic_load_n(&rest_observation_map,__ATOMIC_ACQUIRE)) return 1;
+  if (!path) {
+    if (__atomic_exchange_n(&rest_observation_env_probed,1,__ATOMIC_ACQ_REL))
+      return __atomic_load_n(&rest_observation_map,__ATOMIC_ACQUIRE)!=0;
+    path=getenv("GAMBIT_REST_OBSERVATION");
+  }
   if (!path || !*path) return 0;
   fd=open(path,O_RDWR|O_NOFOLLOW);
   if (fd<0) return 0;
@@ -169,7 +174,7 @@ int ___rest_observation_open(const char *path)
       map[3] || map[4] || map[5] || map[6]!=16 || map[7]) {
     munmap(map,(size_t)st.st_size); return 0;
   }
-  rest_observation_map=map;
+  __atomic_store_n(&rest_observation_map,map,__ATOMIC_RELEASE);
   __atomic_store_n(&___rest_observation_active,1,__ATOMIC_RELEASE);
   {
     const char *watch=getenv("GAMBIT_REST_OBSERVATION_WATCH");
@@ -317,6 +322,8 @@ void ___rest_observation_watch_roots(void *base, uint64_t words)
 
 void ___rest_observation_clear_roots(void)
 {
+  if (__builtin_expect(!__atomic_load_n(&rest_observation_root_base, __ATOMIC_RELAXED), 1))
+    return;
   __atomic_store_n(&rest_observation_root_base, 0, __ATOMIC_RELEASE);
 }
 

@@ -141,6 +141,8 @@ int maxfd;)
 {
   ___virtual_machine_state ___vms = ___VMSTATE_FROM_PSTATE(___ps);
   int newsize;
+  int coord_id = ___sync_coordinator_id(___vms);
+  int is_coord = (___PROCESSOR_ID(___ps, ___vms) == coord_id);
 
   newsize = ___vms->os.fdset.size;
   while (maxfd >= newsize)
@@ -148,7 +150,7 @@ int maxfd;)
   /* align newsize to ___fdbits word boundaries */
   newsize = (newsize + ___FDBITS - 1) & ~(___FDBITS - 1);
 
-  if (___PROCESSOR_ID(___ps, ___vms) == 0)
+  if (is_coord)
     ___vms->os.fdset.overflow = 0;
 
   BARRIER();
@@ -156,9 +158,21 @@ int maxfd;)
   if (newsize > ___ps->os.fdset.size && !___fdset_realloc (___ps, newsize))
     ___vms->os.fdset.overflow = 1;
 
+  if (is_coord)
+    {
+      int k;
+      for (k = 0; k < ___vms->processor_count; k++)
+        if (!___sync_processor_active(___vms, k))
+          {
+            ___processor_state pps = ___PSTATE_FROM_PROCESSOR_ID(k, ___vms);
+            if (newsize > pps->os.fdset.size && !___fdset_realloc (pps, newsize))
+              ___vms->os.fdset.overflow = 1;
+          }
+    }
+
   BARRIER();
 
-  if (!___vms->os.fdset.overflow && ___PROCESSOR_ID(___ps, ___vms) == 0)
+  if (!___vms->os.fdset.overflow && is_coord)
     ___vms->os.fdset.size = newsize;
 
 }
@@ -169,6 +183,67 @@ int maxfd;)
 /*---------------------------------------------------------------------------*/
 
 /* Device groups. */
+
+___HIDDEN ___MUTEX device_group_mutex;
+___HIDDEN ___BOOL device_group_mutex_ready = 0;
+
+#ifndef ___CONDVAR_BROADCAST
+#define ___CONDVAR_BROADCAST(cv) ___CONDVAR_SIGNAL(cv)
+#endif
+
+typedef struct ___device_select_entry_struct
+  {
+    ___processor_state ps;
+    ___device **devs;
+    int count;
+    struct ___device_select_entry_struct *prev;
+    struct ___device_select_entry_struct *next;
+  } ___device_select_entry;
+
+___HIDDEN ___MUTEX device_select_mutex;
+___HIDDEN ___CONDVAR device_select_cond;
+___HIDDEN ___BOOL device_select_mutex_ready = 0;
+___HIDDEN ___device_select_entry *active_select_list = NULL;
+
+___HIDDEN void device_add_ref ___P((___device *self),());
+___SCMOBJ ___device_release ___P((___device *self),());
+
+#ifdef USE_POSIX
+___HIDDEN ___MUTEX process_reap_mutex;
+___HIDDEN ___BOOL process_reap_mutex_ready = 0;
+___HIDDEN ___MUTEX process_fork_mutex;
+___HIDDEN ___BOOL process_fork_mutex_ready = 0;
+___HIDDEN volatile sig_atomic_t sigchld_pending = 0;
+
+typedef struct ___orphan_pid_node_struct
+  {
+    pid_t pid;
+    struct ___orphan_pid_node_struct *next;
+  } ___orphan_pid_node;
+
+___HIDDEN ___orphan_pid_node *orphan_pid_list = NULL;
+
+___HIDDEN void drain_orphan_pids_locked ___PVOID
+{
+  ___orphan_pid_node **pp = &orphan_pid_list;
+
+  while (*pp != NULL)
+    {
+      ___orphan_pid_node *node = *pp;
+      int status;
+      pid_t r = ___waitpid_no_EINTR (node->pid, &status, WNOHANG);
+
+      if ((r == node->pid && (WIFEXITED(status) || WIFSIGNALED(status))) ||
+          (r < 0 && errno == ECHILD))
+        {
+          *pp = node->next;
+          ___FREE_MEM(node);
+        }
+      else
+        pp = &node->next;
+    }
+}
+#endif
 
 
 ___SCMOBJ ___device_group_setup
@@ -198,9 +273,21 @@ void ___device_group_cleanup
         (dgroup)
 ___device_group *dgroup;)
 {
-  while (dgroup->list != NULL)
-    if (___device_cleanup (dgroup->list) != ___FIX(___NO_ERR))
-      break;
+  for (;;)
+    {
+      ___device *head;
+
+      if (device_group_mutex_ready)
+        ___MUTEX_LOCK (device_group_mutex);
+      head = dgroup->list;
+      if (device_group_mutex_ready)
+        ___MUTEX_UNLOCK (device_group_mutex);
+
+      if (head == NULL)
+        break;
+      if (___device_cleanup (head) != ___FIX(___NO_ERR))
+        break;
+    }
 
   ___FREE_MEM(dgroup);
 }
@@ -214,7 +301,17 @@ void ___device_add_to_group
 ___device_group *dgroup;
 ___device *dev;)
 {
-  ___device *head = dgroup->list;
+  ___device *head;
+
+  if (device_group_mutex_ready)
+    ___MUTEX_LOCK (device_group_mutex);
+
+  dev->close_pending_mask = 0;
+  dev->select_active = 0;
+  dev->close_in_progress = 0;
+  dev->close_waiters = 0;
+
+  head = dgroup->list;
 
   dev->group = dgroup;
 
@@ -232,6 +329,47 @@ ___device *dev;)
       tail->next = dev;
       head->prev = dev;
     }
+
+  if (device_group_mutex_ready)
+    ___MUTEX_UNLOCK (device_group_mutex);
+}
+
+___HIDDEN ___BOOL device_remove_from_group_if_member
+   ___P((___device *dev),
+        (dev)
+___device *dev;)
+{
+  ___BOOL removed = 0;
+
+  if (device_group_mutex_ready)
+    ___MUTEX_LOCK (device_group_mutex);
+
+  if (dev->group != NULL)
+    {
+      ___device_group *dgroup = dev->group;
+      ___device *prev = dev->prev;
+      ___device *next = dev->next;
+
+      if (prev == dev)
+        dgroup->list = NULL;
+      else
+        {
+          if (dgroup->list == dev)
+            dgroup->list = next;
+          prev->next = next;
+          next->prev = prev;
+          dev->next = dev;
+          dev->prev = dev;
+        }
+
+      dev->group = NULL;
+      removed = 1;
+    }
+
+  if (device_group_mutex_ready)
+    ___MUTEX_UNLOCK (device_group_mutex);
+
+  return removed;
 }
 
 void ___device_remove_from_group
@@ -239,23 +377,7 @@ void ___device_remove_from_group
         (dev)
 ___device *dev;)
 {
-  ___device_group *dgroup = dev->group;
-  ___device *prev = dev->prev;
-  ___device *next = dev->next;
-
-  if (prev == dev)
-    dgroup->list = NULL;
-  else
-    {
-      if (dgroup->list == dev)
-        dgroup->list = next;
-      prev->next = next;
-      next->prev = prev;
-      dev->next = dev;
-      dev->prev = dev;
-    }
-
-  dev->group = NULL;
+  (void)device_remove_from_group_if_member (dev);
 }
 
 ___device_group *___global_device_group ___PVOID
@@ -967,6 +1089,10 @@ ___time timeout;)
   int i;
   int prev;
   ___time delta;
+  unsigned char dev_borrow[MAX_CONDVARS];
+  ___device_select_entry select_entry;
+  ___BOOL used_select_fence = (read_pos > 0 && device_select_mutex_ready);
+  ___BOOL any_select_closing = 0;
 
 #ifdef USE_ASYNC_DEVICE_SELECT_ABORT
 
@@ -1037,6 +1163,55 @@ ___time timeout;)
 
 #endif
 
+  if (used_select_fence)
+    {
+      ___MUTEX_LOCK (device_select_mutex);
+      select_entry.ps = ___PSTATE;
+      select_entry.devs = devs;
+      select_entry.count = read_pos;
+      select_entry.prev = NULL;
+      select_entry.next = active_select_list;
+      if (active_select_list != NULL)
+        active_select_list->prev = &select_entry;
+      active_select_list = &select_entry;
+
+      for (i = 0; i < read_pos; i++)
+        {
+          ___device *d = devs[i];
+          int dir = (i >= write_pos
+                     ? ___DIRECTION_RD
+                     : (i >= event_pos
+                        ? ___DIRECTION_WR
+                        : (___DIRECTION_RD | ___DIRECTION_WR)));
+          if (d == NULL)
+            {
+              dev_borrow[i] = 0;
+            }
+          else if ((d->close_pending_mask & dir) != 0 ||
+                   ((dir & ___DIRECTION_RD) != 0 && d->read_stage != ___STAGE_OPEN) ||
+                   ((dir & ___DIRECTION_WR) != 0 && d->write_stage != ___STAGE_OPEN))
+            {
+              dev_borrow[i] = 2;
+              any_select_closing = 1;
+            }
+          else if (d->close_in_progress > 0)
+            {
+              dev_borrow[i] = 4;
+              any_select_closing = 1;
+            }
+          else
+            {
+              dev_borrow[i] = 1;
+              d->select_active++;
+              device_add_ref (d);
+            }
+        }
+      ___MUTEX_UNLOCK (device_select_mutex);
+
+      if (any_select_closing)
+        state.timeout = ___time_mod.time_neg_infinity;
+    }
+
   if (read_pos > 0)
     {
       state.devs_next[read_pos-1] = -1;
@@ -1059,6 +1234,19 @@ ___time timeout;)
       while (i != -1)
         {
           ___device *d = devs[i];
+          if (used_select_fence && dev_borrow[i] != 1)
+            {
+              int j = state.devs_next[i];
+              if (prev == -1)
+                dev_list = j;
+              else
+                state.devs_next[prev] = j;
+#ifdef USE_MsgWaitForMultipleObjects
+              state.devs_next[i] = -1;
+#endif
+              i = j;
+              continue;
+            }
           if ((e = ___device_select_virt
                      (d,
                       i>=write_pos ? FOR_READING
@@ -1076,7 +1264,7 @@ ___time timeout;)
             {
               int j;
               if (e != ___FIX(___SELECT_SETUP_DONE))
-                return e;
+                goto select_unborrow_cleanup;
               j = state.devs_next[i];
               if (prev == -1)
                 dev_list = j;
@@ -1512,24 +1700,70 @@ ___time timeout;)
 
 #endif
 
-  if (e == ___FIX(___NO_ERR))
+  if (used_select_fence)
     {
-      for (i=read_pos-1; i>=0; i--)
+      ___BOOL need_broadcast = 0;
+
+      ___MUTEX_LOCK (device_select_mutex);
+      if (select_entry.prev != NULL)
+        select_entry.prev->next = select_entry.next;
+      else
+        active_select_list = select_entry.next;
+      if (select_entry.next != NULL)
+        select_entry.next->prev = select_entry.prev;
+
+      for (i = 0; i < read_pos; i++)
         {
-          ___device *d = devs[i];
-          if (d != NULL)
-            if ((e = ___device_select_virt
-                       (d,
-                        i>=write_pos ? FOR_READING
-                                     : i>=event_pos ? FOR_WRITING
-                                                    : FOR_EVENT,
-                        i,
-                        ___SELECT_PASS_CHECK,
-                        &state))
-                != ___FIX(___NO_ERR))
-              break;
+          if (dev_borrow[i] == 1)
+            {
+              ___device *d = devs[i];
+              int dir = (i >= write_pos
+                         ? ___DIRECTION_RD
+                         : (i >= event_pos
+                            ? ___DIRECTION_WR
+                            : (___DIRECTION_RD | ___DIRECTION_WR)));
+              if ((d->close_pending_mask & dir) != 0)
+                dev_borrow[i] = 3;
+              if (--d->select_active == 0 && d->close_waiters > 0)
+                need_broadcast = 1;
+            }
         }
+      if (need_broadcast)
+        ___CONDVAR_BROADCAST (device_select_cond);
+      ___MUTEX_UNLOCK (device_select_mutex);
     }
+
+  {
+    ___BOOL check_active = (e == ___FIX(___NO_ERR));
+
+    for (i = read_pos - 1; i >= 0; i--)
+      {
+        ___device *d = devs[i];
+        if (used_select_fence && (dev_borrow[i] == 2 || dev_borrow[i] == 3))
+          {
+            devs[i] = NULL;
+          }
+        else if (check_active && d != NULL && (!used_select_fence || dev_borrow[i] == 1))
+          {
+            ___SCMOBJ ce = ___device_select_virt
+                             (d,
+                              i>=write_pos ? FOR_READING
+                                           : i>=event_pos ? FOR_WRITING
+                                                          : FOR_EVENT,
+                              i,
+                              ___SELECT_PASS_CHECK,
+                              &state);
+            if (ce != ___FIX(___NO_ERR))
+              {
+                e = ce;
+                check_active = 0;
+              }
+          }
+
+        if (used_select_fence && (dev_borrow[i] == 1 || dev_borrow[i] == 3))
+          ___device_release (d);
+      }
+  }
 
 #ifdef USE_ASYNC_DEVICE_SELECT_ABORT
 
@@ -1537,6 +1771,41 @@ ___time timeout;)
     e = ___FIX(___ERRNO_ERR(EINTR));
 
 #endif
+
+  return e;
+
+select_unborrow_cleanup:
+  if (used_select_fence)
+    {
+      ___BOOL need_broadcast = 0;
+
+      ___MUTEX_LOCK (device_select_mutex);
+      if (select_entry.prev != NULL)
+        select_entry.prev->next = select_entry.next;
+      else
+        active_select_list = select_entry.next;
+      if (select_entry.next != NULL)
+        select_entry.next->prev = select_entry.prev;
+
+      for (i = 0; i < read_pos; i++)
+        {
+          if (dev_borrow[i] == 1)
+            {
+              ___device *d = devs[i];
+              if (--d->select_active == 0 && d->close_waiters > 0)
+                need_broadcast = 1;
+            }
+        }
+      if (need_broadcast)
+        ___CONDVAR_BROADCAST (device_select_cond);
+      ___MUTEX_UNLOCK (device_select_mutex);
+
+      for (i = 0; i < read_pos; i++)
+        {
+          if (dev_borrow[i] == 1)
+            ___device_release (devs[i]);
+        }
+    }
 
   return e;
 }
@@ -1586,7 +1855,53 @@ ___SCMOBJ ___device_close
 ___device *self;
 int direction;)
 {
-  return ___device_close_virt (self, direction);
+  ___SCMOBJ e;
+  int newly_masked = 0;
+
+  if (device_select_mutex_ready)
+    {
+      ___MUTEX_LOCK (device_select_mutex);
+      self->close_waiters++;
+      while (self->close_in_progress > 0)
+        ___CONDVAR_WAIT (device_select_cond, device_select_mutex);
+      self->close_in_progress = 1;
+      newly_masked = direction & ~self->close_pending_mask;
+      self->close_pending_mask |= direction;
+      while (self->select_active > 0)
+        {
+          ___device_select_entry *ent;
+          for (ent = active_select_list; ent != NULL; ent = ent->next)
+            {
+              int k;
+              for (k = 0; k < ent->count; k++)
+                {
+                  if (ent->devs[k] == self)
+                    {
+                      ___device_select_abort (ent->ps);
+                      break;
+                    }
+                }
+            }
+          ___CONDVAR_WAIT (device_select_cond, device_select_mutex);
+        }
+      self->close_waiters--;
+      ___MUTEX_UNLOCK (device_select_mutex);
+    }
+
+  e = ___device_close_virt (self, direction);
+
+  if (device_select_mutex_ready)
+    {
+      ___MUTEX_LOCK (device_select_mutex);
+      if (e == ___ERR_CODE_EAGAIN)
+        self->close_pending_mask &= ~newly_masked;
+      self->close_in_progress = 0;
+      if (self->close_waiters > 0)
+        ___CONDVAR_BROADCAST (device_select_cond);
+      ___MUTEX_UNLOCK (device_select_mutex);
+    }
+
+  return e;
 }
 
 ___HIDDEN void device_transfer_close_responsibility
@@ -1608,6 +1923,8 @@ ___device *self;)
 {
 #ifdef USE_PUMPS
   InterlockedIncrement (&self->refcount);
+#elif defined(__GNUC__) || defined(__clang__)
+  __atomic_fetch_add (&self->refcount, 1, __ATOMIC_RELAXED);
 #else
   self->refcount++;
 #endif
@@ -1623,6 +1940,8 @@ ___device *self;)
   if (
 #ifdef USE_PUMPS
       InterlockedDecrement (&self->refcount) == 0
+#elif defined(__GNUC__) || defined(__clang__)
+      __atomic_sub_fetch (&self->refcount, 1, __ATOMIC_ACQ_REL) == 0
 #else
       --self->refcount == 0
 #endif
@@ -1643,10 +1962,8 @@ ___device *self;)
   ___SCMOBJ e;
   ___device *devs[1];
 
-  if (self->group == NULL)
+  if (!device_remove_from_group_if_member (self))
     return ___FIX(___UNKNOWN_ERR);
-
-  ___device_remove_from_group (self);
 
   for (;;)
     {
@@ -3579,19 +3896,43 @@ ___SCMOBJ ___device_process_status_poll
         (dev)
 ___device_process *dev;)
 {
-  if (!dev->got_status)
-    {
 #ifdef USE_POSIX
 
-      /*
-       * The process status is updated asynchronously by
-       * sigchld_signal_handler.
-       */
+  /*
+   * Poll this specific child PID under process_reap_mutex rather than calling
+   * waitpid(-1) in sigchld_signal_handler.  Under SMP (P > 1), pthread_sigmask
+   * only blocks SIGCHLD on the spawning thread; a wildcard waitpid(-1) on a
+   * sibling thread could steal and discard a child's status before its device
+   * is registered in dgroup->list, hanging process-status forever.
+   */
+
+  if (process_reap_mutex_ready)
+    ___MUTEX_LOCK (process_reap_mutex);
+
+  if (!dev->got_status && dev->pid > 0)
+    {
+      int status;
+      pid_t r = ___waitpid_no_EINTR (dev->pid, &status, WNOHANG);
+
+      if (r == dev->pid && (WIFEXITED(status) || WIFSIGNALED(status)))
+        ___device_process_status_set (dev, status); /* ignore error */
+    }
+
+  if (sigchld_pending && orphan_pid_list != NULL)
+    {
+      sigchld_pending = 0;
+      drain_orphan_pids_locked ();
+    }
+
+  if (process_reap_mutex_ready)
+    ___MUTEX_UNLOCK (process_reap_mutex);
 
 #endif
 
 #ifdef USE_WIN32
 
+  if (!dev->got_status)
+    {
       DWORD status;
 
       if (!GetExitCodeProcess (dev->pi.hProcess, &status))
@@ -3599,11 +3940,29 @@ ___device_process *dev;)
 
       if (status != STILL_ACTIVE)
         ___device_process_status_set (dev, status << 8); /* ignore error */
-
-#endif
     }
 
+#endif
+
   return ___FIX(___NO_ERR);
+}
+
+___HIDDEN ___BOOL device_process_has_status
+   ___P((___device_process *dev),
+        (dev)
+___device_process *dev;)
+{
+  ___BOOL got;
+#ifdef USE_POSIX
+  if (process_reap_mutex_ready)
+    ___MUTEX_LOCK (process_reap_mutex);
+  got = dev->got_status;
+  if (process_reap_mutex_ready)
+    ___MUTEX_UNLOCK (process_reap_mutex);
+#else
+  got = dev->got_status;
+#endif
+  return got;
 }
 
 ___HIDDEN ___SCMOBJ ___device_process_close_raw_virt
@@ -3649,17 +4008,19 @@ ___device_select_state *state;)
   if (for_op != FOR_EVENT)
     return ___device_pipe_select_raw_virt (self, for_op, i, pass, state);
 
+  ___device_process_status_poll (d); /* ignore error */
+
   if (pass == ___SELECT_PASS_1)
     {
-      if (d->got_status)
+      if (device_process_has_status (d))
         state->timeout = ___time_mod.time_neg_infinity;
       else
         {
           int interval = d->event_check_interval_nsecs * 6 / 5;
           if (interval < 1000000)
             interval = 1000000; /* min interval = 0.001 secs */
-          else if (interval > 200000000)
-            interval = 200000000; /* max interval = 0.2 sec */
+          else if (interval > 50000000)
+            interval = 50000000; /* max interval = 0.05 sec */
           d->event_check_interval_nsecs = interval;
           ___device_select_add_relative_timeout (state, i, interval * 1e-9);
         }
@@ -3668,7 +4029,7 @@ ___device_select_state *state;)
 
   /* pass == ___SELECT_PASS_CHECK */
 
-  if (d->got_status)
+  if (device_process_has_status (d))
     state->devs[i] = NULL;
 
   return ___FIX(___NO_ERR);
@@ -3681,7 +4042,26 @@ ___device_stream *self;)
 {
   ___device_process *d = ___CAST(___device_process*,self);
   ___SCMOBJ e1 = ___device_pipe_release_raw_virt (self);
-  ___SCMOBJ e2 = ___device_process_cleanup (d);
+  ___SCMOBJ e2;
+#ifdef USE_POSIX
+  ___device_process_status_poll (d); /* ignore error */
+  if (process_reap_mutex_ready)
+    ___MUTEX_LOCK (process_reap_mutex);
+  if (!d->got_status && d->pid > 0)
+    {
+      ___orphan_pid_node *node =
+        ___CAST(___orphan_pid_node*,___ALLOC_MEM(sizeof (___orphan_pid_node)));
+      if (node != NULL)
+        {
+          node->pid = d->pid;
+          node->next = orphan_pid_list;
+          orphan_pid_list = node;
+        }
+    }
+  if (process_reap_mutex_ready)
+    ___MUTEX_UNLOCK (process_reap_mutex);
+#endif
+  e2 = ___device_process_cleanup (d);
   if (e1 == ___FIX(___NO_ERR))
     e1 = e2;
   return e1;
@@ -8525,52 +8905,12 @@ int sig;)
 #endif
 
   /*
-   * A SIGCHLD signal indicates that at least one child has changed
-   * status.  There may be more than one because signals are not
-   * queued.  For example during a period when the SIGCHLD signal is
-   * blocked several child processes can terminate and only one call
-   * to the SIGCHLD handler will occur when the SIGCHLD signal is
-   * unblocked.  For this reason we must call waitpid in a loop, until
-   * the last call indicates that no other child process is available.
+   * Keep the SIGCHLD handler strictly async-signal-safe: only record the
+   * notification (and interrupt select/poll with EINTR).  Reaping is performed
+   * per-PID in ___device_process_status_poll under process_reap_mutex.
    */
 
-  for (;;)
-    {
-      int status;
-      ___device *head;
-      pid_t pid = ___waitpid_no_EINTR (-1, &status, WNOHANG);
-
-      if (pid <= 0 ||
-          !(WIFEXITED(status) || WIFSIGNALED(status)))
-        break;
-
-      /*
-       * Find the process device structure for the process which
-       * terminated, and save the exit status with the process device.
-       */
-
-      head = ___global_device_group ()->list;
-
-      if (head != NULL)
-        {
-          ___device *d = head->prev;
-
-          do
-            {
-              if (___device_kind (d) == ___PROCESS_DEVICE_KIND)
-                {
-                  ___device_process *dev = ___CAST(___device_process*,d);
-
-                  if (dev->pid == pid)
-                    {
-                      ___device_process_status_set (dev, status); /* ignore error */
-                      break;
-                    }
-                }
-              d = d->prev;
-            } while  (d != head);
-        }
-    }
+  sigchld_pending = 1;
   errno = save_errno;
 #endif
 }
@@ -9169,6 +9509,214 @@ int options;)
   int has_redir = options & (STDIN_REDIR | STDOUT_REDIR | STDERR_REDIR);
   int execvp_errno;
   int n;
+#if defined(__APPLE__) && defined(__MACH__) && defined(POSIX_SPAWN_CLOEXEC_DEFAULT)
+  /*
+   * On Darwin, calling fork() from a multithreaded SMP process triggers
+   * libSystem_atfork_child -> _notify_fork_child -> _os_once_gate_corruption_abort
+   * (SIGKILL) whenever another processor is initializing a libSystem os_once_t
+   * (e.g. concurrent TCP/DNS/notify calls).  Spawn non-PTY children directly via
+   * posix_spawn/posix_spawnp with POSIX_SPAWN_CLOEXEC_DEFAULT | SETSIGHANDLERS,
+   * bypassing fork() completely.
+   */
+  if (!(options & PSEUDO_TERM) &&
+      (dir == NULL || strlen (dir) < PATH_MAX))
+    {
+      if (dir != NULL)
+        {
+          struct stat dir_st;
+          if (stat (dir, &dir_st) != 0 || !S_ISDIR (dir_st.st_mode))
+            return ___FIX(1); /* indicate current directory couldn't be set */
+        }
+
+      ___mask_all_interrupts_state all_interrupts;
+      ___mask_all_interrupts_begin (&all_interrupts);
+
+      fdp.input.reading_fd = -1;
+      fdp.input.writing_fd = -1;
+      fdp.output.reading_fd = -1;
+      fdp.output.writing_fd = -1;
+
+      if (!has_redir ||
+          (e = open_full_duplex_pipe1 (&fdp, 0, 1)) == ___FIX(___NO_ERR))
+        {
+          posix_spawnattr_t direct_attr;
+          posix_spawn_file_actions_t direct_actions;
+          int attr_init = 0;
+          int actions_init = 0;
+          int status = 0;
+
+          if ((status = posix_spawnattr_init (&direct_attr)) == 0)
+            attr_init = 1;
+          if (status == 0 && (status = posix_spawn_file_actions_init (&direct_actions)) == 0)
+            actions_init = 1;
+
+          if (status == 0)
+            {
+              sigset_t sigmask;
+              sigset_t sigdef;
+              sigemptyset (&sigmask);
+              sigemptyset (&sigdef);
+              sigaddset (&sigdef, SIGINT);
+              sigaddset (&sigdef, SIGTERM);
+              sigaddset (&sigdef, SIGPIPE);
+              sigaddset (&sigdef, SIGCHLD);
+#ifdef SIGWINCH
+              sigaddset (&sigdef, SIGWINCH);
+#endif
+#ifdef SIGCONT
+              sigaddset (&sigdef, SIGCONT);
+#endif
+#ifdef SIGTTOU
+              sigaddset (&sigdef, SIGTTOU);
+#endif
+#ifdef SIGTTIN
+              sigaddset (&sigdef, SIGTTIN);
+#endif
+#ifdef SIGALRM
+              sigaddset (&sigdef, SIGALRM);
+#endif
+#ifdef SIGVTALRM
+              sigaddset (&sigdef, SIGVTALRM);
+#endif
+#ifdef SIGPROF
+              sigaddset (&sigdef, SIGPROF);
+#endif
+              status = posix_spawnattr_setflags
+                (&direct_attr,
+                 POSIX_SPAWN_CLOEXEC_DEFAULT |
+                 POSIX_SPAWN_SETSIGMASK |
+                 POSIX_SPAWN_SETSIGDEF);
+              if (status == 0)
+                status = posix_spawnattr_setsigmask (&direct_attr, &sigmask);
+              if (status == 0)
+                status = posix_spawnattr_setsigdefault (&direct_attr, &sigdef);
+            }
+
+          if (status == 0)
+            {
+              if (options & STDIN_REDIR)
+                status = posix_spawn_file_actions_adddup2
+                  (&direct_actions, fdp.input.reading_fd, STDIN_FILENO);
+              else
+                {
+                  int fl = fcntl (STDIN_FILENO, F_GETFD);
+                  if (fl >= 0 && !(fl & FD_CLOEXEC))
+                    status = posix_spawn_file_actions_adddup2
+                      (&direct_actions, STDIN_FILENO, STDIN_FILENO);
+                }
+            }
+
+          if (status == 0)
+            {
+              if (options & STDOUT_REDIR)
+                status = posix_spawn_file_actions_adddup2
+                  (&direct_actions, fdp.output.writing_fd, STDOUT_FILENO);
+              else
+                {
+                  int fl = fcntl (STDOUT_FILENO, F_GETFD);
+                  if (fl >= 0 && !(fl & FD_CLOEXEC))
+                    status = posix_spawn_file_actions_adddup2
+                      (&direct_actions, STDOUT_FILENO, STDOUT_FILENO);
+                }
+            }
+
+          if (status == 0)
+            {
+              if (options & STDERR_REDIR)
+                status = posix_spawn_file_actions_adddup2
+                  (&direct_actions, fdp.output.writing_fd, STDERR_FILENO);
+              else
+                {
+                  int fl = fcntl (STDERR_FILENO, F_GETFD);
+                  if (fl >= 0 && !(fl & FD_CLOEXEC))
+                    status = posix_spawn_file_actions_adddup2
+                      (&direct_actions, STDERR_FILENO, STDERR_FILENO);
+                }
+            }
+
+          if (status == 0 && dir != NULL)
+            {
+#if defined(__MAC_OS_X_VERSION_MIN_REQUIRED) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 260000
+              status = posix_spawn_file_actions_addchdir (&direct_actions, dir);
+#else
+              status = posix_spawn_file_actions_addchdir_np (&direct_actions, dir);
+#endif
+            }
+
+          if (status == 0)
+            {
+              char **spawn_env = env;
+#ifdef USE_environ
+              if (spawn_env == NULL)
+                spawn_env = environ;
+#endif
+              if (strchr (argv[0], '/') != NULL)
+                status = posix_spawn (&pid, argv[0], &direct_actions,
+                                      &direct_attr, argv, spawn_env);
+              else
+                status = posix_spawnp (&pid, argv[0], &direct_actions,
+                                       &direct_attr, argv, spawn_env);
+            }
+
+          if (actions_init)
+            posix_spawn_file_actions_destroy (&direct_actions);
+          if (attr_init)
+            posix_spawnattr_destroy (&direct_attr);
+
+          if (status != 0)
+            {
+              if (has_redir)
+                {
+                  ___close_half_duplex_pipe (&fdp.input, 2);
+                  ___close_half_duplex_pipe (&fdp.output, 2);
+                }
+              errno = status;
+              e = err_code_from_errno ();
+            }
+          else
+            {
+              if (has_redir)
+                {
+                  ___close_half_duplex_pipe (&fdp.input, 0);
+                  ___close_half_duplex_pipe (&fdp.output, 1);
+                }
+
+              direction = ___DIRECTION_RD|___DIRECTION_WR;
+
+              e = ___device_process_setup_from_pid
+                    (&d,
+                     dgroup,
+                     pid,
+                     fdp.input.writing_fd,
+                     fdp.output.reading_fd,
+                     direction);
+
+              *dev = ___CAST(___device_stream*,d);
+
+              if (e == ___FIX(___NO_ERR))
+                device_transfer_close_responsibility (___CAST(___device*,d));
+              else
+                {
+                  if (has_redir)
+                    {
+                      ___close_half_duplex_pipe (&fdp.input, 1);
+                      ___close_half_duplex_pipe (&fdp.output, 0);
+                    }
+                  if (pid > 0)
+                    {
+                      int fail_status;
+                      ___waitpid_no_EINTR (pid, &fail_status, 0);
+                    }
+                }
+            }
+        }
+
+      ___mask_all_interrupts_end (&all_interrupts);
+
+      return e;
+    }
+#endif
+
 #if defined(POSIX_SPAWN_SETEXEC) && defined(POSIX_SPAWN_CLOEXEC_DEFAULT)
   posix_spawnattr_t spawn_attributes;
   posix_spawn_file_actions_t spawn_actions;
@@ -9215,7 +9763,12 @@ int options;)
       if (!has_redir ||
           (e = open_full_duplex_pipe1 (&fdp, options & PSEUDO_TERM, 0)) == ___FIX(___NO_ERR))
         {
-          if ((pid = fork ()) < 0)
+          if (process_fork_mutex_ready)
+            ___MUTEX_LOCK (process_fork_mutex);
+          pid = fork ();
+          if (pid != 0 && process_fork_mutex_ready)
+            ___MUTEX_UNLOCK (process_fork_mutex);
+          if (pid < 0)
             {
               e = err_code_from_errno ();
               if (has_redir)
@@ -9404,11 +9957,18 @@ int options;)
         }
 
       if (e != ___FIX(___NO_ERR))
-        if (has_redir)
-          {
-            ___close_half_duplex_pipe (&fdp.input, 1);
-            ___close_half_duplex_pipe (&fdp.output, 0);
-          }
+        {
+          if (has_redir)
+            {
+              ___close_half_duplex_pipe (&fdp.input, 1);
+              ___close_half_duplex_pipe (&fdp.output, 0);
+            }
+          if (pid > 0)
+            {
+              int fail_status;
+              ___waitpid_no_EINTR (pid, &fail_status, 0);
+            }
+        }
 
       ___close_half_duplex_pipe (&hdp_errno, 0);
     }
@@ -9633,14 +10193,28 @@ ___SCMOBJ dev;)
   ___device_process *d =
     ___CAST(___device_process*,___FOREIGN_PTR_FIELD(dev));
   ___SCMOBJ e;
+  ___BOOL got;
+  int st;
 
   if ((e = ___device_process_status_poll (d)) != ___FIX(___NO_ERR))
     return e;
 
-  if (!d->got_status)
+#ifdef USE_POSIX
+  if (process_reap_mutex_ready)
+    ___MUTEX_LOCK (process_reap_mutex);
+  got = d->got_status;
+  st = d->status;
+  if (process_reap_mutex_ready)
+    ___MUTEX_UNLOCK (process_reap_mutex);
+#else
+  got = d->got_status;
+  st = d->status;
+#endif
+
+  if (!got)
     return ___FAL;
 
-  return ___FIX(d->status);
+  return ___FIX(st);
 }
 
 
@@ -11958,6 +12532,21 @@ ___HIDDEN ___SCMOBJ io_module_setup ___PVOID
 {
   ___SCMOBJ e;
 
+  ___MUTEX_INIT (device_group_mutex);
+  device_group_mutex_ready = 1;
+  ___MUTEX_INIT (device_select_mutex);
+  ___CONDVAR_INIT (device_select_cond);
+  active_select_list = NULL;
+  device_select_mutex_ready = 1;
+#ifdef USE_POSIX
+  ___MUTEX_INIT (process_reap_mutex);
+  process_reap_mutex_ready = 1;
+  ___MUTEX_INIT (process_fork_mutex);
+  process_fork_mutex_ready = 1;
+  sigchld_pending = 0;
+  orphan_pid_list = NULL;
+#endif
+
   if ((e = ___device_group_setup (&___io_mod.dgroup)) == ___FIX(___NO_ERR))
     {
       ___setup_child_interrupt_handling (); /* ignore error */
@@ -12001,6 +12590,40 @@ ___HIDDEN void io_module_cleanup ___PVOID
 #endif
 
   ___device_group_cleanup (___io_mod.dgroup);
+
+#ifdef USE_POSIX
+  if (process_reap_mutex_ready)
+    {
+      ___MUTEX_LOCK (process_reap_mutex);
+      drain_orphan_pids_locked ();
+      while (orphan_pid_list != NULL)
+        {
+          ___orphan_pid_node *node = orphan_pid_list;
+          orphan_pid_list = node->next;
+          ___FREE_MEM(node);
+        }
+      ___MUTEX_UNLOCK (process_reap_mutex);
+      ___MUTEX_DESTROY (process_reap_mutex);
+      process_reap_mutex_ready = 0;
+    }
+  if (process_fork_mutex_ready)
+    {
+      ___MUTEX_DESTROY (process_fork_mutex);
+      process_fork_mutex_ready = 0;
+    }
+#endif
+  if (device_select_mutex_ready)
+    {
+      ___CONDVAR_DESTROY (device_select_cond);
+      ___MUTEX_DESTROY (device_select_mutex);
+      active_select_list = NULL;
+      device_select_mutex_ready = 0;
+    }
+  if (device_group_mutex_ready)
+    {
+      ___MUTEX_DESTROY (device_group_mutex);
+      device_group_mutex_ready = 0;
+    }
 }
 
 

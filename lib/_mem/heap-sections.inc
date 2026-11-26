@@ -1275,7 +1275,12 @@ ___HIDDEN void retire_section_claims(___msections *sections, ___SIZE_TS offset)
 {
   ___msection *section;
   for(section=sections->head; section; section=section->next)
-    *section_claim_at(section,offset)=(section_claim){0};
+    {
+      *section_claim_at(section,offset)=(section_claim){0};
+      if (section->card_dirty_any)
+        ___gc_card_clear_section(section, section_card_bits(section), ___MSECTION_SIZE);
+      section->region_generation++;
+    }
 }
 
 /* The cleanup collective publishes each frozen member's completion.
@@ -1342,7 +1347,7 @@ ___virtual_machine_state ___vms;)
      np<1 || nw<1 || nw>np || np+___COLLECTION(___vms).planned_copy_sections>the_msections->nb_sections)
     rc_contract_error("Physical setup requires the all-participant accepted plan");
   ___COLLECTION(___vms).destination_offset=(___MSECTION_SIZE>>1)-
-    ___PSTATE_FROM_PROCESSOR_ID(0,___vms)->mem.tospace_offset_;
+    ___PSTATE_FROM_PROCESSOR_ID(___COLLECTION(___vms).coordinator_id,___vms)->mem.tospace_offset_;
   for(i=0;i<np;i++) {
     ___processor_state owner=___PSTATE_FROM_PROCESSOR_ID(i,___vms);
     ___gc_resume_space *granted=&___RESUME(___vms,i);
@@ -1361,7 +1366,7 @@ ___virtual_machine_state ___vms;)
          ___gc_stack_first_read_cell(granted->source_fp)) ||
        length>(___MSECTION_SIZE>>1) ||
        owner->mem.tospace_offset_==___COLLECTION(___vms).destination_offset ||
-       (i>=nw && restore_loan_words(length)<___MSECTION_FUDGE+2)) fatal_heap_overflow();
+       (___COLLECTION(___vms).proc_worker[i]<0 && restore_loan_words(length)<___MSECTION_FUDGE+2)) fatal_heap_overflow();
   }
   { ___msection *section=the_msections->head;
     while(section) { section->copy_gate=0;
@@ -1397,14 +1402,17 @@ ___virtual_machine_state ___vms;)
       r->loan_limit = r->loan_base+loan;
       r->stack_floor = alloc_stack_limit;
       r->loan_used = r->accepted = r->restored = r->copy_admitted = r->source_drained = 0;
-      r->source_worker = i<nw ? i : -1;
+      r->source_worker = ___COLLECTION(___vms).proc_worker[i];
       alloc = alloc->next;
     }
 
   for (i=0; i<nw; i++)
     {
       ___collector_worker *work = &___COLLECTORS(___vms)[i];
-      ___processor_state ___ps = work->carrier;
+      int w_proc = ___COLLECTION(___vms).worker_proc[i];
+      ___processor_state ___ps = ___PSTATE_FROM_PROCESSOR_ID(w_proc, ___vms);
+      work->id = i;
+      work->carrier = ___ps;
 
       work->census=0;
       work->destination_revisits=0;
@@ -1485,4 +1493,90 @@ ___HIDDEN void prepare_heap_msection(___processor_state ps)
   *ps->mem.alloc_heap_ptr_++=NULL_CHUNK_LINK;
   ps->mem.alloc_heap_chunk_start_=ps->mem.alloc_heap_ptr_;
   ps->mem.alloc_heap_chunk_limit_=ps->mem.alloc_heap_ptr_+___MSECTION_CHUNK;
+}
+
+
+/* Zero-growth budgeted nursery TLAB refill for rest-parameter handlers.
+ * Consumes one already-budgeted free msection (matching ___heap_limit and
+ * bump_heap_section_for_demand) without calling adjust_msections. When free
+ * nursery sections are exhausted, returns 0 so the handler enters root-window
+ * custody, caller-chain verification, and genuine garbage collection. */
+___BOOL ___rest_take_free_section(___processor_state ps,
+                                 ___WORD pending, ___WORD np,
+                                 ___WORD stack_slots)
+{
+  ___processor_state ___ps = ps;
+  ___WORD words, pairs, payload;
+  ___WORD *hp, *fp;
+  ___WORD pair_words = (___WORD)(___PAIR_SIZE + ___PAIR_BODY);
+  ___msection *fresh, *claimed;
+  ___SIZE_TS room = 0;
+  ___WORD *base, *hard;
+
+  if (!___ps || ___ps != ___PSTATE || !___ps->context ||
+      pending < 0 || np < 0 || stack_slots < 0)
+    return 0;
+  if (pending != 0 && pair_words > ((___WORD)((~(___UWORD)0) >> 1)) / pending)
+    return 0;
+  pairs = pending * pair_words;
+  if (pairs > ((___WORD)((~(___UWORD)0) >> 1)) - np)
+    return 0;
+  payload = pairs + np;
+  if (payload > ((___WORD)((~(___UWORD)0) >> 1)) - (___WORD)___VECTOR_BODY)
+    return 0;
+  words = payload + (___WORD)___VECTOR_BODY;
+  hp = ___ps->context->hp;
+  fp = ___ps->context->fp;
+  if (!current_heap_interval_matches(___ps, hp))
+    return 0;
+  if (!___rest_stack_slots_fit(___ps, fp, stack_slots))
+    return 0;
+  if ((___SIZE_TS)(alloc_heap_limit - hp) > ___MSECTION_FUDGE &&
+      (___SIZE_TS)(alloc_heap_limit - hp) - ___MSECTION_FUDGE >= (___SIZE_TS)words)
+    return 1;
+
+  ALLOC_MEM_LOCK();
+  if (custom_msection_alloc || !the_msections ||
+#ifdef CALL_GC_FREQUENTLY
+      --___gc_calls_to_punt < 0 ||
+#endif
+      compute_free_heap_space_approximately() < ___MSECTION_SIZE ||
+      !___rest_new_section_admitted(___ps, ___GSTATE->setup_params.max_heap))
+    {
+      ALLOC_MEM_UNLOCK();
+      return 0;
+    }
+  fresh = peek_fresh_msection(___ps);
+  if (!fresh ||
+      section_claim_at(fresh, tospace_offset)->stack_owner ||
+      section_claim_at(fresh, tospace_offset)->stack_state ||
+      section_claim_at(fresh, tospace_offset)->heap_used)
+    {
+      ALLOC_MEM_UNLOCK();
+      return 0;
+    }
+  if (!rest_predicted_soft_room(___ps, fresh, fp, &room) ||
+      room < (___SIZE_TS)words)
+    {
+      ALLOC_MEM_UNLOCK();
+      return 0;
+    }
+  commit_fresh_msection(___ps, fresh);
+  words_prev_msections += hp - alloc_heap_start;
+  claimed = fresh;
+  base = start_of_tospace(claimed);
+  ALLOC_MEM_UNLOCK();
+
+  alloc_stack_ptr = fp;
+  set_heap_msection_possibly_sharing_with_stack(___ps, claimed);
+  ___ps->context->hp = base;
+  ___ps->heap_limit = base + room;
+  hard = base + (___MSECTION_SIZE >> 1);
+  if (hard > base + ___MSECTION_FUDGE &&
+      ___ps->heap_limit > hard - ___MSECTION_FUDGE)
+    ___ps->heap_limit = hard - ___MSECTION_FUDGE;
+  publish_fast_span(___ps);
+  return base && ___ps->heap_limit &&
+         base <= ___ps->heap_limit &&
+         (___SIZE_TS)(___ps->heap_limit - base) >= (___SIZE_TS)words;
 }

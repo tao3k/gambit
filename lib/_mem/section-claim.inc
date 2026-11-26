@@ -23,13 +23,23 @@ typedef struct section_claim
 /* Two bits per word in each half. The map is initialized on first
  * publication. Clearing the claim makes stale map bytes unreachable. */
 #define RAW_STACK_MAP_BYTES (((___MSECTION_SIZE>>1)+3)/4)
-#define SECTION_BYTES (___sizeof_msection(___MSECTION_SIZE)+2*sizeof(section_claim)+2*RAW_STACK_MAP_BYTES)
+#define SECTION_CLAIM_TAIL_BYTES \
+  ((2*sizeof(section_claim)+2*RAW_STACK_MAP_BYTES+___WS-1) & ~(___CAST(___SIZE_T,___WS)-1))
+#define SECTION_CARD_BYTES (___msection_card_words(___MSECTION_SIZE)*___WS)
+#define SECTION_BYTES (___sizeof_msection(___MSECTION_SIZE)+SECTION_CLAIM_TAIL_BYTES+SECTION_CARD_BYTES)
 
 static inline section_claim *section_claim_at(___msection *section, ___SIZE_TS offset)
 {
   return ((section_claim *)(section->base+___MSECTION_SIZE+
                           ___msection_scan_words(___MSECTION_SIZE)))+
     (offset != 0);
+}
+
+static inline ___VOLATILE ___WORD *section_card_bits(___msection *section)
+{
+  char *tail = ___CAST(char*, section->base+___MSECTION_SIZE+
+                       ___msection_scan_words(___MSECTION_SIZE));
+  return ___CAST(___VOLATILE ___WORD*, tail + SECTION_CLAIM_TAIL_BYTES);
 }
 
 #endif

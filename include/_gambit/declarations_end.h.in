@@ -4,9 +4,8 @@
  * Published pages and cell addresses remain owned by the VM until cleanup.
  * No address/value cache, allocation, callback or safepoint is introduced.
  * Keep the probe loop outlined: duplicating it at every GLO increases native
- * code and compiler work.  Foreign C and non-native ordered-word backends retain the exported ABI.
- * Definitions follow service prototypes so the emulated runtime backend
- * can use its existing word service; generated hosts require native atomics. */
+ * code and compiler work.  Foreign C and no-thread sequential backends retain
+ * the exported ABI; generated multithreaded hosts require native atomics. */
 #if !defined(___SINGLE_VM) && (defined(___INCLUDED_FROM_MEM) || \
     (defined(___GLOCOUNT) && ___ORDERED_WORD_NATIVE))
 #if defined(__GNUC__) || defined(__clang__)

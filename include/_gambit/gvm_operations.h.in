@@ -2446,7 +2446,7 @@ if (___R0 == ___ps->handler_break) \
   frame = ___STK(-___BREAK_FRAME_NEXT); \
 else \
   { \
-    ___publish_raw_stack_span(___ps,___fp,___ps->context->stack_break); \
+    ___EXT(___publish_raw_stack_span)(___ps,___fp,___ps->context->stack_break); \
     ___SET_STK(-___FRAME_STACK_RA,___R0) \
     ___R0 = ___ps->handler_break; \
     frame = ___CAST(___SCMOBJ,___fp); \
@@ -2786,7 +2786,7 @@ if (___R0 == ___ps->handler_break) \
   frame = ___STK(-___BREAK_FRAME_NEXT); \
 else \
   { \
-    ___publish_raw_stack_span(___ps,___fp,___ps->context->stack_break); \
+    ___EXT(___publish_raw_stack_span)(___ps,___fp,___ps->context->stack_break); \
     ___SET_STK(-___FRAME_STACK_RA,___R0) \
     ___R0 = ___ps->handler_break; \
     frame = ___CAST(___SCMOBJ,___fp); \

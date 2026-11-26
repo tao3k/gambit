@@ -13542,11 +13542,11 @@ ___END_P_COD
 #undef ___PH_LBL0
 #define ___PH_LBL0 691
 #undef ___PD_ALL
-#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_R0 ___D_R1 ___D_R2 ___D_R3
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_R0 ___R_R1 ___R_R2 ___R_R3
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_R1 ___W_R2 ___W_R3
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
 ___BEGIN_P_HLBL_AT(1)
 ___DEF_P_HLBL_INTRO_AT
@@ -13557,22 +13557,30 @@ ___DEF_SLBL(0,___L0__23__23_gc_2d_hash_2d_table_2d_cursor_2d_pin_21_)
    ___IF_NARGS_EQ(1,___NOTHING)
    ___WRONG_NARGS(0,1,0,0)
 ___DEF_GLBL(___L__23__23_gc_2d_hash_2d_table_2d_cursor_2d_pin_21_)
-   ___GOTO(___L2__23__23_gc_2d_hash_2d_table_2d_cursor_2d_pin_21_)
-___DEF_GLBL(___L1__23__23_gc_2d_hash_2d_table_2d_cursor_2d_pin_21_)
-   ___SET_R3(___FIXADD(___R2,___FIX(512L)))
-   ___SET_R3(___UNCHECKEDSTRUCTURECAS(___R1,___R3,___R2,___FIX(1L),___FAL,___FAL))
-   ___IF(___EQP(___R3,___R2))
-   ___GOTO(___L3__23__23_gc_2d_hash_2d_table_2d_cursor_2d_pin_21_)
-   ___END_IF
-___DEF_GLBL(___L2__23__23_gc_2d_hash_2d_table_2d_cursor_2d_pin_21_)
-   ___SET_R2(___UNCHECKEDSTRUCTUREREF(___R1,___FIX(1L),___FAL,___FAL))
-   ___SET_R3(___FIXAND(___R2,___FIX(256L)))
-   ___IF(___FIXEQ(___R3,___FIX(0L)))
-   ___GOTO(___L1__23__23_gc_2d_hash_2d_table_2d_cursor_2d_pin_21_)
-   ___END_IF
-   ___GOTO(___L2__23__23_gc_2d_hash_2d_table_2d_cursor_2d_pin_21_)
-___DEF_GLBL(___L3__23__23_gc_2d_hash_2d_table_2d_cursor_2d_pin_21_)
-   ___SET_R1(___VOID)
+   #define ___ARG1 ___R1
+{ ___SCMOBJ ___RESULT;
+___SCMOBJ ht = ___ARG1;
+___VOLATILE ___WORD *flags_ptr =
+  ___CAST(___VOLATILE ___WORD*, &___GCHASHTABLE_FLAGS_FIELD(ht));
+for (;;)
+  {
+    ___WORD flags = ___WORD_LOAD_ACQUIRE(flags_ptr);
+    if (!___FIXZEROP(___FIXAND(flags, ___FIX(___GCHASHTABLE_FLAG_REHASHING))))
+      {
+        ___CPU_RELAX();
+        continue;
+      }
+    if (___WORD_CAS_ACQUIRE(flags_ptr,
+                            flags,
+                            ___FIXADD(flags, ___FIX(___GCHASHTABLE_CURSOR_UNIT))))
+      break;
+  }
+___RESULT = ___VOID;
+
+   ___SET_R1(___RESULT)
+   }
+#undef ___ARG1
+
    ___JUMPRET(___R0)
 ___END_P_SW
 ___END_P_COD
@@ -13582,11 +13590,11 @@ ___END_P_COD
 #undef ___PH_LBL0
 #define ___PH_LBL0 693
 #undef ___PD_ALL
-#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_R0 ___D_R1 ___D_R2 ___D_R3
+#define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_R4
 #undef ___PR_ALL
-#define ___PR_ALL ___R_R0 ___R_R1 ___R_R2 ___R_R3
+#define ___PR_ALL ___R_HEAP ___R_FP ___R_R0 ___R_R1 ___R_R2 ___R_R3 ___R_R4
 #undef ___PW_ALL
-#define ___PW_ALL ___W_R1 ___W_R2 ___W_R3
+#define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
 ___BEGIN_P_HLBL_AT(1)
 ___DEF_P_HLBL_INTRO_AT
@@ -13597,20 +13605,21 @@ ___DEF_SLBL(0,___L0__23__23_gc_2d_hash_2d_table_2d_cursor_2d_unpin_21_)
    ___IF_NARGS_EQ(1,___NOTHING)
    ___WRONG_NARGS(0,1,0,0)
 ___DEF_GLBL(___L__23__23_gc_2d_hash_2d_table_2d_cursor_2d_unpin_21_)
-   ___GOTO(___L2__23__23_gc_2d_hash_2d_table_2d_cursor_2d_unpin_21_)
-___DEF_GLBL(___L1__23__23_gc_2d_hash_2d_table_2d_cursor_2d_unpin_21_)
-   ___SET_R3(___FIXSUB(___R2,___FIX(512L)))
-   ___SET_R3(___UNCHECKEDSTRUCTURECAS(___R1,___R3,___R2,___FIX(1L),___FAL,___FAL))
-   ___IF(___EQP(___R3,___R2))
-   ___GOTO(___L3__23__23_gc_2d_hash_2d_table_2d_cursor_2d_unpin_21_)
-   ___END_IF
-___DEF_GLBL(___L2__23__23_gc_2d_hash_2d_table_2d_cursor_2d_unpin_21_)
-   ___SET_R2(___UNCHECKEDSTRUCTUREREF(___R1,___FIX(1L),___FAL,___FAL))
-   ___IF(___FIXGE(___R2,___FIX(512L)))
-   ___GOTO(___L1__23__23_gc_2d_hash_2d_table_2d_cursor_2d_unpin_21_)
-   ___END_IF
-___DEF_GLBL(___L3__23__23_gc_2d_hash_2d_table_2d_cursor_2d_unpin_21_)
-   ___SET_R1(___VOID)
+   #define ___ARG1 ___R1
+{ ___SCMOBJ ___RESULT;
+___SCMOBJ ht = ___ARG1;
+___VOLATILE ___WORD *flags_ptr =
+  ___CAST(___VOLATILE ___WORD*, &___GCHASHTABLE_FLAGS_FIELD(ht));
+___WORD flags = ___WORD_LOAD_ACQUIRE(flags_ptr);
+if (!___FIXLT(flags, ___FIX(___GCHASHTABLE_CURSOR_UNIT)))
+  (void)___WORD_FETCH_ADD_RELEASE(flags_ptr,
+                                  -___FIX(___GCHASHTABLE_CURSOR_UNIT));
+___RESULT = ___VOID;
+
+   ___SET_R1(___RESULT)
+   }
+#undef ___ARG1
+
    ___JUMPRET(___R0)
 ___END_P_SW
 ___END_P_COD

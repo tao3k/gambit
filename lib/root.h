@@ -90,6 +90,7 @@ typedef struct ___root_round_struct {
  * only all completed source leases plus restored members permit IDLE. */
 extern ___BOOL ___root_round_begin(___processor_state);
 extern ___BOOL ___root_round_freeze(___processor_state,___UWORD*);
+extern ___BOOL ___root_round_freeze_parked(___processor_state,___processor_state,___UWORD*);
 extern ___BOOL ___root_round_publish(___processor_state);
 extern ___BOOL ___root_round_scan(___processor_state,___UWORD);
 extern ___BOOL ___root_round_finish_scan(___processor_state);

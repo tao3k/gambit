@@ -103,8 +103,11 @@ static ___vm_lifecycle *vm_lifecycle_create(___virtual_machine_state vm)
 #ifdef ___USE_POSIX_THREAD_SYSTEM
   if(!___MUTEX_INIT(life->gate)){___FREE_MEM(life);return 0;}
   if(!___CONDVAR_INIT(life->changed)){___MUTEX_DESTROY(life->gate);___FREE_MEM(life);return 0;}
+  if(!___MUTEX_INIT(life->sync_part_mut)){___CONDVAR_DESTROY(life->changed);___MUTEX_DESTROY(life->gate);___FREE_MEM(life);return 0;}
+  if(!___CONDVAR_INIT(life->sync_part_cv)){___MUTEX_DESTROY(life->sync_part_mut);___CONDVAR_DESTROY(life->changed);___MUTEX_DESTROY(life->gate);___FREE_MEM(life);return 0;}
 #else
   ___MUTEX_INIT(life->gate);___CONDVAR_INIT(life->changed);
+  ___MUTEX_INIT(life->sync_part_mut);___CONDVAR_INIT(life->sync_part_cv);
 #endif
   life->resize_phase=___RESIZE_IDLE;
 #endif
@@ -130,7 +133,8 @@ ___BOOL ___lifecycle_enter(___processor_state ps)
   vm=___VMSTATE_FROM_PSTATE(ps);
   if(!vm_registry_contains(vm))goto done;
   life=vm->lifecycle;id=___PROCESSOR_ID(ps,vm);
-  if(___WORD_LOAD_ACQUIRE(&life->phase)!=___VM_LIVE || id<0 || id>=vm->processor_count || !lifecycle_owner(life,id))goto done;
+  if(___WORD_LOAD_ACQUIRE(&life->phase)!=___VM_LIVE || id<0 || id>=vm->processor_count ||
+     !lifecycle_owner(life,id) || life->cleanup[id].draining || life->cleanup[id].uncertain)goto done;
   old=___WORD_LOAD_ACQUIRE(&life->entries[id]);
   while(!(old&1) && old<=___MAX_FIX-2) {
     found=___lifecycle_cas(&life->entries[id],old,old+2);
@@ -167,7 +171,8 @@ ___BOOL ___lifecycle_gc_admitted(___processor_state ps)
   if(resize_retained(vm))return 0;
 #endif
   return vm->lifecycle && ___WORD_LOAD_ACQUIRE(&vm->lifecycle->phase)==___VM_LIVE &&
-    id>=0 && id<vm->processor_count && !(___WORD_LOAD_ACQUIRE(&vm->lifecycle->entries[id])&1);
+    id>=0 && id<vm->processor_count && !(___WORD_LOAD_ACQUIRE(&vm->lifecycle->entries[id])&1) &&
+    !vm->lifecycle->cleanup[id].draining && !vm->lifecycle->cleanup[id].uncertain;
 }
 
 ___activation_record *___lifecycle_marker_prepare(___processor_state ps)
@@ -191,6 +196,7 @@ ___activation_record *___lifecycle_marker_prepare(___processor_state ps)
   life=___VMSTATE_FROM_PSTATE(ps)->lifecycle;id=___PROCESSOR_ID(ps,___VMSTATE_FROM_PSTATE(ps));
   if(fresh)record->rest_retired_epoch=0;
   ___rest_control_reset(record);
+  record->saved_ffi_park_depth=0;
   record->owner=ps;record->marker=___FAL;record->roots=0;record->kind=___ACTIVATION_LEGACY;
   record->next=life->activations[id];life->activations[id]=record;return record;
 }
@@ -206,7 +212,7 @@ void ___lifecycle_marker_abort(___activation_record *record)
      * An unknown/live/revoked activation is never put in this slot. Publish
      * the clean slot before dropping the last lifecycle entry. */
     record->next=0;record->owner=0;record->marker=___FAL;
-    record->roots=0;
+    record->roots=0;record->saved_ffi_park_depth=0;
     ___rest_control_reset(record);
     record->kind=___ACTIVATION_IDLE;
     if(ps->mem.rc_domain_->idle_activation==0)

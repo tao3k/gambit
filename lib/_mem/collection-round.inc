@@ -254,12 +254,23 @@ ___SIZE_TS requested_words_still;)
   ___BOOL overflow = 0;
   ___UWORD rc_epoch;
   ___collector_worker *work;
-  int worker_id,active_worker;
+  int proc_id, worker_idx, active_worker;
+  int coord_id = ___sync_coordinator_id(___vms);
+  int is_coord;
   ___F64 user_time_start, sys_time_start, real_time_start;
   ___F64 user_time_end, sys_time_end, real_time_end;
   ___F64 user_time, sys_time, real_time;
 
+  proc_id = ___PROCESSOR_ID(___ps, ___vms);
+  is_coord = (proc_id == coord_id);
+
   if (!___lifecycle_gc_admitted(___ps)) {
+    /* Native foreign release callbacks have no running Scheme activation and
+     * must neither enter a collective nor mutate execution hp. */
+    if (___vms->lifecycle && proc_id >= 0 && proc_id < ___vms->processor_count &&
+        (___vms->lifecycle->cleanup[proc_id].draining ||
+         ___vms->lifecycle->cleanup[proc_id].uncertain))
+      return 1;
     /* Ordinary compilation is not a closed binding context. An unlimited
      * heap continues on a new section instead of raising heap overflow. */
     if (___GSTATE->setup_params.max_heap==0 &&
@@ -271,7 +282,7 @@ ___SIZE_TS requested_words_still;)
 
   /* Start measuring GC statistics */
 
-  if (___PROCESSOR_ID(___ps,___vms) == 0)
+  if (is_coord)
     {
 #ifdef ENABLE_GC_TRACE_PHASES
       ___printf ("----------------------------------------- GC START #%d\n", ___CAST(int,nb_gcs)+1);
@@ -288,7 +299,7 @@ ___SIZE_TS requested_words_still;)
     int np = ___vms->processor_count;
     for (p=0; p<np; p++)
       {
-        if (___PROCESSOR_ID(___ps,___vms) == p)
+        if (proc_id == p)
           {
             ___printf ("processor #%d\n", p);
             ___printf ("heap_size          = %d\n", heap_size);
@@ -317,14 +328,39 @@ ___SIZE_TS requested_words_still;)
 
   bytes_allocated_minus_occupied += bytes_occupied(___ps);
 
+  /* Coordinator proxies pointer recovery & allocation accounting for parked FFI processors. */
+  if (is_coord)
+    {
+      int k;
+      for (k = 0; k < ___vms->processor_count; k++)
+        if (!___sync_processor_active(___vms, k))
+          {
+            ___processor_state pps = ___PSTATE_FROM_PROCESSOR_ID(k, ___vms);
+            pps->mem.alloc_stack_ptr_ = pps->context->fp;
+            pps->mem.alloc_heap_ptr_  = pps->context->hp;
+            pps->mem.bytes_allocated_minus_occupied_ += bytes_occupied(pps);
+          }
+    }
+
   /* Every source view is complete before the coordinator captures the roster.
    * This collective is also the publication edge for context/frame writes. */
   BARRIER();
-  if (___PROCESSOR_ID(___ps,___vms)==0 && !___root_round_begin(___ps))
+  if (is_coord && !___root_round_begin(___ps))
     rc_contract_error("Frozen root union admission refused");
   BARRIER();
   if (!___root_round_freeze(___ps,&rc_epoch))
     rc_contract_error("Frozen root member admission refused");
+  if (is_coord)
+    {
+      int k;
+      for (k = 0; k < ___vms->processor_count; k++)
+        if (!___sync_processor_active(___vms, k))
+          {
+            ___UWORD parked_epoch = 0;
+            if (!___root_round_freeze_parked(___ps, ___PSTATE_FROM_PROCESSOR_ID(k, ___vms), &parked_epoch))
+              rc_contract_error("Frozen root parked member admission refused");
+          }
+    }
   REST_OBS(REST_GC_BEGIN,___ps,0,0,rc_epoch,
            ___VMSTATE_FROM_PSTATE(___ps),___ps->context->fp,
            ___COLLECTION(___vms).epoch,0,0,0,0,0);
@@ -340,7 +376,7 @@ ___SIZE_TS requested_words_still;)
   ___dev_restore_alloc_expire(___ps, rc_epoch);
 #endif
   BARRIER();
-  if (___PROCESSOR_ID(___ps,___vms)==0 && !___root_round_publish(___ps))
+  if (is_coord && !___root_round_publish(___ps))
     rc_contract_error("Frozen root union publication refused");
 
   BARRIER(); /* publishes the one RootTask/worker assignment */
@@ -350,25 +386,32 @@ ___SIZE_TS requested_words_still;)
 #ifdef ___GC_SLOT_TEST_FROZEN
   /* Only the coordinator can plan from here. The other members stay at
    * the decision barrier. No forwarding or parity flip has started. */
-  if (___PROCESSOR_ID(___ps,___vms)==0)
+  if (is_coord)
     ___GC_SLOT_TEST_FROZEN(___ps,rc_epoch);
 #endif
-  if(___PROCESSOR_ID(___ps,___vms)==0)
+  if (is_coord)
     ___COLLECTION(___vms).decision=plan_copy_round(___ps);
   BARRIER(); /* acquire the one decision; no parity changed */
-  ___COLLECTION(___vms).observed[___PROCESSOR_ID(___ps,___vms)]=1;
+  ___COLLECTION(___vms).observed[proc_id]=1;
+  if (is_coord)
+    {
+      int k;
+      for (k = 0; k < ___vms->processor_count; k++)
+        if (!___COLLECTION(___vms).active[k])
+          ___COLLECTION(___vms).observed[k] = 1;
+    }
   BARRIER(); /* all R observed acceptance/refusal/retention */
   if(___COLLECTION(___vms).decision!=1) {
     if(___COLLECTION(___vms).decision==3)
       rc_contract_error("Unknown planning result retains frozen roots and native buffers");
-    if(___PROCESSOR_ID(___ps,___vms)==0 && !___root_round_refuse(___ps))
+    if(is_coord && !___root_round_refuse(___ps))
       rc_contract_error("Known refusal cannot retire an already started root task");
     BARRIER();
     /* A refused plan did not mark, so occupied sections stay. When the refusal
      * is not an invalid worker/configuration request and no byte cap is active,
      * grow the reserved pool and let the mutator retry. An invalid request must
      * remain an explicit refusal/overflow without mutating the section pool. */
-    if(___PROCESSOR_ID(___ps,___vms)==0) {
+    if(is_coord) {
       ___gc_round *g=&___COLLECTION(___vms);
       ___WORD req=___WORD_LOAD_ACQUIRE(&g->requested_workers);
       int n=___ROOT_UNION(___vms)->participants;
@@ -390,6 +433,16 @@ ___SIZE_TS requested_words_still;)
     }
     BARRIER();
     bytes_allocated_minus_occupied-=bytes_occupied(___ps);
+    if (is_coord)
+      {
+        int k;
+        for (k = 0; k < ___vms->processor_count; k++)
+          if (!___COLLECTION(___vms).active[k])
+            {
+              ___processor_state pps = ___PSTATE_FROM_PROCESSOR_ID(k, ___vms);
+              pps->mem.bytes_allocated_minus_occupied_ -= bytes_occupied(pps);
+            }
+      }
     ___ACTLOG_END_PS();
     {
       int shared_overflow = ___COLLECTION(___vms).overflow ? 1 : 0;
@@ -419,12 +472,12 @@ ___SIZE_TS requested_words_still;)
       }
     }
   }
-  if(___PROCESSOR_ID(___ps,___vms)==0) setup_stack_heap_vmstate(___vms);
+  if(is_coord) setup_stack_heap_vmstate(___vms);
   BARRIER();
-  worker_id=___PROCESSOR_ID(___ps,___vms);
-  active_worker=worker_id<___COLLECTION(___vms).worker_count;
-  work=&___COLLECTORS(___vms)[worker_id];
-  ___ps->collector=active_worker?work:0;
+  worker_idx=___COLLECTION(___vms).proc_worker[proc_id];
+  active_worker=(worker_idx>=0);
+  work=active_worker?&___COLLECTORS(___vms)[worker_idx]:0;
+  ___ps->collector=work;
   if(active_worker) garbage_collect_setup_phase(work);
   BARRIER();
 
@@ -435,7 +488,7 @@ ___SIZE_TS requested_words_still;)
   BARRIER();
 
 
-  if (___PROCESSOR_ID(___ps,___vms)==0 &&
+  if (is_coord &&
       !___root_round_finish_scan(___ps))
     rc_contract_error("Frozen root union still owns unfinished sources");
 
@@ -451,14 +504,14 @@ ___SIZE_TS requested_words_still;)
    * continuation restoration and reclamation until the observer returns.
    * The test callbacks may inspect held slots but must not call Scheme,
    * allocate managed objects or wait for a member at this barrier. */
-  if (___PROCESSOR_ID(___ps,___vms)==0)
+  if (is_coord)
     ___GC_SLOT_TEST_REPAIRED(___ps,rc_epoch);
   BARRIER();
 #endif
 
   /* Weak descendants have drained on all W; each physical owner receives
    * either one exclusive worker tail or its own disjoint empty resume span. */
-  if (!___gc_resume_owner_matches(&___RESUME(___vms,worker_id),___ps))
+  if (!___gc_resume_owner_matches(&___RESUME(___vms,proc_id),___ps))
     rc_contract_error("Restoration grant no longer belongs to its processor context");
   if(active_worker) {
     /* A final large-object section has no execution fudge. A counted fresh
@@ -480,9 +533,9 @@ ___SIZE_TS requested_words_still;)
       rc_contract_error("Restoration cannot retire unfinished scan transport");
     require_chunk_transition(work,work->local_scan_chunk_,2,3);
     work->chunks_completed_++;work->local_scan_chunk_=0;
-    if(!___gc_arena_handoff(&work->arena,&___RESUME(___vms,worker_id),rc_epoch))
+    if(!___gc_arena_handoff(&work->arena,&___RESUME(___vms,proc_id),rc_epoch))
       rc_contract_error("Collector tail handoff lacks drained ownership");
-  } else if(!___gc_resume_without_arena(&___RESUME(___vms,worker_id),rc_epoch))
+  } else if(!___gc_resume_without_arena(&___RESUME(___vms,proc_id),rc_epoch))
     rc_contract_error("Context restoration lacks its physical grant");
   if (!current_heap_interval_matches(___ps,alloc_heap_ptr))
     rc_contract_error("Restoration heap interval leaves its destination section");
@@ -491,10 +544,31 @@ ___SIZE_TS requested_words_still;)
 #ifdef ___GAMBIT_DEV_RESTORE_PROBE
   ___dev_restore_after_reader(___ps, rc_epoch);
 #endif
-  if (___RESUME(___vms,worker_id).copy_admitted)
-    ___RESUME(___vms,worker_id).restored=1;
+  if (___RESUME(___vms,proc_id).copy_admitted)
+    ___RESUME(___vms,proc_id).restored=1;
   else
     rc_contract_error("Restored publication requires an admitted continuation copy");
+  if (is_coord)
+    {
+      int k;
+      for (k = 0; k < ___vms->processor_count; k++)
+        if (!___COLLECTION(___vms).active[k])
+          {
+            ___processor_state pps = ___PSTATE_FROM_PROCESSOR_ID(k, ___vms);
+            if (!___gc_resume_owner_matches(&___RESUME(___vms, k), pps))
+              rc_contract_error("Restoration grant no longer belongs to its parked processor context");
+            if (!___gc_resume_without_arena(&___RESUME(___vms, k), rc_epoch))
+              rc_contract_error("Parked context restoration lacks its physical grant");
+            if (!current_heap_interval_matches(pps, pps->mem.alloc_heap_ptr_))
+              rc_contract_error("Parked restoration heap interval leaves its destination section");
+            section_claim_at(pps->mem.heap_msection_, pps->mem.tospace_offset_)->heap_used = 1;
+            move_continuation(___PSANC(pps));
+            if (___RESUME(___vms, k).copy_admitted)
+              ___RESUME(___vms, k).restored = 1;
+            else
+              rc_contract_error("Parked restored publication requires an admitted continuation copy");
+          }
+    }
 #ifdef ___GAMBIT_DEV_RESTORE_PROBE
   if (!___dev_restore_before_barrier(___ps, rc_epoch))
 #endif
@@ -506,9 +580,26 @@ ___SIZE_TS requested_words_still;)
 
   if(active_worker) garbage_collect_cleanup_phase(work);
   free_unmarked_still_objs(___PSPNC);
+  if (is_coord)
+    {
+      int k;
+      for (k = 0; k < ___vms->processor_count; k++)
+        if (!___COLLECTION(___vms).active[k])
+          free_unmarked_still_objs(___PSANC(___PSTATE_FROM_PROCESSOR_ID(k, ___vms)));
+    }
   BARRIER();
   ___ps->collector=0;
-  ___RESUME(___vms,worker_id).source_drained=1;
+  ___RESUME(___vms,proc_id).source_drained=1;
+  if (is_coord)
+    {
+      int k;
+      for (k = 0; k < ___vms->processor_count; k++)
+        if (!___COLLECTION(___vms).active[k])
+          {
+            ___PSTATE_FROM_PROCESSOR_ID(k, ___vms)->collector = 0;
+            ___RESUME(___vms, k).source_drained = 1;
+          }
+    }
 
   BARRIER();
 
@@ -516,13 +607,13 @@ ___SIZE_TS requested_words_still;)
   /* Restoration and still/weak cleanup are past their old-space reads.
    * Mutators stay stopped. Retire source claims before resizing can free a
    * section or a future round can grant that parity as its destination. */
-  if (___PROCESSOR_ID(___ps,___vms)==0 &&
+  if (is_coord &&
       !retire_drained_source_claims(___ROOT_UNION(___vms),the_msections,rc_epoch))
     rc_contract_error("Physical source retirement lacks a drained member");
 
   /* Resize heap */
 
-  if (___PROCESSOR_ID(___ps,___vms) == 0)
+  if (is_coord)
     ___COLLECTION(___vms).overflow = resize_heap (___vms, requested_words_still);
 
   BARRIER();
@@ -547,10 +638,28 @@ ___SIZE_TS requested_words_still;)
 
   bytes_allocated_minus_occupied -= bytes_occupied(___ps);
 
+  if (is_coord)
+    {
+      int k;
+      for (k = 0; k < ___vms->processor_count; k++)
+        if (!___COLLECTION(___vms).active[k])
+          {
+            ___processor_state pps = ___PSTATE_FROM_PROCESSOR_ID(k, ___vms);
+            if (!current_heap_interval_matches(pps, pps->mem.alloc_heap_ptr_))
+              rc_contract_error("Parked restoration heap interval changed before refill");
+            if (___gc_resume_heap_needs_refill(pps->mem.alloc_heap_ptr_, pps->mem.alloc_heap_limit_, ___MSECTION_FUDGE))
+              next_heap_msection(pps);
+            if (!current_heap_interval_matches(pps, pps->mem.alloc_heap_ptr_) ||
+                !___gc_published_reserve_fits(pps->mem.alloc_heap_ptr_, pps->mem.alloc_heap_limit_, ___MSECTION_FUDGE, 6))
+              rc_contract_error("Parked restoration publication lacks the fudge reserve for a first closure");
+            pps->mem.bytes_allocated_minus_occupied_ -= bytes_occupied(pps);
+          }
+    }
+
 
   /* Finalize measuring GC statistics */
 
-  if (___PROCESSOR_ID(___ps,___vms) == 0)
+  if (is_coord)
     {
       ___process_times (&user_time_end, &sys_time_end, &real_time_end);
 
@@ -582,8 +691,19 @@ ___SIZE_TS requested_words_still;)
 #endif
 
   reopen_rc_roots (___ps, rc_epoch);
+  if (is_coord)
+    {
+      int k;
+      for (k = 0; k < ___vms->processor_count; k++)
+        if (!___COLLECTION(___vms).active[k])
+          {
+            ___processor_state pps = ___PSTATE_FROM_PROCESSOR_ID(k, ___vms);
+            prepare_mem_pstate(pps);
+            reopen_rc_roots(pps, rc_epoch);
+          }
+    }
   BARRIER();
-  if (___PROCESSOR_ID(___ps,___vms)==0 && !___root_round_end(___ps))
+  if (is_coord && !___root_round_end(___ps))
     rc_contract_error("Frozen root union cannot retire before member restoration");
   BARRIER();
 
@@ -601,7 +721,7 @@ ___SIZE_TS requested_words_still;)
         ___heap_rearm_after_collection(___ps))
       movable_resumed = 1;
     if (requested_words_still>0 && shared_overflow==0) {
-      if (___PROCESSOR_ID(___ps,___vms)==0)
+      if (is_coord)
         still_charged = 1;
       else {
         ALLOC_MEM_LOCK();

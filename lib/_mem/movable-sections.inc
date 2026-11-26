@@ -221,6 +221,10 @@ int n;)
           *section_claim_at(s,0)=(section_claim){0};
           *section_claim_at(s,___MSECTION_SIZE>>1)=(section_claim){0};
           s->copy_gate=0;
+          s->region_generation=1;
+          s->region_age=___GC_REGION_YOUNG;
+          s->card_dirty_any=0;
+          memset(___CAST(void*,section_card_bits(s)),0,SECTION_CARD_BYTES);
           s->pos = i;
           s->prev = tl;
           s->next = 0;

@@ -1,13 +1,9 @@
-/* Exercise actual word/ticket/fence operations, including the real POSIX
- * emulated C translation unit. Collective-message ownership is separate.
- * Finite observations do not prove all weak-memory executions. */
+/* Exercise native word/ticket/fence operations. Collective-message ownership
+ * is separate. Finite observations do not prove all weak-memory executions. */
 #include <stdio.h>
 #include <pthread.h>
 #include <stdatomic.h>
 #include "gambit.h"
-#ifdef ___USE_emulated_sync
-#include "os_thread.h"
-#endif
 #define CHECK(x) do { if (!(x)) { fprintf(stderr,"ordered-sync:%d: %s\n",__LINE__,#x); return 1; } } while (0)
 #define ROUNDS 4096
 static ___TICKETLOCK lock = ___TICKETLOCK_INIT_STATIC;
@@ -58,9 +54,6 @@ int main(void)
   pthread_t workers[4], producer, reader;
   ___WORD ___temp;
   int i;
-#ifdef ___USE_emulated_sync
-  CHECK(___setup_thread_module()==___FIX(___NO_ERR));
-#endif
   /* Signed boundary and all-bit-pattern wrap are word-service contracts,
    * not a dependence on the production compiler -fwrapv option. */
   {
@@ -106,14 +99,7 @@ int main(void)
     pthread_mutex_unlock(&gate);
   }
   CHECK(pthread_join(producer,0)==0 && pthread_join(reader,0)==0);
-#ifdef ___USE_emulated_sync
-  ___emulated_shared_memory_barrier();
-  ___cleanup_thread_module();
-  CHECK(___thread_mod.refcount==0);
-  puts("ORDERED-SYNC-BACKEND emulated lifecycle-drained");
-#else
   puts("ORDERED-SYNC-BACKEND native");
-#endif
   puts("ORDERED-SYNC-PASS locks=16384 fences=4096 trylock=2 wrap=2 rmw=4");
   printf("ORDERED-SYNC-LAYOUT word=%d\n",___WORD_WIDTH);
   return 0;

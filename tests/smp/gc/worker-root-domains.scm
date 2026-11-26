@@ -1,9 +1,13 @@
 (declare (standard-bindings) (extended-bindings))
 (##namespace ("gambit#tests#smp#gc#worker_root_domains#"
-  record! drop! drop-children! cleanup-closed? workers! coherent? released? entries note-entry request roots check saved exit winds
+  record! drop! drop-children! cleanup-closed? wait-drain! workers! coherent? released? entries note-entry request roots check saved exit winds
   collect answer first second third rc-check? rc-drop! callback callback! callback-value
   callback-count callback-void callback-count! callback-void! scopes-drained?))
 (c-declare #<<c-end
+#include "mem.h"
+#include "rc.h"
+#include "root.h"
+#include "lifecycle.h"
 #include <pthread.h>
 #include <stdatomic.h>
 #include <string.h>
@@ -19,10 +23,8 @@ static ___SCMOBJ domain_objects[___MAX_PROCESSORS], domain_children[___MAX_PROCE
 static _Atomic int domain_child_releases[___MAX_PROCESSORS];
 static _Atomic int domain_cleanup_rejected, domain_slot_rejected;
 static _Atomic int domain_reentry_rejected, domain_run_rejected, domain_collect_rejected, domain_alloc_rejected;
-extern ___SCMOBJ *___borrow_rc_root(___processor_state,void *);
-extern void ___return_rc_root(void *);
 static void *domain_rc[___MAX_PROCESSORS];
-static ___SCMOBJ *domain_rc_root[___MAX_PROCESSORS];
+static const ___SCMOBJ *domain_rc_root[___MAX_PROCESSORS];
 static _Atomic int domain_rc_rejected;
 static _Atomic int domain_initialization_rejected;
 static int domain_initialization_closed(___processor_state ps) {
@@ -30,11 +32,10 @@ static int domain_initialization_closed(___processor_state ps) {
   int id=___PROCESSOR_ID(ps,vm);
   ___execution_context *context=ps->context;
   ___collector_worker *worker=ps->collector;
-  ___WORD incarnation=vm->gc_origins[id].incarnation;
   ___WORD *fp=context->fp, *hp=context->hp;
-  ___rc_header *head=&context->mem.rc_head_;
+  ___rc_header *head=&ps->mem.rc_domain_->head;
   ___rc_header *next=head->next, *prev=head->prev;
-  if (!___gc_cleanup_empty(&vm->gc_participants[id].cleanup)) return 0;
+  if (___lifecycle_deferred_words(ps)!=0) return 0;
   if (___setup_pstate(ps,vm)!=___FIX(___UNKNOWN_ERR)) {
     /* Stop before returning through frames an incorrect setup may overwrite.
      * This is also the predecessor's bounded negative control. */
@@ -42,8 +43,7 @@ static int domain_initialization_closed(___processor_state ps) {
     exit(2);
   }
   return ps->context==context && ps->collector==worker &&
-    vm->gc_origins[id].incarnation==incarnation &&
-    vm->gc_participants[id].phase==___GC_RUNNING &&
+    ps->mem.rc_domain_->phase==___RC_OPEN &&
     context->fp==fp && context->hp==hp &&
     head->next==next && head->prev==prev;
 }
@@ -55,9 +55,8 @@ static ___SCMOBJ domain_release(void *p) {
   if (!pthread_equal(pthread_self(),d->thread) || ___PROCESSOR_ID(ps,vm)!=d->owner)
     atomic_fetch_add(&domain_bad,1);
   {
-    ___gc_cleanup_escrow *e=&vm->gc_participants[d->owner].cleanup;
-    if (!e->pending || !e->inflight || e->payload!=p || e->release_fn!=domain_release ||
-        vm->gc_participants[d->owner].phase!=___GC_OWNER_CLEANUP)
+    ___owner_cleanup *e=&vm->lifecycle->cleanup[d->owner];
+    if (!e->draining || !e->inflight || e->payload!=p || e->release_fn!=domain_release)
       atomic_fetch_add(&domain_bad,1);
   }
   if (d->generation) {
@@ -66,9 +65,9 @@ static ___SCMOBJ domain_release(void *p) {
     ___SCMOBJ obj, err, oversized;
     void *denied_bank=0;
     ___SCMOBJ unchanged=*domain_rc_root[d->owner], marker=___FIX(123);
-    if (___begin_sfun(ps,&denied_bank,unchanged,2)!=___FIX(___NO_ERR) &&
+    if (___begin_sfun(ps,2,unchanged,&denied_bank)!=___FIX(___NO_ERR) &&
         denied_bank==0 && ___alloc_rc(___PSP 0)==0 &&
-        !___set_data_rc(domain_rc[d->owner],___FAL) &&
+        !___try_set_data_rc(ps,domain_rc[d->owner],___FAL) &&
         ___borrow_rc_root(ps,domain_rc[d->owner])==0 &&
         ___make_sfun_stack_marker(ps,&marker,unchanged)!=___FIX(___NO_ERR) &&
         marker==___FIX(123) && *domain_rc_root[d->owner]==unchanged)
@@ -87,24 +86,22 @@ static ___SCMOBJ domain_release(void *p) {
       int before=___GSTATE->setup_state;
       ___cleanup();
       if (before==1 && ___GSTATE->setup_state==before && vm->processor_count==3 &&
-          vm->gc_participants[d->owner].phase==___GC_OWNER_CLEANUP)
+          vm->lifecycle->cleanup[d->owner].draining)
         atomic_fetch_add(&domain_cleanup_rejected,1);
       else atomic_fetch_add(&domain_bad,1);
     }
     {
-      ___WORD before=vm->gc_origins[d->owner].incarnation;
       ___execution_context *context=ps->context;
       ___collector_worker *worker=ps->collector;
 #ifndef ___SINGLE_THREADED_VMS
-      int sync=ps->sync_initialized;
+      unsigned char sync=vm->lifecycle->sync_constructed[d->owner];
 #endif
       if (___setup_pstate(ps,vm)==___FIX(___UNKNOWN_ERR) &&
-          vm->gc_origins[d->owner].incarnation==before &&
           ps->context==context && ps->collector==worker &&
 #ifndef ___SINGLE_THREADED_VMS
-          ps->sync_initialized==sync &&
+          vm->lifecycle->sync_constructed[d->owner]==sync &&
 #endif
-          vm->gc_participants[d->owner].phase==___GC_OWNER_CLEANUP)
+          vm->lifecycle->cleanup[d->owner].draining)
         atomic_fetch_add(&domain_slot_rejected,1);
       else atomic_fetch_add(&domain_bad,1);
     }
@@ -138,7 +135,7 @@ static int domain_record(___processor_state ps, ___SCMOBJ root) {
   if (!domain_initialization_closed(ps)) return 0;
   atomic_fetch_add(&domain_initialization_rejected,1);
   domain_rc[id]=___alloc_rc(___PSP 0);
-  if (!domain_rc[id] || !___set_data_rc(domain_rc[id],root)) return 0;
+  if (!domain_rc[id] || !___try_set_data_rc(ps,domain_rc[id],root)) return 0;
   domain_rc_root[id]=___borrow_rc_root(ps,domain_rc[id]);
   if (!domain_rc_root[id]) return 0;
   ___release_rc(domain_rc[id]); /* borrow owns the only native reference */
@@ -178,15 +175,16 @@ if (atomic_load(&domain_bad) || atomic_load(&domain_reentry_rejected)!=3 ||
     atomic_load(&domain_collect_rejected)!=3 || atomic_load(&domain_alloc_rejected)!=3)
   ___return(0);
 for (int i=0;i<3;i++) {
-  if (!___gc_cleanup_empty(&vm->gc_participants[i].cleanup)) ___return(0);
-  ___WORD *base=(___WORD *)vm->gc_participants[i].context->mem.still_objs_;
+  ___processor_state p=___PSTATE_FROM_PROCESSOR_ID(i,vm);
+  if (___lifecycle_deferred_words(p)!=0 || vm->lifecycle->cleanup[i].pending!=0) ___return(0);
+  ___WORD *base=(___WORD *)p->mem.still_objs_;
   ___SIZE_TS words=0; int child_found=0;
-  for (;base;base=(___WORD *)base[___STILL_LINK]) {
-    words+=base[___STILL_LENGTH];
-    if (!___arg1 && base+___STILL_BODY==___BODY0(domain_children[i])) child_found++;
+  for (;base;base=(___WORD *)base[0]) {
+    words+=base[2];
+    if (!___arg1 && base+6==___BODY0(domain_children[i])) child_found++;
   }
-  if (words!=vm->gc_participants[i].context->mem.words_still_objs_ ||
-      vm->gc_participants[i].context->mem.words_still_objs_deferred_!=0 ||
+  if (words!=p->mem.words_still_objs_+p->mem.words_still_objs_deferred_ ||
+      (___arg1 && p->mem.words_still_objs_deferred_!=0) ||
       (!___arg1 && (child_found!=1 || atomic_load(&domain_child_releases[i])!=0)) ||
       (___arg1 && atomic_load(&domain_child_releases[i])!=1)) ___return(0);
 }
@@ -199,33 +197,34 @@ c-end
 (define workers!
   (c-lambda (int) void #<<c-end
 ___virtual_machine_state vm=___VMSTATE_FROM_PSTATE(___ps);
-___WORD old=___gc_atomic_load(&vm->gc_round.requested_workers);
-while (___gc_cas(&vm->gc_round.requested_workers,old,___arg1)!=old)
-  old=___gc_atomic_load(&vm->gc_round.requested_workers);
+___WORD_STORE_RELEASE(&___COLLECTION(vm).requested_workers,___arg1);
 c-end
 ))
 (define coherent?
   (c-lambda (int) bool #<<c-end
 ___virtual_machine_state vm=___VMSTATE_FROM_PSTATE(___ps);
-if (vm->processor_count!=3 || vm->gc_round.participant_count!=3 ||
-    vm->gc_round.worker_count!=___arg1) ___return(0);
+___root_round *round=___ROOT_UNION(vm);
+if (vm->processor_count!=3 || round->state!=___ROOT_ROUND_IDLE ||
+    round->collection.participant_count!=3 ||
+    round->collection.worker_count!=___arg1) ___return(0);
 for (int i=0;i<3;i++) {
-  ___gc_participant *p=&vm->gc_participants[i];
-  int rank=(i+1)%3;
-  if (p->phase!=___GC_RUNNING || p->resume.epoch!=vm->gc_round.epoch ||
-      !p->resume.accepted || !p->resume.restored ||
-      p->resume.source_worker!=(rank<___arg1 ? rank : -1) ||
-      vm->gc_root_tasks[i].phase!=___GC_ROOT_CLEANUP ||
-      vm->gc_root_tasks[i].claim!=2 || vm->gc_origins[i].state!=0)
+  ___root_member *m=&round->members[i];
+  ___gc_resume_space *r=&round->resume[i];
+  ___collector_worker *w=&round->workers[i];
+  if (m->rc->joined_round!=0 || m->rc->phase!=___RC_OPEN ||
+      m->rc->task.state!=___ROOT_DONE || m->global_task.state!=___ROOT_DONE ||
+      m->stack_task.state!=___ROOT_DONE || m->bank_task.state!=___ROOT_DONE ||
+      m->owner->collector!=0 || r->epoch!=round->epoch ||
+      !r->accepted || !r->restored ||
+      r->source_worker!=(i<___arg1 ? i : -1))
     ___return(0);
-  ___collector_worker *w=___PSTATE_FROM_PROCESSOR_ID(i,vm)->collector;
-  if (w->phase!=___GC_WORKER_IDLE || w->id!=rank) ___return(0);
-  if (rank<___arg1) {
-    if (!w->arena.handed_off || w->arena.epoch!=vm->gc_round.epoch ||
-        w->reserve!=&p->resume || w->arena.pending || w->tail_cell_ || w->copy_begin_ ||
+  if (i<___arg1) {
+    if (w->phase!=___GC_WORKER_IDLE || w->id!=i ||
+        !w->arena.handed_off || w->arena.epoch!=round->collection.epoch ||
+        w->arena.pending || w->tail_cell_ || w->copy_begin_ ||
         w->copy_request.state || w->copied_words>w->copied_source_words)
       ___return(0);
-  } else if (w->reserve!=0) ___return(0);
+  }
 }
 ___return(1);
 c-end
@@ -250,11 +249,29 @@ c-end
   (workers! count) (##gc)
   (if (not (coherent? count)) (error "root/worker/host completion incomplete" count))
   (for-each (lambda (v) (if (not (eq? v (vector-ref v 1))) (error "shared root lost"))) roots))
+(define (wait-drain! target-releases target-children)
+  (let loop ((n 0))
+    (if (or (>= n 200)
+            (and (>= ((c-lambda () int "___return(atomic_load(&domain_released));")) target-releases)
+                 ((c-lambda (int) bool #<<c-end
+___virtual_machine_state vm=___VMSTATE_FROM_PSTATE(___ps);
+int children=0;
+for (int i=0;i<3;i++) {
+  if (vm->lifecycle->cleanup[i].pending!=0 || vm->lifecycle->cleanup[i].draining) ___return(0);
+  children+=atomic_load(&domain_child_releases[i]);
+}
+___return(children>=___arg1);
+c-end
+                  ) target-children)))
+        #t
+        (begin (##thread-sleep! 0.005) (loop (+ n 1))))))
 (check 1)
+(wait-drain! 3 0)
 (if (not (released?)) (error "owner-affine cleanup not exactly once"))
 (if (not (cleanup-closed? #f)) (error "fresh cleanup generation lost or not accounted"))
 (drop-children!)
 (check 2)
+(wait-drain! 3 3)
 (if (not (cleanup-closed? #t)) (error "derived finalizers lost or repeated"))
 (check 3) (check 1)
 (define saved #f) (define exit #f) (define winds '())
@@ -302,7 +319,7 @@ c-end
 (define scopes-drained?
   (c-lambda () bool #<<c-end
 ___virtual_machine_state vm=___VMSTATE_FROM_PSTATE(___ps);
-for(int i=0;i<3;i++) if(vm->execution_contexts[i].mem.rc_root_borrows_) ___return(0);
+for(int i=0;i<3;i++) if(___PSTATE_FROM_PROCESSOR_ID(i,vm)->mem.rc_domain_->borrows) ___return(0);
 ___return(1);
 c-end
 ))

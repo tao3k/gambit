@@ -88,6 +88,10 @@ typedef struct ___device_struct
     int close_direction;           /* ___DIRECTION_RD and/or ___DIRECTION_WR */
     int read_stage;                /* ___STAGE_OPEN ... ___STAGE_CLOSED */
     int write_stage;               /* ___STAGE_OPEN ... ___STAGE_CLOSED */
+    int close_pending_mask;        /* direction bits fenced before OS close(fd) */
+    int select_active;             /* active ___device_select borrowers */
+    int close_in_progress;         /* serialized closer gate (0 or 1) */
+    int close_waiters;             /* closer waiters on device_select_cond */
   } ___device;
 
 #ifndef MAX_CONDVARS

@@ -24,6 +24,10 @@ typedef struct ___execution_context_struct
 
     ___WORD processor_scmobj[___SUBTYPED_BODY+___PROCESSOR_SIZE+___PADDING_SIZE]; /* Scheme processor object */
     ___binding_view binding_view; /* VM identity only; no address/value cache */
+#if ___MAX_PROCESSORS > 1
+    /* Isolate adjacent execution_contexts[i] across 128-byte Apple Silicon & 64-byte x86 cache lines */
+    char cache_line_guard[128];
+#endif
   } ___execution_context;
 
 typedef struct ___processor_state_struct
@@ -132,6 +136,7 @@ typedef struct ___processor_state_struct
 #endif
     struct ___collector_worker_struct *collector; /* current private work authority */
     int primlock_depth; /* active low-level spinlock nesting depth on this processor */
+    int ffi_park_depth; /* active blocking-FFI participation park nesting depth */
     int group_demand_active; /* non-zero while processor group-demand slot phase != 0 */
     ___UWORD stack_fast_floor_b; /* byte base of owned stack interval above fudge */
     ___UWORD stack_fast_limit_b; /* byte span + 1 (0 when unowned or demand active) */
@@ -186,6 +191,8 @@ typedef struct ___aligned_processor_state_struct
                  (___PSTATE_ALIGN_MODULUS + sizeof(___processor_state_struct))
                  % ___PSTATE_ALIGN_MULTIPLIER];
 #endif
+    /* Guarantee >= 128B cache-line separation between pstate[i].heap_fast_* and pstate[i+1].stack_trip/temp1..4 */
+    char cache_line_guard[128];
 #endif
   } ___aligned_processor_state_struct;
 

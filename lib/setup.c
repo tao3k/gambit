@@ -572,6 +572,38 @@ ___processor_state ___ps;)
 #endif
 }
 
+#define SYNC_OP_IDLE     0
+#define SYNC_OP_RUNNING  1
+#define SYNC_OP_DRAINING 2
+
+int ___sync_coordinator_id
+   ___P((___virtual_machine_state vm),
+        (vm)
+___virtual_machine_state vm;)
+{
+#ifndef ___SINGLE_THREADED_VMS
+  if (vm != 0 && vm->lifecycle != 0 && vm->lifecycle->sync_op_state != SYNC_OP_IDLE)
+    return vm->lifecycle->sync_coord_id;
+#endif
+  return 0;
+}
+
+int ___sync_processor_active
+   ___P((___virtual_machine_state vm,
+         int id),
+        (vm,
+         id)
+___virtual_machine_state vm;
+int id;)
+{
+#ifndef ___SINGLE_THREADED_VMS
+  if (vm != 0 && vm->lifecycle != 0 && vm->lifecycle->sync_op_state != SYNC_OP_IDLE &&
+      id >= 0 && id < ___MAX_PROCESSORS)
+    return vm->lifecycle->sync_active[id] != 0;
+#endif
+  return 1;
+}
+
 #ifndef ___SINGLE_THREADED_VMS
 static int barrier_child_answers(___virtual_machine_state vms, int id)
 {
@@ -580,6 +612,41 @@ static int barrier_child_answers(___virtual_machine_state vms, int id)
   life = vms->lifecycle;
   if (!life) return 0;
   return ___WORD_LOAD_ACQUIRE(&life->launches[id].native_live) != 0;
+}
+
+static void sync_op_leave(___virtual_machine_state ___vms)
+{
+  ___vm_lifecycle *life = ___vms ? ___vms->lifecycle : 0;
+  if (!life) return;
+  ___MUTEX_LOCK(life->sync_part_mut);
+  if (life->sync_op_state == SYNC_OP_RUNNING)
+    life->sync_op_state = SYNC_OP_DRAINING;
+  if (life->sync_active_remaining > 0)
+    life->sync_active_remaining--;
+  if (life->sync_active_remaining == 0)
+    {
+      life->sync_op_state = SYNC_OP_IDLE;
+      ___WORD_STORE_RELEASE(&life->sync_use_active_barrier, 0);
+      ___CONDVAR_BROADCAST(life->sync_part_cv);
+    }
+  ___MUTEX_UNLOCK(life->sync_part_mut);
+}
+
+static void raise_sync_op_interrupt_targets(___virtual_machine_state ___vms,
+                                            const unsigned char *targets,
+                                            int n)
+{
+  int i;
+  if (!___vms->lifecycle) return;
+  if (!___lifecycle_members_begin(___vms))
+    {
+      ___lifecycle_interrupt_pending(___vms, ___INTR_SYNC_OP);
+      return;
+    }
+  for (i = n - 1; i >= 0; i--)
+    if (targets[i])
+      raise_interrupt_pstate_open(___PSTATE_FROM_PROCESSOR_ID(i, ___vms), ___INTR_SYNC_OP);
+  ___lifecycle_members_end(___vms);
 }
 #endif
 
@@ -605,6 +672,77 @@ ___sync_op_struct *sop_ptr;)
   int n = ___vms->processor_count; /* processor count */
   ___sync_op_struct sop = *sop_ptr;
   int sid = id;
+
+  /* When one or more processors are parked in blocking FFI, synchronize only
+   * across the snapshotted active subset using a sense-reversing barrier
+   * protected by sync_part_mut (zero overhead when sync_parked_count == 0). */
+  if (___vms->lifecycle != 0 &&
+      ___WORD_LOAD_ACQUIRE(&___vms->lifecycle->sync_use_active_barrier) != 0)
+    {
+      ___vm_lifecycle *life = ___vms->lifecycle;
+      ___UWORD my_gen;
+
+      ___MUTEX_LOCK(life->sync_part_mut);
+      my_gen = life->sync_bar_gen;
+      if (life->sync_bar_arrived == 0)
+        {
+          life->sync_bar_sop = sop;
+          life->sync_bar_winner = sid;
+        }
+      else
+        {
+          ___sync_op_struct *cur = &life->sync_bar_sop;
+          if (sop.op < cur->op)
+            {
+              *cur = sop;
+              life->sync_bar_winner = sid;
+            }
+          else if (sop.op == cur->op)
+            {
+              if (COMBINING_OP(sop.op))
+                {
+                  switch (COMBINING_OP(sop.op))
+                    {
+                    case COMBINING_AND:
+                      cur->arg[0] &= sop.arg[0];
+                      break;
+                    case COMBINING_ADD:
+                      cur->arg[0] += sop.arg[0];
+                      break;
+                    case COMBINING_MAX:
+                      if (cur->arg[0] < sop.arg[0]) cur->arg[0] = sop.arg[0];
+                      break;
+                    }
+                  if (sid < life->sync_bar_winner)
+                    life->sync_bar_winner = sid;
+                }
+              else if (sid < life->sync_bar_winner)
+                {
+                  *cur = sop;
+                  life->sync_bar_winner = sid;
+                }
+            }
+        }
+
+      life->sync_bar_arrived++;
+      if (life->sync_bar_arrived == life->sync_active_count)
+        {
+          life->sync_bar_out_sop = life->sync_bar_sop;
+          life->sync_bar_out_winner = life->sync_bar_winner;
+          life->sync_bar_arrived = 0;
+          life->sync_bar_gen = my_gen + 1;
+          ___CONDVAR_BROADCAST(life->sync_part_cv);
+        }
+      else
+        {
+          while (life->sync_bar_gen == my_gen)
+            ___CONDVAR_WAIT(life->sync_part_cv, life->sync_part_mut);
+        }
+      *sop_ptr = life->sync_bar_out_sop;
+      sid = life->sync_bar_out_winner;
+      ___MUTEX_UNLOCK(life->sync_part_mut);
+      return sid;
+    }
 
   /* A tree edge is SPSC for one admitted population incarnation. The
    * receiver copies the payload before ACK. The next reverse-direction tree
@@ -705,8 +843,27 @@ ___sync_op_struct *sop_ptr;)
           if (___vms->lifecycle != 0)
             {
               ___vm_lifecycle *r=___vms->lifecycle;
+              int old_n = ___vms->processor_count;
+              int new_n = sop.arg[0];
+              int k;
+              ___MUTEX_LOCK(r->sync_part_mut);
+              if (new_n > old_n) {
+                for (k = old_n; k < new_n; k++) {
+                  r->sync_active[k] = 1;
+                  r->sync_parked[k] = 0;
+                }
+                r->sync_active_remaining += (new_n - old_n);
+              } else if (new_n < old_n) {
+                for (k = new_n; k < old_n; k++) {
+                  r->sync_active[k] = 0;
+                  r->sync_parked[k] = 0;
+                }
+                r->sync_active_remaining -= (old_n - new_n);
+              }
+              r->sync_active_count = new_n;
+              ___MUTEX_UNLOCK(r->sync_part_mut);
               ___MUTEX_LOCK(r->gate);
-              ___vms->processor_count = sop.arg[0];
+              ___vms->processor_count = new_n;
               ++r->membership_epoch;
               if (r->resize_phase==___RESIZE_PREPARING) {
                 int i;
@@ -907,6 +1064,9 @@ ___PSDKR
 ___SCMOBJ err;)
 {
   ___PSGET
+
+  if (___ps && ___ps->ffi_park_depth > 0)
+    ___leave_blocking_ffi_all(___ps);
 
   ___THROW (err);
 }
@@ -1295,6 +1455,9 @@ ___BOOL first_iter;)
       first_iter = 0;
     }
 
+#ifndef ___SINGLE_THREADED_VMS
+  sync_op_leave(___vms);
+#endif
   ___lifecycle_drain(___ps);
   if (id == 0 && ___err != ___FIX(___NO_ERR))
     ___throw_error (___PSP ___err);
@@ -1309,10 +1472,148 @@ ___PSDKR)
   ___PSGET
   ___sync_op_struct sop = {0,{0,0}};
 
+#ifndef ___SINGLE_THREADED_VMS
+  {
+    ___virtual_machine_state ___vms = ___VMSTATE_FROM_PSTATE(___ps);
+    ___vm_lifecycle *life = ___vms->lifecycle;
+    int id = ___PROCESSOR_ID(___ps, ___vms);
+    if (life && id >= 0 && id < ___MAX_PROCESSORS)
+      {
+        ___MUTEX_LOCK(life->sync_part_mut);
+        while (life->sync_op_state != SYNC_OP_RUNNING || !life->sync_active[id])
+          ___CONDVAR_WAIT(life->sync_part_cv, life->sync_part_mut);
+        ___MUTEX_UNLOCK(life->sync_part_mut);
+      }
+  }
+#endif
+
   sop.op = OP_NOOP;
   ___ACTLOG_BEGIN(service_sync_op,_);
   execute_sync_op_loop (___PSP &sop, 1);
   ___ACTLOG_END();
+}
+
+
+___EXP_FUNC(void,___enter_blocking_ffi)
+   ___P((___processor_state ___ps),
+        (___ps)
+___processor_state ___ps;)
+{
+#ifndef ___SINGLE_THREADED_VMS
+  ___virtual_machine_state ___vms;
+  ___vm_lifecycle *life;
+  int id;
+  if (!___ps || ___ps != ___PSTATE) return;
+  /* Never park while holding a raw Scheme primlock spinlock. */
+  if (___ps->primlock_depth > 0) return;
+  if (___ps->ffi_park_depth > 0)
+    {
+      ___ps->ffi_park_depth++;
+      return;
+    }
+  ___vms = ___VMSTATE_FROM_PSTATE(___ps);
+  life = ___vms->lifecycle;
+  id = ___PROCESSOR_ID(___ps, ___vms);
+  if (!life || id < 0 || id >= ___vms->processor_count) return;
+
+  for (;;)
+    {
+      ___MUTEX_LOCK(life->sync_part_mut);
+      if (life->sync_op_state == SYNC_OP_RUNNING && life->sync_active[id])
+        {
+          /* An active sync_op already snapshotted this processor: service it first. */
+          ___MUTEX_UNLOCK(life->sync_part_mut);
+          service_sync_op(___PSPNC);
+          continue;
+        }
+      if (life->sync_op_state != SYNC_OP_IDLE || life->sync_block_new_parks > 0)
+        {
+          ___CONDVAR_WAIT(life->sync_part_cv, life->sync_part_mut);
+          ___MUTEX_UNLOCK(life->sync_part_mut);
+          continue;
+        }
+      life->sync_parked[id] = 1;
+      life->sync_parked_count++;
+      ___ps->ffi_park_depth = 1;
+      ___MUTEX_UNLOCK(life->sync_part_mut);
+      return;
+    }
+#else
+  if (___ps) ___ps->ffi_park_depth++;
+#endif
+}
+
+
+___EXP_FUNC(void,___leave_blocking_ffi)
+   ___P((___processor_state ___ps),
+        (___ps)
+___processor_state ___ps;)
+{
+#ifndef ___SINGLE_THREADED_VMS
+  ___virtual_machine_state ___vms;
+  ___vm_lifecycle *life;
+  int id;
+  if (!___ps || ___ps != ___PSTATE) return;
+  if (___ps->ffi_park_depth <= 0) return;
+  if (___ps->ffi_park_depth > 1)
+    {
+      ___ps->ffi_park_depth--;
+      return;
+    }
+  ___vms = ___VMSTATE_FROM_PSTATE(___ps);
+  life = ___vms->lifecycle;
+  id = ___PROCESSOR_ID(___ps, ___vms);
+  if (!life || id < 0 || id >= ___MAX_PROCESSORS)
+    {
+      ___ps->ffi_park_depth = 0;
+      return;
+    }
+  ___MUTEX_LOCK(life->sync_part_mut);
+  while (life->sync_op_state != SYNC_OP_IDLE)
+    ___CONDVAR_WAIT(life->sync_part_cv, life->sync_part_mut);
+  if (life->sync_parked[id])
+    {
+      life->sync_parked[id] = 0;
+      if (life->sync_parked_count > 0)
+        life->sync_parked_count--;
+    }
+  ___ps->ffi_park_depth = 0;
+  ___CONDVAR_BROADCAST(life->sync_part_cv);
+  ___MUTEX_UNLOCK(life->sync_part_mut);
+  /* Drain owner-affine foreign finalizers deferred during GCs while parked. */
+  ___lifecycle_drain(___ps);
+#else
+  if (___ps && ___ps->ffi_park_depth > 0) ___ps->ffi_park_depth--;
+#endif
+}
+
+
+void ___enter_blocking_ffi_depth
+   ___P((___processor_state ___ps,
+         int depth),
+        (___ps,
+         depth)
+___processor_state ___ps;
+int depth;)
+{
+  if (!___ps || depth <= 0) return;
+  ___enter_blocking_ffi(___ps);
+  if (___ps->ffi_park_depth > 0)
+    ___ps->ffi_park_depth = depth;
+}
+
+
+int ___leave_blocking_ffi_all
+   ___P((___processor_state ___ps),
+        (___ps)
+___processor_state ___ps;)
+{
+  int saved;
+  if (!___ps || ___ps->ffi_park_depth <= 0) return 0;
+  saved = ___ps->ffi_park_depth;
+  ___ps->ffi_park_depth = 1;
+  ___leave_blocking_ffi(___ps);
+  return saved;
 }
 
 
@@ -1328,25 +1629,158 @@ ___sync_op_struct *sop_ptr;)
   ___virtual_machine_state ___vms = ___VMSTATE_FROM_PSTATE(___ps);
   ___vm_lifecycle *life=___vms->lifecycle;
   int requester=___PROCESSOR_ID(___ps,___vms);
-  ___SCMOBJ ___err;
-  ___WORD pending=___WORD_LOAD_ACQUIRE(&life->requests[requester]);
+  ___SCMOBJ ___err = ___FIX(___NO_ERR);
+  int saved_park = 0;
+  ___WORD pending;
+
+  /* Defensively unpark if a parked blocking-FFI thread invokes a sync op. */
+  if (___ps->ffi_park_depth > 0)
+    saved_park = ___leave_blocking_ffi_all(___ps);
+
+  pending=___WORD_LOAD_ACQUIRE(&life->requests[requester]);
   while(___lifecycle_cas(&life->requests[requester],pending,pending+1)!=pending)
     pending=___WORD_LOAD_ACQUIRE(&life->requests[requester]);
 
-  /* force processors to call service_sync_op */
-
   ___ACTLOG_BEGIN(on_all,_);
 
+#ifndef ___SINGLE_THREADED_VMS
+  {
+    int requires_full = (sop_ptr->op == OP_VM_RESIZE ||
+                         sop_ptr->op == OP_PROCESSOR_0_THROW_ERROR);
+    int blocking_parks = 0;
+    int initiator = 0;
+    unsigned char targets[___MAX_PROCESSORS];
+    int target_n = 0;
+
+    for (;;)
+      {
+        ___MUTEX_LOCK(life->sync_part_mut);
+        if (life->sync_op_state == SYNC_OP_RUNNING)
+          {
+            if (life->sync_active[requester])
+              {
+                if (!requires_full ||
+                    ___WORD_LOAD_ACQUIRE(&life->sync_use_active_barrier) == 0)
+                  {
+                    if (blocking_parks)
+                      {
+                        life->sync_block_new_parks--;
+                        blocking_parks = 0;
+                        ___CONDVAR_BROADCAST(life->sync_part_cv);
+                      }
+                    ___MUTEX_UNLOCK(life->sync_part_mut);
+                    break;
+                  }
+                /* A partial-roster GC round is running while we need a full roster:
+                 * service the partial round cleanly first so parked threads can unpark. */
+                ___MUTEX_UNLOCK(life->sync_part_mut);
+                {
+                  ___sync_op_struct noop = {0,{0,0}};
+                  noop.op = OP_NOOP;
+                  ___BEGIN_TRY
+                    execute_sync_op_loop(___PSP &noop, 1);
+                  ___END_TRY
+                  if (___err != ___FIX(___NO_ERR))
+                    {
+                      if (blocking_parks)
+                        {
+                          ___MUTEX_LOCK(life->sync_part_mut);
+                          life->sync_block_new_parks--;
+                          ___CONDVAR_BROADCAST(life->sync_part_cv);
+                          ___MUTEX_UNLOCK(life->sync_part_mut);
+                        }
+                      goto done_on_all;
+                    }
+                }
+                continue;
+              }
+            ___CONDVAR_WAIT(life->sync_part_cv, life->sync_part_mut);
+            ___MUTEX_UNLOCK(life->sync_part_mut);
+            continue;
+          }
+        if (life->sync_op_state == SYNC_OP_DRAINING)
+          {
+            ___CONDVAR_WAIT(life->sync_part_cv, life->sync_part_mut);
+            ___MUTEX_UNLOCK(life->sync_part_mut);
+            continue;
+          }
+        /* SYNC_OP_IDLE */
+        if (requires_full && life->sync_parked_count > 0)
+          {
+            if (!blocking_parks)
+              {
+                life->sync_block_new_parks++;
+                blocking_parks = 1;
+              }
+            ___CONDVAR_WAIT(life->sync_part_cv, life->sync_part_mut);
+            ___MUTEX_UNLOCK(life->sync_part_mut);
+            continue;
+          }
+        if (blocking_parks)
+          {
+            life->sync_block_new_parks--;
+            blocking_parks = 0;
+          }
+        {
+          int i, active_n = 0, coord = -1;
+          target_n = ___vms->processor_count;
+          for (i = 0; i < ___MAX_PROCESSORS; i++)
+            {
+              life->sync_active[i] = 0;
+              targets[i] = 0;
+            }
+          for (i = 0; i < target_n; i++)
+            {
+              if (!life->sync_parked[i] &&
+                  (i == 0 || barrier_child_answers(___vms, i)))
+                {
+                  life->sync_active[i] = 1;
+                  if (i != requester)
+                    targets[i] = 1;
+                  if (coord < 0) coord = i;
+                  active_n++;
+                }
+            }
+          if (coord < 0)
+            {
+              life->sync_active[requester] = 1;
+              coord = requester;
+              active_n = 1;
+            }
+          life->sync_active_count = active_n;
+          life->sync_active_remaining = active_n;
+          life->sync_coord_id = coord;
+          life->sync_bar_arrived = 0;
+          life->sync_op_state = SYNC_OP_RUNNING;
+          ___WORD_STORE_RELEASE(&life->sync_use_active_barrier,
+                                (life->sync_parked_count > 0) ? 1 : 0);
+          initiator = 1;
+          ___CONDVAR_BROADCAST(life->sync_part_cv);
+        }
+        ___MUTEX_UNLOCK(life->sync_part_mut);
+        break;
+      }
+
+    if (initiator)
+      raise_sync_op_interrupt_targets(___vms, targets, target_n);
+  }
+#else
   ___raise_interrupt_vmstate (___vms, ___INTR_SYNC_OP);
+#endif
 
   ___BEGIN_TRY
     execute_sync_op_loop (___PSP sop_ptr, 1);
   ___END_TRY
 
+#ifndef ___SINGLE_THREADED_VMS
+ done_on_all:
+#endif
   pending=___WORD_LOAD_ACQUIRE(&life->requests[requester]);
   while(___lifecycle_cas(&life->requests[requester],pending,pending-1)!=pending)
     pending=___WORD_LOAD_ACQUIRE(&life->requests[requester]);
   ___ACTLOG_END();
+  if (saved_park > 0 && ___err == ___FIX(___NO_ERR))
+    ___enter_blocking_ffi_depth(___ps, saved_park);
   if(___err!=___FIX(___NO_ERR))___throw_error(___PSP ___err);
 }
 
@@ -1384,7 +1818,15 @@ static ___SCMOBJ current_vm_resize_request(___PSD ___SCMOBJ thunk,
   }
   ___END_TRY
   ___return_rc_root(root); ___release_rc(root);
-  if (___err!=___FIX(___NO_ERR)) ___throw_error(___PSP ___err);
+  if (___err!=___FIX(___NO_ERR)) {
+#ifdef ___USE_SETJMP
+    if (___ps->catcher != NULL)
+      ___throw_error(___PSP ___err);
+    return ___err;
+#else
+    ___throw_error(___PSP ___err);
+#endif
+  }
   return managed && sop.arg[0]==___FIX(___NO_ERR) ? ___FIX(sop.arg[1]) : sop.arg[0];
 }
 
@@ -1484,6 +1926,17 @@ ___SIZE_TS requested_words_still;)
 {
   ___PSGET
   ___sync_op_struct sop = {0,{0,0}};
+
+  if (___ps == 0 || ___ps != ___PSTATE)
+    return 1;
+  {
+    ___virtual_machine_state vm = ___VMSTATE_FROM_PSTATE(___ps);
+    int id = ___PROCESSOR_ID(___ps, vm);
+    if (!vm->lifecycle || id < 0 || id >= vm->processor_count ||
+        vm->lifecycle->cleanup[id].draining ||
+        vm->lifecycle->cleanup[id].uncertain)
+      return 1;
+  }
 
   sop.op = OP_GARBAGE_COLLECT;
   sop.arg[0] = requested_words_still;
@@ -5285,6 +5738,7 @@ ___virtual_machine_state ___vms;)
   ___ps->internal_return         = ___GSTATE->internal_return;
   ___ps->dynamic_env_bind_return = ___GSTATE->dynamic_env_bind_return;
   ___ps->primlock_depth          = 0;
+  ___ps->ffi_park_depth          = 0;
   ___ps->group_demand_active     = 0;
   ___ps->stack_fast_floor_b      = 0;
   ___ps->stack_fast_limit_b      = 0;
@@ -6406,6 +6860,7 @@ ___HIDDEN void setup_dynamic_linking ___PVOID
   ___GSTATE->___bind_primitive = ___bind_primitive;
   ___GSTATE->___group_demand_enter = ___group_demand_enter;
   ___GSTATE->___group_demand_commit = ___group_demand_commit;
+  ___GSTATE->___publish_raw_stack_span = ___publish_raw_stack_span;
   ___GSTATE->___rest_observation_room = ___rest_observation_room;
   ___GSTATE->___rest_observation_settled = ___rest_observation_settled;
   ___GSTATE->___rest_observation_last_demand = ___rest_observation_last_demand;
@@ -6467,6 +6922,12 @@ ___HIDDEN void setup_dynamic_linking ___PVOID
 
   ___GSTATE->___garbage_collect
     = ___garbage_collect;
+
+  ___GSTATE->___enter_blocking_ffi
+    = ___enter_blocking_ffi;
+
+  ___GSTATE->___leave_blocking_ffi
+    = ___leave_blocking_ffi;
 
   ___GSTATE->___setup_vmstate
     = ___setup_vmstate;
@@ -6711,19 +7172,6 @@ ___HIDDEN void setup_dynamic_linking ___PVOID
 
   ___GSTATE->___thread_exit
     = ___thread_exit;
-
-#ifdef ___USE_emulated_sync
-
-  ___GSTATE->___emulated_compare_and_swap_word
-    = ___emulated_compare_and_swap_word;
-
-  ___GSTATE->___emulated_fetch_and_add_word
-    = ___emulated_fetch_and_add_word;
-
-  ___GSTATE->___emulated_fetch_and_clear_word
-    = ___emulated_fetch_and_clear_word;
-
-#endif
 
 #ifdef ___DEFINE_THREAD_LOCAL_STORAGE_GETTER_SETTER
 

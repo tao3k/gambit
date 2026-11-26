@@ -1173,6 +1173,8 @@ typedef struct ___global_state_struct
              ___WORD group_point, ___WORD *attempt_out), ());
     void (*___group_demand_commit)
        ___P((___processor_state ps, ___WORD group_point, ___WORD attempt), ());
+    void (*___publish_raw_stack_span)
+       ___P((___processor_state ___ps, ___WORD *top, ___WORD *brk), ());
     ___WORD (*___rest_observation_room)
        ___P((___processor_state ps), ());
     ___WORD (*___rest_observation_settled)
@@ -1256,6 +1258,12 @@ typedef struct ___global_state_struct
     ___BOOL (*___garbage_collect)
        ___P((___PSD
              ___SIZE_TS requested_words_still),
+            ());
+    void (*___enter_blocking_ffi)
+       ___P((___processor_state ___ps),
+            ());
+    void (*___leave_blocking_ffi)
+       ___P((___processor_state ___ps),
             ());
     ___SCMOBJ (*___setup_vmstate)
        ___P((___virtual_machine_state ___vms),
@@ -1517,21 +1525,6 @@ typedef struct ___global_state_struct
        ___P((___thread *thread),
             ());
     void (*___thread_exit) ___PVOID;
-#ifdef ___USE_emulated_sync
-    ___WORD (*___emulated_compare_and_swap_word)
-       ___P((___VOLATILE ___WORD *ptr,
-             ___WORD oldval,
-             ___WORD newval),
-            ());
-    ___WORD (*___emulated_fetch_and_add_word)
-       ___P((___VOLATILE ___WORD *ptr,
-             ___WORD val),
-            ());
-    ___WORD (*___emulated_fetch_and_clear_word)
-       ___P((___VOLATILE ___WORD *ptr),
-            ());
-    void (*___emulated_shared_memory_barrier) ___PVOID;
-#endif
 #ifdef ___DEFINE_THREAD_LOCAL_STORAGE_GETTER_SETTER
     void *(*___get_tls_ptr) ___PVOID;
     void (*___set_tls_ptr)

@@ -6540,7 +6540,15 @@ const ___SCMOBJ *root;)
     return ___FIX(___SFUN_HEAP_OVERFLOW_ERR);
 
   if (proc_or_false == ___FAL)
-    ___VECTORELEM(stack_marker, 0) = ___data_rc (___c_closure_self ());
+    {
+      void *self = ___c_closure_self ();
+      if (self == 0)
+        {
+          ___still_obj_refcount_dec (stack_marker);
+          return ___FIX(___UNKNOWN_ERR);
+        }
+      ___VECTORELEM(stack_marker, 0) = ___data_rc (self);
+    }
   else
     ___VECTORELEM(stack_marker, 0) = proc_or_false;
 

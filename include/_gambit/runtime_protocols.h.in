@@ -1204,6 +1204,12 @@ ___IMP_FUNC(___BOOL,___garbage_collect)
    ___P((___PSD
          ___SIZE_TS requested_words_still),
         ());
+___IMP_FUNC(void,___enter_blocking_ffi)
+   ___P((___processor_state ___ps),
+        ());
+___IMP_FUNC(void,___leave_blocking_ffi)
+   ___P((___processor_state ___ps),
+        ());
 /* Generated write groups share one admission and mapped-retry protocol. */
 ___IMP_FUNC(int,___handler_spill_backed)
    ___P((___processor_state ps, ___WORD *fp), ());
@@ -1631,21 +1637,6 @@ ___IMP_FUNC(___SCMOBJ,___thread_join)
    ___P((___thread *thread),
         ());
 ___IMP_FUNC(void,___thread_exit) ___PVOID;
-#ifdef ___USE_emulated_sync
-___IMP_FUNC(___WORD,___emulated_compare_and_swap_word)
-   ___P((___VOLATILE ___WORD *ptr,
-         ___WORD oldval,
-         ___WORD newval),
-        ());
-___IMP_FUNC(___WORD,___emulated_fetch_and_add_word)
-   ___P((___VOLATILE ___WORD *ptr,
-         ___WORD val),
-        ());
-___IMP_FUNC(___WORD,___emulated_fetch_and_clear_word)
-   ___P((___VOLATILE ___WORD *ptr),
-        ());
-___IMP_FUNC(void,___emulated_shared_memory_barrier) ___PVOID;
-#endif
 #ifdef ___DEFINE_THREAD_LOCAL_STORAGE_GETTER_SETTER
 ___IMP_FUNC(void *,___get_tls_ptr) ___PVOID;
 ___IMP_FUNC(void,___set_tls_ptr)

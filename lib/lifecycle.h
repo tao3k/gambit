@@ -134,6 +134,7 @@ typedef struct ___activation_record_struct {
   void *rest_context;
   ___WORD rest_epoch; /* live generation issued by the VM; 0 is unused */
   ___WORD rest_retired_epoch; /* last generation settled on this storage */
+  int saved_ffi_park_depth; /* blocking-FFI park depth suspended during c-define */
 } ___activation_record;
 
 static int ___activation_marker_live(___activation_record *record)
@@ -295,6 +296,13 @@ extern ___WORD ___rest_refusal_pops;
  * retry footprint, take a heap section that is not the stack section. */
 extern ___BOOL ___rest_extend_interval(___processor_state ps,
                                       ___WORD pending, ___WORD np);
+/* Zero-growth budgeted nursery refill: consume one already-free msection when
+ * compute_free_heap_space_approximately() >= ___MSECTION_SIZE without growing
+ * the_msections. Returns false once the budgeted free nursery is exhausted so
+ * the rest handler enters root-window custody and garbage collection. */
+extern ___BOOL ___rest_take_free_section(___processor_state ps,
+                                        ___WORD pending, ___WORD np,
+                                        ___WORD stack_slots);
 /* The argument window ends at the caller frame. ra is that frame's return
  * label, stored by the caller before collection. The chain must land on
  * stack_past without reading an incomplete descriptor. */
@@ -426,6 +434,25 @@ typedef struct ___vm_lifecycle_struct {
   unsigned char sync_constructed[___MAX_PROCESSORS];
   ___MUTEX_DECL(gate)
   ___CONDVAR_DECL(changed)
+  /* Blocking-FFI participation state: allows parked processors to stay outside
+   * STW GC sync barriers while guaranteeing zero race with resize/GC/unpark. */
+  ___MUTEX_DECL(sync_part_mut)
+  ___CONDVAR_DECL(sync_part_cv)
+  int sync_op_state; /* 0=IDLE, 1=RUNNING, 2=DRAINING */
+  int sync_parked_count;
+  int sync_active_count;
+  int sync_active_remaining;
+  int sync_coord_id;
+  ___VOLATILE ___WORD sync_use_active_barrier;
+  int sync_block_new_parks;
+  unsigned char sync_parked[___MAX_PROCESSORS];
+  unsigned char sync_active[___MAX_PROCESSORS];
+  int sync_bar_arrived;
+  ___UWORD sync_bar_gen;
+  ___sync_op_struct sync_bar_sop;
+  int sync_bar_winner;
+  ___sync_op_struct sync_bar_out_sop;
+  int sync_bar_out_winner;
   enum ___resize_phase resize_phase;
   int first, target, saved_assigned, saved_stacks, refusal;
   ___msection *saved_cursor;

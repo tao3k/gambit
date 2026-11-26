@@ -14993,6 +14993,7 @@
 "c#targ-apply-vector-u"
 "c#targ-apply-xcons"
 "c#targ-arg-check-avoidable?"
+"c#targ-auto-cfg-host-layout?"
 "c#targ-begin-cod"
 "c#targ-bignum-digits"
 "c#targ-box-space"
@@ -18502,6 +18503,7 @@
 "c#targ-apply-simpflo-s"
 "c#targ-apply-simpflo2-s"
 "c#targ-apply-simpflo3-s"
+"c#targ-auto-cfg-host-threshold"
 "c#targ-begin-fr"
 "c#targ-bits-per-byte"
 "c#targ-c-hex"
@@ -18515,6 +18517,8 @@
 "c#targ-c-long"
 "c#targ-c-long-long"
 "c#targ-cast-to-fixnum32"
+"c#targ-cfg-host-max-bins"
+"c#targ-cfg-host-target-blocks"
 "c#targ-combine-checks?"
 "c#targ-compactness"
 "c#targ-compilation-unit-c-scope"
@@ -26367,6 +26371,8 @@ ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_apply_2d_vector_2d_s,___G_c_23_targ_2d_appl
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_apply_2d_vector_2d_u,___G_c_23_targ_2d_apply_2d_vector_2d_u)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_apply_2d_xcons,___G_c_23_targ_2d_apply_2d_xcons)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_arg_2d_check_2d_avoidable_3f_,___G_c_23_targ_2d_arg_2d_check_2d_avoidable_3f_)
+___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_auto_2d_cfg_2d_host_2d_layout_3f_,___G_c_23_targ_2d_auto_2d_cfg_2d_host_2d_layout_3f_)
+___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_auto_2d_cfg_2d_host_2d_threshold,___G_c_23_targ_2d_auto_2d_cfg_2d_host_2d_threshold)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_begin_2d_cod,___G_c_23_targ_2d_begin_2d_cod)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_begin_2d_fr,___G_c_23_targ_2d_begin_2d_fr)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_bignum_2d_digits,___G_c_23_targ_2d_bignum_2d_digits)
@@ -26393,8 +26399,10 @@ ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_c_2d_unsigned_2d_long,___G_c_23_targ_2d_c_2
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_cast_2d_to_2d_fixnum32,___G_c_23_targ_2d_cast_2d_to_2d_fixnum32)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_ceiling_2d_log2,___G_c_23_targ_2d_ceiling_2d_log2)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_cell_2d_set_21_,___G_c_23_targ_2d_cell_2d_set_21_)
+___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_cfg_2d_host_2d_max_2d_bins,___G_c_23_targ_2d_cfg_2d_host_2d_max_2d_bins)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_cfg_2d_host_2d_name,___G_c_23_targ_2d_cfg_2d_host_2d_name)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_cfg_2d_host_2d_plan_3f_,___G_c_23_targ_2d_cfg_2d_host_2d_plan_3f_)
+___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_cfg_2d_host_2d_target_2d_blocks,___G_c_23_targ_2d_cfg_2d_host_2d_target_2d_blocks)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_check_2d_conditions,___G_c_23_targ_2d_check_2d_conditions)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_closure_2d_space,___G_c_23_targ_2d_closure_2d_space)
 ___DEF_OLD_SYM_GLO(___S_c_23_targ_2d_cns_2d_objs,___G_c_23_targ_2d_cns_2d_objs)

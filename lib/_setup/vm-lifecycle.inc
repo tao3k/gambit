@@ -77,6 +77,7 @@ static ___BOOL lifecycle_dispose(___virtual_machine_state vm)
   ___vm_lifecycle *life=vm->lifecycle;
 #ifndef ___SINGLE_THREADED_VMS
   if(!cleanup_sync_op_vmstate(vm))return 0;
+  ___CONDVAR_DESTROY(life->sync_part_cv);___MUTEX_DESTROY(life->sync_part_mut);
   ___CONDVAR_DESTROY(life->changed);___MUTEX_DESTROY(life->gate);
 #endif
   vm_registry_remove(vm);vm->lifecycle=0;___FREE_MEM(life);
@@ -98,6 +99,7 @@ static void abort_vm_setup(___virtual_machine_state vm)
   if(!cleanup_sync_op_vmstate(vm)) {
     ___WORD_STORE_RELEASE(&life->phase,___VM_RETAINED);return;
   }
+  ___CONDVAR_DESTROY(life->sync_part_cv);___MUTEX_DESTROY(life->sync_part_mut);
   ___CONDVAR_DESTROY(life->changed);___MUTEX_DESTROY(life->gate);
 #endif
   vm->lifecycle=0;___FREE_MEM(life);

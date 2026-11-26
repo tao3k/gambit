@@ -85,6 +85,24 @@ extern void service_sync_op
    ___P((___PSDNC),
         ());
 
+extern int ___sync_coordinator_id
+   ___P((___virtual_machine_state vm),
+        ());
+
+extern int ___sync_processor_active
+   ___P((___virtual_machine_state vm,
+         int id),
+        ());
+
+extern void ___enter_blocking_ffi_depth
+   ___P((___processor_state ___ps,
+         int depth),
+        ());
+
+extern int ___leave_blocking_ffi_all
+   ___P((___processor_state ___ps),
+        ());
+
 extern ___SCMOBJ ___current_vm_resize_ticket(___PSD ___SCMOBJ thunk, int target);
 extern ___SCMOBJ ___startup_ready_status(___PSD ___SCMOBJ ticket);
 extern ___SCMOBJ ___startup_ready(___PSDNC);

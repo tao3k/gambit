@@ -845,7 +845,7 @@ ___SCMOBJ test_marker_vector(___processor_state ps,___SIZE_TS n,___SCMOBJ init)
   ___SIZE_T extra=test_marker_mode==6?0:1;
   ___RC_LOCK(d);
   test_marker_custody=d->nodes==test_marker_base_nodes+extra &&
-    d->borrows==test_marker_base_borrows+(test_marker_mode==7?0:extra);
+    d->borrows==test_marker_base_borrows+extra;
   ___RC_UNLOCK(d);
   if (test_marker_mode==2) return ___FIX(___HEAP_OVERFLOW_ERR);
   if (test_marker_mode==1 || test_marker_mode==5 || test_marker_mode==6 || test_marker_mode==7) {
@@ -974,16 +974,20 @@ c-end
 ))
 (define sfun-raw-node-delta (c-lambda () int
  "___result=___CAST(int,___PSTATE->mem.rc_domain_->nodes)-___CAST(int,test_sfun_nodes);"))
+(define sfun-raw-borrow-delta (c-lambda () int
+ "___result=___CAST(int,___PSTATE->mem.rc_domain_->borrows)-___CAST(int,test_marker_base_borrows);"))
 (define sfun-raw-returned (c-lambda () int "___result=test_sfun_returned;"))
 (c-define (sfun-escape-driver value) (scheme-object) int "test_sfun_escape_driver" ""
  (let ((result
    (call/cc (lambda (exit) (set! sfun-escape exit)
               (sfun-raw-invoke value 1) 'unexpected-return))))
   ;; A Scheme continuation may resume inside the still-running C trampoline.
-  ;; The inner C frame has not returned: its root must remain live through GC.
+  ;; The inner C frame has not returned: its root span and RC borrow remain
+  ;; live through GC until physical C exit unwinds ___end_sfun.
   (##gc)
-  (if (and (eq? result 'escaped) (= (sfun-raw-state) 14)
-           (= (sfun-raw-node-delta) 1) (= (sfun-raw-returned) 0)) 1 0)))
+  (if (and (eq? result 'escaped) (= (sfun-raw-state) 12)
+           (= (sfun-raw-node-delta) 1) (= (sfun-raw-borrow-delta) 1)
+           (= (sfun-raw-returned) 0)) 1 0)))
 (define sfun-physical-exit
  (c-lambda (scheme-object) bool #<<c-end
 ___rc_domain *d=___PSTATE->mem.rc_domain_;
@@ -2019,11 +2023,14 @@ ___root_round *r=___ROOT_UNION(vm);
 ___WORD *fp=ps->context->fp,*hp=ps->context->hp;
 ___SIZE_TS parity=ps->mem.tospace_offset_;
 ___WORD requested=___WORD_LOAD_ACQUIRE(&r->collection.requested_workers);
-int i,ok;
+int i,ok,gc_res;
 ___WORD_STORE_RELEASE(&r->collection.requested_workers,vm->processor_count+1);
-ok=___garbage_collect(___PSA(ps) 0)!=0;
+gc_res=___garbage_collect(___PSA(ps) 0);
 ___WORD_STORE_RELEASE(&r->collection.requested_workers,requested);
-ok=ok && ps->context->fp==fp && ps->context->hp==hp &&
+/* Invalid requested_workers must remain an explicit refusal/overflow
+ * without mutating the section pool even under max_heap==0. */
+ok=(gc_res!=0) &&
+ ps->context->fp==fp && ps->context->hp==hp &&
  ps->mem.tospace_offset_==parity && r->state==___ROOT_ROUND_IDLE &&
  r->collection.decision==2 && r->collection.census.state==___GC_PLAN_REFUSED &&
  vm->mem.globals_snapshot_==0;

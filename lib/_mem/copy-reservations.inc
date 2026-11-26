@@ -247,33 +247,9 @@ static inline void prepare_copy_request
 static inline ___WORD load_copy_source_header
    (___collector_worker *work, ___WORD *body)
 {
-#ifdef ___ORDERED_WORD_NATIVE
   if (___COLLECTION(work->vm).worker_count <= 1)
     return body[-1];
   return ___WORD_LOAD_ACQUIRE(&body[-1]);
-#else
-  /* Legacy load may be an RMW. Moving headers use their physical section's
-   * gate; PERM/STILL headers outside the pool are immutable during admitted
-   * tracing and may be read-only. Never issue an RMW on those headers. */
-  ___processor_state ___ps = work->carrier;
-  ___WORD *header = body-1;
-  int i = find_msection(the_msections,header);
-  if (i >= 0 && i < the_msections->nb_sections)
-    {
-      ___msection *section = the_msections->sections[i];
-      ___UWORD address = ___CAST(___UWORD,header);
-      ___UWORD base = ___CAST(___UWORD,section->base);
-      if (address >= base && address-base < ___MSECTION_SIZE*___WS)
-        {
-          ___WORD head;
-          ___gc_copy_acquire (&section->copy_gate);
-          head = body[-1];
-          ___gc_copy_release (&section->copy_gate);
-          return head;
-        }
-    }
-  return body[-1];
-#endif
 }
 
 /* Obtain an actual contiguous destination interval before writing a header

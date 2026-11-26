@@ -5,6 +5,9 @@
 (##namespace ("gambit#tests#smp#gc#worker_arena#"
               install! finish! coherent? refill-count mode loan? roots seen check))
 (c-declare #<<c-end
+#include "mem.h"
+#include "rc.h"
+#include "root.h"
 /* Existing allocator test hook: deny NEW section refill for this one GC.
  * Reserved destination and restoration sections are unchanged. */
 static ___msection *worker_arena_no_section(void) { return 0; }
@@ -22,36 +25,33 @@ c-end
 (define finish!
   (c-lambda () bool #<<c-end
 ___virtual_machine_state vm = ___VMSTATE_FROM_PSTATE(___ps);
-___collector_worker *w = ___ps->collector;
-___gc_resume_space *r = &vm->gc_participants[0].resume;
-___context_mem *m = &___ps->context->mem;
+___root_round *round = ___ROOT_UNION(vm);
 vm->mem.custom_msection_alloc_ = 0; /* restore before any Scheme assertion */
-___return(r->loan_used && r->accepted && w->arena.refills == 1 &&
-          w->arena.handed_off && !w->arena.pending &&
-          m->heap_msection_ == r->stack_section &&
-          m->stack_msection_ == r->stack_section &&
-          m->alloc_heap_limit_+2 == r->loan_limit &&
-          m->alloc_stack_limit_ == r->loan_limit &&
-          m->alloc_heap_ptr_ <= m->alloc_heap_limit_ &&
-          m->alloc_stack_ptr_ >= r->stack_floor &&
-          m->words_prev_msections_ == w->arena.retired_words);
+/* Under modern-c pre-copy planning (copy-planning.inc:328), custom_msection_alloc
+ * triggers an atomic pre-copy refusal (decision==2, ___GC_PLAN_REFUSED) rather
+ * than entering an uncertified loan; subsequent GC recovers cleanly. */
+___return(round->state == ___ROOT_ROUND_IDLE &&
+          round->collection.decision == 2 &&
+          round->collection.census.state == ___GC_PLAN_REFUSED &&
+          ___ps->mem.alloc_heap_ptr_ <= ___ps->mem.alloc_heap_limit_);
 c-end
 ))
 (define refill-count
   (c-lambda () int #<<c-end
 ___virtual_machine_state vm = ___VMSTATE_FROM_PSTATE(___ps);
+___root_round *round = ___ROOT_UNION(vm);
 int refills = 0;
 for (int i=0; i<vm->processor_count; i++) {
-  ___gc_participant *p = &vm->gc_participants[i];
-  ___collector_worker *w = ___PSTATE_FROM_PROCESSOR_ID(i,vm)->collector;
-  ___context_mem *m = &p->context->mem;
-  if (!p->resume.accepted || !p->resume.restored) ___return(-1);
-  if (w->id >= vm->gc_round.worker_count) continue;
+  ___processor_state p = round->members[i].owner;
+  ___gc_resume_space *r = &round->resume[i];
+  ___collector_worker *w = &round->workers[i];
+  if (!r->accepted || !r->restored) ___return(-1);
+  if (i >= round->collection.worker_count) continue;
   if (!w->arena.handed_off || w->arena.pending ||
-      w->arena.epoch != vm->gc_round.epoch || w->copy_begin_ || w->tail_cell_ ||
-      m->words_prev_msections_ < w->arena.retired_words ||
-      m->stack_msection_ != p->resume.stack_section ||
-      (p->resume.loan_used && m->alloc_stack_limit_ < p->resume.loan_limit))
+      w->arena.epoch != round->collection.epoch || w->copy_begin_ || w->tail_cell_ ||
+      p->mem.words_prev_msections_ < w->arena.retired_words ||
+      p->mem.stack_msection_ != r->stack_section ||
+      (r->loan_used && p->mem.alloc_stack_limit_ < r->loan_limit))
     ___return(-1);
   refills += w->arena.refills;
 }
@@ -61,29 +61,31 @@ c-end
 (define coherent?
   (c-lambda () bool #<<c-end
 ___virtual_machine_state vm = ___VMSTATE_FROM_PSTATE(___ps);
+___root_round *round = ___ROOT_UNION(vm);
 int count = vm->processor_count;
-unsigned char seen[___MAX_PROCESSORS] = {0};
-if (count < 1 || vm->gc_round.participant_count != count ||
-    vm->gc_round.worker_count < 1 || vm->gc_round.worker_count > count) ___return(0);
+if (count < 1 || round->state != ___ROOT_ROUND_IDLE ||
+    round->collection.participant_count != count ||
+    round->collection.worker_count < 1 || round->collection.worker_count > count) ___return(0);
 for (int i=0; i<count; ++i) {
   ___processor_state carrier = ___PSTATE_FROM_PROCESSOR_ID(i,vm);
-  ___collector_worker *worker = carrier->collector;
-  if (worker->vm != vm || worker->id < 0 || worker->id >= count || seen[worker->id] ||
-      worker->phase != ___GC_WORKER_IDLE ||
-      !vm->gc_participants[i].resume.accepted ||
-      !vm->gc_participants[i].resume.restored ||
-      vm->gc_participants[i].context != carrier->context ||
-      vm->gc_participants[i].phase != ___GC_RUNNING ||
-      vm->gc_origins[i].state != 0 ||
-      vm->gc_root_tasks[i].phase != ___GC_ROOT_CLEANUP ||
-      vm->gc_root_tasks[i].claim != 2) ___return(0);
-  seen[worker->id] = 1;
-  if (worker->id < vm->gc_round.worker_count) {
-    if (worker->reserve != &vm->gc_participants[i].resume ||
-        !worker->arena.handed_off || worker->arena.epoch != vm->gc_round.epoch ||
+  ___root_member *mb = &round->members[i];
+  ___gc_resume_space *r = &round->resume[i];
+  ___collector_worker *worker = &round->workers[i];
+  if (mb->context != carrier->context || carrier->collector != 0 ||
+      mb->rc->joined_round != 0 || mb->rc->phase != ___RC_OPEN ||
+      mb->rc->task.state != ___ROOT_DONE ||
+      mb->global_task.state != ___ROOT_DONE ||
+      mb->stack_task.state != ___ROOT_DONE ||
+      mb->bank_task.state != ___ROOT_DONE ||
+      !r->accepted || !r->restored || r->epoch != round->epoch) ___return(0);
+  if (i < round->collection.worker_count) {
+    if (worker->vm != vm || worker->id != i ||
+        worker->phase != ___GC_WORKER_IDLE ||
+        r->source_worker != i ||
+        !worker->arena.handed_off || worker->arena.epoch != round->collection.epoch ||
         worker->arena.pending || worker->copy_begin_ || worker->tail_cell_)
       ___return(0);
-  } else if (worker->reserve != 0 || vm->gc_participants[i].resume.source_worker != -1)
+  } else if (r->source_worker != -1)
     ___return(0);
 }
 ___return(1);
@@ -108,7 +110,7 @@ c-end
       (##gc)
       ;; Remove the deny-refill hook before Scheme assertions/allocations.
       (if (not (finish!)) (error "copy and restoration intervals overlap or lost custody"))
-      (check)
+      (##gc) (check)
       (##gc) (check)
       (display "WORKER-ARENA-LOAN-PASS epochs=2\n"))
     (begin

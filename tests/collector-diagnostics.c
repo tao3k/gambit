@@ -20,6 +20,7 @@ static void before_final_restore_read(void);
 
 #ifndef ___GAMBIT_DEV_RESTORE_PROBE
 ___global_state_struct ___gstate0;
+___THREAD_LOCAL_STORAGE_CLASS void *___tls_ptr;
 #endif
 
 /* Census entry negatives must reject before reaching the allocation path.
@@ -41,6 +42,26 @@ void ___free_mem(void *ptr, int line, char *file)
 #endif
 {
   fputs("unexpected free in collector diagnostic\n",stderr);
+  abort();
+}
+
+#ifndef ___DEBUG_ALLOC_MEM
+void *___alloc_mem_heap(___SIZE_T bytes)
+#else
+void *___alloc_mem_heap(___SIZE_T bytes, int line, char *file)
+#endif
+{
+  fputs("unexpected heap allocation in collector diagnostic\n",stderr);
+  abort();
+}
+
+#ifndef ___DEBUG_ALLOC_MEM
+void ___free_mem_heap(void *ptr)
+#else
+void ___free_mem_heap(void *ptr, int line, char *file)
+#endif
+{
+  fputs("unexpected heap free in collector diagnostic\n",stderr);
   abort();
 }
 
@@ -714,7 +735,7 @@ static int heap_cursor_controls(void)
     CHECK(!___heap_alloc_fits(___ps,floor,1));
     ___ps->mem.alloc_heap_limit_=floor+1;
     CHECK(!___heap_alloc_fits(___ps,floor,1));
-    context.hp=cursor;
+    context.hp=floor+1;
     context.fp=top;
     REJECT("Heap limit old cursor leaves its owned active half",
            ___heap_limit(___PSPNC));
@@ -725,7 +746,7 @@ static int heap_cursor_controls(void)
 
     park_stack_section(___ps,heap,floor,top,brk);
     set_stack_msection(___ps,stack);
-    CHECK(!current_heap_interval_matches(___ps,cursor));
+    CHECK(!current_heap_interval_matches(___ps,floor+1));
     ___ps->mem.alloc_heap_limit_=floor;
     CHECK(current_heap_interval_matches(___ps,cursor));
     CHECK(___heap_alloc_fits(___ps,floor-1,1));
@@ -1018,6 +1039,9 @@ static int source_census_controls(void)
     ___WORD *crossing_base=fp+___FRAME_SPACE(5);
     int rejected_before_decode;
 
+    exact.header=___MAKE_HD(0,___sRETURN,___PERM);
+    crossing.header=___MAKE_HD(0,___sRETURN,___PERM);
+    interrupted.header=___MAKE_HD(0,___sRETURN,___PERM);
     exact.entry_or_descr=___IFD(___RETN,1,0,0x1L);
     crossing.entry_or_descr=___IFD(___RETN,5,0,0x3L);
     interrupted.entry_or_descr=___IFD(___RETI,1,4,0x3f1L);
@@ -1107,6 +1131,8 @@ static int source_census_controls(void)
     ___WORD cell;
     ___WORD *floor=section->base;
     ___SCMOBJ cap_queue[1];
+    parked_label.header=___MAKE_HD(0,___sRETURN,___PERM);
+    handler_label.header=___MAKE_HD(0,___sRETURN,___PERM);
     parked_label.entry_or_descr=___IFD(___RETN,1,0,0);
     handler_label.entry_or_descr=___IFD(___RETN,1,0,0);
     census.queue=cap_queue;
@@ -1208,6 +1234,7 @@ static int source_census_controls(void)
       ___WORD crossing_ra=___SUBTYPED_FROM_BODY(&crossing.entry_or_descr);
       ___WORD *older=parked_base+___BREAK_FRAME_SPACE+8;
       ___WORD *older_base=older+___FRAME_SPACE(1);
+      crossing.header=___MAKE_HD(0,___sRETURN,___PERM);
       crossing.entry_or_descr=___IFD(___RETN,5,0,0);
       section_claim_at(section,0)->stack_owner=___ps;
       section_claim_at(section,0)->stack_state=STACK_ACTIVE;

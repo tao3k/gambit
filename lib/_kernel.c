@@ -12103,10 +12103,14 @@ ___DEF_SLBL(8,___L8__23__23_kernel_2d_handlers)
            ___JUMPPRM(___SET_NARGS(0),
                       ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
          }
-       /* The soft cursor is one word short, but this section's hard tail
-        * already holds the complete demand. Publish that edge and admit
-        * before any root window or pair store. */
-       if (___rest_one_word_short(___ps, ___hp, ___fp, i, np, 1) &&
+       /* The soft cursor was clipped below this section's owned hard tail,
+        * which already holds the complete demand. Publish that edge and admit
+        * before any root window, section refill, or pair store. */
+       if (!___rest_attempt_blocked() &&
+           ___ps->heap_limit &&
+           ___ps->mem.alloc_heap_limit_ &&
+           (___SIZE_TS)(___ps->mem.alloc_heap_limit_ - ___ps->mem.alloc_heap_start_) > ___MSECTION_FUDGE &&
+           ___ps->heap_limit < ___ps->mem.alloc_heap_limit_ - ___MSECTION_FUDGE &&
            !___rest_physical_tail_short(___ps, i, np) &&
            ___rest_publish_owned_soft_edge(___ps, i, np))
          {
@@ -12124,8 +12128,21 @@ ___DEF_SLBL(8,___L8__23__23_kernel_2d_handlers)
            ___JUMPPRM(___SET_NARGS(0),
                       ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
          }
-       /* Before runtime GC admission is open, take the next free section
-        * directly; once admitted, enter root-window custody and collection. */
+       /* Current heap msection is physically short. First try a zero-growth
+        * TLAB refill from already-budgeted free nursery msections (matching
+        * ___heap_limit) so rest calls do not force a whole-heap GC per 512 KiB
+        * section. Once free nursery sections are exhausted, enter root-window
+        * custody and genuine collection. */
+       if (!___rest_planted_short() &&
+           ___rest_physical_tail_short(___ps, i, np) &&
+           ___rest_take_free_section(___ps, i, np, 1))
+         {
+           ___R_HEAP
+           if (___rest_fast_grant_fits(___ps, ___hp, ___fp, i, np, 1))
+             goto rest_ordinary_admitted;
+         }
+       /* Before runtime GC admission is open, grow/extend directly; once
+        * admitted, enter root-window custody and collection. */
        if (!___lifecycle_gc_admitted(___ps) &&
            !___rest_planted_short() &&
            ___rest_physical_tail_short(___ps, i, np) &&
@@ -12710,7 +12727,11 @@ ___DEF_SLBL(10,___L10__23__23_kernel_2d_handlers)
              ___JUMPPRM(___SET_NARGS(0),
                         ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
            }
-         if (___rest_one_word_short(___ps, ___hp, ___fp, i, np, stack_slots) &&
+         if (!___rest_attempt_blocked() &&
+             ___ps->heap_limit &&
+             ___ps->mem.alloc_heap_limit_ &&
+             (___SIZE_TS)(___ps->mem.alloc_heap_limit_ - ___ps->mem.alloc_heap_start_) > ___MSECTION_FUDGE &&
+             ___ps->heap_limit < ___ps->mem.alloc_heap_limit_ - ___MSECTION_FUDGE &&
              !___rest_physical_tail_short(___ps, i, np) &&
              ___rest_publish_owned_soft_edge(___ps, i, np))
            {
@@ -12727,6 +12748,14 @@ ___DEF_SLBL(10,___L10__23__23_kernel_2d_handlers)
              ___rest_disarm_attempt();
              ___JUMPPRM(___SET_NARGS(0),
                         ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
+           }
+         if (!___rest_planted_short() &&
+             ___rest_physical_tail_short(___ps, i, np) &&
+             ___rest_take_free_section(___ps, i, np, stack_slots))
+           {
+             ___R_HEAP
+             if (___rest_fast_grant_fits(___ps, ___hp, ___fp, i, np, stack_slots))
+               goto rest_keyword_admitted;
            }
          if (!___lifecycle_gc_admitted(___ps) &&
              !___rest_planted_short() &&

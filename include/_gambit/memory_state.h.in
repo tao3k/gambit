@@ -13,6 +13,18 @@
  * program.
  */
 
+/* Region age classification for generational write-barrier seam. */
+#define ___GC_REGION_YOUNG  0u
+#define ___GC_REGION_MATURE 1u
+#define ___GC_REGION_PINNED 2u
+
+/* Preallocated per-region dirty-card geometry: 64 words/card (512B on 64-bit,
+ * 256B on 32-bit). Prepared with region publication, never allocated in barrier. */
+#define ___GC_CARD_SHIFT_WORDS 6
+#define ___GC_CARD_WORDS       (1 << ___GC_CARD_SHIFT_WORDS)
+#define ___msection_card_count(n) (((n) + ___GC_CARD_WORDS - 1) >> ___GC_CARD_SHIFT_WORDS)
+#define ___msection_card_words(n) ((___msection_card_count(n) + ___WORD_WIDTH - 1) / ___WORD_WIDTH)
+
 typedef struct ___msect
   {
     int index;             /* index in list of sections */
@@ -20,12 +32,142 @@ typedef struct ___msect
     struct ___msect *prev; /* previous section in list of sections */
     struct ___msect *next; /* next section in list of sections */
     ___VOLATILE ___WORD copy_gate; /* source-section forwarding ownership */
+    ___WORD region_generation;     /* monotonic generation for (VM, region, gen, card) key */
+    unsigned int region_age;       /* ___GC_REGION_YOUNG / MATURE / PINNED */
+    ___VOLATILE ___WORD card_dirty_any; /* summary bit: 0=clean, 1=dirty card(s) present */
     ___WORD base[1];       /* content of section */
   } ___msection;
 
 /* Destination scan ownership is outside Scheme payload/header coordinates. */
 #define ___msection_scan_words(n) (((n)/2+(___WORD_WIDTH/2)-1)/(___WORD_WIDTH/2))
 #define ___sizeof_msection(n) (sizeof (___msection)+((n)-1+___msection_scan_words(n))*___WS)
+
+/* Bounded per-processor dirty-card hint buffer with sticky epoch overflow.
+ * Authoritative coverage lives in per-region atomic card_bits; hints accelerate
+ * enumeration when overflow == 0 and fall back to O(C) card_bits walk otherwise. */
+#define ___GC_CARD_HINT_CAPACITY 64
+
+typedef struct ___gc_card_hint_struct
+  {
+    ___msection *section;
+    ___WORD region_generation;
+    unsigned int card_index;
+  } ___gc_card_hint;
+
+typedef struct ___gc_card_hint_log_struct
+  {
+    ___UWORD epoch;
+    unsigned int count;
+    unsigned int overflow; /* sticky for this epoch once hint capacity is exceeded */
+    ___gc_card_hint entries[___GC_CARD_HINT_CAPACITY];
+  } ___gc_card_hint_log;
+
+/* Non-allocating, non-collecting atomic card premark seam.
+ * Returns 1 if this call transitioned the card from clean to dirty, 0 if elided
+ * (young region) or already dirty. Safe under concurrent SMP mutators. */
+___ORDERED_WORD_INLINE int ___gc_card_mark_in_section
+   (___msection *sec,
+    ___VOLATILE ___WORD *card_bits,
+    ___SIZE_TS word_offset,
+    ___SIZE_TS section_words,
+    ___gc_card_hint_log *hints)
+{
+  unsigned int card_index, w;
+  ___UWORD bit, prev;
+  if (sec == 0 || card_bits == 0 || sec->region_age == ___GC_REGION_YOUNG)
+    return 0;
+  if (word_offset < 0 || word_offset >= section_words)
+    return 0;
+  card_index = ___CAST(unsigned int, word_offset >> ___GC_CARD_SHIFT_WORDS);
+  w = card_index / ___WORD_WIDTH;
+  bit = ___CAST(___UWORD, 1) << (card_index & (___WORD_WIDTH - 1));
+  if ((___CAST(___UWORD, ___WORD_LOAD_RELAXED(&card_bits[w])) & bit) != 0)
+    return 0;
+  prev = ___CAST(___UWORD, ___WORD_FETCH_OR_RELEASE(&card_bits[w], ___CAST(___WORD, bit)));
+  if ((prev & bit) == 0)
+    {
+      ___WORD_STORE_RELEASE(&sec->card_dirty_any, 1);
+      if (hints != 0)
+        {
+          if (hints->count < ___GC_CARD_HINT_CAPACITY)
+            {
+              ___gc_card_hint *e = &hints->entries[hints->count++];
+              e->section = sec;
+              e->region_generation = sec->region_generation;
+              e->card_index = card_index;
+            }
+          else
+            hints->overflow = 1;
+        }
+      return 1;
+    }
+  return 0;
+}
+
+/* Query whether a specific card bit is dirty (acquire order for STW cut). */
+___ORDERED_WORD_INLINE int ___gc_card_is_dirty
+   (const ___VOLATILE ___WORD *card_bits,
+    unsigned int card_index)
+{
+  unsigned int w = card_index / ___WORD_WIDTH;
+  ___UWORD bit = ___CAST(___UWORD, 1) << (card_index & (___WORD_WIDTH - 1));
+  return (___CAST(___UWORD, ___WORD_LOAD_ACQUIRE(___CAST(___VOLATILE ___WORD*, &card_bits[w]))) & bit) != 0;
+}
+
+/* Reset all dirty cards in a stopped region (only touches bitmap if dirty). */
+___ORDERED_WORD_INLINE void ___gc_card_clear_section
+   (___msection *sec,
+    ___VOLATILE ___WORD *card_bits,
+    ___SIZE_TS section_words)
+{
+  ___SIZE_TS nwords, i;
+  if (sec == 0 || card_bits == 0)
+    return;
+  if (___WORD_LOAD_ACQUIRE(&sec->card_dirty_any) == 0)
+    return;
+  nwords = ___msection_card_words(section_words);
+  for (i = 0; i < nwords; i++)
+    ___WORD_STORE_RELEASE(&card_bits[i], 0);
+  ___WORD_STORE_RELEASE(&sec->card_dirty_any, 0);
+}
+
+/* Reset a processor hint log for next_epoch and publish any surviving residual
+ * old-to-young dirty cards as next-epoch seed hints (or sticky overflow if
+ * residual_count exceeds capacity, ensuring zero orphaned dirty cards). */
+___ORDERED_WORD_INLINE void ___gc_card_reset_epoch
+   (___gc_card_hint_log *hints,
+    ___UWORD next_epoch,
+    ___msection *const *residual_secs,
+    const unsigned int *residual_cards,
+    unsigned int residual_count)
+{
+  unsigned int i;
+  if (hints == 0)
+    return;
+  hints->epoch = next_epoch;
+  hints->count = 0;
+  hints->overflow = 0;
+  for (i = 0; i < residual_count; i++)
+    {
+      if (hints->count < ___GC_CARD_HINT_CAPACITY)
+        {
+          ___gc_card_hint *e = &hints->entries[hints->count++];
+          e->section = residual_secs[i];
+          e->region_generation = residual_secs[i] ? residual_secs[i]->region_generation : 0;
+          e->card_index = residual_cards[i];
+        }
+      else
+        {
+          hints->overflow = 1;
+          break;
+        }
+    }
+}
+
+/* Zero-overhead compile-time write-barrier seam for future generational minor GC. */
+#ifndef ___ENABLE_GENERATIONAL_CARD_SEAM
+#define ___GC_WRITE_BARRIER_SEAM(ps,obj,slot_ptr,val) do { (void)(ps); (void)(obj); (void)(slot_ptr); (void)(val); } while (0)
+#endif
 
 typedef struct
   {
@@ -185,6 +327,9 @@ ___UWORD src_stack_cache_base_[4];
 ___UWORD src_stack_cache_epoch_;
 ___SIZE_TS src_stack_cache_offset_;
 int src_stack_cache_next_;
+
+/* bounded dirty-card hint buffer for generational write-barrier seam */
+___gc_card_hint_log card_hints_;
 
 #ifdef ___DEBUG_GARBAGE_COLLECT
 

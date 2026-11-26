@@ -739,105 +739,6 @@ ___processor_state ___ps;)
 }
 
 
-#ifdef ___USE_emulated_sync
-
-#include <stdatomic.h>
-#include <string.h>
-
-___WORD ___emulated_compare_and_swap_word
-   ___P((___VOLATILE ___WORD *ptr,
-         ___WORD oldval,
-         ___WORD newval),
-        (ptr,
-         oldval,
-         newval)
-___VOLATILE ___WORD *ptr;
-___WORD oldval;
-___WORD newval;)
-{
-  ___WORD temp;
-  ___MUTEX *mut_ptr =
-    &___thread_mod.hash_mutex[___CAST(___SIZE_T,ptr) % HASH_MUTEX_SIZE];
-
-  ___MUTEX_LOCK(*mut_ptr);
-
-  temp = *ptr;
-
-  if (temp == oldval)
-    *ptr = newval;
-
-  ___MUTEX_UNLOCK(*mut_ptr);
-
-  return temp;
-}
-
-
-___WORD ___emulated_fetch_and_add_word
-   ___P((___VOLATILE ___WORD *ptr,
-         ___WORD val),
-        (ptr,
-         val)
-___VOLATILE ___WORD *ptr;
-___WORD val;)
-{
-  ___WORD temp;
-  ___MUTEX *mut_ptr =
-    &___thread_mod.hash_mutex[___CAST(___SIZE_T,ptr) % HASH_MUTEX_SIZE];
-
-  ___MUTEX_LOCK(*mut_ptr);
-
-  temp = *ptr;
-
-  /* Word operations preserve the encoded ticket/tag bit pattern modulo2^W,
-   * independently of a compiler signed-overflow option. */
-  {
-    ___UWORD bits = ___CAST(___UWORD,temp) + ___CAST(___UWORD,val);
-    ___WORD next;
-    /* C23 two's-complement representation; do not narrow an out-of-range
-     * unsigned value through an implementation-defined signed conversion. */
-    memcpy(&next,&bits,sizeof next);
-    *ptr = next;
-  }
-
-  ___MUTEX_UNLOCK(*mut_ptr);
-
-  return temp;
-}
-
-
-___WORD ___emulated_fetch_and_clear_word
-   ___P((___VOLATILE ___WORD *ptr),
-        (ptr)
-___VOLATILE ___WORD *ptr;)
-{
-  ___WORD temp;
-  ___MUTEX *mut_ptr =
-    &___thread_mod.hash_mutex[___CAST(___SIZE_T,ptr) % HASH_MUTEX_SIZE];
-
-  ___MUTEX_LOCK(*mut_ptr);
-
-  temp = *ptr;
-
-  *ptr = 0;
-
-  ___MUTEX_UNLOCK(*mut_ptr);
-
-  return temp;
-}
-
-
-void ___emulated_shared_memory_barrier ___PVOID
-{
-  /* This is an ordering fence, not thread quiescence or a cure for racing
-   * ordinary accesses. Ordered word publication still uses the same source
-   * mutex through the existing CAS/RMW service. */
-  atomic_thread_fence(memory_order_seq_cst);
-}
-
-
-#endif
-
-
 #ifdef ___THREAD_LOCAL_STORAGE_CLASS
 
 ___THREAD_LOCAL_STORAGE_CLASS void *___tls_ptr;
@@ -961,50 +862,6 @@ ___sigset_type *oldset;)
 /*---------------------------------------------------------------------------*/
 
 
-#ifdef ___USE_emulated_sync
-
-
-___HIDDEN void hash_mutex_destroy
-   ___P((___MUTEX *hash_mutex,
-         int size),
-        (hash_mutex,
-         size)
-___MUTEX *hash_mutex;
-int size;)
-{
-  while (size-- > 0)
-    ___MUTEX_DESTROY(hash_mutex[size]); /* ignore error */
-}
-
-
-___HIDDEN ___SCMOBJ hash_mutex_init
-   ___P((___MUTEX *hash_mutex,
-         int size),
-        (hash_mutex,
-         size)
-___MUTEX *hash_mutex;
-int size;)
-{
-  int n = 0;
-
-  while (n < size)
-    {
-      if (!___MUTEX_INIT(hash_mutex[n]))
-        {
-          hash_mutex_destroy (hash_mutex, n);
-          return ___FIX(___UNKNOWN_ERR);
-        }
-
-      n++;
-    }
-
-  return ___FIX(___NO_ERR);
-}
-
-
-#endif
-
-
 ___SCMOBJ ___setup_thread_module ___PVOID
 {
   ___SCMOBJ err = ___FIX(___NO_ERR);
@@ -1013,37 +870,19 @@ ___SCMOBJ ___setup_thread_module ___PVOID
     {
       ___get_cpu_info ();
 
-#ifdef ___USE_emulated_sync
-
-      err = hash_mutex_init (___thread_mod.hash_mutex,
-                             HASH_MUTEX_SIZE);
-
-      if (err != ___FIX(___NO_ERR))
-        return err;
-
-#endif
-
 #ifndef ___THREAD_LOCAL_STORAGE_CLASS
 
 #ifdef ___USE_POSIX_THREAD_SYSTEM
 
       if (pthread_key_create (&___thread_mod.tls_ptr_key, NULL) != 0)
-        {
-          err = err_code_from_errno ();
-          hash_mutex_destroy (___thread_mod.hash_mutex,
-                              HASH_MUTEX_SIZE);
-        }
+        err = err_code_from_errno ();
 
 #endif
 
 #ifdef ___USE_WIN32_THREAD_SYSTEM
 
       if ((___thread_mod.tls_ptr_index = TlsAlloc ()) == TLS_OUT_OF_INDEXES)
-        {
-          err = err_code_from_GetLastError ();
-          hash_mutex_destroy (___thread_mod.hash_mutex,
-                              HASH_MUTEX_SIZE);
-        }
+        err = err_code_from_GetLastError ();
 
 #endif
 
@@ -1060,13 +899,6 @@ void ___cleanup_thread_module ___PVOID
 {
   if (--___thread_mod.refcount == 0)
     {
-#ifdef ___USE_emulated_sync
-
-      hash_mutex_destroy (___thread_mod.hash_mutex,
-                          HASH_MUTEX_SIZE);
-
-#endif
-
 #ifndef ___THREAD_LOCAL_STORAGE_CLASS
 
 #ifdef ___USE_POSIX_THREAD_SYSTEM

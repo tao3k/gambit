@@ -12,7 +12,14 @@ ___HIDDEN void rc_contract_error(char *message)
 ___HIDDEN ___BOOL root_writer_open(___processor_state ps)
 {
   ___rc_domain *d;
+  ___virtual_machine_state vm;
+  int id;
   if (ps == 0 || ps != ___PSTATE || (d=ps->mem.rc_domain_) == 0) return 0;
+  vm = ___VMSTATE_FROM_PSTATE(ps);
+  id = ___PROCESSOR_ID(ps, vm);
+  if (vm->lifecycle && id >= 0 && id < ___MAX_PROCESSORS &&
+      (vm->lifecycle->cleanup[id].draining || vm->lifecycle->cleanup[id].uncertain))
+    return 0;
   return d->owner == ps && d->phase == ___RC_OPEN && d->joined_round == 0;
 }
 
@@ -128,20 +135,24 @@ ___HIDDEN void reopen_rc_roots(___processor_state ps, ___UWORD epoch)
   int id;
   ___RC_LOCK(d);
   round=d->joined_round;
-  /* The current native owner reopens its source after physical restoration.
-   * The scan executor may be a different W worker; its completion alone is
-   * insufficient to authorize the source's return to mutation. */
-  completion_owner=d->owner==ps && ps==___PSTATE;
+  /* The current native owner (or active coordinator proxying a parked blocking-FFI
+   * member under sync_part_mut exclusion) reopens this RC source after physical
+   * restoration. Scan completion alone is insufficient to authorize mutation. */
   if (round != 0) {
-    id=___PROCESSOR_ID(ps,___VMSTATE_FROM_PSTATE(ps));
-    completion_owner=completion_owner && round->vm==___VMSTATE_FROM_PSTATE(ps) &&
+    ___virtual_machine_state vm = ___VMSTATE_FROM_PSTATE(ps);
+    id=___PROCESSOR_ID(ps,vm);
+    completion_owner=d->owner==ps && round->vm==vm &&
       round->state==___ROOT_ROUND_DRAINING && round->epoch==epoch &&
       id>=0 && id<round->participants && round->collection.worker_count>0 &&
+      (round->collection.active[id]
+       ? (ps==___PSTATE)
+       : (___PSTATE==___PSTATE_FROM_PROCESSOR_ID(round->collection.coordinator_id,vm))) &&
       round->members[id].rc==d && round->members[id].context==ps->context &&
-      d->task.executor==round->members[id%round->collection.worker_count].owner &&
+      d->task.executor==___PSTATE_FROM_PROCESSOR_ID(
+        round->collection.worker_proc[id%round->collection.worker_count],vm) &&
       round->resume[id].epoch==epoch && round->resume[id].accepted &&
       round->resume[id].restored;
-  } else completion_owner=completion_owner && d->task.executor==ps;
+  } else completion_owner=d->owner==ps && ps==___PSTATE && d->task.executor==ps;
   if (!completion_owner || d->phase != ___RC_FROZEN || d->task.origin.kind != ___ROOT_RC ||
       d->task.origin.source.rc != d || d->task.epoch != epoch ||
       d->task.state != ___ROOT_DONE || d->task.scan_leases != 0)
@@ -1300,6 +1311,8 @@ static void rest_observation_native_cut(___processor_state ps, ___WORD *hp,
 
 void ___rest_observation_form(unsigned form)
 {
+  if (__builtin_expect(!__atomic_load_n(&rest_observation_map,__ATOMIC_ACQUIRE), 1))
+    return;
   rest_observation_handler_form=form;
   rest_observation_form=form;
 }
@@ -1615,7 +1628,7 @@ static ___processor_state rest_attempt_owner;
 
 static int rest_attempt_here(___processor_state ps)
 {
-  return ps && ps==___PSTATE && ps==rest_attempt_owner;
+  return rest_attempt_owner && ps==rest_attempt_owner && ps==___PSTATE;
 }
 
 static int rest_attempt_refuses(___WORD words)
@@ -1638,7 +1651,7 @@ int ___rest_planted_short(void)
 #ifdef ___GAMBIT_REST_OBSERVATION
   if (rest_observation_auto_watch==1) return 1;
 #endif
-  return rest_attempt_here(___PSTATE) && ___rest_attempt_words>0;
+  return rest_attempt_owner && ___rest_attempt_words>0 && rest_attempt_here(___PSTATE);
 }
 
 ___BOOL ___rest_one_word_short(___processor_state ps, ___WORD *hp, ___WORD *fp,
@@ -1664,19 +1677,24 @@ ___BOOL ___rest_one_word_short(___processor_state ps, ___WORD *hp, ___WORD *fp,
 void ___rest_note_attempt_entry(___processor_state ps, ___WORD *hp, ___WORD *fp)
 {
 #ifdef ___GAMBIT_REST_OBSERVATION
-  /* One case per rest entry. A case left open from an earlier entry would
-   * mix later allocations into the same receipt. */
-  if (!rest_observation_map) ___rest_observation_open(0);
-  if (rest_observation_map && !rest_observation_current_case()) {
-    static uint64_t rest_observation_next_case=1;
-    if (rest_observation_next_case)
-      ___rest_observation_case(rest_observation_next_case++);
+  /* Probe GAMBIT_REST_OBSERVATION at most once per process to avoid contending
+   * on Darwin's global environ lock across SMP cores, and skip _Thread_local
+   * observation state entirely when no observation mapping is open. */
+  if (!__atomic_load_n(&rest_observation_map,__ATOMIC_ACQUIRE) &&
+      !__atomic_load_n(&rest_observation_env_probed,__ATOMIC_ACQUIRE))
+    ___rest_observation_open(0);
+  if (__atomic_load_n(&rest_observation_map,__ATOMIC_ACQUIRE)) {
+    if (!rest_observation_current_case()) {
+      static uint64_t rest_observation_next_case=1;
+      if (rest_observation_next_case)
+        ___rest_observation_case(rest_observation_next_case++);
+    }
+    rest_observation_chain_bind(0,0);
+    rest_observation_native_cut(ps,hp,fp,0,0,0);
+    rest_observation_case_enter();
   }
-  rest_observation_chain_bind(0,0);
-  rest_observation_native_cut(ps,hp,fp,0,0,0);
-  rest_observation_case_enter();
 #endif
-  if (!rest_attempt_here(ps) || ___rest_attempt_words<=0 || rest_attempt_entry_noted)
+  if (___rest_attempt_words<=0 || !rest_attempt_here(ps) || rest_attempt_entry_noted)
     return;
   rest_attempt_entry_noted=1;
   ___rest_attempt_entry_heap=hp ? ___CAST(___WORD,hp) : 0;
@@ -1687,7 +1705,7 @@ void ___rest_note_attempt_entry(___processor_state ps, ___WORD *hp, ___WORD *fp)
 
 void ___rest_note_attempt_acquired(___processor_state ps, ___WORD *hp, ___WORD *fp)
 {
-  if (!rest_attempt_here(ps) || ___rest_attempt_words<=0) return;
+  if (___rest_attempt_words<=0 || !rest_attempt_here(ps)) return;
   ___rest_attempt_acquired_heap=hp ? ___CAST(___WORD,hp) : 0;
   ___rest_attempt_acquired_frame=fp ? ___CAST(___WORD,fp) : 0;
   ___rest_attempt_acquired_word=hp ? *hp : 0;
@@ -1696,7 +1714,8 @@ void ___rest_note_attempt_acquired(___processor_state ps, ___WORD *hp, ___WORD *
 void ___rest_capture_attempt_cut(___processor_state ps, ___WORD *hp, ___WORD *fp)
 {
 #ifdef ___GAMBIT_REST_OBSERVATION
-  rest_observation_native_cut(ps,hp,fp,1,0,0);
+  if (__atomic_load_n(&rest_observation_map,__ATOMIC_ACQUIRE))
+    rest_observation_native_cut(ps,hp,fp,1,0,0);
 #endif
   if (!rest_attempt_here(ps)) return;
   ___rest_attempt_cut_heap=hp ? ___CAST(___WORD,hp) : 0;
@@ -1710,7 +1729,8 @@ void ___rest_mark_attempt_cut(___processor_state ps, ___WORD *hp, ___WORD *fp,
 #ifdef ___GAMBIT_REST_OBSERVATION
   /* Record the cut before the attempt-owner check. A normal call does not
    * arm the older refusal injection, and that check must not drop cut 9. */
-  rest_observation_native_cut(ps,hp,fp,1,(unsigned)kind,cursor);
+  if (__atomic_load_n(&rest_observation_map,__ATOMIC_ACQUIRE))
+    rest_observation_native_cut(ps,hp,fp,1,(unsigned)kind,cursor);
 #endif
   if (!rest_attempt_here(ps)) return;
   ___rest_capture_attempt_cut(ps, hp, fp);
@@ -1860,6 +1880,8 @@ void ___rest_observation_note_return_fp(___processor_state ps,
 void ___rest_observation_note_body(___processor_state ps)
 {
 #ifdef ___GAMBIT_REST_OBSERVATION
+  if (__builtin_expect(!__atomic_load_n(&rest_observation_map,__ATOMIC_ACQUIRE), 1))
+    return;
   ___rest_observation_clear_roots();
   if (ps && rest_observation_ready_label)
     REST_OBS(REST_TAIL,ps,rest_observation_chain_record,
@@ -1877,11 +1899,16 @@ void ___rest_observation_note_body(___processor_state ps)
 void ___rest_disarm_attempt(void)
 {
 #ifdef ___GAMBIT_REST_OBSERVATION
-  ___rest_observation_clear_roots();
-  /* A recorded delivery stays open so the body event can follow it.
-   * Any other exit closes the case here. */
-  rest_observation_case_leave();
+  if (__builtin_expect(__atomic_load_n(&rest_observation_map,__ATOMIC_ACQUIRE)!=0, 0)) {
+    ___rest_observation_clear_roots();
+    /* A recorded delivery stays open so the body event can follow it.
+     * Any other exit closes the case here. */
+    rest_observation_case_leave();
+  }
 #endif
+  if (__builtin_expect(!rest_attempt_owner && !___rest_attempt_words &&
+                       !rest_force_slow && !rest_attempt_blocked_flag, 1))
+    return;
   ___rest_attempt_words=0;
   ___rest_attempt_floor=0;
   rest_attempt_blocked_flag=0;
@@ -1924,21 +1951,23 @@ ___BOOL ___rest_fast_grant_fits(___processor_state ps, ___WORD *hp, ___WORD *fp,
     rest_observation_admission_captured=1;
   }
 #ifdef ___GAMBIT_REST_OBSERVATION
-  /* Sample the settled boundary the handler is about to judge. Short is one
-   * word under the complete demand. Exact is that demand. */
-  if (rest_observation_auto_watch && ps && ps==___PSTATE && ps->context &&
-      ps->na>=0 && hp && fp && words>0 && ps->mem.alloc_heap_limit_ &&
-      (uintptr_t)hp<=(uintptr_t)ps->mem.alloc_heap_limit_) {
-    ___WORD boundary=words-(rest_observation_auto_watch==1);
-    if (___rest_observation_settled(ps)==boundary &&
-        !__atomic_exchange_n(&rest_observation_auto_watch_claimed,1,__ATOMIC_RELAXED) &&
-        ___rest_observation_watch((uint64_t)ps->na))
-      rest_observation_native_cut(ps,hp,fp,0,0,0);
+  if (__builtin_expect(__atomic_load_n(&rest_observation_map,__ATOMIC_ACQUIRE)!=0, 0)) {
+    /* Sample the settled boundary the handler is about to judge. Short is one
+     * word under the complete demand. Exact is that demand. */
+    if (rest_observation_auto_watch && ps && ps==___PSTATE && ps->context &&
+        ps->na>=0 && hp && fp && words>0 && ps->mem.alloc_heap_limit_ &&
+        (uintptr_t)hp<=(uintptr_t)ps->mem.alloc_heap_limit_) {
+      ___WORD boundary=words-(rest_observation_auto_watch==1);
+      if (___rest_observation_settled(ps)==boundary &&
+          !__atomic_exchange_n(&rest_observation_auto_watch_claimed,1,__ATOMIC_RELAXED) &&
+          ___rest_observation_watch((uint64_t)ps->na))
+        rest_observation_native_cut(ps,hp,fp,0,0,0);
+    }
+    if (rest_observation_watch_state==2 &&
+        rest_observation_watch_case==rest_observation_current_case())
+      REST_OBS(REST_WATCHED_DEMAND,ps,0,0,0,hp,fp,words,pending,np,
+               ___MSECTION_FUDGE,___PAIR_SIZE+___PAIR_BODY,___VECTOR_BODY);
   }
-  if (rest_observation_watch_state==2 &&
-      rest_observation_watch_case==rest_observation_current_case())
-    REST_OBS(REST_WATCHED_DEMAND,ps,0,0,0,hp,fp,words,pending,np,
-             ___MSECTION_FUDGE,___PAIR_SIZE+___PAIR_BODY,___VECTOR_BODY);
 #endif
   {
     ___BOOL fits=rest_interval_fits(ps, hp, fp, words, stack_slots);

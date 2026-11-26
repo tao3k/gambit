@@ -260,6 +260,10 @@ typedef struct ___gc_round_struct
     ___WORD epoch; /* monotonically published; exhaustion refuses admission */
     int participant_count; /* closed by the existing collective before scan */
     int worker_count; /* executor census; distinct from frozen root census */
+    int coordinator_id; /* active coordinator processor ID for this round */
+    int worker_proc[___MAX_PROCESSORS]; /* worker_idx (0..worker_count-1) -> proc_id */
+    int proc_worker[___MAX_PROCESSORS]; /* proc_id -> worker_idx, or -1 if non-worker/parked */
+    unsigned char active[___MAX_PROCESSORS]; /* 1 if proc_id participates actively in this round */
     ___VOLATILE ___WORD requested_workers; /* 0: all; snapshotted after freeze */
     ___BOOL overflow;     /* one VM result, consumed by every participant */
     ___SIZE_TS source_words; /* frozen allocation census, not a live oracle */

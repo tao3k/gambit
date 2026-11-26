@@ -188,7 +188,7 @@ ___HIDDEN void census_capture(___collector_worker *work, ___WORD *cell)
     ___SIZE_TS half_words=0,words;
     int at_break;
     if(!read_source_stack_frame(work,top,c->source_offset,logical_past,&ra,carry,&d,
-                                &half_words,&known_break)) break;
+                                &half_words,&known_break)) {c->failed=1;return;}
     words=___FRAME_SPACE(d.fs);
     base=top+words;next=___FP_STK(base,d.link+1);
     if(!source_break_agrees(base,known_break,next)) {c->failed=1;return;}
@@ -419,7 +419,7 @@ ___HIDDEN int plan_copy_round(___processor_state ps)
        length!=r->source_words ||
        !___gc_stack_cell_inside(fp,length,cell) ||
        length>(___MSECTION_SIZE>>1)-___MSECTION_FUDGE ||
-       (i>=w && restore_loan_words(length)<___MSECTION_FUDGE+2))goto refuse;
+       (g->proc_worker[i]<0 && restore_loan_words(length)<___MSECTION_FUDGE+2))goto refuse;
     r->stack_section=section;r->context=context;r->owner=m->owner;
     r->epoch=round->epoch;
     r->accepted=r->restored=r->loan_used=r->copy_admitted=0;

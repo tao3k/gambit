@@ -7,10 +7,17 @@ ___EXP_FUNC(___SCMOBJ,___begin_sfun)
   ___activation_record *record;
   const ___SCMOBJ *source=0;
   void *self=0;
+  int saved_park=0;
   if (nargs<0) return ___FIX(___UNKNOWN_ERR);
   *scope=0;
+  if (ps && ps==___PSTATE && ps->ffi_park_depth>0)
+    saved_park=___leave_blocking_ffi_all(ps);
   record=___lifecycle_marker_prepare(ps);
-  if (!record) return ___FIX(___UNKNOWN_ERR);
+  if (!record) {
+    if (saved_park>0) ___enter_blocking_ffi_depth(ps,saved_park);
+    return ___FIX(___UNKNOWN_ERR);
+  }
+  record->saved_ffi_park_depth=saved_park;
   record->kind=___ACTIVATION_SFUN_ROOTED;
   /* Reuse Gambit's existing pre-marker PERM predicate. With no arguments
    * there is no moving payload to register; the admitted code/VM lifetime
@@ -25,7 +32,11 @@ ___EXP_FUNC(___SCMOBJ,___begin_sfun)
   if (proc==___FAL) {
     self=___c_closure_self();
     source=___borrow_rc_root(ps,self);
-    if (!source) {___lifecycle_marker_abort(record);return ___FIX(___UNKNOWN_ERR);}
+    if (!source) {
+      ___lifecycle_marker_abort(record);
+      if (saved_park>0) ___enter_blocking_ffi_depth(ps,saved_park);
+      return ___FIX(___UNKNOWN_ERR);
+    }
   }
   record->roots=___alloc_rc_roots(ps,___CAST(___SIZE_T,nargs));
   if (record->roots && ___try_set_data_rc(ps,record->roots,source ? *source : proc) &&
@@ -38,6 +49,7 @@ ___EXP_FUNC(___SCMOBJ,___begin_sfun)
   /* No bank borrow was accepted on failure. Abort must not return one. */
   if (record->roots) {___release_rc(record->roots);record->roots=0;}
   ___lifecycle_marker_abort(record);
+  if (saved_park>0) ___enter_blocking_ffi_depth(ps,saved_park);
   return ___FIX(___SFUN_HEAP_OVERFLOW_ERR);
 }
 
@@ -93,11 +105,14 @@ ___EXP_FUNC(void,___end_sfun)
    ___P((___processor_state ps, void *scope), ())
 {
   ___activation_record *record=___CAST(___activation_record*,scope);
+  int saved_park;
   if (!record || record->owner!=ps || ps!=___PSTATE) return;
+  saved_park=record->saved_ffi_park_depth;
   if (___activation_marker_live(record)) {
     ___VECTORELEM(record->marker,0)=___FAL;
     ___still_obj_refcount_dec(record->marker);
     record->marker=___FAL;
   }
   ___lifecycle_marker_abort(record);
+  if (saved_park>0) ___enter_blocking_ffi_depth(ps,saved_park);
 }

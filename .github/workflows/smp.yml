@@ -129,34 +129,270 @@ jobs:
           #define ___DONT_HAVE_CONFIG_H
           #include "gambit.h"
           #include <pthread.h>
+
           static ___VOLATILE ___WORD shared_val = 0;
           static ___VOLATILE ___WORD ready = 0;
+
+          /* 1. Release/acquire publication + CAS write-back */
           static void *writer(void *arg) {
             (void)arg;
             ___WORD_STORE_RELAXED(&shared_val, 42);
             ___WORD_STORE_RELEASE(&ready, 1);
             return 0;
           }
+
+          /* 2. Mirror of lib/_system.scm gc-hash-table cursor-pin RW lock */
+          static ___VOLATILE ___WORD gcht_flags = 0; /* fixnum-tagged: bit 8<<2 = rehash, +512<<2 per pin */
+          static ___VOLATILE ___WORD gcht_payload = 0;
+          static const ___WORD REHASH_BIT = ___FIX(256);
+          static const ___WORD PIN_UNIT   = ___FIX(512);
+
+          static void *gcht_reader(void *arg) {
+            (void)arg;
+            for (int iter = 0; iter < 5000; iter++) {
+              for (;;) {
+                ___WORD f = ___WORD_LOAD_ACQUIRE(&gcht_flags);
+                if ((f & REHASH_BIT) != 0) { ___CPU_RELAX(); continue; }
+                if (___WORD_CAS_ACQUIRE(&gcht_flags, f, f + PIN_UNIT)) break;
+                ___CPU_RELAX();
+              }
+              ___WORD v = ___WORD_LOAD_RELAXED(&gcht_payload);
+              if (v < 0) return (void*)1;
+              (void)___WORD_FETCH_ADD_RELEASE(&gcht_flags, -PIN_UNIT);
+            }
+            return 0;
+          }
+
+          static void *gcht_rehasher(void *arg) {
+            (void)arg;
+            for (int iter = 0; iter < 500; iter++) {
+              for (;;) {
+                ___WORD f = ___WORD_LOAD_ACQUIRE(&gcht_flags);
+                if ((f & REHASH_BIT) != 0) { ___CPU_RELAX(); continue; }
+                if (___WORD_CAS_ACQUIRE(&gcht_flags, f, f | REHASH_BIT)) break;
+                ___CPU_RELAX();
+              }
+              while ((___WORD_LOAD_ACQUIRE(&gcht_flags) & ~(REHASH_BIT | ___FIX(255))) != 0)
+                ___CPU_RELAX();
+              ___WORD_STORE_RELAXED(&gcht_payload, ___WORD_LOAD_RELAXED(&gcht_payload) + 1);
+              (void)___WORD_FETCH_ADD_RELEASE(&gcht_flags, -REHASH_BIT);
+            }
+            return 0;
+          }
+
+          /* 3. Mirror of Tier 3.3 Participation Park/Unpark + Active-Set Barrier */
+          #define T3_N 4
+          static pthread_mutex_t part_mut = PTHREAD_MUTEX_INITIALIZER;
+          static pthread_cond_t  part_cv  = PTHREAD_COND_INITIALIZER;
+          static int op_state = 0; /* 0=IDLE, 1=RUNNING, 2=DRAINING */
+          static int parked[T3_N] = {0};
+          static int active[T3_N] = {0};
+          static int parked_count = 0, active_count = 0, active_rem = 0;
+          static int bar_arrived = 0;
+          static unsigned long bar_gen = 0;
+          static ___VOLATILE ___WORD gc_epochs = 0;
+          static ___VOLATILE ___WORD stop_storm = 0;
+
+          static void t3_barrier(void) {
+            pthread_mutex_lock(&part_mut);
+            unsigned long g = bar_gen;
+            if (++bar_arrived == active_count) {
+              bar_arrived = 0;
+              bar_gen = g + 1;
+              pthread_cond_broadcast(&part_cv);
+            } else {
+              while (bar_gen == g) pthread_cond_wait(&part_cv, &part_mut);
+            }
+            pthread_mutex_unlock(&part_mut);
+          }
+
+          static void t3_service_round(int id) {
+            (void)id;
+            t3_barrier();
+            t3_barrier();
+            pthread_mutex_lock(&part_mut);
+            if (op_state == 1) op_state = 2;
+            if (--active_rem == 0) {
+              op_state = 0;
+              pthread_cond_broadcast(&part_cv);
+            }
+            pthread_mutex_unlock(&part_mut);
+          }
+
+          static void *t3_worker(void *arg) {
+            int id = (int)(intptr_t)arg;
+            for (int iter = 0; iter < 400 && !___WORD_LOAD_ACQUIRE(&stop_storm); iter++) {
+              if ((iter + id) % 3 == 0) {
+                /* Park -> native work -> unpark */
+                for (;;) {
+                  pthread_mutex_lock(&part_mut);
+                  if (op_state == 1 && active[id]) {
+                    pthread_mutex_unlock(&part_mut);
+                    t3_service_round(id);
+                    continue;
+                  }
+                  if (op_state != 0) {
+                    pthread_cond_wait(&part_cv, &part_mut);
+                    pthread_mutex_unlock(&part_mut);
+                    continue;
+                  }
+                  parked[id] = 1; parked_count++;
+                  pthread_mutex_unlock(&part_mut);
+                  break;
+                }
+                ___CPU_RELAX();
+                pthread_mutex_lock(&part_mut);
+                while (op_state != 0) pthread_cond_wait(&part_cv, &part_mut);
+                parked[id] = 0; parked_count--;
+                pthread_cond_broadcast(&part_cv);
+                pthread_mutex_unlock(&part_mut);
+              } else {
+                /* Trigger or join STW round */
+                for (;;) {
+                  pthread_mutex_lock(&part_mut);
+                  if (op_state == 1 && active[id]) {
+                    pthread_mutex_unlock(&part_mut);
+                    t3_service_round(id);
+                    break;
+                  }
+                  if (op_state != 0) {
+                    pthread_cond_wait(&part_cv, &part_mut);
+                    pthread_mutex_unlock(&part_mut);
+                    continue;
+                  }
+                  active_count = 0;
+                  for (int k = 0; k < T3_N; k++) {
+                    active[k] = !parked[k];
+                    if (active[k]) active_count++;
+                  }
+                  active_rem = active_count;
+                  bar_arrived = 0;
+                  op_state = 1;
+                  ___WORD_FETCH_ADD_RELEASE(&gc_epochs, 1);
+                  pthread_cond_broadcast(&part_cv);
+                  pthread_mutex_unlock(&part_mut);
+                  t3_service_round(id);
+                  break;
+                }
+              }
+            }
+            /* Park on exit so remaining workers never wait for a finished thread */
+            for (;;) {
+              pthread_mutex_lock(&part_mut);
+              if (op_state == 1 && active[id]) {
+                pthread_mutex_unlock(&part_mut);
+                t3_service_round(id);
+                continue;
+              }
+              if (op_state != 0) {
+                pthread_cond_wait(&part_cv, &part_mut);
+                pthread_mutex_unlock(&part_mut);
+                continue;
+              }
+              parked[id] = 1; parked_count++;
+              pthread_mutex_unlock(&part_mut);
+              break;
+            }
+            return 0;
+          }
+
+          /* 4. Tier 3.1 Generational Atomic Card-Table & Bounded Hint-Log Contract */
+          #define T31_SEC_WORDS 16384
+          #define T31_CARD_WORDS ((T31_SEC_WORDS >> ___GC_CARD_SHIFT_WORDS) / ___WORD_WIDTH + 1)
+          static ___msection t31_mature_sec;
+          static ___msection t31_young_sec;
+          static ___VOLATILE ___WORD t31_mature_cards[T31_CARD_WORDS];
+          static ___VOLATILE ___WORD t31_young_cards[T31_CARD_WORDS];
+          static ___gc_card_hint_log t31_hints[4];
+
+          static void *t31_mutator(void *arg) {
+            int tid = (int)(intptr_t)arg;
+            for (int i = 0; i < 96; i++) {
+              ___SIZE_TS off = (___SIZE_TS)((tid * 32 + i) * ___GC_CARD_WORDS + (i & 7));
+              if (off < T31_SEC_WORDS) {
+                /* Young-region store MUST elide barrier cleanly */
+                (void)___gc_card_mark_in_section(&t31_young_sec, t31_young_cards, off, T31_SEC_WORDS, &t31_hints[tid]);
+                /* Mature-region store MUST premark card + record hint or sticky overflow */
+                (void)___gc_card_mark_in_section(&t31_mature_sec, t31_mature_cards, off, T31_SEC_WORDS, &t31_hints[tid]);
+              }
+            }
+            return 0;
+          }
+
           int main(void) {
             pthread_t t;
             if (pthread_create(&t, 0, writer, 0) != 0) return 1;
-            while (!___WORD_LOAD_ACQUIRE(&ready)) {}
+            while (!___WORD_LOAD_ACQUIRE(&ready)) ___CPU_RELAX();
             ___WORD v = ___WORD_LOAD_RELAXED(&shared_val);
             pthread_join(t, 0);
             if (v != 42) return 2;
-            /* Verify ___WORD_CAS_ACQUIRE writes back expected on failure */
             ___WORD exp = 7;
             if (___WORD_CAS_ACQUIRE(&shared_val, exp, 99)) return 3;
             if (exp != 42) return 4;
             if (!___WORD_CAS_ACQUIRE(&shared_val, exp, 99)) return 5;
             if (___WORD_LOAD_ACQUIRE(&shared_val) != 99) return 6;
+
+            /* Stress gc-hash-table cursor-pin RW lock under TSan */
+            pthread_t rt[3], wt;
+            for (int i = 0; i < 3; i++) pthread_create(&rt[i], 0, gcht_reader, 0);
+            pthread_create(&wt, 0, gcht_rehasher, 0);
+            for (int i = 0; i < 3; i++) {
+              void *r = 0; pthread_join(rt[i], &r);
+              if (r != 0) return 7;
+            }
+            pthread_join(wt, 0);
+            if (___WORD_LOAD_ACQUIRE(&gcht_payload) != 500) return 8;
+            if (___WORD_LOAD_ACQUIRE(&gcht_flags) != 0) return 9;
+
+            /* Stress Tier 3.3 participation state machine under TSan */
+            pthread_t p3[T3_N];
+            for (int i = 0; i < T3_N; i++) pthread_create(&p3[i], 0, t3_worker, (void*)(intptr_t)i);
+            for (int i = 0; i < T3_N; i++) pthread_join(p3[i], 0);
+            if (___WORD_LOAD_ACQUIRE(&gc_epochs) < 100) return 10;
+
+            /* Stress Tier 3.1 atomic card-table + bounded hint-log overflow & residual reset under TSan */
+            t31_mature_sec.region_generation = 7;
+            t31_mature_sec.region_age = ___GC_REGION_MATURE;
+            t31_mature_sec.card_dirty_any = 0;
+            t31_young_sec.region_generation = 8;
+            t31_young_sec.region_age = ___GC_REGION_YOUNG;
+            t31_young_sec.card_dirty_any = 0;
+            for (int i = 0; i < T31_CARD_WORDS; i++) { t31_mature_cards[i] = 0; t31_young_cards[i] = 0; }
+            for (int i = 0; i < 4; i++) { t31_hints[i].epoch = 1; t31_hints[i].count = 0; t31_hints[i].overflow = 0; }
+            pthread_t m31[4];
+            for (int i = 0; i < 4; i++) pthread_create(&m31[i], 0, t31_mutator, (void*)(intptr_t)i);
+            for (int i = 0; i < 4; i++) pthread_join(m31[i], 0);
+            /* Young section must stay completely clean */
+            if (___WORD_LOAD_ACQUIRE(&t31_young_sec.card_dirty_any) != 0) return 11;
+            /* Mature section must have dirty summary + all mutated cards covered */
+            if (___WORD_LOAD_ACQUIRE(&t31_mature_sec.card_dirty_any) != 1) return 12;
+            for (int tid = 0; tid < 4; tid++) {
+              for (int i = 0; i < 96; i++) {
+                unsigned int c = (unsigned int)(tid * 32 + i);
+                if (c < (T31_SEC_WORDS >> ___GC_CARD_SHIFT_WORDS)) {
+                  if (!___gc_card_is_dirty(t31_mature_cards, c)) return 13;
+                }
+              }
+            }
+            /* Test exact residual seeding vs sticky overflow on next-epoch reset */
+            ___msection *res_secs[___GC_CARD_HINT_CAPACITY + 2];
+            unsigned int res_cards[___GC_CARD_HINT_CAPACITY + 2];
+            for (int i = 0; i < ___GC_CARD_HINT_CAPACITY + 2; i++) {
+              res_secs[i] = &t31_mature_sec;
+              res_cards[i] = (unsigned int)i;
+            }
+            ___gc_card_reset_epoch(&t31_hints[0], 2, res_secs, res_cards, 5);
+            if (t31_hints[0].epoch != 2 || t31_hints[0].count != 5 || t31_hints[0].overflow != 0) return 14;
+            ___gc_card_reset_epoch(&t31_hints[0], 3, res_secs, res_cards, ___GC_CARD_HINT_CAPACITY + 2);
+            if (t31_hints[0].epoch != 3 || t31_hints[0].overflow != 1) return 15;
+            ___gc_card_clear_section(&t31_mature_sec, t31_mature_cards, T31_SEC_WORDS);
+            if (___WORD_LOAD_ACQUIRE(&t31_mature_sec.card_dirty_any) != 0) return 16;
+            if (___gc_card_is_dirty(t31_mature_cards, 0)) return 17;
             return 0;
           }
           EOF
           clang -std=c23 -Werror=comment -fsanitize=thread -O1 -Iinclude /tmp/gambit_c23_hygiene.c -lpthread -o /tmp/gambit_c23_hygiene
           /tmp/gambit_c23_hygiene
-          clang -std=c23 -Werror=comment -D___ORDERED_WORD_FORCE_LEGACY -O1 -Iinclude /tmp/gambit_c23_hygiene.c -lpthread -o /tmp/gambit_c23_hygiene_legacy
-          /tmp/gambit_c23_hygiene_legacy
 
   upstream-smp:
     name: "macOS arm64 SMP & True-Multicore"

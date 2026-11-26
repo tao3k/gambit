@@ -1704,34 +1704,40 @@ end-of-code
 
 (define-prim (##gc-hash-table-cursor-pin! gcht)
   (##declare (not interrupts-enabled))
-  (let loop ()
-    (let ((flags (macro-gc-hash-table-flags gcht)))
-      (if (##not (##fx= (##fxand flags 256) 0))
-          (loop)
-          (if (##not (##eq? (##unchecked-structure-cas!
-                             gcht
-                             (##fx+ flags 512)
-                             flags
-                             1
-                             #f
-                             #f)
-                            flags))
-              (loop))))))
+  (##c-code #<<end-of-code
+___SCMOBJ ht = ___ARG1;
+___VOLATILE ___WORD *flags_ptr =
+  ___CAST(___VOLATILE ___WORD*, &___GCHASHTABLE_FLAGS_FIELD(ht));
+for (;;)
+  {
+    ___WORD flags = ___WORD_LOAD_ACQUIRE(flags_ptr);
+    if (!___FIXZEROP(___FIXAND(flags, ___FIX(___GCHASHTABLE_FLAG_REHASHING))))
+      {
+        ___CPU_RELAX();
+        continue;
+      }
+    if (___WORD_CAS_ACQUIRE(flags_ptr,
+                            flags,
+                            ___FIXADD(flags, ___FIX(___GCHASHTABLE_CURSOR_UNIT))))
+      break;
+  }
+___RESULT = ___VOID;
+end-of-code
+   gcht))
 
 (define-prim (##gc-hash-table-cursor-unpin! gcht)
   (##declare (not interrupts-enabled))
-  (let loop ()
-    (let ((flags (macro-gc-hash-table-flags gcht)))
-      (if (##fx>= flags 512)
-          (if (##not (##eq? (##unchecked-structure-cas!
-                             gcht
-                             (##fx- flags 512)
-                             flags
-                             1
-                             #f
-                             #f)
-                            flags))
-              (loop))))))
+  (##c-code #<<end-of-code
+___SCMOBJ ht = ___ARG1;
+___VOLATILE ___WORD *flags_ptr =
+  ___CAST(___VOLATILE ___WORD*, &___GCHASHTABLE_FLAGS_FIELD(ht));
+___WORD flags = ___WORD_LOAD_ACQUIRE(flags_ptr);
+if (!___FIXLT(flags, ___FIX(___GCHASHTABLE_CURSOR_UNIT)))
+  (void)___WORD_FETCH_ADD_RELEASE(flags_ptr,
+                                  -___FIX(___GCHASHTABLE_CURSOR_UNIT));
+___RESULT = ___VOID;
+end-of-code
+   gcht))
 
 (define-prim (##gc-hash-table-for-each proc gcht)
   (##declare (not interrupts-enabled))

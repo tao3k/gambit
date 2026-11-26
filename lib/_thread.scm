@@ -1341,11 +1341,30 @@
          (request (macro-make-thread-request
                    thread thunk completion 'queued (##void)))
          (interrupt request))
-    (macro-mutex-lock! completion #f thread)
-    (##thread-intr-propagate! interrupt)
     (if async?
-        (##void)
+        ;; Async delivery may execute on an idle processor where
+        ;; (macro-current-thread) is #f (e.g. ##gc-interrupt!,
+        ;; ##user-interrupt!, ##thread-report-scheduler-error!).
+        ;; Never enter ##mutex-acquire-with-acquired-lock! or ##mutex-wait!
+        ;; without a live current thread.
         (begin
+          (##check-heap-limit)
+          (macro-lock-mutex! completion)
+          (macro-lock-thread! thread)
+          (if (macro-terminated-thread-given-initialized? thread)
+              (begin
+                (macro-unlock-thread! thread)
+                (macro-unlock-mutex! completion)
+                (##void))
+              (begin
+                (macro-btq-link! completion thread)
+                (macro-unlock-thread! thread)
+                (macro-unlock-mutex! completion)
+                (##thread-intr-propagate! interrupt)
+                (##void))))
+        (begin
+          (macro-mutex-lock! completion #f thread)
+          (##thread-intr-propagate! interrupt)
           ;; Waiting grants no service ownership. Anonymous acquisition also
           ;; avoids leaving a private completion mutex owned by an exception
           ;; catcher when target termination wakes the requester.
@@ -3225,9 +3244,13 @@
 
   (##declare (not interrupts-enabled))
 
+  ;; Deliver asynchronously: callers in ##thread-schedule-with-acquired-processor!
+  ;; and ##thread-heartbeat! may execute on an idle processor with
+  ;; (macro-current-thread) == #f (or on ##primordial-thread itself), where
+  ;; synchronous waiting in ##mutex-wait! would dereference #f or self-deadlock.
   (##thread-intr!
    (macro-primordial-thread)
-   #f
+   #t
    (lambda ()
 
      (macro-raise
@@ -3886,9 +3909,12 @@
 (define-prim (##mutex-acquire-with-acquired-lock! mutex new-owner)
   (##declare (not interrupts-enabled))
   (let ((current-thread (macro-current-thread)))
-    (if new-owner
-        (##lock-2-threads! current-thread new-owner)
-        (macro-lock-thread! current-thread))
+    (cond ((and current-thread new-owner)
+           (##lock-2-threads! current-thread new-owner))
+          (new-owner
+           (macro-lock-thread! new-owner))
+          (current-thread
+           (macro-lock-thread! current-thread)))
 
     (let ((state
            (if new-owner
@@ -3937,7 +3963,8 @@
                  (macro-mutex-state-not-owned)))))
 
       ;; release low-level lock of current thread
-      (macro-unlock-thread! current-thread)
+      (if current-thread
+          (macro-unlock-thread! current-thread))
 
       ;; release low-level lock of mutex
       (macro-unlock-mutex! mutex)

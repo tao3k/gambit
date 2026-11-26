@@ -298,6 +298,7 @@ ___processor_state ___ps;)
   ___ps->mem.src_stack_cache_epoch_ = ~___CAST(___UWORD,0);
   ___ps->mem.src_stack_cache_offset_ = 0;
   ___ps->mem.src_stack_cache_next_ = 0;
+  memset(&___ps->mem.card_hints_, 0, sizeof(___ps->mem.card_hints_));
 
 #ifndef ___SINGLE_THREADED_VMS
   if (___PROCESSOR_ID(___ps,___vms)>0 && ___vms->lifecycle != 0 &&

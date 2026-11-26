@@ -32,16 +32,30 @@ ___HIDDEN ___UWORD primitive_mask(___glo_struct *g)
 }
 ___HIDDEN ___SCMOBJ primitive_value(___virtual_machine_state vm, ___glo_struct *g)
 {
-  ___SCMOBJ *cell=primitive_cell(vm,g);
-  if (cell != 0 && (___WORD_LOAD_ACQUIRE(primitive_flag(vm,g)) & primitive_mask(g)))
-    return ___WORD_LOAD_ACQUIRE(cell);
+#ifdef ___SINGLE_VM
+  (void)vm;
+  if (___WORD_LOAD_ACQUIRE(&g->primitive_set))
+    return ___WORD_LOAD_ACQUIRE(&g->primitive_value);
+#else
+  ___global_slot_page *page=___global_page(vm,g->val);
+  if (page != 0 && (___WORD_LOAD_ACQUIRE(&page->primitive_set) & primitive_mask(g)))
+    return ___WORD_LOAD_ACQUIRE(&page->primitive[g->val%___WORD_WIDTH]);
+#endif
   return ___PRMCELL(g->prm);
 }
 ___EXP_FUNC(___SCMOBJ,___primitive_ref)
    ___P((___processor_state ps, ___glo_struct *g), (ps,g)
 ___processor_state ps; ___glo_struct *g;)
 {
-  if (g == 0 || !root_writer_open(ps))
+  if (g == 0)
+    { rc_contract_error("Primitive read outside current root ownership"); return ___FAL; }
+  if (ps != 0 && ps == ___PSTATE && ps->context != 0)
+    {
+      ___virtual_machine_state view_vm=ps->context->binding_view.vm;
+      if (view_vm != 0 && view_vm == ___VMSTATE_FROM_PSTATE(ps))
+        return primitive_value(view_vm,g);
+    }
+  if (!root_writer_open(ps))
     { rc_contract_error("Primitive read outside current root ownership"); return ___FAL; }
   return primitive_value(___VMSTATE_FROM_PSTATE(ps),g);
 }

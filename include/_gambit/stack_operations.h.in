@@ -32,7 +32,7 @@
 #else
 #if defined(___INCLUDED_FROM_MEM) || \
     (defined(___GLOCOUNT) && defined(__ATOMIC_ACQUIRE) && \
-     defined(__ATOMIC_RELEASE) && !defined(___ORDERED_WORD_FORCE_LEGACY))
+     defined(__ATOMIC_RELEASE))
 #define ___GLOCELL_IN_VM(vm,x)(*___global_cell_address((vm),(x)))
 #else
 #define ___GLOCELL_IN_VM(vm,x)(*___EXT(___global_cell)((vm),(x)))
