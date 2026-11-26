@@ -620,9 +620,14 @@ void ___thread_affinity_set
         (___ps)
 ___processor_state ___ps;)
 {
-  int id = ___PROCESSOR_ID(___ps, ___VMSTATE_FROM_PSTATE(___ps));
-  int cpu_count = ___cpu_count (-1);
-  int cpu_id = (id + ___thread_mod.processor0_cpu_id) % cpu_count;
+  int id, cpu_count, cpu_id;
+
+  if (___ps == NULL)
+    return;
+
+  id = ___PROCESSOR_ID(___ps, ___VMSTATE_FROM_PSTATE(___ps));
+  cpu_count = ___cpu_count (-1);
+  cpu_id = (id + ___thread_mod.processor0_cpu_id) % cpu_count;
 
 #ifdef ___USE_POSIX_THREAD_SYSTEM
 
@@ -723,12 +728,14 @@ void ___thread_set_pstate
 ___processor_state ___ps;)
 {
 #ifdef ___SUPPORT_PSTATE_BIND
-  ___ps->pstate_binding = ___ps;
+  if (___ps != NULL)
+    ___ps->pstate_binding = ___ps;
 #endif
 
   ___SET_REAL_PSTATE(___ps);
 
-  ___thread_affinity_set (___ps);
+  if (___ps != NULL)
+    ___thread_affinity_set (___ps);
 }
 
 
