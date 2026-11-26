@@ -42,6 +42,31 @@ ___LABEL_HOST_LABEL_GET(lbl) = hlbl
 #endif
   } ___label_struct;
 
+#if defined(__GNUC__) || defined(__clang__)
+#define ___LABEL_FRAME_INLINE static __inline__
+#elif defined(_MSC_VER)
+#define ___LABEL_FRAME_INLINE static __inline
+#elif defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L
+#define ___LABEL_FRAME_INLINE static inline
+#else
+#define ___LABEL_FRAME_INLINE static
+#endif
+
+/* Single canonical heap-frame decoder uniting GC, reflection, and restore. */
+___LABEL_FRAME_INLINE int ___decode_heap_frame_descriptor
+   ___P((const ___WORD *body, ___SCMOBJ internal_ret, ___frame_descriptor *out),
+        (body, internal_ret, out)
+const ___WORD *body;
+___SCMOBJ internal_ret;
+___frame_descriptor *out;)
+{
+  int internal = 0;
+  ___SCMOBJ label = ___frame_heap_return_label(body, internal_ret, &internal);
+  return ___decode_frame_descriptor_checked(___LABEL_DESCR_GET(label), internal, out);
+}
+
+#undef ___LABEL_FRAME_INLINE
+
 #if ___LABEL_SIZE == 4
 #define ___LABEL_ZERO_FILL
 #else

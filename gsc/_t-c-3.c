@@ -257,7 +257,7 @@
 #define ___CNSCOUNT 3
 #define ___SUBCOUNT 23
 #define ___HOST_LAYOUT ___HOST_LAYOUT_PROCEDURES
-#define ___LBLCOUNT 677
+#define ___LBLCOUNT 683
 #define ___OFDCOUNT 27
 #define ___MODDESCR ___REF_SUB(20)
 #include "gambit.h"
@@ -1797,6 +1797,12 @@ ___DEF_M_HLBL(___L25_c_23_targ_2d_make_2d_frame_2d_spec)
 ___DEF_M_HLBL(___L26_c_23_targ_2d_make_2d_frame_2d_spec)
 ___DEF_M_HLBL(___L27_c_23_targ_2d_make_2d_frame_2d_spec)
 ___DEF_M_HLBL(___L28_c_23_targ_2d_make_2d_frame_2d_spec)
+___DEF_M_HLBL(___L29_c_23_targ_2d_make_2d_frame_2d_spec)
+___DEF_M_HLBL(___L30_c_23_targ_2d_make_2d_frame_2d_spec)
+___DEF_M_HLBL(___L31_c_23_targ_2d_make_2d_frame_2d_spec)
+___DEF_M_HLBL(___L32_c_23_targ_2d_make_2d_frame_2d_spec)
+___DEF_M_HLBL(___L33_c_23_targ_2d_make_2d_frame_2d_spec)
+___DEF_M_HLBL(___L34_c_23_targ_2d_make_2d_frame_2d_spec)
 ___DEF_M_HLBL_INTRO
 ___DEF_M_HLBL(___L0_c_23_targ_2d_frame_2d_spec_2d_kind)
 ___DEF_M_HLBL_INTRO
@@ -9886,7 +9892,7 @@ ___F64V2)
 #undef ___PW_ALL
 #define ___PW_ALL ___W_HEAP ___W_FP ___W_R0 ___W_R1 ___W_R2 ___W_R3 ___W_R4
 ___BEGIN_P_COD
-___BEGIN_P_HLBL_AT(29)
+___BEGIN_P_HLBL_AT(35)
 ___DEF_P_HLBL_INTRO_AT
 ___DEF_P_HLBL(___L0_c_23_targ_2d_make_2d_frame_2d_spec)
 ___DEF_P_HLBL(___L1_c_23_targ_2d_make_2d_frame_2d_spec)
@@ -9917,6 +9923,12 @@ ___DEF_P_HLBL(___L25_c_23_targ_2d_make_2d_frame_2d_spec)
 ___DEF_P_HLBL(___L26_c_23_targ_2d_make_2d_frame_2d_spec)
 ___DEF_P_HLBL(___L27_c_23_targ_2d_make_2d_frame_2d_spec)
 ___DEF_P_HLBL(___L28_c_23_targ_2d_make_2d_frame_2d_spec)
+___DEF_P_HLBL(___L29_c_23_targ_2d_make_2d_frame_2d_spec)
+___DEF_P_HLBL(___L30_c_23_targ_2d_make_2d_frame_2d_spec)
+___DEF_P_HLBL(___L31_c_23_targ_2d_make_2d_frame_2d_spec)
+___DEF_P_HLBL(___L32_c_23_targ_2d_make_2d_frame_2d_spec)
+___DEF_P_HLBL(___L33_c_23_targ_2d_make_2d_frame_2d_spec)
+___DEF_P_HLBL(___L34_c_23_targ_2d_make_2d_frame_2d_spec)
 ___END_P_HLBL
 ___BEGIN_P_SW
 ___DEF_SLBL(0,___L0_c_23_targ_2d_make_2d_frame_2d_spec)
@@ -9942,117 +9954,123 @@ if(!___group_demand_enter(___ps,&___hp,&___fp,7,0,___LBL(1),&___demand_attempt))
 ___group_demand_commit(___ps,___LBL(1),___demand_attempt);
    ___POLL(2)
 ___DEF_SLBL(2,___L2_c_23_targ_2d_make_2d_frame_2d_spec)
-   ___GOTO(___L30_c_23_targ_2d_make_2d_frame_2d_spec)
-___DEF_GLBL(___L29_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___GOTO(___L36_c_23_targ_2d_make_2d_frame_2d_spec)
+___DEF_GLBL(___L35_c_23_targ_2d_make_2d_frame_2d_spec)
    ___SET_R3(___CAR(___R2))
    ___IF(___EQP(___R1,___R3))
-   ___GOTO(___L31_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___GOTO(___L37_c_23_targ_2d_make_2d_frame_2d_spec)
    ___END_IF
    ___SET_R2(___CDR(___R2))
    ___POLL(3)
 ___DEF_SLBL(3,___L3_c_23_targ_2d_make_2d_frame_2d_spec)
-___DEF_GLBL(___L30_c_23_targ_2d_make_2d_frame_2d_spec)
+___DEF_GLBL(___L36_c_23_targ_2d_make_2d_frame_2d_spec)
    ___IF(___PAIRP(___R2))
-   ___GOTO(___L29_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___GOTO(___L35_c_23_targ_2d_make_2d_frame_2d_spec)
    ___END_IF
    ___SET_R1(___FAL)
    ___JUMPRET(___R0)
-___DEF_GLBL(___L31_c_23_targ_2d_make_2d_frame_2d_spec)
+___DEF_GLBL(___L37_c_23_targ_2d_make_2d_frame_2d_spec)
    ___SET_R1(___R2)
    ___JUMPRET(___R0)
 ___DEF_SLBL(4,___L4_c_23_targ_2d_make_2d_frame_2d_spec)
    ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L57_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___GOTO(___L71_c_23_targ_2d_make_2d_frame_2d_spec)
    ___END_IF
    ___IF(___FIXNUMP(___STK(-5)))
-   ___GOTO(___L32_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___GOTO(___L38_c_23_targ_2d_make_2d_frame_2d_spec)
    ___END_IF
-   ___GOTO(___L68_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___GOTO(___L82_c_23_targ_2d_make_2d_frame_2d_spec)
 ___DEF_SLBL(5,___L5_c_23_targ_2d_make_2d_frame_2d_spec)
    ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L57_c_23_targ_2d_make_2d_frame_2d_spec)
-   ___END_IF
-___DEF_GLBL(___L32_c_23_targ_2d_make_2d_frame_2d_spec)
-   ___IF(___NOT(___FIXNUMP(___STK(-5))))
-   ___GOTO(___L67_c_23_targ_2d_make_2d_frame_2d_spec)
-   ___END_IF
-___DEF_GLBL(___L33_c_23_targ_2d_make_2d_frame_2d_spec)
-   ___IF(___NOT(___FIXNUMP(___STK(-5))))
-   ___GOTO(___L66_c_23_targ_2d_make_2d_frame_2d_spec)
-   ___END_IF
-   ___IF(___NOT(___FIXLE(___FIX(0L),___STK(-5))))
-   ___GOTO(___L57_c_23_targ_2d_make_2d_frame_2d_spec)
-   ___END_IF
-___DEF_GLBL(___L34_c_23_targ_2d_make_2d_frame_2d_spec)
-   ___IF(___NOT(___FIXNUMP(___STK(-5))))
-   ___GOTO(___L65_c_23_targ_2d_make_2d_frame_2d_spec)
-   ___END_IF
-   ___IF(___NOT(___FIXLT(___STK(-5),___FIX(16384L))))
-   ___GOTO(___L57_c_23_targ_2d_make_2d_frame_2d_spec)
-   ___END_IF
-___DEF_GLBL(___L35_c_23_targ_2d_make_2d_frame_2d_spec)
-   ___IF(___NOT(___FIXNUMP(___STK(-4))))
-   ___GOTO(___L64_c_23_targ_2d_make_2d_frame_2d_spec)
-   ___END_IF
-___DEF_GLBL(___L36_c_23_targ_2d_make_2d_frame_2d_spec)
-   ___IF(___NOT(___FIXNUMP(___STK(-4))))
-   ___GOTO(___L63_c_23_targ_2d_make_2d_frame_2d_spec)
-   ___END_IF
-___DEF_GLBL(___L37_c_23_targ_2d_make_2d_frame_2d_spec)
-   ___IF(___NOT(___FIXNUMP(___STK(-4))))
-   ___GOTO(___L62_c_23_targ_2d_make_2d_frame_2d_spec)
-   ___END_IF
-   ___IF(___NOT(___FIXLE(___FIX(0L),___STK(-4))))
-   ___GOTO(___L57_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___GOTO(___L71_c_23_targ_2d_make_2d_frame_2d_spec)
    ___END_IF
 ___DEF_GLBL(___L38_c_23_targ_2d_make_2d_frame_2d_spec)
-   ___IF(___NOT(___FIXNUMP(___STK(-4))))
-   ___GOTO(___L61_c_23_targ_2d_make_2d_frame_2d_spec)
-   ___END_IF
-   ___IF(___NOT(___FIXLT(___STK(-4),___FIX(16384L))))
-   ___GOTO(___L57_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___IF(___NOT(___FIXNUMP(___STK(-5))))
+   ___GOTO(___L81_c_23_targ_2d_make_2d_frame_2d_spec)
    ___END_IF
 ___DEF_GLBL(___L39_c_23_targ_2d_make_2d_frame_2d_spec)
-   ___IF(___NOT(___FIXNUMP(___STK(-3))))
-   ___GOTO(___L60_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___IF(___NOT(___FIXNUMP(___STK(-5))))
+   ___GOTO(___L80_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___END_IF
+   ___IF(___NOT(___FIXLE(___FIX(0L),___STK(-5))))
+   ___GOTO(___L71_c_23_targ_2d_make_2d_frame_2d_spec)
    ___END_IF
 ___DEF_GLBL(___L40_c_23_targ_2d_make_2d_frame_2d_spec)
-   ___IF(___NOT(___FIXNUMP(___STK(-3))))
-   ___GOTO(___L59_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___IF(___NOT(___FIXNUMP(___STK(-5))))
+   ___GOTO(___L79_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___END_IF
+   ___IF(___NOT(___FIXLT(___STK(-5),___FIX(16384L))))
+   ___GOTO(___L71_c_23_targ_2d_make_2d_frame_2d_spec)
    ___END_IF
 ___DEF_GLBL(___L41_c_23_targ_2d_make_2d_frame_2d_spec)
-   ___IF(___NOT(___FIXNUMP(___STK(-3))))
-   ___GOTO(___L58_c_23_targ_2d_make_2d_frame_2d_spec)
-   ___END_IF
-   ___IF(___NOT(___FIXLE(___FIX(0L),___STK(-3))))
-   ___GOTO(___L57_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___IF(___NOT(___FIXNUMP(___STK(-4))))
+   ___GOTO(___L78_c_23_targ_2d_make_2d_frame_2d_spec)
    ___END_IF
 ___DEF_GLBL(___L42_c_23_targ_2d_make_2d_frame_2d_spec)
-   ___IF(___EQP(___STK(-7),___SYM_internal))
-   ___GOTO(___L56_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___IF(___NOT(___FIXNUMP(___STK(-4))))
+   ___GOTO(___L77_c_23_targ_2d_make_2d_frame_2d_spec)
    ___END_IF
 ___DEF_GLBL(___L43_c_23_targ_2d_make_2d_frame_2d_spec)
-   ___SET_R1(___STK(-5))
-   ___IF(___NOT(___FIXNUMSP(___FIXNUMSP2(___FIXNUMSP1(___R1),___GLO_c_23_targ_2d_max_2d_inline_2d_fs))))
-   ___GOTO(___L54_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___IF(___NOT(___FIXNUMP(___STK(-4))))
+   ___GOTO(___L76_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___END_IF
+   ___IF(___NOT(___FIXLE(___FIX(0L),___STK(-4))))
+   ___GOTO(___L71_c_23_targ_2d_make_2d_frame_2d_spec)
    ___END_IF
 ___DEF_GLBL(___L44_c_23_targ_2d_make_2d_frame_2d_spec)
-   ___SET_R2(___BOOLEAN(___FIXGT(___R1,___GLO_c_23_targ_2d_max_2d_inline_2d_fs)))
-   ___IF(___NOT(___FIXNUMSP(___FIXNUMSP2(___FIXNUMSP1(___STK(-4)),___R1))))
-   ___GOTO(___L52_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___IF(___NOT(___FIXNUMP(___STK(-4))))
+   ___GOTO(___L75_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___END_IF
+   ___IF(___NOT(___FIXLT(___STK(-4),___FIX(16384L))))
+   ___GOTO(___L71_c_23_targ_2d_make_2d_frame_2d_spec)
    ___END_IF
 ___DEF_GLBL(___L45_c_23_targ_2d_make_2d_frame_2d_spec)
-   ___IF(___NOT(___FIXLT(___STK(-4),___R1)))
-   ___GOTO(___L48_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___IF(___NOT(___FIXNUMP(___STK(-3))))
+   ___GOTO(___L74_c_23_targ_2d_make_2d_frame_2d_spec)
    ___END_IF
 ___DEF_GLBL(___L46_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___IF(___NOT(___FIXNUMP(___STK(-3))))
+   ___GOTO(___L73_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___END_IF
+___DEF_GLBL(___L47_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___IF(___NOT(___FIXNUMP(___STK(-3))))
+   ___GOTO(___L72_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___END_IF
+   ___IF(___NOT(___FIXLE(___FIX(0L),___STK(-3))))
+   ___GOTO(___L71_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___END_IF
+___DEF_GLBL(___L48_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___IF(___EQP(___STK(-7),___SYM_internal))
+   ___GOTO(___L70_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___END_IF
+___DEF_GLBL(___L49_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___SET_R1(___STK(-5))
+   ___IF(___NOT(___FIXNUMSP(___FIXNUMSP2(___FIXNUMSP1(___R1),___GLO_c_23_targ_2d_max_2d_inline_2d_fs))))
+   ___GOTO(___L68_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___END_IF
+___DEF_GLBL(___L50_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___SET_R2(___BOOLEAN(___FIXGT(___R1,___GLO_c_23_targ_2d_max_2d_inline_2d_fs)))
+___DEF_GLBL(___L51_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___SET_STK(-2,___R1)
+   ___SET_R1(___R2)
+   ___IF(___NOT(___NOTFALSEP(___R1)))
+   ___GOTO(___L62_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___END_IF
+___DEF_GLBL(___L52_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___IF(___NOT(___FIXNUMSP(___FIXNUMSP2(___FIXNUMSP1(___STK(-4)),___STK(-2)))))
+   ___GOTO(___L60_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___END_IF
+___DEF_GLBL(___L53_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___IF(___NOT(___FIXLT(___STK(-4),___STK(-2))))
+   ___GOTO(___L56_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___END_IF
+___DEF_GLBL(___L54_c_23_targ_2d_make_2d_frame_2d_spec)
 ___GATE2_OPEN(___ps,"c#targ-make-frame-spec",6,___LBL(6),___fp);
 ___DEF_SLBL(6,___L6_c_23_targ_2d_make_2d_frame_2d_spec)
 ___GATE2_ENTER(___ps,"c#targ-make-frame-spec",6,___LBL(6),___fp);
 if(!___group_demand_enter(___ps,&___hp,&___fp,4,0,___LBL(6),&___demand_attempt)){___ps->temp1=___LBL(6);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
-   ___SET_STK(-2,___R1)
-   ___SET_STK(-1,___R2)
-   ___SET_R2(___R1)
+   ___SET_STK(-1,___R1)
+   ___SET_R2(___STK(-2))
    ___SET_R1(___FIX(2L))
    ___SET_R0(___LBL(7))
    ___ADJFP(4)
@@ -10060,44 +10078,42 @@ ___group_demand_commit(___ps,___LBL(6),___demand_attempt);
    ___JUMPPRM(___SET_NARGS(2),___PRM__23__23_expt)
 ___DEF_SLBL(7,___L7_c_23_targ_2d_make_2d_frame_2d_spec)
    ___IF(___NOT(___FIXNUMSP(___FIXNUMSP2(___FIXNUMSP1(___STK(-7)),___R1))))
-   ___GOTO(___L49_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___GOTO(___L57_c_23_targ_2d_make_2d_frame_2d_spec)
    ___END_IF
    ___IF(___FIXLT(___STK(-7),___R1))
-   ___GOTO(___L50_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___GOTO(___L58_c_23_targ_2d_make_2d_frame_2d_spec)
    ___END_IF
-   ___GOTO(___L47_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___GOTO(___L55_c_23_targ_2d_make_2d_frame_2d_spec)
 ___DEF_SLBL(8,___L8_c_23_targ_2d_make_2d_frame_2d_spec)
    ___IF(___NOTFALSEP(___R1))
-   ___GOTO(___L50_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___GOTO(___L58_c_23_targ_2d_make_2d_frame_2d_spec)
    ___END_IF
-___DEF_GLBL(___L47_c_23_targ_2d_make_2d_frame_2d_spec)
-   ___SET_R2(___STK(-5))
-   ___SET_R1(___STK(-6))
+___DEF_GLBL(___L55_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___SET_R1(___STK(-5))
    ___ADJFP(-4)
-___DEF_GLBL(___L48_c_23_targ_2d_make_2d_frame_2d_spec)
+___DEF_GLBL(___L56_c_23_targ_2d_make_2d_frame_2d_spec)
 ___GATE2_OPEN(___ps,"c#targ-make-frame-spec",9,___LBL(9),___fp);
 ___DEF_SLBL(9,___L9_c_23_targ_2d_make_2d_frame_2d_spec)
 ___GATE2_ENTER(___ps,"c#targ-make-frame-spec",9,___LBL(9),___fp);
 if(!___group_demand_enter(___ps,&___hp,&___fp,4,0,___LBL(9),&___demand_attempt)){___ps->temp1=___LBL(9);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
-   ___SET_STK(-2,___R1)
-   ___SET_STK(-1,___R2)
+   ___SET_STK(-1,___R1)
    ___SET_R1(___SUB(18))
    ___SET_R0(___LBL(10))
    ___ADJFP(4)
 ___group_demand_commit(___ps,___LBL(9),___demand_attempt);
    ___JUMPGLONOTSAFE(___SET_NARGS(1),100,___G_c_23_compiler_2d_internal_2d_error)
 ___DEF_SLBL(10,___L10_c_23_targ_2d_make_2d_frame_2d_spec)
-   ___GOTO(___L50_c_23_targ_2d_make_2d_frame_2d_spec)
-___DEF_GLBL(___L49_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___GOTO(___L58_c_23_targ_2d_make_2d_frame_2d_spec)
+___DEF_GLBL(___L57_c_23_targ_2d_make_2d_frame_2d_spec)
    ___IF(___NOT(___IFLONUMSP(___IFLONUMSP2(___IFLONUMSP1(___STK(-7)),___R1))))
-   ___GOTO(___L51_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___GOTO(___L59_c_23_targ_2d_make_2d_frame_2d_spec)
    ___END_IF
    ___SET_F64(___F64V1,___F64UNBOXI(___STK(-7)))
    ___SET_F64(___F64V2,___F64UNBOXI(___R1))
    ___IF(___NOT(___F64LT(___F64V1,___F64V2)))
-   ___GOTO(___L47_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___GOTO(___L55_c_23_targ_2d_make_2d_frame_2d_spec)
    ___END_IF
-___DEF_GLBL(___L50_c_23_targ_2d_make_2d_frame_2d_spec)
+___DEF_GLBL(___L58_c_23_targ_2d_make_2d_frame_2d_spec)
 ___GATE2_OPEN(___ps,"c#targ-make-frame-spec",11,___LBL(11),___fp);
 ___DEF_SLBL(11,___L11_c_23_targ_2d_make_2d_frame_2d_spec)
 ___GATE2_ENTER(___ps,"c#targ-make-frame-spec",11,___LBL(11),___fp);
@@ -10118,36 +10134,33 @@ ___group_demand_commit(___ps,___LBL(11),___demand_attempt);
 ___DEF_SLBL(12,___L12_c_23_targ_2d_make_2d_frame_2d_spec)
    ___ADJFP(-2)
    ___JUMPRET(___STK(2))
-___DEF_GLBL(___L51_c_23_targ_2d_make_2d_frame_2d_spec)
+___DEF_GLBL(___L59_c_23_targ_2d_make_2d_frame_2d_spec)
    ___SET_R2(___R1)
    ___SET_R1(___STK(-7))
    ___SET_R0(___LBL(8))
    ___JUMPPRM(___SET_NARGS(2),___PRM__23__23__3c_)
 ___DEF_SLBL(13,___L13_c_23_targ_2d_make_2d_frame_2d_spec)
-   ___SET_R2(___R1)
-   ___SET_R1(___STK(-6))
    ___ADJFP(-4)
-   ___IF(___FIXNUMSP(___FIXNUMSP2(___FIXNUMSP1(___STK(-4)),___R1)))
-   ___GOTO(___L45_c_23_targ_2d_make_2d_frame_2d_spec)
-   ___END_IF
-___DEF_GLBL(___L52_c_23_targ_2d_make_2d_frame_2d_spec)
-   ___IF(___NOT(___IFLONUMSP(___IFLONUMSP2(___IFLONUMSP1(___STK(-4)),___R1))))
+   ___IF(___FIXNUMSP(___FIXNUMSP2(___FIXNUMSP1(___STK(-4)),___STK(-2))))
    ___GOTO(___L53_c_23_targ_2d_make_2d_frame_2d_spec)
    ___END_IF
-   ___SET_F64(___F64V1,___F64UNBOXI(___STK(-4)))
-   ___SET_F64(___F64V2,___F64UNBOXI(___R1))
-   ___IF(___F64LT(___F64V1,___F64V2))
-   ___GOTO(___L46_c_23_targ_2d_make_2d_frame_2d_spec)
+___DEF_GLBL(___L60_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___IF(___NOT(___IFLONUMSP(___IFLONUMSP2(___IFLONUMSP1(___STK(-4)),___STK(-2)))))
+   ___GOTO(___L61_c_23_targ_2d_make_2d_frame_2d_spec)
    ___END_IF
-   ___GOTO(___L48_c_23_targ_2d_make_2d_frame_2d_spec)
-___DEF_GLBL(___L53_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___SET_F64(___F64V1,___F64UNBOXI(___STK(-4)))
+   ___SET_F64(___F64V2,___F64UNBOXI(___STK(-2)))
+   ___IF(___F64LT(___F64V1,___F64V2))
+   ___GOTO(___L54_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___END_IF
+   ___GOTO(___L56_c_23_targ_2d_make_2d_frame_2d_spec)
+___DEF_GLBL(___L61_c_23_targ_2d_make_2d_frame_2d_spec)
 ___GATE2_OPEN(___ps,"c#targ-make-frame-spec",14,___LBL(14),___fp);
 ___DEF_SLBL(14,___L14_c_23_targ_2d_make_2d_frame_2d_spec)
 ___GATE2_ENTER(___ps,"c#targ-make-frame-spec",14,___LBL(14),___fp);
 if(!___group_demand_enter(___ps,&___hp,&___fp,4,0,___LBL(14),&___demand_attempt)){___ps->temp1=___LBL(14);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
-   ___SET_STK(-2,___R1)
-   ___SET_STK(-1,___R2)
-   ___SET_R2(___R1)
+   ___SET_STK(-1,___R1)
+   ___SET_R2(___STK(-2))
    ___SET_R1(___STK(-4))
    ___SET_R0(___LBL(15))
    ___ADJFP(4)
@@ -10155,150 +10168,224 @@ ___group_demand_commit(___ps,___LBL(14),___demand_attempt);
    ___JUMPPRM(___SET_NARGS(2),___PRM__23__23__3c_)
 ___DEF_SLBL(15,___L15_c_23_targ_2d_make_2d_frame_2d_spec)
    ___IF(___NOT(___NOTFALSEP(___R1)))
-   ___GOTO(___L47_c_23_targ_2d_make_2d_frame_2d_spec)
-   ___END_IF
-   ___SET_R2(___STK(-5))
-   ___SET_R1(___STK(-6))
-   ___ADJFP(-4)
-   ___GOTO(___L46_c_23_targ_2d_make_2d_frame_2d_spec)
-___DEF_SLBL(16,___L16_c_23_targ_2d_make_2d_frame_2d_spec)
-   ___IF(___FIXNUMSP(___FIXNUMSP2(___FIXNUMSP1(___R1),___GLO_c_23_targ_2d_max_2d_inline_2d_fs)))
-   ___GOTO(___L44_c_23_targ_2d_make_2d_frame_2d_spec)
-   ___END_IF
-___DEF_GLBL(___L54_c_23_targ_2d_make_2d_frame_2d_spec)
-   ___IF(___NOT(___IFLONUMSP(___IFLONUMSP2(___IFLONUMSP1(___R1),___GLO_c_23_targ_2d_max_2d_inline_2d_fs))))
    ___GOTO(___L55_c_23_targ_2d_make_2d_frame_2d_spec)
    ___END_IF
-   ___SET_F64(___F64V1,___F64UNBOXI(___R1))
-   ___SET_R2(___BOOLEAN(___F64GT(___F64V1,___F64UNBOXI(___GLO_c_23_targ_2d_max_2d_inline_2d_fs))))
+   ___SET_R1(___STK(-5))
+   ___ADJFP(-4)
+   ___GOTO(___L54_c_23_targ_2d_make_2d_frame_2d_spec)
+___DEF_GLBL(___L62_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___IF(___NOT(___FIXNUMP(___STK(-5))))
+   ___GOTO(___L67_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___END_IF
+   ___SET_R1(___BOOLEAN(___FIXEQ(___STK(-5),___FIX(0L))))
+   ___IF(___NOTFALSEP(___R1))
+   ___GOTO(___L63_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___END_IF
    ___GOTO(___L52_c_23_targ_2d_make_2d_frame_2d_spec)
-___DEF_GLBL(___L55_c_23_targ_2d_make_2d_frame_2d_spec)
+___DEF_SLBL(16,___L16_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___ADJFP(-4)
+   ___IF(___NOT(___NOTFALSEP(___R1)))
+   ___GOTO(___L52_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___END_IF
+___DEF_GLBL(___L63_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___IF(___NOT(___FIXNUMP(___STK(-4))))
+   ___GOTO(___L66_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___END_IF
+   ___SET_R1(___BOOLEAN(___FIXEQ(___STK(-4),___FIX(0L))))
+   ___IF(___NOT(___NOTFALSEP(___R1)))
+   ___GOTO(___L52_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___END_IF
+___DEF_GLBL(___L64_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___IF(___NOT(___FIXNUMP(___STK(-3))))
+   ___GOTO(___L65_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___END_IF
+   ___SET_R1(___BOOLEAN(___FIXEQ(___STK(-3),___FIX(0L))))
+   ___IF(___FIXNUMSP(___FIXNUMSP2(___FIXNUMSP1(___STK(-4)),___STK(-2))))
+   ___GOTO(___L53_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___END_IF
+   ___GOTO(___L60_c_23_targ_2d_make_2d_frame_2d_spec)
+___DEF_GLBL(___L65_c_23_targ_2d_make_2d_frame_2d_spec)
 ___GATE2_OPEN(___ps,"c#targ-make-frame-spec",17,___LBL(17),___fp);
 ___DEF_SLBL(17,___L17_c_23_targ_2d_make_2d_frame_2d_spec)
 ___GATE2_ENTER(___ps,"c#targ-make-frame-spec",17,___LBL(17),___fp);
 if(!___group_demand_enter(___ps,&___hp,&___fp,4,0,___LBL(17),&___demand_attempt)){___ps->temp1=___LBL(17);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
-   ___SET_STK(-2,___R1)
-   ___SET_R2(___GLO_c_23_targ_2d_max_2d_inline_2d_fs)
+   ___SET_R1(___STK(-3))
+   ___SET_R2(___FIX(0L))
    ___SET_R0(___LBL(13))
    ___ADJFP(4)
 ___group_demand_commit(___ps,___LBL(17),___demand_attempt);
-   ___JUMPPRM(___SET_NARGS(2),___PRM__23__23__3e_)
+   ___JUMPPRM(___SET_NARGS(2),___PRM__23__23__3d_)
+___DEF_GLBL(___L66_c_23_targ_2d_make_2d_frame_2d_spec)
+___GATE2_OPEN(___ps,"c#targ-make-frame-spec",18,___LBL(18),___fp);
 ___DEF_SLBL(18,___L18_c_23_targ_2d_make_2d_frame_2d_spec)
-   ___IF(___NOT(___EQP(___STK(-7),___SYM_internal)))
-   ___GOTO(___L43_c_23_targ_2d_make_2d_frame_2d_spec)
-   ___END_IF
-___DEF_GLBL(___L56_c_23_targ_2d_make_2d_frame_2d_spec)
-   ___SET_R1(___STK(-5))
-   ___SET_R0(___LBL(16))
-   ___JUMPINT(___SET_NARGS(1),___PRC(635),___L_c_23_targ_2d_internal_2d_fs)
+___GATE2_ENTER(___ps,"c#targ-make-frame-spec",18,___LBL(18),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,4,0,___LBL(18),&___demand_attempt)){___ps->temp1=___LBL(18);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_R1(___STK(-4))
+   ___SET_R2(___FIX(0L))
+   ___SET_R0(___LBL(19))
+   ___ADJFP(4)
+___group_demand_commit(___ps,___LBL(18),___demand_attempt);
+   ___JUMPPRM(___SET_NARGS(2),___PRM__23__23__3d_)
 ___DEF_SLBL(19,___L19_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___ADJFP(-4)
    ___IF(___NOTFALSEP(___R1))
-   ___GOTO(___L41_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___GOTO(___L64_c_23_targ_2d_make_2d_frame_2d_spec)
    ___END_IF
-___DEF_GLBL(___L57_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___GOTO(___L52_c_23_targ_2d_make_2d_frame_2d_spec)
+___DEF_GLBL(___L67_c_23_targ_2d_make_2d_frame_2d_spec)
+___GATE2_OPEN(___ps,"c#targ-make-frame-spec",20,___LBL(20),___fp);
+___DEF_SLBL(20,___L20_c_23_targ_2d_make_2d_frame_2d_spec)
+___GATE2_ENTER(___ps,"c#targ-make-frame-spec",20,___LBL(20),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,4,0,___LBL(20),&___demand_attempt)){___ps->temp1=___LBL(20);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_R1(___STK(-5))
+   ___SET_R2(___FIX(0L))
+   ___SET_R0(___LBL(16))
+   ___ADJFP(4)
+___group_demand_commit(___ps,___LBL(20),___demand_attempt);
+   ___JUMPPRM(___SET_NARGS(2),___PRM__23__23__3d_)
+___DEF_SLBL(21,___L21_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___IF(___FIXNUMSP(___FIXNUMSP2(___FIXNUMSP1(___R1),___GLO_c_23_targ_2d_max_2d_inline_2d_fs)))
+   ___GOTO(___L50_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___END_IF
+___DEF_GLBL(___L68_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___IF(___NOT(___IFLONUMSP(___IFLONUMSP2(___IFLONUMSP1(___R1),___GLO_c_23_targ_2d_max_2d_inline_2d_fs))))
+   ___GOTO(___L69_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___END_IF
+   ___SET_F64(___F64V1,___F64UNBOXI(___R1))
+   ___SET_R2(___BOOLEAN(___F64GT(___F64V1,___F64UNBOXI(___GLO_c_23_targ_2d_max_2d_inline_2d_fs))))
+   ___GOTO(___L51_c_23_targ_2d_make_2d_frame_2d_spec)
+___DEF_GLBL(___L69_c_23_targ_2d_make_2d_frame_2d_spec)
+___GATE2_OPEN(___ps,"c#targ-make-frame-spec",22,___LBL(22),___fp);
+___DEF_SLBL(22,___L22_c_23_targ_2d_make_2d_frame_2d_spec)
+___GATE2_ENTER(___ps,"c#targ-make-frame-spec",22,___LBL(22),___fp);
+if(!___group_demand_enter(___ps,&___hp,&___fp,4,0,___LBL(22),&___demand_attempt)){___ps->temp1=___LBL(22);___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}
+   ___SET_STK(-2,___R1)
+   ___SET_R2(___GLO_c_23_targ_2d_max_2d_inline_2d_fs)
+   ___SET_R0(___LBL(23))
+   ___ADJFP(4)
+___group_demand_commit(___ps,___LBL(22),___demand_attempt);
+   ___JUMPPRM(___SET_NARGS(2),___PRM__23__23__3e_)
+___DEF_SLBL(23,___L23_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___SET_R2(___R1)
+   ___SET_R1(___STK(-6))
+   ___ADJFP(-4)
+   ___GOTO(___L51_c_23_targ_2d_make_2d_frame_2d_spec)
+___DEF_SLBL(24,___L24_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___IF(___NOT(___EQP(___STK(-7),___SYM_internal)))
+   ___GOTO(___L49_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___END_IF
+___DEF_GLBL(___L70_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___SET_R1(___STK(-5))
+   ___SET_R0(___LBL(21))
+   ___JUMPINT(___SET_NARGS(1),___PRC(641),___L_c_23_targ_2d_internal_2d_fs)
+___DEF_SLBL(25,___L25_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___IF(___NOTFALSEP(___R1))
+   ___GOTO(___L47_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___END_IF
+___DEF_GLBL(___L71_c_23_targ_2d_make_2d_frame_2d_spec)
    ___SET_R1(___SUB(19))
-   ___SET_R0(___LBL(18))
+   ___SET_R0(___LBL(24))
    ___JUMPGLONOTSAFE(___SET_NARGS(1),100,___G_c_23_compiler_2d_internal_2d_error)
-___DEF_GLBL(___L58_c_23_targ_2d_make_2d_frame_2d_spec)
+___DEF_GLBL(___L72_c_23_targ_2d_make_2d_frame_2d_spec)
    ___SET_R2(___STK(-3))
    ___SET_R1(___FIX(0L))
-   ___SET_R0(___LBL(20))
+   ___SET_R0(___LBL(26))
    ___JUMPPRM(___SET_NARGS(2),___PRM__23__23__3c__3d_)
-___DEF_SLBL(20,___L20_c_23_targ_2d_make_2d_frame_2d_spec)
+___DEF_SLBL(26,___L26_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___IF(___NOTFALSEP(___R1))
+   ___GOTO(___L48_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___END_IF
+   ___GOTO(___L71_c_23_targ_2d_make_2d_frame_2d_spec)
+___DEF_GLBL(___L73_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___IF(___FLONUMP(___STK(-3)))
+   ___GOTO(___L71_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___END_IF
+   ___SET_R1(___STK(-3))
+   ___SET_R0(___LBL(25))
+   ___JUMPPRM(___SET_NARGS(1),___PRM__23__23_exact_3f_)
+___DEF_GLBL(___L74_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___SET_R1(___STK(-3))
+   ___SET_R0(___LBL(27))
+   ___JUMPPRM(___SET_NARGS(1),___PRM__23__23_integer_3f_)
+___DEF_SLBL(27,___L27_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___IF(___NOTFALSEP(___R1))
+   ___GOTO(___L46_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___END_IF
+   ___GOTO(___L71_c_23_targ_2d_make_2d_frame_2d_spec)
+___DEF_GLBL(___L75_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___SET_R1(___STK(-4))
+   ___SET_R2(___FIX(16384L))
+   ___SET_R0(___LBL(28))
+   ___JUMPPRM(___SET_NARGS(2),___PRM__23__23__3c_)
+___DEF_SLBL(28,___L28_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___IF(___NOTFALSEP(___R1))
+   ___GOTO(___L45_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___END_IF
+   ___GOTO(___L71_c_23_targ_2d_make_2d_frame_2d_spec)
+___DEF_GLBL(___L76_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___SET_R2(___STK(-4))
+   ___SET_R1(___FIX(0L))
+   ___SET_R0(___LBL(29))
+   ___JUMPPRM(___SET_NARGS(2),___PRM__23__23__3c__3d_)
+___DEF_SLBL(29,___L29_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___IF(___NOTFALSEP(___R1))
+   ___GOTO(___L44_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___END_IF
+   ___GOTO(___L71_c_23_targ_2d_make_2d_frame_2d_spec)
+___DEF_GLBL(___L77_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___IF(___FLONUMP(___STK(-4)))
+   ___GOTO(___L71_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___END_IF
+   ___SET_R1(___STK(-4))
+   ___SET_R0(___LBL(30))
+   ___JUMPPRM(___SET_NARGS(1),___PRM__23__23_exact_3f_)
+___DEF_SLBL(30,___L30_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___IF(___NOTFALSEP(___R1))
+   ___GOTO(___L43_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___END_IF
+   ___GOTO(___L71_c_23_targ_2d_make_2d_frame_2d_spec)
+___DEF_GLBL(___L78_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___SET_R1(___STK(-4))
+   ___SET_R0(___LBL(31))
+   ___JUMPPRM(___SET_NARGS(1),___PRM__23__23_integer_3f_)
+___DEF_SLBL(31,___L31_c_23_targ_2d_make_2d_frame_2d_spec)
    ___IF(___NOTFALSEP(___R1))
    ___GOTO(___L42_c_23_targ_2d_make_2d_frame_2d_spec)
    ___END_IF
-   ___GOTO(___L57_c_23_targ_2d_make_2d_frame_2d_spec)
-___DEF_GLBL(___L59_c_23_targ_2d_make_2d_frame_2d_spec)
-   ___IF(___FLONUMP(___STK(-3)))
-   ___GOTO(___L57_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___GOTO(___L71_c_23_targ_2d_make_2d_frame_2d_spec)
+___DEF_GLBL(___L79_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___SET_R1(___STK(-5))
+   ___SET_R2(___FIX(16384L))
+   ___SET_R0(___LBL(32))
+   ___JUMPPRM(___SET_NARGS(2),___PRM__23__23__3c_)
+___DEF_SLBL(32,___L32_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___IF(___NOTFALSEP(___R1))
+   ___GOTO(___L41_c_23_targ_2d_make_2d_frame_2d_spec)
    ___END_IF
-   ___SET_R1(___STK(-3))
-   ___SET_R0(___LBL(19))
-   ___JUMPPRM(___SET_NARGS(1),___PRM__23__23_exact_3f_)
-___DEF_GLBL(___L60_c_23_targ_2d_make_2d_frame_2d_spec)
-   ___SET_R1(___STK(-3))
-   ___SET_R0(___LBL(21))
-   ___JUMPPRM(___SET_NARGS(1),___PRM__23__23_integer_3f_)
-___DEF_SLBL(21,___L21_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___GOTO(___L71_c_23_targ_2d_make_2d_frame_2d_spec)
+___DEF_GLBL(___L80_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___SET_R2(___STK(-5))
+   ___SET_R1(___FIX(0L))
+   ___SET_R0(___LBL(33))
+   ___JUMPPRM(___SET_NARGS(2),___PRM__23__23__3c__3d_)
+___DEF_SLBL(33,___L33_c_23_targ_2d_make_2d_frame_2d_spec)
    ___IF(___NOTFALSEP(___R1))
    ___GOTO(___L40_c_23_targ_2d_make_2d_frame_2d_spec)
    ___END_IF
-   ___GOTO(___L57_c_23_targ_2d_make_2d_frame_2d_spec)
-___DEF_GLBL(___L61_c_23_targ_2d_make_2d_frame_2d_spec)
-   ___SET_R1(___STK(-4))
-   ___SET_R2(___FIX(16384L))
-   ___SET_R0(___LBL(22))
-   ___JUMPPRM(___SET_NARGS(2),___PRM__23__23__3c_)
-___DEF_SLBL(22,___L22_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___GOTO(___L71_c_23_targ_2d_make_2d_frame_2d_spec)
+___DEF_GLBL(___L81_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___IF(___FLONUMP(___STK(-5)))
+   ___GOTO(___L71_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___END_IF
+   ___SET_R1(___STK(-5))
+   ___SET_R0(___LBL(34))
+   ___JUMPPRM(___SET_NARGS(1),___PRM__23__23_exact_3f_)
+___DEF_SLBL(34,___L34_c_23_targ_2d_make_2d_frame_2d_spec)
    ___IF(___NOTFALSEP(___R1))
    ___GOTO(___L39_c_23_targ_2d_make_2d_frame_2d_spec)
    ___END_IF
-   ___GOTO(___L57_c_23_targ_2d_make_2d_frame_2d_spec)
-___DEF_GLBL(___L62_c_23_targ_2d_make_2d_frame_2d_spec)
-   ___SET_R2(___STK(-4))
-   ___SET_R1(___FIX(0L))
-   ___SET_R0(___LBL(23))
-   ___JUMPPRM(___SET_NARGS(2),___PRM__23__23__3c__3d_)
-___DEF_SLBL(23,___L23_c_23_targ_2d_make_2d_frame_2d_spec)
-   ___IF(___NOTFALSEP(___R1))
-   ___GOTO(___L38_c_23_targ_2d_make_2d_frame_2d_spec)
-   ___END_IF
-   ___GOTO(___L57_c_23_targ_2d_make_2d_frame_2d_spec)
-___DEF_GLBL(___L63_c_23_targ_2d_make_2d_frame_2d_spec)
-   ___IF(___FLONUMP(___STK(-4)))
-   ___GOTO(___L57_c_23_targ_2d_make_2d_frame_2d_spec)
-   ___END_IF
-   ___SET_R1(___STK(-4))
-   ___SET_R0(___LBL(24))
-   ___JUMPPRM(___SET_NARGS(1),___PRM__23__23_exact_3f_)
-___DEF_SLBL(24,___L24_c_23_targ_2d_make_2d_frame_2d_spec)
-   ___IF(___NOTFALSEP(___R1))
-   ___GOTO(___L37_c_23_targ_2d_make_2d_frame_2d_spec)
-   ___END_IF
-   ___GOTO(___L57_c_23_targ_2d_make_2d_frame_2d_spec)
-___DEF_GLBL(___L64_c_23_targ_2d_make_2d_frame_2d_spec)
-   ___SET_R1(___STK(-4))
-   ___SET_R0(___LBL(25))
-   ___JUMPPRM(___SET_NARGS(1),___PRM__23__23_integer_3f_)
-___DEF_SLBL(25,___L25_c_23_targ_2d_make_2d_frame_2d_spec)
-   ___IF(___NOTFALSEP(___R1))
-   ___GOTO(___L36_c_23_targ_2d_make_2d_frame_2d_spec)
-   ___END_IF
-   ___GOTO(___L57_c_23_targ_2d_make_2d_frame_2d_spec)
-___DEF_GLBL(___L65_c_23_targ_2d_make_2d_frame_2d_spec)
-   ___SET_R1(___STK(-5))
-   ___SET_R2(___FIX(16384L))
-   ___SET_R0(___LBL(26))
-   ___JUMPPRM(___SET_NARGS(2),___PRM__23__23__3c_)
-___DEF_SLBL(26,___L26_c_23_targ_2d_make_2d_frame_2d_spec)
-   ___IF(___NOTFALSEP(___R1))
-   ___GOTO(___L35_c_23_targ_2d_make_2d_frame_2d_spec)
-   ___END_IF
-   ___GOTO(___L57_c_23_targ_2d_make_2d_frame_2d_spec)
-___DEF_GLBL(___L66_c_23_targ_2d_make_2d_frame_2d_spec)
-   ___SET_R2(___STK(-5))
-   ___SET_R1(___FIX(0L))
-   ___SET_R0(___LBL(27))
-   ___JUMPPRM(___SET_NARGS(2),___PRM__23__23__3c__3d_)
-___DEF_SLBL(27,___L27_c_23_targ_2d_make_2d_frame_2d_spec)
-   ___IF(___NOTFALSEP(___R1))
-   ___GOTO(___L34_c_23_targ_2d_make_2d_frame_2d_spec)
-   ___END_IF
-   ___GOTO(___L57_c_23_targ_2d_make_2d_frame_2d_spec)
-___DEF_GLBL(___L67_c_23_targ_2d_make_2d_frame_2d_spec)
-   ___IF(___FLONUMP(___STK(-5)))
-   ___GOTO(___L57_c_23_targ_2d_make_2d_frame_2d_spec)
-   ___END_IF
-   ___SET_R1(___STK(-5))
-   ___SET_R0(___LBL(28))
-   ___JUMPPRM(___SET_NARGS(1),___PRM__23__23_exact_3f_)
-___DEF_SLBL(28,___L28_c_23_targ_2d_make_2d_frame_2d_spec)
-   ___IF(___NOTFALSEP(___R1))
-   ___GOTO(___L33_c_23_targ_2d_make_2d_frame_2d_spec)
-   ___END_IF
-   ___GOTO(___L57_c_23_targ_2d_make_2d_frame_2d_spec)
-___DEF_GLBL(___L68_c_23_targ_2d_make_2d_frame_2d_spec)
+   ___GOTO(___L71_c_23_targ_2d_make_2d_frame_2d_spec)
+___DEF_GLBL(___L82_c_23_targ_2d_make_2d_frame_2d_spec)
    ___SET_R1(___STK(-5))
    ___SET_R0(___LBL(5))
    ___JUMPPRM(___SET_NARGS(1),___PRM__23__23_integer_3f_)
@@ -10308,7 +10395,7 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H_c_23_targ_2d_frame_2d_spec_2d_kind
 #undef ___PH_LBL0
-#define ___PH_LBL0 602
+#define ___PH_LBL0 608
 #undef ___PD_ALL
 #define ___PD_ALL ___WORD ___demand_attempt=0; ___D_R0 ___D_R1
 #undef ___PR_ALL
@@ -10333,7 +10420,7 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H_c_23_targ_2d_frame_2d_spec_2d_stored_2d_fs
 #undef ___PH_LBL0
-#define ___PH_LBL0 604
+#define ___PH_LBL0 610
 #undef ___PD_ALL
 #define ___PD_ALL ___WORD ___demand_attempt=0; ___D_R0 ___D_R1
 #undef ___PR_ALL
@@ -10358,7 +10445,7 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H_c_23_targ_2d_frame_2d_spec_2d_actual_2d_fs
 #undef ___PH_LBL0
-#define ___PH_LBL0 606
+#define ___PH_LBL0 612
 #undef ___PD_ALL
 #define ___PD_ALL ___WORD ___demand_attempt=0; ___D_R0 ___D_R1
 #undef ___PR_ALL
@@ -10383,7 +10470,7 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H_c_23_targ_2d_frame_2d_spec_2d_link
 #undef ___PH_LBL0
-#define ___PH_LBL0 608
+#define ___PH_LBL0 614
 #undef ___PD_ALL
 #define ___PD_ALL ___WORD ___demand_attempt=0; ___D_R0 ___D_R1
 #undef ___PR_ALL
@@ -10408,7 +10495,7 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H_c_23_targ_2d_frame_2d_spec_2d_gc_2d_map
 #undef ___PH_LBL0
-#define ___PH_LBL0 610
+#define ___PH_LBL0 616
 #undef ___PD_ALL
 #define ___PD_ALL ___WORD ___demand_attempt=0; ___D_R0 ___D_R1
 #undef ___PR_ALL
@@ -10433,7 +10520,7 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H_c_23_targ_2d_frame_2d_spec_2d_out_2d_of_2d_line_3f_
 #undef ___PH_LBL0
-#define ___PH_LBL0 612
+#define ___PH_LBL0 618
 #undef ___PD_ALL
 #define ___PD_ALL ___WORD ___demand_attempt=0; ___D_R0 ___D_R1
 #undef ___PR_ALL
@@ -10458,7 +10545,7 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H_c_23_targ_2d_frame_2d_spec_2d_chunks
 #undef ___PH_LBL0
-#define ___PH_LBL0 614
+#define ___PH_LBL0 620
 #undef ___PD_ALL
 #define ___PD_ALL ___WORD ___demand_attempt=0; ___D_FP ___D_R0 ___D_R1 ___D_R2
 #undef ___PR_ALL
@@ -10483,7 +10570,7 @@ ___DEF_GLBL(___L_c_23_targ_2d_frame_2d_spec_2d_chunks)
    ___SET_R1(___VECTORREF(___R1,___FIX(5L)))
    ___POLL(1)
 ___DEF_SLBL(1,___L1_c_23_targ_2d_frame_2d_spec_2d_chunks)
-   ___JUMPINT(___SET_NARGS(2),___PRC(617),___L_c_23_targ_2d_gc_2d_map_2d_chunks)
+   ___JUMPINT(___SET_NARGS(2),___PRC(623),___L_c_23_targ_2d_gc_2d_map_2d_chunks)
 ___DEF_GLBL(___L2_c_23_targ_2d_frame_2d_spec_2d_chunks)
    ___SET_R1(___NUL)
    ___JUMPRET(___R0)
@@ -10493,7 +10580,7 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H_c_23_targ_2d_gc_2d_map_2d_chunks
 #undef ___PH_LBL0
-#define ___PH_LBL0 617
+#define ___PH_LBL0 623
 #undef ___PD_ALL
 #define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3
 #undef ___PR_ALL
@@ -10686,7 +10773,7 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H_c_23_targ_2d_internal_2d_fs
 #undef ___PH_LBL0
-#define ___PH_LBL0 635
+#define ___PH_LBL0 641
 #undef ___PD_ALL
 #define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R4 ___D_F64(___F64V1) ___D_F64(___F64V2) \
  ___D_F64(___F64V3)
@@ -10725,7 +10812,7 @@ ___group_demand_commit(___ps,___LBL(1),___demand_attempt);
    ___POLL(2)
 ___DEF_SLBL(2,___L2_c_23_targ_2d_internal_2d_fs)
    ___SET_R0(___LBL(3))
-   ___JUMPINT(___SET_NARGS(1),___PRC(647),___L_c_23_targ_2d_align_2d_frame)
+   ___JUMPINT(___SET_NARGS(1),___PRC(653),___L_c_23_targ_2d_align_2d_frame)
 ___DEF_SLBL(3,___L3_c_23_targ_2d_internal_2d_fs)
 ___GATE2_OPEN(___ps,"c#targ-internal-fs",4,___LBL(4),___fp);
 ___DEF_SLBL(4,___L4_c_23_targ_2d_internal_2d_fs)
@@ -10750,7 +10837,7 @@ ___DEF_SLBL(6,___L6_c_23_targ_2d_internal_2d_fs)
 ___DEF_GLBL(___L11_c_23_targ_2d_internal_2d_fs)
    ___SET_R1(___R2)
    ___SET_R0(___LBL(7))
-   ___JUMPINT(___SET_NARGS(1),___PRC(663),___L_c_23_targ_2d_align_2d_frame_2d_without_2d_reserve)
+   ___JUMPINT(___SET_NARGS(1),___PRC(669),___L_c_23_targ_2d_align_2d_frame_2d_without_2d_reserve)
 ___DEF_SLBL(7,___L7_c_23_targ_2d_internal_2d_fs)
    ___IF(___NOT(___FIXNUMSP(___FIXNUMSP2(___FIXNUMSP1(___STK(-6)),___R1))))
    ___GOTO(___L12_c_23_targ_2d_internal_2d_fs)
@@ -10804,7 +10891,7 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H_c_23_targ_2d_align_2d_frame
 #undef ___PH_LBL0
-#define ___PH_LBL0 647
+#define ___PH_LBL0 653
 #undef ___PD_ALL
 #define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_R3 ___D_F64(___F64V1) ___D_F64(___F64V2) \
  ___D_F64(___F64V3)
@@ -11015,7 +11102,7 @@ ___END_P_COD
 #undef ___PH_PROC
 #define ___PH_PROC ___H_c_23_targ_2d_align_2d_frame_2d_without_2d_reserve
 #undef ___PH_LBL0
-#define ___PH_LBL0 663
+#define ___PH_LBL0 669
 #undef ___PD_ALL
 #define ___PD_ALL ___WORD ___demand_attempt=0; ___D_HEAP ___D_FP ___D_R0 ___D_R1 ___D_R2 ___D_F64(___F64V1) ___D_F64(___F64V2) ___D_F64( \
 ___F64V3)
@@ -11082,7 +11169,7 @@ ___group_demand_commit(___ps,___LBL(3),___demand_attempt);
    ___POLL(4)
 ___DEF_SLBL(4,___L4_c_23_targ_2d_align_2d_frame_2d_without_2d_reserve)
    ___SET_R0(___LBL(5))
-   ___JUMPINT(___SET_NARGS(1),___PRC(647),___L_c_23_targ_2d_align_2d_frame)
+   ___JUMPINT(___SET_NARGS(1),___PRC(653),___L_c_23_targ_2d_align_2d_frame)
 ___DEF_SLBL(5,___L5_c_23_targ_2d_align_2d_frame_2d_without_2d_reserve)
    ___SET_STK(-2,___GLO_c_23_targ_2d_frame_2d_reserve)
    ___IF(___NOT(___FIXNUMSP(___FIXNUMSP2(___FIXNUMSP1(___R1),___STK(-2)))))
@@ -11755,36 +11842,42 @@ ___BEGIN_LBL
 ,___DEF_LBL_RET_AT(___H_c_23_targ_2d_build_2d_gc_2d_map_2d_all_2d_live,___IFD(___RETI,0,0,0x3fL),2)
 ,___DEF_LBL_RET_AT(___H_c_23_targ_2d_build_2d_gc_2d_map_2d_all_2d_live,___IFD(___RETN,1,0,0x1L),3)
 ,___DEF_LBL_RET_AT(___H_c_23_targ_2d_build_2d_gc_2d_map_2d_all_2d_live,___IFD(___RETI,4,4,0x3f0L),4)
-,___DEF_LBL_INTRO(___H_c_23_targ_2d_make_2d_frame_2d_spec,___REF_SYM(37,___S_c_23_targ_2d_make_2d_frame_2d_spec),___REF_FAL,29,0)
+,___DEF_LBL_INTRO(___H_c_23_targ_2d_make_2d_frame_2d_spec,___REF_SYM(37,___S_c_23_targ_2d_make_2d_frame_2d_spec),___REF_FAL,35,0)
 ,___DEF_LBL_PROC_AT(___H_c_23_targ_2d_make_2d_frame_2d_spec,4,-1,1)
 ,___DEF_LBL_RET_AT(___H_c_23_targ_2d_make_2d_frame_2d_spec,___IFD(___RETI,1,4,0x3f1L),2)
 ,___DEF_LBL_RET_AT(___H_c_23_targ_2d_make_2d_frame_2d_spec,___IFD(___RETI,8,1,0x3f1fL),3)
 ,___DEF_LBL_RET_AT(___H_c_23_targ_2d_make_2d_frame_2d_spec,___IFD(___RETI,0,0,0x3fL),4)
 ,___DEF_LBL_RET_AT(___H_c_23_targ_2d_make_2d_frame_2d_spec,___IFD(___RETN,5,1,0x1fL),5)
 ,___DEF_LBL_RET_AT(___H_c_23_targ_2d_make_2d_frame_2d_spec,___IFD(___RETN,5,1,0x1fL),6)
-,___DEF_LBL_RET_AT(___H_c_23_targ_2d_make_2d_frame_2d_spec,___IFD(___RETI,8,1,0x3f1fL),7)
+,___DEF_LBL_RET_AT(___H_c_23_targ_2d_make_2d_frame_2d_spec,___IFD(___RETI,8,1,0x3f3fL),7)
 ,___DEF_LBL_RET_AT(___H_c_23_targ_2d_make_2d_frame_2d_spec,___IFD(___RETN,9,1,0x7fL),8)
 ,___DEF_LBL_RET_AT(___H_c_23_targ_2d_make_2d_frame_2d_spec,___IFD(___RETN,9,1,0x7fL),9)
-,___DEF_LBL_RET_AT(___H_c_23_targ_2d_make_2d_frame_2d_spec,___IFD(___RETI,8,1,0x3f1fL),10)
+,___DEF_LBL_RET_AT(___H_c_23_targ_2d_make_2d_frame_2d_spec,___IFD(___RETI,8,1,0x3f3fL),10)
 ,___DEF_LBL_RET_AT(___H_c_23_targ_2d_make_2d_frame_2d_spec,___IFD(___RETN,9,1,0x7fL),11)
 ,___DEF_LBL_RET_AT(___H_c_23_targ_2d_make_2d_frame_2d_spec,___OFD(___RETI,12,1,0x3f07fL),12)
 ,___DEF_LBL_RET_AT(___H_c_23_targ_2d_make_2d_frame_2d_spec,___IFD(___RETI,2,1,0x3f2L),13)
 ,___DEF_LBL_RET_AT(___H_c_23_targ_2d_make_2d_frame_2d_spec,___IFD(___RETN,9,1,0x3fL),14)
-,___DEF_LBL_RET_AT(___H_c_23_targ_2d_make_2d_frame_2d_spec,___IFD(___RETI,8,1,0x3f1fL),15)
+,___DEF_LBL_RET_AT(___H_c_23_targ_2d_make_2d_frame_2d_spec,___IFD(___RETI,8,1,0x3f3fL),15)
 ,___DEF_LBL_RET_AT(___H_c_23_targ_2d_make_2d_frame_2d_spec,___IFD(___RETN,9,1,0x7fL),16)
-,___DEF_LBL_RET_AT(___H_c_23_targ_2d_make_2d_frame_2d_spec,___IFD(___RETN,5,1,0x1fL),17)
-,___DEF_LBL_RET_AT(___H_c_23_targ_2d_make_2d_frame_2d_spec,___IFD(___RETI,8,1,0x3f1fL),18)
-,___DEF_LBL_RET_AT(___H_c_23_targ_2d_make_2d_frame_2d_spec,___IFD(___RETN,5,1,0x1fL),19)
-,___DEF_LBL_RET_AT(___H_c_23_targ_2d_make_2d_frame_2d_spec,___IFD(___RETN,5,1,0x1fL),20)
-,___DEF_LBL_RET_AT(___H_c_23_targ_2d_make_2d_frame_2d_spec,___IFD(___RETN,5,1,0x1fL),21)
+,___DEF_LBL_RET_AT(___H_c_23_targ_2d_make_2d_frame_2d_spec,___IFD(___RETN,9,1,0x3fL),17)
+,___DEF_LBL_RET_AT(___H_c_23_targ_2d_make_2d_frame_2d_spec,___IFD(___RETI,8,1,0x3f3fL),18)
+,___DEF_LBL_RET_AT(___H_c_23_targ_2d_make_2d_frame_2d_spec,___IFD(___RETI,8,1,0x3f3fL),19)
+,___DEF_LBL_RET_AT(___H_c_23_targ_2d_make_2d_frame_2d_spec,___IFD(___RETN,9,1,0x3fL),20)
+,___DEF_LBL_RET_AT(___H_c_23_targ_2d_make_2d_frame_2d_spec,___IFD(___RETI,8,1,0x3f3fL),21)
 ,___DEF_LBL_RET_AT(___H_c_23_targ_2d_make_2d_frame_2d_spec,___IFD(___RETN,5,1,0x1fL),22)
-,___DEF_LBL_RET_AT(___H_c_23_targ_2d_make_2d_frame_2d_spec,___IFD(___RETN,5,1,0x1fL),23)
-,___DEF_LBL_RET_AT(___H_c_23_targ_2d_make_2d_frame_2d_spec,___IFD(___RETN,5,1,0x1fL),24)
+,___DEF_LBL_RET_AT(___H_c_23_targ_2d_make_2d_frame_2d_spec,___IFD(___RETI,8,1,0x3f1fL),23)
+,___DEF_LBL_RET_AT(___H_c_23_targ_2d_make_2d_frame_2d_spec,___IFD(___RETN,9,1,0x3fL),24)
 ,___DEF_LBL_RET_AT(___H_c_23_targ_2d_make_2d_frame_2d_spec,___IFD(___RETN,5,1,0x1fL),25)
 ,___DEF_LBL_RET_AT(___H_c_23_targ_2d_make_2d_frame_2d_spec,___IFD(___RETN,5,1,0x1fL),26)
 ,___DEF_LBL_RET_AT(___H_c_23_targ_2d_make_2d_frame_2d_spec,___IFD(___RETN,5,1,0x1fL),27)
 ,___DEF_LBL_RET_AT(___H_c_23_targ_2d_make_2d_frame_2d_spec,___IFD(___RETN,5,1,0x1fL),28)
 ,___DEF_LBL_RET_AT(___H_c_23_targ_2d_make_2d_frame_2d_spec,___IFD(___RETN,5,1,0x1fL),29)
+,___DEF_LBL_RET_AT(___H_c_23_targ_2d_make_2d_frame_2d_spec,___IFD(___RETN,5,1,0x1fL),30)
+,___DEF_LBL_RET_AT(___H_c_23_targ_2d_make_2d_frame_2d_spec,___IFD(___RETN,5,1,0x1fL),31)
+,___DEF_LBL_RET_AT(___H_c_23_targ_2d_make_2d_frame_2d_spec,___IFD(___RETN,5,1,0x1fL),32)
+,___DEF_LBL_RET_AT(___H_c_23_targ_2d_make_2d_frame_2d_spec,___IFD(___RETN,5,1,0x1fL),33)
+,___DEF_LBL_RET_AT(___H_c_23_targ_2d_make_2d_frame_2d_spec,___IFD(___RETN,5,1,0x1fL),34)
+,___DEF_LBL_RET_AT(___H_c_23_targ_2d_make_2d_frame_2d_spec,___IFD(___RETN,5,1,0x1fL),35)
 ,___DEF_LBL_INTRO(___H_c_23_targ_2d_frame_2d_spec_2d_kind,___REF_SYM(27,___S_c_23_targ_2d_frame_2d_spec_2d_kind),___REF_FAL,1,0)
 ,___DEF_LBL_PROC_AT(___H_c_23_targ_2d_frame_2d_spec_2d_kind,1,-1,1)
 ,___DEF_LBL_INTRO(___H_c_23_targ_2d_frame_2d_spec_2d_stored_2d_fs,___REF_SYM(30,___S_c_23_targ_2d_frame_2d_spec_2d_stored_2d_fs),___REF_FAL,1,0)
@@ -11960,17 +12053,17 @@ ___DEF_MOD_PRM(27,___G_c_23_targ_2d_hash,523)
 ___DEF_MOD_PRM(5,___G_c_23_targ_2d_build_2d_gc_2d_map,543)
 ___DEF_MOD_PRM(6,___G_c_23_targ_2d_build_2d_gc_2d_map_2d_all_2d_live,567)
 ___DEF_MOD_PRM(38,___G_c_23_targ_2d_make_2d_frame_2d_spec,572)
-___DEF_MOD_PRM(22,___G_c_23_targ_2d_frame_2d_spec_2d_kind,602)
-___DEF_MOD_PRM(25,___G_c_23_targ_2d_frame_2d_spec_2d_stored_2d_fs,604)
-___DEF_MOD_PRM(19,___G_c_23_targ_2d_frame_2d_spec_2d_actual_2d_fs,606)
-___DEF_MOD_PRM(23,___G_c_23_targ_2d_frame_2d_spec_2d_link,608)
-___DEF_MOD_PRM(21,___G_c_23_targ_2d_frame_2d_spec_2d_gc_2d_map,610)
-___DEF_MOD_PRM(24,___G_c_23_targ_2d_frame_2d_spec_2d_out_2d_of_2d_line_3f_,612)
-___DEF_MOD_PRM(20,___G_c_23_targ_2d_frame_2d_spec_2d_chunks,614)
-___DEF_MOD_PRM(26,___G_c_23_targ_2d_gc_2d_map_2d_chunks,617)
-___DEF_MOD_PRM(37,___G_c_23_targ_2d_internal_2d_fs,635)
-___DEF_MOD_PRM(1,___G_c_23_targ_2d_align_2d_frame,647)
-___DEF_MOD_PRM(2,___G_c_23_targ_2d_align_2d_frame_2d_without_2d_reserve,663)
+___DEF_MOD_PRM(22,___G_c_23_targ_2d_frame_2d_spec_2d_kind,608)
+___DEF_MOD_PRM(25,___G_c_23_targ_2d_frame_2d_spec_2d_stored_2d_fs,610)
+___DEF_MOD_PRM(19,___G_c_23_targ_2d_frame_2d_spec_2d_actual_2d_fs,612)
+___DEF_MOD_PRM(23,___G_c_23_targ_2d_frame_2d_spec_2d_link,614)
+___DEF_MOD_PRM(21,___G_c_23_targ_2d_frame_2d_spec_2d_gc_2d_map,616)
+___DEF_MOD_PRM(24,___G_c_23_targ_2d_frame_2d_spec_2d_out_2d_of_2d_line_3f_,618)
+___DEF_MOD_PRM(20,___G_c_23_targ_2d_frame_2d_spec_2d_chunks,620)
+___DEF_MOD_PRM(26,___G_c_23_targ_2d_gc_2d_map_2d_chunks,623)
+___DEF_MOD_PRM(37,___G_c_23_targ_2d_internal_2d_fs,641)
+___DEF_MOD_PRM(1,___G_c_23_targ_2d_align_2d_frame,653)
+___DEF_MOD_PRM(2,___G_c_23_targ_2d_align_2d_frame_2d_without_2d_reserve,669)
 ___END_MOD_PRM
 
 ___BEGIN_MOD_C_INIT
@@ -12016,17 +12109,17 @@ ___DEF_MOD_GLO(27,___G_c_23_targ_2d_hash,523)
 ___DEF_MOD_GLO(5,___G_c_23_targ_2d_build_2d_gc_2d_map,543)
 ___DEF_MOD_GLO(6,___G_c_23_targ_2d_build_2d_gc_2d_map_2d_all_2d_live,567)
 ___DEF_MOD_GLO(38,___G_c_23_targ_2d_make_2d_frame_2d_spec,572)
-___DEF_MOD_GLO(22,___G_c_23_targ_2d_frame_2d_spec_2d_kind,602)
-___DEF_MOD_GLO(25,___G_c_23_targ_2d_frame_2d_spec_2d_stored_2d_fs,604)
-___DEF_MOD_GLO(19,___G_c_23_targ_2d_frame_2d_spec_2d_actual_2d_fs,606)
-___DEF_MOD_GLO(23,___G_c_23_targ_2d_frame_2d_spec_2d_link,608)
-___DEF_MOD_GLO(21,___G_c_23_targ_2d_frame_2d_spec_2d_gc_2d_map,610)
-___DEF_MOD_GLO(24,___G_c_23_targ_2d_frame_2d_spec_2d_out_2d_of_2d_line_3f_,612)
-___DEF_MOD_GLO(20,___G_c_23_targ_2d_frame_2d_spec_2d_chunks,614)
-___DEF_MOD_GLO(26,___G_c_23_targ_2d_gc_2d_map_2d_chunks,617)
-___DEF_MOD_GLO(37,___G_c_23_targ_2d_internal_2d_fs,635)
-___DEF_MOD_GLO(1,___G_c_23_targ_2d_align_2d_frame,647)
-___DEF_MOD_GLO(2,___G_c_23_targ_2d_align_2d_frame_2d_without_2d_reserve,663)
+___DEF_MOD_GLO(22,___G_c_23_targ_2d_frame_2d_spec_2d_kind,608)
+___DEF_MOD_GLO(25,___G_c_23_targ_2d_frame_2d_spec_2d_stored_2d_fs,610)
+___DEF_MOD_GLO(19,___G_c_23_targ_2d_frame_2d_spec_2d_actual_2d_fs,612)
+___DEF_MOD_GLO(23,___G_c_23_targ_2d_frame_2d_spec_2d_link,614)
+___DEF_MOD_GLO(21,___G_c_23_targ_2d_frame_2d_spec_2d_gc_2d_map,616)
+___DEF_MOD_GLO(24,___G_c_23_targ_2d_frame_2d_spec_2d_out_2d_of_2d_line_3f_,618)
+___DEF_MOD_GLO(20,___G_c_23_targ_2d_frame_2d_spec_2d_chunks,620)
+___DEF_MOD_GLO(26,___G_c_23_targ_2d_gc_2d_map_2d_chunks,623)
+___DEF_MOD_GLO(37,___G_c_23_targ_2d_internal_2d_fs,641)
+___DEF_MOD_GLO(1,___G_c_23_targ_2d_align_2d_frame,653)
+___DEF_MOD_GLO(2,___G_c_23_targ_2d_align_2d_frame_2d_without_2d_reserve,669)
 ___END_MOD_GLO
 
 ___BEGIN_MOD_SYM_KEY

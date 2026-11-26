@@ -80,6 +80,22 @@
                (normal 8 8 0) (normal 8 0 256) (normal 16384 0 0)
                (normal 8 0 -1) (normal 1.5 0 0) (normal 8 0 1.5)
                (normal 8 1.5 0) (normal 0 0 0)))
+   ;; Sentinel disjointness: an internal frame with stored fs=0, link=0,
+   ;; gc-map=0 must never encode as inline IFD(RETI, 0, 0, 0), which is
+   ;; reserved as the unresolved OFD placeholder rewritten at module setup.
+   (set! c#targ-nb-gvm-regs (lambda () 5))
+   (let ((zero-int (c#targ-make-frame-spec 'internal 0 0 0))
+         (live-int (c#targ-make-frame-spec 'internal 0 0 1))
+         (zero-norm (c#targ-make-frame-spec 'normal 8 7 0)))
+     (check (eq? (c#targ-frame-spec-out-of-line? zero-int) #t))
+     (check (= (c#targ-frame-spec-stored-fs zero-int) 0))
+     (check (= (c#targ-frame-spec-link zero-int) 0))
+     (check (= (c#targ-frame-spec-gc-map zero-int) 0))
+     (check (> (c#targ-frame-spec-actual-fs zero-int) 0))
+     (check (= (length (c#targ-frame-spec-chunks zero-int)) 1))
+     (check (= (car (c#targ-frame-spec-chunks zero-int)) 0))
+     (check (eq? (c#targ-frame-spec-out-of-line? live-int) #f))
+     (check (eq? (c#targ-frame-spec-out-of-line? zero-norm) #f)))
    (if fixture-port (display "};\n" fixture-port)))
  (lambda ()
    (set! c#targ-nb-gvm-regs old-regs)

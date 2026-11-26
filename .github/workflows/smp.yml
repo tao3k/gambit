@@ -473,7 +473,7 @@ jobs:
 
   upstream-smp:
     name: "macOS arm64 SMP & True-Multicore"
-    runs-on: macos-15
+    runs-on: macos-latest
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4

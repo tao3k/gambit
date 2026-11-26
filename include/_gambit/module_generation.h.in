@@ -1142,6 +1142,17 @@ typedef struct ___frame_descriptor_struct
 #define ___FRAME_INLINE static
 #endif
 
+___FRAME_INLINE int ___frame_is_unresolved_ofd
+   ___P((___WORD descr),
+        (descr)
+___WORD descr;)
+{
+  return ___IS_IFD(descr) &&
+         ___IFD_FS(descr) == 0 &&
+         ___IFD_LINK(descr) == 0 &&
+         ___IFD_GCMAP(descr) == 0;
+}
+
 ___FRAME_INLINE ___frame_descriptor ___decode_frame_descriptor
    ___P((___WORD descr, int internal),
         (descr, internal)
@@ -1171,6 +1182,75 @@ int internal;)
 
   frame.fs = internal ? ___RETI_CFS_TO_FS(frame.stored_fs) : frame.stored_fs;
   return frame;
+}
+
+/* Checked canonical FrameSpec decoder: rejects UnresolvedOutline placeholders,
+ * malformed OFD handles, double/mismatched internal lowering, and out-of-range
+ * frame extents or links before any consumer reads frame slots.
+ */
+___FRAME_INLINE int ___decode_frame_descriptor_checked
+   ___P((___WORD descr, int internal, ___frame_descriptor *out),
+        (descr, internal, out)
+___WORD descr;
+int internal;
+___frame_descriptor *out;)
+{
+  ___frame_descriptor frame;
+
+  if (out == 0 || ___frame_is_unresolved_ofd(descr))
+    return 0;
+  if (!___IS_IFD(descr))
+    {
+      ___UWORD addr = ___CAST(___UWORD, descr);
+      if (addr == 0 || (addr & (___WS - 1)) != 0 || addr < 0x10000)
+        return 0;
+    }
+  frame = ___decode_frame_descriptor(descr, internal);
+  if (internal && frame.kind != ___RETI)
+    return 0;
+  if (frame.fs <= 0 || frame.link < 0 || frame.link >= frame.fs)
+    return 0;
+  *out = frame;
+  return 1;
+}
+
+/* Canonical heap-frame return label extraction and i -> F + 1 - i slot
+ * bijection shared by GC scanning, capture/restore, and reflection.
+ */
+___FRAME_INLINE ___SCMOBJ ___frame_heap_return_label
+   ___P((const ___WORD *body, ___SCMOBJ internal_ret, int *is_internal),
+        (body, internal_ret, is_internal)
+const ___WORD *body;
+___SCMOBJ internal_ret;
+int *is_internal;)
+{
+  ___SCMOBJ ra = body[0];
+  if (ra == internal_ret)
+    {
+      if (is_internal != 0) *is_internal = 1;
+      return body[___FRAME_RETI_RA];
+    }
+  if (is_internal != 0) *is_internal = 0;
+  return ra;
+}
+
+___FRAME_INLINE ___WORD *___frame_heap_slot_ptr
+   ___P((___WORD *body, const ___frame_descriptor *frame, int slot),
+        (body, frame, slot)
+___WORD *body;
+const ___frame_descriptor *frame;
+int slot;)
+{
+  return body + (frame->fs - slot + 1);
+}
+
+___FRAME_INLINE ___WORD *___frame_heap_link_ptr
+   ___P((___WORD *body, const ___frame_descriptor *frame),
+        (body, frame)
+___WORD *body;
+const ___frame_descriptor *frame;)
+{
+  return body + (frame->fs - frame->link);
 }
 
 /* Physical root coordinates are one-based.  nextgcmap starts AFTER the first

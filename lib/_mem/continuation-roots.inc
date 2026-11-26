@@ -76,13 +76,9 @@ ___HIDDEN int decode_source_stack_frame(___WORD *top, ___SIZE_TS remaining,
     hd=___SUBTYPED_HEADER(label);
     if (___HD_SUBTYPE(hd)!=___sRETURN || ___HD_TYP(hd)!=___PERM) return 0;
     descr=___LABEL_DESCR_GET(label);
-    if (!___IS_IFD(descr) &&
-        (!descr || (___CAST(___UWORD,descr)&(___WS-1)) ||
-         ___CAST(___UWORD,descr)<0x10000)) return 0;
-    *frame=___decode_frame_descriptor(descr,internal);
+    if (!___decode_frame_descriptor_checked(descr, internal, frame)) return 0;
   }
-  if (frame->fs<=0 || frame->link<0 || frame->link>=frame->fs ||
-      ___CAST(___SIZE_TS,___FRAME_SPACE(frame->fs))>remaining) return 0;
+  if (___CAST(___SIZE_TS,___FRAME_SPACE(frame->fs))>remaining) return 0;
   return 1;
 }
 

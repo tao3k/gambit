@@ -29,21 +29,37 @@ c-end
         (begin
           (if (= fuel 0) (error "unbounded continuation chain"))
           (let* ((fs (##continuation-fs p))
+                 (c-ret (##continuation-ret p))
+                 (c-link (##continuation-link p))
                  (before (let slots ((i 1))
                            (if (> i fs) '()
                                (cons (##continuation-slot-live? p i)
                                      (slots (+ i 1))))))
+                 (before-vals (let slots ((i 1) (bits before))
+                                (if (null? bits) '()
+                                    (cons (if (car bits)
+                                              (##continuation-ref p i)
+                                              #f)
+                                          (slots (+ i 1) (cdr bits))))))
                  ;; Materialization can collect. p and before are ordinary roots.
                  (frame (##continuation-frame p)))
             (if (not (= fs (##frame-fs frame))) (error "frame extent changed"))
-            (let slots ((i 1) (bits before))
+            (if (not (eq? c-ret (##frame-ret frame)))
+                (error "frame return label disagreement"))
+            (if (not (= c-link (##frame-link frame)))
+                (error "frame link disagreement" c-link (##frame-link frame)))
+            (let slots ((i 1) (bits before) (vals before-vals))
               (if (pair? bits)
                   (begin
                     (if (not (eq? (car bits) (##frame-slot-live? frame i)))
                         (error "root consumer disagreement" fs i))
+                    (if (and (car bits)
+                             (not (= i c-link))
+                             (not (eq? (car vals) (##frame-ref frame i))))
+                        (error "frame slot value disagreement" fs i c-link))
                     (if (and (> i 64) (car bits))
                         (set! audited-wide-slots (+ audited-wide-slots 1)))
-                    (slots (+ i 1) (cdr bits)))))
+                    (slots (+ i 1) (cdr bits) (cdr vals)))))
             (set! audited-frames (+ audited-frames 1)))
           (loop (##continuation-next p) (- fuel 1))))))
 (define (wide-collect start)
@@ -106,5 +122,40 @@ ___virtual_machine_state vm=___VMSTATE_FROM_PSTATE(___ps);
 ___return(___COLLECTION(vm).worker_count==(vm->processor_count>1 ? vm->processor_count-1 : 1) && ___COLLECTION(vm).participant_count==vm->processor_count);
 c-end
 ))) (error "requested map worker/root split was not observed"))
+
+;; Verify IEEE-754 flonum values survive multi-shot continuation capture/return
+;; across forced GC under the unified FrameSpec decoder.
+(let ((fp-saved #f))
+  (define (fp-work x y z)
+    (let* ((a (##fl+ x y))
+           (b (##fl* a z))
+           (mid (continuation-capture
+                 (lambda (k)
+                   (set! fp-saved k)
+                   (##gc)
+                   1.5))))
+      (##gc)
+      (##fl- (##fl* b mid) x)))
+  (let* ((r0 (wide-collect (lambda () (wide-exit (fp-work 1.25 2.75 3.5)))))
+         (r1 (wide-collect (lambda () (continuation-return fp-saved 2.5))))
+         (r2 (wide-collect (lambda () (continuation-return fp-saved 4.0)))))
+    (if (not (and (= r0 19.75) (= r1 33.75) (= r2 54.75)))
+        (error "flonum continuation frame mismatch" r0 r1 r2))))
+
+;; Verify dynamic module cohort pin/unpin refcount protocol.
+(if (not ((c-lambda () bool #<<c-end
+___WORD before = ___dyn_cohort_pinned_count();
+___dyn_cohort_pin();
+___WORD mid1 = ___dyn_cohort_pinned_count();
+___dyn_cohort_pin();
+___WORD mid2 = ___dyn_cohort_pinned_count();
+___dyn_cohort_unpin();
+___WORD mid3 = ___dyn_cohort_pinned_count();
+___dyn_cohort_unpin();
+___WORD after = ___dyn_cohort_pinned_count();
+___return(mid1 == before + 1 && mid2 == before + 2 &&
+          mid3 == before + 1 && after == before);
+c-end
+))) (error "dyn cohort pin protocol mismatch"))
 
 (display "FRAME-CONTINUATION-ROOTS-PASS\nFORCED-GC-COMPLETE count=11\n")

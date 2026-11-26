@@ -35,13 +35,55 @@ ___dyn_module ___dyn_mod =
 /* Dynamic code loading. */
 
 /* Ownership is distinct from the terminal state: ordinary cleanup can occur
- * while a standalone process is still running. */
+ * while a standalone process is still running. Cohort pins keep dynamically
+ * loaded .o1 FrameSpec/OFD metadata mapped while continuations reference it. */
 static int dyn_process_owner = 0;
 static int retain_dyn_modules_until_exit = 0;
+static ___VOLATILE ___WORD dyn_cohort_pin_count = 0;
+#ifdef ___DL_DESCR
+static ___VOLATILE ___WORD dyn_dl_list_gate = 0;
+
+static void dyn_dl_list_lock ___PVOID
+{
+  for (;;)
+    {
+      ___WORD expected = 0;
+      if (___WORD_CAS_ACQUIRE(&dyn_dl_list_gate, expected, 1))
+        break;
+      ___CPU_RELAX();
+    }
+}
+
+static void dyn_dl_list_unlock ___PVOID
+{
+  ___WORD_STORE_RELEASE(&dyn_dl_list_gate, 0);
+}
+#endif
 
 ___EXP_FUNC(void,___dyn_process_set_owner) ___PVOID
 {
   dyn_process_owner = 1;
+}
+
+___EXP_FUNC(void,___dyn_cohort_pin) ___PVOID
+{
+  ___WORD_FETCH_ADD_RELEASE(&dyn_cohort_pin_count, 1);
+}
+
+___EXP_FUNC(void,___dyn_cohort_unpin) ___PVOID
+{
+  ___WORD cur = ___WORD_LOAD_ACQUIRE(&dyn_cohort_pin_count);
+  while (cur > 0)
+    {
+      if (___WORD_CAS_ACQUIRE(&dyn_cohort_pin_count, cur, cur - 1))
+        break;
+      cur = ___WORD_LOAD_ACQUIRE(&dyn_cohort_pin_count);
+    }
+}
+
+___EXP_FUNC(___WORD,___dyn_cohort_pinned_count) ___PVOID
+{
+  return ___WORD_LOAD_ACQUIRE(&dyn_cohort_pin_count);
 }
 
 void ___dyn_process_prepare_exit ___PVOID
@@ -389,8 +431,10 @@ void **linker;)
     ___FREE_MEM(p);
   else
     {
+      dyn_dl_list_lock ();
       p->next = ___dyn_mod.dl_list;
       ___dyn_mod.dl_list = p;
+      dyn_dl_list_unlock ();
     }
 
 #endif
@@ -439,46 +483,57 @@ ___HIDDEN void cleanup_dynamic_load ___PVOID
 
 #ifdef ___DL_DESCR
 
-  ___dl_entry *p = ___dyn_mod.dl_list;
-  while (p != 0)
-    {
-      ___dl_entry *next = p->next;
+  {
+    ___BOOL cohort_pinned = (___WORD_LOAD_ACQUIRE(&dyn_cohort_pin_count) > 0);
+    ___dl_entry *p;
+
+    dyn_dl_list_lock ();
+    p = ___dyn_mod.dl_list;
+    if (!cohort_pinned)
+      ___dyn_mod.dl_list = 0;
+    dyn_dl_list_unlock ();
+
+    if (cohort_pinned)
+      return;
+
+    while (p != 0)
+      {
+        ___dl_entry *next = p->next;
 
 #ifdef USE_shl_load
-      shl_unload (p->descr);
+        shl_unload (p->descr);
 #endif
 
 #ifdef USE_LoadLibrary
-      FreeLibrary (p->descr);
+        FreeLibrary (p->descr);
 #endif
 
 #ifdef USE_DosLoadModule
-      DosFreeModule (p->descr);
+        DosFreeModule (p->descr);
 #endif
 
 #ifdef USE_dxe_load
 #endif
 
 #ifdef USE_GetDiskFragment
-      CloseConnection (&p->descr);
+        CloseConnection (&p->descr);
 #endif
 
 #ifdef USE_dlopen
 #ifdef __APPLE__
-      if (!retain_dyn_modules_until_exit)
+        if (!retain_dyn_modules_until_exit)
 #endif
-        dlclose (p->descr);
+          dlclose (p->descr);
 #endif
 
 #ifdef USE_NSLinkModule
-      NSUnLinkModule (p->descr, NSUNLINKMODULE_OPTION_NONE);
+        NSUnLinkModule (p->descr, NSUNLINKMODULE_OPTION_NONE);
 #endif
 
-      ___FREE_MEM(p);
-      p = next;
-    }
-
-  ___dyn_mod.dl_list = 0;
+        ___FREE_MEM(p);
+        p = next;
+      }
+  }
 
 #endif
 

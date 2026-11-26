@@ -1832,21 +1832,23 @@ end-of-code
      {
        /* caller's frame is in the heap */
 
-       fp = ___BODY_AS(cf,___tFRAME); /* get pointer to frame's body */
-
-       ra1 = fp[___FRAME_RA];
-
-       if (ra1 == ___ps->internal_return)
-         {
-           ___SCMOBJ actual_ra = fp[___FRAME_RETI_RA];
-           ___RETI_GET_FS_LINK(actual_ra,fs,link)
-           ___COVER_BREAK_HANDLER_HEAP_RETI;
-         }
-       else
-         {
-           ___RETN_GET_FS_LINK(ra1,fs,link)
-           ___COVER_BREAK_HANDLER_HEAP_RETN;
-         }
+       {
+         ___frame_descriptor fd;
+         fp = ___BODY_AS(cf,___tFRAME); /* get pointer to frame's body */
+         ra1 = fp[___FRAME_RA];
+         if (!___decode_heap_frame_descriptor(fp, ___ps->internal_return, &fd))
+           ___group_demand_fail(___ps);
+         fs = fd.fs;
+         link = fd.link;
+         if (ra1 == ___ps->internal_return)
+           {
+             ___COVER_BREAK_HANDLER_HEAP_RETI;
+           }
+         else
+           {
+             ___COVER_BREAK_HANDLER_HEAP_RETN;
+           }
+       }
 
        {
          extern int ___stack_adjust_fits(___processor_state, ___WORD *, ___SIZE_TS);
@@ -3915,12 +3917,9 @@ end-of-code
   (##declare (not interrupts-enabled))
   (##c-code #<<end-of-code
 
-   ___SCMOBJ ra = ___FIELD(FRAME,___ARG1,0);
-
-   if (ra == ___ps->internal_return)
-     ra = ___FIELD(FRAME,___ARG1,___FRAME_RETI_RA);
-
-   ___RESULT = ra;
+   ___RESULT = ___frame_heap_return_label(___BODY_AS(___ARG1,___tFRAME),
+                                          ___ps->internal_return,
+                                          0);
 
 end-of-code
 
@@ -3931,17 +3930,14 @@ end-of-code
   (##c-code #<<end-of-code
 
    ___SCMOBJ frame = ___CONTINUATION_FRAME_FIELD(___ARG1);
-   ___SCMOBJ ra;
 
    if (___TESTTYPE(frame, ___tFRAME))
      {
        /* continuation frame is in the heap */
 
-       ra = ___FIELD(FRAME,frame,0);
-
-       if (ra == ___ps->internal_return)
-         ra = ___FIELD(FRAME,frame,___FRAME_RETI_RA);
-       ___RESULT = ra;
+       ___RESULT = ___frame_heap_return_label(___BODY_AS(frame,___tFRAME),
+                                              ___ps->internal_return,
+                                              0);
      }
    else
      ___RESULT = ___access_raw_continuation_frame(___ps,frame,___RAW_FRAME_RET,___FAL,___FAL);
@@ -3969,15 +3965,14 @@ end-of-code
   (##declare (not interrupts-enabled))
   (##c-code #<<end-of-code
 
-   ___SCMOBJ ra = ___FIELD(FRAME,___ARG1,0);
-   int fs;
+   ___frame_descriptor descriptor;
 
-   if (ra == ___ps->internal_return)
-     ___RETI_GET_FS(___FIELD(FRAME,___ARG1,___FRAME_RETI_RA),fs)
-   else
-     ___RETN_GET_FS(ra,fs)
+   if (!___decode_heap_frame_descriptor(___BODY_AS(___ARG1,___tFRAME),
+                                        ___ps->internal_return,
+                                        &descriptor))
+     descriptor.fs = 0;
 
-   ___RESULT = ___FIX(fs);
+   ___RESULT = ___FIX(descriptor.fs);
 
 end-of-code
 
@@ -3988,20 +3983,17 @@ end-of-code
   (##c-code #<<end-of-code
 
    ___SCMOBJ frame = ___CONTINUATION_FRAME_FIELD(___ARG1);
-   ___SCMOBJ ra;
-   int fs;
 
    if (___TESTTYPE(frame, ___tFRAME))
      {
        /* continuation frame is in the heap */
 
-       ra = ___FIELD(FRAME,frame,0);
-
-       if (ra == ___ps->internal_return)
-         ___RETI_GET_FS(___FIELD(FRAME,frame,___FRAME_RETI_RA),fs)
-       else
-         ___RETN_GET_FS(ra,fs)
-       ___RESULT = ___FIX(fs);
+       ___frame_descriptor descriptor;
+       if (!___decode_heap_frame_descriptor(___BODY_AS(frame,___tFRAME),
+                                            ___ps->internal_return,
+                                            &descriptor))
+         descriptor.fs = 0;
+       ___RESULT = ___FIX(descriptor.fs);
      }
    else
      ___RESULT = ___access_raw_continuation_frame(___ps,frame,___RAW_FRAME_FS,___FAL,___FAL);
@@ -4014,16 +4006,14 @@ end-of-code
   (##declare (not interrupts-enabled))
   (##c-code #<<end-of-code
 
-   ___SCMOBJ ra = ___FIELD(FRAME,___ARG1,0);
-   int fs;
-   int link;
+   ___frame_descriptor descriptor;
 
-   if (ra == ___ps->internal_return)
-     ___RETI_GET_FS_LINK(___BODY_AS(___ARG1,___tFRAME)[___FRAME_RETI_RA],fs,link)
-   else
-     ___RETN_GET_FS_LINK(ra,fs,link)
+   if (!___decode_heap_frame_descriptor(___BODY_AS(___ARG1,___tFRAME),
+                                        ___ps->internal_return,
+                                        &descriptor))
+     descriptor.link = -1;
 
-   ___RESULT = ___FIX(link+1);
+   ___RESULT = ___FIX(descriptor.link+1);
 
 end-of-code
 
@@ -4034,21 +4024,17 @@ end-of-code
   (##c-code #<<end-of-code
 
    ___SCMOBJ frame = ___CONTINUATION_FRAME_FIELD(___ARG1);
-   ___SCMOBJ ra;
-   int fs;
-   int link;
 
    if (___TESTTYPE(frame, ___tFRAME))
      {
        /* continuation frame is in the heap */
 
-       ra = ___FIELD(FRAME,frame,0);
-
-       if (ra == ___ps->internal_return)
-         ___RETI_GET_FS_LINK(___BODY_AS(frame,___tFRAME)[___FRAME_RETI_RA],fs,link)
-       else
-         ___RETN_GET_FS_LINK(ra,fs,link)
-       ___RESULT = ___FIX(link+1);
+       ___frame_descriptor descriptor;
+       if (!___decode_heap_frame_descriptor(___BODY_AS(frame,___tFRAME),
+                                            ___ps->internal_return,
+                                            &descriptor))
+         descriptor.link = -1;
+       ___RESULT = ___FIX(descriptor.link+1);
      }
    else
      ___RESULT = ___access_raw_continuation_frame(___ps,frame,___RAW_FRAME_LINK,___FAL,___FAL);
@@ -4062,15 +4048,14 @@ end-of-code
   (##c-code #<<end-of-code
 
    int i = ___INT(___ARG2);
-   ___SCMOBJ ra = ___FIELD(FRAME,___ARG1,0);
    ___frame_descriptor descriptor;
 
-   if (ra == ___ps->internal_return)
-     descriptor = ___decode_frame_descriptor (___LABEL_DESCR_GET(___BODY_AS(___ARG1,___tFRAME)[___FRAME_RETI_RA]), 1);
+   if (___decode_heap_frame_descriptor(___BODY_AS(___ARG1,___tFRAME),
+                                       ___ps->internal_return,
+                                       &descriptor))
+     ___RESULT = ___BOOLEAN(___frame_slot_live (&descriptor, i));
    else
-     descriptor = ___decode_frame_descriptor (___LABEL_DESCR_GET(ra), 0);
-
-   ___RESULT = ___BOOLEAN(___frame_slot_live (&descriptor, i));
+     ___RESULT = ___FAL;
 
 end-of-code
 
@@ -4083,20 +4068,18 @@ end-of-code
 
    ___SCMOBJ frame = ___CONTINUATION_FRAME_FIELD(___ARG1);
    int i = ___INT(___ARG2);
-   ___SCMOBJ ra;
-   ___frame_descriptor descriptor;
 
    if (___TESTTYPE(frame, ___tFRAME))
      {
        /* continuation frame is in the heap */
 
-       ra = ___FIELD(FRAME,frame,0);
-
-       if (ra == ___ps->internal_return)
-         descriptor = ___decode_frame_descriptor (___LABEL_DESCR_GET(___FIELD(FRAME,frame,___FRAME_RETI_RA)), 1);
+       ___frame_descriptor descriptor;
+       if (___decode_heap_frame_descriptor(___BODY_AS(frame,___tFRAME),
+                                           ___ps->internal_return,
+                                           &descriptor))
+         ___RESULT = ___BOOLEAN(___frame_slot_live (&descriptor, i));
        else
-         descriptor = ___decode_frame_descriptor (___LABEL_DESCR_GET(ra), 0);
-       ___RESULT = ___BOOLEAN(___frame_slot_live (&descriptor, i));
+         ___RESULT = ___FAL;
      }
    else
      ___RESULT = ___access_raw_continuation_frame(___ps,frame,___RAW_FRAME_LIVE,___ARG2,___FAL);
@@ -4111,19 +4094,13 @@ end-of-code
   (##c-code #<<end-of-code
 
    int i = ___INT(___ARG2);
-   ___SCMOBJ ra = ___FIELD(FRAME,___ARG1,0);
-   int fs;
-   int link;
+   ___WORD *body = ___BODY_AS(___ARG1,___tFRAME);
+   ___frame_descriptor descriptor;
 
-   if (ra == ___ps->internal_return)
-     ___RETI_GET_FS_LINK(___BODY_AS(___ARG1,___tFRAME)[___FRAME_RETI_RA],fs,link)
+   if (___decode_heap_frame_descriptor(body, ___ps->internal_return, &descriptor))
+     ___RESULT = *___frame_heap_slot_ptr(body, &descriptor, i);
    else
-     ___RETN_GET_FS_LINK(ra,fs,link)
-
-   ___RESULT = ___BODY_AS(___ARG1,___tFRAME)[fs-i+1];  /* what if i==link and frame is first in section???? */
-#if 0
-   if (i == link) ___RESULT = ___FIX(999999);/***********/
-#endif
+     ___RESULT = ___FAL;
 
 end-of-code
 
@@ -4135,20 +4112,15 @@ end-of-code
   (##c-code #<<end-of-code
 
    int i = ___INT(___ARG2);
-   ___SCMOBJ ra = ___FIELD(FRAME,___ARG1,0);
-   int fs;
-   int link;
+   ___WORD *body = ___BODY_AS(___ARG1,___tFRAME);
+   ___frame_descriptor descriptor;
 
-   if (ra == ___ps->internal_return)
-     ___RETI_GET_FS_LINK(___BODY_AS(___ARG1,___tFRAME)[___FRAME_RETI_RA],fs,link)
-   else
-     ___RETN_GET_FS_LINK(ra,fs,link)
-
-   {
-     ___WORD *___fslot = &___BODY_AS(___ARG1,___tFRAME)[fs-i+1];
-     ___GC_WRITE_BARRIER(___ps, ___ARG1, ___fslot, ___ARG3);
-     *___fslot = ___ARG3;  /* what if i==link and frame is first in section???? */
-   }
+   if (___decode_heap_frame_descriptor(body, ___ps->internal_return, &descriptor))
+     {
+       ___WORD *___fslot = ___frame_heap_slot_ptr(body, &descriptor, i);
+       ___GC_WRITE_BARRIER(___ps, ___ARG1, ___fslot, ___ARG3);
+       *___fslot = ___ARG3;
+     }
 
    ___RESULT = ___VOID;
 
@@ -4165,25 +4137,17 @@ end-of-code
    ___SCMOBJ cont = ___ARG1;
    int i = ___INT(___ARG2);
    ___SCMOBJ frame = ___CONTINUATION_FRAME_FIELD(cont);
-   ___SCMOBJ ra;
-   int fs;
-   int link;
 
    if (___TESTTYPE(frame, ___tFRAME))
      {
        /* continuation frame is in the heap */
 
-       ra = ___FIELD(FRAME,frame,0);
-
-       if (ra == ___ps->internal_return)
-         ___RETI_GET_FS_LINK(___BODY_AS(frame,___tFRAME)[___FRAME_RETI_RA],fs,link)
+       ___WORD *body = ___BODY_AS(frame,___tFRAME);
+       ___frame_descriptor descriptor;
+       if (___decode_heap_frame_descriptor(body, ___ps->internal_return, &descriptor))
+         ___RESULT = *___frame_heap_slot_ptr(body, &descriptor, i);
        else
-         ___RETN_GET_FS_LINK(ra,fs,link)
-
-       ___RESULT = ___BODY_AS(frame,___tFRAME)[fs-i+1];  /* what if i==link and frame is first in section???? */
-#if 0
-      if (i == link) ___RESULT = ___FIX(999999);/***********/
-#endif
+         ___RESULT = ___FAL;
      }
    else
      ___RESULT = ___access_raw_continuation_frame(___ps,frame,___RAW_FRAME_REF,___ARG2,___FAL);
@@ -4201,26 +4165,19 @@ end-of-code
    int i = ___INT(___ARG2);
    ___SCMOBJ val = ___ARG3;
    ___SCMOBJ frame = ___CONTINUATION_FRAME_FIELD(cont);
-   ___SCMOBJ ra;
-   int fs;
-   int link;
 
    if (___TESTTYPE(frame, ___tFRAME))
      {
        /* continuation frame is in the heap */
 
-       ra = ___FIELD(FRAME,frame,0);
-
-       if (ra == ___ps->internal_return)
-         ___RETI_GET_FS_LINK(___BODY_AS(frame,___tFRAME)[___FRAME_RETI_RA],fs,link)
-       else
-         ___RETN_GET_FS_LINK(ra,fs,link)
-
-       {
-         ___WORD *___fslot = &___BODY_AS(frame,___tFRAME)[fs-i+1];
-         ___GC_WRITE_BARRIER(___ps, frame, ___fslot, val);
-         *___fslot = val;  /* what if i==link and frame is first in section???? */
-       }
+       ___WORD *body = ___BODY_AS(frame,___tFRAME);
+       ___frame_descriptor descriptor;
+       if (___decode_heap_frame_descriptor(body, ___ps->internal_return, &descriptor))
+         {
+           ___WORD *___fslot = ___frame_heap_slot_ptr(body, &descriptor, i);
+           ___GC_WRITE_BARRIER(___ps, frame, ___fslot, val);
+           *___fslot = val;
+         }
      }
    else
      ___access_raw_continuation_frame(___ps,frame,___RAW_FRAME_SET,___ARG2,val);
@@ -4340,31 +4297,33 @@ end-of-code
      {
        /* continuation frame is in the heap */
 
+       ___frame_descriptor descriptor;
+
        ra = ___FIELD(FRAME,frame,0);
 
        fp = ___BODY_AS(frame,___tFRAME);
 
-       if (ra == ___ps->internal_return)
-         ___RETI_GET_FS_LINK(fp[___FRAME_RETI_RA],fs,link)
-       else
-         ___RETN_GET_FS_LINK(ra,fs,link)
-
-       fp += fs+1;
-
-       if (ra == ___ps->dynamic_env_bind_return)
-         denv = fp[-DYNAMIC_ENV_BIND_DENV];
-
-       next_frame = fp[-link-1];
-
-       if (next_frame == ___END_OF_CONT_MARKER)
-         ___RESULT = ___FAL;
+       if (!___decode_heap_frame_descriptor(fp, ___ps->internal_return, &descriptor))
+         {
+           ___RESULT = ___FAL;
+         }
        else
          {
-           ___GC_WRITE_BARRIER_ALWAYS(___ps, cont, &___CONTINUATION_FRAME_FIELD(cont));
-           ___CONTINUATION_FRAME_FIELD(cont) = next_frame;
-           ___GC_WRITE_BARRIER(___ps, cont, &___CONTINUATION_DENV_FIELD(cont), denv);
-           ___CONTINUATION_DENV_FIELD(cont) = denv;
-           ___RESULT = cont;
+           if (ra == ___ps->dynamic_env_bind_return)
+             denv = *___frame_heap_slot_ptr(fp, &descriptor, DYNAMIC_ENV_BIND_DENV);
+
+           next_frame = *___frame_heap_link_ptr(fp, &descriptor);
+
+           if (next_frame == ___END_OF_CONT_MARKER)
+             ___RESULT = ___FAL;
+           else
+             {
+               ___GC_WRITE_BARRIER_ALWAYS(___ps, cont, &___CONTINUATION_FRAME_FIELD(cont));
+               ___CONTINUATION_FRAME_FIELD(cont) = next_frame;
+               ___GC_WRITE_BARRIER(___ps, cont, &___CONTINUATION_DENV_FIELD(cont), denv);
+               ___CONTINUATION_DENV_FIELD(cont) = denv;
+               ___RESULT = cont;
+             }
          }
      }
    else

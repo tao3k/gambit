@@ -60,6 +60,50 @@ GAMBIT_TEST_MAIN
       encoded = c->ofd ? ___CAST(___WORD,table)
         : ___IFD(c->kind,c->stored,c->link,c->chunks[0]);
       frame = ___decode_frame_descriptor(encoded,c->kind == 2);
+      {
+        ___frame_descriptor checked_frame;
+        CHECK(!___frame_is_unresolved_ofd(encoded));
+        CHECK(___decode_frame_descriptor_checked(encoded,c->kind == 2,&checked_frame));
+        CHECK(checked_frame.kind == frame.kind);
+        CHECK(checked_frame.stored_fs == frame.stored_fs);
+        CHECK(checked_frame.fs == frame.fs);
+        CHECK(checked_frame.link == frame.link);
+        CHECK(checked_frame.gcmap == frame.gcmap);
+        CHECK(checked_frame.nextgcmap == frame.nextgcmap);
+        if (c->kind != 2)
+          CHECK(!___decode_frame_descriptor_checked(encoded,1,&checked_frame));
+        {
+          /* Exercise unified heap-frame descriptor & slot bijection contract. */
+          ___label_struct lbl_box;
+          ___SCMOBJ lbl_obj;
+          ___WORD body[144];
+          ___SCMOBJ fake_internal_ret = ___FIX(12345);
+          ___frame_descriptor heap_frame;
+          int s;
+          lbl_box.header = ___MAKE_HD(0,___sRETURN,___PERM);
+          lbl_box.entry_or_descr = encoded;
+          lbl_obj = ___TAG(___CAST(___WORD*,&lbl_box.entry_or_descr) - ___REFERENCE_TO_BODY,
+                           ___tSUBTYPED);
+          if (c->kind == 2)
+            {
+              body[0] = fake_internal_ret;
+              body[___FRAME_RETI_RA] = lbl_obj;
+            }
+          else
+            body[0] = lbl_obj;
+          CHECK(___decode_heap_frame_descriptor(body,fake_internal_ret,&heap_frame));
+          CHECK(heap_frame.kind == frame.kind);
+          CHECK(heap_frame.stored_fs == frame.stored_fs);
+          CHECK(heap_frame.fs == frame.fs);
+          CHECK(heap_frame.link == frame.link);
+          CHECK(heap_frame.gcmap == frame.gcmap);
+          CHECK(heap_frame.nextgcmap == frame.nextgcmap);
+          for (s=1; s<=actual; s++)
+            CHECK(___frame_heap_slot_ptr(body,&heap_frame,s) == body + (actual - s + 1));
+          CHECK(___frame_heap_link_ptr(body,&heap_frame) ==
+                ___frame_heap_slot_ptr(body,&heap_frame,c->link + 1));
+        }
+      }
       CHECK(frame.kind == c->kind);
       CHECK(frame.stored_fs == c->stored);
       CHECK(frame.fs == actual);
@@ -141,6 +185,37 @@ GAMBIT_TEST_MAIN
       checked++;
     }
   if (!checked) return 2;
+  /* Adversarial FrameSpec authority checks: unresolved OFD placeholders,
+   * invalid/misaligned OFD pointers, forged bounds, and zero-map inline IFDs. */
+  {
+    ___frame_descriptor bad;
+    ___WORD forged_zero[2];
+    ___WORD forged_link[2];
+    ___WORD valid_zero_map = ___IFD(___RETN,8,7,0);
+    i = 0;
+    CHECK(___frame_is_unresolved_ofd(___OFD(___RETN,0,0,0)));
+    CHECK(___frame_is_unresolved_ofd(___OFD(___RETI,0,0,0)));
+    CHECK(___frame_is_unresolved_ofd(___OFD(___RETT,0,0,0)));
+    CHECK(!___frame_is_unresolved_ofd(valid_zero_map));
+    CHECK(!___decode_frame_descriptor_checked(___OFD(___RETN,0,0,0),0,&bad));
+    CHECK(!___decode_frame_descriptor_checked(___OFD(___RETI,0,0,0),1,&bad));
+    CHECK(!___decode_frame_descriptor_checked(___OFD(___RETT,0,0,0),0,&bad));
+    CHECK(!___decode_frame_descriptor_checked(0,0,&bad));
+    CHECK(!___decode_frame_descriptor_checked(___CAST(___WORD,0x100),0,&bad));
+#if ___WS >= 8
+    /* Low 2 bits == 0 classifies as OFD, but +4 violates 8-byte word alignment. */
+    CHECK(!___decode_frame_descriptor_checked(___CAST(___WORD,forged_zero) + 4,0,&bad));
+#endif
+    forged_zero[0] = ___DEF_OFD(___RETN,0,0);
+    forged_zero[1] = 0;
+    CHECK(!___decode_frame_descriptor_checked(___CAST(___WORD,forged_zero),0,&bad));
+    forged_link[0] = ___DEF_OFD(___RETN,4,4);
+    forged_link[1] = 0;
+    CHECK(!___decode_frame_descriptor_checked(___CAST(___WORD,forged_link),0,&bad));
+    CHECK(___decode_frame_descriptor_checked(valid_zero_map,0,&bad));
+    CHECK(bad.kind == ___RETN && bad.fs == 8 && bad.link == 7 && bad.gcmap == 0);
+    CHECK(!___decode_frame_descriptor_checked(valid_zero_map,1,&bad));
+  }
   printf("FRAME-CONTRACT-PASS regs=%d cases=%u word=%d\n",
          ___NB_GVM_REGS,checked,___WORD_WIDTH);
   return 0;

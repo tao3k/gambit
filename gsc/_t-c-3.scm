@@ -495,7 +495,10 @@
                 (integer? gc-map) (exact? gc-map) (<= 0 gc-map)))
       (compiler-internal-error "invalid frame specification"))
   (let* ((actual-fs (if (eq? kind 'internal) (targ-internal-fs fs) fs))
-         (out-of-line? (> actual-fs targ-max-inline-fs)))
+         ;; Never emit an inline IFD whose encoding collides with the
+         ;; unresolved OFD placeholder ___IFD(kind, 0, 0, 0).
+         (out-of-line? (or (> actual-fs targ-max-inline-fs)
+                           (and (= fs 0) (= link 0) (= gc-map 0)))))
     (if (not (and (< link actual-fs)
                   (< gc-map (expt 2 actual-fs))))
         (compiler-internal-error "frame link or root map outside frame"))

@@ -149,6 +149,7 @@ ___WORD head;)
         ___frame_descriptor descriptor;
         ___WORD *fp = body + ___FRAME_EXTRA_SLOTS;
         ___WORD ra = body[0];
+        ___WORD *link_slot;
         ___WORD frame;
 
         acquire_frame_access(work);
@@ -158,15 +159,19 @@ ___WORD head;)
         ___printf ("  frame [ra=0x%" ___PRIxWORD "] ", ra);
 #endif
 
+        if (!___decode_heap_frame_descriptor(body, ___GSTATE->internal_return, &descriptor) ||
+            words != descriptor.fs + ___FRAME_EXTRA_SLOTS)
+          {
+            static char *msgs[] = { "GC frame payload/descriptor mismatch", NULL };
+            ___fatal_error(msgs);
+          }
+
         if (ra == ___GSTATE->internal_return)
           {
-            ___WORD actual_ra = body[___FRAME_RETI_RA];
-            descriptor = ___decode_frame_descriptor (___LABEL_DESCR_GET(actual_ra), 1);
             ___COVER_SCAN_FRAME_RETI;
           }
         else
           {
-            descriptor = ___decode_frame_descriptor (___LABEL_DESCR_GET(ra), 0);
             ___COVER_SCAN_FRAME_RETN;
           }
 
@@ -176,26 +181,18 @@ ___WORD head;)
         ___printf ("\n");
 #endif
 
-        if (descriptor.fs <= 0 || descriptor.link < 0 ||
-            descriptor.link >= descriptor.fs ||
-            words != descriptor.fs+___FRAME_EXTRA_SLOTS)
-          {
-            static char *msgs[] = { "GC frame payload/descriptor mismatch", NULL };
-            ___fatal_error(msgs);
-          }
-
         fp += descriptor.fs;
-
-        frame = ___FP_STK(fp,descriptor.link+1);
+        link_slot = ___frame_heap_link_ptr(body, &descriptor);
+        frame = *link_slot;
 
         mark_frame (work, fp, &descriptor);
 
         if (work->census!=0)
-          census_capture(work,&___FP_STK(fp,descriptor.link+1));
+          census_capture(work, link_slot);
         else if (___FIXNUMP(frame) && frame != ___END_OF_CONT_MARKER)
-          ___FP_SET_STK(fp,descriptor.link+1,___TAG(___UNTAG_AS(frame, ___tFIXNUM), ___tSUBTYPED))
+          *link_slot = ___TAG(___UNTAG_AS(frame, ___tFIXNUM), ___tSUBTYPED);
         else
-          mark_array(work,&___FP_STK(fp,descriptor.link+1),1);
+          mark_array(work, link_slot, 1);
 
         mark_array (work, &body[0], 1);
         release_frame_access(work);
@@ -340,35 +337,26 @@ ___HIDDEN void scan_mature_object
       {
         ___frame_descriptor descriptor;
         ___WORD *fp = body + ___FRAME_EXTRA_SLOTS;
-        ___WORD ra = body[0];
+        ___WORD *link_slot;
         ___WORD frame;
 
         acquire_frame_access(work);
-        if (ra == ___GSTATE->internal_return)
-          {
-            ___WORD actual_ra = body[___FRAME_RETI_RA];
-            descriptor = ___decode_frame_descriptor (___LABEL_DESCR_GET(actual_ra), 1);
-          }
-        else
-          {
-            descriptor = ___decode_frame_descriptor (___LABEL_DESCR_GET(ra), 0);
-          }
-        if (descriptor.fs <= 0 || descriptor.link < 0 ||
-            descriptor.link >= descriptor.fs ||
+        if (!___decode_heap_frame_descriptor(body, ___GSTATE->internal_return, &descriptor) ||
             words != descriptor.fs + ___FRAME_EXTRA_SLOTS)
           {
             static char *msgs[] = { "GC mature frame payload/descriptor mismatch", NULL };
             ___fatal_error(msgs);
           }
         fp += descriptor.fs;
-        frame = ___FP_STK(fp, descriptor.link + 1);
+        link_slot = ___frame_heap_link_ptr(body, &descriptor);
+        frame = *link_slot;
         mark_frame (work, fp, &descriptor);
         if (work->census != 0)
-          census_capture(work, &___FP_STK(fp, descriptor.link + 1));
+          census_capture(work, link_slot);
         else if (___FIXNUMP(frame) && frame != ___END_OF_CONT_MARKER)
-          mark_captured_continuation_locked(work, &___FP_STK(fp, descriptor.link + 1));
+          mark_captured_continuation_locked(work, link_slot);
         else
-          mark_array(work, &___FP_STK(fp, descriptor.link + 1), 1);
+          mark_array(work, link_slot, 1);
         mark_array (work, &body[0], 1);
         release_frame_access(work);
       }

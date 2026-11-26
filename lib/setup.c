@@ -2532,9 +2532,10 @@ ___module_struct *module;)
       void **hlbl_ptr = 0;
 #endif
       ___host current_host = 0;
-      ___SCMOBJ *ofd_alloc;
-
-      ofd_alloc = ofdtbl;
+      ___SCMOBJ *ofd_alloc = ofdtbl;
+      ___SCMOBJ *ofd_end = (ofdtbl != 0 && ofd_length > ___PADDING_SIZE)
+                             ? (ofdtbl + (ofd_length - ___PADDING_SIZE))
+                             : ofdtbl;
 
       for (i=0; i<lblcount; i++)
         {
@@ -2608,21 +2609,38 @@ ___module_struct *module;)
 
               /*
                * Return labels contain a GC map descriptor which has
-               * to be setup if it is out-of-line (which happens when
-               * the stack frame is large.
+               * to be bound if it is an unresolved out-of-line placeholder
+               * (___IFD(kind,0,0,0)), distinct from valid zero-map IFDs.
                */
 
               if (head == ___MAKE_HD(0,___sRETURN,___PERM))
                 {
                   ___SCMOBJ descr = ___LABEL_DESCR_GET(lbl);
-                  if (___IFD_GCMAP(descr) == 0) /* out-of-line descriptor? */
+                  if (___frame_is_unresolved_ofd(descr)) /* UnresolvedOutline -> BoundOutline */
                     {
-                      int fs;
+                      int kind = ___IFD_KIND(descr);
+                      int stored_fs, fs, link;
+                      ___SIZE_TS ofd_words;
+                      if (ofd_alloc == 0 || ofd_alloc >= ofd_end)
+                        return module_fixup_result(module,___FIX(___MODULE_INCOMPATIBILITY_ERR));
+                      if (___OFD_KIND(*ofd_alloc) != kind)
+                        return module_fixup_result(module,___FIX(___MODULE_INCOMPATIBILITY_ERR));
+                      stored_fs = ___OFD_FS(*ofd_alloc);
+                      link = ___OFD_LINK(*ofd_alloc);
+                      fs = (kind == ___RETI) ? ___RETI_CFS_TO_FS(stored_fs) : stored_fs;
+                      ofd_words = 1 + ___CEILING_DIV(fs,___WORD_WIDTH);
+                      if (fs <= 0 || link < 0 || link >= fs ||
+                          ___CAST(___SIZE_TS, ofd_end - ofd_alloc) < ofd_words)
+                        return module_fixup_result(module,___FIX(___MODULE_INCOMPATIBILITY_ERR));
                       ___LABEL_DESCR_SET(lbl, ___CAST(___SCMOBJ,ofd_alloc));
-                      fs = ___OFD_FS(*ofd_alloc);
-                      if (___IFD_KIND(descr) == ___RETI)
-                        fs = ___RETI_CFS_TO_FS(fs);
-                      ofd_alloc += 1 + ___CEILING_DIV(fs,___WORD_WIDTH);
+                      ofd_alloc += ofd_words;
+                    }
+                  else
+                    {
+                      ___frame_descriptor fd_check;
+                      int is_internal = (___IFD_KIND(descr) == ___RETI);
+                      if (!___decode_frame_descriptor_checked(descr, is_internal, &fd_check))
+                        return module_fixup_result(module,___FIX(___MODULE_INCOMPATIBILITY_ERR));
                     }
                 }
               else
@@ -2635,6 +2653,9 @@ ___module_struct *module;)
 #endif
             }
         }
+
+      if (ofd_alloc != ofd_end)
+        return module_fixup_result(module,___FIX(___MODULE_INCOMPATIBILITY_ERR));
 
       *lp = ___SUBTYPED_FROM_BODY(&new_lbltbl[0].entry_or_descr);
     }
