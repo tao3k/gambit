@@ -280,7 +280,7 @@
     (test-equal num-threads (atomic-fxbox-ref ok))))
 
 ;;;============================================================================
-;;; 7. Phase C3 One-Shot Stack-Rewind Verification & Escaped-Handle GC Safety
+;;; 7. One-Shot Stack-Rewind Verification & Escaped-Handle GC Safety
 ;;;
 ;;; Verifies that tail-resuming one-shot handlers trigger the C-runtime
 ;;; in-place stack-rewind fast path and that holding a consumed `ek` handle
@@ -324,7 +324,7 @@
           acc
           (loop (fx+ i 1) (perform-cap add-cap acc i))))))
 
-;; Suspending capability: direct prompt jump + Phase C3 one-shot rewind
+;; Suspending capability: direct prompt jump + one-shot rewind
 (test-equal 100
   (with-capability-handler step-cap
     ((k x) (resume k (fx+ x 1)))

@@ -7,22 +7,13 @@
 ;;;============================================================================
 
 ;;; (gambit fiber) — Direct-Style Work-Stealing Structured Concurrency Runtime
-;;; (Phase C7: Inline C23 Atomics, 128B Apple-Silicon Cache-Line Padding,
-;;;  Owner-Only STLR Quiescence, Relaxed Channel Hints & Lazy Carrier Lookup)
 ;;;
-;;; Formally verified in:
-;;;   - dev/refactoring/modern-c/models/quint/fiber_scheduler_nursery_smp.qnt
-;;;   - dev/refactoring/modern-c/models/lean/FiberNurseryRefinement.lean
-;;;   - tests/contracts/modern-c/gc-ffi/fiber-nursery-smp/harness.c
-;;;   - dev/refactoring/modern-c/models/quint/fiber_direct_switch_lifo_smp.qnt
-;;;   - dev/refactoring/modern-c/models/lean/FiberDirectSwitchLifoRefinement.lean
-;;;   - tests/contracts/modern-c/gc-ffi/fiber-direct-switch-lifo/harness.c
-;;;   - dev/refactoring/modern-c/models/quint/sharded_quiescence_and_oneshot_fiber_rewind_smp.qnt
-;;;   - dev/refactoring/modern-c/models/lean/ShardedQuiescenceRefinement.lean
-;;;   - tests/contracts/modern-c/gc-ffi/sharded-quiescence-smp/harness.c
-;;;   - dev/refactoring/modern-c/models/quint/channel_relaxed_hint_and_owner_stlr_smp.qnt
-;;;   - dev/refactoring/modern-c/models/lean/ChannelRelaxedHintRefinement.lean
-;;;   - tests/contracts/modern-c/gc-ffi/channel-relaxed-hint-smp/harness.c
+;;; Features:
+;;;   - M:N work-stealing scheduler with private LIFO slot and Chase-Lev deques
+;;;   - Sharded 128B-padded per-worker monotonic quiescence counters
+;;;   - Structured concurrency nurseries with zero-capture child exception handling
+;;;   - Lock-free bounded MPMC ring channels with linearizable direct handoff
+;;;   - Per-carrier recycled continuation wrapper freelist
 
 (##supply-module gambit/fiber)
 
@@ -53,7 +44,7 @@
 ;;;----------------------------------------------------------------------------
 ;;; Inline C23 Atomic Primitives (Zero Cross-Module SRFI-230 Overhead on C Target)
 ;;;
-;;; Memory-order codes match Gambit runtime_protocols/activity_log:
+;;; Memory-order codes match Gambit runtime_protocols:
 ;;;   0=relaxed, 1=acquire, 2=release, 3=acq_rel, 4=seq_cst
 
 (##define-macro (macro-if-c-compiled then-expr else-expr)
@@ -64,22 +55,38 @@
         then-expr
         else-expr)))
 
-;; 1-word fixnum atomic box (plain 1-element vector; zero wrapper struct)
+;; 1-word fixnum atomic box
 (define (%make-fxatom init)
   (##vector init))
 
 ;; 128-byte (16-word) cache-line-padded fixnum atomic box for Apple Silicon
-;; per-worker counters (disjoint cache lines => 0% false sharing across 12 cores).
+;; per-worker / producer-consumer counters (0% L2 false sharing across 12 cores).
 (define (%make-padded-fxatom init)
   (let ((v (##make-vector 16 0)))
     (##vector-set! v 0 init)
     v))
+
+(define (%fxatom-load-rlx box)
+  (macro-if-c-compiled
+   (##c-code
+    "___RESULT = ___CAST(___SCMOBJ,
+       ___atomic_word_load(___CAST(___VOLATILE ___WORD*, ___BODY_AS(___ARG1, ___tVECTOR)), 0));"
+    box)
+   (##vector-cas! box 0 #!unbound #!unbound)))
 
 (define (%fxatom-load-acq box)
   (macro-if-c-compiled
    (##c-code
     "___RESULT = ___CAST(___SCMOBJ,
        ___atomic_word_load(___CAST(___VOLATILE ___WORD*, ___BODY_AS(___ARG1, ___tVECTOR)), 1));"
+    box)
+   (##vector-cas! box 0 #!unbound #!unbound)))
+
+(define (%fxatom-load-seq box)
+  (macro-if-c-compiled
+   (##c-code
+    "___RESULT = ___CAST(___SCMOBJ,
+       ___atomic_word_load(___CAST(___VOLATILE ___WORD*, ___BODY_AS(___ARG1, ___tVECTOR)), 4));"
     box)
    (##vector-cas! box 0 #!unbound #!unbound)))
 
@@ -93,6 +100,27 @@
    (let loop ((old (##vector-cas! box 0 #!unbound #!unbound)))
      (let ((prev (##vector-cas! box 0 val old)))
        (if (##eq? prev old) (##void) (loop prev))))))
+
+(define (%fxatom-set-seq! box val)
+  (macro-if-c-compiled
+   (##c-code
+    "___atomic_word_store(___CAST(___VOLATILE ___WORD*, ___BODY_AS(___ARG1, ___tVECTOR)),
+                          ___CAST(___WORD, ___ARG2), 4);
+     ___RESULT = ___VOID;"
+    box val)
+   (let loop ((old (##vector-cas! box 0 #!unbound #!unbound)))
+     (let ((prev (##vector-cas! box 0 val old)))
+       (if (##eq? prev old) (##void) (loop prev))))))
+
+(define (%fxatom-cas-rlx! box expected desired)
+  (macro-if-c-compiled
+   (##c-code
+    "___RESULT = ___CAST(___SCMOBJ,
+       ___atomic_word_cas(___CAST(___VOLATILE ___WORD*, ___BODY_AS(___ARG1, ___tVECTOR)),
+                          ___CAST(___WORD, ___ARG2),
+                          ___CAST(___WORD, ___ARG3), 0));"
+    box expected desired)
+   (##vector-cas! box 0 desired expected)))
 
 (define (%fxatom-cas-acq! box expected desired)
   (macro-if-c-compiled
@@ -122,10 +150,33 @@
     box delta)
    (##vector-inc! box 0 (##fx- 0 delta))))
 
-;; Owner-only single-writer release increment: plain relaxed load + fx+ 1 +
-;; single ARM64 STLR release store (zero atomic RMW / LDADDAL overhead!).
+;; Owner-only single-writer release increment (STLR on ARM64, zero LDADDAL RMW)
 (define (%fxatom-inc-owner-rel! box)
   (%fxatom-set-rel! box (##fx+ (##vector-ref box 0) 1)))
+
+;; Indexed fixnum-vector atomics for Vyukov MPMC ring sequence numbers
+(define (%vec-fx-load-acq vec idx)
+  (macro-if-c-compiled
+   (##c-code
+    "___RESULT = ___CAST(___SCMOBJ,
+       ___atomic_word_load(
+         ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___ARG1, ___tVECTOR)) + ___INT(___ARG2),
+         1));"
+    vec idx)
+   (##vector-cas! vec idx #!unbound #!unbound)))
+
+(define (%vec-fx-store-seq! vec idx val)
+  (macro-if-c-compiled
+   (##c-code
+    "___atomic_word_store(
+       ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___ARG1, ___tVECTOR)) + ___INT(___ARG2),
+       ___CAST(___WORD, ___ARG3),
+       4);
+     ___RESULT = ___VOID;"
+    vec idx val)
+   (let loop ((old (##vector-cas! vec idx #!unbound #!unbound)))
+     (let ((prev (##vector-cas! vec idx val old)))
+       (if (##eq? prev old) (##void) (loop prev))))))
 
 (define (%seq-cst-fence!)
   (macro-if-c-compiled
@@ -133,18 +184,23 @@
    (atomic-fence (memory-order sequentially-consistent))))
 
 ;;;----------------------------------------------------------------------------
-;;; Scheduler, Worker Context & Lightweight Intrusive Fiber Continuation
+;;; Scheduler, Worker Context & Per-Carrier Recycled %fiber-k Freelist
 
 (define %MAX-LIFO-STREAK 8)
+(define %MAX-FK-POOL 64)
+
+;; Unexported private sentinels (cannot collide with any user value)
+(define %CH-EMPTY (cons 'ch-empty '()))
+(define %CH-RETRY (cons 'ch-retry '()))
 
 (define-type %fiber-k
   id: 8B1F3A70-9C24-4D6B-A5E1-F1B000000006
   constructor: %make-fiber-k
   predicate: %fiber-k?
-  (raw-k %fk-raw-k %fk-raw-k-set!)  ;; native Gambit continuation (cleared on resume)
+  (raw-k %fk-raw-k %fk-raw-k-set!)  ;; native Gambit continuation (cleared on recycle)
   (tc    %fk-tc    %fk-tc-set!)     ;; saved per-fiber (##thread-control-state)
   (val   %fk-val   %fk-val-set!)    ;; intrusive resume/send payload
-  (next  %fk-next  %fk-next-set!))  ;; intrusive FIFO wait-queue link
+  (next  %fk-next  %fk-next-set!))  ;; intrusive wait-queue / freelist link
 
 (define-type %scheduler
   id: 8B1F3A70-9C24-4D6B-A5E1-F1B000000001
@@ -170,7 +226,9 @@
   (lifo        %wctx-lifo        %wctx-lifo-set!)        ;; private 1-slot LIFO (0 atomics!)
   (lifo-streak %wctx-lifo-streak %wctx-lifo-streak-set!) ;; anti-starvation counter
   (ticks       %wctx-ticks       %wctx-ticks-set!)       ;; fairness poll counter
-  (sched-k     %wctx-sched-k     %wctx-sched-k-set!))    ;; reusable trampoline continuation
+  (sched-k     %wctx-sched-k     %wctx-sched-k-set!)     ;; reusable trampoline continuation
+  (fk-pool     %wctx-fk-pool     %wctx-fk-pool-set!)     ;; private zero-atomic %fiber-k freelist
+  (fk-pool-len %wctx-fk-pool-len %wctx-fk-pool-len-set!))
 
 (define (%current-wctx)
   (let ((ctx (thread-specific (current-thread))))
@@ -178,13 +236,38 @@
         ctx
         (error "fiber operation called outside run-fibers"))))
 
+;; Zero-allocation per-carrier %fiber-k pop/recycle (0 atomics, 0 GC retention)
+(define (%alloc-fk! ctx raw-k tc val)
+  (let ((fk (%wctx-fk-pool ctx)))
+    (if fk
+        (begin
+          (%wctx-fk-pool-set! ctx (%fk-next fk))
+          (%wctx-fk-pool-len-set! ctx (fx- (%wctx-fk-pool-len ctx) 1))
+          (%fk-raw-k-set! fk raw-k)
+          (%fk-tc-set! fk tc)
+          (%fk-val-set! fk val)
+          (%fk-next-set! fk #f)
+          fk)
+        (%make-fiber-k raw-k tc val #f))))
+
+(define (%free-fk! ctx fk)
+  (%fk-raw-k-set! fk #f)
+  (%fk-tc-set! fk #f)
+  (%fk-val-set! fk #f)
+  (let ((len (%wctx-fk-pool-len ctx)))
+    (if (fx< len %MAX-FK-POOL)
+        (begin
+          (%fk-next-set! fk (%wctx-fk-pool ctx))
+          (%wctx-fk-pool-set! ctx fk)
+          (%wctx-fk-pool-len-set! ctx (fx+ len 1)))
+        (%fk-next-set! fk #f))))
+
 ;; Push to local Chase-Lev deque (spilling to unbounded lock-free global-q if full).
 (define (%sched-push-dq! ctx task)
   (if (not (ws-deque-push! (%wctx-dq ctx) task))
       (lf-queue-enqueue! (%sched-global-q (%wctx-sched ctx)) task)))
 
-;; Push to private LIFO slot, evicting any prior occupant to Chase-Lev deque
-;; (strictly conserves tasks and allows idle peer cores to steal evicted work).
+;; Push to private LIFO slot, evicting any prior occupant to Chase-Lev deque.
 (define (%sched-push-lifo! ctx task)
   (let ((prev (%wctx-lifo ctx)))
     (%wctx-lifo-set! ctx task)
@@ -198,10 +281,8 @@
         (%sched-push-lifo! ctx task)
         (lf-queue-enqueue! (%sched-global-q sched) task))))
 
-;; Formally proven sharded quiescence check (Quint + Lean 4 + CBMC --mm pso):
-;; MUST read ALL completed[0..W-1] FIRST, execute seq_cst fence, then read
-;; ALL spawned[0..W-1]. Because every fiber's spawned[ws]++ happens-before its
-;; completed[wc]++, C == S guarantees ZERO live or queued fibers remain!
+;; Sharded quiescence check:
+;; Scan ALL completed[0..W-1] (acq), seq_cst fence, then scan ALL spawned[0..W-1] (acq).
 (define (%sched-quiescent? sched)
   (let ((w (%sched-num-workers sched))
         (cvec (%sched-completed-vec sched))
@@ -219,7 +300,7 @@
                   (fx= c s))))))))
 
 ;;;----------------------------------------------------------------------------
-;;; Inline C23 Non-Blocking Spinlock Helper (Zero Cross-Module Calls)
+;;; Inline C23 Non-Blocking Spinlock Helper (Slow-Path Waiters & Unbuffered)
 
 (define (%spin-lock! box)
   (if (not (fx= (%fxatom-cas-acq! box 0 1) 0))
@@ -233,15 +314,16 @@
   (%fxatom-set-rel! box 0))
 
 ;;;----------------------------------------------------------------------------
-;;; Structured Concurrency Nursery (Zero Orphaned Fibers, Zero Per-Spawn Closure)
+;;; Structured Concurrency Nursery
+;;; (Zero-Capture Children via ##with-exception-handler + Unwind-Safe Abort)
 
 (define-type nursery
   id: 8B1F3A70-9C24-4D6B-A5E1-F1B000000003
   constructor: %make-nursery
   predicate: nursery?
   (sched       %nursery-sched)
-  (active      %nursery-active)      ;; inline fxatom (starts at 1 for parent scope)
-  (lock        %nursery-lock)        ;; inline fxatom spinlock
+  (active      %nursery-active)      ;; 128B-padded fxatom (isolated from lock/waiter-k)
+  (lock        %nursery-lock)        ;; fxatom spinlock
   (waiter-k    %nursery-waiter-k     %nursery-waiter-k-set!)
   (first-err   %nursery-first-err    %nursery-first-err-set!)
   (has-err?    %nursery-has-err?     %nursery-has-err?-set!)
@@ -256,7 +338,6 @@
   (%spin-unlock! (%nursery-lock n)))
 
 (define (%nursery-child-done! n)
-  ;; %fxatom-sub-acqrel! returns the PREVIOUS value before subtraction.
   (let ((prev (%fxatom-sub-acqrel! (%nursery-active n) 1)))
     (if (fx= prev 1)
         (let ((lock (%nursery-lock n))
@@ -270,23 +351,32 @@
                 (%fk-val-set! wk #!void)
                 (%sched-wake! (%nursery-sched n) wk)))))))
 
-(define (%park-nursery! n)
-  (##continuation-capture
-   (lambda (raw-k)
-     (let* ((ctx (%current-wctx))
-            (tc (##thread-control-state))
-            (fk (%make-fiber-k raw-k tc #!void #f))
-            (lock (%nursery-lock n))
-            (wake-now? #f))
-       (##thread-control-state-set! #f)
-       (%spin-lock! lock)
-       (if (fx= (%fxatom-load-acq (%nursery-active n)) 0)
-           (set! wake-now? #t)
-           (%nursery-waiter-k-set! n fk))
-       (%spin-unlock! lock)
-       (if wake-now?
-           (%sched-push-lifo! ctx fk))
-       (%sched-switch-next! ctx)))))
+;; Executed on the clean carrier trampoline AFTER ##continuation-graft has
+;; completed all dynamic-wind after thunks of the aborting child fiber!
+(define (%nursery-child-abort! n exc)
+  (%nursery-record-error! n exc)
+  (%nursery-child-done! n)
+  (let ((cur-ctx (%current-wctx)))
+    (##thread-control-state-set! #f)
+    (%fxatom-inc-owner-rel! (%wctx-completed cur-ctx))
+    (%worker-dispatch cur-ctx 0)))
+
+;; Zero-closure multi-arg continuation receiver for nursery join park
+(define (%park-nursery-cont! raw-k n)
+  (let* ((ctx (%current-wctx))
+         (tc (##thread-control-state))
+         (fk (%alloc-fk! ctx raw-k tc #!void))
+         (lock (%nursery-lock n))
+         (wake-now? #f))
+    (##thread-control-state-set! #f)
+    (%spin-lock! lock)
+    (if (fx= (%fxatom-load-acq (%nursery-active n)) 0)
+        (set! wake-now? #t)
+        (%nursery-waiter-k-set! n fk))
+    (%spin-unlock! lock)
+    (if wake-now?
+        (%sched-push-lifo! ctx fk))
+    (%sched-switch-next! ctx)))
 
 (define (with-nursery proc)
   (if (not (procedure? proc))
@@ -294,41 +384,46 @@
   (let* ((ctx (%current-wctx))
          (sched (%wctx-sched ctx))
          (n (%make-nursery sched
-                           (%make-fxatom 1)
+                           (%make-padded-fxatom 1)
                            (%make-fxatom 0)
                            #f
                            #f
                            #f
                            #f))
-         (eh (lambda (e) (%nursery-record-error! n e)))
+         (child-eh (lambda (e)
+                     (let ((cur-ctx (%current-wctx)))
+                       (##continuation-graft (%wctx-sched-k cur-ctx)
+                                             %nursery-child-abort! n e))))
          (parent-res #f))
-    (%nursery-err-handler-set! n eh)
+    (%nursery-err-handler-set! n child-eh)
     (with-exception-catcher
-     eh
+     (lambda (e) (%nursery-record-error! n e))
      (lambda ()
        (set! parent-res (proc n))))
     (let ((prev (%fxatom-sub-acqrel! (%nursery-active n) 1)))
       (if (fx> prev 1)
-          (%park-nursery! n)))
+          (##continuation-capture %park-nursery-cont! n)))
     (if (%nursery-has-err? n)
         (raise (%nursery-first-err n))
         parent-res)))
 
 ;;;----------------------------------------------------------------------------
-;;; Direct O(1) Fiber Spawn (Zero Closures, Owner-Only STLR Release Increment)
+;;; Direct O(1) Fiber Spawn & Zero-Closure Yield
 
 (define (fiber-worker-count)
   (%sched-num-workers (%wctx-sched (%current-wctx))))
 
+;; Zero-closure multi-arg continuation receiver for fiber-yield
+(define (%yield-cont! raw-k)
+  (let* ((ctx (%current-wctx))
+         (tc (##thread-control-state))
+         (fk (%alloc-fk! ctx raw-k tc #!void)))
+    (##thread-control-state-set! #f)
+    (%sched-push-dq! ctx fk)
+    (%sched-switch-next! ctx)))
+
 (define (fiber-yield)
-  (##continuation-capture
-   (lambda (raw-k)
-     (let* ((ctx (%current-wctx))
-            (tc (##thread-control-state))
-            (fk (%make-fiber-k raw-k tc #!void #f)))
-       (##thread-control-state-set! #f)
-       (%sched-push-dq! ctx fk)
-       (%sched-switch-next! ctx)))))
+  (##continuation-capture %yield-cont!))
 
 (define (fiber-spawn thunk #!optional (n #f))
   (if (not (procedure? thunk))
@@ -348,7 +443,8 @@
           #!void))))
 
 ;;;----------------------------------------------------------------------------
-;;; Intrusive Zero-Cons FIFO Wait Queue & Relaxed-Hint Direct-Handoff Channel
+;;; Intrusive Zero-Cons FIFO Wait Queue & Lock-Free Vyukov Bounded MPMC Channel
+;;; + Linearizable Direct Handoff + Zero-Closure Multi-Arg Park Continuations
 
 (define-type %wait-q
   id: 8B1F3A70-9C24-4D6B-A5E1-F1B000000004
@@ -384,193 +480,362 @@
   id: 8B1F3A70-9C24-4D6B-A5E1-F1B000000005
   constructor: %make-fiber-channel
   predicate: fiber-channel?
-  (lock         %ch-lock)
   (cap          %ch-cap)
-  (buf          %ch-buf)
-  (head         %ch-head  %ch-head-set!)
-  (tail         %ch-tail  %ch-tail-set!)
-  (count        %ch-count %ch-count-set!)
+  (mask         %ch-mask)        ;; cap-1 when power-of-2, else -1 (exact fxmodulo)
+  (buf          %ch-buf)         ;; ring payload slots (GC write-barrier via ##vector-set!)
+  (seq          %ch-seq)         ;; Vyukov per-slot sequence fixnums
+  (tail         %ch-tail)        ;; 128B-padded producer cursor
+  (head         %ch-head)        ;; 128B-padded consumer cursor
+  (rx-waiters   %ch-rx-waiters)  ;; 128B-padded count of parked receivers (wait-lock protected writes)
+  (tx-waiters   %ch-tx-waiters)  ;; 128B-padded count of parked senders (wait-lock protected writes)
+  (lock         %ch-lock)        ;; slow-path wait-lock (and cap==0 rendezvous lock)
   (recv-waiters %ch-recv-waiters)
   (send-waiters %ch-send-waiters))
 
 (define (make-fiber-channel #!optional (capacity 16))
   (if (or (not (fixnum? capacity)) (fx< capacity 0))
       (error "make-fiber-channel: capacity must be a non-negative fixnum" capacity))
-  (%make-fiber-channel
-   (%make-fxatom 0)
-   capacity
-   (if (fx> capacity 0) (make-vector capacity #f) '#())
-   0
-   0
-   0
-   (%make-wait-q #f #f)
-   (%make-wait-q #f #f)))
+  (let* ((is-pow2 (and (fx> capacity 0)
+                       (fx= (fxand capacity (fx- capacity 1)) 0)))
+         (mask (if is-pow2 (fx- capacity 1) -1))
+         (buf (if (fx> capacity 0) (make-vector capacity #f) '#()))
+         (seq (if (fx> capacity 0)
+                  (let ((v (make-vector capacity 0)))
+                    (let loop ((i 0))
+                      (if (fx< i capacity)
+                          (begin (##vector-set! v i (fxarithmetic-shift-left i 1))
+                                 (loop (fx+ i 1)))))
+                    v)
+                  '#())))
+    (%make-fiber-channel
+     capacity
+     mask
+     buf
+     seq
+     (%make-padded-fxatom 0)
+     (%make-padded-fxatom 0)
+     (%make-padded-fxatom 0)
+     (%make-padded-fxatom 0)
+     (%make-fxatom 0)
+     (%make-wait-q #f #f)
+     (%make-wait-q #f #f))))
 
-(define (%park-send! ch val)
-  (##continuation-capture
-   (lambda (raw-k)
-     (let* ((ctx (%current-wctx))
-            (tc (##thread-control-state))
-            (fk (%make-fiber-k raw-k tc val #f))
-            (lock (%ch-lock ch))
-            (cap (%ch-cap ch))
-            (rwq (%ch-recv-waiters ch))
-            (swq (%ch-send-waiters ch)))
-       (##thread-control-state-set! #f)
-       (%spin-lock! lock)
-       (cond
-         ((not (%wq-empty? rwq))
-          (let ((rk (%wq-pop! rwq)))
-            (%spin-unlock! lock)
-            (%fk-val-set! rk val)
-            (%fk-val-set! fk #t)
-            (%sched-push-lifo! ctx fk)
-            (%sched-push-lifo! ctx rk)))
-         ((fx< (%ch-count ch) cap)
-          (let ((t (%ch-tail ch)))
-            (##vector-set! (%ch-buf ch) t val)
-            (%ch-tail-set! ch (let ((nt (fx+ t 1))) (if (fx= nt cap) 0 nt)))
-            (%ch-count-set! ch (fx+ (%ch-count ch) 1))
-            (%spin-unlock! lock)
-            (%fk-val-set! fk #t)
-            (%sched-push-lifo! ctx fk)))
-         (else
+;; Lock-free Vyukov bounded MPMC ring push (2*pos / 2*pos+1 encoding supports all cap >= 1!)
+(define (%vyukov-try-push! ch val)
+  (let ((tail-box (%ch-tail ch))
+        (seq (%ch-seq ch))
+        (buf (%ch-buf ch))
+        (cap (%ch-cap ch))
+        (mask (%ch-mask ch)))
+    (let loop ()
+      (let* ((pos (%fxatom-load-rlx tail-box))
+             (idx (if (fx>= mask 0) (fxand pos mask) (fxmodulo pos cap)))
+             (s (%vec-fx-load-acq seq idx))
+             (exp (fxarithmetic-shift-left pos 1))
+             (dif (fx- s exp)))
+        (cond
+          ((fx= dif 0)
+           (if (fx= (%fxatom-cas-rlx! tail-box pos (fx+ pos 1)) pos)
+               (begin
+                 (##vector-set! buf idx val)
+                 (%vec-fx-store-seq! seq idx (fx+ exp 1))
+                 #t)
+               (loop)))
+          ((fx< dif 0)
+           #f)
+          (else
+           (loop)))))))
+
+;; Lock-free Vyukov bounded MPMC ring pop (2*pos+1 / 2*(pos+cap) encoding supports all cap >= 1!)
+(define (%vyukov-try-pop-or! ch default)
+  (let ((head-box (%ch-head ch))
+        (seq (%ch-seq ch))
+        (buf (%ch-buf ch))
+        (cap (%ch-cap ch))
+        (mask (%ch-mask ch)))
+    (let loop ()
+      (let* ((pos (%fxatom-load-rlx head-box))
+             (idx (if (fx>= mask 0) (fxand pos mask) (fxmodulo pos cap)))
+             (s (%vec-fx-load-acq seq idx))
+             (exp (fx+ (fxarithmetic-shift-left pos 1) 1))
+             (dif (fx- s exp)))
+        (cond
+          ((fx= dif 0)
+           (if (fx= (%fxatom-cas-rlx! head-box pos (fx+ pos 1)) pos)
+               (let ((item (##vector-ref buf idx)))
+                 (##vector-set! buf idx #f)
+                 (%vec-fx-store-seq! seq idx (fxarithmetic-shift-left (fx+ pos cap) 1))
+                 item)
+               (loop)))
+          ((fx< dif 0)
+           default)
+          (else
+           (loop)))))))
+
+;; Slow-path wakeups (called ONLY when Dekker seq_cst counter > 0)
+(define (%ch-wake-one-receiver! ch)
+  (let ((lock (%ch-lock ch))
+        (rwq (%ch-recv-waiters ch))
+        (rxw (%ch-rx-waiters ch))
+        (rk #f)
+        (item %CH-EMPTY))
+    (%spin-lock! lock)
+    (if (not (%wq-empty? rwq))
+        (begin
+          (set! rk (%wq-pop! rwq))
+          (%fxatom-set-seq! rxw (fx- (##vector-ref rxw 0) 1))
+          (set! item (%vyukov-try-pop-or! ch %CH-EMPTY))))
+    (%spin-unlock! lock)
+    (if rk
+        (if (not (eq? item %CH-EMPTY))
+            (begin
+              (if (fx> (%fxatom-load-seq (%ch-tx-waiters ch)) 0)
+                  (%ch-wake-one-sender! ch))
+              (%fk-val-set! rk item)
+              (%sched-push-lifo! (%current-wctx) rk))
+            (begin
+              (%fk-val-set! rk %CH-RETRY)
+              (%sched-push-lifo! (%current-wctx) rk))))))
+
+(define (%ch-wake-one-sender! ch)
+  (let ((lock (%ch-lock ch))
+        (swq (%ch-send-waiters ch))
+        (txw (%ch-tx-waiters ch))
+        (sk #f)
+        (pushed? #f))
+    (%spin-lock! lock)
+    (if (not (%wq-empty? swq))
+        (begin
+          (set! sk (%wq-pop! swq))
+          (%fxatom-set-seq! txw (fx- (##vector-ref txw 0) 1))
+          (set! pushed? (%vyukov-try-push! ch (%fk-val sk)))))
+    (%spin-unlock! lock)
+    (if sk
+        (if pushed?
+            (begin
+              (if (fx> (%fxatom-load-seq (%ch-rx-waiters ch)) 0)
+                  (%ch-wake-one-receiver! ch))
+              (%fk-val-set! sk #t)
+              (%sched-push-lifo! (%current-wctx) sk))
+            (begin
+              (%fk-val-set! sk %CH-RETRY)
+              (%sched-push-lifo! (%current-wctx) sk))))))
+
+;; Zero-closure multi-arg park receivers for buffered channels (cap > 0)
+(define (%park-send-buf-cont! raw-k ch val)
+  (let* ((ctx (%current-wctx))
+         (tc (##thread-control-state))
+         (fk (%alloc-fk! ctx raw-k tc val))
+         (lock (%ch-lock ch))
+         (rwq (%ch-recv-waiters ch))
+         (swq (%ch-send-waiters ch))
+         (rxw (%ch-rx-waiters ch))
+         (txw (%ch-tx-waiters ch)))
+    (##thread-control-state-set! #f)
+    (%spin-lock! lock)
+    (%fxatom-set-seq! txw (fx+ (##vector-ref txw 0) 1))
+    (%seq-cst-fence!)
+    (cond
+      ((and (not (%wq-empty? rwq))
+            (let* ((t (%fxatom-load-acq (%ch-tail ch)))
+                   (h (%fxatom-load-acq (%ch-head ch))))
+              (fx= t h)))
+       (let ((rk (%wq-pop! rwq)))
+         (%fxatom-set-seq! rxw (fx- (##vector-ref rxw 0) 1))
+         (%fxatom-set-seq! txw (fx- (##vector-ref txw 0) 1))
+         (%spin-unlock! lock)
+         (%fk-val-set! rk val)
+         (%fk-val-set! fk #t)
+         (%sched-push-lifo! ctx fk)
+         (%sched-push-lifo! ctx rk)))
+      ((%vyukov-try-push! ch val)
+       (%fxatom-set-seq! txw (fx- (##vector-ref txw 0) 1))
+       (%spin-unlock! lock)
+       (if (fx> (%fxatom-load-seq rxw) 0)
+           (%ch-wake-one-receiver! ch))
+       (%fk-val-set! fk #t)
+       (%sched-push-lifo! ctx fk))
+      (else
+       (%wq-push! swq fk)
+       (%spin-unlock! lock)))
+    (%sched-switch-next! ctx)))
+
+(define (%park-recv-buf-cont! raw-k ch)
+  (let* ((ctx (%current-wctx))
+         (tc (##thread-control-state))
+         (fk (%alloc-fk! ctx raw-k tc #f))
+         (lock (%ch-lock ch))
+         (rwq (%ch-recv-waiters ch))
+         (swq (%ch-send-waiters ch))
+         (rxw (%ch-rx-waiters ch))
+         (txw (%ch-tx-waiters ch)))
+    (##thread-control-state-set! #f)
+    (%spin-lock! lock)
+    (%fxatom-set-seq! rxw (fx+ (##vector-ref rxw 0) 1))
+    (%seq-cst-fence!)
+    (let ((item (%vyukov-try-pop-or! ch %CH-EMPTY)))
+      (cond
+        ((not (eq? item %CH-EMPTY))
+         (%fxatom-set-seq! rxw (fx- (##vector-ref rxw 0) 1))
+         (%spin-unlock! lock)
+         (if (fx> (%fxatom-load-seq txw) 0)
+             (%ch-wake-one-sender! ch))
+         (%fk-val-set! fk item)
+         (%sched-push-lifo! ctx fk))
+        ((not (%wq-empty? swq))
+         (let* ((sk (%wq-pop! swq))
+                (sval (%fk-val sk)))
+           (%fxatom-set-seq! txw (fx- (##vector-ref txw 0) 1))
+           (%fxatom-set-seq! rxw (fx- (##vector-ref rxw 0) 1))
+           (%spin-unlock! lock)
+           (%fk-val-set! sk #t)
+           (%fk-val-set! fk sval)
+           (%sched-push-lifo! ctx sk)
+           (%sched-push-lifo! ctx fk)))
+        (else
+         (%wq-push! rwq fk)
+         (%spin-unlock! lock))))
+    (%sched-switch-next! ctx)))
+
+;; Zero-closure multi-arg park receivers for unbuffered rendezvous (cap == 0)
+(define (%park-send-unbuf-cont! raw-k ch val)
+  (let* ((ctx (%current-wctx))
+         (tc (##thread-control-state))
+         (fk (%alloc-fk! ctx raw-k tc val))
+         (lock (%ch-lock ch))
+         (rwq (%ch-recv-waiters ch))
+         (swq (%ch-send-waiters ch)))
+    (##thread-control-state-set! #f)
+    (%spin-lock! lock)
+    (if (not (%wq-empty? rwq))
+        (let ((rk (%wq-pop! rwq)))
+          (%spin-unlock! lock)
+          (%fk-val-set! rk val)
+          (%fk-val-set! fk #t)
+          (%sched-push-lifo! ctx fk)
+          (%sched-push-lifo! ctx rk))
+        (begin
           (%wq-push! swq fk)
           (%spin-unlock! lock)))
-       (%sched-switch-next! ctx)))))
+    (%sched-switch-next! ctx)))
 
-;; Relaxed full hint + lazy (%current-wctx) + single-lock authoritative park!
+(define (%park-recv-unbuf-cont! raw-k ch)
+  (let* ((ctx (%current-wctx))
+         (tc (##thread-control-state))
+         (fk (%alloc-fk! ctx raw-k tc #f))
+         (lock (%ch-lock ch))
+         (rwq (%ch-recv-waiters ch))
+         (swq (%ch-send-waiters ch)))
+    (##thread-control-state-set! #f)
+    (%spin-lock! lock)
+    (if (not (%wq-empty? swq))
+        (let* ((sk (%wq-pop! swq))
+               (sval (%fk-val sk)))
+          (%spin-unlock! lock)
+          (%fk-val-set! sk #t)
+          (%fk-val-set! fk sval)
+          (%sched-push-lifo! ctx sk)
+          (%sched-push-lifo! ctx fk))
+        (begin
+          (%wq-push! rwq fk)
+          (%spin-unlock! lock)))
+    (%sched-switch-next! ctx)))
+
+(define (%fiber-send-buf! ch val)
+  (let ((rxw (%ch-rx-waiters ch)))
+    ;; Fast path A (Ping-Pong): Linearizable direct handoff ONLY when
+    ;; rx-waiters > 0 AND load_acq(tail) == load_acq(head) under wait-lock!
+    (if (fx> (%fxatom-load-rlx rxw) 0)
+        (let ((lock (%ch-lock ch))
+              (rwq (%ch-recv-waiters ch))
+              (rk #f))
+          (%spin-lock! lock)
+          (if (and (not (%wq-empty? rwq))
+                   (let* ((t (%fxatom-load-acq (%ch-tail ch)))
+                          (h (%fxatom-load-acq (%ch-head ch))))
+                     (fx= t h)))
+              (begin
+                (set! rk (%wq-pop! rwq))
+                (%fxatom-set-seq! rxw (fx- (##vector-ref rxw 0) 1))))
+          (%spin-unlock! lock)
+          (if rk
+              (begin
+                (%fk-val-set! rk val)
+                (%sched-push-lifo! (%current-wctx) rk)
+                #t)
+              (%fiber-send-buf-ring! ch val rxw)))
+        (%fiber-send-buf-ring! ch val rxw))))
+
+(define (%fiber-send-buf-ring! ch val rxw)
+  ;; Fast path B (Streaming): Lock-Free Vyukov Ring Push (0 spinlocks!)
+  (if (%vyukov-try-push! ch val)
+      (begin
+        (if (fx> (%fxatom-load-seq rxw) 0)
+            (%ch-wake-one-receiver! ch))
+        #t)
+      (let ((res (##continuation-capture %park-send-buf-cont! ch val)))
+        (if (eq? res %CH-RETRY)
+            (%fiber-send-buf! ch val)
+            #t))))
+
 (define (fiber-send! ch val)
   (if (not (fiber-channel? ch))
       (error "fiber-send!: expected fiber-channel" ch))
-  (let ((cap (%ch-cap ch))
-        (rwq (%ch-recv-waiters ch)))
-    ;; Relaxed full hint (0 atomics): if buffer looks full & no receiver parked,
-    ;; skip first lock/unlock completely; %park-send! re-checks authoritatively!
-    (if (and (fx= (%ch-count ch) cap) (not (%wq-head rwq)))
-        (%park-send! ch val)
-        (let ((lock (%ch-lock ch)))
-          (%spin-lock! lock)
-          (cond
-            ;; Case 1: Direct zero-alloc rendezvous handoff to a parked receiver
-            ((not (%wq-empty? rwq))
-             (let ((rk (%wq-pop! rwq)))
-               (%spin-unlock! lock)
-               (%fk-val-set! rk val)
-               (%sched-push-lifo! (%current-wctx) rk)
-               #t))
-            ;; Case 2: Ring buffer has free space (0 (%current-wctx) calls!)
-            ((fx< (%ch-count ch) cap)
-             (let ((t (%ch-tail ch)))
-               (##vector-set! (%ch-buf ch) t val)
-               (%ch-tail-set! ch (let ((nt (fx+ t 1))) (if (fx= nt cap) 0 nt)))
-               (%ch-count-set! ch (fx+ (%ch-count ch) 1))
-               (%spin-unlock! lock)
-               #t))
-            ;; Case 3: Became full before lock -> park via authoritative %park-send!
-            (else
-             (%spin-unlock! lock)
-             (%park-send! ch val)))))))
+  (if (fx> (%ch-cap ch) 0)
+      (%fiber-send-buf! ch val)
+      ;; Unbuffered rendezvous (cap == 0) with relaxed hint
+      (let ((rwq (%ch-recv-waiters ch)))
+        (if (not (%wq-head rwq))
+            (##continuation-capture %park-send-unbuf-cont! ch val)
+            (let ((lock (%ch-lock ch)))
+              (%spin-lock! lock)
+              (if (not (%wq-empty? rwq))
+                  (let ((rk (%wq-pop! rwq)))
+                    (%spin-unlock! lock)
+                    (%fk-val-set! rk val)
+                    (%sched-push-lifo! (%current-wctx) rk)
+                    #t)
+                  (begin
+                    (%spin-unlock! lock)
+                    (##continuation-capture %park-send-unbuf-cont! ch val))))))))
 
-(define (%park-recv! ch)
-  (##continuation-capture
-   (lambda (raw-k)
-     (let* ((ctx (%current-wctx))
-            (tc (##thread-control-state))
-            (fk (%make-fiber-k raw-k tc #f #f))
-            (lock (%ch-lock ch))
-            (cap (%ch-cap ch))
-            (rwq (%ch-recv-waiters ch))
-            (swq (%ch-send-waiters ch)))
-       (##thread-control-state-set! #f)
-       (%spin-lock! lock)
-       (cond
-         ((fx> (%ch-count ch) 0)
-          (let* ((h (%ch-head ch))
-                 (buf (%ch-buf ch))
-                 (item (##vector-ref buf h))
-                 (nh (let ((x (fx+ h 1))) (if (fx= x cap) 0 x))))
-            (##vector-set! buf h #f)
-            (%ch-head-set! ch nh)
-            (if (not (%wq-empty? swq))
-                (let* ((sk (%wq-pop! swq))
-                       (sval (%fk-val sk))
-                       (t (%ch-tail ch)))
-                  (##vector-set! buf t sval)
-                  (%ch-tail-set! ch (let ((nt (fx+ t 1))) (if (fx= nt cap) 0 nt)))
-                  (%spin-unlock! lock)
-                  (%fk-val-set! sk #t)
-                  (%fk-val-set! fk item)
-                  (%sched-push-lifo! ctx sk)
-                  (%sched-push-lifo! ctx fk))
-                (begin
-                  (%ch-count-set! ch (fx- (%ch-count ch) 1))
-                  (%spin-unlock! lock)
-                  (%fk-val-set! fk item)
-                  (%sched-push-lifo! ctx fk)))))
-         ((not (%wq-empty? swq))
-          (let* ((sk (%wq-pop! swq))
-                 (sval (%fk-val sk)))
-            (%spin-unlock! lock)
-            (%fk-val-set! sk #t)
-            (%fk-val-set! fk sval)
-            (%sched-push-lifo! ctx sk)
-            (%sched-push-lifo! ctx fk)))
-         (else
-          (%wq-push! rwq fk)
-          (%spin-unlock! lock)))
-       (%sched-switch-next! ctx)))))
+(define (%fiber-recv-buf! ch)
+  ;; Fast path (Streaming): Lock-Free Vyukov Ring Pop (0 spinlocks!)
+  (let ((item (%vyukov-try-pop-or! ch %CH-EMPTY)))
+    (if (not (eq? item %CH-EMPTY))
+        (begin
+          (if (fx> (%fxatom-load-seq (%ch-tx-waiters ch)) 0)
+              (%ch-wake-one-sender! ch))
+          item)
+        (let ((res (##continuation-capture %park-recv-buf-cont! ch)))
+          (if (eq? res %CH-RETRY)
+              (%fiber-recv-buf! ch)
+              res)))))
 
-;; Relaxed empty hint + lazy (%current-wctx) + single-lock authoritative park!
 (define (fiber-recv! ch)
   (if (not (fiber-channel? ch))
       (error "fiber-recv!: expected fiber-channel" ch))
-  (let ((swq (%ch-send-waiters ch)))
-    ;; Relaxed empty hint (0 atomics): cuts ping-pong lock ops in half!
-    ;; %park-recv! re-checks count > 0 and swq authoritatively under lock.
-    (if (and (fx= (%ch-count ch) 0) (not (%wq-head swq)))
-        (%park-recv! ch)
-        (let ((lock (%ch-lock ch))
-              (cap (%ch-cap ch)))
-          (%spin-lock! lock)
-          (cond
-            ;; Case 1: Buffered item available (0 (%current-wctx) calls if no sender!)
-            ((fx> (%ch-count ch) 0)
-             (let* ((h (%ch-head ch))
-                    (buf (%ch-buf ch))
-                    (item (##vector-ref buf h))
-                    (nh (let ((x (fx+ h 1))) (if (fx= x cap) 0 x))))
-               (##vector-set! buf h #f)
-               (%ch-head-set! ch nh)
-               (if (not (%wq-empty? swq))
-                   (let* ((sk (%wq-pop! swq))
-                          (sval (%fk-val sk))
-                          (t (%ch-tail ch)))
-                     (##vector-set! buf t sval)
-                     (%ch-tail-set! ch (let ((nt (fx+ t 1))) (if (fx= nt cap) 0 nt)))
-                     (%spin-unlock! lock)
-                     (%fk-val-set! sk #t)
-                     (%sched-push-lifo! (%current-wctx) sk)
-                     item)
-                   (begin
-                     (%ch-count-set! ch (fx- (%ch-count ch) 1))
-                     (%spin-unlock! lock)
-                     item))))
-            ;; Case 2: Unbuffered rendezvous (cap == 0) with a parked sender
-            ((not (%wq-empty? swq))
-             (let* ((sk (%wq-pop! swq))
-                    (sval (%fk-val sk)))
-               (%spin-unlock! lock)
-               (%fk-val-set! sk #t)
-               (%sched-push-lifo! (%current-wctx) sk)
-               sval))
-            ;; Case 3: Became empty before lock -> park via authoritative %park-recv!
-            (else
-             (%spin-unlock! lock)
-             (%park-recv! ch)))))))
+  (if (fx> (%ch-cap ch) 0)
+      (%fiber-recv-buf! ch)
+      ;; Unbuffered rendezvous (cap == 0) with relaxed hint
+      (let ((swq (%ch-send-waiters ch)))
+        (if (not (%wq-head swq))
+            (##continuation-capture %park-recv-unbuf-cont! ch)
+            (let ((lock (%ch-lock ch)))
+              (%spin-lock! lock)
+              (if (not (%wq-empty? swq))
+                  (let* ((sk (%wq-pop! swq))
+                         (sval (%fk-val sk)))
+                    (%spin-unlock! lock)
+                    (%fk-val-set! sk #t)
+                    (%sched-push-lifo! (%current-wctx) sk)
+                    sval)
+                  (begin
+                    (%spin-unlock! lock)
+                    (##continuation-capture %park-recv-unbuf-cont! ch))))))))
 
 ;;;----------------------------------------------------------------------------
-;;; Multi-Core M:N Work-Stealing Direct-Switch Trampoline (Zero-Closure Poll)
+;;; Multi-Core M:N Work-Stealing Direct-Switch Trampoline (Recycled %fiber-k)
 
 (define (%worker-try-steal wid num-workers deques)
   (if (fx<= num-workers 1)
@@ -620,14 +885,14 @@
           (set! task (%wctx-lifo ctx))
           (%wctx-lifo-set! ctx #f)
           (%wctx-lifo-streak-set! ctx 0)))
-    ;; 4. Global lock-free wakeup/overflow queue (zero-closure sentinel pop)
+    ;; 4. Global lock-free wakeup/overflow queue
     (if (not task)
         (let ((t (lf-queue-try-dequeue-or! global-q #f)))
           (if t
               (begin
                 (%wctx-lifo-streak-set! ctx 0)
                 (set! task t)))))
-    ;; 5. Work-steal FIFO from peer worker deques (zero-closure sentinel steal)
+    ;; 5. Work-steal FIFO from peer worker deques
     (if (not task)
         (let ((stolen (%worker-try-steal (%wctx-wid ctx)
                                          (%sched-num-workers sched)
@@ -638,7 +903,10 @@
                 (set! task stolen)))))
     task))
 
-;; Direct symmetric coroutine handoff with SATB-safe in-place one-shot rewind!
+;; Direct symmetric coroutine handoff with %fiber-k freelist recycling!
+;; Uses no-winding continuation switches so fiber suspension/resumption never
+;; triggers spurious dynamic-wind before/after thrashing (only genuine exits
+;; or exception aborts wind/unwind).
 (define (%sched-switch-next! ctx)
   (let ((ticks (%wctx-ticks ctx))
         (lifo (%wctx-lifo ctx))
@@ -653,12 +921,10 @@
           (%wctx-ticks-set! ctx (fx+ ticks 1))
           (%wctx-lifo-set! ctx #f)
           (%wctx-lifo-streak-set! ctx (fx+ streak 1))
-          (%fk-raw-k-set! lifo #f)
-          (%fk-tc-set! lifo #f)
-          (%fk-val-set! lifo #f)
+          (%free-fk! ctx lifo)
           (##thread-control-state-set! tc)
-          (##continuation-try-rewind-prompt! #f raw-k val))
-        (##continuation-graft (%wctx-sched-k ctx) %worker-dispatch ctx 0))))
+          (##continuation-return-no-winding raw-k val))
+        (##continuation-graft-no-winding (%wctx-sched-k ctx) %worker-dispatch ctx 0))))
 
 (define (%worker-dispatch ctx idle-spins)
   (let ((task (%worker-poll-task ctx)))
@@ -668,17 +934,15 @@
            (let ((raw-k (%fk-raw-k task))
                  (tc (%fk-tc task))
                  (val (%fk-val task)))
-             (%fk-raw-k-set! task #f)
-             (%fk-tc-set! task #f)
-             (%fk-val-set! task #f)
+             (%free-fk! ctx task)
              (##thread-control-state-set! tc)
-             (##continuation-try-rewind-prompt! #f raw-k val)))
+             (##continuation-return-no-winding raw-k val)))
           ((pair? task)
-           ;; ZERO-CLOSURE NURSERY CHILD: (thunk . nursery)
+           ;; ZERO-CAPTURE, ZERO-CLOSURE NURSERY CHILD: (thunk . nursery)
            (let ((fn (car task))
                  (n (cdr task)))
              (##thread-control-state-set! #f)
-             (with-exception-catcher (%nursery-err-handler n) fn)
+             (##with-exception-handler (%nursery-err-handler n) fn)
              (%nursery-child-done! n)
              (let ((cur-ctx (%current-wctx)))
                (##thread-control-state-set! #f)
@@ -704,7 +968,7 @@
          (local-dq (##vector-ref deques wid))
          (spawned (##vector-ref (%sched-spawned-vec sched) wid))
          (completed (##vector-ref (%sched-completed-vec sched) wid))
-         (ctx (%make-worker-ctx sched wid local-dq spawned completed #f 0 0 #f)))
+         (ctx (%make-worker-ctx sched wid local-dq spawned completed #f 0 0 #f #f 0)))
     (thread-specific-set! (current-thread) ctx)
     ;; Capture the carrier's SINGLE reusable trampoline continuation ONCE!
     (##continuation-capture

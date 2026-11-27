@@ -6,7 +6,7 @@
 
 ;;;============================================================================
 
-;;; (gambit effect) — Direct-Style Algebraic Effect Handlers (Phase C2 Native)
+;;; (gambit effect) — Direct-Style Algebraic Effect Handlers
 ;;;
 ;;; Built directly on Gambit's native zero-copy continuation primitives
 ;;; (##continuation-capture, ##continuation-graft, ##continuation-return),
@@ -272,7 +272,7 @@
 ;;;----------------------------------------------------------------------------
 ;;; Resume & Resume-Multishot
 ;;;
-;;; Phase C3 Fast Path: when a one-shot continuation is resumed in tail
+;;; Fast Path: when a one-shot continuation is resumed in tail
 ;;; position of its handler with empty prefix/marks/handlers, clear all live
 ;;; references to the stack-allocated continuation and tail-call the C runtime
 ;;; `##continuation-try-rewind-oneshot!` to reclaim the captured stack span in
@@ -361,7 +361,7 @@
     (if (not (or (fx= prev %EC-ONE-SHOT-LIVE)
                  (fx= prev %EC-MULTISHOT-COW)))
         (error "one-shot continuation already consumed" ek))
-    ;; Phase C3 tail-resume one-shot stack-rewind fast path (1-arg common case)
+    ;; Tail-resume one-shot stack-rewind fast path (1-arg common case)
     (if (and (fx= prev %EC-ONE-SHOT-LIVE)
              (not (eq? v1 %ABSENT))
              (eq? v2 %ABSENT)

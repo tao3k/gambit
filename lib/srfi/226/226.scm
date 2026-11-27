@@ -6,7 +6,7 @@
 
 ;;;============================================================================
 
-;;; SRFI 226, Control Features (Phase C2 Native Runtime Fast Path)
+;;; SRFI 226, Control Features (Native Runtime Fast Path)
 ;;;
 ;;; Built directly on Gambit's O(1) zero-copy native continuation primitives
 ;;; (##continuation-capture, ##continuation-graft, ##continuation-return) and
@@ -37,7 +37,7 @@
   (block))
 
 ;;;----------------------------------------------------------------------------
-;;; Atomic One-Shot Continuation States (matches formal Quint/Lean/CBMC model)
+;;; Atomic One-Shot Continuation States
 
 (define %CONT-ONE-SHOT-LIVE     0)
 (define %CONT-ONE-SHOT-CONSUMED 1)
