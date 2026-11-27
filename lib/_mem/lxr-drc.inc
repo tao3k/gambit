@@ -1,9 +1,10 @@
-/* Per-VM 2-bit side-table deferred reference counting for mature Immix lines.
+/* Per-section 2-bit side-table deferred reference counting for mature Immix lines.
  *
- * Each mature section has 512 128-word Immix lines. Each line carries a 2-bit
- * saturating count packed 4 lines per byte (128 bytes per section):
+ * Each mature section owns an inline 128-byte 2-bit table inside its trailing
+ * metadata (section_lxr_drc_bits(sec)), eliminating any aliasing across
+ * adjust_msections() re-indexing of sec->pos:
  *   0 = FREE / dead (reclaimable when SATB is inactive)
- *   1 = RC_1 (single incoming reference)
+ *   1 = RC_1 (single incoming reference; default 0x55 initialization)
  *   2 = RC_2 (multiple incoming references)
  *   3 = RC_STUCK (saturated; cleared only by backup concurrent SATB sweep)
  *
@@ -26,8 +27,6 @@
 
 typedef struct lxr_drc_table_struct
   {
-    unsigned char *bits;
-    int sec_cap;
     ___SIZE_TS lines_reclaimed;
     ___SIZE_TS lines_deferred_satb;
     ___SIZE_TS stuck_resets;
@@ -55,23 +54,20 @@ ___HIDDEN void lxr_drc_free(___virtual_machine_state vm)
   tbl = ___CAST(lxr_drc_table*, g->lxr_drc);
   if (tbl != 0)
     {
-      if (tbl->bits != 0)
-        ___FREE_MEM(tbl->bits);
       ___FREE_MEM(tbl);
       g->lxr_drc = 0;
     }
 }
 
-/* Grow the per-VM 2-bit side-table during STW to cover [0 .. need_secs). */
+/* Ensure the per-VM telemetry counters record is allocated during STW. */
 ___HIDDEN lxr_drc_table *lxr_drc_ensure(___virtual_machine_state vm, int need_secs)
 {
   ___root_round *rr = lxr_drc_root_round(vm);
   ___gc_round *g;
   lxr_drc_table *tbl;
-  int ncap;
-  unsigned char *nbits;
 
-  if (rr == 0 || need_secs <= 0)
+  (void)need_secs;
+  if (rr == 0)
     return 0;
   g = &rr->collection;
   tbl = ___CAST(lxr_drc_table*, g->lxr_drc);
@@ -83,123 +79,114 @@ ___HIDDEN lxr_drc_table *lxr_drc_ensure(___virtual_machine_state vm, int need_se
       memset(tbl, 0, sizeof(lxr_drc_table));
       g->lxr_drc = tbl;
     }
-  if (need_secs <= tbl->sec_cap)
-    return tbl;
-
-  ncap = tbl->sec_cap ? (tbl->sec_cap * 2) : 64;
-  while (ncap < need_secs)
-    ncap *= 2;
-  nbits = ___CAST(unsigned char*,
-                  ___ALLOC_MEM(___CAST(___SIZE_T, ncap) * ___LXR_BYTES_PER_SEC));
-  if (nbits == 0)
-    return tbl;
-  if (tbl->sec_cap > 0 && tbl->bits != 0)
-    memcpy(nbits, tbl->bits, ___CAST(___SIZE_T, tbl->sec_cap) * ___LXR_BYTES_PER_SEC);
-  memset(nbits + ___CAST(___SIZE_T, tbl->sec_cap) * ___LXR_BYTES_PER_SEC,
-         0,
-         ___CAST(___SIZE_T, ncap - tbl->sec_cap) * ___LXR_BYTES_PER_SEC);
-  if (tbl->bits != 0)
-    ___FREE_MEM(tbl->bits);
-  tbl->bits = nbits;
-  tbl->sec_cap = ncap;
   return tbl;
 }
 
 static inline unsigned int lxr_drc_get
-   (const lxr_drc_table *tbl,
-    int sec_pos,
+   (___msection *sec,
     ___SIZE_TS line)
 {
-  ___SIZE_TS byte_idx;
+  unsigned char *bits;
   unsigned int shift;
-  if (tbl == 0 || tbl->bits == 0 || sec_pos < 0 || sec_pos >= tbl->sec_cap ||
-      line < 0 || line >= ___LXR_LINES_PER_SEC)
+  if (sec == 0 || line < 0 || line >= ___LXR_LINES_PER_SEC)
     return ___LXR_RC_STUCK;
-  byte_idx = ___CAST(___SIZE_TS, sec_pos) * ___LXR_BYTES_PER_SEC + (line >> 2);
+  bits = section_lxr_drc_bits(sec);
   shift = ___CAST(unsigned int, (line & 3) << 1);
-  return (tbl->bits[byte_idx] >> shift) & 3u;
+  return (bits[line >> 2] >> shift) & 3u;
 }
 
 static inline void lxr_drc_set
-   (lxr_drc_table *tbl,
-    int sec_pos,
+   (___msection *sec,
     ___SIZE_TS line,
     unsigned int val)
 {
-  ___SIZE_TS byte_idx;
+  unsigned char *bits;
   unsigned int shift;
-  if (tbl == 0 || tbl->bits == 0 || sec_pos < 0 || sec_pos >= tbl->sec_cap ||
-      line < 0 || line >= ___LXR_LINES_PER_SEC)
+  if (sec == 0 || line < 0 || line >= ___LXR_LINES_PER_SEC)
     return;
-  byte_idx = ___CAST(___SIZE_TS, sec_pos) * ___LXR_BYTES_PER_SEC + (line >> 2);
+  bits = section_lxr_drc_bits(sec);
   shift = ___CAST(unsigned int, (line & 3) << 1);
-  tbl->bits[byte_idx] = ___CAST(unsigned char,
-    (tbl->bits[byte_idx] & ~(3u << shift)) | ((val & 3u) << shift));
+  bits[line >> 2] = ___CAST(unsigned char,
+    (bits[line >> 2] & ~(3u << shift)) | ((val & 3u) << shift));
 }
 
 static inline void lxr_drc_inc_line
-   (lxr_drc_table *tbl,
-    int sec_pos,
+   (___msection *sec,
     ___SIZE_TS line)
 {
-  unsigned int cur = lxr_drc_get(tbl, sec_pos, line);
+  unsigned int cur = lxr_drc_get(sec, line);
   if (cur < ___LXR_RC_STUCK)
-    lxr_drc_set(tbl, sec_pos, line, cur + 1u);
+    lxr_drc_set(sec, line, cur + 1u);
 }
 
 static inline unsigned int lxr_drc_dec_line
-   (lxr_drc_table *tbl,
-    int sec_pos,
+   (___msection *sec,
     ___SIZE_TS line)
 {
-  unsigned int cur = lxr_drc_get(tbl, sec_pos, line);
+  unsigned int cur = lxr_drc_get(sec, line);
   if (cur == ___LXR_RC_STUCK || cur == ___LXR_RC_FREE)
     return cur;
-  lxr_drc_set(tbl, sec_pos, line, cur - 1u);
+  lxr_drc_set(sec, line, cur - 1u);
   return cur - 1u;
 }
 
-/* Synchronize a mature section's 2-bit side-table from exact SATB sweep state:
- * dead lines recorded in major_line_live[] reset to RC_FREE; live lines reset
- * from RC_STUCK back to RC_ONE so subsequent epochs can track them again. */
+___HIDDEN void lxr_drc_ensure_capacity(___virtual_machine_state vm, int need_secs)
+{
+  (void)lxr_drc_ensure(vm, need_secs);
+}
+
+/* Synchronize a mature section's inline 2-bit side-table from exact SATB sweep
+ * state: dead lines recorded in major_line_live[] reset to RC_FREE; live lines
+ * reset from RC_STUCK back to RC_ONE so subsequent epochs can track them again. */
 ___HIDDEN void lxr_drc_sync_section_after_sweep
    (___virtual_machine_state vm,
     ___msection *sec)
 {
   lxr_drc_table *tbl = ___CAST(lxr_drc_table*, ___COLLECTION(vm).lxr_drc);
   ___SIZE_TS ln;
-  if (tbl == 0 || tbl->bits == 0 || sec == 0 ||
-      sec->pos < 0 || sec->pos >= tbl->sec_cap)
+  ___SIZE_TS local_resets = 0;
+  if (sec == 0)
     return;
   for (ln = 0; ln < ___LXR_LINES_PER_SEC; ln++)
     {
       ___UWORD w = sec->major_line_live[ln / ___WORD_WIDTH];
       ___UWORD bit = ___CAST(___UWORD, 1) << (ln & (___WORD_WIDTH - 1));
       if ((w & bit) != 0)
-        lxr_drc_set(tbl, sec->pos, ln, ___LXR_RC_FREE);
+        lxr_drc_set(sec, ln, ___LXR_RC_FREE);
       else
-        lxr_drc_set(tbl, sec->pos, ln, ___LXR_RC_ONE);
+        {
+          if (lxr_drc_get(sec, ln) == ___LXR_RC_STUCK)
+            local_resets++;
+          lxr_drc_set(sec, ln, ___LXR_RC_ONE);
+        }
+    }
+  if (tbl != 0 && local_resets > 0)
+    {
+#if defined(__ATOMIC_RELAXED)
+      __atomic_fetch_add(&tbl->stuck_resets, local_resets, __ATOMIC_RELAXED);
+#else
+      tbl->stuck_resets += local_resets;
+#endif
     }
 }
 
-/* Mark lines populated by Minor GC hole promotion as RC_ONE. */
+/* Mark lines populated by Minor GC hole/tail/fresh promotion as RC_ONE. */
 ___HIDDEN void lxr_drc_mark_promoted_span
    (___virtual_machine_state vm,
     ___msection *sec,
     ___SIZE_TS word_lo,
     ___SIZE_TS word_hi)
 {
-  lxr_drc_table *tbl = ___CAST(lxr_drc_table*, ___COLLECTION(vm).lxr_drc);
   ___SIZE_TS ln_lo, ln_hi, ln;
-  if (tbl == 0 || tbl->bits == 0 || sec == 0 ||
-      sec->pos < 0 || sec->pos >= tbl->sec_cap || word_hi <= word_lo)
+  (void)vm;
+  if (sec == 0 || word_hi <= word_lo)
     return;
   ln_lo = word_lo >> 7;
   ln_hi = (word_hi + 127) >> 7;
   if (ln_hi > ___LXR_LINES_PER_SEC)
     ln_hi = ___LXR_LINES_PER_SEC;
   for (ln = ln_lo; ln < ln_hi; ln++)
-    lxr_drc_set(tbl, sec->pos, ln, ___LXR_RC_ONE);
+    lxr_drc_set(sec, ln, ___LXR_RC_ONE);
 }
 
 /* Promptly reclaim a zero-RC mature line when SATB tracing is inactive,
@@ -218,13 +205,72 @@ ___HIDDEN int lxr_drc_try_reclaim_line
       tbl->lines_deferred_satb++;
       return 0;
     }
-  if (lxr_drc_get(tbl, sec->pos, line) != ___LXR_RC_FREE)
+  if (lxr_drc_get(sec, line) != ___LXR_RC_FREE)
     return 0;
   sec->major_line_live[line / ___WORD_WIDTH] |=
     (___CAST(___UWORD, 1) << (line & (___WORD_WIDTH - 1)));
   sec->region_generation++;
   tbl->lines_reclaimed++;
   return 1;
+}
+
+/* Reclaim newly RC_FREE mature lines outside the active hole into
+ * major_line_live[] strictly when SATB tracing is IDLE; defer and count
+ * when SATB tracing is active. */
+___HIDDEN int lxr_drc_reclaim_free_lines_idle
+   (___virtual_machine_state vm,
+    ___msection *sec)
+{
+  lxr_drc_table *tbl = ___CAST(lxr_drc_table*, ___COLLECTION(vm).lxr_drc);
+  ___SIZE_TS max_ln, active_lo, active_hi, ln;
+  int reclaimed = 0;
+  int satb_active;
+
+  if (tbl == 0 || sec == 0 ||
+      sec->region_age != ___GC_REGION_MATURE || sec->gc_evacuating ||
+      sec->major_mark_epoch == 0)
+    return 0;
+
+  max_ln = sec->major_snapshot_words >> 7;
+  if (max_ln > (sec->mature_words >> 7))
+    max_ln = sec->mature_words >> 7;
+  if (max_ln > ___LXR_LINES_PER_SEC)
+    max_ln = ___LXR_LINES_PER_SEC;
+  active_lo = sec->major_hole_start >> 7;
+  active_hi = sec->major_hole_end >> 7;
+  satb_active = (___WORD_LOAD_ACQUIRE(&vm->mem.major_phase_) != ___GC_MAJOR_IDLE);
+
+  for (ln = 0; ln < max_ln; ln++)
+    {
+      ___UWORD w, bit;
+      if (ln >= active_lo && ln < active_hi)
+        continue;
+      w = sec->major_line_live[ln / ___WORD_WIDTH];
+      bit = ___CAST(___UWORD, 1) << (ln & (___WORD_WIDTH - 1));
+      if ((w & bit) != 0)
+        continue;
+      if (lxr_drc_get(sec, ln) == ___LXR_RC_FREE)
+        {
+          if (satb_active)
+            tbl->lines_deferred_satb++;
+          else if (lxr_drc_try_reclaim_line(vm, sec, ln))
+            reclaimed++;
+        }
+    }
+  return reclaimed;
+}
+
+___HIDDEN void lxr_drc_sync_vm_stats(___virtual_machine_state vm)
+{
+  lxr_drc_table *tbl;
+  if (vm == 0 || lxr_drc_root_round(vm) == 0)
+    return;
+  tbl = ___CAST(lxr_drc_table*, ___COLLECTION(vm).lxr_drc);
+  if (tbl == 0)
+    return;
+  vm->mem.lxr_lines_reclaimed_ = ___CAST(___F64, tbl->lines_reclaimed);
+  vm->mem.lxr_lines_deferred_satb_ = ___CAST(___F64, tbl->lines_deferred_satb);
+  vm->mem.lxr_stuck_resets_ = ___CAST(___F64, tbl->stuck_resets);
 }
 
 #endif

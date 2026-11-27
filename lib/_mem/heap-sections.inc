@@ -1297,6 +1297,71 @@ ___HIDDEN void refill_worker_arena (___collector_worker *work)
   if (work->arena.section != 0)
     work->arena.section->gc_dest_words =
       work->arena.cursor - (work->arena.section->base + work->arena.section->gc_dest_offset);
+
+  /* In-section multi-hole Immix refill and overflow line preservation:
+   * keep [hole_lo .. cur_off) untouched before BARRIER() so parallel chunk
+   * stealers finish safely; return untouched trailing lines [rem_lo .. hole_hi)
+   * (>= 256 words) with a valid leaf filler header and chain directly to the
+   * next fitting hole in the same mature section without allocating a new one. */
+  if (g->is_minor &&
+      work->arena.section != 0 &&
+      work->arena.section->gc_is_dest == 3 &&
+      work->id < g->promo_tail_count &&
+      g->promo_tails[work->id] == work->arena.section &&
+      work->closed_holes_count_ < ___GC_WORKER_MAX_CLOSED_HOLES)
+    {
+      ___msection *asec = work->arena.section;
+      ___WORD *hbase = asec->base + asec->active_offset;
+      ___SIZE_TS hole_lo = g->promo_tail_starts[work->id];
+      ___SIZE_TS hole_hi = g->promo_tail_ends[work->id];
+      ___SIZE_TS cur_off = asec->gc_dest_words;
+      ___SIZE_TS rem_lo = (cur_off + 127) & ~___CAST(___SIZE_TS, 127);
+      ___SIZE_TS closed_hi = hole_hi;
+      ___SIZE_TS need = (work->copy_request.state != 0)
+                          ? (work->copy_request.destination_words + 4)
+                          : 256;
+      ___SIZE_TS next_lo = 0, next_hi = 0;
+
+      if (cur_off > hole_lo + 1 && hole_hi > rem_lo && (hole_hi - rem_lo) >= 256)
+        {
+          ___SIZE_TS ln_lo = rem_lo >> 7;
+          ___SIZE_TS ln_hi = hole_hi >> 7;
+          ___SIZE_TS max_ln = 8 * ___WORD_WIDTH;
+          ___SIZE_TS ln;
+          if (ln_hi > max_ln)
+            ln_hi = max_ln;
+          hbase[rem_lo] = ___MAKE_HD_WORDS(hole_hi - rem_lo - 1, ___sU8VECTOR);
+          record_mature_obj_start(asec, hbase + rem_lo);
+          for (ln = ln_lo; ln < ln_hi; ln++)
+            asec->major_line_live[ln / ___WORD_WIDTH] |=
+              (___CAST(___UWORD, 1) << (ln & (___WORD_WIDTH - 1)));
+          closed_hi = rem_lo;
+          work->immix_overflow_preserved_++;
+        }
+
+      if (section_claim_immix_hole_fitting(asec, need, &next_lo, &next_hi))
+        {
+          ___gc_closed_hole *ch = &work->closed_holes_[work->closed_holes_count_++];
+          ch->sec = asec;
+          ch->lo = hole_lo;
+          ch->cur = cur_off;
+          ch->hi = closed_hi;
+          g->promo_tail_starts[work->id] = next_lo;
+          g->promo_tail_ends[work->id] = next_hi;
+          work->arena.retired_words += work->arena.cursor - work->arena.base;
+          work->arena.refills++;
+          work->immix_multihole_refills_++;
+          prepare_worker_msection(work, asec, asec->active_offset, next_lo, next_hi, 2);
+          return;
+        }
+      else
+        {
+          /* Overflowing to a clean section: shrink promo_tail_ends to closed_hi
+           * so post-BARRIER closing never overwrites preserved [rem_lo .. hole_hi). */
+          g->promo_tail_ends[work->id] = closed_hi;
+        }
+    }
+
   work->arena.retired_words += work->arena.cursor-work->arena.base;
   ALLOC_MEM_LOCK();
   ms = next_copy_plan_section(g->copy_cursor);
@@ -1541,6 +1606,9 @@ ___virtual_machine_state ___vms;)
       work->arena.epoch = g->epoch;
       work->arena.retired_words = work->arena.refills = 0;
       work->arena.handed_off = 0;
+      work->closed_holes_count_ = 0;
+      work->immix_multihole_refills_ = 0;
+      work->immix_overflow_preserved_ = 0;
       if (i < g->promo_tail_count)
         {
           prepare_worker_msection(work, g->promo_tails[i],

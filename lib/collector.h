@@ -164,6 +164,15 @@ static inline int ___gc_copy_plan_fits(int roots,int copies,int pool)
 #define ___GC_SEC_CACHE_BITS 6
 #define ___GC_SEC_CACHE_SIZE (1 << ___GC_SEC_CACHE_BITS)
 #define ___GC_SEC_CACHE_MASK (___GC_SEC_CACHE_SIZE - 1)
+#define ___GC_WORKER_MAX_CLOSED_HOLES 64
+
+typedef struct ___gc_closed_hole_struct
+  {
+    ___msection *sec;
+    ___SIZE_TS lo;
+    ___SIZE_TS cur;
+    ___SIZE_TS hi;
+  } ___gc_closed_hole;
 
 typedef struct ___collector_worker_struct
   {
@@ -244,6 +253,12 @@ ___BOOL traverse_weak_refs_;
 
 /* GC hash tables reached by GC */
 ___WORD reached_gc_hash_tables_;
+
+/* Worker-private ledger of chained Immix holes closed after BARRIER() */
+___gc_closed_hole closed_holes_[___GC_WORKER_MAX_CLOSED_HOLES];
+int closed_holes_count_;
+___SIZE_TS immix_multihole_refills_;
+___SIZE_TS immix_overflow_preserved_;
 
 #ifdef ___DEBUG_GARBAGE_COLLECT
 

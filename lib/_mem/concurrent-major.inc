@@ -20,7 +20,7 @@
 #define ___GC_MAJOR_ACTION_REMARK     3
 #define ___GC_MAJOR_ACTION_ABORT      4
 
-#define ___GC_IMMIX_MIN_HOLE_WORDS    512
+#define ___GC_IMMIX_MIN_HOLE_WORDS    256
 
 #define ___GC_MAJOR_REMOTE_BATCH      32
 #define ___GC_MAJOR_MAX_STATIC_WORKERS 64
@@ -2123,6 +2123,7 @@ ___HIDDEN void major_remark_phase_c_parallel
           sec->major_evacuate = 2;
           sec->major_hole_start = 0;
           sec->major_hole_end = 0;
+          memset(sec->major_line_live, 0, sizeof(sec->major_line_live));
           continue;
         }
 
@@ -2164,6 +2165,15 @@ ___HIDDEN void major_remark_phase_c_parallel
                             run_lo = off;
                           }
                         run_hi = off + 1;
+                      }
+                    else
+                      {
+                        /* Replace chunk-link ___FORW inside the boundary card with a
+                         * 1-word leaf filler so starts[boundary_card] becomes 0 and
+                         * dirty-card walks never backtrack across full_card_words into
+                         * a recycled Immix hole. */
+                        *ptr = ___MAKE_HD_WORDS(0, ___sU8VECTOR);
+                        record_mature_obj_start(sec, ptr);
                       }
                     ptr += 1;
                     continue;
@@ -2228,6 +2238,16 @@ ___HIDDEN void major_remark_phase_c_parallel
               }
             if (in_dead)
               major_close_dead_run(sec, base, run_lo, run_hi);
+            /* If post-snapshot promotions appended a chunk-link ___FORW right at
+             * a card-aligned snap_words boundary, replace it with a 1-word leaf
+             * filler so starts[snap_card] == 0 blocks dirty-card backtracking. */
+            if (sec->mature_words > snap_words &&
+                (snap_words & (___GC_CARD_WORDS - 1)) == 0 &&
+                ___TESTTYPE(base[snap_words], ___FORW))
+              {
+                base[snap_words] = ___MAKE_HD_WORDS(0, ___sU8VECTOR);
+                record_mature_obj_start(sec, base + snap_words);
+              }
             sec->major_live_words = ___CAST(___WORD, local_live_words);
           }
 
@@ -2368,6 +2388,8 @@ ___HIDDEN void major_remark_phase_d_coord(___virtual_machine_state vm)
               sec->major_evacuate = 0;
               sec->major_hole_start = 0;
               sec->major_hole_end = 0;
+              memset(sec->major_line_live, 0, sizeof(sec->major_line_live));
+              memset(___CAST(void*, section_lxr_drc_bits(sec)), 0x55, SECTION_LXR_DRC_BYTES);
               memset(___CAST(void*, section_card_bits(sec)), 0, SECTION_CARD_BYTES);
               memset(___CAST(void*, section_card_starts(sec)), ___GC_CARD_NO_OBJ_START, SECTION_CARD_COUNT);
               *section_claim_at(sec, 0) = (section_claim){0};
@@ -2427,6 +2449,7 @@ ___HIDDEN void major_remark_phase_d_coord(___virtual_machine_state vm)
 
   gc_update_major_triggers(vm);
   major_fold_local_stats_stw(vm);
+  lxr_drc_sync_vm_stats(vm);
 
   ___process_times(&u1, &s1, &r1);
   vm->mem.nb_concurrent_major_cycles_ += 1.0;

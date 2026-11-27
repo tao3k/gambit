@@ -92,6 +92,7 @@ ___HIDDEN ___BOOL try_local_movable_nursery_gc(___processor_state ___ps);
 #include "_mem/diagnostics.inc"
 ___HIDDEN void publish_fast_span ___P((___processor_state ___ps),());
 ___HIDDEN void clear_fast_span ___P((___processor_state ___ps),());
+___HIDDEN int section_claim_immix_hole_fitting(___msection *sec, ___SIZE_TS min_words, ___SIZE_TS *lo_out, ___SIZE_TS *hi_out);
 #include "_mem/heap-sections.inc"
 #include "_mem/startup-reservation.inc"
 ___HIDDEN void major_shade_mature_movable(___virtual_machine_state vm, ___msection *sec, ___WORD *header, ___WORD head);
@@ -109,6 +110,9 @@ ___HIDDEN void major_abort_for_full_compacting_gc(___virtual_machine_state vm);
 ___HIDDEN int gc_adaptive_live_percent(___SIZE_TS live_words, int explicit_flag, int configured_pct, ___SIZE_T max_heap_bytes);
 ___HIDDEN void gc_update_major_triggers(___virtual_machine_state vm);
 ___HIDDEN void lxr_drc_mark_promoted_span(___virtual_machine_state vm, ___msection *sec, ___SIZE_TS word_lo, ___SIZE_TS word_hi);
+___HIDDEN void lxr_drc_ensure_capacity(___virtual_machine_state vm, int need_secs);
+___HIDDEN int lxr_drc_reclaim_free_lines_idle(___virtual_machine_state vm, ___msection *sec);
+___HIDDEN void lxr_drc_sync_vm_stats(___virtual_machine_state vm);
 #include "_mem/copy-reservations.inc"
 #include "_mem/continuation-roots.inc"
 #include "_mem/rc-roots.inc"

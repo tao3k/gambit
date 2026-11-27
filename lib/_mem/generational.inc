@@ -696,24 +696,38 @@ ___HIDDEN int section_has_promo_room(___msection *sec, ___SIZE_TS *start_w_out)
   return 0;
 }
 
-___HIDDEN int section_advance_next_immix_hole(___msection *sec)
+/* Claim a contiguous run of >= 2 free 128-word Immix lines (>= 256 words)
+ * satisfying min_words. Uses best-fit when min_words > 256 to preserve larger
+ * holes for medium objects, and largest-fit otherwise. */
+___HIDDEN int section_claim_immix_hole_fitting
+   (___msection *sec,
+    ___SIZE_TS min_words,
+    ___SIZE_TS *lo_out,
+    ___SIZE_TS *hi_out)
 {
   const ___SIZE_TS max_lines = 8 * ___WORD_WIDTH;
+  ___SIZE_TS min_lines = (min_words + 127) >> 7;
   ___SIZE_TS best_lo = 0, best_hi = 0;
   ___SIZE_TS cur_lo = 0;
+  int best_fit = (min_words > 256);
   int in_run = 0;
   ___SIZE_TS ln;
 
   if (sec == 0)
     return 0;
+  if (min_lines < 2)
+    min_lines = 2;
 
-  /* Scan 512-bit free-line bitmap (8 words) for the largest contiguous run
-   * of >= 4 free 128-word Immix lines (>= 512 words). */
-  for (ln = 0; ln < max_lines; ln++)
+  for (ln = 0; ln <= max_lines; ln++)
     {
-      ___UWORD w = sec->major_line_live[ln / ___WORD_WIDTH];
-      ___UWORD bit = ___CAST(___UWORD, 1) << (ln & (___WORD_WIDTH - 1));
-      if ((w & bit) != 0)
+      int is_free = 0;
+      if (ln < max_lines)
+        {
+          ___UWORD w = sec->major_line_live[ln / ___WORD_WIDTH];
+          ___UWORD bit = ___CAST(___UWORD, 1) << (ln & (___WORD_WIDTH - 1));
+          is_free = ((w & bit) != 0);
+        }
+      if (is_free)
         {
           if (!in_run)
             {
@@ -723,18 +737,46 @@ ___HIDDEN int section_advance_next_immix_hole(___msection *sec)
         }
       else if (in_run)
         {
-          if ((ln - cur_lo) >= 4 && (ln - cur_lo) > (best_hi - best_lo))
+          ___SIZE_TS cand_hi = ln;
+          /* Verify the card immediately following [cur_lo<<7, cand_hi<<7) starts
+           * at offset 0 so parallel dirty-card scans can never backtrack into
+           * an active Immix hole; if a chunk-link ___FORW sits at hi_w, replace
+           * it with a 1-word leaf filler, otherwise skip this candidate run. */
+          int boundary_ok = 1;
+          ___SIZE_TS hi_w = cand_hi << 7;
+          if (hi_w < sec->mature_words)
             {
-              best_lo = cur_lo;
-              best_hi = ln;
+              unsigned char *starts = section_card_starts(sec);
+              unsigned int hi_card =
+                ___CAST(unsigned int, (sec->active_offset + hi_w) >> ___GC_CARD_SHIFT_WORDS);
+              if (starts[hi_card] != 0)
+                {
+                  ___WORD *hbase = sec->base + sec->active_offset;
+                  if (___TESTTYPE(hbase[hi_w], ___FORW))
+                    {
+                      hbase[hi_w] = ___MAKE_HD_WORDS(0, ___sU8VECTOR);
+                      starts[hi_card] = 0;
+                    }
+                  else
+                    boundary_ok = 0;
+                }
+            }
+          if (boundary_ok)
+            {
+              ___SIZE_TS run = cand_hi - cur_lo;
+              if (run >= min_lines)
+                {
+                  ___SIZE_TS best_run = best_hi - best_lo;
+                  if (best_run == 0 ||
+                      (best_fit ? (run < best_run) : (run > best_run)))
+                    {
+                      best_lo = cur_lo;
+                      best_hi = cand_hi;
+                    }
+                }
             }
           in_run = 0;
         }
-    }
-  if (in_run && (max_lines - cur_lo) >= 4 && (max_lines - cur_lo) > (best_hi - best_lo))
-    {
-      best_lo = cur_lo;
-      best_hi = max_lines;
     }
 
   if (best_hi > best_lo)
@@ -742,14 +784,54 @@ ___HIDDEN int section_advance_next_immix_hole(___msection *sec)
       for (ln = best_lo; ln < best_hi; ln++)
         sec->major_line_live[ln / ___WORD_WIDTH] &=
           ~(___CAST(___UWORD, 1) << (ln & (___WORD_WIDTH - 1)));
-      sec->major_hole_start = best_lo << 7;
-      sec->major_hole_end = best_hi << 7;
+      if (lo_out != 0) *lo_out = best_lo << 7;
+      if (hi_out != 0) *hi_out = best_hi << 7;
       return 1;
     }
+  return 0;
+}
 
+___HIDDEN int section_advance_next_immix_hole(___msection *sec)
+{
+  ___SIZE_TS lo = 0, hi = 0;
+  if (sec == 0)
+    return 0;
+  if (section_claim_immix_hole_fitting(sec, 256, &lo, &hi))
+    {
+      sec->major_hole_start = lo;
+      sec->major_hole_end = hi;
+      return 1;
+    }
   sec->major_hole_start = 0;
   sec->major_hole_end = 0;
   return 0;
+}
+
+static inline ___SIZE_TS section_total_free_hole_words(___msection *sec)
+{
+  ___SIZE_TS total = 0;
+  int wi;
+  if (sec == 0)
+    return 0;
+  if (sec->major_hole_end > sec->major_hole_start)
+    total += (sec->major_hole_end - sec->major_hole_start);
+  for (wi = 0; wi < 8; wi++)
+    {
+      ___UWORD w = sec->major_line_live[wi];
+      if (w != 0)
+        {
+#if defined(__GNUC__) || defined(__clang__)
+          total += ___CAST(___SIZE_TS, (__builtin_popcountll(___CAST(unsigned long long, w)) << 7));
+#else
+          while (w != 0)
+            {
+              w &= (w - 1);
+              total += 128;
+            }
+#endif
+        }
+    }
+  return total;
 }
 
 ___HIDDEN ___SIZE_TS section_best_promo_span
@@ -761,21 +843,40 @@ ___HIDDEN ___SIZE_TS section_best_promo_span
 {
   ___SIZE_TS tail_start = 0, tail_room = 0;
   ___SIZE_TS hole_room = 0;
+  ___SIZE_TS total_hole_room = 0;
   if (section_has_promo_room(sec, &tail_start))
     tail_room = (___MSECTION_SIZE >> 1) - tail_start;
-  if (allow_hole &&
-      sec->major_hole_end > sec->major_hole_start &&
-      (sec->major_hole_end - sec->major_hole_start) >= 512)
-    hole_room = sec->major_hole_end - sec->major_hole_start;
+  if (allow_hole && sec->major_mark_epoch != 0)
+    {
+      if (sec->major_hole_end <= sec->major_hole_start ||
+          (sec->major_hole_end - sec->major_hole_start) < 256)
+        {
+          int wi;
+          for (wi = 0; wi < 8; wi++)
+            if (sec->major_line_live[wi] != 0)
+              {
+                section_advance_next_immix_hole(sec);
+                break;
+              }
+        }
+      if (sec->major_hole_end > sec->major_hole_start &&
+          (sec->major_hole_end - sec->major_hole_start) >= 256)
+        {
+          hole_room = sec->major_hole_end - sec->major_hole_start;
+          total_hole_room = section_total_free_hole_words(sec);
+        }
+    }
 
-  /* Prefer Immix hole recycling whenever a substantial dead hole exists
-   * (>= 1024 words or larger than tail room) to keep mature RSS tightly bounded. */
-  if (hole_room > 0 && (hole_room >= 1024 || hole_room >= tail_room))
+  /* Prefer Immix multi-hole recycling whenever cumulative free lines in this
+   * section provide substantial capacity (>= 512 words or >= tail room), and
+   * return total_hole_room so candidate ranking prioritizes hole-rich sections
+   * even when individual holes are 256-384 words wide. */
+  if (hole_room >= 256 && (total_hole_room >= 512 || total_hole_room >= tail_room))
     {
       if (start_w_out != 0) *start_w_out = sec->major_hole_start;
       if (end_w_out != 0) *end_w_out = sec->major_hole_end;
       if (is_hole_out != 0) *is_hole_out = 1;
-      return hole_room;
+      return total_hole_room;
     }
   if (tail_room > 0)
     {
@@ -1028,10 +1129,14 @@ ___HIDDEN void prepare_generational_round
           else
             {
               int worst = 0, j;
-              ___SIZE_TS worst_room = g->promo_tail_ends[0] - g->promo_tail_starts[0];
+              ___SIZE_TS worst_room = g->promo_tail_is_hole[0]
+                ? section_total_free_hole_words(g->promo_tails[0])
+                : (g->promo_tail_ends[0] - g->promo_tail_starts[0]);
               for (j = 1; j < max_tails; j++)
                 {
-                  ___SIZE_TS r = g->promo_tail_ends[j] - g->promo_tail_starts[j];
+                  ___SIZE_TS r = g->promo_tail_is_hole[j]
+                    ? section_total_free_hole_words(g->promo_tails[j])
+                    : (g->promo_tail_ends[j] - g->promo_tail_starts[j]);
                   if (r < worst_room)
                     {
                       worst = j;
@@ -1465,6 +1570,110 @@ ___HIDDEN void rebuild_mature_snapshot(___virtual_machine_state vm)
   vm->mem.mature_snapshot_epoch_++;
 }
 
+/* Close one recycled Immix dead-line hole [hole_lo, hole_hi) strictly after
+ * all parallel chunk-stealing workers drained behind BARRIER().
+ * Shared by in-GC chained sub-holes (is_final_hole == 0) and each worker's
+ * terminal promo_tail hole (is_final_hole == 1). */
+___HIDDEN void close_recycled_immix_hole_stw
+   (___virtual_machine_state vm,
+    ___msection *s,
+    ___SIZE_TS hole_lo,
+    ___SIZE_TS cur_off,
+    ___SIZE_TS hole_hi,
+    int is_final_hole)
+{
+  ___WORD *hbase = s->base + s->active_offset;
+  unsigned char *starts = section_card_starts(s);
+  unsigned int lo_card =
+    ___CAST(unsigned int, (s->active_offset + hole_lo) >> ___GC_CARD_SHIFT_WORDS);
+
+  if (hole_hi <= hole_lo)
+    {
+      if (is_final_hole)
+        section_advance_next_immix_hole(s);
+      return;
+    }
+
+  if (cur_off <= hole_lo + 1)
+    {
+      /* Empty hole (nothing promoted): restore single filler & retain hole. */
+      hbase[hole_lo] = ___MAKE_HD_WORDS(hole_hi - hole_lo - 1, ___sU8VECTOR);
+      starts[lo_card] = 0;
+      if (is_final_hole && (hole_hi - hole_lo) >= 256)
+        {
+          s->major_hole_start = hole_lo;
+          s->major_hole_end = hole_hi;
+        }
+      else
+        {
+          ___SIZE_TS ln_lo = hole_lo >> 7;
+          ___SIZE_TS ln_hi = hole_hi >> 7;
+          ___SIZE_TS max_ln = 8 * ___WORD_WIDTH;
+          ___SIZE_TS ln;
+          if (ln_hi > max_ln) ln_hi = max_ln;
+          for (ln = ln_lo; ln < ln_hi; ln++)
+            s->major_line_live[ln / ___WORD_WIDTH] |=
+              (___CAST(___UWORD, 1) << (ln & (___WORD_WIDTH - 1)));
+          if (is_final_hole)
+            section_advance_next_immix_hole(s);
+        }
+      return;
+    }
+
+  {
+    ___SIZE_TS next_lo = (cur_off + 127) & ~___CAST(___SIZE_TS, 127);
+    /* Replace initial NULL_CHUNK_LINK at hole_lo with 1-word leaf filler. */
+    hbase[hole_lo] = ___MAKE_HD_WORDS(0, ___sU8VECTOR);
+    starts[lo_card] = 0;
+    if (cur_off >= hole_hi)
+      {
+        /* Promoted objects filled [hole_lo .. hole_hi) exactly; no trailing filler. */
+        lxr_drc_mark_promoted_span(vm, s, hole_lo, hole_hi);
+        if (is_final_hole)
+          section_advance_next_immix_hole(s);
+      }
+    else if (hole_hi > next_lo && (hole_hi - next_lo) >= 256)
+      {
+        if (next_lo > cur_off)
+          {
+            hbase[cur_off] = ___MAKE_HD_WORDS(next_lo - cur_off - 1, ___sU8VECTOR);
+            record_mature_obj_start(s, hbase + cur_off);
+          }
+        hbase[next_lo] = ___MAKE_HD_WORDS(hole_hi - next_lo - 1, ___sU8VECTOR);
+        record_mature_obj_start(s, hbase + next_lo);
+        if (is_final_hole)
+          {
+            s->major_hole_start = next_lo;
+            s->major_hole_end = hole_hi;
+          }
+        else
+          {
+            ___SIZE_TS ln_lo = next_lo >> 7;
+            ___SIZE_TS ln_hi = hole_hi >> 7;
+            ___SIZE_TS max_ln = 8 * ___WORD_WIDTH;
+            ___SIZE_TS ln;
+            if (ln_hi > max_ln) ln_hi = max_ln;
+            for (ln = ln_lo; ln < ln_hi; ln++)
+              s->major_line_live[ln / ___WORD_WIDTH] |=
+                (___CAST(___UWORD, 1) << (ln & (___WORD_WIDTH - 1)));
+          }
+        /* Mark promoted objects + padding filler [hole_lo .. next_lo) as RC_ONE. */
+        lxr_drc_mark_promoted_span(vm, s, hole_lo, next_lo);
+      }
+    else
+      {
+        hbase[cur_off] = ___MAKE_HD_WORDS(hole_hi - cur_off - 1, ___sU8VECTOR);
+        record_mature_obj_start(s, hbase + cur_off);
+        /* Mark entire [hole_lo .. hole_hi) including trailing filler as RC_ONE so
+         * LXR never reclaims a line spanned by the closing filler object. */
+        lxr_drc_mark_promoted_span(vm, s, hole_lo, hole_hi);
+        if (is_final_hole)
+          section_advance_next_immix_hole(s);
+      }
+    vm->mem.concurrent_major_holes_recycled_ += 1.0;
+  }
+}
+
 /* Re-order the doubly-linked list of the_msections into canonical partitions:
  *   [ MATURE (least-full last) ] -> [ active YOUNG stacks & heaps ] -> [ FREE YOUNG ]
  * Does not modify ms->sections[] address-sorted array or s->pos. */
@@ -1559,6 +1768,36 @@ ___HIDDEN void finalize_gc_sections(___virtual_machine_state vm)
       ___msection *free_head = 0, *free_tail = 0;
       ___msection *cur;
 
+      lxr_drc_ensure_capacity(vm, ms->nb_sections);
+
+      /* 1a. Close all worker-chained Immix sub-holes recorded during in-section
+       * multi-hole refill strictly after BARRIER() drained all chunk stealers. */
+      {
+        int wi, hi;
+        for (wi = 0; wi < g->worker_count; wi++)
+          {
+            ___collector_worker *w = &___COLLECTORS(vm)[wi];
+            for (hi = 0; hi < w->closed_holes_count_; hi++)
+              {
+                ___gc_closed_hole *ch = &w->closed_holes_[hi];
+                if (ch->sec != 0)
+                  close_recycled_immix_hole_stw(vm, ch->sec, ch->lo, ch->cur, ch->hi, 0);
+              }
+            w->closed_holes_count_ = 0;
+            if (w->immix_multihole_refills_ > 0)
+              {
+                vm->mem.immix_multihole_refills_ += ___CAST(___F64, w->immix_multihole_refills_);
+                w->immix_multihole_refills_ = 0;
+              }
+            if (w->immix_overflow_preserved_ > 0)
+              {
+                vm->mem.immix_overflow_preserved_ += ___CAST(___F64, w->immix_overflow_preserved_);
+                w->immix_overflow_preserved_ = 0;
+              }
+          }
+      }
+
+      /* 1b. Close each worker's terminal promo_tail (Immix hole or tail append). */
       for (i = 0; i < g->promo_tail_count; i++)
         {
           ___msection *s = g->promo_tails[i];
@@ -1566,61 +1805,31 @@ ___HIDDEN void finalize_gc_sections(___virtual_machine_state vm)
             {
               if (s->gc_is_dest == 3)
                 {
-                  /* Close recycled Immix dead-line hole [hole_lo, hole_hi) strictly
-                   * after all parallel chunk-stealing workers drained behind BARRIER(). */
-                  ___WORD *hbase = s->base + s->active_offset;
-                  ___SIZE_TS hole_lo = g->promo_tail_starts[i];
-                  ___SIZE_TS hole_hi = g->promo_tail_ends[i];
-                  ___SIZE_TS cur_off = s->gc_dest_words;
-                  unsigned char *starts = section_card_starts(s);
-                  unsigned int lo_card =
-                    ___CAST(unsigned int, (s->active_offset + hole_lo) >> ___GC_CARD_SHIFT_WORDS);
-
-                  if (cur_off <= hole_lo + 1 || cur_off >= hole_hi)
-                    {
-                      /* Empty hole (nothing promoted): restore single filler & retain hole. */
-                      hbase[hole_lo] = ___MAKE_HD_WORDS(hole_hi - hole_lo - 1, ___sU8VECTOR);
-                      starts[lo_card] = 0;
-                      s->major_hole_start = hole_lo;
-                      s->major_hole_end = hole_hi;
-                    }
-                  else
-                    {
-                      ___SIZE_TS next_lo = (cur_off + ___GC_CARD_WORDS - 1) &
-                                           ~___CAST(___SIZE_TS, ___GC_CARD_WORDS - 1);
-                      /* Replace initial NULL_CHUNK_LINK at hole_lo with 1-word leaf filler. */
-                      hbase[hole_lo] = ___MAKE_HD_WORDS(0, ___sU8VECTOR);
-                      starts[lo_card] = 0;
-                      if (hole_hi > next_lo && (hole_hi - next_lo) >= 512)
-                        {
-                          if (next_lo > cur_off)
-                            {
-                              hbase[cur_off] = ___MAKE_HD_WORDS(next_lo - cur_off - 1, ___sU8VECTOR);
-                              record_mature_obj_start(s, hbase + cur_off);
-                            }
-                          hbase[next_lo] = ___MAKE_HD_WORDS(hole_hi - next_lo - 1, ___sU8VECTOR);
-                          record_mature_obj_start(s, hbase + next_lo);
-                          s->major_hole_start = next_lo;
-                          s->major_hole_end = hole_hi;
-                        }
-                      else
-                        {
-                          hbase[cur_off] = ___MAKE_HD_WORDS(hole_hi - cur_off - 1, ___sU8VECTOR);
-                          record_mature_obj_start(s, hbase + cur_off);
-                          /* Multi-hole Immix: immediately advance to next free line run. */
-                          section_advance_next_immix_hole(s);
-                        }
-                      lxr_drc_mark_promoted_span(vm, s, hole_lo, cur_off);
-                      vm->mem.concurrent_major_holes_recycled_ += 1.0;
-                    }
+                  close_recycled_immix_hole_stw(
+                    vm, s, g->promo_tail_starts[i], s->gc_dest_words, g->promo_tail_ends[i], 1);
+                  lxr_drc_reclaim_free_lines_idle(vm, s);
+                  if (s->major_hole_end <= s->major_hole_start)
+                    section_advance_next_immix_hole(s);
                   s->region_age = ___GC_REGION_MATURE;
                 }
               else if (s->gc_is_dest == 2)
                 {
+                  ___SIZE_TS old_mat = s->mature_words;
                   if (s->gc_dest_words > s->mature_words)
-                    vm->mem.occupied_words_mature_ += (s->gc_dest_words - s->mature_words);
+                    {
+                      ___WORD *hbase = s->base + s->active_offset;
+                      ___SIZE_TS pstart = g->promo_tail_starts[i];
+                      if (___TESTTYPE(hbase[pstart], ___FORW))
+                        {
+                          hbase[pstart] = ___MAKE_HD_WORDS(0, ___sU8VECTOR);
+                          record_mature_obj_start(s, hbase + pstart);
+                        }
+                      vm->mem.occupied_words_mature_ += (s->gc_dest_words - s->mature_words);
+                    }
                   s->mature_words = s->gc_dest_words;
                   s->scan_end_words = s->mature_words;
+                  if (s->mature_words > old_mat)
+                    lxr_drc_mark_promoted_span(vm, s, old_mat, s->mature_words);
                   s->region_age = ___GC_REGION_MATURE;
                 }
               s->gc_is_dest = 0;
@@ -1677,6 +1886,8 @@ ___HIDDEN void finalize_gc_sections(___virtual_machine_state vm)
                   s->major_evacuate = 0;
                   s->major_hole_start = 0;
                   s->major_hole_end = 0;
+                  memset(s->major_line_live, 0, sizeof(s->major_line_live));
+                  memset(___CAST(void*, section_lxr_drc_bits(s)), 0x55, SECTION_LXR_DRC_BYTES);
                   memset(___CAST(void*, section_card_bits(s)), 0, SECTION_CARD_BYTES);
                   memset(___CAST(void*, section_card_starts(s)), ___GC_CARD_NO_OBJ_START, SECTION_CARD_COUNT);
                   *section_claim_at(s, 0) = (section_claim){0};
@@ -1733,6 +1944,14 @@ ___HIDDEN void finalize_gc_sections(___virtual_machine_state vm)
               cur->mature_words = cur->gc_dest_words;
               cur->scan_end_words = cur->mature_words;
               {
+                ___WORD *hbase = cur->base + cur->active_offset;
+                if (___TESTTYPE(hbase[0], ___FORW))
+                  {
+                    hbase[0] = ___MAKE_HD_WORDS(0, ___sU8VECTOR);
+                    record_mature_obj_start(cur, hbase);
+                  }
+              }
+              {
                 /* Newly promoted mature sections land before mature_tail_, which
                  * Minor GC's O(Y) reclaim_drained_source_pages intentionally skips.
                  * Immediately release the dead opposite half (512 KiB) so promoted
@@ -1773,7 +1992,10 @@ ___HIDDEN void finalize_gc_sections(___virtual_machine_state vm)
                   cur->major_hole_start = 0;
                   cur->major_hole_end = 0;
                 }
+              memset(cur->major_line_live, 0, sizeof(cur->major_line_live));
+              memset(___CAST(void*, section_lxr_drc_bits(cur)), 0x55, SECTION_LXR_DRC_BYTES);
               cur->region_generation++;
+              lxr_drc_mark_promoted_span(vm, cur, 0, cur->mature_words);
               new_mat_count++;
               vm->mem.occupied_words_mature_ += cur->mature_words;
               promo_cand_add(vm, cur);
@@ -1854,6 +2076,8 @@ ___HIDDEN void finalize_gc_sections(___virtual_machine_state vm)
       vm->mem.nb_msections_stacks_ = np;
       vm->mem.minor_gcs_since_major_++;
 
+      lxr_drc_sync_vm_stats(vm);
+
       /* O(1) skip: when no mature section was added or evacuated, mature_sections_[]
        * and mature_snapshot_epoch_ stay valid and wb_last_sec_ remains hot! */
       if (new_mat_count > 0 || evac_reclaimed > 0)
@@ -1872,6 +2096,7 @@ ___HIDDEN void finalize_gc_sections(___virtual_machine_state vm)
       ___msection *free_head = 0, *free_tail = 0;
 
       vm->mem.promo_cand_count_ = 0;
+      lxr_drc_ensure_capacity(vm, ms->nb_sections);
 
       for (sec = ms->head; sec != 0; sec = sec->next)
         {
@@ -1883,6 +2108,14 @@ ___HIDDEN void finalize_gc_sections(___virtual_machine_state vm)
               sec->gc_src_offset = sec->active_offset;
               sec->mature_words = sec->gc_dest_words;
               sec->scan_end_words = sec->mature_words;
+              {
+                ___WORD *hbase = sec->base + sec->active_offset;
+                if (___TESTTYPE(hbase[0], ___FORW))
+                  {
+                    hbase[0] = ___MAKE_HD_WORDS(0, ___sU8VECTOR);
+                    record_mature_obj_start(sec, hbase);
+                  }
+              }
               sec->card_dirty_any = 0;
               memset(___CAST(void*, section_card_bits(sec)), 0, SECTION_CARD_BYTES);
             }
@@ -1905,9 +2138,12 @@ ___HIDDEN void finalize_gc_sections(___virtual_machine_state vm)
           sec->gc_evacuating = 0;
           sec->major_hole_start = 0;
           sec->major_hole_end = 0;
+          memset(sec->major_line_live, 0, sizeof(sec->major_line_live));
+          memset(___CAST(void*, section_lxr_drc_bits(sec)), 0x55, SECTION_LXR_DRC_BYTES);
 
           if (sec->region_age == ___GC_REGION_MATURE)
             {
+              lxr_drc_mark_promoted_span(vm, sec, 0, sec->mature_words);
               mature_count++;
               mature_words_total += sec->mature_words;
               promo_cand_add(vm, sec);
@@ -1999,6 +2235,11 @@ ___HIDDEN void finalize_gc_sections(___virtual_machine_state vm)
           sec->active_offset = 0;
           sec->mature_words = 0;
           sec->card_dirty_any = 0;
+          sec->major_mark_epoch = 0;
+          sec->major_hole_start = 0;
+          sec->major_hole_end = 0;
+          memset(sec->major_line_live, 0, sizeof(sec->major_line_live));
+          memset(___CAST(void*, section_lxr_drc_bits(sec)), 0x55, SECTION_LXR_DRC_BYTES);
         }
       vm->mem.nb_msections_mature_ = 0;
       vm->mem.mature_tail_ = 0;

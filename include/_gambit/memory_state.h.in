@@ -682,6 +682,12 @@ ___F64 concurrent_major_satb_logged_;
 ___F64 concurrent_major_holes_recycled_;
 ___F64 concurrent_major_idle_slices_;
 ___F64 concurrent_major_spin_slices_;
+/* Immix multi-hole/overflow recycling and LXR deferred-RC line telemetry */
+___F64 immix_multihole_refills_;
+___F64 immix_overflow_preserved_;
+___F64 lxr_lines_reclaimed_;
+___F64 lxr_lines_deferred_satb_;
+___F64 lxr_stuck_resets_;
 
 } ___vmstate_mem;
 

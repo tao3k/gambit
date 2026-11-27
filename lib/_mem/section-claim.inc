@@ -33,8 +33,11 @@ typedef struct section_claim
 #define SECTION_MAJOR_MARK_WORDS \
   ((((___MSECTION_SIZE >> 1) + ___WORD_WIDTH - 1) / ___WORD_WIDTH))
 #define SECTION_MAJOR_MARK_BYTES (SECTION_MAJOR_MARK_WORDS * ___WS)
+/* Per-section 2-bit LXR deferred-RC side-table (512 lines -> 128 bytes on 64-bit). */
+#define SECTION_LXR_DRC_BYTES \
+  (((((8 * ___WORD_WIDTH) + 3) / 4) + ___WS - 1) & ~(___CAST(___SIZE_T, ___WS) - 1))
 #define SECTION_BYTES \
-  (___sizeof_msection(___MSECTION_SIZE)+SECTION_CLAIM_TAIL_BYTES+SECTION_CARD_BYTES+SECTION_CARD_START_BYTES+SECTION_MAJOR_MARK_BYTES)
+  (___sizeof_msection(___MSECTION_SIZE)+SECTION_CLAIM_TAIL_BYTES+SECTION_CARD_BYTES+SECTION_CARD_START_BYTES+SECTION_MAJOR_MARK_BYTES+SECTION_LXR_DRC_BYTES)
 #define ___GC_CARD_NO_OBJ_START 0xFFu
 
 static inline section_claim *section_claim_at(___msection *section, ___SIZE_TS offset)
@@ -66,13 +69,22 @@ static inline ___VOLATILE ___WORD *section_major_mark_bits(___msection *section)
                  tail + SECTION_CLAIM_TAIL_BYTES + SECTION_CARD_BYTES + SECTION_CARD_START_BYTES);
 }
 
+static inline unsigned char *section_lxr_drc_bits(___msection *section)
+{
+  char *tail = ___CAST(char*, section->base+___MSECTION_SIZE+
+                       ___msection_scan_words(___MSECTION_SIZE));
+  return ___CAST(unsigned char*,
+                 tail + SECTION_CLAIM_TAIL_BYTES + SECTION_CARD_BYTES +
+                 SECTION_CARD_START_BYTES + SECTION_MAJOR_MARK_BYTES);
+}
+
 static inline void record_mature_obj_start(___msection *sec, ___WORD *hdr)
 {
   unsigned char *starts = section_card_starts(sec);
   ___SIZE_TS off = hdr - sec->base;
   unsigned int card = ___CAST(unsigned int, off >> ___GC_CARD_SHIFT_WORDS);
   unsigned int in_card = ___CAST(unsigned int, off & (___GC_CARD_WORDS - 1));
-  if (starts[card] == ___GC_CARD_NO_OBJ_START)
+  if (in_card < starts[card])
     starts[card] = ___CAST(unsigned char, in_card);
 }
 

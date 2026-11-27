@@ -725,6 +725,11 @@ ___virtual_machine_state ___vms;)
   ___vms->mem.concurrent_major_holes_recycled_ = 0.0;
   ___vms->mem.concurrent_major_idle_slices_ = 0.0;
   ___vms->mem.concurrent_major_spin_slices_ = 0.0;
+  ___vms->mem.immix_multihole_refills_ = 0.0;
+  ___vms->mem.immix_overflow_preserved_ = 0.0;
+  ___vms->mem.lxr_lines_reclaimed_ = 0.0;
+  ___vms->mem.lxr_lines_deferred_satb_ = 0.0;
+  ___vms->mem.lxr_stuck_resets_ = 0.0;
 
 #if ___TARGET_HEAP_SPACE_HIST_LENGTH > 0
 
