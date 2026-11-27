@@ -47,6 +47,7 @@ PBT_O1_TARGETS: list[tuple[str, str, str, float | None, str]] = [
     ("c14-immix-selective-evac-slab", "c14-immix-selective-evac-and-slab-smp.scm", "C14-IMMIX-SELECTIVE-EVAC-SLAB-PASS", 256.0, ""),
     ("c15-evented-io-reactor-high-fd", "c15-evented-io-reactor-high-fd-smp.scm", "C15-EVENTED-IO-REACTOR-HIGH-FD-PASS", 256.0, ""),
     ("c16-full-core-spinlock-convoy", "c16-full-core-spinlock-convoy-smp.scm", "C16-FULL-CORE-SPINLOCK-CONVOY-PASS", 256.0, ",m65536"),
+    ("c17-srfi230-atomic-publish", "c17-srfi230-atomic-publish-smp.scm", "C17-SRFI230-ATOMIC-PUBLISH-PASS", 256.0, ",m16384"),
     ("t1-robustness-hardening", "t1-robustness-hardening-smp.scm", "T1-ROBUSTNESS-HARDENING-PASS", 256.0, ""),
     ("t3-blocking-ffi-park", "t3-blocking-ffi-park-smp.scm", "T3-BLOCKING-FFI-PARK-PASS", 256.0, ""),
     ("t4-workstealing-scheduler", "t4-workstealing-scheduler-smp.scm", "T4-WORKSTEALING-SCHEDULER-PASS", 256.0, ""),

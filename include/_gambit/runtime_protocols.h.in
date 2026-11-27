@@ -1209,6 +1209,223 @@ ___ORDERED_WORD_INLINE ___WORD ___gc_structure_cas_barrier
   return ___COMPARE_AND_SWAP_WORD(___CAST(___VOLATILE ___WORD*, slot), oldval, val);
 }
 
+/*
+ * Phase A.1: Unified SRFI-230 C23 Atomic Publication & GC Barrier Protocol.
+ * Integrates SRFI-230 memory-order semantics directly with Gambit's SATB and
+ * generational/promote-on-share write barriers so mutator concurrency and GC
+ * publication share one formally verified acquire/release contract.
+ */
+#define ___SRFI230_ORDER_RELAXED 0
+#define ___SRFI230_ORDER_ACQUIRE 1
+#define ___SRFI230_ORDER_RELEASE 2
+#define ___SRFI230_ORDER_ACQ_REL 3
+#define ___SRFI230_ORDER_SEQ_CST 4
+
+___ORDERED_WORD_INLINE int ___srfi230_to_gcc_memorder (int order)
+{
+#if defined(__ATOMIC_RELAXED) && defined(__ATOMIC_SEQ_CST)
+  switch (order)
+    {
+    case ___SRFI230_ORDER_RELAXED: return __ATOMIC_RELAXED;
+    case ___SRFI230_ORDER_ACQUIRE: return __ATOMIC_ACQUIRE;
+    case ___SRFI230_ORDER_RELEASE: return __ATOMIC_RELEASE;
+    case ___SRFI230_ORDER_ACQ_REL: return __ATOMIC_ACQ_REL;
+    default:                       return __ATOMIC_SEQ_CST;
+    }
+#else
+  (void)order;
+  return 0;
+#endif
+}
+
+___ORDERED_WORD_INLINE void ___gc_srfi230_fence (int order)
+{
+#if defined(__ATOMIC_RELAXED) && defined(__ATOMIC_SEQ_CST)
+  __atomic_thread_fence(___srfi230_to_gcc_memorder(order));
+#else
+  (void)order;
+  ___SYNC_MEMORY();
+#endif
+}
+
+___ORDERED_WORD_INLINE ___SCMOBJ ___gc_srfi230_box_load
+   (___SCMOBJ box,
+    int order)
+{
+  ___WORD *slot = &___BODY_AS(box, ___tBOXVALUES)[0];
+#if defined(__ATOMIC_RELAXED) && defined(__ATOMIC_SEQ_CST)
+  int mo = (order == ___SRFI230_ORDER_RELAXED) ? __ATOMIC_RELAXED :
+           (order == ___SRFI230_ORDER_ACQUIRE) ? __ATOMIC_ACQUIRE :
+                                                 __ATOMIC_SEQ_CST;
+  return ___CAST(___SCMOBJ, __atomic_load_n(slot, mo));
+#else
+  (void)order;
+  return ___CAST(___SCMOBJ, ___WORD_LOAD_ACQUIRE(slot));
+#endif
+}
+
+___ORDERED_WORD_INLINE void ___gc_srfi230_box_store
+   (___processor_state ___ps,
+    ___SCMOBJ box,
+    ___SCMOBJ val,
+    int order,
+    void (*wb_slow) ___P((___processor_state, ___SCMOBJ, ___WORD*), ()),
+    void (*satb_val) ___P((___processor_state, ___SCMOBJ), ()))
+{
+  ___WORD *slot = &___BODY_AS(box, ___tBOXVALUES)[0];
+#ifndef ___DISABLE_GENERATIONAL_GC
+  if (___EXPECT_FALSE(___ps->mem.satb_active_ != 0))
+    {
+      ___SCMOBJ prev = ___CAST(___SCMOBJ, ___WORD_LOAD_RELAXED(slot));
+      if (___MEM_ALLOCATED(prev))
+        satb_val(___ps, prev);
+    }
+  if (___MEM_ALLOCATED(val))
+    {
+      ___UWORD a = ___CAST(___UWORD, slot);
+      ___UWORD lo = ___CAST(___UWORD, ___ps->mem.alloc_heap_start_);
+      ___UWORD hi = ___CAST(___UWORD, ___ps->mem.alloc_heap_limit_);
+      if (___EXPECT_FALSE(a - lo >= hi - lo &&
+                          a - ___ps->mem.wb_last_card_lo_ >= (___CAST(___UWORD, ___GC_CARD_WORDS) * ___WS)))
+        wb_slow(___ps, box, slot);
+    }
+#else
+  (void)___ps; (void)wb_slow; (void)satb_val;
+#endif
+#if defined(__ATOMIC_RELAXED) && defined(__ATOMIC_SEQ_CST)
+  int mo = (order == ___SRFI230_ORDER_RELAXED) ? __ATOMIC_RELAXED :
+           (order == ___SRFI230_ORDER_RELEASE) ? __ATOMIC_RELEASE :
+                                                 __ATOMIC_SEQ_CST;
+  __atomic_store_n(slot, ___CAST(___WORD, val), mo);
+#else
+  (void)order;
+  ___WORD_STORE_RELEASE(slot, ___CAST(___WORD, val));
+#endif
+}
+
+___ORDERED_WORD_INLINE ___SCMOBJ ___gc_srfi230_box_swap
+   (___processor_state ___ps,
+    ___SCMOBJ box,
+    ___SCMOBJ val,
+    int order,
+    void (*wb_slow) ___P((___processor_state, ___SCMOBJ, ___WORD*), ()),
+    void (*satb_val) ___P((___processor_state, ___SCMOBJ), ()))
+{
+  ___WORD *slot = &___BODY_AS(box, ___tBOXVALUES)[0];
+  ___SCMOBJ prev;
+#ifndef ___DISABLE_GENERATIONAL_GC
+  if (___MEM_ALLOCATED(val))
+    {
+      ___UWORD a = ___CAST(___UWORD, slot);
+      ___UWORD lo = ___CAST(___UWORD, ___ps->mem.alloc_heap_start_);
+      ___UWORD hi = ___CAST(___UWORD, ___ps->mem.alloc_heap_limit_);
+      if (___EXPECT_FALSE(a - lo >= hi - lo &&
+                          a - ___ps->mem.wb_last_card_lo_ >= (___CAST(___UWORD, ___GC_CARD_WORDS) * ___WS)))
+        wb_slow(___ps, box, slot);
+    }
+#endif
+#if defined(__ATOMIC_RELAXED) && defined(__ATOMIC_SEQ_CST)
+  prev = ___CAST(___SCMOBJ,
+                 __atomic_exchange_n(slot, ___CAST(___WORD, val),
+                                     ___srfi230_to_gcc_memorder(order)));
+#else
+  (void)order;
+  for (;;)
+    {
+      ___WORD cur = ___WORD_LOAD_ACQUIRE(slot);
+      if (___COMPARE_AND_SWAP_WORD(___CAST(___VOLATILE ___WORD*, slot), cur, ___CAST(___WORD, val)) == cur)
+        {
+          prev = ___CAST(___SCMOBJ, cur);
+          break;
+        }
+    }
+#endif
+#ifndef ___DISABLE_GENERATIONAL_GC
+  if (___EXPECT_FALSE(___ps->mem.satb_active_ != 0 && ___MEM_ALLOCATED(prev)))
+    satb_val(___ps, prev);
+#else
+  (void)___ps; (void)wb_slow; (void)satb_val;
+#endif
+  return prev;
+}
+
+___ORDERED_WORD_INLINE ___SCMOBJ ___gc_srfi230_box_cas
+   (___processor_state ___ps,
+    ___SCMOBJ box,
+    ___SCMOBJ expected,
+    ___SCMOBJ desired,
+    int order,
+    void (*wb_slow) ___P((___processor_state, ___SCMOBJ, ___WORD*), ()),
+    void (*satb_val) ___P((___processor_state, ___SCMOBJ), ()))
+{
+  ___WORD *slot = &___BODY_AS(box, ___tBOXVALUES)[0];
+#ifndef ___DISABLE_GENERATIONAL_GC
+  if (___EXPECT_FALSE(___ps->mem.satb_active_ != 0 && ___MEM_ALLOCATED(expected)))
+    satb_val(___ps, expected);
+  if (___MEM_ALLOCATED(desired))
+    {
+      ___UWORD a = ___CAST(___UWORD, slot);
+      ___UWORD lo = ___CAST(___UWORD, ___ps->mem.alloc_heap_start_);
+      ___UWORD hi = ___CAST(___UWORD, ___ps->mem.alloc_heap_limit_);
+      if (___EXPECT_FALSE(a - lo >= hi - lo &&
+                          a - ___ps->mem.wb_last_card_lo_ >= (___CAST(___UWORD, ___GC_CARD_WORDS) * ___WS)))
+        wb_slow(___ps, box, slot);
+    }
+#else
+  (void)___ps; (void)wb_slow; (void)satb_val;
+#endif
+#if defined(__ATOMIC_RELAXED) && defined(__ATOMIC_SEQ_CST)
+  ___WORD exp_w = ___CAST(___WORD, expected);
+  int succ_mo = ___srfi230_to_gcc_memorder(order);
+  int fail_mo = (succ_mo == __ATOMIC_RELEASE) ? __ATOMIC_RELAXED :
+                (succ_mo == __ATOMIC_ACQ_REL) ? __ATOMIC_ACQUIRE : succ_mo;
+  (void)__atomic_compare_exchange_n(slot, &exp_w, ___CAST(___WORD, desired),
+                                    0, succ_mo, fail_mo);
+  return ___CAST(___SCMOBJ, exp_w);
+#else
+  (void)order;
+  return ___CAST(___SCMOBJ,
+                 ___COMPARE_AND_SWAP_WORD(___CAST(___VOLATILE ___WORD*, slot),
+                                          ___CAST(___WORD, expected),
+                                          ___CAST(___WORD, desired)));
+#endif
+}
+
+___ORDERED_WORD_INLINE ___SCMOBJ ___gc_srfi230_fxbox_add
+   (___SCMOBJ box,
+    ___SCMOBJ delta_fx,
+    int order)
+{
+  ___WORD *slot = &___BODY_AS(box, ___tBOXVALUES)[0];
+  /* Fixnums are shifted immediate words (low tag bits 0), so adding delta_fx
+   * directly preserves the fixnum tag with zero GC write barrier overhead. */
+#if defined(__ATOMIC_RELAXED) && defined(__ATOMIC_SEQ_CST)
+  return ___CAST(___SCMOBJ,
+                 __atomic_fetch_add(slot, ___CAST(___WORD, delta_fx),
+                                    ___srfi230_to_gcc_memorder(order)));
+#else
+  (void)order;
+  for (;;)
+    {
+      ___WORD cur = ___WORD_LOAD_ACQUIRE(slot);
+      if (___COMPARE_AND_SWAP_WORD(___CAST(___VOLATILE ___WORD*, slot),
+                                   cur, cur + ___CAST(___WORD, delta_fx)) == cur)
+        return ___CAST(___SCMOBJ, cur);
+    }
+#endif
+}
+
+#define ___SRFI230_FENCE(order) ___gc_srfi230_fence(order)
+#define ___SRFI230_BOX_LOAD(box, order) ___gc_srfi230_box_load((box), (order))
+#define ___SRFI230_BOX_STORE(ps, box, val, order) \
+  ___gc_srfi230_box_store((ps), (box), (val), (order), ___EXT(___gc_write_barrier_slow), ___EXT(___gc_satb_barrier_val))
+#define ___SRFI230_BOX_SWAP(ps, box, val, order) \
+  ___gc_srfi230_box_swap((ps), (box), (val), (order), ___EXT(___gc_write_barrier_slow), ___EXT(___gc_satb_barrier_val))
+#define ___SRFI230_BOX_CAS(ps, box, exp, des, order) \
+  ___gc_srfi230_box_cas((ps), (box), (exp), (des), (order), ___EXT(___gc_write_barrier_slow), ___EXT(___gc_satb_barrier_val))
+#define ___SRFI230_FXBOX_ADD(box, delta_fx, order) \
+  ___gc_srfi230_fxbox_add((box), (delta_fx), (order))
+
 #ifndef ___INCLUDED_FROM_SETUP
 ___GSTATEDECL
 #ifdef ___USE_C_RTS_CHAR_OPERATIONS
