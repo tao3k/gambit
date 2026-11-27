@@ -324,6 +324,7 @@ ___PSDKR)
         {
           ALLOC_MEM_LOCK();
           next_heap_msection_without_locking (___ps);
+          ___ps->mem.local_young_escaped_ = 1;
           ALLOC_MEM_UNLOCK();
         }
     }

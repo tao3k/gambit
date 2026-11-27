@@ -438,6 +438,12 @@ ___SCMOBJ *satb_buf_;
 unsigned int major_mark_local_count_;
 ___SCMOBJ *major_mark_local_buf_;
 
+/* Phase A.2.1: per-processor lock-free still_slab slot cache (classes 0..3: 2.5K..8K) */
+void *still_local_free_[4];
+unsigned int still_local_count_[4];
+/* Phase A.2.2: processor-local young escape tracking */
+___VOLATILE ___WORD local_young_escaped_;
+
 #ifdef ___DEBUG_GARBAGE_COLLECT
 
 /* GC state used for debugging */

@@ -106,9 +106,10 @@ ___SIZE_TS bytes;)
 #ifdef ___GAMBIT_DEV_RESTORE_PROBE
       ___dev_restore_census_native("still-scmobj");
 #endif
-      if ((ptr = alloc_mem_aligned_heap (words,
-                                         8>>___LWS,
-                                         (-___STILL_BODY)&((8>>___LWS)-1)))
+      if ((ptr = alloc_mem_aligned_heap_ps (___ps,
+                                            words,
+                                            8>>___LWS,
+                                            (-___STILL_BODY)&((8>>___LWS)-1)))
           == 0)
         {
           /*
@@ -130,7 +131,9 @@ ___SIZE_TS bytes;)
        */
       ___SIZE_TS prev_reserved;
       ___SIZE_TS avail;
+      int tried_local_gc = 0;
 
+    retry_still_alloc:
       ALLOC_MEM_LOCK();
 
       prev_reserved = words_still_objs_deferred + still_words_budget;
@@ -188,6 +191,13 @@ ___SIZE_TS bytes;)
           if (___ps != ___PSTATE || !___lifecycle_gc_admitted(___ps)
               || vm->lifecycle->cleanup[___PROCESSOR_ID(___ps,vm)].draining)
             return ___FIX(___HEAP_OVERFLOW_ERR);
+          /* Phase A.2.3: try independent processor-local young-still GC first
+           * (zero global STW barrier, zero cross-core stalling). */
+          if (!tried_local_gc && try_local_young_still_gc(___ps, words))
+            {
+              tried_local_gc = 1;
+              goto retry_still_alloc;
+            }
           if (___garbage_collect (___PSP words))
             return ___FIX(___HEAP_OVERFLOW_ERR);
         }
@@ -200,9 +210,10 @@ ___SIZE_TS bytes;)
 #ifdef ___GAMBIT_DEV_RESTORE_PROBE
       ___dev_restore_census_native("still-scmobj");
 #endif
-      if ((ptr = alloc_mem_aligned_heap (words,
-                                         8>>___LWS,
-                                         (-___STILL_BODY)&((8>>___LWS)-1)))
+      if ((ptr = alloc_mem_aligned_heap_ps (___ps,
+                                            words,
+                                            8>>___LWS,
+                                            (-___STILL_BODY)&((8>>___LWS)-1)))
           == 0)
         {
           /*

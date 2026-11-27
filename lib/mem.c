@@ -85,6 +85,7 @@ static inline ___msection *___gc_find_msection_cached
 #include "_mem/permanent-allocation.inc"
 #include "_mem/global-bindings.inc"
 #include "_mem/still-refcount.inc"
+___HIDDEN ___BOOL try_local_young_still_gc(___processor_state ___ps, ___SIZE_TS requested_words_still);
 #include "_mem/object-allocation.inc"
 #include "_mem/symbols.inc"
 #include "_mem/diagnostics.inc"
@@ -112,6 +113,7 @@ ___HIDDEN void gc_update_major_triggers(___virtual_machine_state vm);
 #include "_mem/object-scanning.inc"
 #include "_mem/generational.inc"
 #include "_mem/still-sweep.inc"
+#include "_mem/local-nursery.inc"
 #include "_mem/concurrent-major.inc"
 #include "_mem/memory-lifecycle.inc"
 #include "_mem/wills.inc"

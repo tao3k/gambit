@@ -346,6 +346,15 @@ ___processor_state ___ps;)
   ___ps->mem.wb_last_sec_ = 0;
   ___ps->mem.wb_last_epoch_ = 0;
   ___ps->mem.wb_last_card_lo_ = 0;
+  ___ps->mem.still_local_free_[0] = 0;
+  ___ps->mem.still_local_free_[1] = 0;
+  ___ps->mem.still_local_free_[2] = 0;
+  ___ps->mem.still_local_free_[3] = 0;
+  ___ps->mem.still_local_count_[0] = 0u;
+  ___ps->mem.still_local_count_[1] = 0u;
+  ___ps->mem.still_local_count_[2] = 0u;
+  ___ps->mem.still_local_count_[3] = 0u;
+  ___ps->mem.local_young_escaped_ = 0;
   memset(&___ps->mem.card_hints_, 0, sizeof(___ps->mem.card_hints_));
   ___ps->mem.satb_active_ = 0;
   ___ps->mem.satb_count_ = 0;

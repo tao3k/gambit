@@ -47,7 +47,7 @@ ___PSDKR)
           else
             {
               ___SIZE_TS len = base[___STILL_LENGTH];
-              if (!free_mem_aligned_heap_ex(base) && len > 0)
+              if (!free_mem_aligned_heap_ps(___ps, base) && len > 0)
                 freed_malloc_words += (___SIZE_T)len;
             }
         }
@@ -75,6 +75,7 @@ ___PSDKR)
   words_still_objs = words_still_objs_mature + ___lifecycle_deferred_words(___ps);
   words_still_objs_deferred = 0;
   still_words_budget = 0;
+  ___ps->mem.local_young_escaped_ = 0;
 }
 
 
@@ -104,7 +105,7 @@ ___PSDKR)
           else
             {
               ___SIZE_TS len = base[___STILL_LENGTH];
-              if (!free_mem_aligned_heap_ex(base) && len > 0)
+              if (!free_mem_aligned_heap_ps(___ps, base) && len > 0)
                 freed_malloc_words += (___SIZE_T)len;
             }
         }
@@ -155,6 +156,8 @@ ___PSDKR)
   words_still_objs = live_words_still + ___lifecycle_deferred_words(___ps);
   words_still_objs_deferred = 0;
   still_words_budget = 0;
+  ___ps->mem.local_young_escaped_ = 0;
+  still_slab_flush_local(___ps);
 
   /*
    * In principle the occupied_words_still could be updated here but
@@ -195,6 +198,8 @@ ___processor_state ___ps;)
       young=___CAST(___WORD*,link);
     }
   words_still_objs=___lifecycle_deferred_words(___ps);
+  ___ps->mem.local_young_escaped_ = 0;
+  still_slab_flush_local(___ps);
 }
 
 

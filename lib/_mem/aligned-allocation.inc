@@ -28,8 +28,10 @@
 
 #ifdef ___USE_MEDIUM_STILL_SLAB
 #define ___STILL_SLAB_CLASSES 8u
-#define ___STILL_SLAB_SHARDS  8u
+#define ___STILL_SLAB_SHARDS  16u
 #define ___STILL_SLAB_BUCKETS (___STILL_SLAB_CLASSES * ___STILL_SLAB_SHARDS)
+#define ___STILL_SLAB_LOCAL_CLASSES 4u
+#define ___STILL_SLAB_LOCAL_CAP     128u
 
 typedef struct ___still_slab_chunk_struct
   {
@@ -73,11 +75,13 @@ typedef struct ___still_slab_lock_padded_struct
 
 #define ___SSL_INIT { PTHREAD_MUTEX_INITIALIZER, {0} }
 #define ___SSL_INIT8 ___SSL_INIT, ___SSL_INIT, ___SSL_INIT, ___SSL_INIT, ___SSL_INIT, ___SSL_INIT, ___SSL_INIT, ___SSL_INIT
+#define ___SSL_INIT16 ___SSL_INIT8, ___SSL_INIT8
 
 static ___still_slab_lock_padded still_slab_locks_[___STILL_SLAB_BUCKETS] = {
-  ___SSL_INIT8, ___SSL_INIT8, ___SSL_INIT8, ___SSL_INIT8,
-  ___SSL_INIT8, ___SSL_INIT8, ___SSL_INIT8, ___SSL_INIT8
+  ___SSL_INIT16, ___SSL_INIT16, ___SSL_INIT16, ___SSL_INIT16,
+  ___SSL_INIT16, ___SSL_INIT16, ___SSL_INIT16, ___SSL_INIT16
 };
+#undef ___SSL_INIT16
 #undef ___SSL_INIT8
 #undef ___SSL_INIT
 #define ___STILL_SLAB_LOCK(b)   pthread_mutex_lock(&still_slab_locks_[(b)].mut)
@@ -547,6 +551,103 @@ unsigned int multiplier;
 unsigned int modulus;)
 {
   return alloc_mem_aligned_aux (words, multiplier, modulus, 1);
+}
+
+___HIDDEN void *alloc_mem_aligned_heap_ps
+   (___processor_state ___ps,
+    ___SIZE_TS words,
+    unsigned int multiplier,
+    unsigned int modulus)
+{
+#ifdef ___USE_MEDIUM_STILL_SLAB
+  if (___ps != 0 && multiplier <= (8u >> ___LWS) && modulus == 0u && words > 0)
+    {
+      ___SIZE_T bytes = (___SIZE_T)words * ___WS;
+      if (bytes >= ___MEDIUM_STILL_SLAB_MIN_BYTES && bytes <= 8192u)
+        {
+          static const ___SIZE_T local_slot_bytes[___STILL_SLAB_LOCAL_CLASSES] = {
+            2560u, 4096u, 6144u, 8192u
+          };
+          ___SIZE_T align_bytes = (___SIZE_T)multiplier * ___WS;
+          ___SIZE_T need = (___SIZE_T)sizeof(void*) + (align_bytes - 1u) + bytes;
+          unsigned int cls;
+          for (cls = 0u; cls < ___STILL_SLAB_LOCAL_CLASSES; cls++)
+            if (need <= local_slot_bytes[cls])
+              {
+                void *head = ___ps->mem.still_local_free_[cls];
+                if (head != 0)
+                  {
+                    ___ps->mem.still_local_free_[cls] = *___CAST(void**, head);
+                    ___ps->mem.still_local_count_[cls]--;
+                    return head;
+                  }
+                break;
+              }
+        }
+    }
+#endif
+  return alloc_mem_aligned_aux (words, multiplier, modulus, 1);
+}
+
+___HIDDEN int free_mem_aligned_heap_ex ___P((void *ptr),());
+
+___HIDDEN int free_mem_aligned_heap_ps
+   (___processor_state ___ps,
+    void *ptr)
+{
+#ifdef ___USE_MEDIUM_STILL_SLAB
+  if (___ps != 0)
+    {
+      void **cptr = ___CAST(void**,
+                            (___CAST(___WORD,ptr) - ___CAST(___WORD,sizeof (void*))) &
+                            -___CAST(___WORD,sizeof (void*)));
+      ___UWORD raw_c = ___CAST(___UWORD, *cptr);
+      if ((raw_c & (___UWORD)3u) == (___UWORD)2u)
+        {
+          ___still_slab_chunk *chunk = ___CAST(___still_slab_chunk*, raw_c & ~(___UWORD)3u);
+          unsigned int cls = chunk->bucket_idx / ___STILL_SLAB_SHARDS;
+          if (cls < ___STILL_SLAB_LOCAL_CLASSES &&
+              ___ps->mem.still_local_count_[cls] < ___STILL_SLAB_LOCAL_CAP)
+            {
+              *___CAST(void**, ptr) = ___ps->mem.still_local_free_[cls];
+              ___ps->mem.still_local_free_[cls] = ptr;
+              ___ps->mem.still_local_count_[cls]++;
+              return 1;
+            }
+          still_slab_free(ptr, chunk);
+          return 1;
+        }
+    }
+#endif
+  return free_mem_aligned_heap_ex (ptr);
+}
+
+___HIDDEN void still_slab_flush_local (___processor_state ___ps)
+{
+#ifdef ___USE_MEDIUM_STILL_SLAB
+  unsigned int cls;
+  if (___ps == 0)
+    return;
+  for (cls = 0u; cls < ___STILL_SLAB_LOCAL_CLASSES; cls++)
+    {
+      void *cur = ___ps->mem.still_local_free_[cls];
+      ___ps->mem.still_local_free_[cls] = 0;
+      ___ps->mem.still_local_count_[cls] = 0u;
+      while (cur != 0)
+        {
+          void *next = *___CAST(void**, cur);
+          void **cptr = ___CAST(void**,
+                                (___CAST(___WORD,cur) - ___CAST(___WORD,sizeof (void*))) &
+                                -___CAST(___WORD,sizeof (void*)));
+          ___UWORD raw_c = ___CAST(___UWORD, *cptr);
+          ___still_slab_chunk *chunk = ___CAST(___still_slab_chunk*, raw_c & ~(___UWORD)3u);
+          still_slab_free(cur, chunk);
+          cur = next;
+        }
+    }
+#else
+  (void)___ps;
+#endif
 }
 
 

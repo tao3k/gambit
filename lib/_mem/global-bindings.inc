@@ -134,6 +134,8 @@ ___processor_state ps;
 ___glo_struct *global;
 ___SCMOBJ value;)
 {
+  if (ps != 0 && ___MEM_ALLOCATED(value))
+    ps->mem.local_young_escaped_ = 1;
   if (!___try_store_global(ps,global,value))
     rc_contract_error("Ordinary global store outside open root ownership");
 }

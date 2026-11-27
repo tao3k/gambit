@@ -71,6 +71,7 @@ ___WORD *slot_ptr;)
   vm = ___VMSTATE_FROM_PSTATE(___ps);
   if (vm == 0)
     return;
+  ___ps->mem.local_young_escaped_ = 1;
   head = ___HEADER(obj);
   htyp = ___HD_TYP(head);
 
@@ -213,6 +214,7 @@ ___SIZE_TS words;)
   vm = ___VMSTATE_FROM_PSTATE(___ps);
   if (vm == 0)
     return;
+  ___ps->mem.local_young_escaped_ = 1;
   head = ___HEADER(obj);
   htyp = ___HD_TYP(head);
 
