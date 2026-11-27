@@ -52,6 +52,43 @@ ___collector_worker *work;)
           ___CPU_RELAX();
         }
 
+      /* Lock-free atomic termination wait (eliminates scan_termination_mutex
+       * and pthread_cond_wait/signal syscalls on every parallel GC phase). */
+#if defined(__ATOMIC_ACQ_REL) && defined(__ATOMIC_ACQUIRE)
+      {
+        ___WORD rem = __atomic_sub_fetch(workers_count, 1, __ATOMIC_ACQ_REL);
+        if (rem == 0)
+          break;
+        {
+          int wspins = 0;
+          while (__atomic_load_n(workers_count, __ATOMIC_ACQUIRE) != 0)
+            {
+              if (wspins < 128)
+                {
+                  ___CPU_RELAX();
+                  wspins++;
+                }
+              else if (wspins < 192)
+                {
+                  ___THREAD_YIELD();
+                  wspins++;
+                }
+              else
+                {
+#if defined(___USE_POSIX_THREAD_SYSTEM) && !defined(_WIN32)
+                  struct timespec ts;
+                  ts.tv_sec = 0;
+                  ts.tv_nsec = 50000;
+                  nanosleep(&ts, 0);
+#else
+                  ___THREAD_YIELD();
+#endif
+                }
+            }
+          break;
+        }
+      }
+#else
       /* Signal being idle and wait for more work or termination */
 
       ___MUTEX_LOCK(scan_termination_mutex);
@@ -91,6 +128,7 @@ ___collector_worker *work;)
             ___MUTEX_UNLOCK(scan_termination_mutex);
           }
       }
+#endif
     }
 
 #endif

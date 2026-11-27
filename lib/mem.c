@@ -86,6 +86,7 @@ static inline ___msection *___gc_find_msection_cached
 #include "_mem/global-bindings.inc"
 #include "_mem/still-refcount.inc"
 ___HIDDEN ___BOOL try_local_young_still_gc(___processor_state ___ps, ___SIZE_TS requested_words_still);
+___HIDDEN ___BOOL try_local_movable_nursery_gc(___processor_state ___ps);
 #include "_mem/object-allocation.inc"
 #include "_mem/symbols.inc"
 #include "_mem/diagnostics.inc"

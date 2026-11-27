@@ -290,38 +290,49 @@ ___HIDDEN void reclaim_drained_source_pages
   if ((___SIZE_T)sections->nb_sections < min_sections)
     return;
   alloc_ms = ___vms->mem.alloc_msection_;
-  /* On Minor GC, skip mature prefix in O(1) so Minor GC stays O(Y). */
-  start_sec = (is_minor && ___vms->mem.mature_tail_ != 0)
-                ? ___vms->mem.mature_tail_->next
-                : sections->head;
-  for (section = start_sec; section != 0; section = section->next)
-    {
-      if (section->region_age == ___GC_REGION_MATURE)
-        {
-          ___SIZE_TS opp = half - section->active_offset;
-          if (opp != section->active_offset &&
-              section_claim_at(section, opp)->stack_state == 0 &&
-              !section_claim_at(section, opp)->heap_used)
-            release_drained_source_half(section, opp);
-        }
-      else if (alloc_ms != 0 && section->index > alloc_ms->index)
-        {
-          /* Unassigned FREE YOUNG section (incl. Immix reclaimed dead sections):
-           * release every unclaimed half immediately. */
-          if (section_claim_at(section, 0)->stack_state == 0 &&
-              !section_claim_at(section, 0)->heap_used)
-            release_drained_source_half(section, 0);
-          if (section_claim_at(section, half)->stack_state == 0 &&
-              !section_claim_at(section, half)->heap_used)
-            release_drained_source_half(section, half);
-        }
-      else
-        {
-          if (section_claim_at(section, source_offset)->stack_state == 0 &&
-              !section_claim_at(section, source_offset)->heap_used)
-            release_drained_source_half(section, source_offset);
-        }
-    }
+  /* On Minor GC, skip mature prefix in O(1) so Minor GC stays O(Y), and keep
+   * a bounded warm nursery reserve (2 free young sections per processor) to
+   * eliminate per-minor-GC madvise TLB shootdowns and zero-page fault storms.
+   * Major GC (including explicit ##gc) releases 100% of drained pages immediately. */
+  {
+    ___SIZE_T warm_keep = is_minor ? (___SIZE_T)(___vms->processor_count * 2) : 0u;
+    start_sec = (is_minor && ___vms->mem.mature_tail_ != 0)
+                  ? ___vms->mem.mature_tail_->next
+                  : sections->head;
+    for (section = start_sec; section != 0; section = section->next)
+      {
+        if (section->region_age == ___GC_REGION_MATURE)
+          {
+            ___SIZE_TS opp = half - section->active_offset;
+            if (opp != section->active_offset &&
+                section_claim_at(section, opp)->stack_state == 0 &&
+                !section_claim_at(section, opp)->heap_used)
+              release_drained_source_half(section, opp);
+          }
+        else if (alloc_ms != 0 && section->index > alloc_ms->index)
+          {
+            if (warm_keep > 0u)
+              {
+                warm_keep--;
+                continue;
+              }
+            /* Unassigned FREE YOUNG section (incl. Immix reclaimed dead sections):
+             * release every unclaimed half immediately. */
+            if (section_claim_at(section, 0)->stack_state == 0 &&
+                !section_claim_at(section, 0)->heap_used)
+              release_drained_source_half(section, 0);
+            if (section_claim_at(section, half)->stack_state == 0 &&
+                !section_claim_at(section, half)->heap_used)
+              release_drained_source_half(section, half);
+          }
+        else
+          {
+            if (section_claim_at(section, source_offset)->stack_state == 0 &&
+                !section_claim_at(section, source_offset)->heap_used)
+              release_drained_source_half(section, source_offset);
+          }
+      }
+  }
 }
 #else
 ___HIDDEN ___msection *alloc_msection_storage ___PVOID

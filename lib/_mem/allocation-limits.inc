@@ -1308,6 +1308,15 @@ ___PSDKR)
 #endif
 
   {
+    /* Phase A.3: try independent processor-local movable nursery collection
+     * before claiming a new section or triggering global STW GC. */
+    if (try_local_movable_nursery_gc(___ps))
+      {
+        alloc_heap_ptr = ___ps->context->hp;
+        prepare_mem_pstate(___ps);
+        return 0;
+      }
+
     /*
      * Get a new heap msection.
      */
@@ -1321,6 +1330,7 @@ ___PSDKR)
     if (ms != 0)
       {
         words_prev_msections += alloc_heap_ptr-alloc_heap_start;
+        ___ps->mem.local_young_escaped_ = 1;
         set_heap_msection (___ps, ms);
       }
     else
@@ -1342,7 +1352,10 @@ ___PSDKR)
                 return 1;
               }
             if (___gc_resume_heap_needs_refill(alloc_heap_ptr,alloc_heap_limit,___MSECTION_FUDGE))
-              next_heap_msection_without_locking (___ps);
+              {
+                next_heap_msection_without_locking (___ps);
+                ___ps->mem.local_young_escaped_ = 1;
+              }
 
             ALLOC_MEM_UNLOCK();
           }
