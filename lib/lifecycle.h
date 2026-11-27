@@ -68,12 +68,8 @@ enum ___rest_status {
  * not fit in this word, so the phase word never carries it. A lookup may
  * read the phase word, the generation field and the directory pointer. It
  * must not load an activation-record field until the pin CAS has succeeded.
- * FREE is stored only after the terminal receipt and the last metadata write. */
-#if ___MAX_PROCESSORS > 1
-#define ___REST_DIRECTORY_SLOTS (___MAX_PROCESSORS * 2)
-#else
-#define ___REST_DIRECTORY_SLOTS 4
-#endif
+ * FREE is stored only after the terminal receipt and the last metadata write.
+ * Slots live in each processor's per-domain dynamic chunked slab (___rc_domain). */
 #define ___REST_PHASE_FREE 0
 #define ___REST_PHASE_PUBLISHING 1
 #define ___REST_PHASE_OPEN 2
@@ -422,13 +418,6 @@ typedef struct ___vm_lifecycle_struct {
   unsigned int setup_stages;
   ___VOLATILE ___WORD entries[___MAX_PROCESSORS]; /* bit0 closed, +2 per borrow */
   ___VOLATILE ___WORD rest_epoch_next; /* next rest generation; 0 means unstarted; never wraps */
-  struct ___rest_directory_slot_struct {
-    ___VOLATILE ___WORD state; /* pin and phase only */
-    ___VOLATILE ___WORD incarnation;
-    ___VOLATILE ___WORD generation; /* live generation; 0 while unsettled or free */
-    ___VOLATILE ___WORD retired_generation; /* last generation drained; not an activation field */
-    ___VOLATILE ___WORD record; /* directory cell (___activation_record *); not an activation field */
-  } rest_directory[___REST_DIRECTORY_SLOTS];
   ___owner_cleanup cleanup[___MAX_PROCESSORS];
   ___activation_record *activations[___MAX_PROCESSORS];
   ___thread owners[___MAX_PROCESSORS];

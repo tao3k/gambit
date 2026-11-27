@@ -29,6 +29,7 @@ ___HIDDEN ___BOOL setup_rc(___processor_state ps)
   if (d == 0) return 0;
   if (!___RC_INIT(d)) { ___FREE_MEM(d); return 0; }
   d->round=0; d->joined_round=0; d->idle_activation=0;
+  d->rest_chunks=0; d->rest_total_slots=0; d->rest_evict_cursor=0;
   if (___PROCESSOR_ID(ps,___VMSTATE_FROM_PSTATE(ps)) == 0)
     {
       d->round=___CAST(___root_round*,___ALLOC_MEM(sizeof(*d->round)));
@@ -119,6 +120,17 @@ ___HIDDEN void cleanup_rc(___processor_state ps)
    * a clean, physically retired record can occupy this byte-only slot. */
   if (d->idle_activation != 0) {
     ___FREE_MEM(d->idle_activation); d->idle_activation=0;
+  }
+  {
+    ___rest_directory_chunk *chunk = d->rest_chunks;
+    d->rest_chunks = 0;
+    d->rest_total_slots = 0;
+    d->rest_evict_cursor = 0;
+    while (chunk != 0) {
+      ___rest_directory_chunk *next = chunk->next;
+      ___FREE_MEM(chunk);
+      chunk = next;
+    }
   }
   d->owner = 0; d->task.executor = 0; d->phase = ___RC_DETACHED;
   destroy = d->nodes == 0;
@@ -607,228 +619,276 @@ void ___rest_observation_reset_admission(void)
   ___WORD_STORE_RELEASE(&rest_observation_admission_captured, 0);
 }
 
-static ___activation_record *rest_slot_record(___vm_lifecycle *life, int index)
+static ___activation_record *rest_slot_record(___rest_directory_slot *slot)
 {
-  return ___CAST(___activation_record*,
-                 ___WORD_LOAD_ACQUIRE(&life->rest_directory[index].record));
+  return ___CAST(___activation_record*, ___WORD_LOAD_ACQUIRE(&slot->record));
 }
 
-static void rest_slot_set_record(___vm_lifecycle *life, int index,
+static void rest_slot_set_record(___rest_directory_slot *slot,
                                  ___activation_record *record)
 {
-  ___WORD_STORE_RELEASE(&life->rest_directory[index].record,
-                        ___CAST(___WORD, record));
+  ___WORD_STORE_RELEASE(&slot->record, ___CAST(___WORD, record));
 }
 
-static ___WORD rest_slot_incarnation(___vm_lifecycle *life, int index)
+static ___WORD rest_slot_incarnation(___rest_directory_slot *slot)
 {
-  return ___WORD_LOAD_ACQUIRE(&life->rest_directory[index].incarnation);
+  return ___WORD_LOAD_ACQUIRE(&slot->incarnation);
 }
 
-static void rest_slot_set_incarnation(___vm_lifecycle *life, int index,
+static void rest_slot_set_incarnation(___rest_directory_slot *slot,
                                       ___WORD incarnation)
 {
-  ___WORD_STORE_RELEASE(&life->rest_directory[index].incarnation, incarnation);
+  ___WORD_STORE_RELEASE(&slot->incarnation, incarnation);
 }
 
-static ___WORD rest_slot_retired(___vm_lifecycle *life, int index)
+static ___WORD rest_slot_retired(___rest_directory_slot *slot)
 {
-  return ___WORD_LOAD_ACQUIRE(&life->rest_directory[index].retired_generation);
+  return ___WORD_LOAD_ACQUIRE(&slot->retired_generation);
 }
 
-static void rest_slot_set_retired(___vm_lifecycle *life, int index,
+static void rest_slot_set_retired(___rest_directory_slot *slot,
                                   ___WORD generation)
 {
-  ___WORD_STORE_RELEASE(&life->rest_directory[index].retired_generation,
-                        generation);
+  ___WORD_STORE_RELEASE(&slot->retired_generation, generation);
 }
 
-/* Compare directory cells only. The activation record is not loaded here. */
-static int rest_directory_index(___vm_lifecycle *life, ___activation_record *record)
+static ___WORD rest_slot_generation(___rest_directory_slot *slot)
 {
-  int i;
-  if (!life || !record) return -1;
-  for (i=0; i<___REST_DIRECTORY_SLOTS; i++)
-    if (rest_slot_record(life, i)==record) return i;
-  return -1;
+  return ___WORD_LOAD_ACQUIRE(&slot->generation);
 }
 
-static ___WORD rest_slot_generation(___vm_lifecycle *life, int index)
+static void rest_slot_set_generation(___rest_directory_slot *slot,
+                                     ___WORD generation)
 {
-  return ___WORD_LOAD_ACQUIRE(&life->rest_directory[index].generation);
-}
-
-static void rest_slot_set_generation(___vm_lifecycle *life, int index,
-                                    ___WORD generation)
-{
-  ___WORD_STORE_RELEASE(&life->rest_directory[index].generation, generation);
+  ___WORD_STORE_RELEASE(&slot->generation, generation);
 }
 
 /* One settler. A lost CAS leaves the live generation in place. */
-static int rest_slot_take_generation(___vm_lifecycle *life, int index,
-                                    ___WORD generation)
+static int rest_slot_take_generation(___rest_directory_slot *slot,
+                                     ___WORD generation)
 {
-  return ___lifecycle_cas(&life->rest_directory[index].generation,
-                          generation, 0)==generation;
+  return ___lifecycle_cas(&slot->generation, generation, 0) == generation;
 }
 
-static int rest_directory_claim(___processor_state ps, ___activation_record *record,
-                                ___WORD generation)
+/* Compare per-domain directory cells only. The activation record is never
+ * dereferenced here. Steady-state idle_activation hits chunk 0 slot 0 in O(1). */
+static ___rest_directory_slot *rest_directory_find(___rc_domain *d,
+                                                   ___activation_record *record)
+{
+  ___rest_directory_chunk *chunk;
+  if (!d || !record) return 0;
+  for (chunk = d->rest_chunks; chunk != 0; chunk = chunk->next) {
+    ___SIZE_T i;
+    for (i = 0; i < chunk->capacity; i++)
+      if (rest_slot_record(&chunk->slots[i]) == record)
+        return &chunk->slots[i];
+  }
+  return 0;
+}
+
+/* Geometrically grow the per-domain chunked slab (4 -> 8 -> 16 -> ...).
+ * Appending a new chunk keeps all existing slot pointers address-stable and
+ * leaves chunk 0 first in the list for O(1) hot-path lookups. */
+static ___rest_directory_chunk *rest_directory_grow(___rc_domain *d)
+{
+  ___SIZE_T cap, slots_bytes, total_bytes;
+  ___rest_directory_chunk *chunk;
+  ___rest_directory_chunk **tail = &d->rest_chunks;
+  ___SIZE_T last_cap = 0;
+  while (*tail != 0) {
+    last_cap = (*tail)->capacity;
+    tail = &(*tail)->next;
+  }
+  if (last_cap == 0)
+    cap = 4;
+  else if (last_cap <= ((~___CAST(___SIZE_T, 0)) >> 1))
+    cap = last_cap << 1;
+  else
+    return 0;
+  if (cap > (((~___CAST(___SIZE_T, 0)) - sizeof(___rest_directory_chunk)) /
+             sizeof(___rest_directory_slot)) + 1)
+    return 0;
+  slots_bytes = (cap - 1) * sizeof(___rest_directory_slot);
+  total_bytes = sizeof(___rest_directory_chunk) + slots_bytes;
+  chunk = ___CAST(___rest_directory_chunk*, ___ALLOC_MEM(total_bytes));
+  if (!chunk) return 0;
+  memset(chunk, 0, total_bytes);
+  chunk->capacity = cap;
+  chunk->next = 0;
+  *tail = chunk;
+  d->rest_total_slots += cap;
+  return chunk;
+}
+
+static ___rest_directory_slot *rest_directory_claim(___processor_state ps,
+                                                    ___activation_record *record,
+                                                    ___WORD generation)
 {
   ___virtual_machine_state vm;
   ___vm_lifecycle *life;
-  int start, k, i, attempts;
-  if (!ps || !record || generation<=0) return -1;
-  vm=___VMSTATE_FROM_PSTATE(ps);
-  life=vm->lifecycle;
-  if (!life) return -1;
-  {
-    int id=___PROCESSOR_ID(ps, vm);
-    start=(id>=0 ? (id * 2) % ___REST_DIRECTORY_SLOTS : 0);
+  ___rc_domain *d;
+  ___rest_directory_slot *slot;
+  ___rest_directory_chunk *chunk;
+  if (!ps || ps != ___PSTATE || !record || generation <= 0) return 0;
+  d = ps->mem.rc_domain_;
+  vm = ___VMSTATE_FROM_PSTATE(ps);
+  life = vm ? vm->lifecycle : 0;
+  if (!d || !life) return 0;
+
+  /* 1. Reuse existing FREE slot already keyed by this record (O(1) hit for
+   *    idle_activation; preserves retired_generation receipt for same key). */
+  slot = rest_directory_find(d, record);
+  if (slot != 0) {
+    ___WORD state = ___WORD_LOAD_ACQUIRE(&slot->state);
+    if (___REST_ST_PHASE(state) != ___REST_PHASE_FREE) return 0;
+    if (___lifecycle_cas(&slot->state, state,
+                         ___REST_ST_MAKE(0, ___REST_PHASE_PUBLISHING)) != state)
+      return 0;
+    rest_slot_set_incarnation(slot, life->incarnation);
+    rest_slot_set_generation(slot, generation);
+    return slot;
   }
-  for (attempts=0; attempts<100000; attempts++) {
-    i=rest_directory_index(life, record);
-    if (i>=0) {
-      ___WORD state=___WORD_LOAD_ACQUIRE(&life->rest_directory[i].state);
-      int phase=___REST_ST_PHASE(state);
-      if (phase==___REST_PHASE_FREE) {
-        if (___lifecycle_cas(&life->rest_directory[i].state, state,
-                             ___REST_ST_MAKE(0, ___REST_PHASE_PUBLISHING))==state) {
-          ___activation_record *prior=rest_slot_record(life, i);
-          rest_slot_set_record(life, i, record);
-          rest_slot_set_incarnation(life, i, life->incarnation);
-          if (prior!=record) rest_slot_set_retired(life, i, 0);
-          rest_slot_set_generation(life, i, generation);
-          return i;
+
+  /* 2. Prefer a never-used FREE slot (record == 0) so recently retired
+   *    address receipts remain intact without eviction. */
+  for (chunk = d->rest_chunks; chunk != 0; chunk = chunk->next) {
+    ___SIZE_T i;
+    for (i = 0; i < chunk->capacity; i++) {
+      ___WORD state;
+      slot = &chunk->slots[i];
+      if (rest_slot_record(slot) != 0) continue;
+      state = ___WORD_LOAD_ACQUIRE(&slot->state);
+      if (___REST_ST_PHASE(state) == ___REST_PHASE_FREE &&
+          ___lifecycle_cas(&slot->state, state,
+                           ___REST_ST_MAKE(0, ___REST_PHASE_PUBLISHING)) == state) {
+        rest_slot_set_record(slot, record);
+        rest_slot_set_incarnation(slot, life->incarnation);
+        rest_slot_set_retired(slot, 0);
+        rest_slot_set_generation(slot, generation);
+        return slot;
+      }
+    }
+  }
+
+  /* 3. Reuse a drained FREE slot via round-robin cursor if available
+   *    (bounds slab size across sequential allocations with distinct malloc
+   *    addresses while preserving the most recent retired receipts). */
+  if (d->rest_total_slots > 0) {
+    ___SIZE_T total = d->rest_total_slots;
+    ___SIZE_T start = d->rest_evict_cursor % total;
+    ___SIZE_T step;
+    for (step = 0; step < total; step++) {
+      ___SIZE_T target = (start + step) % total;
+      ___SIZE_T offset = target;
+      slot = 0;
+      for (chunk = d->rest_chunks; chunk != 0; chunk = chunk->next) {
+        if (offset < chunk->capacity) {
+          slot = &chunk->slots[offset];
+          break;
         }
-        ___CPU_RELAX();
-        continue;
+        offset -= chunk->capacity;
       }
-      if (phase==___REST_PHASE_OPEN) {
-        if (rest_slot_record(life, i)==record) return -1;
-        continue;
-      }
-      if (phase==___REST_PHASE_CLOSED &&
-          rest_slot_generation(life, i)!=0 &&
-          rest_slot_record(life, i)==record)
-        return -1;
-      /* Transient PUBLISHING (slot stolen and key update in flight) or
-       * CLOSED with generation==0 (retire finishing CLOSED->FREE store). */
-      ___CPU_RELAX();
-      continue;
-    }
-
-    /* Prefer an unused FREE slot at this processor's affine offset so
-     * concurrent processors avoid slot contention and key eviction. */
-    for (k=0; k<___REST_DIRECTORY_SLOTS; k++) {
-      ___WORD state;
-      i=(start + k) % ___REST_DIRECTORY_SLOTS;
-      if (rest_slot_record(life, i)!=0) continue;
-      state=___WORD_LOAD_ACQUIRE(&life->rest_directory[i].state);
-      if (___REST_ST_PHASE(state)==___REST_PHASE_FREE &&
-          ___lifecycle_cas(&life->rest_directory[i].state, state,
-                           ___REST_ST_MAKE(0, ___REST_PHASE_PUBLISHING))==state) {
-        ___activation_record *prior=rest_slot_record(life, i);
-        rest_slot_set_record(life, i, record);
-        rest_slot_set_incarnation(life, i, life->incarnation);
-        if (!prior || prior!=record) rest_slot_set_retired(life, i, 0);
-        rest_slot_set_generation(life, i, generation);
-        return i;
+      if (slot != 0) {
+        ___WORD state = ___WORD_LOAD_ACQUIRE(&slot->state);
+        if (___REST_ST_PHASE(state) == ___REST_PHASE_FREE &&
+            ___lifecycle_cas(&slot->state, state,
+                             ___REST_ST_MAKE(0, ___REST_PHASE_PUBLISHING)) == state) {
+          d->rest_evict_cursor = (target + 1) % total;
+          rest_slot_set_record(slot, record);
+          rest_slot_set_incarnation(slot, life->incarnation);
+          rest_slot_set_retired(slot, 0);
+          rest_slot_set_generation(slot, generation);
+          return slot;
+        }
       }
     }
-
-    /* Fall back to any drained FREE slot if all slots have been used. */
-    for (k=0; k<___REST_DIRECTORY_SLOTS; k++) {
-      ___WORD state;
-      i=(start + k) % ___REST_DIRECTORY_SLOTS;
-      state=___WORD_LOAD_ACQUIRE(&life->rest_directory[i].state);
-      if (___REST_ST_PHASE(state)==___REST_PHASE_FREE &&
-          ___lifecycle_cas(&life->rest_directory[i].state, state,
-                           ___REST_ST_MAKE(0, ___REST_PHASE_PUBLISHING))==state) {
-        ___activation_record *prior=rest_slot_record(life, i);
-        rest_slot_set_record(life, i, record);
-        rest_slot_set_incarnation(life, i, life->incarnation);
-        if (!prior || prior!=record) rest_slot_set_retired(life, i, 0);
-        rest_slot_set_generation(life, i, generation);
-        return i;
-      }
-    }
-
-    return -1;
   }
-  return -1;
+
+  /* 4. All existing slots are live (or first activation on this domain):
+   *    grow the per-domain slab dynamically with zero compile-time cap. */
+  chunk = rest_directory_grow(d);
+  if (!chunk) return 0;
+  slot = &chunk->slots[0];
+  if (___lifecycle_cas(&slot->state, ___REST_ST_MAKE(0, ___REST_PHASE_FREE),
+                       ___REST_ST_MAKE(0, ___REST_PHASE_PUBLISHING)) !=
+      ___REST_ST_MAKE(0, ___REST_PHASE_FREE))
+    return 0;
+  rest_slot_set_record(slot, record);
+  rest_slot_set_incarnation(slot, life->incarnation);
+  rest_slot_set_retired(slot, 0);
+  rest_slot_set_generation(slot, generation);
+  return slot;
 }
 
-static void rest_directory_retire(___processor_state ps, int index, ___WORD generation)
+static void rest_directory_retire(___processor_state ps,
+                                  ___rest_directory_slot *slot,
+                                  ___WORD generation)
 {
-  ___vm_lifecycle *life=___VMSTATE_FROM_PSTATE(ps)->lifecycle;
   ___activation_record *record;
   ___WORD state;
-  if (!life || index<0 || index>=___REST_DIRECTORY_SLOTS) return;
-  state=___WORD_LOAD_ACQUIRE(&life->rest_directory[index].state);
-  if (rest_slot_generation(life, index)!=generation) return;
-  if (___REST_ST_PIN(state) || ___REST_ST_PHASE(state)!=___REST_PHASE_CLOSED)
+  (void)ps;
+  if (!slot) return;
+  state = ___WORD_LOAD_ACQUIRE(&slot->state);
+  if (rest_slot_generation(slot) != generation) return;
+  if (___REST_ST_PIN(state) || ___REST_ST_PHASE(state) != ___REST_PHASE_CLOSED)
     return;
   /* Own the generation before any metadata write. FREE is the last store. */
-  if (!rest_slot_take_generation(life, index, generation)) return;
-  record=rest_slot_record(life, index);
-  rest_slot_set_retired(life, index, generation);
+  if (!rest_slot_take_generation(slot, generation)) return;
+  record = rest_slot_record(slot);
+  rest_slot_set_retired(slot, generation);
   if (record) {
-    record->kind=___ACTIVATION_LEGACY;
+    record->kind = ___ACTIVATION_LEGACY;
     ___lifecycle_marker_abort(record);
   }
   /* Keep the address as an equality key. Do not load it after abort. */
-  rest_slot_set_record(life, index, record);
-  if (___lifecycle_cas(&life->rest_directory[index].state, state,
-                       ___REST_ST_MAKE(0, ___REST_PHASE_FREE))!=state)
+  rest_slot_set_record(slot, record);
+  if (___lifecycle_cas(&slot->state, state,
+                       ___REST_ST_MAKE(0, ___REST_PHASE_FREE)) != state)
     return;
 }
 
-static void rest_directory_cancel(___processor_state ps, int index,
+static void rest_directory_cancel(___processor_state ps,
+                                  ___rest_directory_slot *slot,
                                   ___WORD generation)
 {
-  ___vm_lifecycle *life;
   ___WORD state, swapped;
-  if (!ps || index<0) return;
-  life=___VMSTATE_FROM_PSTATE(ps)->lifecycle;
-  if (!life || index>=___REST_DIRECTORY_SLOTS) return;
-  state=___WORD_LOAD_ACQUIRE(&life->rest_directory[index].state);
-  if (rest_slot_generation(life, index)!=generation || ___REST_ST_PIN(state) ||
-      ___REST_ST_PHASE(state)!=___REST_PHASE_PUBLISHING) return;
-  if (!rest_slot_take_generation(life, index, generation)) return;
-  rest_slot_set_retired(life, index, generation);
+  (void)ps;
+  if (!slot) return;
+  state = ___WORD_LOAD_ACQUIRE(&slot->state);
+  if (rest_slot_generation(slot) != generation || ___REST_ST_PIN(state) ||
+      ___REST_ST_PHASE(state) != ___REST_PHASE_PUBLISHING) return;
+  if (!rest_slot_take_generation(slot, generation)) return;
+  rest_slot_set_retired(slot, generation);
   for (;;) {
-    state=___WORD_LOAD_ACQUIRE(&life->rest_directory[index].state);
-    if (___REST_ST_PHASE(state)==___REST_PHASE_FREE) return;
+    state = ___WORD_LOAD_ACQUIRE(&slot->state);
+    if (___REST_ST_PHASE(state) == ___REST_PHASE_FREE) return;
     if (___REST_ST_PIN(state) ||
-        ___REST_ST_PHASE(state)!=___REST_PHASE_PUBLISHING) return;
-    swapped=___lifecycle_cas(&life->rest_directory[index].state, state,
-                             ___REST_ST_MAKE(0, ___REST_PHASE_FREE));
-    if (swapped==state) return;
+        ___REST_ST_PHASE(state) != ___REST_PHASE_PUBLISHING) return;
+    swapped = ___lifecycle_cas(&slot->state, state,
+                               ___REST_ST_MAKE(0, ___REST_PHASE_FREE));
+    if (swapped == state) return;
   }
 }
 
-/* Claim the stable slot, then publish OPEN. Callers may load the record
- * only after this returns a slot. Failure leaves the record unopened. */
-static int rest_directory_open_slot(___processor_state ps,
-                                    ___activation_record *record,
-                                    ___WORD generation)
+/* Claim a stable per-domain slot, then publish OPEN. Callers may load the
+ * record only after this returns a non-null slot. */
+static ___rest_directory_slot *rest_directory_open_slot(___processor_state ps,
+                                                        ___activation_record *record,
+                                                        ___WORD generation)
 {
-  ___vm_lifecycle *life;
-  int index;
+  ___rest_directory_slot *slot;
   ___WORD state, swapped;
-  index=rest_directory_claim(ps, record, generation);
-  if (index<0) return -1;
-  life=___VMSTATE_FROM_PSTATE(ps)->lifecycle;
-  state=___WORD_LOAD_ACQUIRE(&life->rest_directory[index].state);
-  if (rest_slot_generation(life, index)==generation && !___REST_ST_PIN(state) &&
-      ___REST_ST_PHASE(state)==___REST_PHASE_PUBLISHING) {
-    swapped=___lifecycle_cas(&life->rest_directory[index].state, state,
-                             ___REST_ST_MAKE(0, ___REST_PHASE_OPEN));
-    if (swapped==state) return index;
+  slot = rest_directory_claim(ps, record, generation);
+  if (!slot) return 0;
+  state = ___WORD_LOAD_ACQUIRE(&slot->state);
+  if (rest_slot_generation(slot) == generation && !___REST_ST_PIN(state) &&
+      ___REST_ST_PHASE(state) == ___REST_PHASE_PUBLISHING) {
+    swapped = ___lifecycle_cas(&slot->state, state,
+                               ___REST_ST_MAKE(0, ___REST_PHASE_OPEN));
+    if (swapped == state) return slot;
   }
   /* Leave PUBLISHING in place. The caller settles the record, then cancels. */
-  return -1;
+  return 0;
 }
 
 /* Pin CAS first. Mismatched generation, close, and a second reader return
@@ -842,60 +902,62 @@ ___WORD ___rest_resume_collections;
 
 static enum ___rest_status rest_admit(___processor_state ps,
                                       ___activation_record *record,
-                                      ___WORD generation, int *index)
+                                      ___WORD generation,
+                                      ___rest_directory_slot **slot_out)
 {
   ___vm_lifecycle *life;
-  int found;
+  ___rc_domain *d;
+  ___rest_directory_slot *found;
   ___WORD state, swapped;
-  if (index) *index=-1;
-  if (!ps || ps!=___PSTATE || !record || generation<=0) return ___REST_REFUSED;
-  life=___VMSTATE_FROM_PSTATE(ps)->lifecycle;
-  if (!life) return ___REST_REFUSED;
-  found=rest_directory_index(life, record);
-  if (found<0 || rest_slot_incarnation(life, found)!=life->incarnation)
+  if (slot_out) *slot_out = 0;
+  if (!ps || ps != ___PSTATE || !record || generation <= 0) return ___REST_REFUSED;
+  d = ps->mem.rc_domain_;
+  life = ___VMSTATE_FROM_PSTATE(ps)->lifecycle;
+  if (!d || !life) return ___REST_REFUSED;
+  found = rest_directory_find(d, record);
+  if (!found || rest_slot_incarnation(found) != life->incarnation)
     return ___REST_REFUSED;
   for (;;) {
-    state=___WORD_LOAD_ACQUIRE(&life->rest_directory[found].state);
-    if (rest_slot_generation(life, found)!=generation) {
-      if (generation==rest_slot_retired(life, found))
+    state = ___WORD_LOAD_ACQUIRE(&found->state);
+    if (rest_slot_generation(found) != generation) {
+      if (generation == rest_slot_retired(found))
         return ___REST_DUPLICATE;
-      if (___REST_ST_PHASE(state)==___REST_PHASE_OPEN) return ___REST_LOST;
+      if (___REST_ST_PHASE(state) == ___REST_PHASE_OPEN) return ___REST_LOST;
       return ___REST_UNKNOWN;
     }
-    if (___REST_ST_PHASE(state)==___REST_PHASE_PUBLISHING) return ___REST_LOST;
-    if (___REST_ST_PHASE(state)==___REST_PHASE_CLOSED) return ___REST_REFUSED;
-    if (___REST_ST_PHASE(state)!=___REST_PHASE_OPEN) return ___REST_UNKNOWN;
+    if (___REST_ST_PHASE(state) == ___REST_PHASE_PUBLISHING) return ___REST_LOST;
+    if (___REST_ST_PHASE(state) == ___REST_PHASE_CLOSED) return ___REST_REFUSED;
+    if (___REST_ST_PHASE(state) != ___REST_PHASE_OPEN) return ___REST_UNKNOWN;
     if (___REST_ST_PIN(state)) return ___REST_RETRY;
     /* Test-only pause. A publisher reuses the slot, still unpinned OPEN,
      * before this CAS. Production leaves the flag clear. */
     if (rest_reuse_before_cas) {
-      rest_reuse_before_cas=0;
-      rest_slot_set_generation(life, found, generation+1);
+      rest_reuse_before_cas = 0;
+      rest_slot_set_generation(found, generation + 1);
     }
-    swapped=___lifecycle_cas(&life->rest_directory[found].state, state,
-                             ___REST_ST_MAKE(1, ___REST_PHASE_OPEN));
-    if (swapped==state) {
+    swapped = ___lifecycle_cas(&found->state, state,
+                               ___REST_ST_MAKE(1, ___REST_PHASE_OPEN));
+    if (swapped == state) {
       /* Close can move OPEN+pin to CLOSED+pin before this re-read.
        * Either a new generation or a phase that is no longer OPEN drops
        * the pin. The activation record is not loaded. */
       if (rest_close_while_pinned) {
-        rest_close_while_pinned=0;
-        ___lifecycle_cas(&life->rest_directory[found].state,
+        rest_close_while_pinned = 0;
+        ___lifecycle_cas(&found->state,
                          ___REST_ST_MAKE(1, ___REST_PHASE_OPEN),
                          ___REST_ST_MAKE(1, ___REST_PHASE_CLOSED));
       }
-      if (rest_slot_generation(life, found)!=generation ||
-          ___REST_ST_PHASE(___WORD_LOAD_ACQUIRE(&life->rest_directory[found].state))
-            !=___REST_PHASE_OPEN) {
+      if (rest_slot_generation(found) != generation ||
+          ___REST_ST_PHASE(___WORD_LOAD_ACQUIRE(&found->state)) != ___REST_PHASE_OPEN) {
         for (;;) {
-          ___WORD pinned=___WORD_LOAD_ACQUIRE(&life->rest_directory[found].state);
-          ___WORD now=rest_slot_generation(life, found);
+          ___WORD pinned = ___WORD_LOAD_ACQUIRE(&found->state);
+          ___WORD now = rest_slot_generation(found);
           if (!___REST_ST_PIN(pinned)) break;
-          if (___lifecycle_cas(&life->rest_directory[found].state, pinned,
-                               ___REST_ST_MAKE(0, ___REST_ST_PHASE(pinned)))==pinned) {
+          if (___lifecycle_cas(&found->state, pinned,
+                               ___REST_ST_MAKE(0, ___REST_ST_PHASE(pinned))) == pinned) {
             /* Close may have moved OPEN+pin to CLOSED+pin. Dropping the
              * last pin retires that generation; an OPEN occupant stays. */
-            if (___REST_ST_PHASE(pinned)==___REST_PHASE_CLOSED)
+            if (___REST_ST_PHASE(pinned) == ___REST_PHASE_CLOSED)
               rest_directory_retire(ps, found, now);
             break;
           }
@@ -905,25 +967,24 @@ static enum ___rest_status rest_admit(___processor_state ps,
       break;
     }
   }
-  if (index) *index=found;
+  if (slot_out) *slot_out = found;
   return ___REST_OK;
 }
 
-static void rest_unpin(___processor_state ps, int index, ___WORD generation)
+static void rest_unpin(___processor_state ps,
+                       ___rest_directory_slot *slot,
+                       ___WORD generation)
 {
-  ___vm_lifecycle *life;
   ___WORD state, swapped;
-  if (!ps || index<0) return;
-  life=___VMSTATE_FROM_PSTATE(ps)->lifecycle;
-  if (!life) return;
+  if (!ps || !slot) return;
   for (;;) {
-    state=___WORD_LOAD_ACQUIRE(&life->rest_directory[index].state);
-    if (rest_slot_generation(life, index)!=generation || !___REST_ST_PIN(state)) return;
-    swapped=___lifecycle_cas(&life->rest_directory[index].state, state,
-                             ___REST_ST_MAKE(0, ___REST_ST_PHASE(state)));
-    if (swapped==state) {
-      if (___REST_ST_PHASE(state)==___REST_PHASE_CLOSED)
-        rest_directory_retire(ps, index, generation);
+    state = ___WORD_LOAD_ACQUIRE(&slot->state);
+    if (rest_slot_generation(slot) != generation || !___REST_ST_PIN(state)) return;
+    swapped = ___lifecycle_cas(&slot->state, state,
+                               ___REST_ST_MAKE(0, ___REST_ST_PHASE(state)));
+    if (swapped == state) {
+      if (___REST_ST_PHASE(state) == ___REST_PHASE_CLOSED)
+        rest_directory_retire(ps, slot, generation);
       return;
     }
   }
@@ -933,9 +994,9 @@ enum ___rest_status ___rest_token_pin(___processor_state ps,
                                       ___activation_record *record,
                                       ___WORD generation)
 {
-  int index=-1;
-  enum ___rest_status status=rest_admit(ps, record, generation, &index);
-  if (status!=___REST_OK) return status;
+  ___rest_directory_slot *dir_slot = 0;
+  enum ___rest_status status = rest_admit(ps, record, generation, &dir_slot);
+  if (status != ___REST_OK) return status;
   return ___REST_OK;
 }
 
@@ -943,13 +1004,11 @@ enum ___rest_status ___rest_token_release(___processor_state ps,
                                           ___activation_record *record,
                                           ___WORD generation)
 {
-  ___vm_lifecycle *life;
-  int index;
-  if (!ps || ps!=___PSTATE) return ___REST_REFUSED;
-  life=___VMSTATE_FROM_PSTATE(ps)->lifecycle;
-  index=rest_directory_index(life, record);
-  if (index<0) return ___REST_REFUSED;
-  rest_unpin(ps, index, generation);
+  ___rest_directory_slot *dir_slot;
+  if (!ps || ps != ___PSTATE || !ps->mem.rc_domain_) return ___REST_REFUSED;
+  dir_slot = rest_directory_find(ps->mem.rc_domain_, record);
+  if (!dir_slot) return ___REST_REFUSED;
+  rest_unpin(ps, dir_slot, generation);
   return ___REST_OK;
 }
 
@@ -958,24 +1017,25 @@ enum ___rest_status ___rest_token_close(___processor_state ps,
                                         ___WORD generation)
 {
   ___vm_lifecycle *life;
-  int index;
+  ___rest_directory_slot *dir_slot;
   ___WORD state, swapped;
-  if (!ps || ps!=___PSTATE || !record || generation<=0) return ___REST_REFUSED;
-  life=___VMSTATE_FROM_PSTATE(ps)->lifecycle;
-  index=rest_directory_index(life, record);
-  if (index<0 || !life || rest_slot_incarnation(life, index)!=life->incarnation)
+  if (!ps || ps != ___PSTATE || !ps->mem.rc_domain_ || !record || generation <= 0)
+    return ___REST_REFUSED;
+  life = ___VMSTATE_FROM_PSTATE(ps)->lifecycle;
+  dir_slot = rest_directory_find(ps->mem.rc_domain_, record);
+  if (!dir_slot || !life || rest_slot_incarnation(dir_slot) != life->incarnation)
     return ___REST_REFUSED;
   for (;;) {
-    state=___WORD_LOAD_ACQUIRE(&life->rest_directory[index].state);
-    if (rest_slot_generation(life, index)!=generation ||
-        ___REST_ST_PHASE(state)!=___REST_PHASE_OPEN) return ___REST_REFUSED;
-    swapped=___lifecycle_cas(&life->rest_directory[index].state, state,
-                             ___REST_ST_MAKE(___REST_ST_PIN(state),
-                                             ___REST_PHASE_CLOSED));
-    if (swapped==state) break;
+    state = ___WORD_LOAD_ACQUIRE(&dir_slot->state);
+    if (rest_slot_generation(dir_slot) != generation ||
+        ___REST_ST_PHASE(state) != ___REST_PHASE_OPEN) return ___REST_REFUSED;
+    swapped = ___lifecycle_cas(&dir_slot->state, state,
+                               ___REST_ST_MAKE(___REST_ST_PIN(state),
+                                               ___REST_PHASE_CLOSED));
+    if (swapped == state) break;
   }
-  if (!___REST_ST_PIN(___WORD_LOAD_ACQUIRE(&life->rest_directory[index].state)))
-    rest_directory_retire(ps, index, generation);
+  if (!___REST_ST_PIN(___WORD_LOAD_ACQUIRE(&dir_slot->state)))
+    rest_directory_retire(ps, dir_slot, generation);
   return ___REST_OK;
 }
 
@@ -1003,12 +1063,12 @@ static enum ___rest_status rest_prove(___processor_state ps,
 static enum ___rest_status rest_with_pin(___processor_state ps,
                                          ___activation_record *record,
                                          ___WORD attempt, ___WORD epoch,
-                                         int *index)
+                                         ___rest_directory_slot **slot_out)
 {
-  enum ___rest_status status=rest_admit(ps, record, epoch, index);
-  if (status!=___REST_OK) return status;
-  status=rest_prove(ps, record, attempt, epoch);
-  if (status!=___REST_OK) rest_unpin(ps, *index, epoch);
+  enum ___rest_status status = rest_admit(ps, record, epoch, slot_out);
+  if (status != ___REST_OK) return status;
+  status = rest_prove(ps, record, attempt, epoch);
+  if (status != ___REST_OK) rest_unpin(ps, *slot_out, epoch);
   return status;
 }
 
@@ -1038,10 +1098,11 @@ ___activation_record *___rest_activation_open(___processor_state ps,
   record->rest_context=ps->context;
   record->rest_epoch=epoch;
   (void)root_count;
-  if (rest_directory_open_slot(ps, record, epoch)<0) {
-    int index=rest_directory_index(___VMSTATE_FROM_PSTATE(ps)->lifecycle, record);
+  if (!rest_directory_open_slot(ps, record, epoch)) {
+    ___rest_directory_slot *dir_slot =
+      ps->mem.rc_domain_ ? rest_directory_find(ps->mem.rc_domain_, record) : 0;
     ___lifecycle_marker_abort(record);
-    if (index>=0) rest_directory_cancel(ps, index, epoch);
+    if (dir_slot) rest_directory_cancel(ps, dir_slot, epoch);
     return 0;
   }
   return record;
@@ -1057,31 +1118,31 @@ enum ___rest_status ___rest_span_publish(___processor_state ps,
   ___rc_header *h;
   ___rc_domain *d;
   enum ___rest_status proof;
-  int index=-1;
+  ___rest_directory_slot *dir_slot=0;
   if (!request) return ___REST_REFUSED;
-  proof=rest_with_pin(ps, record, request->attempt, epoch, &index);
+  proof=rest_with_pin(ps, record, request->attempt, epoch, &dir_slot);
   if (proof!=___REST_OK) return proof;
   if (record->rest_context!=ps->context ||
       !rest_request_ok(request, &root_count) ||
       !rest_same_request(record, request) ||
       record->rest_epoch!=epoch) {
-    rest_unpin(ps, index, epoch);
+    rest_unpin(ps, dir_slot, epoch);
     return ___REST_REFUSED;
   }
   if (record->rest_phase==___REST_INSTALLED ||
       record->rest_phase==___REST_READY) {
-    rest_unpin(ps, index, epoch);
+    rest_unpin(ps, dir_slot, epoch);
     return ___REST_DUPLICATE;
   }
   if (record->rest_phase!=___REST_PUBLISHING || record->roots!=0) {
-    rest_unpin(ps, index, epoch);
+    rest_unpin(ps, dir_slot, epoch);
     return ___REST_LOST;
   }
   /* Native metadata only. A short or failed allocation does not collect and
    * does not call fatal_heap_overflow. The caller arrays stay in place. */
   ptr=___alloc_rc_roots(ps, ___CAST(___SIZE_T, root_count));
   if (!ptr) {
-    rest_unpin(ps, index, epoch);
+    rest_unpin(ps, dir_slot, epoch);
     return ___REST_REFUSED;
   }
   h=___CAST(___rc_header*,ptr)-1; d=h->domain;
@@ -1094,7 +1155,7 @@ enum ___rest_status ___rest_span_publish(___processor_state ps,
       d->borrows==~___CAST(___SIZE_T,0)) {
     ___RC_UNLOCK(d);
     ___release_rc(ptr);
-    rest_unpin(ps, index, epoch);
+    rest_unpin(ps, dir_slot, epoch);
     return ___REST_LOST;
   }
   h->data=request->label;
@@ -1115,7 +1176,7 @@ enum ___rest_status ___rest_span_publish(___processor_state ps,
   }
 #endif
   ___RC_UNLOCK(d);
-  rest_unpin(ps, index, epoch);
+  rest_unpin(ps, dir_slot, epoch);
   return ___REST_OK;
 }
 
@@ -1143,16 +1204,16 @@ enum ___rest_status ___rest_span_query(___processor_state ps,
   ___rc_header *h;
   ___rc_domain *d;
   ___SCMOBJ *slot;
-  int index=-1;
-  enum ___rest_status proof=rest_with_pin(ps, record, attempt, epoch, &index);
+  ___rest_directory_slot *dir_slot=0;
+  enum ___rest_status proof=rest_with_pin(ps, record, attempt, epoch, &dir_slot);
   if (proof!=___REST_OK) return proof;
   if (record->rest_phase!=___REST_INSTALLED &&
       record->rest_phase!=___REST_READY) {
-    rest_unpin(ps, index, epoch);
+    rest_unpin(ps, dir_slot, epoch);
     return ___REST_LOST;
   }
   if (!rest_view_open(ps, record, attempt, epoch, &root_count)) {
-    rest_unpin(ps, index, epoch);
+    rest_unpin(ps, dir_slot, epoch);
     return ___REST_LOST;
   }
   h=___CAST(___rc_header*,record->roots)-1; d=h->domain;
@@ -1163,7 +1224,7 @@ enum ___rest_status ___rest_span_query(___processor_state ps,
       (record->rest_phase!=___REST_INSTALLED &&
        record->rest_phase!=___REST_READY)) {
     ___RC_UNLOCK(d);
-    rest_unpin(ps, index, epoch);
+    rest_unpin(ps, dir_slot, epoch);
     return ___REST_LOST;
   }
   slot=___CAST(___SCMOBJ*,record->roots);
@@ -1171,7 +1232,7 @@ enum ___rest_status ___rest_span_query(___processor_state ps,
   if (rest_list) *rest_list=slot[0];
   if (result) *result=slot[root_count-1];
   ___RC_UNLOCK(d);
-  rest_unpin(ps, index, epoch);
+  rest_unpin(ps, dir_slot, epoch);
   return ___REST_OK;
 }
 
@@ -1185,19 +1246,19 @@ enum ___rest_status ___rest_span_reload(___processor_state ps,
   ___rc_header *h;
   ___rc_domain *d;
   ___SCMOBJ *slot;
-  int index=-1;
-  enum ___rest_status proof=rest_with_pin(ps, record, attempt, epoch, &index);
+  ___rest_directory_slot *dir_slot=0;
+  enum ___rest_status proof=rest_with_pin(ps, record, attempt, epoch, &dir_slot);
   if (proof!=___REST_OK) return proof;
   if (window_n!=record->rest_n || key_n!=record->rest_nb_key) {
-    rest_unpin(ps, index, epoch);
+    rest_unpin(ps, dir_slot, epoch);
     return ___REST_REFUSED;
   }
   if ((window_n>0 && window==0) || (key_n>0 && key_vals==0)) {
-    rest_unpin(ps, index, epoch);
+    rest_unpin(ps, dir_slot, epoch);
     return ___REST_REFUSED;
   }
   if (!rest_view_open(ps, record, attempt, epoch, &root_count)) {
-    rest_unpin(ps, index, epoch);
+    rest_unpin(ps, dir_slot, epoch);
     return ___REST_LOST;
   }
   h=___CAST(___rc_header*,record->roots)-1; d=h->domain;
@@ -1208,7 +1269,7 @@ enum ___rest_status ___rest_span_reload(___processor_state ps,
       (record->rest_phase!=___REST_INSTALLED &&
        record->rest_phase!=___REST_READY)) {
     ___RC_UNLOCK(d);
-    rest_unpin(ps, index, epoch);
+    rest_unpin(ps, dir_slot, epoch);
     return ___REST_LOST;
   }
   slot=___CAST(___SCMOBJ*,record->roots);
@@ -1230,7 +1291,7 @@ enum ___rest_status ___rest_span_reload(___processor_state ps,
              u,slot[u],1,0,0,0,0,0);
 #endif
   ___RC_UNLOCK(d);
-  rest_unpin(ps, index, epoch);
+  rest_unpin(ps, dir_slot, epoch);
   return ___REST_OK;
 }
 
@@ -1242,11 +1303,11 @@ enum ___rest_status ___rest_claim_ready(___processor_state ps,
   ___WORD root_count;
   ___rc_header *h;
   ___rc_domain *d;
-  int index=-1;
-  enum ___rest_status proof=rest_with_pin(ps, record, attempt, epoch, &index);
+  ___rest_directory_slot *dir_slot=0;
+  enum ___rest_status proof=rest_with_pin(ps, record, attempt, epoch, &dir_slot);
   if (proof!=___REST_OK) return proof;
   if (!rest_view_open(ps, record, attempt, epoch, &root_count)) {
-    rest_unpin(ps, index, epoch);
+    rest_unpin(ps, dir_slot, epoch);
     return ___REST_LOST;
   }
   h=___CAST(___rc_header*,record->roots)-1; d=h->domain;
@@ -1255,17 +1316,17 @@ enum ___rest_status ___rest_claim_ready(___processor_state ps,
       h->root_borrows!=1 || h->root_count!=___CAST(___SIZE_T, root_count) ||
       record->rest_epoch!=epoch) {
     ___RC_UNLOCK(d);
-    rest_unpin(ps, index, epoch);
+    rest_unpin(ps, dir_slot, epoch);
     return ___REST_LOST;
   }
   if (record->rest_phase==___REST_READY) {
     ___RC_UNLOCK(d);
-    rest_unpin(ps, index, epoch);
+    rest_unpin(ps, dir_slot, epoch);
     return ___REST_DUPLICATE;
   }
   if (record->rest_phase!=___REST_INSTALLED) {
     ___RC_UNLOCK(d);
-    rest_unpin(ps, index, epoch);
+    rest_unpin(ps, dir_slot, epoch);
     return ___REST_LOST;
   }
   ___CAST(___SCMOBJ*,record->roots)[root_count-1]=vector;
@@ -1277,7 +1338,7 @@ enum ___rest_status ___rest_claim_ready(___processor_state ps,
   rest_observation_ready_label=(uint64_t)h->data;
 #endif
   ___RC_UNLOCK(d);
-  rest_unpin(ps, index, epoch);
+  rest_unpin(ps, dir_slot, epoch);
   return ___REST_OK;
 }
 
@@ -1285,8 +1346,8 @@ enum ___rest_status ___rest_activation_cleanup(___processor_state ps,
                                               ___activation_record *record,
                                               ___WORD attempt, ___WORD epoch)
 {
-  int index=-1;
-  enum ___rest_status proof=rest_with_pin(ps, record, attempt, epoch, &index);
+  ___rest_directory_slot *dir_slot=0;
+  enum ___rest_status proof=rest_with_pin(ps, record, attempt, epoch, &dir_slot);
   enum ___rest_status closed;
   /* Settled, unknown and lost proofs must not reach marker abort. Abort
    * runs from directory retirement, after the generation has advanced and
@@ -1294,7 +1355,7 @@ enum ___rest_status ___rest_activation_cleanup(___processor_state ps,
   if (proof!=___REST_OK) return proof;
   record->rest_retired_epoch=epoch;
   closed=___rest_token_close(ps, record, epoch);
-  rest_unpin(ps, index, epoch);
+  rest_unpin(ps, dir_slot, epoch);
   return closed==___REST_OK ? ___REST_OK : closed;
 }
 
@@ -1528,15 +1589,12 @@ ___WORD ___rest_close_loads;
 
 static int rest_directory_pin_bit(___processor_state ps, ___activation_record *record)
 {
-  ___vm_lifecycle *life;
-  int index;
+  ___rest_directory_slot *dir_slot;
   ___WORD state;
-  if (!ps || !record) return -1;
-  life=___VMSTATE_FROM_PSTATE(ps)->lifecycle;
-  if (!life) return -1;
-  index=rest_directory_index(life, record);
-  if (index<0) return -1;
-  state=___WORD_LOAD_ACQUIRE(&life->rest_directory[index].state);
+  if (!ps || !ps->mem.rc_domain_ || !record) return -1;
+  dir_slot = rest_directory_find(ps->mem.rc_domain_, record);
+  if (!dir_slot) return -1;
+  state = ___WORD_LOAD_ACQUIRE(&dir_slot->state);
   return ___REST_ST_PIN(state) ? 1 : 0;
 }
 
@@ -1546,8 +1604,7 @@ void ___rest_reuse_probe(___processor_state ps)
   ___activation_record *record;
   ___WORD epoch, loads;
   enum ___rest_status status;
-  ___vm_lifecycle *life;
-  int index;
+  ___rest_directory_slot *dir_slot;
   ___rest_reuse_status=-1;
   ___rest_reuse_pin=-1;
   ___rest_reuse_loads=-1;
@@ -1573,10 +1630,9 @@ void ___rest_reuse_probe(___processor_state ps)
   ___rest_reuse_status=(___WORD)status;
   ___rest_reuse_pin=rest_directory_pin_bit(ps, record);
   ___rest_reuse_loads=___rest_record_field_loads-loads;
-  life=___VMSTATE_FROM_PSTATE(ps)->lifecycle;
-  index=life ? rest_directory_index(life, record) : -1;
-  if (life && index>=0 && rest_slot_generation(life, index)==epoch+1)
-    rest_slot_set_generation(life, index, epoch);
+  dir_slot = ps->mem.rc_domain_ ? rest_directory_find(ps->mem.rc_domain_, record) : 0;
+  if (dir_slot && rest_slot_generation(dir_slot) == epoch + 1)
+    rest_slot_set_generation(dir_slot, epoch);
   ___rest_activation_cleanup(ps, record, ___FIX(1), epoch);
 
   record=___rest_activation_open(ps, &request);
@@ -2264,21 +2320,21 @@ enum ___rest_status ___rest_resume_delivery(___processor_state ps,
                                             ___WORD **new_hp,
                                             ___SCMOBJ *entered)
 {
-  int index=-1;
+  ___rest_directory_slot *dir_slot=0;
   ___WORD root_count;
   ___SCMOBJ result=___FAL;
   ___rc_header *h;
   ___rc_domain *d;
-  enum ___rest_status proof=rest_with_pin(ps, record, attempt, generation, &index);
+  enum ___rest_status proof=rest_with_pin(ps, record, attempt, generation, &dir_slot);
   if (proof!=___REST_OK) return proof;
   if (record->rest_delivered) {
-    rest_unpin(ps, index, generation);
+    rest_unpin(ps, dir_slot, generation);
     if (entered) *entered=___FAL;
     return ___REST_DUPLICATE;
   }
   if (record->rest_phase!=___REST_READY ||
       !rest_view_open(ps, record, attempt, generation, &root_count)) {
-    rest_unpin(ps, index, generation);
+    rest_unpin(ps, dir_slot, generation);
     return ___REST_LOST;
   }
   h=___CAST(___rc_header*,record->roots)-1; d=h->domain;
@@ -2290,7 +2346,7 @@ enum ___rest_status ___rest_resume_delivery(___processor_state ps,
     {
       int delivered=record->rest_delivered;
       ___RC_UNLOCK(d);
-      rest_unpin(ps, index, generation);
+      rest_unpin(ps, dir_slot, generation);
       /* The last pin drop can retire the record. Do not load it again. */
       return delivered ? ___REST_DUPLICATE : ___REST_LOST;
     }
@@ -2307,7 +2363,7 @@ enum ___rest_status ___rest_resume_delivery(___processor_state ps,
   if (old_hp && *old_hp!=ps->context->hp) {
     /* The cached cursor is not a grant. Delivery did not store through it. */
   }
-  rest_unpin(ps, index, generation);
+  rest_unpin(ps, dir_slot, generation);
   return ___REST_OK;
 }
 
@@ -2318,13 +2374,13 @@ enum ___rest_status ___rest_ready_preflight(___processor_state ps,
   ___WORD root_count;
   ___rc_header *h;
   ___rc_domain *d;
-  int index=-1;
+  ___rest_directory_slot *dir_slot=0;
   enum ___rest_status proof;
   if (!ps || !record) return ___REST_LOST;
-  proof=rest_with_pin(ps, record, attempt, epoch, &index);
+  proof=rest_with_pin(ps, record, attempt, epoch, &dir_slot);
   if (proof!=___REST_OK) return proof;
   if (!rest_view_open(ps, record, attempt, epoch, &root_count)) {
-    rest_unpin(ps, index, epoch);
+    rest_unpin(ps, dir_slot, epoch);
     return ___REST_LOST;
   }
   h=___CAST(___rc_header*,record->roots)-1; d=h->domain;
@@ -2335,12 +2391,12 @@ enum ___rest_status ___rest_ready_preflight(___processor_state ps,
       (record->rest_phase!=___REST_READY &&
        record->rest_phase!=___REST_INSTALLED)) {
     ___RC_UNLOCK(d);
-    rest_unpin(ps, index, epoch);
+    rest_unpin(ps, dir_slot, epoch);
     return ___REST_LOST;
   }
   proof=record->rest_phase==___REST_READY ? ___REST_DUPLICATE : ___REST_OK;
   ___RC_UNLOCK(d);
-  rest_unpin(ps, index, epoch);
+  rest_unpin(ps, dir_slot, epoch);
   return proof;
 }
 

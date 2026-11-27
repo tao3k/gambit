@@ -20,6 +20,28 @@
 #define ___RC_INIT(d) 1
 #endif
 
+/* Per-domain generation-stamped activation directory slot (never dereferences
+ * the keyed ___activation_record* address prior to pin admission). */
+typedef struct ___rest_directory_slot_struct {
+  ___VOLATILE ___WORD state;              /* pin (bit 2) and phase (bits 0..1) */
+  ___VOLATILE ___WORD incarnation;        /* VM incarnation */
+  ___VOLATILE ___WORD generation;         /* live generation; 0 while unsettled or free */
+  ___VOLATILE ___WORD retired_generation; /* last drained generation; address receipt */
+  ___VOLATILE ___WORD record;             /* ___activation_record* address key */
+} ___rest_directory_slot;
+
+/* OCaml-5-style per-domain geometrically growing chunked slab:
+ * - Zero compile-time processor or slot ceiling (scales across arbitrary core
+ *   counts and unbounded nested rest activations per processor).
+ * - Zero cross-core scan or cache-line false sharing (100% domain-local).
+ * - Chunks never relocate, keeping ___rest_directory_slot* address-stable across
+ *   dynamic growth while preserving retired-generation address receipts. */
+typedef struct ___rest_directory_chunk_struct {
+  struct ___rest_directory_chunk_struct *next;
+  ___SIZE_T capacity;
+  ___rest_directory_slot slots[1];
+} ___rest_directory_chunk;
+
 enum ___rc_phase { ___RC_OPEN, ___RC_FROZEN, ___RC_CLOSING, ___RC_DETACHED };
 struct ___rc_domain_struct {
 #if defined(___USE_POSIX_THREAD_SYSTEM) || defined(___USE_WIN32_THREAD_SYSTEM)
@@ -32,6 +54,9 @@ struct ___rc_domain_struct {
   ___root_task task;
   ___root_round *round; /* coordinator-owned; null for other sources */
   struct ___activation_record_struct *idle_activation; /* owner-only, no roots */
+  ___rest_directory_chunk *rest_chunks; /* owner-only dynamic rest slab */
+  ___SIZE_T rest_total_slots;           /* total slots across rest_chunks */
+  ___SIZE_T rest_evict_cursor;          /* round-robin reuse cursor for drained slots */
   ___root_round *joined_round; /* nonowning live-union lease, cleared last */
 };
 

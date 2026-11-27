@@ -28,8 +28,13 @@
   (f64vector-ref (##process-statistics) 15))
 
 (define (phase1-contraction-challenge!)
-  ;; Allocate ~25-35 MiB movable tree + 16 MiB direct-mmap large still + 4 MiB medium still
-  (let ((peak-heap 0.0)
+  ;; Establish the empty-VM baseline first (per-processor stack/young/mature floor
+  ;; scales with P), then allocate ~25-35 MiB movable tree + 16 MiB direct-mmap
+  ;; large still + 4 MiB medium still and verify a SINGLE (##gc) contracts the
+  ;; burst delta (not blocked by the legacy 16-GC ratchet) on any core count P.
+  (##gc)
+  (let ((base-heap (latest-heap-bytes))
+        (peak-heap 0.0)
         (after-heap 0.0))
     (let ((tree (make-burst-tree 16 1))
           (big-stills
@@ -45,19 +50,24 @@
       ;; Keep all objects live across one GC to establish true peak heap
       (##gc)
       (set! peak-heap (latest-heap-bytes))
-      (if (not (and (pair? tree)
-                    (= (length big-stills) 64)
-                    (= (length med-stills) 512)
-                    (> peak-heap 20000000.0)))
-          (error "c12 phase1 peak allocation sanity failed" peak-heap)))
-    ;; Now all burst objects are dead. A SINGLE (##gc) MUST contract the heap immediately!
+      (let ((burst-delta (- peak-heap base-heap)))
+        (if (not (and (pair? tree)
+                      (= (length big-stills) 64)
+                      (= (length med-stills) 512)
+                      (> burst-delta 16000000.0)))
+            (error "c12 phase1 peak allocation sanity failed"
+                   (list base: base-heap peak: peak-heap delta: burst-delta)))))
+    ;; Now all burst objects are dead. A SINGLE (##gc) MUST contract the burst immediately!
     (##gc)
     (set! after-heap (latest-heap-bytes))
-    (let ((ratio (/ after-heap peak-heap)))
-      (if (> ratio 0.50)
+    (let* ((burst-delta (- peak-heap base-heap))
+           (retained-delta (max 0.0 (- after-heap base-heap)))
+           (retained-ratio (/ retained-delta burst-delta)))
+      (if (> retained-ratio 0.25)
           (error "c12 contraction ratchet detected (1 GC failed to shrink heap)"
-                 (list peak: peak-heap after: after-heap ratio: ratio)))
-      (list peak-heap after-heap ratio))))
+                 (list base: base-heap peak: peak-heap after: after-heap
+                       burst-delta: burst-delta retained-ratio: retained-ratio)))
+      (list peak-heap after-heap retained-ratio))))
 
 (define (phase2-smp-still-rest-mailbox-challenge!)
   (let* ((n-workers (max 4 (##current-vm-processor-count)))

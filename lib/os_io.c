@@ -999,6 +999,9 @@ ___device_select_state *state;
 int fd;
 int for_op;)
 {
+  if (fd < 0 || fd >= ___PSTATE->os.fdset.size)
+    return;
+
   if (for_op == FOR_READING)
     ___FD_SET(fd, state->readfds);
   else
@@ -1023,6 +1026,9 @@ ___device_select_state *state;
 int fd;
 int for_op;)
 {
+  if (fd < 0 || state->pollfd_count >= MAX_CONDVARS)
+    return;
+
   state->pollfds[state->pollfd_count].fd = fd;
 
   if (for_op == FOR_READING)
@@ -1511,22 +1517,27 @@ ___time timeout;)
       {
         int errmask = (POLLERR | POLLHUP | POLLNVAL);
         int active = result;
+        int fdset_size = ___PSTATE->os.fdset.size;
         int x;
 
-        for (x = 0; active > 0; ++x)
+        for (x = 0; x < state.pollfd_count && active > 0; ++x)
           {
             if (state.pollfds[x].revents)
               {
-                if (state.pollfds[x].events & POLLIN)
+                int fd = state.pollfds[x].fd;
+                if (fd >= 0 && fd < fdset_size)
                   {
-                    if (state.pollfds[x].revents & (POLLIN | errmask))
-                      ___FD_SET(state.pollfds[x].fd, state.readfds);
-                  }
+                    if (state.pollfds[x].events & POLLIN)
+                      {
+                        if (state.pollfds[x].revents & (POLLIN | errmask))
+                          ___FD_SET(fd, state.readfds);
+                      }
 
-                if (state.pollfds[x].events & POLLOUT)
-                  {
-                    if (state.pollfds[x].revents & (POLLOUT | errmask))
-                      ___FD_SET(state.pollfds[x].fd, state.writefds);
+                    if (state.pollfds[x].events & POLLOUT)
+                      {
+                        if (state.pollfds[x].revents & (POLLOUT | errmask))
+                          ___FD_SET(fd, state.writefds);
+                      }
                   }
 
                 --active;
@@ -1704,41 +1715,51 @@ ___time timeout;)
 
 #endif
 
-  if (used_select_fence)
-    {
-      ___BOOL need_broadcast = 0;
-
-      ___MUTEX_LOCK (device_select_mutex);
-      if (select_entry.prev != NULL)
-        select_entry.prev->next = select_entry.next;
-      else
-        active_select_list = select_entry.next;
-      if (select_entry.next != NULL)
-        select_entry.next->prev = select_entry.prev;
-
-      for (i = 0; i < read_pos; i++)
-        {
-          if (dev_borrow[i] == 1)
-            {
-              ___device *d = devs[i];
-              int dir = (i >= write_pos
-                         ? ___DIRECTION_RD
-                         : (i >= event_pos
-                            ? ___DIRECTION_WR
-                            : 0));
-              if ((d->close_pending_mask & dir) != 0)
-                dev_borrow[i] = 3;
-              if (--d->select_active == 0 && d->close_waiters > 0)
-                need_broadcast = 1;
-            }
-        }
-      if (need_broadcast)
-        ___CONDVAR_BROADCAST (device_select_cond);
-      ___MUTEX_UNLOCK (device_select_mutex);
-    }
-
   {
+    ___device *saved_stack[64];
+    ___device **saved_devs = NULL;
     ___BOOL check_active = (e == ___FIX(___NO_ERR));
+
+    if (used_select_fence)
+      {
+        saved_devs = (read_pos <= 64)
+          ? saved_stack
+          : ___CAST(___device**, ___ALLOC_MEM((___SIZE_T)read_pos * sizeof(___device*)));
+        if (saved_devs == NULL)
+          {
+            e = ___FIX(___HEAP_OVERFLOW_ERR);
+            goto select_unborrow_cleanup;
+          }
+
+        ___MUTEX_LOCK (device_select_mutex);
+        if (select_entry.prev != NULL)
+          select_entry.prev->next = select_entry.next;
+        else
+          active_select_list = select_entry.next;
+        if (select_entry.next != NULL)
+          select_entry.next->prev = select_entry.prev;
+
+        /* Snapshot close_pending_mask / close_in_progress BEFORE running
+         * ___SELECT_PASS_CHECK while KEEPING d->select_active > 0 so no
+         * concurrent ___device_close can mutate fd/stages/TLS/process state
+         * during ___SELECT_PASS_CHECK. */
+        for (i = 0; i < read_pos; i++)
+          {
+            saved_devs[i] = devs[i];
+            if (dev_borrow[i] == 1)
+              {
+                ___device *d = devs[i];
+                int dir = (i >= write_pos
+                           ? ___DIRECTION_RD
+                           : (i >= event_pos
+                              ? ___DIRECTION_WR
+                              : 0));
+                if ((d->close_pending_mask & dir) != 0 || d->close_in_progress > 0)
+                  dev_borrow[i] = 3;
+              }
+          }
+        ___MUTEX_UNLOCK (device_select_mutex);
+      }
 
     for (i = read_pos - 1; i >= 0; i--)
       {
@@ -1763,9 +1784,38 @@ ___time timeout;)
                 check_active = 0;
               }
           }
+      }
 
-        if (used_select_fence && (dev_borrow[i] == 1 || dev_borrow[i] == 3))
-          ___device_release (d);
+    if (used_select_fence)
+      {
+        ___BOOL need_broadcast = 0;
+
+        ___MUTEX_LOCK (device_select_mutex);
+        for (i = 0; i < read_pos; i++)
+          {
+            if (dev_borrow[i] == 1 || dev_borrow[i] == 3)
+              {
+                ___device *d = (saved_devs != NULL) ? saved_devs[i] : devs[i];
+                if (d != NULL && --d->select_active == 0 && d->close_waiters > 0)
+                  need_broadcast = 1;
+              }
+          }
+        if (need_broadcast)
+          ___CONDVAR_BROADCAST (device_select_cond);
+        ___MUTEX_UNLOCK (device_select_mutex);
+
+        for (i = read_pos - 1; i >= 0; i--)
+          {
+            if (dev_borrow[i] == 1 || dev_borrow[i] == 3)
+              {
+                ___device *d = (saved_devs != NULL) ? saved_devs[i] : devs[i];
+                if (d != NULL)
+                  ___device_release (d);
+              }
+          }
+
+        if (saved_devs != NULL && saved_devs != saved_stack)
+          ___FREE_MEM (saved_devs);
       }
   }
 
