@@ -7,7 +7,8 @@
 ;;;============================================================================
 
 ;;; (gambit fiber) — Direct-Style Work-Stealing Structured Concurrency Runtime
-;;; (Phase C5: WasmFX / OCaml-5 Direct-Switch + Tokio LIFO Slot + Intrusive Waiters)
+;;; (Phase C6: Sharded Quiescence Counters, Zero-Closure Nursery Tasks,
+;;;  Zero-Closure Sentinel Deques & SATB-Safe In-Place Fiber Rewind)
 ;;;
 ;;; Formally verified in:
 ;;;   - dev/refactoring/modern-c/models/quint/fiber_scheduler_nursery_smp.qnt
@@ -16,20 +17,9 @@
 ;;;   - dev/refactoring/modern-c/models/quint/fiber_direct_switch_lifo_smp.qnt
 ;;;   - dev/refactoring/modern-c/models/lean/FiberDirectSwitchLifoRefinement.lean
 ;;;   - tests/contracts/modern-c/gc-ffi/fiber-direct-switch-lifo/harness.c
-;;;
-;;; Architecture:
-;;;   - M:N work-stealing scheduler with per-worker single-element LIFO slot
-;;;     (zero atomics / zero fences on local ping-pong & spawn handoff, bounded
-;;;     by MAX_LIFO_STREAK=8 for anti-starvation), lock-free Chase-Lev deques
-;;;     (ws-deque, 512 slots), and lock-free Michael-Scott global queue (lf-queue).
-;;;   - Single reusable per-carrier trampoline continuation (sched-k) captured
-;;;     ONCE per worker thread: resuming a parked fiber executes ONE direct
-;;;     (##continuation-return raw-k val) with ZERO continuation-capture on resume,
-;;;     ZERO pframe/handler-frame allocation, and ZERO atomic-fxbox overhead.
-;;;   - Per-fiber isolated (##thread-control-state) save/restore across steals so
-;;;     user (gambit effect) handlers and (srfi 226) prompts/marks inside fibers
-;;;     migrate cleanly across all cores with zero leakage.
-;;;   - Intrusive zero-cons FIFO channel waiter queues using %fiber-k's val/next slots.
+;;;   - dev/refactoring/modern-c/models/quint/sharded_quiescence_and_oneshot_fiber_rewind_smp.qnt
+;;;   - dev/refactoring/modern-c/models/lean/ShardedQuiescenceRefinement.lean
+;;;   - tests/contracts/modern-c/gc-ffi/sharded-quiescence-smp/harness.c
 
 (##supply-module gambit/fiber)
 
@@ -75,11 +65,12 @@
   constructor: %make-scheduler
   predicate: %scheduler?
   (num-workers   %sched-num-workers)
-  (deques        %sched-deques)          ;; vector of W ws-deque
-  (global-q      %sched-global-q)        ;; lf-queue for wakeups & overflow
-  (active-fibers %sched-active-fibers)   ;; atomic-fxbox of non-completed fibers
-  (root-done     %sched-root-done)       ;; atomic-fxbox (0 -> 1)
-  (root-box      %sched-root-box))       ;; box holding (ok? . val-or-exc)
+  (deques        %sched-deques)        ;; vector of W ws-deque
+  (global-q      %sched-global-q)      ;; lf-queue for wakeups & overflow
+  (spawned-vec   %sched-spawned-vec)   ;; vector of W per-worker monotonic atomic-fxbox
+  (completed-vec %sched-completed-vec) ;; vector of W per-worker monotonic atomic-fxbox
+  (root-done     %sched-root-done)     ;; atomic-fxbox (0 -> 1)
+  (root-box      %sched-root-box))     ;; box holding (ok? . val-or-exc)
 
 (define-type %worker-ctx
   id: 8B1F3A70-9C24-4D6B-A5E1-F1B000000002
@@ -88,6 +79,8 @@
   (sched       %wctx-sched)
   (wid         %wctx-wid)
   (dq          %wctx-dq)
+  (spawned     %wctx-spawned)          ;; owner-only monotonic spawned atomic-fxbox
+  (completed   %wctx-completed)        ;; owner-only monotonic completed atomic-fxbox
   (lifo        %wctx-lifo        %wctx-lifo-set!)        ;; private 1-slot LIFO (0 atomics!)
   (lifo-streak %wctx-lifo-streak %wctx-lifo-streak-set!) ;; anti-starvation counter
   (ticks       %wctx-ticks       %wctx-ticks-set!)       ;; fairness poll counter
@@ -119,6 +112,26 @@
         (%sched-push-lifo! ctx task)
         (lf-queue-enqueue! (%sched-global-q sched) task))))
 
+;; Formally proven sharded quiescence check (Quint + Lean 4 + CBMC --mm pso):
+;; MUST read ALL completed[0..W-1] FIRST, execute seq_cst fence, then read
+;; ALL spawned[0..W-1]. Because every fiber's spawned[ws]++ happens-before its
+;; completed[wc]++, C == S guarantees ZERO live or queued fibers remain!
+(define (%sched-quiescent? sched)
+  (let ((w (%sched-num-workers sched))
+        (cvec (%sched-completed-vec sched))
+        (svec (%sched-spawned-vec sched)))
+    (let cloop ((i 0) (c 0))
+      (if (fx< i w)
+          (cloop (fx+ i 1)
+                 (fx+ c (atomic-fxbox-ref (vector-ref cvec i) (memory-order acquire))))
+          (begin
+            (atomic-fence (memory-order sequentially-consistent))
+            (let sloop ((j 0) (s 0))
+              (if (fx< j w)
+                  (sloop (fx+ j 1)
+                         (fx+ s (atomic-fxbox-ref (vector-ref svec j) (memory-order acquire))))
+                  (fx= c s))))))))
+
 ;;;----------------------------------------------------------------------------
 ;;; Tiny Lock-Free Spinlock Helper (for channel & nursery critical sections)
 
@@ -135,18 +148,19 @@
   (atomic-fxbox-set! box 0 (memory-order release)))
 
 ;;;----------------------------------------------------------------------------
-;;; Structured Concurrency Nursery (Zero Orphaned Fibers)
+;;; Structured Concurrency Nursery (Zero Orphaned Fibers, Zero Per-Spawn Closure)
 
 (define-type nursery
   id: 8B1F3A70-9C24-4D6B-A5E1-F1B000000003
   constructor: %make-nursery
   predicate: nursery?
-  (sched     %nursery-sched)
-  (active    %nursery-active)    ;; atomic-fxbox (starts at 1 for parent scope)
-  (lock      %nursery-lock)      ;; atomic-fxbox spinlock
-  (waiter-k  %nursery-waiter-k   %nursery-waiter-k-set!)
-  (first-err %nursery-first-err  %nursery-first-err-set!)
-  (has-err?  %nursery-has-err?   %nursery-has-err?-set!))
+  (sched       %nursery-sched)
+  (active      %nursery-active)      ;; atomic-fxbox (starts at 1 for parent scope)
+  (lock        %nursery-lock)        ;; atomic-fxbox spinlock
+  (waiter-k    %nursery-waiter-k     %nursery-waiter-k-set!)
+  (first-err   %nursery-first-err    %nursery-first-err-set!)
+  (has-err?    %nursery-has-err?     %nursery-has-err?-set!)
+  (err-handler %nursery-err-handler  %nursery-err-handler-set!)) ;; pre-allocated once!
 
 (define (%nursery-record-error! n exc)
   (%spin-lock! (%nursery-lock n))
@@ -198,11 +212,13 @@
                            (make-atomic-fxbox 0)
                            #f
                            #f
+                           #f
                            #f))
+         (eh (lambda (e) (%nursery-record-error! n e)))
          (parent-res #f))
+    (%nursery-err-handler-set! n eh)
     (with-exception-catcher
-     (lambda (e)
-       (%nursery-record-error! n e))
+     eh
      (lambda ()
        (set! parent-res (proc n))))
     ;; Parent scope finished: decrement our own count (1) and park if children remain
@@ -214,7 +230,7 @@
         parent-res)))
 
 ;;;----------------------------------------------------------------------------
-;;; Direct O(1) Fiber Spawn, Yield, and Worker Count (Zero Effect Overhead!)
+;;; Direct O(1) Fiber Spawn (Zero Closures, Zero Global Atomic Contention)
 
 (define (fiber-worker-count)
   (%sched-num-workers (%wctx-sched (%current-wctx))))
@@ -231,38 +247,27 @@
        (%sched-push-dq! ctx fk)
        (%sched-switch-next! ctx)))))
 
-;; Direct O(1) fiber spawn: zero perform, zero handler walk, zero prompt capture!
+;; Direct O(1) fiber spawn:
+;;   - Increments ONLY this worker's private monotonic `spawned` counter with
+;;     release ordering BEFORE publishing the task (zero cross-core contention!).
+;;   - Nursery tasks enqueue a single pair `(cons thunk n)` (0 closures!).
 (define (fiber-spawn thunk #!optional (n #f))
-  (let* ((ctx (%current-wctx))
-         (sched (%wctx-sched ctx))
-         (active (%sched-active-fibers sched)))
+  (let ((ctx (%current-wctx)))
     (if n
         (begin
           (if (not (nursery? n))
               (error "fiber-spawn: expected nursery" n))
           (atomic-fxbox+/fetch! (%nursery-active n) 1 (memory-order acquire-release))
-          (atomic-fxbox+/fetch! active 1 (memory-order acquire-release))
-          (%sched-push-lifo!
-           ctx
-           (lambda ()
-             (with-exception-catcher
-              (lambda (e)
-                (%nursery-record-error! n e)
-                (%nursery-child-done! n))
-              (lambda ()
-                (thunk)
-                (%nursery-child-done! n)))))
+          (atomic-fxbox+/fetch! (%wctx-spawned ctx) 1 (memory-order release))
+          (%sched-push-lifo! ctx (cons thunk n))
           #!void)
         (begin
-          (atomic-fxbox+/fetch! active 1 (memory-order acquire-release))
+          (atomic-fxbox+/fetch! (%wctx-spawned ctx) 1 (memory-order release))
           (%sched-push-lifo! ctx thunk)
           #!void))))
 
 ;;;----------------------------------------------------------------------------
 ;;; Intrusive Zero-Cons FIFO Wait Queue & Direct-Handoff Fiber Channel
-;;;
-;;; Uses %fiber-k's intrusive `next` and `val` fields so parking and waking on
-;;; a channel allocate ZERO cons cells for waiter nodes or (cons k val) pairs!
 
 (define-type %wait-q
   id: 8B1F3A70-9C24-4D6B-A5E1-F1B000000004
@@ -473,10 +478,7 @@
        (%park-recv! ch)))))
 
 ;;;----------------------------------------------------------------------------
-;;; Multi-Core M:N Work-Stealing Direct-Switch Trampoline
-;;;
-;;; Captures ONE reusable sched-k per carrier thread. Resuming any parked fiber
-;;; executes (##continuation-return raw-k val) directly with ZERO capture on resume!
+;;; Multi-Core M:N Work-Stealing Direct-Switch Trampoline (Zero-Closure Poll)
 
 (define (%worker-try-steal wid num-workers deques)
   (if (fx<= num-workers 1)
@@ -486,13 +488,10 @@
             #f
             (let* ((victim (let ((v (fx+ wid offset)))
                              (if (fx>= v num-workers) (fx- v num-workers) v)))
-                   (vdq (vector-ref deques victim)))
-              (call-with-values
-                (lambda () (ws-deque-try-steal! vdq))
-                (lambda (ok task)
-                  (if ok
-                      task
-                      (loop (fx+ offset 1))))))))))
+                   (task (ws-deque-try-steal-or! (vector-ref deques victim) #f)))
+              (if task
+                  task
+                  (loop (fx+ offset 1))))))))
 
 (define (%worker-poll-task ctx)
   (let* ((sched (%wctx-sched ctx))
@@ -503,13 +502,11 @@
     (%wctx-ticks-set! ctx (fx+ ticks 1))
     ;; 0. Every 32 ticks poll global-q for fairness
     (if (fx= (fxand ticks 31) 31)
-        (call-with-values
-          (lambda () (lf-queue-try-dequeue! global-q))
-          (lambda (ok t)
-            (if ok
-                (begin
-                  (%wctx-lifo-streak-set! ctx 0)
-                  (set! task t))))))
+        (let ((t (lf-queue-try-dequeue-or! global-q #f)))
+          (if t
+              (begin
+                (%wctx-lifo-streak-set! ctx 0)
+                (set! task t)))))
     ;; 1. Fastest path: private LIFO slot (0 atomics, 0 fences!) if streak < 8
     (if (and (not task)
              (%wctx-lifo ctx)
@@ -518,31 +515,27 @@
           (set! task (%wctx-lifo ctx))
           (%wctx-lifo-set! ctx #f)
           (%wctx-lifo-streak-set! ctx (fx+ (%wctx-lifo-streak ctx) 1))))
-    ;; 2. Local Chase-Lev deque (LIFO pop, resets LIFO streak)
+    ;; 2. Local Chase-Lev deque (zero-closure sentinel pop)
     (if (not task)
-        (call-with-values
-          (lambda () (ws-deque-try-pop! local-dq))
-          (lambda (ok t)
-            (if ok
-                (begin
-                  (%wctx-lifo-streak-set! ctx 0)
-                  (set! task t))))))
+        (let ((t (ws-deque-try-pop-or! local-dq #f)))
+          (if t
+              (begin
+                (%wctx-lifo-streak-set! ctx 0)
+                (set! task t)))))
     ;; 3. Fallback to LIFO slot if streak hit limit but local-dq was empty
     (if (and (not task) (%wctx-lifo ctx))
         (begin
           (set! task (%wctx-lifo ctx))
           (%wctx-lifo-set! ctx #f)
           (%wctx-lifo-streak-set! ctx 0)))
-    ;; 4. Global lock-free wakeup/overflow queue
+    ;; 4. Global lock-free wakeup/overflow queue (zero-closure sentinel pop)
     (if (not task)
-        (call-with-values
-          (lambda () (lf-queue-try-dequeue! global-q))
-          (lambda (ok t)
-            (if ok
-                (begin
-                  (%wctx-lifo-streak-set! ctx 0)
-                  (set! task t))))))
-    ;; 5. Work-steal FIFO from peer worker deques
+        (let ((t (lf-queue-try-dequeue-or! global-q #f)))
+          (if t
+              (begin
+                (%wctx-lifo-streak-set! ctx 0)
+                (set! task t)))))
+    ;; 5. Work-steal FIFO from peer worker deques (zero-closure sentinel steal)
     (if (not task)
         (let ((stolen (%worker-try-steal (%wctx-wid ctx)
                                          (%sched-num-workers sched)
@@ -553,9 +546,7 @@
                 (set! task stolen)))))
     task))
 
-;; Direct symmetric coroutine handoff: if private LIFO slot holds a parked
-;; %fiber-k and fairness counters allow, jump straight into (##continuation-return)
-;; without bouncing through the worker trampoline.
+;; Direct symmetric coroutine handoff with SATB-safe in-place one-shot rewind!
 (define (%sched-switch-next! ctx)
   (let ((ticks (%wctx-ticks ctx))
         (lifo (%wctx-lifo ctx))
@@ -574,36 +565,43 @@
           (%fk-tc-set! lifo #f)
           (%fk-val-set! lifo #f)
           (##thread-control-state-set! tc)
-          (##continuation-return raw-k val))
+          (##continuation-try-rewind-prompt! #f raw-k val))
         (##continuation-graft (%wctx-sched-k ctx) %worker-dispatch ctx 0))))
 
 (define (%worker-dispatch ctx idle-spins)
   (let ((task (%worker-poll-task ctx)))
     (if task
-        (if (%fiber-k? task)
-            ;; ZERO-CAPTURE DIRECT RESUME!
-            (let ((raw-k (%fk-raw-k task))
-                  (tc (%fk-tc task))
-                  (val (%fk-val task)))
-              (%fk-raw-k-set! task #f)
-              (%fk-tc-set! task #f)
-              (%fk-val-set! task #f)
-              (##thread-control-state-set! tc)
-              (##continuation-return raw-k val))
-            ;; New fiber thunk: runs directly on carrier trampoline, then
-            ;; dynamically fetches CURRENT carrier ctx (safe across migrations!)
-            (begin
-              (##thread-control-state-set! #f)
-              (task)
-              (let ((cur-ctx (%current-wctx)))
-                (##thread-control-state-set! #f)
-                (atomic-fxbox-/fetch! (%sched-active-fibers (%wctx-sched cur-ctx))
-                                      1
-                                      (memory-order acquire-release))
-                (##continuation-graft (%wctx-sched-k cur-ctx) %worker-dispatch cur-ctx 0))))
-        (if (fx<= (atomic-fxbox-ref (%sched-active-fibers (%wctx-sched ctx))
-                                    (memory-order acquire))
-                  0)
+        (cond
+          ((%fiber-k? task)
+           ;; ZERO-CAPTURE DIRECT RESUME + SATB-SAFE IN-PLACE STACK REWIND!
+           (let ((raw-k (%fk-raw-k task))
+                 (tc (%fk-tc task))
+                 (val (%fk-val task)))
+             (%fk-raw-k-set! task #f)
+             (%fk-tc-set! task #f)
+             (%fk-val-set! task #f)
+             (##thread-control-state-set! tc)
+             (##continuation-try-rewind-prompt! #f raw-k val)))
+          ((pair? task)
+           ;; ZERO-CLOSURE NURSERY CHILD: (thunk . nursery)
+           (let ((fn (car task))
+                 (n (cdr task)))
+             (##thread-control-state-set! #f)
+             (with-exception-catcher (%nursery-err-handler n) fn)
+             (%nursery-child-done! n)
+             (let ((cur-ctx (%current-wctx)))
+               (##thread-control-state-set! #f)
+               (atomic-fxbox+/fetch! (%wctx-completed cur-ctx) 1 (memory-order release))
+               (%sched-switch-next! cur-ctx))))
+          (else
+           ;; Detached fiber thunk
+           (##thread-control-state-set! #f)
+           (task)
+           (let ((cur-ctx (%current-wctx)))
+             (##thread-control-state-set! #f)
+             (atomic-fxbox+/fetch! (%wctx-completed cur-ctx) 1 (memory-order release))
+             (%sched-switch-next! cur-ctx))))
+        (if (%sched-quiescent? (%wctx-sched ctx))
             #!void
             (begin
               (if (fx>= idle-spins 16)
@@ -613,7 +611,9 @@
 (define (%worker-loop sched wid)
   (let* ((deques (%sched-deques sched))
          (local-dq (vector-ref deques wid))
-         (ctx (%make-worker-ctx sched wid local-dq #f 0 0 #f)))
+         (spawned (vector-ref (%sched-spawned-vec sched) wid))
+         (completed (vector-ref (%sched-completed-vec sched) wid))
+         (ctx (%make-worker-ctx sched wid local-dq spawned completed #f 0 0 #f)))
     (thread-specific-set! (current-thread) ctx)
     ;; Capture the carrier's SINGLE reusable trampoline continuation ONCE!
     (##continuation-capture
@@ -629,12 +629,23 @@
                          (begin (vector-set! v i (make-ws-deque 512))
                                 (loop (fx+ i 1)))))
                    v))
+         (spawned-vec (let ((v (make-vector w #f)))
+                        (let loop ((i 0))
+                          (if (fx< i w)
+                              (begin (vector-set! v i (make-atomic-fxbox (if (fx= i 0) 1 0)))
+                                     (loop (fx+ i 1)))))
+                        v))
+         (completed-vec (let ((v (make-vector w #f)))
+                          (let loop ((i 0))
+                            (if (fx< i w)
+                                (begin (vector-set! v i (make-atomic-fxbox 0))
+                                       (loop (fx+ i 1)))))
+                          v))
          (global-q (make-lf-queue))
-         (active (make-atomic-fxbox 1))
          (root-done (make-atomic-fxbox 0))
          (root-box (cons #f #f))
-         (sched (%make-scheduler w deques global-q active root-done root-box)))
-    ;; Seed root fiber onto global queue
+         (sched (%make-scheduler w deques global-q spawned-vec completed-vec root-done root-box)))
+    ;; Seed root fiber onto global queue (pre-accounted as spawned[0] = 1)
     (lf-queue-enqueue!
      global-q
      (lambda ()

@@ -332,3 +332,47 @@
   (test-equal 501000 (atomic-fxbox-ref pingpong-sum)))
 
 ;;;============================================================================
+;;; 9. Adversarial Sharded Quiescence Termination Stress (Zero False Premature Exit)
+;;;    Alternates 1-fiber deep chains (11 idle cores scanning quiescence continuously)
+;;;    with 500-fiber bursty work-stealing waves across all cores.
+
+(let ((chain-done (make-atomic-fxbox 0))
+      (burst-done (make-atomic-fxbox 0)))
+  (run-fibers
+   (lambda ()
+     ;; 50 sequential 1-child recursive spawns (11 cores scanning quiescence!)
+     (let cloop ((i 0))
+       (if (fx< i 50)
+           (begin
+             (with-nursery
+              (lambda (n)
+                (fiber-spawn
+                 (lambda ()
+                   (fiber-yield)
+                   (fiber-spawn
+                    (lambda ()
+                      (fiber-yield)
+                      (atomic-fxbox+/fetch! chain-done 1))
+                    n))
+                 n)))
+             (cloop (fx+ i 1)))))
+     ;; 10 bursty waves x 500 fibers = 5,000 fibers
+     (let wloop ((w 0))
+       (if (fx< w 10)
+           (begin
+             (with-nursery
+              (lambda (n)
+                (let floop ((j 0))
+                  (if (fx< j 500)
+                      (begin
+                        (fiber-spawn
+                         (lambda ()
+                           (fiber-yield)
+                           (atomic-fxbox+/fetch! burst-done 1))
+                         n)
+                        (floop (fx+ j 1)))))))
+             (wloop (fx+ w 1)))))))
+  (test-equal 50 (atomic-fxbox-ref chain-done))
+  (test-equal 5000 (atomic-fxbox-ref burst-done)))
+
+;;;============================================================================

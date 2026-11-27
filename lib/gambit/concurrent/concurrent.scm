@@ -131,6 +131,30 @@
                         (loop)))))
             (loop))))))
 
+;; Zero-closure single-value variant: returns dequeued value or `default` when empty.
+(define (lf-queue-try-dequeue-or! q default)
+  (let ((head-box (lf-queue-head q))
+        (tail-box (lf-queue-tail q)))
+    (let loop ()
+      (let* ((head (atomic-box-ref head-box (memory-order acquire)))
+             (tail (atomic-box-ref tail-box (memory-order acquire)))
+             (next (atomic-box-ref (lf-qnode-next head) (memory-order acquire))))
+        (if (eq? head (atomic-box-ref head-box (memory-order acquire)))
+            (if (eq? head tail)
+                (if (not next)
+                    default
+                    (begin
+                      (atomic-box-compare-and-swap! tail-box tail next (memory-order release))
+                      (loop)))
+                (let ((val (lf-qnode-val next)))
+                  (let ((prev (atomic-box-compare-and-swap! head-box head next (memory-order acquire-release))))
+                    (if (eq? prev head)
+                        (begin
+                          (lf-qnode-val-set! next #f)
+                          val)
+                        (loop)))))
+            (loop))))))
+
 ;;;============================================================================
 ;;; 3. Lock-Free Bounded Chase-Lev Work-Stealing Deque
 
@@ -215,6 +239,42 @@
                   (values #t val)
                   (values #f #f)))
             (values #f #f))))))
+
+;; Zero-closure owner-only LIFO pop: returns popped item or `default` when empty.
+(define (ws-deque-try-pop-or! dq default)
+  (let* ((b (fx- (atomic-fxbox-ref (ws-deque-bottom dq) (memory-order relaxed)) 1))
+         (top-box (ws-deque-top dq))
+         (bot-box (ws-deque-bottom dq))
+         (slots (ws-deque-slots dq))
+         (idx (fxand b (ws-deque-mask dq))))
+    (atomic-fxbox-set! bot-box b (memory-order relaxed))
+    (atomic-fence (memory-order sequentially-consistent))
+    (let ((t (atomic-fxbox-ref top-box (memory-order relaxed))))
+      (cond
+        ((< t b)
+         (srfi/230#vector-atomic-ref slots idx (memory-order acquire)))
+        ((= t b)
+         (let* ((val (srfi/230#vector-atomic-ref slots idx (memory-order acquire)))
+                (prev (atomic-fxbox-compare-and-swap! top-box t (fx+ t 1) (memory-order sequentially-consistent))))
+           (atomic-fxbox-set! bot-box (fx+ b 1) (memory-order relaxed))
+           (if (= prev t) val default)))
+        (else
+         (atomic-fxbox-set! bot-box (fx+ b 1) (memory-order relaxed))
+         default)))))
+
+;; Zero-closure concurrent thief FIFO steal: returns stolen item or `default` when empty.
+(define (ws-deque-try-steal-or! dq default)
+  (let ((top-box (ws-deque-top dq))
+        (bot-box (ws-deque-bottom dq)))
+    (let ((t (atomic-fxbox-ref top-box (memory-order acquire))))
+      (atomic-fence (memory-order sequentially-consistent))
+      (let ((b (atomic-fxbox-ref bot-box (memory-order acquire))))
+        (if (< t b)
+            (let* ((val (srfi/230#vector-atomic-ref
+                         (ws-deque-slots dq) (fxand t (ws-deque-mask dq)) (memory-order acquire)))
+                   (prev (atomic-fxbox-compare-and-swap! top-box t (fx+ t 1) (memory-order sequentially-consistent))))
+              (if (= prev t) val default))
+            default)))))
 
 ;;;============================================================================
 ;;; 4. Wait-Free-Read / Lock-Free-Write Sharded Concurrent Hash Table

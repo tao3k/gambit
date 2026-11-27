@@ -16,13 +16,16 @@ make-lf-queue
 lf-queue?
 lf-queue-enqueue!
 lf-queue-try-dequeue!
+lf-queue-try-dequeue-or!
 lf-queue-empty?
 
 make-ws-deque
 ws-deque?
 ws-deque-push!
 ws-deque-try-pop!
+ws-deque-try-pop-or!
 ws-deque-try-steal!
+ws-deque-try-steal-or!
 ws-deque-size
 
 make-concurrent-table

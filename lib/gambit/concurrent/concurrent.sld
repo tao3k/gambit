@@ -22,6 +22,7 @@
     lf-queue?
     lf-queue-enqueue!
     lf-queue-try-dequeue!
+    lf-queue-try-dequeue-or!
     lf-queue-empty?
 
     ;; Lock-free Chase-Lev work-stealing deque
@@ -29,7 +30,9 @@
     ws-deque?
     ws-deque-push!
     ws-deque-try-pop!
+    ws-deque-try-pop-or!
     ws-deque-try-steal!
+    ws-deque-try-steal-or!
     ws-deque-size
 
     ;; Wait-free-read / lock-free-write sharded concurrent hash table
