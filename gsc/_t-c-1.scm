@@ -265,6 +265,7 @@
       #f)
 
     (define (end!)
+      (targ-heap-end!)
       #f)
 
     (target-begin!-set! targ begin!)
@@ -448,6 +449,7 @@
   #f)
 
 (define (targ-heap-end!)
+  (targ-scan-procedure-end!)
   (set! targ-glo-vars #f)
   (set! targ-lbl-alloc #f)
   (set! targ-cns-objs #f)
@@ -464,6 +466,10 @@
   (set! targ-fr-cell #f)
   (set! targ-sharing-table #f)
   (set! targ-unique-name-table #f)
+  (set! targ-port #f)
+  (set! targ-filename #f)
+  (set! targ-current-filename #f)
+  (set! targ-source-filename #f)
   #f)
 
 ;;; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -1805,7 +1811,11 @@
   (targ-line)
   (targ-display "#endif")
   (targ-line)
-  (close-output-port targ-port))
+  (close-output-port targ-port)
+  (set! targ-port #f)
+  (set! targ-filename #f)
+  (set! targ-current-filename #f)
+  (set! targ-source-filename #f))
 
 (define (targ-sort lst ->string)
   (sort-list

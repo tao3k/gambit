@@ -633,6 +633,15 @@
 (define (##cte-namespace-aliases cte)
   (##vector-ref cte 2))
 
+(define (##cte-macro-table parent-cte table)
+  (##vector parent-cte table #f #f #f))
+
+(define (##cte-macro-table? cte)
+  (##fx= (##vector-length cte) 5))
+
+(define (##cte-macro-table-table cte)
+  (##vector-ref cte 1))
+
 (define (##cte-relink cte new-parent-cte)
   (if new-parent-cte
       (cond ((##cte-frame? cte)
@@ -649,14 +658,23 @@
             ((##cte-namespace? cte)
              (##cte-namespace new-parent-cte
                               (##cte-namespace-prefix cte)
-                              (##cte-namespace-aliases cte))))
+                              (##cte-namespace-aliases cte)))
+            ((##cte-macro-table? cte)
+             (##cte-macro-table new-parent-cte
+                                (##cte-macro-table-table cte))))
       #f))
 
 (define (##cte-add-macro parent-cte name descr)
 
   (define (replace cte)
     (cond ((##cte-top? cte)
-           (##cte-macro cte name descr))
+           (let ((tbl (##make-table-aux 0 (macro-absent-obj) #f #f ##eq? ##symbol-hash)))
+             (##table-set! tbl name descr)
+             (##cte-macro-table cte tbl)))
+          ((##cte-macro-table? cte)
+           (let ((tbl (##table-copy (##cte-macro-table-table cte))))
+             (##table-set! tbl name descr)
+             (##cte-macro-table (##cte-parent-cte cte) tbl)))
           ((and (##cte-macro? cte) (##eq? name (##cte-macro-name cte)))
            (##cte-macro (##cte-parent-cte cte) name descr))
           (else
@@ -790,11 +808,22 @@
     top-cte))
 
 (define (##top-cte-add-macro! top-cte name def)
+  ;; Store dynamically added top-level macros in a single hash-table node
+  ;; spliced before the built-in macro tail rather than relinking the entire
+  ;; CTE chain per macro. Relinking on every define-macro caused O(N^2)
+  ;; permanent CTE retention across macro expander code nodes (e.g. >6M live
+  ;; CTE vectors / ~250 MiB live when including ~~lib/_gambit#.scm).
   (let* ((cte (##cte-top-cte top-cte))
          (global-name (##cte-global-macro-name cte name)))
-    (##cte-mutate-top-cte!
-     top-cte
-     (lambda (cte) (##cte-add-macro cte global-name def)))))
+    (let loop ((prev-cte top-cte) (cte cte))
+      (cond ((##cte-macro-table? cte)
+             (##table-set! (##cte-macro-table-table cte) global-name def))
+            ((or (##cte-top? cte) (##cte-macro? cte))
+             (let ((tbl (##make-table-aux 0 (macro-absent-obj) #f #f ##eq? ##symbol-hash)))
+               (##table-set! tbl global-name def)
+               (##cte-parent-cte-set! prev-cte (##cte-macro-table cte tbl))))
+            (else
+             (loop cte (##cte-parent-cte cte)))))))
 
 (define (##top-cte-add-macro-no-dups! top-cte name def)
 
@@ -824,9 +853,13 @@
   (let ((new-top-cte (##cte-top #f)))
 
     (define (clone cte)
-      (if (##cte-top? cte)
-          new-top-cte
-          (##cte-relink cte (clone (##cte-parent-cte cte)))))
+      (cond ((##cte-top? cte)
+             new-top-cte)
+            ((##cte-macro-table? cte)
+             (##cte-macro-table (clone (##cte-parent-cte cte))
+                                (##table-copy (##cte-macro-table-table cte))))
+            (else
+             (##cte-relink cte (clone (##cte-parent-cte cte))))))
 
     (##cte-top-cte-set! new-top-cte (clone (##cte-top-cte top-cte)))
     new-top-cte))
@@ -855,6 +888,13 @@
                  (if (##eq? name (##cte-macro-name cte))
                      (##vector 'macro name (##cte-macro-descr cte))
                      (loop1 name full? parent-cte up)))
+                ((##cte-macro-table? cte)
+                 (let ((descr (##table-ref (##cte-macro-table-table cte)
+                                           name
+                                           #f)))
+                   (if descr
+                       (##vector 'macro name descr)
+                       (loop1 name full? parent-cte up))))
                 ((and (##not full?) (##cte-namespace? cte))
                  (let ((full-name (##cte-namespace-lookup cte name)))
                    (if full-name

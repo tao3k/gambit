@@ -15,11 +15,19 @@
       (if (##cte-top? cte)
         (env-frame #f '())
         (let ((parent-cte (##cte-parent-cte cte)))
-          (if (##cte-macro? cte)
-            (env-macro (extract-macros parent-cte)
-                       (##cte-macro-name cte)
-                       (##cte-macro-descr cte))
-            (extract-macros parent-cte)))))
+          (cond ((##cte-macro? cte)
+                 (env-macro (extract-macros parent-cte)
+                            (##cte-macro-name cte)
+                            (##cte-macro-descr cte)))
+                ((##cte-macro-table? cte)
+                 (let ((env (extract-macros parent-cte)))
+                   (##table-for-each
+                    (lambda (name descr)
+                      (set! env (env-macro env name descr)))
+                    (##cte-macro-table-table cte))
+                   env))
+                (else
+                 (extract-macros parent-cte))))))
 
     (extract-macros (##cte-top-cte ##interaction-cte))))
 

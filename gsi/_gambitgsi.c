@@ -646,6 +646,9 @@
 "##cte-macro"
 "##cte-macro-descr"
 "##cte-macro-name"
+"##cte-macro-table"
+"##cte-macro-table-table"
+"##cte-macro-table?"
 "##cte-macro?"
 "##cte-mutate-top-cte!"
 "##cte-namespace"
@@ -6405,7 +6408,6 @@
 "##csquare"
 "##cssqs"
 "##ctanh"
-"##cte-add-macro"
 "##cte-add-namespace"
 "##cte-decl-value"
 "##cte-decl?"
@@ -6418,6 +6420,9 @@
 "##cte-lookup"
 "##cte-lookup-decl"
 "##cte-macro-descr"
+"##cte-macro-table"
+"##cte-macro-table-table"
+"##cte-macro-table?"
 "##cte-macro?"
 "##cte-mutate-top-cte!"
 "##cte-namespace-aliases"
@@ -8027,6 +8032,7 @@
 "##symbol->string"
 "##symbol-append"
 "##symbol-counter"
+"##symbol-hash"
 "##symbol-table"
 "##symbol-table-foldl"
 "##symkey-table-foldl"
@@ -9201,6 +9207,7 @@
 "##cpxnum-make"
 "##cpxnum-real"
 "##cpxnum?"
+"##cte-add-macro"
 "##cte-decl"
 "##cte-decl-name"
 "##cte-macro"
@@ -9857,7 +9864,6 @@
 "##subvalues-move!"
 "##subvector-small"
 "##symbol->string?"
-"##symbol-hash"
 "##symbol-hash-set!"
 "##symbol-interned?"
 "##symbol-name"
@@ -11725,6 +11731,9 @@ ___DEF_OLD_SYM_GLO(___S__23__23_cte_2d_lookup_2d_decl,___G__23__23_cte_2d_lookup
 ___DEF_OLD_SYM_GLO(___S__23__23_cte_2d_macro,___G__23__23_cte_2d_macro)
 ___DEF_OLD_SYM_GLO(___S__23__23_cte_2d_macro_2d_descr,___G__23__23_cte_2d_macro_2d_descr)
 ___DEF_OLD_SYM_GLO(___S__23__23_cte_2d_macro_2d_name,___G__23__23_cte_2d_macro_2d_name)
+___DEF_OLD_SYM_GLO(___S__23__23_cte_2d_macro_2d_table,___G__23__23_cte_2d_macro_2d_table)
+___DEF_OLD_SYM_GLO(___S__23__23_cte_2d_macro_2d_table_2d_table,___G__23__23_cte_2d_macro_2d_table_2d_table)
+___DEF_OLD_SYM_GLO(___S__23__23_cte_2d_macro_2d_table_3f_,___G__23__23_cte_2d_macro_2d_table_3f_)
 ___DEF_OLD_SYM_GLO(___S__23__23_cte_2d_macro_3f_,___G__23__23_cte_2d_macro_3f_)
 ___DEF_OLD_SYM_GLO(___S__23__23_cte_2d_mutate_2d_top_2d_cte_21_,___G__23__23_cte_2d_mutate_2d_top_2d_cte_21_)
 ___DEF_OLD_SYM_GLO(___S__23__23_cte_2d_namespace,___G__23__23_cte_2d_namespace)

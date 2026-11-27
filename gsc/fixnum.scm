@@ -1986,6 +1986,7 @@ targ-lbl-val?
 targ-make-glbl
 targ-res-op
 targ-scan-procedure
+targ-scan-procedure-end!
 ))
 
 ;;-----------------------------------------------------------------------------
