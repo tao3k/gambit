@@ -642,6 +642,84 @@
 (define (##cte-macro-table-table cte)
   (##vector-ref cte 1))
 
+;; Open-addressed power-of-2 hash table backed purely by plain Scheme vectors
+;; (#(slots count), with slots storing alternating (symbol, descr) pairs and
+;; #f in unused key slots). Keeping CTE chains pure Scheme vectors avoids
+;; embedding ##table / gc-hash-table objects inside interpreted closures and
+;; preserves 100% portability across targets and object->u8vector serdes.
+(define (##cte-macro-table-make)
+  (##vector (##make-vector 32 #f) 0))
+
+(define (##cte-macro-table-copy tbl)
+  (let* ((slots (##vector-ref tbl 0))
+         (len (##vector-length slots))
+         (new-slots (##make-vector len #f)))
+    (##subvector-move! slots 0 len new-slots 0)
+    (##vector new-slots (##vector-ref tbl 1))))
+
+(define (##cte-macro-table-ref tbl name)
+  (let* ((slots (##vector-ref tbl 0))
+         (len (##vector-length slots))
+         (cap-mask (##fx- (##fxarithmetic-shift-right len 1) 1))
+         (step-mask (##fx- len 2)))
+    (let loop ((i (##fxarithmetic-shift-left
+                   (##fxand (##symbol-hash name) cap-mask)
+                   1)))
+      (let ((k (##vector-ref slots i)))
+        (cond ((##eq? k name)
+               (##vector-ref slots (##fx+ i 1)))
+              ((##not k)
+               #f)
+              (else
+               (loop (##fxand (##fx+ i 2) step-mask))))))))
+
+(define (##cte-macro-table-insert-slots! slots name descr)
+  (let* ((len (##vector-length slots))
+         (cap-mask (##fx- (##fxarithmetic-shift-right len 1) 1))
+         (step-mask (##fx- len 2)))
+    (let loop ((i (##fxarithmetic-shift-left
+                   (##fxand (##symbol-hash name) cap-mask)
+                   1)))
+      (let ((k (##vector-ref slots i)))
+        (cond ((##eq? k name)
+               (##vector-set! slots (##fx+ i 1) descr)
+               #f)
+              ((##not k)
+               (##vector-set! slots (##fx+ i 1) descr)
+               (##vector-set! slots i name)
+               #t)
+              (else
+               (loop (##fxand (##fx+ i 2) step-mask))))))))
+
+(define (##cte-macro-table-set! tbl name descr)
+  (let ((slots (##vector-ref tbl 0)))
+    (if (##cte-macro-table-insert-slots! slots name descr)
+        (let ((count (##fx+ (##vector-ref tbl 1) 1))
+              (len (##vector-length slots)))
+          (##vector-set! tbl 1 count)
+          (if (##fx>= (##fxarithmetic-shift-left count 2) len)
+              (let ((new-slots (##make-vector (##fxarithmetic-shift-left len 1) #f)))
+                (let loop ((i 0))
+                  (if (##fx< i len)
+                      (let ((k (##vector-ref slots i)))
+                        (if k
+                            (##cte-macro-table-insert-slots!
+                             new-slots
+                             k
+                             (##vector-ref slots (##fx+ i 1))))
+                        (loop (##fx+ i 2)))))
+                (##vector-set! tbl 0 new-slots)))))))
+
+(define (##cte-macro-table-for-each proc tbl)
+  (let* ((slots (##vector-ref tbl 0))
+         (len (##vector-length slots)))
+    (let loop ((i 0))
+      (if (##fx< i len)
+          (let ((k (##vector-ref slots i)))
+            (if k
+                (proc k (##vector-ref slots (##fx+ i 1))))
+            (loop (##fx+ i 2)))))))
+
 (define (##cte-relink cte new-parent-cte)
   (if new-parent-cte
       (cond ((##cte-frame? cte)
@@ -668,12 +746,12 @@
 
   (define (replace cte)
     (cond ((##cte-top? cte)
-           (let ((tbl (##make-table-aux 0 (macro-absent-obj) #f #f ##eq? ##symbol-hash)))
-             (##table-set! tbl name descr)
+           (let ((tbl (##cte-macro-table-make)))
+             (##cte-macro-table-set! tbl name descr)
              (##cte-macro-table cte tbl)))
           ((##cte-macro-table? cte)
-           (let ((tbl (##table-copy (##cte-macro-table-table cte))))
-             (##table-set! tbl name descr)
+           (let ((tbl (##cte-macro-table-copy (##cte-macro-table-table cte))))
+             (##cte-macro-table-set! tbl name descr)
              (##cte-macro-table (##cte-parent-cte cte) tbl)))
           ((and (##cte-macro? cte) (##eq? name (##cte-macro-name cte)))
            (##cte-macro (##cte-parent-cte cte) name descr))
@@ -817,10 +895,10 @@
          (global-name (##cte-global-macro-name cte name)))
     (let loop ((prev-cte top-cte) (cte cte))
       (cond ((##cte-macro-table? cte)
-             (##table-set! (##cte-macro-table-table cte) global-name def))
+             (##cte-macro-table-set! (##cte-macro-table-table cte) global-name def))
             ((or (##cte-top? cte) (##cte-macro? cte))
-             (let ((tbl (##make-table-aux 0 (macro-absent-obj) #f #f ##eq? ##symbol-hash)))
-               (##table-set! tbl global-name def)
+             (let ((tbl (##cte-macro-table-make)))
+               (##cte-macro-table-set! tbl global-name def)
                (##cte-parent-cte-set! prev-cte (##cte-macro-table cte tbl))))
             (else
              (loop cte (##cte-parent-cte cte)))))))
@@ -857,7 +935,7 @@
              new-top-cte)
             ((##cte-macro-table? cte)
              (##cte-macro-table (clone (##cte-parent-cte cte))
-                                (##table-copy (##cte-macro-table-table cte))))
+                                (##cte-macro-table-copy (##cte-macro-table-table cte))))
             (else
              (##cte-relink cte (clone (##cte-parent-cte cte))))))
 
@@ -889,9 +967,8 @@
                      (##vector 'macro name (##cte-macro-descr cte))
                      (loop1 name full? parent-cte up)))
                 ((##cte-macro-table? cte)
-                 (let ((descr (##table-ref (##cte-macro-table-table cte)
-                                           name
-                                           #f)))
+                 (let ((descr (##cte-macro-table-ref (##cte-macro-table-table cte)
+                                                     name)))
                    (if descr
                        (##vector 'macro name descr)
                        (loop1 name full? parent-cte up))))

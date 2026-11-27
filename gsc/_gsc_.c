@@ -654,6 +654,12 @@
 "##cte-macro-descr"
 "##cte-macro-name"
 "##cte-macro-table"
+"##cte-macro-table-copy"
+"##cte-macro-table-for-each"
+"##cte-macro-table-insert-slots!"
+"##cte-macro-table-make"
+"##cte-macro-table-ref"
+"##cte-macro-table-set!"
 "##cte-macro-table-table"
 "##cte-macro-table?"
 "##cte-macro?"
@@ -10892,6 +10898,12 @@
 "##cte-macro-descr"
 "##cte-macro-name"
 "##cte-macro-table"
+"##cte-macro-table-copy"
+"##cte-macro-table-for-each"
+"##cte-macro-table-insert-slots!"
+"##cte-macro-table-make"
+"##cte-macro-table-ref"
+"##cte-macro-table-set!"
 "##cte-macro-table-table"
 "##cte-macro-table?"
 "##cte-macro?"
@@ -12550,7 +12562,6 @@
 "##symbol->string"
 "##symbol-append"
 "##symbol-counter"
-"##symbol-hash"
 "##symbol-table"
 "##symbol-table-foldl"
 "##symkey-table-foldl"
@@ -17763,6 +17774,7 @@
 "##subvalues-move!"
 "##subvector-small"
 "##symbol->string?"
+"##symbol-hash"
 "##symbol-hash-set!"
 "##symbol-interned?"
 "##symbol-name"
@@ -20379,6 +20391,12 @@ ___DEF_OLD_SYM_GLO(___S__23__23_cte_2d_macro,___G__23__23_cte_2d_macro)
 ___DEF_OLD_SYM_GLO(___S__23__23_cte_2d_macro_2d_descr,___G__23__23_cte_2d_macro_2d_descr)
 ___DEF_OLD_SYM_GLO(___S__23__23_cte_2d_macro_2d_name,___G__23__23_cte_2d_macro_2d_name)
 ___DEF_OLD_SYM_GLO(___S__23__23_cte_2d_macro_2d_table,___G__23__23_cte_2d_macro_2d_table)
+___DEF_OLD_SYM_GLO(___S__23__23_cte_2d_macro_2d_table_2d_copy,___G__23__23_cte_2d_macro_2d_table_2d_copy)
+___DEF_OLD_SYM_GLO(___S__23__23_cte_2d_macro_2d_table_2d_for_2d_each,___G__23__23_cte_2d_macro_2d_table_2d_for_2d_each)
+___DEF_OLD_SYM_GLO(___S__23__23_cte_2d_macro_2d_table_2d_insert_2d_slots_21_,___G__23__23_cte_2d_macro_2d_table_2d_insert_2d_slots_21_)
+___DEF_OLD_SYM_GLO(___S__23__23_cte_2d_macro_2d_table_2d_make,___G__23__23_cte_2d_macro_2d_table_2d_make)
+___DEF_OLD_SYM_GLO(___S__23__23_cte_2d_macro_2d_table_2d_ref,___G__23__23_cte_2d_macro_2d_table_2d_ref)
+___DEF_OLD_SYM_GLO(___S__23__23_cte_2d_macro_2d_table_2d_set_21_,___G__23__23_cte_2d_macro_2d_table_2d_set_21_)
 ___DEF_OLD_SYM_GLO(___S__23__23_cte_2d_macro_2d_table_2d_table,___G__23__23_cte_2d_macro_2d_table_2d_table)
 ___DEF_OLD_SYM_GLO(___S__23__23_cte_2d_macro_2d_table_3f_,___G__23__23_cte_2d_macro_2d_table_3f_)
 ___DEF_OLD_SYM_GLO(___S__23__23_cte_2d_macro_3f_,___G__23__23_cte_2d_macro_3f_)

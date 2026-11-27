@@ -21,7 +21,7 @@
                             (##cte-macro-descr cte)))
                 ((##cte-macro-table? cte)
                  (let ((env (extract-macros parent-cte)))
-                   (##table-for-each
+                   (##cte-macro-table-for-each
                     (lambda (name descr)
                       (set! env (env-macro env name descr)))
                     (##cte-macro-table-table cte))
