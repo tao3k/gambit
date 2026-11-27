@@ -954,6 +954,54 @@
        (%spin-unlock! lock)))
     (%sched-switch-next! ctx)))
 
+;; Single-C-block Dekker seq_cst ring pop used inside park-recv under wait-lock
+;; (uses seq_cst load on seq[idx] so stlr(rxw) + ldar(seq[idx]) needs 0 dmb ish on ARM64).
+(define (%vyukov-try-pop-dekker-c! ch default retry-tag)
+  (macro-if-c-compiled
+   (##c-code
+    "___WORD *___f = ___BODY_AS(___ARG1, ___tSTRUCTURE);
+     ___WORD ___cap  = ___INT(___f[1]);
+     ___WORD ___mask = ___INT(___f[2]);
+     ___SCMOBJ ___buf = ___f[3];
+     ___VOLATILE ___WORD *___seq_p  = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___f[4], ___tVECTOR));
+     ___VOLATILE ___WORD *___head_p = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___f[6], ___tVECTOR));
+     ___WORD *___buf_p = ___BODY_AS(___buf, ___tVECTOR);
+     ___SCMOBJ ___res = ___ARG3;
+     int ___tries;
+     for (___tries = 0; ___tries < 64; ___tries++) {
+       ___WORD ___pos = ___INT(___atomic_word_load(___head_p, 0));
+       ___WORD ___idx = (___mask >= 0) ? (___pos & ___mask) : (___pos % ___cap);
+       ___WORD ___s   = ___INT(___atomic_word_load(___seq_p + ___idx, 4));
+       ___WORD ___exp = (___pos << 1) + 1;
+       ___WORD ___dif = ___s - ___exp;
+       if (___dif == 0) {
+         if (___atomic_word_cas(___head_p, ___FIX(___pos), ___FIX(___pos + 1), 0) == ___FIX(___pos)) {
+           ___WORD *___slot = ___buf_p + ___idx;
+           ___SCMOBJ ___item = ___WORD_LOAD_RELAXED(___slot);
+           ___GC_WRITE_BARRIER(___ps, ___buf, ___slot, ___FAL);
+           ___WORD_STORE_RELAXED(___slot, ___FAL);
+           ___atomic_word_store(___seq_p + ___idx, ___FIX((___pos + ___cap) << 1), 4);
+           ___res = ___item;
+           break;
+         }
+       } else if (___dif < 0) {
+         ___res = ___ARG2;
+         break;
+       }
+     }
+     ___RESULT = ___res;"
+    ch default retry-tag)
+   (begin
+     (%seq-cst-fence!)
+     (%vyukov-try-pop-or! ch default))))
+
+(define (%vyukov-try-pop-dekker! ch default)
+  (let loop ()
+    (let ((res (%vyukov-try-pop-dekker-c! ch default %CH-RETRY)))
+      (if (eq? res %CH-RETRY)
+          (loop)
+          res))))
+
 (define (%park-recv-buf-cont! raw-k ch)
   (let* ((ctx (%current-wctx))
          (tc (%get-tc))
@@ -966,8 +1014,7 @@
     (if tc (%set-tc! #f))
     (%spin-lock! lock)
     (%fxatom-set-seq! rxw (fx+ (##vector-ref rxw 0) 1))
-    (%seq-cst-fence!)
-    (let ((item (%vyukov-try-pop-or! ch %CH-EMPTY)))
+    (let ((item (%vyukov-try-pop-dekker! ch %CH-EMPTY)))
       (cond
         ((not (eq? item %CH-EMPTY))
          (%fxatom-set-seq! rxw (fx- (##vector-ref rxw 0) 1))
@@ -1035,29 +1082,95 @@
           (%spin-unlock! lock)))
     (%sched-switch-next! ctx)))
 
+;; Single-C-block linearizable direct handoff for buffered channels.
+;; Returns: parked %fiber-k if handed off, #f if no eligible waiter (fall back
+;; to lock-free ring), or retry-tag if lock contention hit bounded spin budget.
+(define (%ch-try-direct-handoff-c! ch retry-tag)
+  (macro-if-c-compiled
+   (##c-code
+    "___WORD *___f = ___BODY_AS(___ARG1, ___tSTRUCTURE);
+     ___VOLATILE ___WORD *___rxw_p = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___f[7], ___tVECTOR));
+     if (___INT(___atomic_word_load(___rxw_p, 0)) == 0) {
+       ___RESULT = ___FAL;
+     } else {
+       ___VOLATILE ___WORD *___lock_p = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___f[9], ___tVECTOR));
+       int ___got_lock = 0;
+       int ___i;
+       for (___i = 0; ___i < 64; ___i++) {
+         if (___atomic_word_cas(___lock_p, ___FIX(0), ___FIX(1), 1) == ___FIX(0)) {
+           ___got_lock = 1;
+           break;
+         }
+#if defined(__aarch64__)
+         __asm__ __volatile__(\"yield\");
+#elif defined(__x86_64__) || defined(__i386__)
+         __asm__ __volatile__(\"pause\");
+#endif
+       }
+       if (!___got_lock) {
+         ___RESULT = ___ARG2;
+       } else {
+         ___SCMOBJ ___rwq = ___f[10];
+         ___WORD *___rwq_f = ___BODY_AS(___rwq, ___tSTRUCTURE);
+         ___SCMOBJ ___rk = ___rwq_f[1];
+         ___SCMOBJ ___out = ___FAL;
+         if (___rk != ___FAL) {
+           ___VOLATILE ___WORD *___tail_p = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___f[5], ___tVECTOR));
+           ___VOLATILE ___WORD *___head_p = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___f[6], ___tVECTOR));
+           ___WORD ___t = ___atomic_word_load(___tail_p, 1);
+           ___WORD ___h = ___atomic_word_load(___head_p, 1);
+           if (___t == ___h) {
+             ___WORD *___rk_f = ___BODY_AS(___rk, ___tSTRUCTURE);
+             ___SCMOBJ ___nxt = ___rk_f[4];
+             ___GC_WRITE_BARRIER(___ps, ___rk, &___rk_f[4], ___FAL);
+             ___WORD_STORE_RELAXED(&___rk_f[4], ___FAL);
+             ___GC_WRITE_BARRIER(___ps, ___rwq, &___rwq_f[1], ___nxt);
+             ___WORD_STORE_RELAXED(&___rwq_f[1], ___nxt);
+             if (___nxt == ___FAL) {
+               ___GC_WRITE_BARRIER(___ps, ___rwq, &___rwq_f[2], ___FAL);
+               ___WORD_STORE_RELAXED(&___rwq_f[2], ___FAL);
+             }
+             ___WORD ___cur_rxw = ___INT(___WORD_LOAD_RELAXED(___CAST(___WORD*, ___rxw_p)));
+             ___atomic_word_store(___rxw_p, ___FIX(___cur_rxw - 1), 4);
+             ___out = ___rk;
+           }
+         }
+         ___atomic_word_store(___lock_p, ___FIX(0), 2);
+         ___RESULT = ___out;
+       }
+     }"
+    ch retry-tag)
+   (let ((rxw (%ch-rx-waiters ch)))
+     (if (fx> (%fxatom-load-rlx rxw) 0)
+         (let ((lock (%ch-lock ch))
+               (rwq (%ch-recv-waiters ch))
+               (rk #f))
+           (%spin-lock! lock)
+           (if (and (not (%wq-empty? rwq))
+                    (let* ((t (%fxatom-load-acq (%ch-tail ch)))
+                           (h (%fxatom-load-acq (%ch-head ch))))
+                      (fx= t h)))
+               (begin
+                 (set! rk (%wq-pop! rwq))
+                 (%fxatom-set-seq! rxw (fx- (##vector-ref rxw 0) 1))))
+           (%spin-unlock! lock)
+           rk)
+         #f))))
+
 (define (%fiber-send-buf! ch val)
-  (let ((rxw (%ch-rx-waiters ch)))
-    ;; Fast path A: Linearizable direct handoff when rx-waiters > 0 AND tail == head
-    (if (fx> (%fxatom-load-rlx rxw) 0)
-        (let ((lock (%ch-lock ch))
-              (rwq (%ch-recv-waiters ch))
-              (rk #f))
-          (%spin-lock! lock)
-          (if (and (not (%wq-empty? rwq))
-                   (let* ((t (%fxatom-load-acq (%ch-tail ch)))
-                          (h (%fxatom-load-acq (%ch-head ch))))
-                     (fx= t h)))
-              (begin
-                (set! rk (%wq-pop! rwq))
-                (%fxatom-set-seq! rxw (fx- (##vector-ref rxw 0) 1))))
-          (%spin-unlock! lock)
-          (if rk
-              (begin
-                (%fk-val-set! rk val)
-                (%sched-push-lifo! (%current-wctx) rk)
-                #t)
-              (%fiber-send-buf-ring! ch val rxw)))
-        (%fiber-send-buf-ring! ch val rxw))))
+  ;; Fast path A: Single-C-block linearizable direct handoff (1 instruction skip if rxw==0)
+  (let loop ()
+    (let ((rk (%ch-try-direct-handoff-c! ch %CH-RETRY)))
+      (cond
+        ((not rk)
+         (%fiber-send-buf-ring! ch val (%ch-rx-waiters ch)))
+        ((eq? rk %CH-RETRY)
+         (thread-yield!)
+         (loop))
+        (else
+         (%fk-val-set! rk val)
+         (%sched-push-lifo! (%current-wctx) rk)
+         #t)))))
 
 (define (%fiber-send-buf-ring! ch val rxw)
   ;; Fast path B: Single-C-block lock-free bounded MPMC ring push (zero spinlocks)

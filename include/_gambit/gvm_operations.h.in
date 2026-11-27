@@ -1567,7 +1567,7 @@ ___GET_SUBTYPED(___BOX_SIZE))
 
 #define ___VALUESSIZE(v)___HD_FIELDS(___SUBTYPED_HEADER(v))
 #define ___VALUESLENGTH(v)___HD_FIELDS_FIX(___SUBTYPED_HEADER(v))
-#define ___VALUESREF(v,i)___FETCH_WORD_FX(___BODY_AS(v,___tBOXVALUES),i)
+#define ___VALUESREF(v,i)___WORD_LOAD_RELAXED(___FXINDX_WORD(___BODY_AS(v,___tBOXVALUES),i))
 #define ___VALUESSET(v,i,val) do { ___SCMOBJ ___wbo=(v); ___SCMOBJ ___wbv=(val); ___WORD *___wbs=___FXINDX_WORD(___BODY_AS(___wbo,___tBOXVALUES),(i)); ___GC_WRITE_BARRIER(___ps,___wbo,___wbs,___wbv); ___WORD_STORE_RELAXED(___wbs,___wbv); } while (0);
 
 #define ___MAKEVALUESSMALL1(size)___MAKEVALUESSMALL2(size,___FIX(0))
@@ -1592,7 +1592,7 @@ ___VECTUPDATESMALL(___BODY_AS(v,___tBOXVALUES),___INT(i),val,___VALUESSIZE(v),__
 
 #define ___VECTORSIZE(v)___HD_FIELDS(___VECTOR_HEADER(v))
 #define ___VECTORLENGTH(v)___HD_FIELDS_FIX(___VECTOR_HEADER(v))
-#define ___VECTORREF(v,i)___FETCH_WORD_FX(___BODY_AS(v,___tVECTOR),i)
+#define ___VECTORREF(v,i)___WORD_LOAD_RELAXED(___FXINDX_WORD(___BODY_AS(v,___tVECTOR),i))
 #define ___VECTORSET(v,i,val) do { ___SCMOBJ ___wbo=(v); ___SCMOBJ ___wbv=(val); ___WORD *___wbs=___FXINDX_WORD(___BODY_AS(___wbo,___tVECTOR),(i)); ___GC_WRITE_BARRIER(___ps,___wbo,___wbs,___wbv); ___WORD_STORE_RELAXED(___wbs,___wbv); } while (0);
 #define ___VECTORSHRINK(v,i) do { ___SCMOBJ ___gsh_v=(v); ___WORD *___gsh_hp=&___VECTOR_HEADER(___gsh_v); ___GC_SHRINK_HEADER(___ps,___gsh_v,___gsh_hp,(___WORD_LOAD_RELAXED(___gsh_hp)&~___LMASK)+___CAST(___WORD,___CAST(___UWORD,(i))<<(___LF-___TB_FIXNUM+___LWS))); } while (0);
 #define ___VECTORCAS(v,i,val,oldval)___gc_vector_cas_barrier(___ps,(v),(i),(val),(oldval),___EXT(___gc_write_barrier_slow),___EXT(___gc_satb_barrier_val))
@@ -2873,15 +2873,18 @@ ___SET_FP(___ps->context->stack_break) \
 ___SET_STK(-___BREAK_FRAME_NEXT,___CONTINUATION_FRAME_FIELD(cont)) \
 temp = ___CONTINUATION_DENV_FIELD(cont); \
 thread = ___CURRENTTHREAD; \
-___GC_WRITE_BARRIER(___ps, thread, &___THREAD_DENV_FIELD(thread), temp); \
-___WORD_STORE_RELAXED(&___THREAD_DENV_FIELD(thread), temp); \
-temp = ___ENV_PARAM_VAL_FIELD(___DENV_LOCAL_FIELD(temp)); \
-___GC_WRITE_BARRIER(___ps, thread, &___THREAD_DENV_CACHE1_FIELD(thread), temp); \
-___WORD_STORE_RELAXED(&___THREAD_DENV_CACHE1_FIELD(thread), temp); \
-___GC_WRITE_BARRIER(___ps, thread, &___THREAD_DENV_CACHE2_FIELD(thread), temp); \
-___WORD_STORE_RELAXED(&___THREAD_DENV_CACHE2_FIELD(thread), temp); \
-___GC_WRITE_BARRIER(___ps, thread, &___THREAD_DENV_CACHE3_FIELD(thread), temp); \
-___WORD_STORE_RELAXED(&___THREAD_DENV_CACHE3_FIELD(thread), temp); \
+if (___EXPECT_FALSE(___THREAD_DENV_FIELD(thread) != temp)) \
+  { \
+    ___GC_WRITE_BARRIER(___ps, thread, &___THREAD_DENV_FIELD(thread), temp); \
+    ___WORD_STORE_RELAXED(&___THREAD_DENV_FIELD(thread), temp); \
+    temp = ___ENV_PARAM_VAL_FIELD(___DENV_LOCAL_FIELD(temp)); \
+    ___GC_WRITE_BARRIER(___ps, thread, &___THREAD_DENV_CACHE1_FIELD(thread), temp); \
+    ___WORD_STORE_RELAXED(&___THREAD_DENV_CACHE1_FIELD(thread), temp); \
+    ___GC_WRITE_BARRIER(___ps, thread, &___THREAD_DENV_CACHE2_FIELD(thread), temp); \
+    ___WORD_STORE_RELAXED(&___THREAD_DENV_CACHE2_FIELD(thread), temp); \
+    ___GC_WRITE_BARRIER(___ps, thread, &___THREAD_DENV_CACHE3_FIELD(thread), temp); \
+    ___WORD_STORE_RELAXED(&___THREAD_DENV_CACHE3_FIELD(thread), temp); \
+  } \
 ___SET_R0(___ps->handler_break)
 
 #define ___JUMP_CONTINUATION_GRAFT_NO_WINDING2(jump) \
@@ -2945,15 +2948,18 @@ ___SET_R0(___ps->handler_break)
   ___SET_STK(-___BREAK_FRAME_NEXT,___CONTINUATION_FRAME_FIELD(cont)) \
   temp = ___CONTINUATION_DENV_FIELD(cont); \
   thread = ___CURRENTTHREAD; \
-  ___GC_WRITE_BARRIER(___ps, thread, &___THREAD_DENV_FIELD(thread), temp); \
-  ___WORD_STORE_RELAXED(&___THREAD_DENV_FIELD(thread), temp); \
-  temp = ___ENV_PARAM_VAL_FIELD(___DENV_LOCAL_FIELD(temp)); \
-  ___GC_WRITE_BARRIER(___ps, thread, &___THREAD_DENV_CACHE1_FIELD(thread), temp); \
-  ___WORD_STORE_RELAXED(&___THREAD_DENV_CACHE1_FIELD(thread), temp); \
-  ___GC_WRITE_BARRIER(___ps, thread, &___THREAD_DENV_CACHE2_FIELD(thread), temp); \
-  ___WORD_STORE_RELAXED(&___THREAD_DENV_CACHE2_FIELD(thread), temp); \
-  ___GC_WRITE_BARRIER(___ps, thread, &___THREAD_DENV_CACHE3_FIELD(thread), temp); \
-  ___WORD_STORE_RELAXED(&___THREAD_DENV_CACHE3_FIELD(thread), temp); \
+  if (___EXPECT_FALSE(___THREAD_DENV_FIELD(thread) != temp)) \
+    { \
+      ___GC_WRITE_BARRIER(___ps, thread, &___THREAD_DENV_FIELD(thread), temp); \
+      ___WORD_STORE_RELAXED(&___THREAD_DENV_FIELD(thread), temp); \
+      temp = ___ENV_PARAM_VAL_FIELD(___DENV_LOCAL_FIELD(temp)); \
+      ___GC_WRITE_BARRIER(___ps, thread, &___THREAD_DENV_CACHE1_FIELD(thread), temp); \
+      ___WORD_STORE_RELAXED(&___THREAD_DENV_CACHE1_FIELD(thread), temp); \
+      ___GC_WRITE_BARRIER(___ps, thread, &___THREAD_DENV_CACHE2_FIELD(thread), temp); \
+      ___WORD_STORE_RELAXED(&___THREAD_DENV_CACHE2_FIELD(thread), temp); \
+      ___GC_WRITE_BARRIER(___ps, thread, &___THREAD_DENV_CACHE3_FIELD(thread), temp); \
+      ___WORD_STORE_RELAXED(&___THREAD_DENV_CACHE3_FIELD(thread), temp); \
+    } \
   ___JUMPPRM(___NOTHING,___ps->handler_break) \
 }
 

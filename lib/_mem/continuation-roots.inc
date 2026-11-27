@@ -342,21 +342,57 @@ ___WORD ___restore_stack_break_frame(___processor_state ___ps, ___WORD *top,
   ___SIZE_TS fwords[CHUNK_MAX_FRAMES];
   int nframes = 0;
 
-  /* Query active destination stack room BEFORE acquiring section->copy_gate
-   * (___owned_stack_span may acquire stack_msection->copy_gate).
-   * Reserve ___MSECTION_FUDGE above dest_lo so multi-frame chunking never
-   * pushes ___fp into the stack guard/fudge zone (which would trip
-   * ___handler_spill_backed -> stack-overflow-exception). */
-  if (___owned_stack_span(___ps, &dest_lo, &dest_hi) &&
-      dest >= dest_lo && dest <= dest_hi)
-    {
-      ___WORD *safe_lo = dest_lo + ___MSECTION_FUDGE;
-      if (dest > safe_lo)
-        dest_room = ___CAST(___SIZE_TS, dest - safe_lo);
-    }
+  /* Same-section fast path: when top lies in the carrier's own active stack_msection,
+   * avoid a separate ___owned_stack_span() copy_gate lock/unlock by computing dest_room
+   * directly under the single copy_gate acquired by lock_source_stack_frame().
+   * For cross-section restores, query ___owned_stack_span() BEFORE acquiring the source
+   * copy_gate so a carrier never holds more than one copy_gate at a time. */
+  {
+    ___msection *own = stack_msection;
+    ___SIZE_TS off = tospace_offset;
+    ___UWORD half_bytes = ___CAST(___UWORD, ___MSECTION_SIZE >> 1) * ___WS;
+    ___UWORD address = ___CAST(___UWORD, top);
+    int same_section = 0;
 
-  section=lock_source_stack_frame(___ps,top,&half_words,&ra,&fds[0],&known_break);
-  if (!section) goto refused;
+    if (own && top && (address & (___WS - 1)) == 0 &&
+        (off == 0 || off == (___MSECTION_SIZE >> 1)))
+      {
+        ___UWORD first = ___CAST(___UWORD, own->base + off);
+        if (address >= first && address - first < half_bytes)
+          same_section = 1;
+      }
+
+    if (!same_section &&
+        ___owned_stack_span(___ps, &dest_lo, &dest_hi) &&
+        dest >= dest_lo && dest <= dest_hi)
+      {
+        ___WORD *safe_lo = dest_lo + ___MSECTION_FUDGE;
+        if (dest > safe_lo)
+          dest_room = ___CAST(___SIZE_TS, dest - safe_lo);
+      }
+
+    section=lock_source_stack_frame(___ps,top,&half_words,&ra,&fds[0],&known_break);
+    if (!section) goto refused;
+
+    if (same_section && section == own)
+      {
+        const section_claim *own_claim = section_claim_at(own, off);
+        if (own_claim->stack_owner == ___ps && own_claim->stack_state == STACK_ACTIVE)
+          {
+            ___WORD *lo = ___ps->mem.alloc_stack_limit_;
+            ___WORD *hi = ___ps->mem.alloc_stack_start_;
+            ___WORD *half = own->base + off;
+            ___WORD *half_past = half + (___MSECTION_SIZE >> 1);
+            if (lo && hi && lo >= half && hi <= half_past && hi > lo &&
+                dest >= lo && dest <= hi)
+              {
+                ___WORD *safe_lo = lo + ___MSECTION_FUDGE;
+                if (dest > safe_lo)
+                  dest_room = ___CAST(___SIZE_TS, dest - safe_lo);
+              }
+          }
+      }
+  }
   words=___FRAME_SPACE(fds[0].fs);
   base=top+words;
   next=___FP_STK(base,fds[0].link+1);
