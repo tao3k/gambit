@@ -46,8 +46,20 @@ typedef struct ___still_slab_chunk_struct
 typedef struct ___still_slab_bucket_struct
   {
     ___still_slab_chunk *partial_head;
-    ___still_slab_chunk *empty_cache;
+    ___still_slab_chunk *empty_head;
+    unsigned int empty_count;
   } ___still_slab_bucket;
+
+static inline unsigned int still_slab_max_empty_for_class(unsigned int cls)
+{
+  /* Keep hot 2.5K/4K churn warm across minor GCs (<= 1.28-2.0 MiB/shard),
+   * while bounding larger classes tightly; major GC purges all to 0. */
+  if (cls <= 1u)
+    return 16u;
+  if (cls <= 5u)
+    return 4u;
+  return 2u;
+}
 
 static ___still_slab_bucket still_slab_buckets_[___STILL_SLAB_BUCKETS];
 static ___VOLATILE int still_slab_cached_empty_count_ = 0;
@@ -158,10 +170,14 @@ ___HIDDEN void *still_slab_alloc
 
   ___STILL_SLAB_LOCK(bidx);
   chunk = bucket->partial_head;
-  if (chunk == 0 && bucket->empty_cache != 0)
+  if (chunk == 0 && bucket->empty_head != 0)
     {
-      chunk = bucket->empty_cache;
-      bucket->empty_cache = 0;
+      chunk = bucket->empty_head;
+      bucket->empty_head = chunk->next;
+      chunk->prev = 0;
+      chunk->next = 0;
+      if (bucket->empty_count > 0u)
+        bucket->empty_count--;
 #if defined(__ATOMIC_RELAXED)
       (void)__atomic_fetch_sub(&still_slab_cached_empty_count_, 1, __ATOMIC_RELAXED);
 #else
@@ -220,11 +236,15 @@ ___HIDDEN void still_slab_free(void *ptr, ___still_slab_chunk *chunk)
   chunk->free_mask |= ((uint64_t)1u << idx);
   if (chunk->free_mask == chunk->all_mask)
     {
+      unsigned int cls = bidx / ___STILL_SLAB_SHARDS;
       if (chunk->in_partial)
         still_slab_unlink_partial(bucket, chunk);
-      if (bucket->empty_cache == 0)
+      if (bucket->empty_count < still_slab_max_empty_for_class(cls))
         {
-          bucket->empty_cache = chunk;
+          chunk->prev = 0;
+          chunk->next = bucket->empty_head;
+          bucket->empty_head = chunk;
+          bucket->empty_count++;
 #if defined(__ATOMIC_RELAXED)
           (void)__atomic_fetch_add(&still_slab_cached_empty_count_, 1, __ATOMIC_RELAXED);
 #else
@@ -259,23 +279,29 @@ ___HIDDEN void still_slab_purge_empty ___PVOID
 #endif
   for (bidx = 0u; bidx < ___STILL_SLAB_BUCKETS; bidx++)
     {
-      ___still_slab_chunk *c;
-      ___SIZE_T mbytes = 0u;
+      ___still_slab_chunk *list;
+      unsigned int count;
       ___STILL_SLAB_LOCK(bidx);
-      c = still_slab_buckets_[bidx].empty_cache;
-      if (c != 0)
+      list = still_slab_buckets_[bidx].empty_head;
+      count = still_slab_buckets_[bidx].empty_count;
+      still_slab_buckets_[bidx].empty_head = 0;
+      still_slab_buckets_[bidx].empty_count = 0u;
+      if (count > 0u)
         {
-          still_slab_buckets_[bidx].empty_cache = 0;
-          mbytes = c->map_bytes;
 #if defined(__ATOMIC_RELAXED)
-          (void)__atomic_fetch_sub(&still_slab_cached_empty_count_, 1, __ATOMIC_RELAXED);
+          (void)__atomic_fetch_sub(&still_slab_cached_empty_count_, (int)count, __ATOMIC_RELAXED);
 #else
-          still_slab_cached_empty_count_--;
+          still_slab_cached_empty_count_ -= (int)count;
 #endif
         }
       ___STILL_SLAB_UNLOCK(bidx);
-      if (c != 0)
-        (void)munmap(___CAST(void*, c), mbytes);
+      while (list != 0)
+        {
+          ___still_slab_chunk *next = list->next;
+          ___SIZE_T mbytes = list->map_bytes;
+          (void)munmap(___CAST(void*, list), mbytes);
+          list = next;
+        }
     }
 }
 #else
