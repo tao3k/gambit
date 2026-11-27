@@ -42,14 +42,14 @@ jobs:
           overwrite: true
 
   smp-multicore-pbt:
-    name: "True-Multicore PBT (${{ matrix.topology }})"
+    name: "True-Multicore PBT (${{ matrix.mode }})"
     needs: smp-build-linux
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
-        topology: [p1, p2, p4]
+        mode: [all-cores-scaling, all-cores-soak, oversub-2x]
     steps:
       - uses: actions/checkout@v4
       - name: Install runtime compilation prerequisites
@@ -59,28 +59,63 @@ jobs:
           name: gambit-smp-linux-runtime-${{ github.run_id }}
       - name: Unpack SMP runtime
         run: tar -xf gambit-smp-linux-runtime.tar
+      - name: Resolve hardware core topologies (single-VM SMP threads)
+        id: topo
+        run: |
+          set -euo pipefail
+          CORES="$(nproc)"
+          OVER="$((CORES * 2))"
+          echo "Runner hardware: logical_cpus=${CORES}"
+          free -h || true
+          case "${{ matrix.mode }}" in
+            all-cores-scaling)
+              if [ "${CORES}" -ge 4 ]; then
+                TOPOS="p1,p2,p${CORES}"
+              elif [ "${CORES}" -ge 2 ]; then
+                TOPOS="p1,p${CORES}"
+              else
+                TOPOS="p1,p2"
+              fi
+              REPEATS="1"
+              SCALING="true"
+              ;;
+            all-cores-soak)
+              TOPOS="p${CORES}"
+              REPEATS="3"
+              SCALING="false"
+              ;;
+            oversub-2x)
+              TOPOS="p${OVER}"
+              REPEATS="1"
+              SCALING="false"
+              ;;
+          esac
+          echo "Selected mode=${{ matrix.mode }} topologies=${TOPOS} repeats=${REPEATS} include_scaling=${SCALING}"
+          echo "topologies=${TOPOS}" >> "${GITHUB_OUTPUT}"
+          echo "repeats=${REPEATS}" >> "${GITHUB_OUTPUT}"
+          echo "include_scaling=${SCALING}" >> "${GITHUB_OUTPUT}"
       - uses: ./.github/actions/gambit-multicore-pbt
         with:
           runtime-dir: '.'
-          topologies: ${{ matrix.topology }}
-          repeats: ${{ matrix.topology == 'p4' && '2' || '1' }}
-          include-scaling: 'true'
-          json-out: multicore-${{ matrix.topology }}.json
+          topologies: ${{ steps.topo.outputs.topologies }}
+          repeats: ${{ steps.topo.outputs.repeats }}
+          include-scaling: ${{ steps.topo.outputs.include_scaling }}
+          json-out: multicore-${{ matrix.mode }}.json
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: gambit-multicore-${{ matrix.topology }}-${{ github.run_id }}-${{ github.run_attempt }}
-          path: multicore-${{ matrix.topology }}.json
+          name: gambit-multicore-${{ matrix.mode }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: multicore-${{ matrix.mode }}.json
 
   smp-official-regressions:
     name: "Official SMP Suite (${{ matrix.suite }})"
     needs: smp-build-linux
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
-        suite: [unit-gsi-p2, thread-gsc-p2, stress-gsc-p2]
+        suite: [unit-gsi-allcores, thread-gsc-allcores, stress-gsc-allcores]
     steps:
       - uses: actions/checkout@v4
       - name: Install runtime compilation prerequisites
@@ -90,24 +125,36 @@ jobs:
           name: gambit-smp-linux-runtime-${{ github.run_id }}
       - name: Unpack SMP runtime
         run: tar -xf gambit-smp-linux-runtime.tar
-      - name: Official interpreted units with two processors
-        if: matrix.suite == 'unit-gsi-p2'
+      - name: Official interpreted units across all hardware cores (single-VM SMP threads)
+        if: matrix.suite == 'unit-gsi-allcores'
         working-directory: tests
-        env:
-          GAMBOPT: p2,~~bin=../bin,~~lib=../lib,~~include=../include
-        run: timeout --kill-after=2s 300s ../gsi/gsi -:p1,~~bin=../bin,~~lib=../lib,~~include=../include -f run-unit-tests.scm -gsi
-      - name: Official compiled thread and map regressions with two processors
-        if: matrix.suite == 'thread-gsc-p2'
+        run: |
+          set -euo pipefail
+          CORES="$(nproc)"
+          echo "Running 408 interpreted unit tests with single-VM SMP -:p${CORES} (all ${CORES} hardware cores)"
+          free -h || true
+          GAMBOPT="p${CORES},~~bin=../bin,~~lib=../lib,~~include=../include" \
+            timeout --kill-after=2s 360s ../gsi/gsi -:p1,~~bin=../bin,~~lib=../lib,~~include=../include -f run-unit-tests.scm -gsi
+      - name: Official compiled thread & map regressions across all hardware cores (single-VM SMP threads)
+        if: matrix.suite == 'thread-gsc-allcores'
         working-directory: tests
-        env:
-          GAMBOPT: p2,~~bin=../bin,~~lib=../lib,~~include=../include
-        run: timeout --kill-after=2s 300s ../gsi/gsi -:p1,~~bin=../bin,~~lib=../lib,~~include=../include -f run-unit-tests.scm -gsc unit-tests/06-thread unit-tests/04-list/map.scm
-      - name: Official compiled thread stress cases with two processors
-        if: matrix.suite == 'stress-gsc-p2'
+        run: |
+          set -euo pipefail
+          CORES="$(nproc)"
+          echo "Running 26 compiled thread/map tests with single-VM SMP -:p${CORES} (all ${CORES} hardware cores)"
+          free -h || true
+          GAMBOPT="p${CORES},~~bin=../bin,~~lib=../lib,~~include=../include" \
+            timeout --kill-after=2s 360s ../gsi/gsi -:p1,~~bin=../bin,~~lib=../lib,~~include=../include -f run-unit-tests.scm -gsc unit-tests/06-thread unit-tests/04-list/map.scm
+      - name: Official compiled thread stress cases across all hardware cores (single-VM SMP threads)
+        if: matrix.suite == 'stress-gsc-allcores'
         working-directory: tests
-        env:
-          GAMBOPT: p2,~~bin=../bin,~~lib=../lib,~~include=../include
-        run: timeout --kill-after=2s 600s ../gsi/gsi -:p1,~~bin=../bin,~~lib=../lib,~~include=../include -f run-unit-tests.scm -gsc -stress unit-tests/06-thread/tfib_stress.scm unit-tests/06-thread/thread_interrupt_stress.scm unit-tests/06-thread/thread_interrupt2_stress.scm unit-tests/06-thread/thread_terminate_stress.scm
+        run: |
+          set -euo pipefail
+          CORES="$(nproc)"
+          echo "Running compiled thread stress suite with single-VM SMP -:p${CORES} (all ${CORES} hardware cores)"
+          free -h || true
+          GAMBOPT="p${CORES},~~bin=../bin,~~lib=../lib,~~include=../include" \
+            timeout --kill-after=2s 900s ../gsi/gsi -:p1,~~bin=../bin,~~lib=../lib,~~include=../include -f run-unit-tests.scm -gsc -stress unit-tests/06-thread/tfib_stress.scm unit-tests/06-thread/thread_interrupt_stress.scm unit-tests/06-thread/thread_interrupt2_stress.scm unit-tests/06-thread/thread_terminate_stress.scm
 
   smp-c23-clang-hygiene:
     name: "Clang C23 Header & Ordered-Sync TSan Hygiene"
@@ -183,7 +230,9 @@ jobs:
           }
 
           /* 3. Mirror of Tier 3.3 Participation Park/Unpark + Active-Set Barrier */
+          #ifndef T3_N
           #define T3_N 4
+          #endif
           static pthread_mutex_t part_mut = PTHREAD_MUTEX_INITIALIZER;
           static pthread_cond_t  part_cv  = PTHREAD_COND_INITIALIZER;
           static int op_state = 0; /* 0=IDLE, 1=RUNNING, 2=DRAINING */
@@ -469,38 +518,66 @@ jobs:
             return 0;
           }
           EOF
-          clang -std=c23 -Werror=comment -fsanitize=thread -O1 -Iinclude /tmp/gambit_c23_hygiene.c -lpthread -o /tmp/gambit_c23_hygiene
+          CORES="$(nproc)"
+          if [ "${CORES}" -lt 4 ]; then T3_THREADS=4; else T3_THREADS="${CORES}"; fi
+          echo "Running Clang C23 TSan hygiene with T3_N=${T3_THREADS} on ${CORES}-core runner"
+          clang -std=c23 -Werror=comment -fsanitize=thread -O1 -DT3_N="${T3_THREADS}" -Iinclude /tmp/gambit_c23_hygiene.c -lpthread -o /tmp/gambit_c23_hygiene
           /tmp/gambit_c23_hygiene
 
   upstream-smp:
-    name: "macOS arm64 SMP & True-Multicore"
+    name: "macOS arm64 SMP & True-Multicore (all cores)"
     needs: smp-build-linux
     runs-on: macos-latest
-    timeout-minutes: 40
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/gambit-smp-build
         with:
           timeout-seconds: '900'
-      - name: Official interpreted units with two processors
+      - name: Resolve macOS arm64 hardware core topology
+        id: mac_topo
+        run: |
+          set -euo pipefail
+          CORES="$(sysctl -n hw.logicalcpu)"
+          MEM_GIB="$(( $(sysctl -n hw.memsize) / 1024 / 1024 / 1024 ))"
+          echo "Runner hardware: macOS arm64 logical_cpus=${CORES} ram=${MEM_GIB}GiB"
+          if [ "${CORES}" -ge 4 ]; then
+            TOPOS="p1,p2,p${CORES}"
+          elif [ "${CORES}" -eq 3 ]; then
+            TOPOS="p1,p2,p3,p4"
+          else
+            TOPOS="p1,p2,p4"
+          fi
+          echo "cores=${CORES}" >> "${GITHUB_OUTPUT}"
+          echo "topologies=${TOPOS}" >> "${GITHUB_OUTPUT}"
+      - name: Official interpreted units across all macOS cores (single-VM SMP threads)
         working-directory: tests
-        env:
-          GAMBOPT: p2,~~bin=../bin,~~lib=../lib,~~include=../include
-        run: gtimeout --kill-after=2s 300s ../gsi/gsi -:p1,~~bin=../bin,~~lib=../lib,~~include=../include -f run-unit-tests.scm -gsi
-      - name: Official compiled thread and map regressions with two processors
+        run: |
+          set -euo pipefail
+          CORES="${{ steps.mac_topo.outputs.cores }}"
+          echo "Running 408 interpreted unit tests with single-VM SMP -:p${CORES} (all ${CORES} macOS cores)"
+          GAMBOPT="p${CORES},~~bin=../bin,~~lib=../lib,~~include=../include" \
+            gtimeout --kill-after=2s 360s ../gsi/gsi -:p1,~~bin=../bin,~~lib=../lib,~~include=../include -f run-unit-tests.scm -gsi
+      - name: Official compiled thread & map regressions across all macOS cores (single-VM SMP threads)
         working-directory: tests
-        env:
-          GAMBOPT: p2,~~bin=../bin,~~lib=../lib,~~include=../include
-        run: gtimeout --kill-after=2s 300s ../gsi/gsi -:p1,~~bin=../bin,~~lib=../lib,~~include=../include -f run-unit-tests.scm -gsc unit-tests/06-thread unit-tests/04-list/map.scm
-      - name: Official compiled thread stress cases with two processors
+        run: |
+          set -euo pipefail
+          CORES="${{ steps.mac_topo.outputs.cores }}"
+          echo "Running 26 compiled thread/map tests with single-VM SMP -:p${CORES} (all ${CORES} macOS cores)"
+          GAMBOPT="p${CORES},~~bin=../bin,~~lib=../lib,~~include=../include" \
+            gtimeout --kill-after=2s 360s ../gsi/gsi -:p1,~~bin=../bin,~~lib=../lib,~~include=../include -f run-unit-tests.scm -gsc unit-tests/06-thread unit-tests/04-list/map.scm
+      - name: Official compiled thread stress cases across all macOS cores (single-VM SMP threads)
         working-directory: tests
-        env:
-          GAMBOPT: p2,~~bin=../bin,~~lib=../lib,~~include=../include
-        run: gtimeout --kill-after=2s 420s ../gsi/gsi -:p1,~~bin=../bin,~~lib=../lib,~~include=../include -f run-unit-tests.scm -gsc -stress unit-tests/06-thread/tfib_stress.scm unit-tests/06-thread/thread_interrupt_stress.scm unit-tests/06-thread/thread_interrupt2_stress.scm unit-tests/06-thread/thread_terminate_stress.scm
+        run: |
+          set -euo pipefail
+          CORES="${{ steps.mac_topo.outputs.cores }}"
+          echo "Running compiled thread stress suite with single-VM SMP -:p${CORES} (all ${CORES} macOS cores)"
+          GAMBOPT="p${CORES},~~bin=../bin,~~lib=../lib,~~include=../include" \
+            gtimeout --kill-after=2s 600s ../gsi/gsi -:p1,~~bin=../bin,~~lib=../lib,~~include=../include -f run-unit-tests.scm -gsc -stress unit-tests/06-thread/tfib_stress.scm unit-tests/06-thread/thread_interrupt_stress.scm unit-tests/06-thread/thread_interrupt2_stress.scm unit-tests/06-thread/thread_terminate_stress.scm
       - uses: ./.github/actions/gambit-multicore-pbt
         with:
           runtime-dir: '.'
-          topologies: 'p2,p4'
+          topologies: ${{ steps.mac_topo.outputs.topologies }}
           repeats: '1'
           include-scaling: 'true'
           json-out: multicore-macos-arm64.json

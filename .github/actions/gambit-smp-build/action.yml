@@ -35,6 +35,8 @@ runs:
           TIMEOUT_BIN="$(command -v gtimeout)"
           ACLOCAL_FLAGS="-I /opt/homebrew/share/aclocal"
           PROCS="$(sysctl -n hw.logicalcpu)"
+          MEM_GIB="$(( $(sysctl -n hw.memsize) / 1024 / 1024 / 1024 ))"
+          echo "Runner hardware: macOS arm64 logical_cpus=${PROCS} ram=${MEM_GIB}GiB"
           if [ -n "${INPUT_CC}" ]; then
             CC_SELECTED="${INPUT_CC}"
           else
@@ -44,6 +46,8 @@ runs:
           TIMEOUT_BIN="$(command -v timeout)"
           ACLOCAL_FLAGS=""
           PROCS="$(nproc)"
+          echo "Runner hardware: Linux logical_cpus=${PROCS}"
+          free -h || true
           CC_SELECTED="${INPUT_CC:-$(command -v gcc-16 || command -v gcc-15 || command -v gcc)}"
         fi
         test -n "${CC_SELECTED}"
@@ -65,7 +69,8 @@ runs:
           --enable-dynamic-clib \
           --enable-trust-c-tco \
           --enable-multiple-threaded-vms
-        workers=$((PROCS > 1 ? PROCS - 1 : 1))
+        workers="${PROCS}"
+        echo "Building Gambit SMP core with make -j${workers} (100% of runner cores)"
         "${TIMEOUT_BIN}" --kill-after=2s "${BUILD_TIMEOUT}s" make -j"${workers}" GAMBOPT=p1 core
         # Checked-in lib/_*.c use the default (non-SMP) distribution feature set;
         # re-emit lib/*.c with the active --enable-smp cond-expand feature so

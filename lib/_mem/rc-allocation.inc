@@ -607,13 +607,49 @@ void ___rest_observation_reset_admission(void)
   ___WORD_STORE_RELEASE(&rest_observation_admission_captured, 0);
 }
 
+static ___activation_record *rest_slot_record(___vm_lifecycle *life, int index)
+{
+  return ___CAST(___activation_record*,
+                 ___WORD_LOAD_ACQUIRE(&life->rest_directory[index].record));
+}
+
+static void rest_slot_set_record(___vm_lifecycle *life, int index,
+                                 ___activation_record *record)
+{
+  ___WORD_STORE_RELEASE(&life->rest_directory[index].record,
+                        ___CAST(___WORD, record));
+}
+
+static ___WORD rest_slot_incarnation(___vm_lifecycle *life, int index)
+{
+  return ___WORD_LOAD_ACQUIRE(&life->rest_directory[index].incarnation);
+}
+
+static void rest_slot_set_incarnation(___vm_lifecycle *life, int index,
+                                      ___WORD incarnation)
+{
+  ___WORD_STORE_RELEASE(&life->rest_directory[index].incarnation, incarnation);
+}
+
+static ___WORD rest_slot_retired(___vm_lifecycle *life, int index)
+{
+  return ___WORD_LOAD_ACQUIRE(&life->rest_directory[index].retired_generation);
+}
+
+static void rest_slot_set_retired(___vm_lifecycle *life, int index,
+                                  ___WORD generation)
+{
+  ___WORD_STORE_RELEASE(&life->rest_directory[index].retired_generation,
+                        generation);
+}
+
 /* Compare directory cells only. The activation record is not loaded here. */
 static int rest_directory_index(___vm_lifecycle *life, ___activation_record *record)
 {
   int i;
   if (!life || !record) return -1;
   for (i=0; i<___REST_DIRECTORY_SLOTS; i++)
-    if (life->rest_directory[i].record==record) return i;
+    if (rest_slot_record(life, i)==record) return i;
   return -1;
 }
 
@@ -639,40 +675,88 @@ static int rest_slot_take_generation(___vm_lifecycle *life, int index,
 static int rest_directory_claim(___processor_state ps, ___activation_record *record,
                                 ___WORD generation)
 {
+  ___virtual_machine_state vm;
   ___vm_lifecycle *life;
-  int i;
+  int start, k, i, attempts;
   if (!ps || !record || generation<=0) return -1;
-  life=___VMSTATE_FROM_PSTATE(ps)->lifecycle;
+  vm=___VMSTATE_FROM_PSTATE(ps);
+  life=vm->lifecycle;
   if (!life) return -1;
-  i=rest_directory_index(life, record);
-  if (i<0) {
-    for (i=0; i<___REST_DIRECTORY_SLOTS; i++) {
+  {
+    int id=___PROCESSOR_ID(ps, vm);
+    start=(id>=0 ? (id * 2) % ___REST_DIRECTORY_SLOTS : 0);
+  }
+  for (attempts=0; attempts<100000; attempts++) {
+    i=rest_directory_index(life, record);
+    if (i>=0) {
       ___WORD state=___WORD_LOAD_ACQUIRE(&life->rest_directory[i].state);
-      ___activation_record *prior=life->rest_directory[i].record;
+      int phase=___REST_ST_PHASE(state);
+      if (phase==___REST_PHASE_FREE) {
+        if (___lifecycle_cas(&life->rest_directory[i].state, state,
+                             ___REST_ST_MAKE(0, ___REST_PHASE_PUBLISHING))==state) {
+          ___activation_record *prior=rest_slot_record(life, i);
+          rest_slot_set_record(life, i, record);
+          rest_slot_set_incarnation(life, i, life->incarnation);
+          if (prior!=record) rest_slot_set_retired(life, i, 0);
+          rest_slot_set_generation(life, i, generation);
+          return i;
+        }
+        ___CPU_RELAX();
+        continue;
+      }
+      if (phase==___REST_PHASE_OPEN) {
+        if (rest_slot_record(life, i)==record) return -1;
+        continue;
+      }
+      if (phase==___REST_PHASE_CLOSED &&
+          rest_slot_generation(life, i)!=0 &&
+          rest_slot_record(life, i)==record)
+        return -1;
+      /* Transient PUBLISHING (slot stolen and key update in flight) or
+       * CLOSED with generation==0 (retire finishing CLOSED->FREE store). */
+      ___CPU_RELAX();
+      continue;
+    }
+
+    /* Prefer an unused FREE slot at this processor's affine offset so
+     * concurrent processors avoid slot contention and key eviction. */
+    for (k=0; k<___REST_DIRECTORY_SLOTS; k++) {
+      ___WORD state;
+      i=(start + k) % ___REST_DIRECTORY_SLOTS;
+      if (rest_slot_record(life, i)!=0) continue;
+      state=___WORD_LOAD_ACQUIRE(&life->rest_directory[i].state);
       if (___REST_ST_PHASE(state)==___REST_PHASE_FREE &&
           ___lifecycle_cas(&life->rest_directory[i].state, state,
                            ___REST_ST_MAKE(0, ___REST_PHASE_PUBLISHING))==state) {
-        life->rest_directory[i].record=record;
-        life->rest_directory[i].incarnation=life->incarnation;
+        ___activation_record *prior=rest_slot_record(life, i);
+        rest_slot_set_record(life, i, record);
+        rest_slot_set_incarnation(life, i, life->incarnation);
+        if (!prior || prior!=record) rest_slot_set_retired(life, i, 0);
         rest_slot_set_generation(life, i, generation);
-        /* A fresh cell has no terminal receipt. Reusing a drained cell keeps
-         * the previous generation so the old address remains a key. */
-        if (!prior) life->rest_directory[i].retired_generation=0;
         return i;
       }
     }
+
+    /* Fall back to any drained FREE slot if all slots have been used. */
+    for (k=0; k<___REST_DIRECTORY_SLOTS; k++) {
+      ___WORD state;
+      i=(start + k) % ___REST_DIRECTORY_SLOTS;
+      state=___WORD_LOAD_ACQUIRE(&life->rest_directory[i].state);
+      if (___REST_ST_PHASE(state)==___REST_PHASE_FREE &&
+          ___lifecycle_cas(&life->rest_directory[i].state, state,
+                           ___REST_ST_MAKE(0, ___REST_PHASE_PUBLISHING))==state) {
+        ___activation_record *prior=rest_slot_record(life, i);
+        rest_slot_set_record(life, i, record);
+        rest_slot_set_incarnation(life, i, life->incarnation);
+        if (!prior || prior!=record) rest_slot_set_retired(life, i, 0);
+        rest_slot_set_generation(life, i, generation);
+        return i;
+      }
+    }
+
     return -1;
   }
-  {
-    ___WORD state=___WORD_LOAD_ACQUIRE(&life->rest_directory[i].state);
-    if (___REST_ST_PHASE(state)!=___REST_PHASE_FREE) return -1;
-    if (___lifecycle_cas(&life->rest_directory[i].state, state,
-                         ___REST_ST_MAKE(0, ___REST_PHASE_PUBLISHING))!=state)
-      return -1;
-    life->rest_directory[i].incarnation=life->incarnation;
-    rest_slot_set_generation(life, i, generation);
-    return i;
-  }
+  return -1;
 }
 
 static void rest_directory_retire(___processor_state ps, int index, ___WORD generation)
@@ -687,14 +771,14 @@ static void rest_directory_retire(___processor_state ps, int index, ___WORD gene
     return;
   /* Own the generation before any metadata write. FREE is the last store. */
   if (!rest_slot_take_generation(life, index, generation)) return;
-  record=life->rest_directory[index].record;
-  life->rest_directory[index].retired_generation=generation;
+  record=rest_slot_record(life, index);
+  rest_slot_set_retired(life, index, generation);
   if (record) {
     record->kind=___ACTIVATION_LEGACY;
     ___lifecycle_marker_abort(record);
   }
   /* Keep the address as an equality key. Do not load it after abort. */
-  life->rest_directory[index].record=record;
+  rest_slot_set_record(life, index, record);
   if (___lifecycle_cas(&life->rest_directory[index].state, state,
                        ___REST_ST_MAKE(0, ___REST_PHASE_FREE))!=state)
     return;
@@ -712,7 +796,7 @@ static void rest_directory_cancel(___processor_state ps, int index,
   if (rest_slot_generation(life, index)!=generation || ___REST_ST_PIN(state) ||
       ___REST_ST_PHASE(state)!=___REST_PHASE_PUBLISHING) return;
   if (!rest_slot_take_generation(life, index, generation)) return;
-  life->rest_directory[index].retired_generation=generation;
+  rest_slot_set_retired(life, index, generation);
   for (;;) {
     state=___WORD_LOAD_ACQUIRE(&life->rest_directory[index].state);
     if (___REST_ST_PHASE(state)==___REST_PHASE_FREE) return;
@@ -768,12 +852,12 @@ static enum ___rest_status rest_admit(___processor_state ps,
   life=___VMSTATE_FROM_PSTATE(ps)->lifecycle;
   if (!life) return ___REST_REFUSED;
   found=rest_directory_index(life, record);
-  if (found<0 || life->rest_directory[found].incarnation!=life->incarnation)
+  if (found<0 || rest_slot_incarnation(life, found)!=life->incarnation)
     return ___REST_REFUSED;
   for (;;) {
     state=___WORD_LOAD_ACQUIRE(&life->rest_directory[found].state);
     if (rest_slot_generation(life, found)!=generation) {
-      if (generation==life->rest_directory[found].retired_generation)
+      if (generation==rest_slot_retired(life, found))
         return ___REST_DUPLICATE;
       if (___REST_ST_PHASE(state)==___REST_PHASE_OPEN) return ___REST_LOST;
       return ___REST_UNKNOWN;
@@ -879,7 +963,7 @@ enum ___rest_status ___rest_token_close(___processor_state ps,
   if (!ps || ps!=___PSTATE || !record || generation<=0) return ___REST_REFUSED;
   life=___VMSTATE_FROM_PSTATE(ps)->lifecycle;
   index=rest_directory_index(life, record);
-  if (index<0 || !life || life->rest_directory[index].incarnation!=life->incarnation)
+  if (index<0 || !life || rest_slot_incarnation(life, index)!=life->incarnation)
     return ___REST_REFUSED;
   for (;;) {
     state=___WORD_LOAD_ACQUIRE(&life->rest_directory[index].state);
