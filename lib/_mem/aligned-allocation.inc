@@ -19,7 +19,7 @@
 #endif
 #define ___USE_MMAP_LARGE_HEAP 1
 #define ___LARGE_HEAP_MMAP_MIN_BYTES ((___SIZE_T)32768u)
-#define ___MEDIUM_STILL_SLAB_MIN_BYTES ((___SIZE_T)3072u)
+#define ___MEDIUM_STILL_SLAB_MIN_BYTES ((___SIZE_T)2048u)
 #define ___CENSUS_QUEUE_RETAIN_MAX_BYTES ((___SIZE_T)(512u * 1024u))
 
 #if defined(___SINGLE_THREADED_VMS) || defined(___USE_POSIX_THREAD_SYSTEM)
@@ -27,8 +27,8 @@
 #endif
 
 #ifdef ___USE_MEDIUM_STILL_SLAB
-#define ___STILL_SLAB_CLASSES 7u
-#define ___STILL_SLAB_SHARDS  4u
+#define ___STILL_SLAB_CLASSES 8u
+#define ___STILL_SLAB_SHARDS  8u
 #define ___STILL_SLAB_BUCKETS (___STILL_SLAB_CLASSES * ___STILL_SLAB_SHARDS)
 
 typedef struct ___still_slab_chunk_struct
@@ -53,24 +53,23 @@ static ___still_slab_bucket still_slab_buckets_[___STILL_SLAB_BUCKETS];
 static ___VOLATILE int still_slab_cached_empty_count_ = 0;
 
 #if !defined(___SINGLE_THREADED_VMS)
-static pthread_mutex_t still_slab_locks_[___STILL_SLAB_BUCKETS] = {
-  PTHREAD_MUTEX_INITIALIZER, PTHREAD_MUTEX_INITIALIZER,
-  PTHREAD_MUTEX_INITIALIZER, PTHREAD_MUTEX_INITIALIZER,
-  PTHREAD_MUTEX_INITIALIZER, PTHREAD_MUTEX_INITIALIZER,
-  PTHREAD_MUTEX_INITIALIZER, PTHREAD_MUTEX_INITIALIZER,
-  PTHREAD_MUTEX_INITIALIZER, PTHREAD_MUTEX_INITIALIZER,
-  PTHREAD_MUTEX_INITIALIZER, PTHREAD_MUTEX_INITIALIZER,
-  PTHREAD_MUTEX_INITIALIZER, PTHREAD_MUTEX_INITIALIZER,
-  PTHREAD_MUTEX_INITIALIZER, PTHREAD_MUTEX_INITIALIZER,
-  PTHREAD_MUTEX_INITIALIZER, PTHREAD_MUTEX_INITIALIZER,
-  PTHREAD_MUTEX_INITIALIZER, PTHREAD_MUTEX_INITIALIZER,
-  PTHREAD_MUTEX_INITIALIZER, PTHREAD_MUTEX_INITIALIZER,
-  PTHREAD_MUTEX_INITIALIZER, PTHREAD_MUTEX_INITIALIZER,
-  PTHREAD_MUTEX_INITIALIZER, PTHREAD_MUTEX_INITIALIZER,
-  PTHREAD_MUTEX_INITIALIZER, PTHREAD_MUTEX_INITIALIZER
+typedef struct ___still_slab_lock_padded_struct
+  {
+    pthread_mutex_t mut;
+    char pad[128 - (sizeof(pthread_mutex_t) % 128)];
+  } ___still_slab_lock_padded;
+
+#define ___SSL_INIT { PTHREAD_MUTEX_INITIALIZER, {0} }
+#define ___SSL_INIT8 ___SSL_INIT, ___SSL_INIT, ___SSL_INIT, ___SSL_INIT, ___SSL_INIT, ___SSL_INIT, ___SSL_INIT, ___SSL_INIT
+
+static ___still_slab_lock_padded still_slab_locks_[___STILL_SLAB_BUCKETS] = {
+  ___SSL_INIT8, ___SSL_INIT8, ___SSL_INIT8, ___SSL_INIT8,
+  ___SSL_INIT8, ___SSL_INIT8, ___SSL_INIT8, ___SSL_INIT8
 };
-#define ___STILL_SLAB_LOCK(b)   pthread_mutex_lock(&still_slab_locks_[(b)])
-#define ___STILL_SLAB_UNLOCK(b) pthread_mutex_unlock(&still_slab_locks_[(b)])
+#undef ___SSL_INIT8
+#undef ___SSL_INIT
+#define ___STILL_SLAB_LOCK(b)   pthread_mutex_lock(&still_slab_locks_[(b)].mut)
+#define ___STILL_SLAB_UNLOCK(b) pthread_mutex_unlock(&still_slab_locks_[(b)].mut)
 #else
 #define ___STILL_SLAB_LOCK(b)   ((void)(b))
 #define ___STILL_SLAB_UNLOCK(b) ((void)(b))
@@ -115,16 +114,17 @@ static inline void still_slab_push_partial
 ___HIDDEN void *still_slab_alloc
    (___SIZE_TS words, ___SIZE_T align_bytes, ___SIZE_T mod_bytes)
 {
-  /* 7 fine-grained 25%-step size classes (4K..32K) keep max internal
-   * fragmentation <= 25% while every map_bytes is a multiple of 16 KiB
-   * (exact page multiple on both 4 KiB Linux and 16 KiB Apple Silicon). */
+  /* 8 fine-grained size classes (2.5K..32K) keep max internal fragmentation
+   * low while every map_bytes is a multiple of 16 KiB (exact page multiple on
+   * both 4 KiB Linux and 16 KiB Apple Silicon). */
   static const ___SIZE_T class_slot_bytes[___STILL_SLAB_CLASSES] = {
-    4096u, 6144u, 8192u, 12288u, 16384u, 24576u, 32768u
+    2560u, 4096u, 6144u, 8192u, 12288u, 16384u, 24576u, 32768u
   };
   static const ___SIZE_T class_map_bytes[___STILL_SLAB_CLASSES] = {
-    131072u, 196608u, 131072u, 196608u, 262144u, 393216u, 524288u
+    81920u, 131072u, 196608u, 131072u, 196608u, 262144u, 393216u, 524288u
   };
   static const uint64_t class_all_masks[___STILL_SLAB_CLASSES] = {
+    (((uint64_t)1u << 32) - (uint64_t)2u),
     (((uint64_t)1u << 32) - (uint64_t)2u),
     (((uint64_t)1u << 32) - (uint64_t)2u),
     (((uint64_t)1u << 16) - (uint64_t)2u),
@@ -149,7 +149,10 @@ ___HIDDEN void *still_slab_alloc
   for (cls = 0u; cls < ___STILL_SLAB_CLASSES; cls++)
     if (need <= class_slot_bytes[cls])
       break;
-  shard = (unsigned int)((___CAST(___UWORD, &shard) >> 12) & (___STILL_SLAB_SHARDS - 1u));
+  {
+    ___UWORD sp_u = ___CAST(___UWORD, &shard);
+    shard = (unsigned int)(((sp_u >> 19) ^ (sp_u >> 15) ^ (sp_u >> 12)) & (___STILL_SLAB_SHARDS - 1u));
+  }
   bidx = cls * ___STILL_SLAB_SHARDS + shard;
   bucket = &still_slab_buckets_[bidx];
 

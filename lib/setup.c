@@ -534,7 +534,7 @@ ___virtual_machine_state ___vms;)
 #define SYNC_INIT_MSG(var) ((var) = SYNC_WAITING) /* exclusive construction */
 #define SYNC_ACK_MSG(var) ___WORD_STORE_RELEASE(&(var),SYNC_WAITING)
 
-#define SYNC_GET_MSG_SPIN_TIMEOUT 1500
+#define SYNC_GET_MSG_SPIN_TIMEOUT 8000
 
 #define SYNC_GET_MSG(expr) \
 do { \
