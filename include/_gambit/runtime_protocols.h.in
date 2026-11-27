@@ -1415,6 +1415,94 @@ ___ORDERED_WORD_INLINE ___SCMOBJ ___gc_srfi230_fxbox_add
 #endif
 }
 
+___ORDERED_WORD_INLINE ___SCMOBJ ___gc_srfi230_fxbox_sub
+   (___SCMOBJ box,
+    ___SCMOBJ delta_fx,
+    int order)
+{
+  ___WORD *slot = &___BODY_AS(box, ___tBOXVALUES)[0];
+#if defined(__ATOMIC_RELAXED) && defined(__ATOMIC_SEQ_CST)
+  return ___CAST(___SCMOBJ,
+                 __atomic_fetch_sub(slot, ___CAST(___WORD, delta_fx),
+                                    ___srfi230_to_gcc_memorder(order)));
+#else
+  (void)order;
+  for (;;)
+    {
+      ___WORD cur = ___WORD_LOAD_ACQUIRE(slot);
+      if (___COMPARE_AND_SWAP_WORD(___CAST(___VOLATILE ___WORD*, slot),
+                                   cur, cur - ___CAST(___WORD, delta_fx)) == cur)
+        return ___CAST(___SCMOBJ, cur);
+    }
+#endif
+}
+
+___ORDERED_WORD_INLINE ___SCMOBJ ___gc_srfi230_fxbox_and
+   (___SCMOBJ box,
+    ___SCMOBJ mask_fx,
+    int order)
+{
+  ___WORD *slot = &___BODY_AS(box, ___tBOXVALUES)[0];
+#if defined(__ATOMIC_RELAXED) && defined(__ATOMIC_SEQ_CST)
+  return ___CAST(___SCMOBJ,
+                 __atomic_fetch_and(slot, ___CAST(___WORD, mask_fx),
+                                    ___srfi230_to_gcc_memorder(order)));
+#else
+  (void)order;
+  for (;;)
+    {
+      ___WORD cur = ___WORD_LOAD_ACQUIRE(slot);
+      if (___COMPARE_AND_SWAP_WORD(___CAST(___VOLATILE ___WORD*, slot),
+                                   cur, cur & ___CAST(___WORD, mask_fx)) == cur)
+        return ___CAST(___SCMOBJ, cur);
+    }
+#endif
+}
+
+___ORDERED_WORD_INLINE ___SCMOBJ ___gc_srfi230_fxbox_ior
+   (___SCMOBJ box,
+    ___SCMOBJ mask_fx,
+    int order)
+{
+  ___WORD *slot = &___BODY_AS(box, ___tBOXVALUES)[0];
+#if defined(__ATOMIC_RELAXED) && defined(__ATOMIC_SEQ_CST)
+  return ___CAST(___SCMOBJ,
+                 __atomic_fetch_or(slot, ___CAST(___WORD, mask_fx),
+                                   ___srfi230_to_gcc_memorder(order)));
+#else
+  (void)order;
+  for (;;)
+    {
+      ___WORD cur = ___WORD_LOAD_ACQUIRE(slot);
+      if (___COMPARE_AND_SWAP_WORD(___CAST(___VOLATILE ___WORD*, slot),
+                                   cur, cur | ___CAST(___WORD, mask_fx)) == cur)
+        return ___CAST(___SCMOBJ, cur);
+    }
+#endif
+}
+
+___ORDERED_WORD_INLINE ___SCMOBJ ___gc_srfi230_fxbox_xor
+   (___SCMOBJ box,
+    ___SCMOBJ mask_fx,
+    int order)
+{
+  ___WORD *slot = &___BODY_AS(box, ___tBOXVALUES)[0];
+#if defined(__ATOMIC_RELAXED) && defined(__ATOMIC_SEQ_CST)
+  return ___CAST(___SCMOBJ,
+                 __atomic_fetch_xor(slot, ___CAST(___WORD, mask_fx),
+                                    ___srfi230_to_gcc_memorder(order)));
+#else
+  (void)order;
+  for (;;)
+    {
+      ___WORD cur = ___WORD_LOAD_ACQUIRE(slot);
+      if (___COMPARE_AND_SWAP_WORD(___CAST(___VOLATILE ___WORD*, slot),
+                                   cur, cur ^ ___CAST(___WORD, mask_fx)) == cur)
+        return ___CAST(___SCMOBJ, cur);
+    }
+#endif
+}
+
 #define ___SRFI230_FENCE(order) ___gc_srfi230_fence(order)
 #define ___SRFI230_BOX_LOAD(box, order) ___gc_srfi230_box_load((box), (order))
 #define ___SRFI230_BOX_STORE(ps, box, val, order) \
@@ -1425,6 +1513,14 @@ ___ORDERED_WORD_INLINE ___SCMOBJ ___gc_srfi230_fxbox_add
   ___gc_srfi230_box_cas((ps), (box), (exp), (des), (order), ___EXT(___gc_write_barrier_slow), ___EXT(___gc_satb_barrier_val))
 #define ___SRFI230_FXBOX_ADD(box, delta_fx, order) \
   ___gc_srfi230_fxbox_add((box), (delta_fx), (order))
+#define ___SRFI230_FXBOX_SUB(box, delta_fx, order) \
+  ___gc_srfi230_fxbox_sub((box), (delta_fx), (order))
+#define ___SRFI230_FXBOX_AND(box, mask_fx, order) \
+  ___gc_srfi230_fxbox_and((box), (mask_fx), (order))
+#define ___SRFI230_FXBOX_IOR(box, mask_fx, order) \
+  ___gc_srfi230_fxbox_ior((box), (mask_fx), (order))
+#define ___SRFI230_FXBOX_XOR(box, mask_fx, order) \
+  ___gc_srfi230_fxbox_xor((box), (mask_fx), (order))
 
 #ifndef ___INCLUDED_FROM_SETUP
 ___GSTATEDECL
