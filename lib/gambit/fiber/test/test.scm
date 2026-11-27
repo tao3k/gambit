@@ -376,3 +376,51 @@
   (test-equal 5000 (atomic-fxbox-ref burst-done)))
 
 ;;;============================================================================
+;;; 10. Adversarial Relaxed-Hint Channel Hammer (cap=0 & cap=1 across 12 cores)
+;;;     Maximizes stale relaxed empty/full hints under extreme MPMC contention
+;;;     to prove ZERO lost wakeups and exact sum conservation.
+
+(let ((sum0 (make-atomic-fxbox 0))
+      (sum1 (make-atomic-fxbox 0)))
+  (run-fibers
+   (lambda ()
+     (let ((ch0 (make-fiber-channel 0))
+           (ch1 (make-fiber-channel 1)))
+       (with-nursery
+        (lambda (n)
+          ;; 8 producers x 200 items on unbuffered cap=0 + 8 producers x 200 items on cap=1
+          (let loop ((p 0))
+            (if (fx< p 8)
+                (begin
+                  (fiber-spawn
+                   (lambda ()
+                     (let iloop ((i 1))
+                       (if (fx<= i 200)
+                           (begin (fiber-send! ch0 i) (iloop (fx+ i 1))))))
+                   n)
+                  (fiber-spawn
+                   (lambda ()
+                     (let iloop ((i 0) (s 0))
+                       (if (fx< i 200)
+                           (iloop (fx+ i 1) (fx+ s (fiber-recv! ch0)))
+                           (atomic-fxbox+/fetch! sum0 s))))
+                   n)
+                  (fiber-spawn
+                   (lambda ()
+                     (let iloop ((i 1))
+                       (if (fx<= i 200)
+                           (begin (fiber-send! ch1 i) (iloop (fx+ i 1))))))
+                   n)
+                  (fiber-spawn
+                   (lambda ()
+                     (let iloop ((i 0) (s 0))
+                       (if (fx< i 200)
+                           (iloop (fx+ i 1) (fx+ s (fiber-recv! ch1)))
+                           (atomic-fxbox+/fetch! sum1 s))))
+                   n)
+                  (loop (fx+ p 1))))))))))
+  ;; Expected: 8 * (200 * 201 / 2) = 8 * 20100 = 160800 each
+  (test-equal 160800 (atomic-fxbox-ref sum0))
+  (test-equal 160800 (atomic-fxbox-ref sum1)))
+
+;;;============================================================================

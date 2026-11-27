@@ -16,6 +16,92 @@
 (declare (extended-bindings))
 (declare (block))
 
+(##define-macro (macro-if-c-compiled then-expr else-expr)
+  (let ((co (##global-var-ref (##make-global-var '##compilation-options))))
+    (if (and (##not (##unbound? co))
+             (let ((t (##assq 'target co)))
+               (or (##not t) (##eq? (##cadr t) 'C))))
+        then-expr
+        else-expr)))
+
+;; 128-byte padded fixnum atomic box (eliminates Chase-Lev top/bottom false sharing)
+(define (%make-ws-ctr init)
+  (let ((v (##make-vector 16 0)))
+    (##vector-set! v 0 init)
+    v))
+
+(define (%ws-load-rlx c)
+  (macro-if-c-compiled
+   (##c-code
+    "___RESULT = ___CAST(___SCMOBJ,
+       ___atomic_word_load(___CAST(___VOLATILE ___WORD*, ___BODY_AS(___ARG1, ___tVECTOR)), 0));"
+    c)
+   (##vector-cas! c 0 #!unbound #!unbound)))
+
+(define (%ws-load-acq c)
+  (macro-if-c-compiled
+   (##c-code
+    "___RESULT = ___CAST(___SCMOBJ,
+       ___atomic_word_load(___CAST(___VOLATILE ___WORD*, ___BODY_AS(___ARG1, ___tVECTOR)), 1));"
+    c)
+   (##vector-cas! c 0 #!unbound #!unbound)))
+
+(define (%ws-store-rlx! c val)
+  (macro-if-c-compiled
+   (##c-code
+    "___atomic_word_store(___CAST(___VOLATILE ___WORD*, ___BODY_AS(___ARG1, ___tVECTOR)),
+                          ___CAST(___WORD, ___ARG2), 0);
+     ___RESULT = ___VOID;"
+    c val)
+   (let loop ((old (##vector-cas! c 0 #!unbound #!unbound)))
+     (let ((prev (##vector-cas! c 0 val old)))
+       (if (##eq? prev old) (##void) (loop prev))))))
+
+(define (%ws-store-rel! c val)
+  (macro-if-c-compiled
+   (##c-code
+    "___atomic_word_store(___CAST(___VOLATILE ___WORD*, ___BODY_AS(___ARG1, ___tVECTOR)),
+                          ___CAST(___WORD, ___ARG2), 2);
+     ___RESULT = ___VOID;"
+    c val)
+   (let loop ((old (##vector-cas! c 0 #!unbound #!unbound)))
+     (let ((prev (##vector-cas! c 0 val old)))
+       (if (##eq? prev old) (##void) (loop prev))))))
+
+(define (%ws-cas-seq! c expected desired)
+  (macro-if-c-compiled
+   (##c-code
+    "___RESULT = ___CAST(___SCMOBJ,
+       ___atomic_word_cas(___CAST(___VOLATILE ___WORD*, ___BODY_AS(___ARG1, ___tVECTOR)),
+                          ___CAST(___WORD, ___ARG2),
+                          ___CAST(___WORD, ___ARG3), 4));"
+    c expected desired)
+   (##vector-cas! c 0 desired expected)))
+
+(define (%ws-fence-seq!)
+  (macro-if-c-compiled
+   (##c-code "___atomic_fence_order(4); ___RESULT = ___VOID;")
+   (atomic-fence (memory-order sequentially-consistent))))
+
+(define (%ws-slot-load-acq slots idx)
+  (macro-if-c-compiled
+   (##c-code
+    "___WORD *___s = ___FXINDX_WORD(___BODY_AS(___ARG1, ___tVECTOR), ___ARG2);
+     ___RESULT = ___gc_atomic_slot_load(___s, 1);"
+    slots idx)
+   (srfi/230#vector-atomic-ref slots idx (memory-order acquire))))
+
+(define (%ws-slot-store-rlx! slots idx val)
+  (macro-if-c-compiled
+   (##c-code
+    "___WORD *___s = ___FXINDX_WORD(___BODY_AS(___ARG1, ___tVECTOR), ___ARG2);
+     ___gc_atomic_slot_exchange(
+       ___ps, ___ARG1, ___s, ___ARG3, 0,
+       ___EXT(___gc_write_barrier_slow), ___EXT(___gc_satb_barrier_val));
+     ___RESULT = ___VOID;"
+    slots idx val)
+   (srfi/230#vector-atomic-set! slots idx val (memory-order relaxed))))
+
 ;;;============================================================================
 ;;; 1. Lock-Free Treiber Stack (GC-managed nodes -> immune to ABA)
 
@@ -177,103 +263,100 @@
   (let* ((cap (%next-pow2 (if (and (fixnum? min-cap) (> min-cap 0)) min-cap 256)))
          (slots (make-vector cap #f)))
     (%make-ws-deque (fx- cap 1) cap slots
-                    (make-atomic-fxbox 0)
-                    (make-atomic-fxbox 0))))
+                    (%make-ws-ctr 0)
+                    (%make-ws-ctr 0))))
 
 (define (ws-deque-size dq)
-  (let ((b (atomic-fxbox-ref (ws-deque-bottom dq) (memory-order acquire)))
-        (t (atomic-fxbox-ref (ws-deque-top dq) (memory-order acquire))))
+  (let ((b (%ws-load-acq (ws-deque-bottom dq)))
+        (t (%ws-load-acq (ws-deque-top dq))))
     (let ((d (fx- b t)))
       (if (> d 0) d 0))))
 
 ;; Owner-only push at bottom. Returns #t on success, #f if bounded ring is full.
 (define (ws-deque-push! dq val)
-  (let* ((b (atomic-fxbox-ref (ws-deque-bottom dq) (memory-order relaxed)))
-         (t (atomic-fxbox-ref (ws-deque-top dq) (memory-order acquire)))
+  (let* ((bot-box (ws-deque-bottom dq))
+         (b (%ws-load-rlx bot-box))
+         (t (%ws-load-acq (ws-deque-top dq)))
          (cap (ws-deque-cap dq)))
-    (if (>= (fx- b t) cap)
+    (if (fx>= (fx- b t) cap)
         #f
         (begin
-          (srfi/230#vector-atomic-set!
-           (ws-deque-slots dq) (fxand b (ws-deque-mask dq)) val (memory-order relaxed))
-          (atomic-fxbox-set! (ws-deque-bottom dq) (fx+ b 1) (memory-order release))
+          (%ws-slot-store-rlx! (ws-deque-slots dq) (fxand b (ws-deque-mask dq)) val)
+          (%ws-store-rel! bot-box (fx+ b 1))
           #t))))
 
 ;; Owner-only LIFO pop from bottom. Returns (values #t val) or (values #f #f).
 (define (ws-deque-try-pop! dq)
-  (let* ((b (fx- (atomic-fxbox-ref (ws-deque-bottom dq) (memory-order relaxed)) 1))
+  (let* ((bot-box (ws-deque-bottom dq))
+         (b (fx- (%ws-load-rlx bot-box) 1))
          (top-box (ws-deque-top dq))
-         (bot-box (ws-deque-bottom dq))
          (slots (ws-deque-slots dq))
          (idx (fxand b (ws-deque-mask dq))))
-    (atomic-fxbox-set! bot-box b (memory-order relaxed))
-    (atomic-fence (memory-order sequentially-consistent))
-    (let ((t (atomic-fxbox-ref top-box (memory-order relaxed))))
+    (%ws-store-rlx! bot-box b)
+    (%ws-fence-seq!)
+    (let ((t (%ws-load-rlx top-box)))
       (cond
-        ((< t b)
-         (let ((val (srfi/230#vector-atomic-ref slots idx (memory-order acquire))))
-           (values #t val)))
-        ((= t b)
-         (let* ((val (srfi/230#vector-atomic-ref slots idx (memory-order acquire)))
-                (prev (atomic-fxbox-compare-and-swap! top-box t (fx+ t 1) (memory-order sequentially-consistent))))
-           (atomic-fxbox-set! bot-box (fx+ b 1) (memory-order relaxed))
-           (if (= prev t)
+        ((fx< t b)
+         (values #t (%ws-slot-load-acq slots idx)))
+        ((fx= t b)
+         (let* ((val (%ws-slot-load-acq slots idx))
+                (prev (%ws-cas-seq! top-box t (fx+ t 1))))
+           (%ws-store-rlx! bot-box (fx+ b 1))
+           (if (fx= prev t)
                (values #t val)
                (values #f #f))))
         (else
-         (atomic-fxbox-set! bot-box (fx+ b 1) (memory-order relaxed))
+         (%ws-store-rlx! bot-box (fx+ b 1))
          (values #f #f))))))
 
 ;; Concurrent thief FIFO steal from top. Returns (values #t val) or (values #f #f).
 (define (ws-deque-try-steal! dq)
   (let ((top-box (ws-deque-top dq))
         (bot-box (ws-deque-bottom dq)))
-    (let ((t (atomic-fxbox-ref top-box (memory-order acquire))))
-      (atomic-fence (memory-order sequentially-consistent))
-      (let ((b (atomic-fxbox-ref bot-box (memory-order acquire))))
-        (if (< t b)
-            (let* ((val (srfi/230#vector-atomic-ref
-                         (ws-deque-slots dq) (fxand t (ws-deque-mask dq)) (memory-order acquire)))
-                   (prev (atomic-fxbox-compare-and-swap! top-box t (fx+ t 1) (memory-order sequentially-consistent))))
-              (if (= prev t)
+    (let ((t (%ws-load-acq top-box)))
+      (%ws-fence-seq!)
+      (let ((b (%ws-load-acq bot-box)))
+        (if (fx< t b)
+            (let* ((val (%ws-slot-load-acq (ws-deque-slots dq) (fxand t (ws-deque-mask dq))))
+                   (prev (%ws-cas-seq! top-box t (fx+ t 1))))
+              (if (fx= prev t)
                   (values #t val)
                   (values #f #f)))
             (values #f #f))))))
 
 ;; Zero-closure owner-only LIFO pop: returns popped item or `default` when empty.
 (define (ws-deque-try-pop-or! dq default)
-  (let* ((b (fx- (atomic-fxbox-ref (ws-deque-bottom dq) (memory-order relaxed)) 1))
+  (let* ((bot-box (ws-deque-bottom dq))
+         (b (fx- (%ws-load-rlx bot-box) 1))
          (top-box (ws-deque-top dq))
-         (bot-box (ws-deque-bottom dq))
          (slots (ws-deque-slots dq))
          (idx (fxand b (ws-deque-mask dq))))
-    (atomic-fxbox-set! bot-box b (memory-order relaxed))
-    (atomic-fence (memory-order sequentially-consistent))
-    (let ((t (atomic-fxbox-ref top-box (memory-order relaxed))))
+    (%ws-store-rlx! bot-box b)
+    (%ws-fence-seq!)
+    (let ((t (%ws-load-rlx top-box)))
       (cond
-        ((< t b)
-         (srfi/230#vector-atomic-ref slots idx (memory-order acquire)))
-        ((= t b)
-         (let* ((val (srfi/230#vector-atomic-ref slots idx (memory-order acquire)))
-                (prev (atomic-fxbox-compare-and-swap! top-box t (fx+ t 1) (memory-order sequentially-consistent))))
-           (atomic-fxbox-set! bot-box (fx+ b 1) (memory-order relaxed))
-           (if (= prev t) val default)))
+        ((fx< t b)
+         (%ws-slot-load-acq slots idx))
+        ((fx= t b)
+         (let* ((val (%ws-slot-load-acq slots idx))
+                (prev (%ws-cas-seq! top-box t (fx+ t 1))))
+           (%ws-store-rlx! bot-box (fx+ b 1))
+           (if (fx= prev t) val default)))
         (else
-         (atomic-fxbox-set! bot-box (fx+ b 1) (memory-order relaxed))
+         (%ws-store-rlx! bot-box (fx+ b 1))
          default)))))
 
 ;; Zero-closure concurrent thief FIFO steal: returns stolen item or `default` when empty.
 (define (ws-deque-try-steal-or! dq default)
   (let ((top-box (ws-deque-top dq))
         (bot-box (ws-deque-bottom dq)))
-    (let ((t (atomic-fxbox-ref top-box (memory-order acquire))))
-      (atomic-fence (memory-order sequentially-consistent))
-      (let ((b (atomic-fxbox-ref bot-box (memory-order acquire))))
-        (if (< t b)
-            (let* ((val (srfi/230#vector-atomic-ref
-                         (ws-deque-slots dq) (fxand t (ws-deque-mask dq)) (memory-order acquire)))
-                   (prev (atomic-fxbox-compare-and-swap! top-box t (fx+ t 1) (memory-order sequentially-consistent))))
-              (if (= prev t) val default))
+    (let ((t (%ws-load-acq top-box)))
+      (%ws-fence-seq!)
+      (let ((b (%ws-load-acq bot-box)))
+        (if (fx< t b)
+            (let* ((val (%ws-slot-load-acq (ws-deque-slots dq) (fxand t (ws-deque-mask dq))))
+                   (prev (%ws-cas-seq! top-box t (fx+ t 1))))
+              (if (fx= prev t) val default))
             default)))))
 
 ;;;============================================================================
