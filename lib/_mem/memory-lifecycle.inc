@@ -714,12 +714,16 @@ ___SCMOBJ ___setup_mem ___PVOID
   if (___GSTATE->setup_params.min_heap == 0)
     {
       /*
-       * Choose a reasonable minimum heap size.
-       *
-       * A fraction of the last level data cache size is probably good.
+       * Choose a reasonable minimum heap size from the last-level data cache,
+       * clamped to ___DEFAULT_MAX_AUTO_MIN_HEAP so multi-CCD / 3D V-Cache
+       * servers (256-1024+ MiB socket L3) do not inflate every idle VM's
+       * default min_heap to hundreds of MiB. Explicit -:m<N> is never clamped.
        */
 
-      ___GSTATE->setup_params.min_heap = ___cpu_cache_size (0, 0) / 2;
+      int llc = ___cpu_cache_size (0, 0);
+      ___SIZE_T auto_min = (llc > 0) ? (___CAST(___SIZE_T, llc) / 2) : 0;
+      SET_MIN(auto_min, ___DEFAULT_MAX_AUTO_MIN_HEAP);
+      ___GSTATE->setup_params.min_heap = auto_min;
     }
 
   SET_MAX(___GSTATE->setup_params.min_heap, ___DEFAULT_MIN_HEAP);
