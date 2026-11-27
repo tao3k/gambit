@@ -8,7 +8,10 @@
 
 #ifndef ___DONT_HAVE_PTHREAD_H
 #include <pthread.h>
+#include <sched.h>
 #endif
+
+#define ___THREAD_YIELD() sched_yield()
 
 #define ___MUTEX pthread_mutex_t
 #define ___MUTEX_DECL(id) ___MUTEX id;
@@ -207,6 +210,14 @@ MemoryBarrier()
 
 #ifndef ___CPU_RELAX
 #define ___CPU_RELAX()
+#endif
+
+#ifndef ___THREAD_YIELD
+#ifdef ___USE_WIN32_THREAD_SYSTEM
+#define ___THREAD_YIELD() SwitchToThread()
+#else
+#define ___THREAD_YIELD() ___CPU_RELAX()
+#endif
 #endif
 
 
