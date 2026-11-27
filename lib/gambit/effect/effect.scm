@@ -402,6 +402,135 @@
     (%resume-checked ek v1 v2 more)))
 
 ;;;----------------------------------------------------------------------------
+;;; Lexa OOPSLA '24 / Effekt OOPSLA '23 O(1) Lexical Capability Handles
+;;;
+;;; Eliminates dynamic handler-chain walking completely:
+;;;   - Tail capabilities invoke the handler procedure directly in O(1)
+;;;     (zero dynamic lookup, zero ##thread-control-state read, zero capture).
+;;;   - Suspending capabilities jump directly to their bound prompt tag without
+;;;     scanning %tc-handlers.
+
+(define-type effect-capability
+  id: 8B1F3A70-9C24-4D6B-A5E1-EFF000000005
+  constructor: %make-capability
+  predicate: effect-capability?
+  (kind  %cap-kind)   ;; 'tail or 'suspend
+  (proc  %cap-proc)   ;; handler procedure
+  (frame %cap-frame)) ;; %handler-frame (for suspending capabilities) or #f
+
+(define (call-with-tail-capability handler-proc body-proc)
+  (body-proc (%make-capability 'tail handler-proc #f)))
+
+(define (call-with-suspend-capability handler-proc body-proc)
+  (let* ((eff (%make-effect 'capability))
+         (tag (make-continuation-prompt-tag 'cap-handler))
+         (entry (%make-handler-entry eff 'suspend handler-proc))
+         (frame (%make-handler-frame tag (list entry)))
+         (cap (%make-capability 'suspend handler-proc frame)))
+    (##continuation-capture
+     (lambda (escape-k)
+       (let* ((st (%tc-current))
+              (saved-mc (%tc-mc st))
+              (saved-marks (%tc-marks st))
+              (saved-barriers (%tc-barriers st))
+              (saved-handlers (%tc-handlers st))
+              (pframe (%make-mc-frame 'prompt
+                                      tag
+                                      #f
+                                      escape-k
+                                      saved-marks
+                                      saved-barriers
+                                      saved-handlers)))
+         (%tc-mc-set! st (cons pframe saved-mc))
+         (%tc-handlers-set! st (cons frame saved-handlers))
+         (%mc-return1 (body-proc cap)))))))
+
+(define (perform-cap cap
+                     #!optional
+                     (a1 %ABSENT)
+                     (a2 %ABSENT)
+                     #!rest
+                     more)
+  (if (eq? (%cap-kind cap) 'tail)
+      ;; O(1) direct dispatch — zero handler-chain walk, zero capture!
+      (let ((proc (%cap-proc cap)))
+        (cond
+          ((eq? a1 %ABSENT) (proc))
+          ((eq? a2 %ABSENT) (proc a1))
+          ((null? more)     (proc a1 a2))
+          (else             (apply proc a1 a2 more))))
+      ;; Direct suspending capability dispatch
+      (let* ((st (%tc-current))
+             (frame (%cap-frame cap))
+             (tag (%frame-tag frame))
+             (proc (%cap-proc cap))
+             (mc (%tc-mc st))
+             (handlers (%tc-handlers st)))
+        (if (and (pair? mc)
+                 (eq? (%mc-frame-kind (car mc)) 'prompt)
+                 (eq? (%mc-frame-tag (car mc)) tag)
+                 (not (%barrier-between? (%tc-barriers st)
+                                         (%mc-frame-barriers (car mc)))))
+            (let* ((pframe (car mc))
+                   (rest (cdr mc))
+                   (cap-marks (%list-prefix-until (%tc-marks st)
+                                                  (%mc-frame-marks pframe)))
+                   (cap-handlers (%handlers-prefix-before handlers frame))
+                   (escape-k (%mc-frame-escape-k pframe)))
+              (##continuation-capture
+               (lambda (sub-k)
+                 (let ((ek (%make-effect-continuation
+                            sub-k
+                            pframe
+                            '()
+                            cap-marks
+                            cap-handlers
+                            frame
+                            (make-atomic-fxbox %EC-ONE-SHOT-LIVE))))
+                   (%tc-mc-set! st rest)
+                   (%tc-marks-set! st (%mc-frame-marks pframe))
+                   (%tc-barriers-set! st (%mc-frame-barriers pframe))
+                   (%tc-handlers-set! st (%mc-frame-handlers pframe))
+                   (cond
+                     ((eq? a1 %ABSENT) (##continuation-graft escape-k proc ek))
+                     ((eq? a2 %ABSENT) (##continuation-graft escape-k proc ek a1))
+                     ((null? more)     (##continuation-graft escape-k proc ek a1 a2))
+                     (else             (##continuation-graft escape-k ##apply proc
+                                                             (cons ek (cons a1 (cons a2 more))))))))))
+            (call-with-values
+              (lambda () (%mc-split-at-tag mc tag))
+              (lambda (prefix pframe rest)
+                (if (not pframe)
+                    (error "perform-cap: capability handler prompt not active" cap))
+                (if (%barrier-between? (%tc-barriers st)
+                                       (%mc-frame-barriers pframe))
+                    (error "perform-cap: cannot suspend across continuation barrier" cap))
+                (let ((cap-marks (%list-prefix-until (%tc-marks st)
+                                                     (%mc-frame-marks pframe)))
+                      (cap-handlers (%handlers-prefix-before handlers frame))
+                      (escape-k (%mc-frame-escape-k pframe)))
+                  (##continuation-capture
+                   (lambda (sub-k)
+                     (let ((ek (%make-effect-continuation
+                                sub-k
+                                pframe
+                                prefix
+                                cap-marks
+                                cap-handlers
+                                frame
+                                (make-atomic-fxbox %EC-ONE-SHOT-LIVE))))
+                       (%tc-mc-set! st rest)
+                       (%tc-marks-set! st (%mc-frame-marks pframe))
+                       (%tc-barriers-set! st (%mc-frame-barriers pframe))
+                       (%tc-handlers-set! st (%mc-frame-handlers pframe))
+                       (cond
+                         ((eq? a1 %ABSENT) (##continuation-graft escape-k proc ek))
+                         ((eq? a2 %ABSENT) (##continuation-graft escape-k proc ek a1))
+                         ((null? more)     (##continuation-graft escape-k proc ek a1 a2))
+                         (else             (##continuation-graft escape-k ##apply proc
+                                                                 (cons ek (cons a1 (cons a2 more))))))))))))))))
+
+;;;----------------------------------------------------------------------------
 ;;; Built-in Direct-Style Generator (yield / make-generator — Zero Per-Yield Closure)
 
 (define yield (make-effect 'yield))

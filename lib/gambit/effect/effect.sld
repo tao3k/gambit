@@ -27,6 +27,12 @@
     resume-multishot
     effect-continuation?
 
+    effect-capability?
+    call-with-tail-capability
+    call-with-suspend-capability
+    with-capability-handler
+    perform-cap
+
     yield
     make-generator)
 
@@ -99,6 +105,33 @@
                                    ret-fn)))
                           (else
                            (##raise-expression-parsing-exception 'ill-formed-special-form src)))))))
+              (##raise-expression-parsing-exception 'ill-formed-special-form src)))))
+
+    (##define-syntax with-capability-handler
+      (lambda (src)
+        (let ((forms (##source-code src)))
+          (if (and (##pair? forms)
+                   (##pair? (##cdr forms))
+                   (##pair? (##cddr forms))
+                   (##pair? (##cdddr forms)))
+              (let ((cap-var (##cadr forms))
+                    (clause (##source-code (##caddr forms)))
+                    (body (##cdddr forms)))
+                (cond
+                  ((and (##pair? clause)
+                        (##eq? (##desourcify (##car clause)) 'tail:)
+                        (##pair? (##cdr clause))
+                        (##pair? (##cddr clause)))
+                   (##list 'gambit/effect#call-with-tail-capability
+                           (##cons 'lambda (##cons (##cadr clause) (##cddr clause)))
+                           (##cons 'lambda (##cons (##list cap-var) body))))
+                  ((and (##pair? clause)
+                        (##pair? (##cdr clause)))
+                   (##list 'gambit/effect#call-with-suspend-capability
+                           (##cons 'lambda (##cons (##car clause) (##cdr clause)))
+                           (##cons 'lambda (##cons (##list cap-var) body))))
+                  (else
+                   (##raise-expression-parsing-exception 'ill-formed-special-form src))))
               (##raise-expression-parsing-exception 'ill-formed-special-form src))))))
 
   (include "effect.scm"))

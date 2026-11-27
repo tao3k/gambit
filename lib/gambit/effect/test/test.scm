@@ -307,3 +307,35 @@
     (test-equal #t (raises-error? (lambda () (resume-multishot (car escaped-eks) 0))))))
 
 ;;;============================================================================
+;;; 8. Lexa OOPSLA '24 / Effekt OOPSLA '23 O(1) Lexical Capability Handles
+
+;; Tail capability: O(1) direct dispatch (zero handler-chain walk)
+(test-equal 55
+  (with-capability-handler add-cap
+    (tail: (x y) (fx+ x y))
+    (test-equal #t (effect-capability? add-cap))
+    (let loop ((i 1) (acc 0))
+      (if (fx> i 10)
+          acc
+          (loop (fx+ i 1) (perform-cap add-cap acc i))))))
+
+;; Suspending capability: direct prompt jump + Phase C3 one-shot rewind
+(test-equal 100
+  (with-capability-handler step-cap
+    ((k x) (resume k (fx+ x 1)))
+    (let loop ((i 0) (acc 0))
+      (if (fx< i 100)
+          (loop (fx+ i 1) (perform-cap step-cap acc))
+          acc))))
+
+;; Deeply nested capability handles: outer capability remains O(1) without
+;; scanning inner handlers
+(test-equal '(outer-10 inner-20)
+  (with-capability-handler outer-cap
+    (tail: (x) (list 'outer-10 x))
+    (with-capability-handler inner-cap
+      (tail: (x) (list 'inner-20 x))
+      (list (car (perform-cap outer-cap 1))
+            (car (perform-cap inner-cap 2))))))
+
+;;;============================================================================
