@@ -50,6 +50,7 @@ typedef struct ___msect
     ___VOLATILE ___WORD major_live_words; /* marked live words in current Major cycle */
     ___UWORD major_line_live[8];       /* 512 bits: 1 bit per 128-word Immix line */
     unsigned char major_evacuate;      /* 1 = fragmented (<50% live), 2 = 100%-dead unlink */
+    unsigned char gc_evacuating;       /* 1 = sparse mature section selected for STW selective evacuation */
     ___SIZE_TS major_hole_start;       /* 64-word card-aligned start of largest dead Immix hole */
     ___SIZE_TS major_hole_end;         /* 64-word card-aligned end of largest dead Immix hole */
     ___WORD base[1];       /* content of section */

@@ -323,7 +323,7 @@ static inline int gc_obj_unmarked(___collector_worker *work, ___SCMOBJ obj)
         ___msection *sec = ___gc_find_msection_cached(work, the_msections, header);
         if (sec == 0)
           return 0;
-        if (sec->region_age == ___GC_REGION_MATURE)
+        if (sec->region_age == ___GC_REGION_MATURE && !sec->gc_evacuating)
           return 0;
         if (sec->gc_is_dest &&
             ___CAST(___UWORD, header) - ___CAST(___UWORD, sec->base + sec->gc_dest_offset)
@@ -540,7 +540,9 @@ ___HIDDEN void prepare_generational_round
   if (!vm->mem.gen_gc_enabled_)
     can_gen = 0;
   g->is_minor = 0;
+  g->evac_selective = 0;
   g->major_action = 0;
+  vm->mem.major_last_reclaimed_sections_ = 0;
   g->has_wills = 0;
   g->has_young_still = 0;
   g->card_overflow = 0;
@@ -617,6 +619,15 @@ ___HIDDEN void prepare_generational_round
                   g->major_action = 1; /* ___GC_MAJOR_ACTION_START */
                 }
             }
+          else if (vm->mem.major_evacuate_count_ >= 2 &&
+                   vm->mem.nb_msections_mature_ > vm->mem.major_evacuate_count_)
+            {
+              /* Slice 2 v3 Selective Immix Evacuation: defragment sparse (<50% live)
+               * mature sections without waiting for 2x heap growth or copying dense
+               * mature sections. Runs strictly when major_phase_ == IDLE. */
+              g->is_minor = 1;
+              g->evac_selective = 1;
+            }
           else if (vm->mem.nb_msections_mature_ > 0)
             {
               g->is_minor = 1;
@@ -630,17 +641,44 @@ ___HIDDEN void prepare_generational_round
   if (g->is_minor)
     {
       /* Mature sections maintain gc_dest_*==0, gc_role==0, gc_src_offset==active_offset,
-       * and scan_end_words==mature_words across Minor GCs. Walk ONLY young sections O(Y). */
+       * and scan_end_words==mature_words across Minor GCs. Walk ONLY young sections O(Y),
+       * plus bounded sparse mature selection when g->evac_selective != 0. */
       int max_tails = g->worker_count;
       int allow_hole = (___WORD_LOAD_ACQUIRE(&vm->mem.major_phase_) == ___GC_MAJOR_IDLE &&
-                        g->major_action != 1);
+                        g->major_action != 1 &&
+                        !g->evac_selective);
       int ci;
+      if (g->evac_selective && g->old_mature_tail != 0)
+        {
+          int budget = vm->mem.nb_msections_mature_ >> 2;
+          int picked = 0;
+          if (budget < 8) budget = 8;
+          if (budget > 64) budget = 64;
+          for (sec = vm->mem.the_msections_->head; sec != 0; sec = sec->next)
+            {
+              sec->gc_evacuating = 0;
+              if (sec->region_age == ___GC_REGION_MATURE &&
+                  sec->major_evacuate == 1 &&
+                  picked < budget)
+                {
+                  sec->gc_evacuating = 1;
+                  sec->gc_src_offset = sec->active_offset;
+                  sec->scan_end_words = sec->mature_words;
+                  picked++;
+                }
+              if (sec == g->old_mature_tail)
+                break;
+            }
+          if (picked == 0)
+            g->evac_selective = 0;
+        }
       for (sec = g->young_head; sec != 0; sec = sec->next)
         {
           sec->gc_dest_offset = 0;
           sec->gc_dest_words = 0;
           sec->gc_is_dest = 0;
           sec->gc_role = 0;
+          sec->gc_evacuating = 0;
           sec->gc_src_offset = young_src_off;
           sec->scan_end_words = 0;
         }
@@ -648,13 +686,14 @@ ___HIDDEN void prepare_generational_round
       collect_minor_card_hints(vm);
 
       /* Select up to worker_count roomiest mature promotion tails or IDLE Immix
-       * dead-line holes from the O(W) candidate cache. */
+       * dead-line holes from the O(W) candidate cache (strictly excluding any
+       * section currently selected for selective evacuation). */
       for (ci = 0; ci < vm->mem.promo_cand_count_; ci++)
         {
           ___SIZE_TS start_w = 0, end_w = 0, room;
           int is_hole = 0;
           sec = vm->mem.promo_cands_[ci];
-          if (sec == 0 || sec->region_age != ___GC_REGION_MATURE)
+          if (sec == 0 || sec->region_age != ___GC_REGION_MATURE || sec->gc_evacuating)
             continue;
           room = section_best_promo_span(sec, allow_hole, &start_w, &end_w, &is_hole);
           if (room == 0)
@@ -698,6 +737,7 @@ ___HIDDEN void prepare_generational_round
           sec->gc_dest_words = 0;
           sec->gc_is_dest = 0;
           sec->gc_role = 0;
+          sec->gc_evacuating = 0;
           if (sec->region_age == ___GC_REGION_MATURE)
             {
               sec->gc_src_offset = sec->active_offset;
@@ -719,6 +759,7 @@ ___HIDDEN void downgrade_minor_to_major(___processor_state ps)
   ___SIZE_TS young_src_off = ps->mem.tospace_offset_;
   ___msection *sec;
   g->is_minor = 0;
+  g->evac_selective = 0;
   g->major_action = (___WORD_LOAD_ACQUIRE(&vm->mem.major_phase_) != ___GC_MAJOR_IDLE) ? 4 : 0;
   g->card_overflow = 0;
   g->hint_count = 0;
@@ -729,6 +770,7 @@ ___HIDDEN void downgrade_minor_to_major(___processor_state ps)
       sec->gc_dest_words = 0;
       sec->gc_is_dest = 0;
       sec->gc_role = 0;
+      sec->gc_evacuating = 0;
       if (sec->region_age == ___GC_REGION_MATURE)
         {
           sec->gc_src_offset = sec->active_offset;
@@ -849,6 +891,68 @@ ___HIDDEN void scan_remembered_set(___collector_worker *work)
 
   if (!g->is_minor)
     return;
+
+  if (g->evac_selective)
+    {
+      /* Selective Immix Evacuation root completeness: pinned mature sections
+       * and mature still objects may hold pointers into gc_evacuating sections
+       * on CLEAN cards. Partition all pinned mature sections and mature still
+       * objects disjointly across workers so every pinned object is scanned
+       * exactly once and every reference into YOUNG or gc_evacuating is updated. */
+      ___msection *sec;
+      int sec_idx = 0;
+      if (g->old_mature_tail != 0)
+        {
+          for (sec = vm->mem.the_msections_->head; sec != 0; sec = sec->next)
+            {
+              if (sec->region_age != ___GC_REGION_MATURE)
+                break;
+              if (!sec->gc_evacuating)
+                {
+                  if ((sec_idx % w_cnt) == w_id)
+                    {
+                      ___WORD *p = sec->base + sec->active_offset;
+                      ___WORD *end = p + sec->scan_end_words;
+                      while (p < end)
+                        {
+                          ___WORD head = *p;
+                          if (___TESTTYPE(head, ___FORW))
+                            {
+                              p += 1;
+                              continue;
+                            }
+                          {
+                            ___SIZE_TS words = ___HD_WORDS(head);
+                            scan_mature_object(work, p + 1, head);
+                            p += words + 1;
+                          }
+                        }
+                    }
+                  sec_idx++;
+                }
+              if (sec == g->old_mature_tail)
+                break;
+            }
+        }
+      for (i = w_id; i < g->participant_count; i += w_cnt)
+        {
+          ___processor_state source = ___PSTATE_FROM_PROCESSOR_ID(i, vm);
+          ___WORD *base = ___CAST(___WORD*, source->mem.still_objs_);
+          while (base != 0)
+            {
+              ___WORD head = base[___STILL_HEADER];
+#ifndef ___USE_HANDLES
+              if ((base[___STILL_DIRTY] & ___STILL_FLAG_YOUNG) == 0 &&
+                  still_subtype_has_pointers(___HD_SUBTYPE(head)))
+#else
+              if (still_subtype_has_pointers(___HD_SUBTYPE(head)))
+#endif
+                scan_mature_object(work, base + ___STILL_BODY, head);
+              base = ___CAST(___WORD*, base[___STILL_LINK]);
+            }
+        }
+      return;
+    }
 
   /* 1. Scan dirty mature movable cards. */
   if (!g->card_overflow)
@@ -1184,7 +1288,76 @@ ___HIDDEN void finalize_gc_sections(___virtual_machine_state vm)
             }
         }
 
-      /* Prune full sections out of O(W) promo_cands_ cache. */
+      /* 2a. If selective Immix evacuation ran, unlink all evacuated sparse
+       * mature sections from [head .. old_mature_tail] into free_head..free_tail
+       * before pruning promo_cands_ and splicing new_mat / act / free. */
+      int evac_reclaimed = 0;
+      if (g->evac_selective && g->old_mature_tail != 0)
+        {
+          ___msection *s = ms->head;
+          ___msection *stop_after = g->old_mature_tail;
+          ___msection *new_old_tail = 0;
+          while (s != 0)
+            {
+              ___msection *nxt = s->next;
+              int is_last = (s == stop_after);
+              if (s->gc_evacuating)
+                {
+                  if (s->prev != 0) s->prev->next = s->next;
+                  else ms->head = s->next;
+                  if (s->next != 0) s->next->prev = s->prev;
+                  else ms->tail = s->prev;
+
+                  if (vm->mem.nb_msections_mature_ > 0)
+                    vm->mem.nb_msections_mature_--;
+                  if (vm->mem.occupied_words_mature_ >= s->mature_words)
+                    vm->mem.occupied_words_mature_ -= s->mature_words;
+                  else
+                    vm->mem.occupied_words_mature_ = 0;
+                  if (vm->mem.major_evacuate_count_ > 0)
+                    vm->mem.major_evacuate_count_--;
+
+                  s->region_age = ___GC_REGION_YOUNG;
+                  s->active_offset = 0;
+                  s->mature_words = 0;
+                  s->scan_end_words = 0;
+                  s->gc_src_offset = 0;
+                  s->gc_dest_offset = 0;
+                  s->gc_dest_words = 0;
+                  s->gc_is_dest = 0;
+                  s->gc_role = 0;
+                  s->gc_evacuating = 0;
+                  s->card_dirty_any = 0;
+                  s->major_mark_epoch = 0;
+                  s->major_snapshot_words = 0;
+                  s->major_live_words = 0;
+                  s->major_evacuate = 0;
+                  s->major_hole_start = 0;
+                  s->major_hole_end = 0;
+                  memset(___CAST(void*, section_card_bits(s)), 0, SECTION_CARD_BYTES);
+                  memset(___CAST(void*, section_card_starts(s)), ___GC_CARD_NO_OBJ_START, SECTION_CARD_COUNT);
+                  *section_claim_at(s, 0) = (section_claim){0};
+                  *section_claim_at(s, ___MSECTION_SIZE >> 1) = (section_claim){0};
+                  s->region_generation++;
+                  s->prev = 0;
+                  s->next = 0;
+                  if (free_tail) { free_tail->next = s; s->prev = free_tail; free_tail = s; }
+                  else { free_head = free_tail = s; }
+                  evac_reclaimed++;
+                }
+              else
+                {
+                  new_old_tail = s;
+                }
+              if (is_last)
+                break;
+              s = nxt;
+            }
+          g->old_mature_tail = new_old_tail;
+          vm->mem.major_last_reclaimed_sections_ = evac_reclaimed;
+        }
+
+      /* Prune full or unlinked sections out of O(W) promo_cands_ cache. */
       {
         int out = 0;
         for (i = 0; i < vm->mem.promo_cand_count_; i++)
@@ -1216,6 +1389,23 @@ ___HIDDEN void finalize_gc_sections(___virtual_machine_state vm)
               cur->gc_src_offset = cur->active_offset;
               cur->mature_words = cur->gc_dest_words;
               cur->scan_end_words = cur->mature_words;
+              {
+                /* Newly promoted mature sections land before mature_tail_, which
+                 * Minor GC's O(Y) reclaim_drained_source_pages intentionally skips.
+                 * Immediately release the dead opposite half (512 KiB) so promoted
+                 * Immix mature sections never strand 2x physical RSS. */
+                ___SIZE_TS half = (___MSECTION_SIZE >> 1);
+                ___SIZE_TS opp = half - cur->active_offset;
+                if (opp != cur->active_offset &&
+                    section_claim_at(cur, opp)->stack_state == 0 &&
+                    !section_claim_at(cur, opp)->heap_used)
+                  {
+                    *section_claim_at(cur, opp) = (section_claim){0};
+                    if (vm->mem.custom_msection_alloc_ == 0 &&
+                        ___GC_FROM_RECLAIM_MIN_SECTIONS >= 0)
+                      release_drained_source_half(cur, opp);
+                  }
+              }
               cur->gc_is_dest = 0;
               cur->gc_dest_offset = 0;
               cur->gc_dest_words = 0;
@@ -1299,10 +1489,15 @@ ___HIDDEN void finalize_gc_sections(___virtual_machine_state vm)
           else { ms->head = free_head; ms->tail = free_tail; }
         }
 
-      /* Renumber indices ONLY across the newly spliced suffix O(Y). */
+      /* Renumber indices across full list if selective evac unlinked mature sections,
+       * otherwise ONLY across the newly spliced suffix O(Y). */
       {
-        ___msection *idx_cur = g->old_mature_tail ? g->old_mature_tail->next : ms->head;
-        int idx = g->old_mature_tail ? (g->old_mature_tail->index + 1) : 0;
+        ___msection *idx_cur = (evac_reclaimed > 0)
+          ? ms->head
+          : (g->old_mature_tail ? g->old_mature_tail->next : ms->head);
+        int idx = (evac_reclaimed > 0)
+          ? 0
+          : (g->old_mature_tail ? (g->old_mature_tail->index + 1) : 0);
         while (idx_cur != 0)
           {
             idx_cur->index = idx++;
@@ -1316,9 +1511,9 @@ ___HIDDEN void finalize_gc_sections(___virtual_machine_state vm)
       vm->mem.nb_msections_stacks_ = np;
       vm->mem.minor_gcs_since_major_++;
 
-      /* O(1) skip: when no new mature section was added, mature_sections_[]
+      /* O(1) skip: when no mature section was added or evacuated, mature_sections_[]
        * and mature_snapshot_epoch_ stay valid and wb_last_sec_ remains hot! */
-      if (new_mat_count > 0)
+      if (new_mat_count > 0 || evac_reclaimed > 0)
         rebuild_mature_snapshot(vm);
       return;
     }
@@ -1364,6 +1559,7 @@ ___HIDDEN void finalize_gc_sections(___virtual_machine_state vm)
           sec->major_snapshot_words = 0;
           sec->major_live_words = 0;
           sec->major_evacuate = 0;
+          sec->gc_evacuating = 0;
           sec->major_hole_start = 0;
           sec->major_hole_end = 0;
 
@@ -1448,18 +1644,7 @@ ___HIDDEN void finalize_gc_sections(___virtual_machine_state vm)
       vm->mem.nb_msections_assigned_ = mature_count + active_young_count;
       vm->mem.nb_msections_stacks_ = np;
 
-      {
-        int trig = mature_count * 2;
-        ___SIZE_TS mstill = vm->mem.mature_still_words_;
-        ___SIZE_TS still_trig = mstill + (mstill >> 1);
-        if (trig < mature_count + 8)
-          trig = mature_count + 8;
-        if (still_trig < 2 * ___MSECTION_SIZE)
-          still_trig = 2 * ___MSECTION_SIZE;
-        vm->mem.major_trigger_sections_ = trig;
-        vm->mem.major_trigger_still_words_ = still_trig;
-        vm->mem.minor_gcs_since_major_ = 0;
-      }
+      gc_update_major_triggers(vm);
     }
   else
     {

@@ -104,6 +104,8 @@ ___HIDDEN void major_remark_phase_b_coord(___virtual_machine_state vm);
 ___HIDDEN void major_remark_phase_c_parallel(___virtual_machine_state vm, int w_id, int w_cnt);
 ___HIDDEN void major_remark_phase_d_coord(___virtual_machine_state vm);
 ___HIDDEN void major_abort_for_full_compacting_gc(___virtual_machine_state vm);
+___HIDDEN int gc_adaptive_live_percent(___SIZE_TS live_words, int explicit_flag, int configured_pct, ___SIZE_T max_heap_bytes);
+___HIDDEN void gc_update_major_triggers(___virtual_machine_state vm);
 #include "_mem/copy-reservations.inc"
 #include "_mem/continuation-roots.inc"
 #include "_mem/rc-roots.inc"

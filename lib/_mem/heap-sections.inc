@@ -1310,9 +1310,9 @@ ___HIDDEN void retire_section_claims(___msections *sections, ___SIZE_TS offset, 
     {
       if (is_minor)
         {
-          if (section->region_age == ___GC_REGION_MATURE)
+          if (section->region_age == ___GC_REGION_MATURE && !section->gc_evacuating)
             continue;
-          *section_claim_at(section, offset) = (section_claim){0};
+          *section_claim_at(section, section->gc_evacuating ? section->gc_src_offset : offset) = (section_claim){0};
           section->region_generation++;
         }
       else
@@ -1345,9 +1345,9 @@ ___HIDDEN ___BOOL retire_drained_source_claims(___root_round *round,
   source=half-destination;
   for(section=sections->head; section; section=section->next)
     {
-      if (is_minor && section->region_age == ___GC_REGION_MATURE)
+      if (is_minor && section->region_age == ___GC_REGION_MATURE && !section->gc_evacuating)
         continue;
-      if (___SECTION_PIN_LOAD_ACQ(&section_claim_at(section, is_minor ? source : section->gc_src_offset)->source_pins))
+      if (___SECTION_PIN_LOAD_ACQ(&section_claim_at(section, (is_minor && !section->gc_evacuating) ? source : section->gc_src_offset)->source_pins))
         return 0;
     }
   for (i=0;i<round->participants;i++) {
@@ -1417,6 +1417,16 @@ ___virtual_machine_state ___vms;)
   }
   if (g->is_minor) {
     ___msection *section;
+    if (g->evac_selective && g->old_mature_tail != 0)
+      {
+        for (section = the_msections->head; section != 0; section = section->next)
+          {
+            if (section->gc_evacuating)
+              section->copy_gate = 0;
+            if (section == g->old_mature_tail)
+              break;
+          }
+      }
     for (section = g->young_head; section != 0; section = section->next)
       section->copy_gate = 0;
     for (i = 0; i < g->promo_tail_count; i++)

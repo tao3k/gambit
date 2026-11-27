@@ -1494,7 +1494,7 @@
                  (or forced?
                      (targ-auto-cfg-host-layout?)
                      (and (fixnum? targ-active-cfg-host-limit)
-                          (> targ-active-cfg-host-limit 0)))
+                          (not (= targ-active-cfg-host-limit 0))))
                  (let ((placements (make-table 'test: eq?)))
                    (for-each
                     (lambda (proc)

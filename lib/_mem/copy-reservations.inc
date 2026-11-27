@@ -129,7 +129,9 @@ ___WORD *body;)
   {
     ___msection *section = ___gc_find_msection_cached(work, the_msections, header);
     if (section != 0 &&
-        (!___COLLECTION(vms).is_minor || section->region_age != ___GC_REGION_MATURE))
+        (!___COLLECTION(vms).is_minor ||
+         section->region_age != ___GC_REGION_MATURE ||
+         section->gc_evacuating))
       {
         ___SIZE_TS source_off = section->gc_src_offset;
         ___UWORD address = ___CAST(___UWORD,header);
@@ -454,7 +456,7 @@ ___WORD n;)
                     ___msection *sec = ___gc_find_msection_cached(work, the_msections, header);
                     if (__builtin_expect(sec != 0, 1))
                       {
-                        if (is_minor && sec->region_age == ___GC_REGION_MATURE)
+                        if (is_minor && sec->region_age == ___GC_REGION_MATURE && !sec->gc_evacuating)
                           {
                             if (___EXPECT_FALSE(
                                   ___WORD_LOAD_RELAXED(&work->vm->mem.major_phase_) == ___GC_MAJOR_MARKING &&

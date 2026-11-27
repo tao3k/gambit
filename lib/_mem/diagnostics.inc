@@ -721,7 +721,8 @@ ___HIDDEN void validate_old_obj(___collector_worker *work, ___WORD obj)
           else
             {
               ___msection *sec = work->vm->mem.the_msections_->sections[i];
-              if (!(___COLLECTION(work->vm).is_minor && sec->region_age == ___GC_REGION_MATURE))
+              if (!(___COLLECTION(work->vm).is_minor &&
+                    sec->region_age == ___GC_REGION_MATURE && !sec->gc_evacuating))
                 {
                   ___PTRDIFF_T src_pos = pos - sec->gc_src_offset;
                   if (src_pos < 0 || src_pos >= ___MSECTION_SIZE>>1)

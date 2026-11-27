@@ -30,7 +30,8 @@ static inline int census_claim(___collector_worker *work, ___WORD *source,
   } else {
     section=___gc_find_msection_cached(work, the_msections, source);
     if(__builtin_expect(!section, 0)) goto invalid;
-    if(___COLLECTION(work->vm).is_minor && section->region_age==___GC_REGION_MATURE)
+    if(___COLLECTION(work->vm).is_minor &&
+       section->region_age==___GC_REGION_MATURE && !section->gc_evacuating)
       return 0;
     work->census_section_=section;
     work->census_base_=section->base;
@@ -348,6 +349,13 @@ ___HIDDEN int plan_copy_round(___processor_state ps, ___SIZE_TS requested_words_
   c->source_offset=ps->mem.tospace_offset_;c->state=___GC_PLAN_READING;
 
   if (g->is_minor) {
+    if (g->evac_selective && vm->mem.mature_tail_ != 0) {
+      for(section=the_msections->head;section;section=section->next) {
+        if (section->gc_evacuating)
+          memset(section->base+___MSECTION_SIZE,0,___msection_scan_words(___MSECTION_SIZE)*___WS);
+        if (section==g->old_mature_tail) break;
+      }
+    }
     for(section=g->young_head;section;section=section->next) {
       memset(section->base+___MSECTION_SIZE,0,___msection_scan_words(___MSECTION_SIZE)*___WS);
       if(section==alloc_msection) break;

@@ -127,35 +127,25 @@ ___virtual_machine_state ___vms;)
 }
 
 
-#ifndef ___GC_HEAP_CONTRACTION_MODE
-#define ___GC_HEAP_CONTRACTION_MODE 1
-#endif
-
 static ___VOLATILE int gc_explicit_contraction_hint_ = 0;
 
 void ___gc_request_contraction ___PVOID
 {
-#if ___GC_HEAP_CONTRACTION_MODE > 0
 #if defined(__ATOMIC_RELEASE)
   __atomic_store_n(&gc_explicit_contraction_hint_, 1, __ATOMIC_RELEASE);
 #else
   gc_explicit_contraction_hint_ = 1;
 #endif
-#endif
 }
 
 ___HIDDEN int gc_take_contraction_hint ___PVOID
 {
-#if ___GC_HEAP_CONTRACTION_MODE > 0
 #if defined(__ATOMIC_ACQ_REL)
   return __atomic_exchange_n(&gc_explicit_contraction_hint_, 0, __ATOMIC_ACQ_REL);
 #else
   int v = gc_explicit_contraction_hint_;
   gc_explicit_contraction_hint_ = 0;
   return v;
-#endif
-#else
-  return 0;
 #endif
 }
 
@@ -188,6 +178,20 @@ ___HIDDEN int gc_smp_nursery_headroom(int processor_count)
   return 2 + (int)gc_isqrt_u32((uint32_t)processor_count);
 }
 
+/* Sub-linear generational young-nursery headroom cap above Immix non-moving
+ * mature sections (Slice2V3MemoryEndgameRefinement.lean): avoids growing the
+ * young nursery 1:1 with a large non-moving mature heap while preserving full
+ * default sizing on small/medium heaps (<= 32 mature sections). */
+___HIDDEN int gc_gen_nursery_cap_sections(int mature_sections)
+{
+  uint32_t clamped;
+  int cap;
+  if (mature_sections <= 0) return 32;
+  clamped = (mature_sections > 65536) ? 65536u : (uint32_t)mature_sections;
+  cap = 16 + 4 * (int)gc_isqrt_u32(clamped);
+  return (cap < 32) ? 32 : cap;
+}
+
 ___HIDDEN ___SIZE_TS decay_target_heap_space_history
    (___virtual_machine_state ___vms,
     ___SIZE_TS current_target,
@@ -201,7 +205,6 @@ ___HIDDEN ___SIZE_TS decay_target_heap_space_history
   for (i = 0; i < ___TARGET_HEAP_SPACE_HIST_LENGTH; i++)
     {
       ___SIZE_TS e = target_heap_space_hist[i];
-#if ___GC_HEAP_CONTRACTION_MODE > 0
       if (force_contract)
         {
           e = (e > current_target) ? current_target : e;
@@ -215,10 +218,6 @@ ___HIDDEN ___SIZE_TS decay_target_heap_space_history
           e = (decayed > current_target) ? decayed : current_target;
           target_heap_space_hist[i] = e;
         }
-#else
-      (void)current_target;
-      (void)force_contract;
-#endif
       if (e > max_h)
         max_h = e;
     }
@@ -251,13 +250,15 @@ ___SIZE_TS requested_words_still;)
   int target_nb_sections;
   ___SIZE_TS recent_history;
   int force_contract = gc_take_contraction_hint();
+  int major_reclaimed =
+    ((___COLLECTION(___vms).major_action == 3 || ___COLLECTION(___vms).evac_selective) &&
+     ___vms->mem.major_last_reclaimed_sections_ > 0);
   int lower_bound_nb_sections;
   int upper_bound_nb_sections;
   ___SIZE_TS live;
   ___SIZE_TS free_space;
 
-  if (___COLLECTION(___vms).major_action == 3 &&
-      ___vms->mem.major_last_reclaimed_sections_ > 0)
+  if (major_reclaimed)
     force_contract = 1;
 
   /*
@@ -321,8 +322,7 @@ ___SIZE_TS requested_words_still;)
 
       ths = target_heap_space; /* remember target_heap_space for history */
 
-      if (___COLLECTION(___vms).major_action != 3 ||
-          ___vms->mem.major_last_reclaimed_sections_ == 0)
+      if (!major_reclaimed)
         SET_MAX(ths, recent_history);
 
       target_movable_space = ths - occupied_words_still;
@@ -334,10 +334,30 @@ ___SIZE_TS requested_words_still;)
       target_nb_sections = compute_nb_msections_needed(target_movable_space) +
                            nb_msections_stacks;
 
+      /* Under non-moving generational Immix, mature sections are NOT copied on
+       * Minor GC; bound the young nursery headroom sub-linearly above assigned
+       * sections so multi-hundred-MiB mature heaps do not bloat a 1:1 nursery.
+       * Strictly honors explicit -:l<N>, min_heap, adjust_heap_hook, and lower_bound. */
+      if (___vms->mem.gen_gc_enabled_ != 0 &&
+          ___vms->mem.nb_msections_mature_ > 0 &&
+          !___live_percent_is_explicit() &&
+          ___GSTATE->setup_params.adjust_heap_hook == 0)
+        {
+          int min_heap_secs =
+            compute_nb_msections_needed(___CAST(___SIZE_TS, (___GSTATE->setup_params.min_heap >> ___LWS)));
+          int gen_cap =
+            nb_msections_assigned +
+            compute_nb_msections_needed(normal_overflow_reserve) +
+            gc_gen_nursery_cap_sections(___vms->mem.nb_msections_mature_);
+          SET_MAX(gen_cap, min_heap_secs);
+          SET_MAX(gen_cap, lower_bound_nb_sections);
+          if (target_nb_sections > gen_cap)
+            target_nb_sections = gen_cap;
+        }
+
       SET_MAX(target_nb_sections, lower_bound_nb_sections);
       if (___COLLECTION(___vms).is_minor &&
-          (___COLLECTION(___vms).major_action != 3 ||
-           ___vms->mem.major_last_reclaimed_sections_ == 0) &&
+          !major_reclaimed &&
           ___GSTATE->setup_params.max_heap == 0 &&
           the_msections != 0 && target_nb_sections < the_msections->nb_sections)
         target_nb_sections = the_msections->nb_sections;

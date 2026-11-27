@@ -43,14 +43,6 @@
 #define ___GC_FROM_RECLAIM_MIN_SECTIONS @CONF_GC_FROM_RECLAIM_MIN_SECTIONS@
 #endif
 
-#ifndef ___GC_ADAPTIVE_SIZING
-#define ___GC_ADAPTIVE_SIZING @CONF_GC_ADAPTIVE_SIZING@
-#endif
-
-#ifndef ___GC_HEAP_CONTRACTION_MODE
-#define ___GC_HEAP_CONTRACTION_MODE @CONF_GC_HEAP_CONTRACTION_MODE@
-#endif
-
 /* The completed Scheme producer owns physical host layout. The configured
  * policy remains available to bootstrap sources and embedded-C units whose
  * host assumptions have not been replaced. These are protocol tags, not a

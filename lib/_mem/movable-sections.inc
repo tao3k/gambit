@@ -585,6 +585,7 @@ int n;)
           s->major_live_words=0;
           memset(s->major_line_live,0,sizeof(s->major_line_live));
           s->major_evacuate=0;
+          s->gc_evacuating=0;
           s->major_hole_start=0;
           s->major_hole_end=0;
           memset(___CAST(void*,section_card_bits(s)),0,SECTION_CARD_BYTES);

@@ -280,6 +280,7 @@ typedef struct ___gc_round_struct
     ___VOLATILE ___WORD frame_gate; /* GC stack/link writers and readers */
     /* Generational Minor GC & mature segregation state for this round */
     int is_minor;
+    int evac_selective; /* 1 = selective Immix evacuation of gc_evacuating mature sections */
     int segregate_mature;
     int major_action; /* 0=none, 1=start, 2=drain_satb, 3=remark_sweep, 4=abort */
     int has_wills;

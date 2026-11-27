@@ -945,8 +945,6 @@ CONF_SINGLE_MULTIPLE_VMS
 CONF_BOOL
 CONF_VOIDSTAR_WIDTH
 CONF_MAX_CHR
-CONF_GC_HEAP_CONTRACTION_MODE
-CONF_GC_ADAPTIVE_SIZING
 CONF_GC_FROM_RECLAIM_MIN_SECTIONS
 CONF_GNUC_HOST_FUNCTION_ATTRIBUTES_OPTIMIZED_MODULE
 CONF_GNUC_HOST_FUNCTION_ATTRIBUTES_UNOPTIMIZED_MODULE
@@ -1061,8 +1059,6 @@ enable_single_host
 enable_optimized_module_limit
 enable_optimized_host_limit
 enable_gc_fromspace_reclaim
-enable_gc_adaptive_sizing
-enable_gc_heap_contraction
 enable_lowlevel_exec
 enable_inline_jumps
 enable_trust_c_tco
@@ -1827,12 +1823,6 @@ Optional Features:
                           auto adapts to machine RAM, cache, and max_heap; off
                           disables; N>=1 sets explicit minimum section
                           threshold (default is auto)
-  --enable-gc-adaptive-sizing[=auto|off]
-                          hardware-adaptive large-heap live_percent damping
-                          honoring explicit -:l<N> (default is auto)
-  --enable-gc-heap-contraction[=auto|legacy]
-                          collapse-aware heap contraction history decay vs
-                          legacy 16-GC max ratchet (default is auto)
   --enable-lowlevel-exec  build system so C and machine code can be mixed
                           (default is NO)
   --enable-inline-jumps   generate inline code for jumps (default is NO)
@@ -6246,53 +6236,6 @@ case "$ENABLE_GC_FROMSPACE_RECLAIM" in
     ;;
   *)
     CONF_GC_FROM_RECLAIM_MIN_SECTIONS="$ENABLE_GC_FROMSPACE_RECLAIM"
-    ;;
-esac
-
-
-
-###############################################################################
-#
-# Configure hardware-adaptive large-heap live_percent damping and
-# collapse-aware heap contraction (zero hardcodes, explicit -:l<N> preserved):
-
-# Check whether --enable-gc-adaptive-sizing was given.
-if test ${enable_gc_adaptive_sizing+y}
-then :
-  enableval=$enable_gc_adaptive_sizing; ENABLE_GC_ADAPTIVE_SIZING=$enableval
-else case e in #(
-  e) ENABLE_GC_ADAPTIVE_SIZING=auto ;;
-esac
-fi
-
-
-case "$ENABLE_GC_ADAPTIVE_SIZING" in
-  off|no|0)
-    CONF_GC_ADAPTIVE_SIZING="0"
-    ;;
-  *)
-    CONF_GC_ADAPTIVE_SIZING="1"
-    ;;
-esac
-
-
-
-# Check whether --enable-gc-heap-contraction was given.
-if test ${enable_gc_heap_contraction+y}
-then :
-  enableval=$enable_gc_heap_contraction; ENABLE_GC_HEAP_CONTRACTION=$enableval
-else case e in #(
-  e) ENABLE_GC_HEAP_CONTRACTION=auto ;;
-esac
-fi
-
-
-case "$ENABLE_GC_HEAP_CONTRACTION" in
-  legacy|off|no|0)
-    CONF_GC_HEAP_CONTRACTION_MODE="0"
-    ;;
-  *)
-    CONF_GC_HEAP_CONTRACTION_MODE="1"
     ;;
 esac
 

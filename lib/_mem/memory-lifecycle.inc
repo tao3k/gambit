@@ -24,10 +24,6 @@ ___SIZE_TS target_heap_space;)
 }
 
 
-#ifndef ___GC_ADAPTIVE_SIZING
-#define ___GC_ADAPTIVE_SIZING 1
-#endif
-
 /* CBMC-verified hardware-adaptive large-heap live_percent damping
  * (dev/refactoring/modern-c/models/cbmc/adaptive_heap_scaling_pso.c):
  * honors explicit -:l<N> / ___set_live_percent verbatim; otherwise keeps
@@ -40,7 +36,7 @@ ___HIDDEN int gc_adaptive_live_percent
     int configured_pct,
     ___SIZE_T max_heap_bytes)
 {
-#if ___GC_ADAPTIVE_SIZING && defined(___USE_MMAP_MSECTIONS)
+#if defined(___USE_MMAP_MSECTIONS)
   uint64_t phys_mem_bytes, cpu_count, live_bytes, ram_mib, cap_mib;
   uint32_t eff_cpus, soft_mib, live_mib, lo, hi, span, delta, extra;
   if (explicit_flag || configured_pct != ___DEFAULT_LIVE_PERCENT || live_words <= 0)
@@ -896,6 +892,7 @@ void ___cleanup_mem ___PVOID
   if (___GSTATE->mem.global_snapshots!=0)
     rc_contract_error("global snapshot retained at runtime cleanup");
   free_psections ();
+  still_slab_purge_empty ();
   ___MUTEX_DESTROY(___GSTATE->mem.permanent_gate);
   ___MUTEX_DESTROY(___GSTATE->mem.global_gate);
 }

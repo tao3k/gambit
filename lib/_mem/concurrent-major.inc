@@ -1857,27 +1857,61 @@ ___HIDDEN void major_remark_phase_d_coord(___virtual_machine_state vm)
   ___WORD_STORE_RELEASE(&vm->mem.major_request_start_, 0);
   ___WORD_STORE_RELEASE(&vm->mem.major_phase_, ___GC_MAJOR_IDLE);
 
-  /* Balanced Go-style 2.0x movable section trigger prevents premature rsec=0
-   * cycles while 1.5x still trigger keeps large mature still RSS bounded. */
-  {
-    int mcnt = vm->mem.nb_msections_mature_;
-    int trig = mcnt * 2;
-    ___SIZE_TS mstill = vm->mem.mature_still_words_;
-    ___SIZE_TS still_trig = mstill + (mstill >> 1);
-    if (trig < mcnt + 8)
-      trig = mcnt + 8;
-    if (still_trig < 2 * ___MSECTION_SIZE)
-      still_trig = 2 * ___MSECTION_SIZE;
-    vm->mem.major_trigger_sections_ = trig;
-    vm->mem.major_trigger_still_words_ = still_trig;
-    vm->mem.minor_gcs_since_major_ = 0;
-  }
+  gc_update_major_triggers(vm);
 
   ___process_times(&u1, &s1, &r1);
   vm->mem.nb_concurrent_major_cycles_ += 1.0;
   vm->mem.concurrent_major_reclaimed_sections_ += ___CAST(___F64, reclaimed_sections);
   vm->mem.concurrent_major_reclaimed_still_words_ += ___CAST(___F64, reclaimed_still_words);
   vm->mem.concurrent_major_remark_real_time_ += (r1 - g->major_remark_r0);
+}
+
+/* Hardware-adaptive Major GC pacing (reuses gc_adaptive_live_percent):
+ * keeps Go-style 2.0x movable / 1.5x still headroom on small/medium heaps
+ * (<= soft_budget/8) and tightens smoothly down to 1.25x as mature live
+ * heap approaches soft_budget/2, while honoring explicit -:l<N>. */
+___HIDDEN void gc_update_major_triggers(___virtual_machine_state vm)
+{
+  int mcnt = vm->mem.nb_msections_mature_;
+  ___SIZE_TS mstill = vm->mem.mature_still_words_;
+  ___SIZE_TS mature_live_words = vm->mem.occupied_words_mature_ + mstill;
+  int eff_pct = gc_adaptive_live_percent
+    (mature_live_words,
+     ___live_percent_is_explicit(),
+     ___GSTATE->setup_params.live_percent,
+     ___GSTATE->setup_params.max_heap);
+  int still_pct;
+  ___SIZE_TS trig64;
+  ___SIZE_TS still_trig;
+  int trig;
+
+  if (eff_pct < 10) eff_pct = 10;
+  if (eff_pct > 90) eff_pct = 90;
+  still_pct = (eff_pct > 67) ? eff_pct : 67;
+
+  if (mcnt <= 0)
+    trig = 8;
+  else
+    {
+      trig64 = (___CAST(___SIZE_TS, mcnt) * 100 + (eff_pct - 1)) / eff_pct;
+      if (trig64 < ___CAST(___SIZE_TS, mcnt) + 8)
+        trig64 = ___CAST(___SIZE_TS, mcnt) + 8;
+      trig = (trig64 > 1000000000) ? 1000000000 : ___CAST(int, trig64);
+    }
+
+  if (mstill <= 0)
+    still_trig = 2 * ___MSECTION_SIZE;
+  else
+    {
+      still_trig = (mstill / still_pct) * 100 +
+                   (((mstill % still_pct) * 100 + (still_pct - 1)) / still_pct);
+      if (still_trig < 2 * ___MSECTION_SIZE)
+        still_trig = 2 * ___MSECTION_SIZE;
+    }
+
+  vm->mem.major_trigger_sections_ = trig;
+  vm->mem.major_trigger_still_words_ = still_trig;
+  vm->mem.minor_gcs_since_major_ = 0;
 }
 
 /* Abort an in-progress concurrent Major cycle cleanly when an explicit (##gc),
