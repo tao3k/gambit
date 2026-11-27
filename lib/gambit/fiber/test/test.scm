@@ -214,3 +214,38 @@
   (test-equal n-fibers (atomic-fxbox-ref completed)))
 
 ;;;============================================================================
+;;; 6. Adversarial Concurrent-SATB Major-GC x Fiber Fanout & Prompt Rewind Stress
+
+(let ((stop (make-atomic-fxbox 0))
+      (completed (make-atomic-fxbox 0)))
+  (let ((gc-churner
+         (thread-start!
+          (make-thread
+           (lambda ()
+             (let loop ((acc '()) (i 0))
+               (if (fx= (atomic-fxbox-ref stop (memory-order acquire)) 0)
+                   (let ((chunk (make-vector 256 i)))
+                     (loop (if (fx= (fxand i 63) 0) (list chunk) (cons chunk acc))
+                           (fx+ i 1))))))))))
+    (run-fibers
+     (lambda ()
+       (let nloop ((ni 0))
+         (if (fx< ni 20)
+             (begin
+               (with-nursery
+                (lambda (n)
+                  (let floop ((fi 0))
+                    (if (fx< fi 500)
+                        (begin
+                          (fiber-spawn
+                           (lambda ()
+                             (fiber-yield)
+                             (atomic-fxbox+/fetch! completed 1))
+                           n)
+                          (floop (fx+ fi 1)))))))
+               (nloop (fx+ ni 1)))))))
+    (atomic-fxbox-set! stop 1 (memory-order release))
+    (thread-join! gc-churner))
+  (test-equal 10000 (atomic-fxbox-ref completed)))
+
+;;;============================================================================

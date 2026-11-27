@@ -4407,6 +4407,17 @@ end-of-code
      {
        ___SET_FP(new_fp)
        ___SET_R1(val)
+       /* Scrub dead GVM argument registers so reclaimed stack-allocated
+        * sub_k cannot survive into a subsequent ___POLL -> ___PUSH_REGS frame. */
+#if ___NB_GVM_REGS > 2
+       ___SET_R2(___FIX(0L))
+#endif
+#if ___NB_GVM_REGS > 3
+       ___SET_R3(___FIX(0L))
+#endif
+#if ___NB_GVM_REGS > 4
+       ___SET_R4(___FIX(0L))
+#endif
        ___JUMPEXTPRM(___NOTHING, ra)
      }
    ___RESULT = ___FAL;
@@ -4414,6 +4425,48 @@ end-of-code
        sub-k val)
       (##void)
       (fallback sub-k val)))
+
+(define-prim (##continuation-try-rewind-prompt! pframe escape-k val)
+  (##declare (not interrupts-enabled))
+  (if (##c-code #<<end-of-code
+   extern int ___try_rewind_prompt_span(___processor_state, ___SCMOBJ, ___WORD*, ___WORD**);
+   ___SCMOBJ pframe = ___ARG1;
+   ___SCMOBJ escape_k = ___ARG2;
+   ___SCMOBJ val = ___ARG3;
+   ___WORD ra;
+   ___WORD *new_fp;
+   if (___try_rewind_prompt_span(___ps, escape_k, &ra, &new_fp))
+     {
+       /* satb_active_ == 0 is already proven by ___try_rewind_prompt_span, so
+        * severing pframe->escape_k cannot enqueue escape_k into SATB and ensures
+        * zero heap references remain to the rewound stack-allocated continuation. */
+       if (pframe != ___FAL && ___TESTTYPE(pframe, ___tSTRUCTURE))
+         ___WORD_STORE_RELAXED(&___FIELD(STRUCTURE, pframe, 4), ___FAL);
+       ___SET_FP(new_fp)
+       ___SET_R1(val)
+       /* Scrub dead GVM argument registers (notably ___R2 = escape_k) so the
+        * reclaimed stack-allocated continuation cannot be spilled as a live GC
+        * root by a subsequent ___POLL -> handler_stack_limit -> ___PUSH_REGS! */
+#if ___NB_GVM_REGS > 2
+       ___SET_R2(___FIX(0L))
+#endif
+#if ___NB_GVM_REGS > 3
+       ___SET_R3(___FIX(0L))
+#endif
+#if ___NB_GVM_REGS > 4
+       ___SET_R4(___FIX(0L))
+#endif
+       ___JUMPEXTPRM(___NOTHING, ra)
+     }
+   ___RESULT = ___FAL;
+end-of-code
+       pframe escape-k val)
+      (##void)
+      (##continuation-return escape-k val)))
+
+(define-prim (##tail-call-with-r0 proc a1 a2)
+  (##declare (not interrupts-enabled))
+  (proc (##c-code "___RESULT = ___R0;") a1 a2))
 
 ;;;----------------------------------------------------------------------------
 

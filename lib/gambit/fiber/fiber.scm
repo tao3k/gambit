@@ -51,20 +51,24 @@
 ;;;----------------------------------------------------------------------------
 ;;; Internal Effects & Scheduler Structures
 
-(define %eff-spawn (make-effect 'fiber-spawn))
-(define %eff-yield (make-effect 'fiber-yield))
-(define %eff-park  (make-effect 'fiber-park))
+(define %eff-spawn        (make-effect 'fiber-spawn))
+(define %eff-yield        (make-effect 'fiber-yield))
+(define %eff-park-nursery (make-effect 'fiber-park-nursery))
+(define %eff-park-send    (make-effect 'fiber-park-send))
+(define %eff-park-recv    (make-effect 'fiber-park-recv))
 
 (define-type %scheduler
   id: 8B1F3A70-9C24-4D6B-A5E1-F1B000000001
   constructor: %make-scheduler
   predicate: %scheduler?
-  (num-workers   %sched-num-workers)
-  (deques        %sched-deques)        ;; vector of W ws-deque
-  (global-q      %sched-global-q)      ;; lf-queue for wakeups & overflow
-  (active-fibers %sched-active-fibers) ;; atomic-fxbox of non-completed fibers
-  (root-done     %sched-root-done)     ;; atomic-fxbox (0 -> 1)
-  (root-box      %sched-root-box)      ;; box holding (ok? . val-or-exc)
+  (num-workers     %sched-num-workers)
+  (deques          %sched-deques)          ;; vector of W ws-deque
+  (global-q        %sched-global-q)        ;; lf-queue for wakeups & overflow
+  (active-fibers   %sched-active-fibers)   ;; atomic-fxbox of non-completed fibers
+  (root-done       %sched-root-done)       ;; atomic-fxbox (0 -> 1)
+  (root-box        %sched-root-box)        ;; box holding (ok? . val-or-exc)
+  (handler-entries %sched-handler-entries %sched-handler-entries-set!)
+  (return-fn       %sched-return-fn       %sched-return-fn-set!)
   )
 
 (define-type %worker-ctx
@@ -166,20 +170,21 @@
     ;; Parent scope finished: decrement our own count (1) and wait if children remain
     (let ((prev (atomic-fxbox-/fetch! (%nursery-active n) 1 (memory-order acquire-release))))
       (if (fx> prev 1)
-          (perform %eff-park
-                   (lambda (k)
-                     (let ((lock (%nursery-lock n))
-                           (wake-now? #f))
-                       (%spin-lock! lock)
-                       (if (fx= (atomic-fxbox-ref (%nursery-active n) (memory-order acquire)) 0)
-                           (set! wake-now? #t)
-                           (%nursery-waiter-k-set! n k))
-                       (%spin-unlock! lock)
-                       (if wake-now?
-                           (%sched-wake! sched k)))))))
+          (perform %eff-park-nursery n)))
     (if (%nursery-has-err? n)
         (raise (%nursery-first-err n))
         parent-res)))
+
+(define (%park-nursery-waiter! sched k n)
+  (let ((lock (%nursery-lock n))
+        (wake-now? #f))
+    (%spin-lock! lock)
+    (if (fx= (atomic-fxbox-ref (%nursery-active n) (memory-order acquire)) 0)
+        (set! wake-now? #t)
+        (%nursery-waiter-k-set! n k))
+    (%spin-unlock! lock)
+    (if wake-now?
+        (%sched-wake! sched k))))
 
 ;;;----------------------------------------------------------------------------
 ;;; Fiber Spawn, Yield, and Worker Count
@@ -290,28 +295,33 @@
          (%ch-count-set! ch (fx+ (%ch-count ch) 1))
          (%spin-unlock! lock)
          #t))
-      ;; Case 3: Full -> park via one-shot continuation with locked re-check
+      ;; Case 3: Full -> park via zero-closure specialized effect with locked re-check
       (else
        (%spin-unlock! lock)
-       (perform %eff-park
-                (lambda (k)
-                  (%spin-lock! lock)
-                  (cond
-                    ((not (%wq-empty? rwq))
-                     (let ((rk (%wq-pop! rwq)))
-                       (%spin-unlock! lock)
-                       (%sched-wake! sched (cons rk val))
-                       (%sched-wake! sched (cons k #t))))
-                    ((fx< (%ch-count ch) cap)
-                     (let ((t (%ch-tail ch)))
-                       (vector-set! (%ch-buf ch) t val)
-                       (%ch-tail-set! ch (let ((nt (fx+ t 1))) (if (fx= nt cap) 0 nt)))
-                       (%ch-count-set! ch (fx+ (%ch-count ch) 1))
-                       (%spin-unlock! lock)
-                       (%sched-wake! sched (cons k #t))))
-                    (else
-                     (%wq-push! swq (cons k val))
-                     (%spin-unlock! lock)))))))))
+       (perform %eff-park-send ch val)))))
+
+(define (%park-send-waiter! sched k ch val)
+  (let ((lock (%ch-lock ch))
+        (cap (%ch-cap ch))
+        (rwq (%ch-recv-waiters ch))
+        (swq (%ch-send-waiters ch)))
+    (%spin-lock! lock)
+    (cond
+      ((not (%wq-empty? rwq))
+       (let ((rk (%wq-pop! rwq)))
+         (%spin-unlock! lock)
+         (%sched-wake! sched (cons rk val))
+         (%sched-wake! sched (cons k #t))))
+      ((fx< (%ch-count ch) cap)
+       (let ((t (%ch-tail ch)))
+         (vector-set! (%ch-buf ch) t val)
+         (%ch-tail-set! ch (let ((nt (fx+ t 1))) (if (fx= nt cap) 0 nt)))
+         (%ch-count-set! ch (fx+ (%ch-count ch) 1))
+         (%spin-unlock! lock)
+         (%sched-wake! sched (cons k #t))))
+      (else
+       (%wq-push! swq (cons k val))
+       (%spin-unlock! lock)))))
 
 (define (fiber-recv! ch)
   (let* ((ctx (%current-wctx))
@@ -353,64 +363,95 @@
          (%spin-unlock! lock)
          (%sched-wake! sched (cons sk #t))
          sval))
-      ;; Case 3: Empty -> park via one-shot continuation with locked re-check
+      ;; Case 3: Empty -> park via zero-closure specialized effect with locked re-check
       (else
        (%spin-unlock! lock)
-       (perform %eff-park
-                (lambda (k)
-                  (%spin-lock! lock)
-                  (cond
-                    ((fx> (%ch-count ch) 0)
-                     (let* ((h (%ch-head ch))
-                            (buf (%ch-buf ch))
-                            (item (vector-ref buf h))
-                            (nh (let ((x (fx+ h 1))) (if (fx= x cap) 0 x))))
-                       (vector-set! buf h #f)
-                       (%ch-head-set! ch nh)
-                       (if (not (%wq-empty? swq))
-                           (let* ((sw (%wq-pop! swq))
-                                  (sk (car sw))
-                                  (sval (cdr sw))
-                                  (t (%ch-tail ch)))
-                             (vector-set! buf t sval)
-                             (%ch-tail-set! ch (let ((nt (fx+ t 1))) (if (fx= nt cap) 0 nt)))
-                             (%spin-unlock! lock)
-                             (%sched-wake! sched (cons sk #t))
-                             (%sched-wake! sched (cons k item)))
-                           (begin
-                             (%ch-count-set! ch (fx- (%ch-count ch) 1))
-                             (%spin-unlock! lock)
-                             (%sched-wake! sched (cons k item))))))
-                    ((not (%wq-empty? swq))
-                     (let* ((sw (%wq-pop! swq))
-                            (sk (car sw))
-                            (sval (cdr sw)))
-                       (%spin-unlock! lock)
-                       (%sched-wake! sched (cons sk #t))
-                       (%sched-wake! sched (cons k sval))))
-                    (else
-                     (%wq-push! rwq k)
-                     (%spin-unlock! lock)))))))))
+       (perform %eff-park-recv ch)))))
+
+(define (%park-recv-waiter! sched k ch)
+  (let ((lock (%ch-lock ch))
+        (cap (%ch-cap ch))
+        (rwq (%ch-recv-waiters ch))
+        (swq (%ch-send-waiters ch)))
+    (%spin-lock! lock)
+    (cond
+      ((fx> (%ch-count ch) 0)
+       (let* ((h (%ch-head ch))
+              (buf (%ch-buf ch))
+              (item (vector-ref buf h))
+              (nh (let ((x (fx+ h 1))) (if (fx= x cap) 0 x))))
+         (vector-set! buf h #f)
+         (%ch-head-set! ch nh)
+         (if (not (%wq-empty? swq))
+             (let* ((sw (%wq-pop! swq))
+                    (sk (car sw))
+                    (sval (cdr sw))
+                    (t (%ch-tail ch)))
+               (vector-set! buf t sval)
+               (%ch-tail-set! ch (let ((nt (fx+ t 1))) (if (fx= nt cap) 0 nt)))
+               (%spin-unlock! lock)
+               (%sched-wake! sched (cons sk #t))
+               (%sched-wake! sched (cons k item)))
+             (begin
+               (%ch-count-set! ch (fx- (%ch-count ch) 1))
+               (%spin-unlock! lock)
+               (%sched-wake! sched (cons k item))))))
+      ((not (%wq-empty? swq))
+       (let* ((sw (%wq-pop! swq))
+              (sk (car sw))
+              (sval (cdr sw)))
+         (%spin-unlock! lock)
+         (%sched-wake! sched (cons sk #t))
+         (%sched-wake! sched (cons k sval))))
+      (else
+       (%wq-push! rwq k)
+       (%spin-unlock! lock)))))
 
 ;;;----------------------------------------------------------------------------
-;;; Multi-Core M:N Work-Stealing Scheduler Loop
+;;; Multi-Core M:N Work-Stealing Scheduler Loop (Pre-Allocated Handler Entries)
+
+(define (%init-scheduler-handlers! sched)
+  (let ((active (%sched-active-fibers sched)))
+    (%sched-handler-entries-set!
+     sched
+     (list
+      (gambit/effect#%make-handler-entry
+       %eff-spawn 'tail
+       (lambda (child-thunk)
+         (atomic-fxbox+/fetch! active 1 (memory-order acquire-release))
+         (%sched-enqueue-local! child-thunk)
+         #!void))
+      (gambit/effect#%make-handler-entry
+       %eff-yield 'suspend
+       (lambda (k)
+         (%sched-enqueue-local! k)
+         #!void))
+      (gambit/effect#%make-handler-entry
+       %eff-park-nursery 'suspend
+       (lambda (k n)
+         (%park-nursery-waiter! sched k n)
+         #!void))
+      (gambit/effect#%make-handler-entry
+       %eff-park-send 'suspend
+       (lambda (k ch val)
+         (%park-send-waiter! sched k ch val)
+         #!void))
+      (gambit/effect#%make-handler-entry
+       %eff-park-recv 'suspend
+       (lambda (k ch)
+         (%park-recv-waiter! sched k ch)
+         #!void))))
+    (%sched-return-fn-set!
+     sched
+     (lambda (r)
+       (atomic-fxbox-/fetch! active 1 (memory-order acquire-release))
+       #!void))))
 
 (define (%run-fiber-thunk sched thunk)
-  (with-handler
-    ((tail: %eff-spawn (child-thunk)
-       (atomic-fxbox+/fetch! (%sched-active-fibers sched) 1 (memory-order acquire-release))
-       (%sched-enqueue-local! child-thunk)
-       #!void)
-     (%eff-yield (k)
-       (%sched-enqueue-local! k)
-       #!void)
-     (%eff-park (k register-fn)
-       (register-fn k)
-       #!void)
-     (return: (r)
-       (atomic-fxbox-/fetch! (%sched-active-fibers sched) 1 (memory-order acquire-release))
-       #!void))
-    (thunk)))
+  (gambit/effect#%call-with-handler-entries
+   (%sched-handler-entries sched)
+   (%sched-return-fn sched)
+   thunk))
 
 (define (%worker-try-steal sched wid num-workers deques)
   (if (fx<= num-workers 1)
@@ -485,14 +526,15 @@
          (deques (let ((v (make-vector w #f)))
                    (let loop ((i 0))
                      (if (fx< i w)
-                         (begin (vector-set! v i (make-ws-deque 4096))
+                         (begin (vector-set! v i (make-ws-deque 512))
                                 (loop (fx+ i 1)))))
                    v))
          (global-q (make-lf-queue))
          (active (make-atomic-fxbox 1))
          (root-done (make-atomic-fxbox 0))
          (root-box (cons #f #f))
-         (sched (%make-scheduler w deques global-q active root-done root-box)))
+         (sched (%make-scheduler w deques global-q active root-done root-box #f #f)))
+    (%init-scheduler-handlers! sched)
     ;; Seed root fiber onto global queue
     (lf-queue-enqueue!
      global-q

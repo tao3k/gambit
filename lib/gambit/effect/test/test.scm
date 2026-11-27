@@ -286,6 +286,11 @@
 ;;; in-place stack-rewind fast path and that holding a consumed `ek` handle
 ;;; across a full GC after stack rewind is 100% memory-safe.
 
+;; Finish any pending concurrent SATB major GC started by Test #6 so
+;; satb_active_ == 0 (in-place stack rewind intentionally refuses while
+;; SATB marking is active to prevent dangling stack-continuation pointers).
+(##gc)
+
 (let ((rw-before (##gc-oneshot-continuation-rewinds))
       (escaped-eks '()))
   (let ((res

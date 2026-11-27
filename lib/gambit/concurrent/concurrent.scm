@@ -187,17 +187,14 @@
     (let ((t (atomic-fxbox-ref top-box (memory-order relaxed))))
       (cond
         ((< t b)
-         (let ((val (srfi/230#vector-atomic-ref slots idx (memory-order relaxed))))
-           (srfi/230#vector-atomic-set! slots idx #f (memory-order relaxed))
+         (let ((val (srfi/230#vector-atomic-ref slots idx (memory-order acquire))))
            (values #t val)))
         ((= t b)
-         (let* ((val (srfi/230#vector-atomic-ref slots idx (memory-order relaxed)))
+         (let* ((val (srfi/230#vector-atomic-ref slots idx (memory-order acquire)))
                 (prev (atomic-fxbox-compare-and-swap! top-box t (fx+ t 1) (memory-order sequentially-consistent))))
            (atomic-fxbox-set! bot-box (fx+ b 1) (memory-order relaxed))
            (if (= prev t)
-               (begin
-                 (srfi/230#vector-atomic-set! slots idx #f (memory-order relaxed))
-                 (values #t val))
+               (values #t val)
                (values #f #f))))
         (else
          (atomic-fxbox-set! bot-box (fx+ b 1) (memory-order relaxed))
@@ -212,7 +209,7 @@
       (let ((b (atomic-fxbox-ref bot-box (memory-order acquire))))
         (if (< t b)
             (let* ((val (srfi/230#vector-atomic-ref
-                         (ws-deque-slots dq) (fxand t (ws-deque-mask dq)) (memory-order relaxed)))
+                         (ws-deque-slots dq) (fxand t (ws-deque-mask dq)) (memory-order acquire)))
                    (prev (atomic-fxbox-compare-and-swap! top-box t (fx+ t 1) (memory-order sequentially-consistent))))
               (if (= prev t)
                   (values #t val)

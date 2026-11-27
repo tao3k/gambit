@@ -6119,7 +6119,7 @@
             (or linker-name
                 (##path-strip-directory abs-path)))
            (result
-            (##load-object-file abs-path linker-name quiet?)))
+            (##load-object-file abs-path linker-name #t)))
 
       (define (raise-error code)
         (if (##fixnum? code)
@@ -6129,12 +6129,56 @@
       (cond ((##not (##vector? result))
              (raise-error result))
             ((##fx= 2 (##vector-length result))
+             (if (##not quiet?)
+                 (##repl
+                  (lambda (first port)
+                    (##write-string "*** WARNING -- Could not find object file entry point " port)
+                    (##write (##vector-ref result 1) port)
+                    (##newline port)
+                    #t)))
              (raise-error (##vector-ref result 0)))
             (else
              (let ((module-descrs (##vector-ref result 0))
+                   (undefined (##vector-ref result 1))
                    (script-line (##vector-ref result 2)))
                (script-callback script-line abs-path)
                (##register-module-descrs module-descrs)
+               ;; Load demanded dependency modules before reporting undefined
+               ;; globals so bindings supplied via (import ...) / (##demand-module ...)
+               ;; do not emit spurious warnings when loading compiled .o1 files.
+               (let ((deps
+                      (let loop1 ((i 0) (acc '()))
+                        (if (##fx< i (##vector-length module-descrs))
+                            (let ((d (macro-module-descr-demand-modules
+                                      (##vector-ref module-descrs i))))
+                              (let loop2 ((j 0) (a acc))
+                                (if (##fx< j (##vector-length d))
+                                    (loop2 (##fx+ j 1)
+                                           (##cons (##vector-ref d j) a))
+                                    (loop1 (##fx+ i 1) a))))
+                            (##reverse! acc)))))
+                 (if (##pair? deps)
+                     (##load-modules deps)))
+               (if (##not quiet?)
+                   (let loop ((lst (##reverse undefined)))
+                     (if (##pair? lst)
+                         (let* ((var-module (##car lst))
+                                (name (##car var-module))
+                                (sym (if (##string? name)
+                                         (##string->symbol name)
+                                         name)))
+                           (if (##unbound?
+                                (##global-var-ref (##make-global-var sym)))
+                               (##repl
+                                (lambda (first port)
+                                  (##write-string "*** WARNING -- Variable " port)
+                                  (##write name port)
+                                  (##write-string " used in module " port)
+                                  (##write (##cdr var-module) port)
+                                  (##write-string " is undefined" port)
+                                  (##newline port)
+                                  #t)))
+                           (loop (##cdr lst))))))
                (##load-modules
                 (##map (lambda (md)
                          (##vector-last

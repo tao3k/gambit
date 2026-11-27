@@ -77,7 +77,7 @@
   (kind     %mc-frame-kind)     ;; 'prompt or 'underflow
   (tag      %mc-frame-tag)      ;; prompt-tag (or #f for underflow)
   (handler  %mc-frame-handler)  ;; abort handler proc (or #f)
-  (escape-k %mc-frame-escape-k) ;; native Gambit continuation object
+  (escape-k %mc-frame-escape-k %mc-frame-escape-k-set!) ;; native Gambit continuation object
   (marks    %mc-frame-marks)    ;; saved marks outside this frame
   (barriers %mc-frame-barriers) ;; saved barriers outside this frame
   (handlers %mc-frame-handlers) ;; saved effect handlers outside this frame
@@ -181,19 +181,25 @@
     (call-with-continuation-prompt thunk tag)))
 
 ;; Fast single-value return through topmost metacontinuation frame (zero thunk,
-;; zero rest-list, direct ##continuation-return).
+;; zero rest-list; clears escape-k slot before in-place prompt stack rewind so
+;; zero heap references can ever point to the rewound stack-allocated continuation).
 (define (%mc-return1 val)
   (let* ((st (%tc-current))
          (mc (%tc-mc st)))
     (if (null? mc)
         val
-        (let ((top (car mc))
-              (rest (cdr mc)))
+        (let* ((top (car mc))
+               (rest (cdr mc))
+               (ek (%mc-frame-escape-k top)))
           (%tc-mc-set! st rest)
           (%tc-marks-set! st (%mc-frame-marks top))
           (%tc-barriers-set! st (%mc-frame-barriers top))
           (%tc-handlers-set! st (%mc-frame-handlers top))
-          (##continuation-return (%mc-frame-escape-k top) val)))))
+          (if (not (%mc-frame-handler top))
+              ;; Effect prompt frame: attempt SATB-safe in-place stack rewind
+              ;; (C primitive clears top->escape-k ONLY on confirmed rewind).
+              (##continuation-try-rewind-prompt! top ek val)
+              (##continuation-return ek val))))))
 
 ;; Multi-value return through topmost metacontinuation frame (0/1/2/3/N).
 (define (%mc-return-vals #!optional (v1 %ABSENT) (v2 %ABSENT) (v3 %ABSENT) #!rest more)
@@ -480,16 +486,57 @@
    tag))
 
 ;;;----------------------------------------------------------------------------
-;;; Continuation Marks
+;;; Continuation Marks (Racket CS ICFP '20 True O(1) Tail-Call-Preserving Marks)
+;;;
+;;; Uses ##tail-call-with-r0 to inspect the caller's exact return address without
+;;; allocating a stack frame. When caller-r0 == %mark-pop-ra (tail position of an
+;;; enclosing marked frame), replaces/merges key -> val in the top mark frame in
+;;; O(1) stack space and tail-calls thunk directly.
+
+(define %mark-pop-ra #f)
+
+(define (%alist-replace alist key val)
+  (let loop ((xs alist) (acc '()))
+    (cond
+      ((null? xs) (cons (cons key val) (reverse acc)))
+      ((eq? (caar xs) key)
+       (append (reverse acc) (cons (cons key val) (cdr xs))))
+      (else
+       (loop (cdr xs) (cons (car xs) acc))))))
+
+(define (%mark-pop-frame res)
+  (let* ((st (%tc-current))
+         (ms (%tc-marks st)))
+    (if (pair? ms)
+        (%tc-marks-set! st (cdr ms)))
+    res))
+
+(define (%mark-dispatch caller-r0 kv thunk)
+  (let* ((st (%tc-current))
+         (ms (%tc-marks st))
+         (key (car kv))
+         (val (cdr kv)))
+    (if (and %mark-pop-ra (eq? caller-r0 %mark-pop-ra) (pair? ms))
+        (begin
+          (%tc-marks-set! st (cons (%alist-replace (car ms) key val) (cdr ms)))
+          (thunk))
+        (begin
+          (%tc-marks-set! st (cons (list (cons key val)) ms))
+          (%mark-pop-frame (thunk))))))
 
 (define (%call-with-continuation-mark key val thunk)
-  (let* ((st (%tc-current))
-         (old-marks (%tc-marks st))
-         (new-marks (cons (list (cons key val)) old-marks)))
-    (dynamic-wind
-      (lambda () (%tc-marks-set! (%tc-current) new-marks))
-      thunk
-      (lambda () (%tc-marks-set! (%tc-current) old-marks)))))
+  (##tail-call-with-r0 %mark-dispatch (cons key val) thunk))
+
+;; Capture the exact Gambit C return label of `(thunk)` inside `%mark-dispatch`
+;; once at module load time so tail-recursive `with-continuation-mark` is O(1).
+(%call-with-continuation-mark
+ '%srfi226-init
+ #t
+ (lambda ()
+   (##tail-call-with-r0
+    (lambda (r0 _ __) (set! %mark-pop-ra r0))
+    #f
+    #f)))
 
 (define (current-continuation-marks #!optional (tag %default-prompt-tag))
   (let ((st (%tc-current)))

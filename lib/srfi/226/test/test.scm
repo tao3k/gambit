@@ -246,10 +246,40 @@
   (with-continuation-mark 'm 'imm-val
     (call-with-immediate-continuation-mark 'm (lambda (v) v) 'none)))
 
+;; Non-tail nested marks keep 2 distinct frames
 (test-equal (list (vector 'b #f) (vector #f 'a))
+  (with-continuation-mark 'y 'a
+    (let ((res
+           (with-continuation-mark 'x 'b
+             (continuation-mark-set->list* (current-continuation-marks) '(x y) #f))))
+      res)))
+
+;; Tail-nested marks merge into a SINGLE frame (Racket CS ICFP '20 / SRFI 226)
+(test-equal (list (vector 'b 'a))
   (with-continuation-mark 'y 'a
     (with-continuation-mark 'x 'b
       (continuation-mark-set->list* (current-continuation-marks) '(x y) #f))))
+
+;; 100,000-iteration tail-recursive with-continuation-mark in O(1) stack space!
+(test-equal '(99999)
+  (let loop ((i 0))
+    (if (fx= i 100000)
+        (continuation-mark-set->list (current-continuation-marks) 'tail-k)
+        (with-continuation-mark 'tail-k i
+          (loop (fx+ i 1))))))
+
+;; Deep 30-frame composable continuation exercising Chez 4 KiB multi-frame chunk restore
+(test-equal 465
+  (call-with-continuation-prompt
+   (lambda ()
+     (let deep ((n 30))
+       (if (fx= n 0)
+           (call-with-composable-continuation
+            (lambda (k)
+              (abort-current-continuation t1 (lambda () (k 0))))
+            t1)
+           (fx+ n (deep (fx- n 1))))))
+   t1))
 
 ;; Marks are delimited by prompt tag
 (test-equal '(inner)
