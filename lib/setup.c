@@ -952,11 +952,63 @@ ___PSDKR)
 #ifndef ___SINGLE_THREADED_VMS
 
   ___PSGET
+  ___virtual_machine_state ___vms = ___VMSTATE_FROM_PSTATE(___ps);
 
-  ___sync_op_struct sop = {0,{0,0}};
+#if defined(__ATOMIC_ACQ_REL) && defined(__ATOMIC_ACQUIRE) && defined(__ATOMIC_RELEASE)
+  if (___vms != 0 && ___vms->lifecycle != 0)
+    {
+      ___vm_lifecycle *life = ___vms->lifecycle;
+      int target = life->sync_active_count;
+      if (target == 1)
+        return;
+      if (target > 1)
+        {
+          ___UWORD my_gen = __atomic_load_n(&life->fast_bar_gen, __ATOMIC_RELAXED);
+          ___WORD arrived = __atomic_add_fetch(&life->fast_bar_arrived, 1, __ATOMIC_ACQ_REL);
+          if (arrived == target)
+            {
+              __atomic_store_n(&life->fast_bar_arrived, 0, __ATOMIC_RELAXED);
+              __atomic_store_n(&life->fast_bar_gen, my_gen + 1, __ATOMIC_RELEASE);
+            }
+          else
+            {
+              int spins = 0;
+              while (__atomic_load_n(&life->fast_bar_gen, __ATOMIC_ACQUIRE) == my_gen)
+                {
+                  if (spins < 256)
+                    {
+                      ___CPU_RELAX();
+                      spins++;
+                    }
+                  else if (spins < 320)
+                    {
+                      ___THREAD_YIELD();
+                      spins++;
+                    }
+                  else
+                    {
+#if defined(___USE_POSIX_THREAD_SYSTEM) && !defined(_WIN32)
+                      struct timespec ts;
+                      ts.tv_sec = 0;
+                      ts.tv_nsec = 50000;
+                      nanosleep(&ts, 0);
+#else
+                      ___THREAD_YIELD();
+#endif
+                    }
+                }
+            }
+          return;
+        }
+    }
+#endif
 
-  sop.op = OP_NOOP;
-  barrier_sync_op (___PSP &sop);
+  {
+    ___sync_op_struct sop = {0,{0,0}};
+
+    sop.op = OP_NOOP;
+    barrier_sync_op (___PSP &sop);
+  }
 
 #endif
 }

@@ -79,7 +79,7 @@ extern void ___gc_write_barrier_slot_vm ___P((___virtual_machine_state vm, ___SC
 #define ___LARGEST_CONTINUATION_FRAME (___MAX_NB_FRAME_SLOTS+1+___SUBTYPED_BODY)
 #define ___MSECTION_FUDGE       ((___REST_PARAM_RESERVE > ___LARGEST_CONTINUATION_FRAME) ? ___REST_PARAM_RESERVE : ___LARGEST_CONTINUATION_FRAME)
 #define ___MSECTION_WASTE       (___MSECTION_FUDGE/16)
-#define ___MSECTION_BIGGEST     255
+#define ___MSECTION_BIGGEST     512
 #define ___MSECTION_CHUNK       ___MSECTION_BIGGEST
 #define ___MIN_NB_MSECTIONS_PER_PROCESSOR 2
 #define ___PSECTION_SIZE        4096

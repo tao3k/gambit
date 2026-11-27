@@ -467,6 +467,11 @@ typedef struct ___vm_lifecycle_struct {
   unsigned char *sync_targets; /* initiator-owned interrupt target mask while non-IDLE */
   int sync_bar_arrived;
   ___UWORD sync_bar_gen;
+  /* Phase C: cache-line-isolated lock-free sense-reversing barrier for internal GC BARRIER() */
+  char fast_bar_pad0[128];
+  ___VOLATILE ___UWORD fast_bar_gen;
+  ___VOLATILE ___WORD fast_bar_arrived;
+  char fast_bar_pad1[128];
   ___sync_op_struct sync_bar_sop;
   int sync_bar_winner;
   ___sync_op_struct sync_bar_out_sop;
