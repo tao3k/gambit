@@ -220,7 +220,7 @@ ___SIZE_TS ___lifecycle_deferred_words(___processor_state ps)
 ___SIZE_TS ___lifecycle_retained_words(___virtual_machine_state vm)
 {
   ___SIZE_TS words=0;int i;
-  if(vm->lifecycle)for(i=vm->processor_count;i<___MAX_PROCESSORS;++i)
+  if(vm->lifecycle)for(i=vm->processor_count;i<vm->lifecycle->slot_capacity;++i)
     words+=vm->lifecycle->cleanup[i].words;
   return words;
 }

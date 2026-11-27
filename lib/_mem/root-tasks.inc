@@ -203,7 +203,8 @@ ___HIDDEN ___BOOL root_context_executor(___execution_context *source,
   if (executor == 0 || executor != ___PSTATE || source == 0) return 0;
   vm=___VMSTATE_FROM_PSTATE(executor);
   id=___PROCESSOR_ID(executor,vm);
-  if(id<0 || id>=vm->processor_count || id>=___MAX_PROCESSORS) return 0;
+  if(id<0 || id>=vm->processor_count ||
+     (vm->lifecycle && id>=vm->lifecycle->slot_capacity)) return 0;
   if(source==executor->context && source==&vm->execution_contexts[id]) return 1;
   if(executor->collector != 0) {
     ___root_round *round=___ROOT_UNION(vm); int i, w=executor->collector->id;
@@ -351,12 +352,17 @@ ___BOOL ___root_globals_begin(___global_root_snapshot *snapshot,
                                 ___processor_state coordinator, ___UWORD epoch)
 {
   ___virtual_machine_state vm;
-  int i, ok=1;
+  int i, cap, ok=1;
+  unsigned char *shards_buf=0;
+  unsigned char *shards_heap=0;
+  int shard_cap=0;
   if (snapshot==0 || coordinator==0 || coordinator!=___PSTATE || epoch==0)
     return 0;
   vm=___VMSTATE_FROM_PSTATE(coordinator);
+  cap=(vm->lifecycle && vm->lifecycle->slot_capacity>0)
+      ? vm->lifecycle->slot_capacity : ___MAX_PROCESSORS;
   if (!root_vm_executor(coordinator) || vm->processor_count<1 ||
-      vm->processor_count>___MAX_PROCESSORS) return 0;
+      vm->processor_count>cap) return 0;
   /* The caller owns the closed roster, after all root sources froze at the
    * existing collective. Do not turn a mere count read into writer exclusion. */
   for (i=0;i<vm->processor_count;i++) {
@@ -366,6 +372,19 @@ ___BOOL ___root_globals_begin(___global_root_snapshot *snapshot,
     ok=domain->phase==___RC_FROZEN && domain->task.epoch==epoch;
     ___RC_UNLOCK(domain);
     if (!ok) return 0;
+  }
+  if (___ROOT_UNION(vm) != 0 && snapshot == &___ROOT_UNION(vm)->globals &&
+      snapshot->shards != 0 && snapshot->shard_capacity >= vm->processor_count) {
+    shards_buf=snapshot->shards;
+    shard_cap=snapshot->shard_capacity;
+  } else if (vm->processor_count <= ___GLOBAL_ROOT_SHARDS_INLINE) {
+    shards_buf=snapshot->shards_inline;
+    shard_cap=___GLOBAL_ROOT_SHARDS_INLINE;
+  } else {
+    shards_heap=___CAST(unsigned char*,___ALLOC_MEM(___CAST(___SIZE_T,vm->processor_count)));
+    if (shards_heap==0) return 0;
+    shards_buf=shards_heap;
+    shard_cap=vm->processor_count;
   }
   ___MUTEX_LOCK(___GSTATE->mem.global_gate);
   if (vm->mem.globals_snapshot_!=0 || ___GSTATE->mem.global_bootstrap ||
@@ -384,11 +403,15 @@ ___BOOL ___root_globals_begin(___global_root_snapshot *snapshot,
     snapshot->pages=vm->glos->pages;
 #endif
     snapshot->participants=vm->processor_count;
+    snapshot->shard_capacity=shard_cap;
+    snapshot->shards=shards_buf;
+    snapshot->shards_heap=shards_heap;
     for (i=0;i<snapshot->participants;i++) snapshot->shards[i]=0;
     ++___GSTATE->mem.global_snapshots;
     vm->mem.globals_snapshot_=snapshot;
   }
   ___MUTEX_UNLOCK(___GSTATE->mem.global_gate);
+  if (!ok && shards_heap!=0) ___FREE_MEM(shards_heap);
   return ok;
 }
 
@@ -397,20 +420,29 @@ ___BOOL ___root_globals_end(___global_root_snapshot *snapshot,
 {
   int i,ok=1;
   ___virtual_machine_state vm;
+  unsigned char *heap_to_free=0;
   if (snapshot==0 || coordinator==0 || coordinator!=___PSTATE) return 0;
   vm=___VMSTATE_FROM_PSTATE(coordinator);
   if (!root_vm_executor(coordinator)) return 0;
   ___MUTEX_LOCK(___GSTATE->mem.global_gate);
   if (vm->mem.globals_snapshot_!=snapshot || snapshot->vm!=vm ||
       snapshot->participants!=vm->processor_count ||
+      snapshot->shards==0 || snapshot->participants>snapshot->shard_capacity ||
       ___GSTATE->mem.global_snapshots==0) ok=0;
   if (ok) for (i=0;i<snapshot->participants;i++)
     if (snapshot->shards[i]!=2) { ok=0; break; }
   if (ok) {
+    heap_to_free=snapshot->shards_heap;
+    snapshot->shards_heap=0;
+    if (heap_to_free!=0) {
+      snapshot->shards=0;
+      snapshot->shard_capacity=0;
+    }
     vm->mem.globals_snapshot_=0;
     --___GSTATE->mem.global_snapshots;
   }
   ___MUTEX_UNLOCK(___GSTATE->mem.global_gate);
+  if (heap_to_free!=0) ___FREE_MEM(heap_to_free);
   return ok;
 }
 
@@ -431,7 +463,7 @@ ___HIDDEN ___BOOL root_globals_view(___global_root_source *view,
   view->participants=snapshot->participants;
   view->participant=___PROCESSOR_ID(executor,vm);
   if (view->count < 0 || view->participants <= 0 ||
-      view->participants > ___MAX_PROCESSORS) return 0;
+      view->participants > snapshot->shard_capacity) return 0;
 #ifdef ___SINGLE_VM
   extent=___GLO_SUBLIST_COUNT;
 #else
@@ -563,7 +595,7 @@ ___BOOL ___root_round_begin(___processor_state ps)
   int i;
   if (!root_vm_executor(ps) || round == 0 ||
       round->state != ___ROOT_ROUND_IDLE || round->vm->processor_count < 1 ||
-      round->vm->processor_count > ___MAX_PROCESSORS) return 0;
+      round->vm->processor_count > round->slot_capacity) return 0;
   previous=round->epoch;
   for (i=0;i<round->vm->processor_count;i++)
     {
@@ -673,19 +705,21 @@ ___BOOL ___root_round_publish(___processor_state ps)
   if (!root_vm_executor(ps) || round == 0 ||
       round->state != ___ROOT_ROUND_CLOSING ||
       !___root_globals_begin(&round->globals,ps,round->epoch)) return 0;
-  { int i; ___WORD requested=___WORD_LOAD_ACQUIRE(&round->collection.requested_workers);
-    int active_procs[___MAX_PROCESSORS];
+  { int i, coord_id=___PROCESSOR_ID(ps,round->vm);
+    ___WORD requested=___WORD_LOAD_ACQUIRE(&round->collection.requested_workers);
+    int *active_procs=round->collection.active_procs;
     int active_n=0;
     int count;
+    int cap=round->slot_capacity;
 #ifndef ___SINGLE_THREADED_VMS
     ___vm_lifecycle *life=round->vm->lifecycle;
 #endif
-    for(i=0;i<___MAX_PROCESSORS;i++) {
+    for(i=0;i<cap;i++) {
       round->collection.active[i]=0;
       round->collection.proc_worker[i]=-1;
       round->collection.worker_proc[i]=0;
     }
-    for(i=0;i<round->participants && i<___MAX_PROCESSORS;i++) {
+    for(i=0;i<round->participants && i<cap;i++) {
       int is_live=1;
 #ifndef ___SINGLE_THREADED_VMS
       if(i>0 && life && !___WORD_LOAD_ACQUIRE(&life->launches[i].native_live))
@@ -697,9 +731,18 @@ ___BOOL ___root_round_publish(___processor_state ps)
       }
     }
     if(active_n<1) return 0;
+    /* Keep the active coordinator at worker index 0 so vm_task/symkey_task
+     * always belong to an active worker under any worker_count >= 1. */
+    for(i=1;i<active_n;i++) {
+      if(active_procs[i]==coord_id) {
+        active_procs[i]=active_procs[0];
+        active_procs[0]=coord_id;
+        break;
+      }
+    }
     count=(requested>0 && requested<active_n)?(int)requested:active_n;
     if(count<1)count=1;
-    round->collection.coordinator_id=___PROCESSOR_ID(ps,round->vm);
+    round->collection.coordinator_id=coord_id;
     round->collection.decision=0;
     for(i=0;i<round->participants;i++)round->collection.observed[i]=0;
     round->collection.epoch=round->epoch;
@@ -894,6 +937,12 @@ ___BOOL ___root_round_refuse(___processor_state ps)
     m->rc->joined_round=0;m->rc->phase=___RC_OPEN;
     round->globals.shards[i]=0;___RC_UNLOCK(m->rc);
     ___binding_context_admit(m->owner);
+  }
+  if(round->globals.shards_heap!=0) {
+    ___FREE_MEM(round->globals.shards_heap);
+    round->globals.shards_heap=0;
+    round->globals.shards=0;
+    round->globals.shard_capacity=0;
   }
   ___RC_LOCK(round->members[0].rc);round->state=___ROOT_ROUND_IDLE;___RC_UNLOCK(round->members[0].rc);
   return 1;

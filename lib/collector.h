@@ -257,13 +257,16 @@ int mark_array_call_line_; /* where was mark_array called */
 
 typedef struct ___gc_round_struct
   {
+    int slot_capacity; /* dynamic per-VM slot table capacity (>= 1) */
+    int hint_capacity; /* slot_capacity * ___GC_CARD_HINT_CAPACITY */
     ___WORD epoch; /* monotonically published; exhaustion refuses admission */
     int participant_count; /* closed by the existing collective before scan */
     int worker_count; /* executor census; distinct from frozen root census */
     int coordinator_id; /* active coordinator processor ID for this round */
-    int worker_proc[___MAX_PROCESSORS]; /* worker_idx (0..worker_count-1) -> proc_id */
-    int proc_worker[___MAX_PROCESSORS]; /* proc_id -> worker_idx, or -1 if non-worker/parked */
-    unsigned char active[___MAX_PROCESSORS]; /* 1 if proc_id participates actively in this round */
+    int *worker_proc; /* worker_idx (0..worker_count-1) -> proc_id */
+    int *proc_worker; /* proc_id -> worker_idx, or -1 if non-worker/parked */
+    unsigned char *active; /* 1 if proc_id participates actively in this round */
+    int *active_procs; /* coordinator-local scratch during root_round_publish */
     ___VOLATILE ___WORD requested_workers; /* 0: all; snapshotted after freeze */
     ___BOOL overflow;     /* one VM result, consumed by every participant */
     ___SIZE_TS source_words; /* frozen allocation census, not a live oracle */
@@ -271,7 +274,7 @@ typedef struct ___gc_round_struct
     ___SIZE_TS destination_offset; /* round parity, independent of a carrier */
     ___gc_census census;
     int decision; /* 0 undecided, 1 accepted, 2 known refusal, 3 retained */
-    int observed[___MAX_PROCESSORS];
+    int *observed;
     int planned_copy_sections, issued_copy_sections, large_sections;
     ___msection *copy_first, *copy_past, *copy_cursor;
     ___WORD *invalid_copy_cell;
@@ -290,16 +293,16 @@ typedef struct ___gc_round_struct
     ___msection *young_head;
     ___msection *old_mature_tail;
     int promo_tail_count;
-    ___msection *promo_tails[___MAX_PROCESSORS];
-    ___SIZE_TS promo_tail_starts[___MAX_PROCESSORS];
-    ___SIZE_TS promo_tail_ends[___MAX_PROCESSORS];
-    unsigned char promo_tail_is_hole[___MAX_PROCESSORS];
+    ___msection **promo_tails;
+    ___SIZE_TS *promo_tail_starts;
+    ___SIZE_TS *promo_tail_ends;
+    unsigned char *promo_tail_is_hole;
     int major_sweep_nm;
     ___F64 major_remark_r0;
-    ___SIZE_TS major_reclaimed_still[___MAX_PROCESSORS];
-    ___SIZE_TS major_live_still[___MAX_PROCESSORS];
-    ___msection *young_heap_secs[___MAX_PROCESSORS];
-    ___gc_card_hint hints[___MAX_PROCESSORS * ___GC_CARD_HINT_CAPACITY];
+    ___SIZE_TS *major_reclaimed_still;
+    ___SIZE_TS *major_live_still;
+    ___msection **young_heap_secs;
+    ___gc_card_hint *hints;
   } ___gc_round;
 static inline void ___gc_copy_acquire (___VOLATILE ___WORD *gate)
 {

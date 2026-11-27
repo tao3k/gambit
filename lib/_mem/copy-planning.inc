@@ -329,7 +329,7 @@ ___HIDDEN int plan_copy_round(___processor_state ps, ___SIZE_TS requested_words_
    * below can erase the queue or a superseded pointer with unsettled custody. */
   if(c->state==___GC_PLAN_ALLOCATING || c->state==___GC_PLAN_RETAINED ||
      c->replacement || c->retired) {c->state=___GC_PLAN_RETAINED;return 3;}
-  for(i=0;i<___MAX_PROCESSORS;i++) {
+  for(i=0;i<round->slot_capacity;i++) {
     ___collector_worker *old=&round->workers[i];
     if(old->copy_request.state || old->arena.pending || old->copy_begin_ || old->tail_cell_) {
       c->state=___GC_PLAN_RETAINED;return 3;
@@ -418,6 +418,81 @@ ___HIDDEN int plan_copy_round(___processor_state ps, ___SIZE_TS requested_words_
     scan_remembered_set(work);
   census_drain(work);work->census=0;ps->collector=0;
   if(c->failed)goto refuse;
+
+  /* Slice 3A-1 O(live) Adaptive GC Copy Worker Sizing (verified in
+   * slice3a_dynamic_vm_domains_v2.qnt, Slice3ADynamicDomainsRefinement.lean,
+   * and slice3a_dynamic_domains_pso.c):
+   * When requested_workers == 0 (automatic mode), size active copy workers
+   * proportionally to live work so idle P-core VMs allocate O(1) mature
+   * sections instead of P nearly-empty 1 MiB sections, while heavy workloads
+   * and parallel remark/evacuation rounds use 100% of active cores. */
+  if (___WORD_LOAD_ACQUIRE(&g->requested_workers) == 0 && w > 1 &&
+      g->worker_proc[0] == g->coordinator_id)
+    {
+      ___SIZE_TS half_cap = capacity >> 1;
+      ___SIZE_TS copy_demand =
+        1 + ((half_cap > 0) ? (c->small_words / half_cap) : 0) + c->large_count;
+      ___SIZE_TS parallel_demand = 0;
+      ___SIZE_TS demand = copy_demand;
+      int target_w;
+      if (g->is_minor)
+        {
+          if (g->evac_selective || g->major_action != 0 || g->card_overflow)
+            parallel_demand = ___CAST(___SIZE_TS, vm->mem.nb_msections_mature_);
+          else if (g->hint_count >= 16)
+            parallel_demand = ___CAST(___SIZE_TS, g->hint_count / 16);
+        }
+      else if (occupied_words_still > 0 && half_cap > 0)
+        {
+          parallel_demand = 1 + (occupied_words_still / half_cap);
+        }
+      if (parallel_demand > demand)
+        demand = parallel_demand;
+      if (g->promo_tail_count > 0 && ___CAST(___SIZE_TS, g->promo_tail_count) > demand)
+        demand = ___CAST(___SIZE_TS, g->promo_tail_count);
+      target_w = (demand >= ___CAST(___SIZE_TS, w))
+                 ? w
+                 : (demand < 1 ? 1 : ___CAST(int, demand));
+      /* Never demote a processor whose continuation requires worker-backed
+       * restoration instead of stack-section loan fallback. */
+      for (i = w - 1; i >= target_w; i--)
+        {
+          int pid = g->worker_proc[i];
+          if (pid < 0 || pid >= n ||
+              restore_loan_words(round->resume[pid].source_words) < ___MSECTION_FUDGE + 2)
+            {
+              target_w = i + 1;
+              break;
+            }
+        }
+      if (target_w >= 1 && target_w < w)
+        {
+          for (i = target_w; i < w; i++)
+            {
+              int pid = g->worker_proc[i];
+              if (pid >= 0 && pid < g->slot_capacity)
+                g->proc_worker[pid] = -1;
+              g->worker_proc[i] = 0;
+            }
+          g->worker_count = target_w;
+          if (g->promo_tail_count > target_w)
+            g->promo_tail_count = target_w;
+          for (i = 0; i < n; i++)
+            {
+              ___root_member *m = &round->members[i];
+              ___processor_state exec = ___PSTATE_FROM_PROCESSOR_ID(
+                g->worker_proc[i % target_w], vm);
+              m->global_task.executor = exec;
+              m->stack_task.executor = exec;
+              m->bank_task.executor = exec;
+              ___RC_LOCK(m->rc);
+              m->rc->task.executor = exec;
+              ___RC_UNLOCK(m->rc);
+            }
+          w = target_w;
+        }
+    }
+
   /* Threshold markers each charge at least MSECTION_CHUNK successful words.
    * Large requests are isolated events, not part of the small no-fit bound. */
   if(!___gc_copy_section_bound(w,c->small_words,c->small_max,c->large_count,

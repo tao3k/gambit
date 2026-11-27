@@ -478,7 +478,7 @@ static ___group_demand *group_demand_slot(___processor_state ps)
   if (!vm || !vm->lifecycle) return 0;
   life=vm->lifecycle;
   id=___PROCESSOR_ID(ps, vm);
-  if (id<0 || id>=___MAX_PROCESSORS) return 0;
+  if (id<0 || id>=life->slot_capacity) return 0;
   return &life->group_demand[id];
 }
 
@@ -488,7 +488,7 @@ static ___activation_record *group_demand_activation(___processor_state ps)
   ptrdiff_t id;
   if (!vm || !vm->lifecycle) return 0;
   id=___PROCESSOR_ID(ps, vm);
-  if (id<0 || id>=___MAX_PROCESSORS) return 0;
+  if (id<0 || id>=vm->lifecycle->slot_capacity) return 0;
   return vm->lifecycle->activations[id];
 }
 

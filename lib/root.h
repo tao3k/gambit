@@ -14,12 +14,15 @@ enum ___root_origin_kind { ___ROOT_NONE, ___ROOT_RC, ___ROOT_VM, ___ROOT_BANK, _
  * Standalone adapters may keep a descriptor on their enclosing C stack.
  * Every shard and the collective must complete before either lifetime ends;
  * local DONE and count equality grant no retirement permission. */
+#define ___GLOBAL_ROOT_SHARDS_INLINE 64
 typedef struct ___global_root_snapshot_struct {
   ___virtual_machine_state vm;
   ___UWORD epoch;
-  int count, participants;
+  int count, participants, shard_capacity;
   ___global_slot_page *pages;
-  unsigned char shards[___MAX_PROCESSORS]; /* 0 absent, 1 leased, 2 complete */
+  unsigned char *shards; /* 0 absent, 1 leased, 2 complete; inline or heap */
+  unsigned char *shards_heap; /* non-null only when participants > inline */
+  unsigned char shards_inline[___GLOBAL_ROOT_SHARDS_INLINE];
 } ___global_root_snapshot;
 
 typedef struct ___global_root_source_struct {
@@ -68,21 +71,26 @@ typedef struct ___root_member_struct {
   ___root_task global_task, stack_task, bank_task;
 } ___root_member;
 typedef struct ___root_round_struct {
+  int slot_capacity; /* dynamic per-VM slot table capacity (>= 1) */
+  void *slot_storage; /* single contiguous 16-byte-aligned backing block */
   ___virtual_machine_state vm;
   ___UWORD epoch;
   int participants;
   enum ___root_round_state state;
   ___global_root_snapshot globals;
   ___root_task vm_task, symkey_task;
-  ___root_member members[___MAX_PROCESSORS];
+  ___root_member *members;
   ___gc_round collection;
-  ___collector_worker workers[___MAX_PROCESSORS];
-  ___gc_resume_space resume[___MAX_PROCESSORS];
+  ___collector_worker *workers;
+  ___gc_resume_space *resume;
 } ___root_round;
 #define ___ROOT_UNION(vm) ((___PSTATE_FROM_PROCESSOR_ID(0,(vm)))->mem.rc_domain_->round)
 #define ___COLLECTION(vm) (___ROOT_UNION(vm)->collection)
 #define ___COLLECTORS(vm) (___ROOT_UNION(vm)->workers)
 #define ___RESUME(vm,i) (___ROOT_UNION(vm)->resume[(i)])
+
+extern ___BOOL ___root_round_init_storage(___root_round*, int);
+extern void ___root_round_free_storage(___root_round*);
 
 
 /* The existing collective publishes these confined records. No lock is held

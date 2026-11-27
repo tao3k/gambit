@@ -1339,7 +1339,7 @@ ___HIDDEN ___BOOL retire_drained_source_claims(___root_round *round,
   int i;
   if (round->state!=___ROOT_ROUND_DRAINING || round->epoch!=epoch ||
       round->collection.epoch!=epoch || (destination!=0 && destination!=half) ||
-      round->participants<1 || round->participants>___MAX_PROCESSORS ||
+      round->participants<1 || round->participants>round->slot_capacity ||
       round->participants!=round->collection.participant_count)
     return 0;
   source=half-destination;

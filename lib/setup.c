@@ -610,7 +610,7 @@ int id;)
 {
 #ifndef ___SINGLE_THREADED_VMS
   if (vm != 0 && vm->lifecycle != 0 && vm->lifecycle->sync_op_state != SYNC_OP_IDLE &&
-      id >= 0 && id < ___MAX_PROCESSORS)
+      id >= 0 && id < vm->lifecycle->slot_capacity)
     return vm->lifecycle->sync_active[id] != 0;
 #endif
   return 1;
@@ -620,9 +620,8 @@ int id;)
 static int barrier_child_answers(___virtual_machine_state vms, int id)
 {
   ___vm_lifecycle *life;
-  if (id <= 0 || id >= ___MAX_PROCESSORS) return 0;
   life = vms->lifecycle;
-  if (!life) return 0;
+  if (!life || id <= 0 || id >= life->slot_capacity) return 0;
   return ___WORD_LOAD_ACQUIRE(&life->launches[id].native_live) != 0;
 }
 
@@ -1489,7 +1488,7 @@ ___PSDKR)
     ___virtual_machine_state ___vms = ___VMSTATE_FROM_PSTATE(___ps);
     ___vm_lifecycle *life = ___vms->lifecycle;
     int id = ___PROCESSOR_ID(___ps, ___vms);
-    if (life && id >= 0 && id < ___MAX_PROCESSORS)
+    if (life && id >= 0 && id < life->slot_capacity)
       {
         ___MUTEX_LOCK(life->sync_part_mut);
         while (life->sync_op_state != SYNC_OP_RUNNING || !life->sync_active[id])
@@ -1575,7 +1574,7 @@ ___processor_state ___ps;)
   ___vms = ___VMSTATE_FROM_PSTATE(___ps);
   life = ___vms->lifecycle;
   id = ___PROCESSOR_ID(___ps, ___vms);
-  if (!life || id < 0 || id >= ___MAX_PROCESSORS)
+  if (!life || id < 0 || id >= life->slot_capacity)
     {
       ___ps->ffi_park_depth = 0;
       return;
@@ -1664,7 +1663,6 @@ ___sync_op_struct *sop_ptr;)
                          sop_ptr->op == OP_PROCESSOR_0_THROW_ERROR);
     int blocking_parks = 0;
     int initiator = 0;
-    unsigned char targets[___MAX_PROCESSORS];
     int target_n = 0;
 
     for (;;)
@@ -1739,10 +1737,10 @@ ___sync_op_struct *sop_ptr;)
         {
           int i, active_n = 0, coord = -1;
           target_n = ___vms->processor_count;
-          for (i = 0; i < ___MAX_PROCESSORS; i++)
+          for (i = 0; i < life->slot_capacity; i++)
             {
               life->sync_active[i] = 0;
-              targets[i] = 0;
+              life->sync_targets[i] = 0;
             }
           for (i = 0; i < target_n; i++)
             {
@@ -1751,7 +1749,7 @@ ___sync_op_struct *sop_ptr;)
                 {
                   life->sync_active[i] = 1;
                   if (i != requester)
-                    targets[i] = 1;
+                    life->sync_targets[i] = 1;
                   if (coord < 0) coord = i;
                   active_n++;
                 }
@@ -1777,7 +1775,7 @@ ___sync_op_struct *sop_ptr;)
       }
 
     if (initiator)
-      raise_sync_op_interrupt_targets(___vms, targets, target_n);
+      raise_sync_op_interrupt_targets(___vms, life->sync_targets, target_n);
   }
 #else
   ___raise_interrupt_vmstate (___vms, ___INTR_SYNC_OP);
@@ -1908,7 +1906,7 @@ ___SCMOBJ ___startup_ready(___PSDNC)
   ___activation_record *activation;
   ___resize_launch *launch;
   ___SCMOBJ result=___FAL;
-  if (!r || id<=0 || id>=___MAX_PROCESSORS) return ___FAL;
+  if (!r || id<=0 || id>=r->slot_capacity) return ___FAL;
   activation=r->activations[id];
   if (!activation || activation->owner!=___ps ||
       activation->kind!=___ACTIVATION_STARTUP || !___activation_marker_live(activation))
@@ -5651,7 +5649,8 @@ ___processor_state ___ps;)
 static ___BOOL cleanup_sync_op_vmstate(___virtual_machine_state vm)
 {
   int i;___vm_lifecycle *life=vm->lifecycle;
-  for(i=0;i<___MAX_PROCESSORS;i++) {
+  if (!life || !life->sync_constructed) return 1;
+  for(i=0;i<life->slot_capacity;i++) {
     ___processor_state ps=___PSTATE_FROM_PROCESSOR_ID(i,vm);
     unsigned char *owned=&life->sync_constructed[i];
     if(*owned & 2) {

@@ -91,20 +91,68 @@ static void vm_registry_interrupt(int code)
   }while(1);
   vm_registry_flush();
 }
+static ___BOOL vm_lifecycle_alloc_slots(___vm_lifecycle *life, int cap)
+{
+  ___SIZE_T total = 0, off = 0;
+  ___SIZE_T ucap;
+  unsigned char *buf;
+  if (!life || cap < 1) return 0;
+  ucap = ___CAST(___SIZE_T, cap);
+  if (!___vm_slot_add_slice(&total, ucap, sizeof(*life->requests))) return 0;
+  if (!___vm_slot_add_slice(&total, ucap, sizeof(*life->entries))) return 0;
+  if (!___vm_slot_add_slice(&total, ucap, sizeof(*life->cleanup))) return 0;
+  if (!___vm_slot_add_slice(&total, ucap, sizeof(*life->activations))) return 0;
+  if (!___vm_slot_add_slice(&total, ucap, sizeof(*life->owners))) return 0;
+#ifndef ___SINGLE_THREADED_VMS
+  if (!___vm_slot_add_slice(&total, ucap, sizeof(*life->sync_constructed))) return 0;
+  if (!___vm_slot_add_slice(&total, ucap, sizeof(*life->sync_parked))) return 0;
+  if (!___vm_slot_add_slice(&total, ucap, sizeof(*life->sync_active))) return 0;
+  if (!___vm_slot_add_slice(&total, ucap, sizeof(*life->sync_targets))) return 0;
+  if (!___vm_slot_add_slice(&total, ucap, sizeof(*life->slots))) return 0;
+  if (!___vm_slot_add_slice(&total, ucap, sizeof(*life->launches))) return 0;
+#endif
+  if (!___vm_slot_add_slice(&total, ucap, sizeof(*life->group_demand))) return 0;
+  if (total == 0) return 0;
+  buf = ___CAST(unsigned char*, ___ALLOC_MEM(total));
+  if (!buf) return 0;
+  memset(buf, 0, total);
+  life->slot_capacity = cap;
+  life->slot_storage = buf;
+  life->requests = ___CAST(___VOLATILE ___WORD*, ___vm_slot_carve_slice(buf, &off, ucap, sizeof(*life->requests)));
+  life->entries = ___CAST(___VOLATILE ___WORD*, ___vm_slot_carve_slice(buf, &off, ucap, sizeof(*life->entries)));
+  life->cleanup = ___CAST(___owner_cleanup*, ___vm_slot_carve_slice(buf, &off, ucap, sizeof(*life->cleanup)));
+  life->activations = ___CAST(___activation_record**, ___vm_slot_carve_slice(buf, &off, ucap, sizeof(*life->activations)));
+  life->owners = ___CAST(___thread*, ___vm_slot_carve_slice(buf, &off, ucap, sizeof(*life->owners)));
+#ifndef ___SINGLE_THREADED_VMS
+  life->sync_constructed = ___CAST(unsigned char*, ___vm_slot_carve_slice(buf, &off, ucap, sizeof(*life->sync_constructed)));
+  life->sync_parked = ___CAST(unsigned char*, ___vm_slot_carve_slice(buf, &off, ucap, sizeof(*life->sync_parked)));
+  life->sync_active = ___CAST(unsigned char*, ___vm_slot_carve_slice(buf, &off, ucap, sizeof(*life->sync_active)));
+  life->sync_targets = ___CAST(unsigned char*, ___vm_slot_carve_slice(buf, &off, ucap, sizeof(*life->sync_targets)));
+  life->slots = ___CAST(___resize_slot*, ___vm_slot_carve_slice(buf, &off, ucap, sizeof(*life->slots)));
+  life->launches = ___CAST(___resize_launch*, ___vm_slot_carve_slice(buf, &off, ucap, sizeof(*life->launches)));
+#endif
+  life->group_demand = ___CAST(___group_demand*, ___vm_slot_carve_slice(buf, &off, ucap, sizeof(*life->group_demand)));
+  return 1;
+}
+
 static ___vm_lifecycle *vm_lifecycle_create(___virtual_machine_state vm)
 {
   ___vm_lifecycle *life;
   if(vm_incarnation==___MAX_FIX)return 0;
   life=___CAST(___vm_lifecycle*,___ALLOC_MEM(sizeof(*life)));
   if(!life)return 0;
-  memset(life,0,sizeof(*life));life->incarnation=++vm_incarnation;
+  memset(life,0,sizeof(*life));
+  if(!vm_lifecycle_alloc_slots(life, ___MAX_PROCESSORS)) {
+    ___FREE_MEM(life);return 0;
+  }
+  life->incarnation=++vm_incarnation;
   life->group_demand_attempt_next=1;
 #ifndef ___SINGLE_THREADED_VMS
 #ifdef ___USE_POSIX_THREAD_SYSTEM
-  if(!___MUTEX_INIT(life->gate)){___FREE_MEM(life);return 0;}
-  if(!___CONDVAR_INIT(life->changed)){___MUTEX_DESTROY(life->gate);___FREE_MEM(life);return 0;}
-  if(!___MUTEX_INIT(life->sync_part_mut)){___CONDVAR_DESTROY(life->changed);___MUTEX_DESTROY(life->gate);___FREE_MEM(life);return 0;}
-  if(!___CONDVAR_INIT(life->sync_part_cv)){___MUTEX_DESTROY(life->sync_part_mut);___CONDVAR_DESTROY(life->changed);___MUTEX_DESTROY(life->gate);___FREE_MEM(life);return 0;}
+  if(!___MUTEX_INIT(life->gate)){___FREE_MEM(life->slot_storage);___FREE_MEM(life);return 0;}
+  if(!___CONDVAR_INIT(life->changed)){___MUTEX_DESTROY(life->gate);___FREE_MEM(life->slot_storage);___FREE_MEM(life);return 0;}
+  if(!___MUTEX_INIT(life->sync_part_mut)){___CONDVAR_DESTROY(life->changed);___MUTEX_DESTROY(life->gate);___FREE_MEM(life->slot_storage);___FREE_MEM(life);return 0;}
+  if(!___CONDVAR_INIT(life->sync_part_cv)){___MUTEX_DESTROY(life->sync_part_mut);___CONDVAR_DESTROY(life->changed);___MUTEX_DESTROY(life->gate);___FREE_MEM(life->slot_storage);___FREE_MEM(life);return 0;}
 #else
   ___MUTEX_INIT(life->gate);___CONDVAR_INIT(life->changed);
   ___MUTEX_INIT(life->sync_part_mut);___CONDVAR_INIT(life->sync_part_cv);

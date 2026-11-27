@@ -392,7 +392,7 @@ ___HIDDEN void collect_minor_card_hints(___virtual_machine_state vm)
                   h.section->region_age == ___GC_REGION_MATURE &&
                   h.section->region_generation == h.region_generation)
                 {
-                  if (count < ___MAX_PROCESSORS * ___GC_CARD_HINT_CAPACITY)
+                  if (count < g->hint_capacity)
                     g->hints[count++] = h;
                   else
                     {
@@ -561,7 +561,7 @@ ___HIDDEN void prepare_generational_round
     }
   {
     int i;
-    for (i = 0; i < ___MAX_PROCESSORS; i++)
+    for (i = 0; i < g->slot_capacity; i++)
       {
         g->young_heap_secs[i] = 0;
         g->promo_tails[i] = 0;
@@ -786,18 +786,19 @@ ___HIDDEN void downgrade_minor_to_major(___processor_state ps)
 
 ___HIDDEN void scan_mature_object(___collector_worker *work, ___WORD *body, ___WORD head);
 
-___HIDDEN void scan_mature_card_list
+___HIDDEN void scan_mature_card_list_with_state
    (___collector_worker *work,
     ___msection *sec,
     const unsigned int *cards,
-    int ncards)
+    int ncards,
+    ___WORD **last_scanned_end_p)
 {
   ___WORD *base = sec->base + sec->active_offset;
   ___WORD *scan_end = base + sec->scan_end_words;
   unsigned int half_card_base =
     ___CAST(unsigned int, sec->active_offset >> ___GC_CARD_SHIFT_WORDS);
   unsigned char *starts = section_card_starts(sec);
-  ___WORD *last_scanned_end = 0;
+  ___WORD *last_scanned_end = *last_scanned_end_p;
   int idx;
 
   for (idx = 0; idx < ncards; idx++)
@@ -878,6 +879,17 @@ ___HIDDEN void scan_mature_card_list
           }
         }
     }
+  *last_scanned_end_p = last_scanned_end;
+}
+
+___HIDDEN void scan_mature_card_list
+   (___collector_worker *work,
+    ___msection *sec,
+    const unsigned int *cards,
+    int ncards)
+{
+  ___WORD *last_scanned_end = 0;
+  scan_mature_card_list_with_state(work, sec, cards, ncards, &last_scanned_end);
 }
 
 ___HIDDEN void scan_remembered_set(___collector_worker *work)
@@ -967,12 +979,21 @@ ___HIDDEN void scan_remembered_set(___collector_worker *work)
             pos++;
           if ((run_idx % w_cnt) == w_id)
             {
-              unsigned int cards[___GC_CARD_HINT_CAPACITY * ___MAX_PROCESSORS];
+              /* Bounded 64-card chunked scan (O(1) stack footprint at any core count). */
+              unsigned int cards[64];
+              ___WORD *last_scanned_end = 0;
               int n = pos - start;
-              int j;
-              for (j = 0; j < n; j++)
-                cards[j] = g->hints[start + j].card_index;
-              scan_mature_card_list(work, sec, cards, n);
+              int done = 0;
+              while (done < n)
+                {
+                  int chunk = n - done;
+                  int j;
+                  if (chunk > 64) chunk = 64;
+                  for (j = 0; j < chunk; j++)
+                    cards[j] = g->hints[start + done + j].card_index;
+                  scan_mature_card_list_with_state(work, sec, cards, chunk, &last_scanned_end);
+                  done += chunk;
+                }
               if (!is_census && w_id == 0)
                 vm->mem.minor_dirty_cards_scanned_ += n;
             }

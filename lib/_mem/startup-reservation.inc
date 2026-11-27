@@ -28,7 +28,7 @@ ___SCMOBJ ___reserve_resize(___processor_state ___ps, ___vm_lifecycle *r)
   ___virtual_machine_state vm=___VMSTATE_FROM_PSTATE(___ps);
   int n=r->target-r->first, resume=___resume_msections(vm), need, i;
   ___msection *cursor;
-  if (n<0 || n>___MAX_PROCESSORS || resume==INT_MAX ||
+  if (n<0 || n>r->slot_capacity || resume==INT_MAX ||
       nb_msections_assigned > INT_MAX-2*n-resume)
     return ___FIX(___HEAP_OVERFLOW_ERR);
   need=nb_msections_assigned+2*n+resume;

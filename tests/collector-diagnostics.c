@@ -133,6 +133,61 @@ void ___device_select_abort(___processor_state ps)
   expect_contract=0; \
 } while(0)
 
+/* Allocate backing slot arrays via calloc so the ___alloc_mem trap stays armed. */
+static int diag_bind_round_storage(___root_round *round, int cap)
+{
+  ___gc_round *g;
+  ___SIZE_T total = 0, off = 0, ucap, hcap;
+  unsigned char *buf;
+  if (!round || cap < 1) return 0;
+  if (round->slot_storage != 0) return 1;
+  ucap = ___CAST(___SIZE_T, cap);
+  hcap = ucap * ___CAST(___SIZE_T, ___GC_CARD_HINT_CAPACITY);
+  g = &round->collection;
+  if (!___vm_slot_add_slice(&total, ucap, sizeof(*round->members))) return 0;
+  if (!___vm_slot_add_slice(&total, ucap, sizeof(*round->workers))) return 0;
+  if (!___vm_slot_add_slice(&total, ucap, sizeof(*round->resume))) return 0;
+  if (!___vm_slot_add_slice(&total, ucap, sizeof(*round->globals.shards))) return 0;
+  if (!___vm_slot_add_slice(&total, ucap, sizeof(*g->worker_proc))) return 0;
+  if (!___vm_slot_add_slice(&total, ucap, sizeof(*g->proc_worker))) return 0;
+  if (!___vm_slot_add_slice(&total, ucap, sizeof(*g->active))) return 0;
+  if (!___vm_slot_add_slice(&total, ucap, sizeof(*g->active_procs))) return 0;
+  if (!___vm_slot_add_slice(&total, ucap, sizeof(*g->observed))) return 0;
+  if (!___vm_slot_add_slice(&total, ucap, sizeof(*g->promo_tails))) return 0;
+  if (!___vm_slot_add_slice(&total, ucap, sizeof(*g->promo_tail_starts))) return 0;
+  if (!___vm_slot_add_slice(&total, ucap, sizeof(*g->promo_tail_ends))) return 0;
+  if (!___vm_slot_add_slice(&total, ucap, sizeof(*g->promo_tail_is_hole))) return 0;
+  if (!___vm_slot_add_slice(&total, ucap, sizeof(*g->major_reclaimed_still))) return 0;
+  if (!___vm_slot_add_slice(&total, ucap, sizeof(*g->major_live_still))) return 0;
+  if (!___vm_slot_add_slice(&total, ucap, sizeof(*g->young_heap_secs))) return 0;
+  if (!___vm_slot_add_slice(&total, hcap, sizeof(*g->hints))) return 0;
+  buf = (unsigned char*)calloc(1, total);
+  if (!buf) return 0;
+  round->slot_capacity = cap;
+  round->slot_storage = buf;
+  g->slot_capacity = cap;
+  g->hint_capacity = cap * ___GC_CARD_HINT_CAPACITY;
+  round->members = (___root_member*)___vm_slot_carve_slice(buf, &off, ucap, sizeof(*round->members));
+  round->workers = (___collector_worker*)___vm_slot_carve_slice(buf, &off, ucap, sizeof(*round->workers));
+  round->resume = (___gc_resume_space*)___vm_slot_carve_slice(buf, &off, ucap, sizeof(*round->resume));
+  round->globals.shards = (unsigned char*)___vm_slot_carve_slice(buf, &off, ucap, sizeof(*round->globals.shards));
+  round->globals.shard_capacity = cap;
+  g->worker_proc = (int*)___vm_slot_carve_slice(buf, &off, ucap, sizeof(*g->worker_proc));
+  g->proc_worker = (int*)___vm_slot_carve_slice(buf, &off, ucap, sizeof(*g->proc_worker));
+  g->active = (unsigned char*)___vm_slot_carve_slice(buf, &off, ucap, sizeof(*g->active));
+  g->active_procs = (int*)___vm_slot_carve_slice(buf, &off, ucap, sizeof(*g->active_procs));
+  g->observed = (int*)___vm_slot_carve_slice(buf, &off, ucap, sizeof(*g->observed));
+  g->promo_tails = (___msection**)___vm_slot_carve_slice(buf, &off, ucap, sizeof(*g->promo_tails));
+  g->promo_tail_starts = (___SIZE_TS*)___vm_slot_carve_slice(buf, &off, ucap, sizeof(*g->promo_tail_starts));
+  g->promo_tail_ends = (___SIZE_TS*)___vm_slot_carve_slice(buf, &off, ucap, sizeof(*g->promo_tail_ends));
+  g->promo_tail_is_hole = (unsigned char*)___vm_slot_carve_slice(buf, &off, ucap, sizeof(*g->promo_tail_is_hole));
+  g->major_reclaimed_still = (___SIZE_TS*)___vm_slot_carve_slice(buf, &off, ucap, sizeof(*g->major_reclaimed_still));
+  g->major_live_still = (___SIZE_TS*)___vm_slot_carve_slice(buf, &off, ucap, sizeof(*g->major_live_still));
+  g->young_heap_secs = (___msection**)___vm_slot_carve_slice(buf, &off, ucap, sizeof(*g->young_heap_secs));
+  g->hints = (___gc_card_hint*)___vm_slot_carve_slice(buf, &off, hcap, sizeof(*g->hints));
+  return 1;
+}
+
 /* Install the preflight span move_continuation now requires. The floor is
  * the destination lower bound; source_half is the half that still holds fp. */
 static int admit_span(___processor_state ps, ___msection *source,
@@ -154,12 +209,14 @@ static int admit_span(___processor_state ps, ___msection *source,
   root=___PSTATE_FROM_PROCESSOR_ID(0,vm);
   if(root->mem.rc_domain_==0) {
     memset(&fallback_domain,0,sizeof fallback_domain);
-    memset(&fallback_round,0,sizeof fallback_round);
+    CHECK(diag_bind_round_storage(&fallback_round,___MAX_PROCESSORS));
     root->mem.rc_domain_=&fallback_domain;
     fallback_domain.round=&fallback_round;
   } else if(root->mem.rc_domain_->round==0) {
-    memset(&fallback_round,0,sizeof fallback_round);
+    CHECK(diag_bind_round_storage(&fallback_round,___MAX_PROCESSORS));
     root->mem.rc_domain_->round=&fallback_round;
+  } else if(root->mem.rc_domain_->round->slot_storage==0) {
+    CHECK(diag_bind_round_storage(root->mem.rc_domain_->round,___MAX_PROCESSORS));
   }
   id=___PROCESSOR_ID(ps,vm);
   r=&___RESUME(vm,id);
@@ -785,6 +842,7 @@ static int continuation_extent_controls(void)
   ___ps->vmstate=&vm;
 #endif
   ___ps->mem.rc_domain_=&domain;
+  if(round.slot_storage==0) CHECK(diag_bind_round_storage(&round,___MAX_PROCESSORS));
   domain.round=&round;
   ___ps->context=&context;
   ___ps->mem.tospace_offset_=0;
@@ -972,6 +1030,7 @@ static int source_census_controls(void)
   ___SPINLOCK_INIT(vm.mem.alloc_mem_lock_);
 #endif
   ___ps->mem.rc_domain_=&domain;
+  if(round.slot_storage==0) CHECK(diag_bind_round_storage(&round,___MAX_PROCESSORS));
   domain.round=&round;
   round.collection.destination_offset=___MSECTION_SIZE>>1;
   ___ps->context=&context;
@@ -1376,7 +1435,9 @@ int main(int argc,char **argv)
 #ifndef ___SINGLE_VM
   ps->vmstate=&vm;
 #endif
-  ps->mem.rc_domain_=&domain;domain.round=&round;
+  ps->mem.rc_domain_=&domain;
+  if(round.slot_storage==0) CHECK(diag_bind_round_storage(&round,___MAX_PROCESSORS));
+  domain.round=&round;
   selected.vm=&vm;selected.carrier=ps;selected.id=7;
   selected.reference_location_=IN_RC;selected.mark_array_call_line_=123;
   selected.scan_ptr_=section->base+7;

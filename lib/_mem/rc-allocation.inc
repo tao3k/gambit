@@ -17,10 +17,85 @@ ___HIDDEN ___BOOL root_writer_open(___processor_state ps)
   if (ps == 0 || ps != ___PSTATE || (d=ps->mem.rc_domain_) == 0) return 0;
   vm = ___VMSTATE_FROM_PSTATE(ps);
   id = ___PROCESSOR_ID(ps, vm);
-  if (vm->lifecycle && id >= 0 && id < ___MAX_PROCESSORS &&
+  if (vm->lifecycle && id >= 0 && id < vm->lifecycle->slot_capacity &&
       (vm->lifecycle->cleanup[id].draining || vm->lifecycle->cleanup[id].uncertain))
     return 0;
   return d->owner == ps && d->phase == ___RC_OPEN && d->joined_round == 0;
+}
+
+___BOOL ___root_round_init_storage(___root_round *round, int cap)
+{
+  ___gc_round *g;
+  ___SIZE_T total = 0, off = 0, ucap, hcap;
+  unsigned char *buf;
+  if (!round || cap < 1) return 0;
+  if (cap > INT_MAX / ___GC_CARD_HINT_CAPACITY) return 0;
+  ucap = ___CAST(___SIZE_T, cap);
+  hcap = ucap * ___CAST(___SIZE_T, ___GC_CARD_HINT_CAPACITY);
+  g = &round->collection;
+  if (!___vm_slot_add_slice(&total, ucap, sizeof(*round->members))) return 0;
+  if (!___vm_slot_add_slice(&total, ucap, sizeof(*round->workers))) return 0;
+  if (!___vm_slot_add_slice(&total, ucap, sizeof(*round->resume))) return 0;
+  if (!___vm_slot_add_slice(&total, ucap, sizeof(*round->globals.shards))) return 0;
+  if (!___vm_slot_add_slice(&total, ucap, sizeof(*g->worker_proc))) return 0;
+  if (!___vm_slot_add_slice(&total, ucap, sizeof(*g->proc_worker))) return 0;
+  if (!___vm_slot_add_slice(&total, ucap, sizeof(*g->active))) return 0;
+  if (!___vm_slot_add_slice(&total, ucap, sizeof(*g->active_procs))) return 0;
+  if (!___vm_slot_add_slice(&total, ucap, sizeof(*g->observed))) return 0;
+  if (!___vm_slot_add_slice(&total, ucap, sizeof(*g->promo_tails))) return 0;
+  if (!___vm_slot_add_slice(&total, ucap, sizeof(*g->promo_tail_starts))) return 0;
+  if (!___vm_slot_add_slice(&total, ucap, sizeof(*g->promo_tail_ends))) return 0;
+  if (!___vm_slot_add_slice(&total, ucap, sizeof(*g->promo_tail_is_hole))) return 0;
+  if (!___vm_slot_add_slice(&total, ucap, sizeof(*g->major_reclaimed_still))) return 0;
+  if (!___vm_slot_add_slice(&total, ucap, sizeof(*g->major_live_still))) return 0;
+  if (!___vm_slot_add_slice(&total, ucap, sizeof(*g->young_heap_secs))) return 0;
+  if (!___vm_slot_add_slice(&total, hcap, sizeof(*g->hints))) return 0;
+  if (total == 0) return 0;
+  buf = ___CAST(unsigned char*, ___ALLOC_MEM(total));
+  if (!buf) return 0;
+  memset(buf, 0, total);
+  round->slot_capacity = cap;
+  round->slot_storage = buf;
+  g->slot_capacity = cap;
+  g->hint_capacity = cap * ___GC_CARD_HINT_CAPACITY;
+  round->members = ___CAST(___root_member*, ___vm_slot_carve_slice(buf, &off, ucap, sizeof(*round->members)));
+  round->workers = ___CAST(___collector_worker*, ___vm_slot_carve_slice(buf, &off, ucap, sizeof(*round->workers)));
+  round->resume = ___CAST(___gc_resume_space*, ___vm_slot_carve_slice(buf, &off, ucap, sizeof(*round->resume)));
+  round->globals.shards = ___CAST(unsigned char*, ___vm_slot_carve_slice(buf, &off, ucap, sizeof(*round->globals.shards)));
+  round->globals.shards_heap = 0;
+  round->globals.shard_capacity = cap;
+  g->worker_proc = ___CAST(int*, ___vm_slot_carve_slice(buf, &off, ucap, sizeof(*g->worker_proc)));
+  g->proc_worker = ___CAST(int*, ___vm_slot_carve_slice(buf, &off, ucap, sizeof(*g->proc_worker)));
+  g->active = ___CAST(unsigned char*, ___vm_slot_carve_slice(buf, &off, ucap, sizeof(*g->active)));
+  g->active_procs = ___CAST(int*, ___vm_slot_carve_slice(buf, &off, ucap, sizeof(*g->active_procs)));
+  g->observed = ___CAST(int*, ___vm_slot_carve_slice(buf, &off, ucap, sizeof(*g->observed)));
+  g->promo_tails = ___CAST(___msection**, ___vm_slot_carve_slice(buf, &off, ucap, sizeof(*g->promo_tails)));
+  g->promo_tail_starts = ___CAST(___SIZE_TS*, ___vm_slot_carve_slice(buf, &off, ucap, sizeof(*g->promo_tail_starts)));
+  g->promo_tail_ends = ___CAST(___SIZE_TS*, ___vm_slot_carve_slice(buf, &off, ucap, sizeof(*g->promo_tail_ends)));
+  g->promo_tail_is_hole = ___CAST(unsigned char*, ___vm_slot_carve_slice(buf, &off, ucap, sizeof(*g->promo_tail_is_hole)));
+  g->major_reclaimed_still = ___CAST(___SIZE_TS*, ___vm_slot_carve_slice(buf, &off, ucap, sizeof(*g->major_reclaimed_still)));
+  g->major_live_still = ___CAST(___SIZE_TS*, ___vm_slot_carve_slice(buf, &off, ucap, sizeof(*g->major_live_still)));
+  g->young_heap_secs = ___CAST(___msection**, ___vm_slot_carve_slice(buf, &off, ucap, sizeof(*g->young_heap_secs)));
+  g->hints = ___CAST(___gc_card_hint*, ___vm_slot_carve_slice(buf, &off, hcap, sizeof(*g->hints)));
+  return 1;
+}
+
+void ___root_round_free_storage(___root_round *round)
+{
+  if (!round) return;
+  if (round->globals.shards_heap != 0) {
+    ___FREE_MEM(round->globals.shards_heap);
+    round->globals.shards_heap = 0;
+    round->globals.shards = 0;
+    round->globals.shard_capacity = 0;
+  }
+  if (round->slot_storage != 0) {
+    ___FREE_MEM(round->slot_storage);
+    round->slot_storage = 0;
+  }
+  round->slot_capacity = 0;
+  round->collection.slot_capacity = 0;
+  round->collection.hint_capacity = 0;
 }
 
 ___HIDDEN ___BOOL setup_rc(___processor_state ps)
@@ -32,11 +107,16 @@ ___HIDDEN ___BOOL setup_rc(___processor_state ps)
   d->rest_chunks=0; d->rest_total_slots=0; d->rest_evict_cursor=0;
   if (___PROCESSOR_ID(ps,___VMSTATE_FROM_PSTATE(ps)) == 0)
     {
+      ___virtual_machine_state vm = ___VMSTATE_FROM_PSTATE(ps);
+      int cap = (vm->lifecycle && vm->lifecycle->slot_capacity > 0)
+                ? vm->lifecycle->slot_capacity : ___MAX_PROCESSORS;
       d->round=___CAST(___root_round*,___ALLOC_MEM(sizeof(*d->round)));
       if (d->round == 0) { ___RC_DESTROY(d); ___FREE_MEM(d); return 0; }
       memset(d->round,0,sizeof(*d->round));
-      d->round->vm=___VMSTATE_FROM_PSTATE(ps);
-      { int i; for(i=0;i<___MAX_PROCESSORS;i++) {
+      if (!___root_round_init_storage(d->round, cap))
+        { ___FREE_MEM(d->round); ___RC_DESTROY(d); ___FREE_MEM(d); return 0; }
+      d->round->vm=vm;
+      { int i; for(i=0;i<d->round->slot_capacity;i++) {
           d->round->workers[i].vm=d->round->vm;
           d->round->workers[i].id=i;
           d->round->workers[i].carrier=___PSTATE_FROM_PROCESSOR_ID(i,d->round->vm);
@@ -114,6 +194,7 @@ ___HIDDEN void cleanup_rc(___processor_state ps)
   if (d->round != 0) {
     if (d->round->collection.census.queue != 0)
       census_queue_free(d->round->collection.census.queue, d->round->collection.census.capacity);
+    ___root_round_free_storage(d->round);
     ___FREE_MEM(d->round); d->round=0;
   }
   /* Lifecycle closure has excluded the cooperative activation owner. Only

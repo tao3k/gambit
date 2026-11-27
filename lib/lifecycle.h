@@ -410,22 +410,45 @@ typedef struct ___group_demand_struct {
   ___WORD service_incarnation;
 } ___group_demand;
 
+/* Overflow-checked 16-byte-aligned contiguous dynamic slot layout helpers
+ * (verified in Slice3ADynamicDomainsRefinement.lean and slice3a_dynamic_domains_pso.c). */
+static inline int ___vm_slot_add_slice(___SIZE_T *offset, ___SIZE_T count, ___SIZE_T elem_size)
+{
+  ___SIZE_T off = *offset;
+  if (off > ~___CAST(___SIZE_T, 0) - 15) return 0;
+  off = (off + 15) & ~___CAST(___SIZE_T, 15);
+  if (elem_size > 0 && count > (~___CAST(___SIZE_T, 0) - off) / elem_size) return 0;
+  *offset = off + count * elem_size;
+  return 1;
+}
+
+static inline void *___vm_slot_carve_slice(unsigned char *base, ___SIZE_T *offset,
+                                           ___SIZE_T count, ___SIZE_T elem_size)
+{
+  ___SIZE_T off = (*offset + 15) & ~___CAST(___SIZE_T, 15);
+  void *ptr = base + off;
+  *offset = off + count * elem_size;
+  return ptr;
+}
+
 typedef struct ___vm_lifecycle_struct {
+  int slot_capacity; /* dynamic per-VM slot table capacity (>= 1) */
+  void *slot_storage; /* single contiguous 16-byte-aligned backing block */
   ___VOLATILE ___WORD phase;
   ___WORD incarnation;
   ___VOLATILE ___WORD member_gate, pending_interrupts;
-  ___VOLATILE ___WORD requests[___MAX_PROCESSORS];
+  ___VOLATILE ___WORD *requests;
   unsigned int setup_stages;
-  ___VOLATILE ___WORD entries[___MAX_PROCESSORS]; /* bit0 closed, +2 per borrow */
+  ___VOLATILE ___WORD *entries; /* bit0 closed, +2 per borrow */
   ___VOLATILE ___WORD rest_epoch_next; /* next rest generation; 0 means unstarted; never wraps */
-  ___owner_cleanup cleanup[___MAX_PROCESSORS];
-  ___activation_record *activations[___MAX_PROCESSORS];
-  ___thread owners[___MAX_PROCESSORS];
+  ___owner_cleanup *cleanup;
+  ___activation_record **activations;
+  ___thread *owners;
 #ifndef ___SINGLE_THREADED_VMS
   /* Slot resources belong to this VM, not to a carrier incarnation. Bit 0
    * owns the mutex, bit 1 owns the condition variable. Constructor rollback
    * visits only acquired resources; processor retirement destroys neither. */
-  unsigned char sync_constructed[___MAX_PROCESSORS];
+  unsigned char *sync_constructed;
   ___MUTEX_DECL(gate)
   ___CONDVAR_DECL(changed)
   /* Blocking-FFI participation state: allows parked processors to stay outside
@@ -439,8 +462,9 @@ typedef struct ___vm_lifecycle_struct {
   int sync_coord_id;
   ___VOLATILE ___WORD sync_use_active_barrier;
   int sync_block_new_parks;
-  unsigned char sync_parked[___MAX_PROCESSORS];
-  unsigned char sync_active[___MAX_PROCESSORS];
+  unsigned char *sync_parked;
+  unsigned char *sync_active;
+  unsigned char *sync_targets; /* initiator-owned interrupt target mask while non-IDLE */
   int sync_bar_arrived;
   ___UWORD sync_bar_gen;
   ___sync_op_struct sync_bar_sop;
@@ -453,12 +477,12 @@ typedef struct ___vm_lifecycle_struct {
   ___SCMOBJ result;
   ___WORD generation;
   ___WORD membership_epoch; /* Every successful topology change, including shrink. */
-  ___resize_slot slots[___MAX_PROCESSORS];
-  ___resize_launch launches[___MAX_PROCESSORS];
+  ___resize_slot *slots;
+  ___resize_launch *launches;
 #endif
   /* Demand slots are VM storage. A processor number only selects a slot
    * inside this lifecycle; it is not an identity across VMs. */
-  ___group_demand group_demand[___MAX_PROCESSORS];
+  ___group_demand *group_demand;
   ___VOLATILE ___WORD group_demand_attempt_next;
 } ___vm_lifecycle;
 
@@ -502,10 +526,11 @@ static ___BOOL resize_retained(___virtual_machine_state vm)
   ___vm_lifecycle *r=vm->lifecycle;
   if (!r) return 0;
   if (___WORD_LOAD_ACQUIRE(&r->phase)==___VM_RETAINED) return 1;
-  for(i=0;i<___MAX_PROCESSORS;++i)
-    if (___WORD_LOAD_ACQUIRE(&r->launches[i].uncertain) &&
-        ___WORD_LOAD_ACQUIRE(&r->launches[i].entry)==___LAUNCH_RUN &&
-        !___WORD_LOAD_ACQUIRE(&r->launches[i].data_closed)) return 1;
+  if (r->launches)
+    for(i=0;i<r->slot_capacity;++i)
+      if (___WORD_LOAD_ACQUIRE(&r->launches[i].uncertain) &&
+          ___WORD_LOAD_ACQUIRE(&r->launches[i].entry)==___LAUNCH_RUN &&
+          !___WORD_LOAD_ACQUIRE(&r->launches[i].data_closed)) return 1;
   return r->resize_phase==___RESIZE_RETAINED;
 }
 #endif

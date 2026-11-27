@@ -40,7 +40,7 @@ static int lifecycle_resize_quiet(___virtual_machine_state vm)
 #ifndef ___SINGLE_THREADED_VMS
   int i;___vm_lifecycle *life=vm->lifecycle;
   if(life->resize_phase!=___RESIZE_IDLE && life->resize_phase!=___RESIZE_RUN)return 0;
-  for(i=0;i<___MAX_PROCESSORS;i++)
+  for(i=0;i<life->slot_capacity;i++)
     if(___WORD_LOAD_ACQUIRE(&life->launches[i].uncertain))return 0;
 #endif
   return 1;
@@ -80,7 +80,9 @@ static ___BOOL lifecycle_dispose(___virtual_machine_state vm)
   ___CONDVAR_DESTROY(life->sync_part_cv);___MUTEX_DESTROY(life->sync_part_mut);
   ___CONDVAR_DESTROY(life->changed);___MUTEX_DESTROY(life->gate);
 #endif
-  vm_registry_remove(vm);vm->lifecycle=0;___FREE_MEM(life);
+  vm_registry_remove(vm);vm->lifecycle=0;
+  if(life->slot_storage)___FREE_MEM(life->slot_storage);
+  ___FREE_MEM(life);
   return 1;
 }
 /* Known constructor failure has never published an executable VM. Reclaim
@@ -102,7 +104,9 @@ static void abort_vm_setup(___virtual_machine_state vm)
   ___CONDVAR_DESTROY(life->sync_part_cv);___MUTEX_DESTROY(life->sync_part_mut);
   ___CONDVAR_DESTROY(life->changed);___MUTEX_DESTROY(life->gate);
 #endif
-  vm->lifecycle=0;___FREE_MEM(life);
+  vm->lifecycle=0;
+  if(life->slot_storage)___FREE_MEM(life->slot_storage);
+  ___FREE_MEM(life);
 }
 ___EXP_FUNC(___SCMOBJ,___setup_vmstate)
  ___P((___virtual_machine_state vm),(vm)
