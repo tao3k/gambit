@@ -14,6 +14,8 @@
 ;;;      yielding, and exchanging messages across all cores
 
 (import (gambit fiber))
+(import (gambit effect))
+(import (srfi 226))
 (import (srfi 230))
 (import (_test))
 
@@ -247,5 +249,86 @@
     (atomic-fxbox-set! stop 1 (memory-order release))
     (thread-join! gc-churner))
   (test-equal 10000 (atomic-fxbox-ref completed)))
+
+;;;============================================================================
+;;; 7. Adversarial Per-Fiber %tc-state Isolation (Effects + SRFI-226 Marks
+;;;    Surviving Cross-Core Work-Stealing Migrations With Zero Leakage)
+
+(define-effect fiber-tag-eff)
+
+(let ((ok-count (make-atomic-fxbox 0))
+      (num-fibers 200))
+  (run-fibers
+   (lambda ()
+     (with-nursery
+      (lambda (n)
+        (let loop ((fid 1))
+          (if (fx<= fid num-fibers)
+              (begin
+                (fiber-spawn
+                 (lambda ()
+                   (with-continuation-mark 'fiber-id fid
+                     (with-handler
+                       ((tail: fiber-tag-eff () fid))
+                       (let yloop ((k 0) (good #t))
+                         (if (fx< k 10)
+                             (begin
+                               (fiber-yield)
+                               (let ((e-val (perform fiber-tag-eff))
+                                     (m-val (continuation-mark-set-first #f 'fiber-id #f)))
+                                 (yloop (fx+ k 1)
+                                        (and good
+                                             (fx= e-val fid)
+                                             (equal? m-val fid)))))
+                             (if good
+                                 (atomic-fxbox+/fetch! ok-count 1)))))))
+                 n)
+                (loop (fx+ fid 1)))))))))
+  (test-equal num-fibers (atomic-fxbox-ref ok-count)))
+
+;;;============================================================================
+;;; 8. Adversarial LIFO Anti-Starvation: Tight Ping-Pong + 500 Sibling Fibers
+
+(let ((siblings-done (make-atomic-fxbox 0))
+      (pingpong-sum (make-atomic-fxbox 0)))
+  (run-fibers
+   (lambda ()
+     (with-nursery
+      (lambda (n)
+        ;; 4 tight ping-pong pairs hammering the LIFO slot
+        (let ploop ((p 0))
+          (if (fx< p 4)
+              (let ((c1 (make-fiber-channel 1))
+                    (c2 (make-fiber-channel 1)))
+                (fiber-spawn
+                 (lambda ()
+                   (let r ((i 0))
+                     (if (fx< i 500)
+                         (begin (fiber-send! c2 (fx+ (fiber-recv! c1) 1))
+                                (r (fx+ i 1))))))
+                 n)
+                (fiber-spawn
+                 (lambda ()
+                   (let s ((i 0) (acc 0))
+                     (if (fx< i 500)
+                         (begin (fiber-send! c1 i)
+                                (s (fx+ i 1) (fx+ acc (fiber-recv! c2))))
+                         (atomic-fxbox+/fetch! pingpong-sum acc))))
+                 n)
+                (ploop (fx+ p 1)))))
+        ;; 500 background yielding siblings that MUST NOT starve
+        (let sloop ((i 0))
+          (if (fx< i 500)
+              (begin
+                (fiber-spawn
+                 (lambda ()
+                   (fiber-yield)
+                   (fiber-yield)
+                   (atomic-fxbox+/fetch! siblings-done 1))
+                 n)
+                (sloop (fx+ i 1)))))))))
+  (test-equal 500 (atomic-fxbox-ref siblings-done))
+  ;; 4 * sum(1..500) = 4 * 125250 = 501000
+  (test-equal 501000 (atomic-fxbox-ref pingpong-sum)))
 
 ;;;============================================================================
