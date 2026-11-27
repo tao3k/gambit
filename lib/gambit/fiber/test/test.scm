@@ -498,3 +498,50 @@
   (test-equal 1 (atomic-fxbox-ref after-ran)))
 
 ;;;============================================================================
+;;; 12. Adversarial Overflow (>4096-fiber burst) + Sticky Victim Stealing +
+;;;     Mixed Non-Null / Null Control-State Isolation Under Cross-Core Migration
+
+(let ((overflow-done (make-atomic-fxbox 0))
+      (clean-tc-ok (make-atomic-fxbox 0)))
+  (run-fibers
+   (lambda ()
+     ;; 12a. 5,000 fibers in a single nursery forces local 4096-slot deque to
+     ;;      spill into global-q and tests global-pending hint + sticky stealing.
+     (with-nursery
+      (lambda (n)
+        (let loop ((i 0))
+          (if (fx< i 5000)
+              (begin
+                (fiber-spawn
+                 (lambda ()
+                   (fiber-yield)
+                   (atomic-fxbox+/fetch! overflow-done 1))
+                 n)
+                (loop (fx+ i 1)))))))
+     ;; 12b. Interleave fibers WITH continuation marks (non-#f tc) and fibers
+     ;;      WITHOUT marks (#f tc) to verify lazy #f write-barrier skip never leaks!
+     (with-nursery
+      (lambda (n)
+        (let loop ((i 0))
+          (if (fx< i 200)
+              (begin
+                (if (fx= (fxand i 1) 0)
+                    (fiber-spawn
+                     (lambda ()
+                       (with-continuation-mark 'leak-check i
+                         (begin
+                           (fiber-yield)
+                           (if (equal? (continuation-mark-set-first #f 'leak-check #f) i)
+                               (atomic-fxbox+/fetch! clean-tc-ok 1)))))
+                     n)
+                    (fiber-spawn
+                     (lambda ()
+                       (fiber-yield)
+                       (if (eq? (continuation-mark-set-first #f 'leak-check #f) #f)
+                           (atomic-fxbox+/fetch! clean-tc-ok 1)))
+                     n))
+                (loop (fx+ i 1)))))))))
+  (test-equal 5000 (atomic-fxbox-ref overflow-done))
+  (test-equal 200 (atomic-fxbox-ref clean-tc-ok)))
+
+;;;============================================================================

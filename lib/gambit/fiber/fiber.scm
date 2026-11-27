@@ -9,7 +9,9 @@
 ;;; (gambit fiber) — Direct-Style Work-Stealing Structured Concurrency Runtime
 ;;;
 ;;; Features:
-;;;   - M:N work-stealing scheduler with private LIFO slot and Chase-Lev deques
+;;;   - Inline 4096-slot 128B-padded Chase-Lev work-stealing deques with
+;;;     private LIFO slot and sticky victim-locality stealing
+;;;   - Zero-cross-module inline thread-local carrier and control-state access
 ;;;   - Sharded 128B-padded per-worker monotonic quiescence counters
 ;;;   - Structured concurrency nurseries with zero-capture child exception handling
 ;;;   - Lock-free bounded MPMC ring channels with linearizable direct handoff
@@ -20,14 +22,12 @@
 (##namespace ("gambit/fiber#"))
 (##include "~~lib/gambit/prim/prim#.scm")
 (##include "~~lib/_gambit#.scm")
+(##include "~~lib/_thread#.scm")
 (##namespace (""
   make-thread
   thread-start!
   thread-join!
   thread-yield!
-  current-thread
-  thread-specific
-  thread-specific-set!
   with-exception-catcher
   raise
   error))
@@ -42,7 +42,7 @@
   (block))
 
 ;;;----------------------------------------------------------------------------
-;;; Inline C23 Atomic Primitives (Zero Cross-Module SRFI-230 Overhead on C Target)
+;;; Inline C23 Atomic Primitives (Zero Cross-Module Overhead on C Target)
 ;;;
 ;;; Memory-order codes match Gambit runtime_protocols:
 ;;;   0=relaxed, 1=acquire, 2=release, 3=acq_rel, 4=seq_cst
@@ -59,8 +59,7 @@
 (define (%make-fxatom init)
   (##vector init))
 
-;; 128-byte (16-word) cache-line-padded fixnum atomic box for Apple Silicon
-;; per-worker / producer-consumer counters (0% L2 false sharing across 12 cores).
+;; 128-byte (16-word) cache-line-padded fixnum atomic box (eliminates L2 false sharing).
 (define (%make-padded-fxatom init)
   (let ((v (##make-vector 16 0)))
     (##vector-set! v 0 init)
@@ -89,6 +88,17 @@
        ___atomic_word_load(___CAST(___VOLATILE ___WORD*, ___BODY_AS(___ARG1, ___tVECTOR)), 4));"
     box)
    (##vector-cas! box 0 #!unbound #!unbound)))
+
+(define (%fxatom-set-rlx! box val)
+  (macro-if-c-compiled
+   (##c-code
+    "___atomic_word_store(___CAST(___VOLATILE ___WORD*, ___BODY_AS(___ARG1, ___tVECTOR)),
+                          ___CAST(___WORD, ___ARG2), 0);
+     ___RESULT = ___VOID;"
+    box val)
+   (let loop ((old (##vector-cas! box 0 #!unbound #!unbound)))
+     (let ((prev (##vector-cas! box 0 val old)))
+       (if (##eq? prev old) (##void) (loop prev))))))
 
 (define (%fxatom-set-rel! box val)
   (macro-if-c-compiled
@@ -132,6 +142,16 @@
     box expected desired)
    (##vector-cas! box 0 desired expected)))
 
+(define (%fxatom-cas-seq! box expected desired)
+  (macro-if-c-compiled
+   (##c-code
+    "___RESULT = ___CAST(___SCMOBJ,
+       ___atomic_word_cas(___CAST(___VOLATILE ___WORD*, ___BODY_AS(___ARG1, ___tVECTOR)),
+                          ___CAST(___WORD, ___ARG2),
+                          ___CAST(___WORD, ___ARG3), 4));"
+    box expected desired)
+   (##vector-cas! box 0 desired expected)))
+
 (define (%fxatom-add-acqrel! box delta)
   (macro-if-c-compiled
    (##c-code
@@ -154,7 +174,7 @@
 (define (%fxatom-inc-owner-rel! box)
   (%fxatom-set-rel! box (##fx+ (##vector-ref box 0) 1)))
 
-;; Indexed fixnum-vector atomics for Vyukov MPMC ring sequence numbers
+;; Indexed fixnum-vector atomics for bounded MPMC ring sequence numbers
 (define (%vec-fx-load-acq vec idx)
   (macro-if-c-compiled
    (##c-code
@@ -178,10 +198,100 @@
      (let ((prev (##vector-cas! vec idx val old)))
        (if (##eq? prev old) (##void) (loop prev))))))
 
+;; GC/SATB-safe atomic object-slot load/store for inline Chase-Lev deque
+(define (%dq-slot-load-acq vec idx)
+  (macro-if-c-compiled
+   (##c-code
+    "___WORD *___s = ___FXINDX_WORD(___BODY_AS(___ARG1, ___tVECTOR), ___ARG2);
+     ___RESULT = ___gc_atomic_slot_load(___s, 1);"
+    vec idx)
+   (##vector-cas! vec idx #!unbound #!unbound)))
+
+(define (%dq-slot-store-rlx! vec idx val)
+  (macro-if-c-compiled
+   (##c-code
+    "___WORD *___s = ___FXINDX_WORD(___BODY_AS(___ARG1, ___tVECTOR), ___ARG2);
+     ___gc_atomic_slot_exchange(
+       ___ps, ___ARG1, ___s, ___ARG3, 0,
+       ___EXT(___gc_write_barrier_slow), ___EXT(___gc_satb_barrier_val));
+     ___RESULT = ___VOID;"
+    vec idx val)
+   (##vector-set! vec idx val)))
+
 (define (%seq-cst-fence!)
   (macro-if-c-compiled
    (##c-code "___atomic_fence_order(4); ___RESULT = ___VOID;")
    (atomic-fence (memory-order sequentially-consistent))))
+
+;;;----------------------------------------------------------------------------
+;;; Inline 4096-Slot 128B-Padded Chase-Lev Work-Stealing Deque
+;;; (Eliminates cross-module calls and global-queue spills for large nurseries)
+
+(define %DQ-CAP 4096)
+(define %DQ-MASK 4095)
+
+(define-type %local-dq
+  id: 8B1F3A70-9C24-4D6B-A5E1-F1B000000007
+  constructor: %make-local-dq-raw
+  predicate: %local-dq?
+  (buf %dq-buf)
+  (top %dq-top)  ;; 128B-padded fxatom
+  (bot %dq-bot)) ;; 128B-padded fxatom
+
+(define (%make-local-dq)
+  (%make-local-dq-raw (make-vector %DQ-CAP #f)
+                      (%make-padded-fxatom 0)
+                      (%make-padded-fxatom 0)))
+
+(define (%dq-push! dq item)
+  (let* ((bot-box (%dq-bot dq))
+         (b (%fxatom-load-rlx bot-box))
+         (t (%fxatom-load-acq (%dq-top dq))))
+    (if (fx>= (fx- b t) %DQ-CAP)
+        #f
+        (begin
+          (%dq-slot-store-rlx! (%dq-buf dq) (fxand b %DQ-MASK) item)
+          (%fxatom-set-rel! bot-box (fx+ b 1))
+          #t))))
+
+(define (%dq-pop! dq)
+  (let* ((bot-box (%dq-bot dq))
+         (top-box (%dq-top dq))
+         (b (fx- (%fxatom-load-rlx bot-box) 1)))
+    (%fxatom-set-rlx! bot-box b)
+    (%seq-cst-fence!)
+    (let ((t (%fxatom-load-rlx top-box)))
+      (if (fx<= t b)
+          (let ((item (%dq-slot-load-acq (%dq-buf dq) (fxand b %DQ-MASK))))
+            (if (fx= t b)
+                (let ((won? (fx= (%fxatom-cas-seq! top-box t (fx+ t 1)) t)))
+                  (%fxatom-set-rlx! bot-box (fx+ t 1))
+                  (if won? item #f))
+                item))
+          (begin
+            (%fxatom-set-rlx! bot-box t)
+            #f)))))
+
+(define (%dq-steal! dq)
+  (let* ((top-box (%dq-top dq))
+         (t (%fxatom-load-acq top-box)))
+    (%seq-cst-fence!)
+    (let ((b (%fxatom-load-acq (%dq-bot dq))))
+      (if (fx< t b)
+          (let ((item (%dq-slot-load-acq (%dq-buf dq) (fxand t %DQ-MASK))))
+            (if (fx= (%fxatom-cas-seq! top-box t (fx+ t 1)) t)
+                item
+                #f))
+          #f))))
+
+;;;----------------------------------------------------------------------------
+;;; Inline Thread-Local Carrier Context & Lazy #f Control-State Access
+
+(define (%get-tc)
+  (macro-thread-control-state (##current-thread)))
+
+(define (%set-tc! val)
+  (macro-thread-control-state-set! (##current-thread) val))
 
 ;;;----------------------------------------------------------------------------
 ;;; Scheduler, Worker Context & Per-Carrier Recycled %fiber-k Freelist
@@ -198,7 +308,7 @@
   constructor: %make-fiber-k
   predicate: %fiber-k?
   (raw-k %fk-raw-k %fk-raw-k-set!)  ;; native Gambit continuation (cleared on recycle)
-  (tc    %fk-tc    %fk-tc-set!)     ;; saved per-fiber (##thread-control-state)
+  (tc    %fk-tc    %fk-tc-set!)     ;; saved per-fiber thread control-state
   (val   %fk-val   %fk-val-set!)    ;; intrusive resume/send payload
   (next  %fk-next  %fk-next-set!))  ;; intrusive wait-queue / freelist link
 
@@ -206,32 +316,34 @@
   id: 8B1F3A70-9C24-4D6B-A5E1-F1B000000001
   constructor: %make-scheduler
   predicate: %scheduler?
-  (num-workers   %sched-num-workers)
-  (deques        %sched-deques)        ;; vector of W ws-deque
-  (global-q      %sched-global-q)      ;; lf-queue for wakeups & overflow
-  (spawned-vec   %sched-spawned-vec)   ;; vector of W 128B-padded monotonic counters
-  (completed-vec %sched-completed-vec) ;; vector of W 128B-padded monotonic counters
-  (root-done     %sched-root-done)     ;; fxatom (0 -> 1)
-  (root-box      %sched-root-box))     ;; box holding (ok? . val-or-exc)
+  (num-workers    %sched-num-workers)
+  (deques         %sched-deques)         ;; vector of W %local-dq
+  (global-q       %sched-global-q)       ;; lf-queue for external wakeups & overflow
+  (global-pending %sched-global-pending) ;; 128B-padded pending count (>= global-q len)
+  (spawned-vec    %sched-spawned-vec)    ;; vector of W 128B-padded monotonic counters
+  (completed-vec  %sched-completed-vec)  ;; vector of W 128B-padded monotonic counters
+  (root-done      %sched-root-done)      ;; fxatom (0 -> 1)
+  (root-box       %sched-root-box))      ;; box holding (ok? . val-or-exc)
 
 (define-type %worker-ctx
   id: 8B1F3A70-9C24-4D6B-A5E1-F1B000000002
   constructor: %make-worker-ctx
   predicate: %worker-ctx?
-  (sched       %wctx-sched)
-  (wid         %wctx-wid)
-  (dq          %wctx-dq)
-  (spawned     %wctx-spawned)          ;; owner-only 128B-padded monotonic spawned
-  (completed   %wctx-completed)        ;; owner-only 128B-padded monotonic completed
-  (lifo        %wctx-lifo        %wctx-lifo-set!)        ;; private 1-slot LIFO (0 atomics!)
-  (lifo-streak %wctx-lifo-streak %wctx-lifo-streak-set!) ;; anti-starvation counter
-  (ticks       %wctx-ticks       %wctx-ticks-set!)       ;; fairness poll counter
-  (sched-k     %wctx-sched-k     %wctx-sched-k-set!)     ;; reusable trampoline continuation
-  (fk-pool     %wctx-fk-pool     %wctx-fk-pool-set!)     ;; private zero-atomic %fiber-k freelist
-  (fk-pool-len %wctx-fk-pool-len %wctx-fk-pool-len-set!))
+  (sched        %wctx-sched)
+  (wid          %wctx-wid)
+  (dq           %wctx-dq)
+  (spawned      %wctx-spawned)          ;; owner-only 128B-padded monotonic spawned
+  (completed    %wctx-completed)        ;; owner-only 128B-padded monotonic completed
+  (lifo         %wctx-lifo         %wctx-lifo-set!)         ;; private 1-slot LIFO (0 atomics!)
+  (lifo-streak  %wctx-lifo-streak  %wctx-lifo-streak-set!)  ;; anti-starvation counter
+  (ticks        %wctx-ticks        %wctx-ticks-set!)        ;; fairness poll counter
+  (sched-k      %wctx-sched-k      %wctx-sched-k-set!)      ;; reusable trampoline continuation
+  (fk-pool      %wctx-fk-pool      %wctx-fk-pool-set!)      ;; private %fiber-k freelist
+  (fk-pool-len  %wctx-fk-pool-len  %wctx-fk-pool-len-set!)
+  (steal-cursor %wctx-steal-cursor %wctx-steal-cursor-set!)) ;; sticky productive victim wid
 
 (define (%current-wctx)
-  (let ((ctx (thread-specific (current-thread))))
+  (let ((ctx (macro-thread-specific (##current-thread))))
     (if (%worker-ctx? ctx)
         ctx
         (error "fiber operation called outside run-fibers"))))
@@ -262,12 +374,28 @@
           (%wctx-fk-pool-len-set! ctx (fx+ len 1)))
         (%fk-next-set! fk #f))))
 
-;; Push to local Chase-Lev deque (spilling to unbounded lock-free global-q if full).
-(define (%sched-push-dq! ctx task)
-  (if (not (ws-deque-push! (%wctx-dq ctx) task))
-      (lf-queue-enqueue! (%sched-global-q (%wctx-sched ctx)) task)))
+;; Global queue enqueue/dequeue maintaining global-pending >= global-q length.
+(define (%sched-enqueue-global! sched task)
+  (%fxatom-add-acqrel! (%sched-global-pending sched) 1)
+  (lf-queue-enqueue! (%sched-global-q sched) task))
 
-;; Push to private LIFO slot, evicting any prior occupant to Chase-Lev deque.
+(define (%sched-try-dequeue-global! sched)
+  (let ((gp (%sched-global-pending sched)))
+    (if (fx= (%fxatom-load-acq gp) 0)
+        #f
+        (let ((t (lf-queue-try-dequeue-or! (%sched-global-q sched) #f)))
+          (if t
+              (begin
+                (%fxatom-sub-acqrel! gp 1)
+                t)
+              #f)))))
+
+;; Push to inline local Chase-Lev deque (spilling to global-q only if > 4096 queued).
+(define (%sched-push-dq! ctx task)
+  (if (not (%dq-push! (%wctx-dq ctx) task))
+      (%sched-enqueue-global! (%wctx-sched ctx) task)))
+
+;; Push to private LIFO slot, evicting any prior occupant to local Chase-Lev deque.
 (define (%sched-push-lifo! ctx task)
   (let ((prev (%wctx-lifo ctx)))
     (%wctx-lifo-set! ctx task)
@@ -276,10 +404,10 @@
 
 ;; Wake task onto current carrier's LIFO slot if inside this scheduler, else global-q.
 (define (%sched-wake! sched task)
-  (let ((ctx (thread-specific (current-thread))))
+  (let ((ctx (macro-thread-specific (##current-thread))))
     (if (and (%worker-ctx? ctx) (eq? (%wctx-sched ctx) sched))
         (%sched-push-lifo! ctx task)
-        (lf-queue-enqueue! (%sched-global-q sched) task))))
+        (%sched-enqueue-global! sched task))))
 
 ;; Sharded quiescence check:
 ;; Scan ALL completed[0..W-1] (acq), seq_cst fence, then scan ALL spawned[0..W-1] (acq).
@@ -352,23 +480,23 @@
                 (%sched-wake! (%nursery-sched n) wk)))))))
 
 ;; Executed on the clean carrier trampoline AFTER ##continuation-graft has
-;; completed all dynamic-wind after thunks of the aborting child fiber!
+;; completed all dynamic-wind after thunks of the aborting child fiber.
 (define (%nursery-child-abort! n exc)
   (%nursery-record-error! n exc)
   (%nursery-child-done! n)
   (let ((cur-ctx (%current-wctx)))
-    (##thread-control-state-set! #f)
+    (if (%get-tc) (%set-tc! #f))
     (%fxatom-inc-owner-rel! (%wctx-completed cur-ctx))
     (%worker-dispatch cur-ctx 0)))
 
 ;; Zero-closure multi-arg continuation receiver for nursery join park
 (define (%park-nursery-cont! raw-k n)
   (let* ((ctx (%current-wctx))
-         (tc (##thread-control-state))
+         (tc (%get-tc))
          (fk (%alloc-fk! ctx raw-k tc #!void))
          (lock (%nursery-lock n))
          (wake-now? #f))
-    (##thread-control-state-set! #f)
+    (if tc (%set-tc! #f))
     (%spin-lock! lock)
     (if (fx= (%fxatom-load-acq (%nursery-active n)) 0)
         (set! wake-now? #t)
@@ -416,9 +544,9 @@
 ;; Zero-closure multi-arg continuation receiver for fiber-yield
 (define (%yield-cont! raw-k)
   (let* ((ctx (%current-wctx))
-         (tc (##thread-control-state))
+         (tc (%get-tc))
          (fk (%alloc-fk! ctx raw-k tc #!void)))
-    (##thread-control-state-set! #f)
+    (if tc (%set-tc! #f))
     (%sched-push-dq! ctx fk)
     (%sched-switch-next! ctx)))
 
@@ -443,7 +571,7 @@
           #!void))))
 
 ;;;----------------------------------------------------------------------------
-;;; Intrusive Zero-Cons FIFO Wait Queue & Lock-Free Vyukov Bounded MPMC Channel
+;;; Intrusive Zero-Cons FIFO Wait Queue & Lock-Free Bounded MPMC Channel
 ;;; + Linearizable Direct Handoff + Zero-Closure Multi-Arg Park Continuations
 
 (define-type %wait-q
@@ -483,11 +611,11 @@
   (cap          %ch-cap)
   (mask         %ch-mask)        ;; cap-1 when power-of-2, else -1 (exact fxmodulo)
   (buf          %ch-buf)         ;; ring payload slots (GC write-barrier via ##vector-set!)
-  (seq          %ch-seq)         ;; Vyukov per-slot sequence fixnums
+  (seq          %ch-seq)         ;; per-slot sequence fixnums
   (tail         %ch-tail)        ;; 128B-padded producer cursor
   (head         %ch-head)        ;; 128B-padded consumer cursor
-  (rx-waiters   %ch-rx-waiters)  ;; 128B-padded count of parked receivers (wait-lock protected writes)
-  (tx-waiters   %ch-tx-waiters)  ;; 128B-padded count of parked senders (wait-lock protected writes)
+  (rx-waiters   %ch-rx-waiters)  ;; 128B-padded count of parked receivers
+  (tx-waiters   %ch-tx-waiters)  ;; 128B-padded count of parked senders
   (lock         %ch-lock)        ;; slow-path wait-lock (and cap==0 rendezvous lock)
   (recv-waiters %ch-recv-waiters)
   (send-waiters %ch-send-waiters))
@@ -520,7 +648,7 @@
      (%make-wait-q #f #f)
      (%make-wait-q #f #f))))
 
-;; Lock-free Vyukov bounded MPMC ring push (2*pos / 2*pos+1 encoding supports all cap >= 1!)
+;; Lock-free bounded MPMC ring push (2*pos / 2*pos+1 encoding supports all cap >= 1)
 (define (%vyukov-try-push! ch val)
   (let ((tail-box (%ch-tail ch))
         (seq (%ch-seq ch))
@@ -546,7 +674,7 @@
           (else
            (loop)))))))
 
-;; Lock-free Vyukov bounded MPMC ring pop (2*pos+1 / 2*(pos+cap) encoding supports all cap >= 1!)
+;; Lock-free bounded MPMC ring pop (2*pos+1 / 2*(pos+cap) encoding supports all cap >= 1)
 (define (%vyukov-try-pop-or! ch default)
   (let ((head-box (%ch-head ch))
         (seq (%ch-seq ch))
@@ -572,7 +700,7 @@
           (else
            (loop)))))))
 
-;; Slow-path wakeups (called ONLY when Dekker seq_cst counter > 0)
+;; Slow-path wakeups (called only when waiter count > 0)
 (define (%ch-wake-one-receiver! ch)
   (let ((lock (%ch-lock ch))
         (rwq (%ch-recv-waiters ch))
@@ -624,14 +752,14 @@
 ;; Zero-closure multi-arg park receivers for buffered channels (cap > 0)
 (define (%park-send-buf-cont! raw-k ch val)
   (let* ((ctx (%current-wctx))
-         (tc (##thread-control-state))
+         (tc (%get-tc))
          (fk (%alloc-fk! ctx raw-k tc val))
          (lock (%ch-lock ch))
          (rwq (%ch-recv-waiters ch))
          (swq (%ch-send-waiters ch))
          (rxw (%ch-rx-waiters ch))
          (txw (%ch-tx-waiters ch)))
-    (##thread-control-state-set! #f)
+    (if tc (%set-tc! #f))
     (%spin-lock! lock)
     (%fxatom-set-seq! txw (fx+ (##vector-ref txw 0) 1))
     (%seq-cst-fence!)
@@ -662,14 +790,14 @@
 
 (define (%park-recv-buf-cont! raw-k ch)
   (let* ((ctx (%current-wctx))
-         (tc (##thread-control-state))
+         (tc (%get-tc))
          (fk (%alloc-fk! ctx raw-k tc #f))
          (lock (%ch-lock ch))
          (rwq (%ch-recv-waiters ch))
          (swq (%ch-send-waiters ch))
          (rxw (%ch-rx-waiters ch))
          (txw (%ch-tx-waiters ch)))
-    (##thread-control-state-set! #f)
+    (if tc (%set-tc! #f))
     (%spin-lock! lock)
     (%fxatom-set-seq! rxw (fx+ (##vector-ref rxw 0) 1))
     (%seq-cst-fence!)
@@ -700,12 +828,12 @@
 ;; Zero-closure multi-arg park receivers for unbuffered rendezvous (cap == 0)
 (define (%park-send-unbuf-cont! raw-k ch val)
   (let* ((ctx (%current-wctx))
-         (tc (##thread-control-state))
+         (tc (%get-tc))
          (fk (%alloc-fk! ctx raw-k tc val))
          (lock (%ch-lock ch))
          (rwq (%ch-recv-waiters ch))
          (swq (%ch-send-waiters ch)))
-    (##thread-control-state-set! #f)
+    (if tc (%set-tc! #f))
     (%spin-lock! lock)
     (if (not (%wq-empty? rwq))
         (let ((rk (%wq-pop! rwq)))
@@ -721,12 +849,12 @@
 
 (define (%park-recv-unbuf-cont! raw-k ch)
   (let* ((ctx (%current-wctx))
-         (tc (##thread-control-state))
+         (tc (%get-tc))
          (fk (%alloc-fk! ctx raw-k tc #f))
          (lock (%ch-lock ch))
          (rwq (%ch-recv-waiters ch))
          (swq (%ch-send-waiters ch)))
-    (##thread-control-state-set! #f)
+    (if tc (%set-tc! #f))
     (%spin-lock! lock)
     (if (not (%wq-empty? swq))
         (let* ((sk (%wq-pop! swq))
@@ -743,8 +871,7 @@
 
 (define (%fiber-send-buf! ch val)
   (let ((rxw (%ch-rx-waiters ch)))
-    ;; Fast path A (Ping-Pong): Linearizable direct handoff ONLY when
-    ;; rx-waiters > 0 AND load_acq(tail) == load_acq(head) under wait-lock!
+    ;; Fast path A: Linearizable direct handoff when rx-waiters > 0 AND tail == head
     (if (fx> (%fxatom-load-rlx rxw) 0)
         (let ((lock (%ch-lock ch))
               (rwq (%ch-recv-waiters ch))
@@ -767,7 +894,7 @@
         (%fiber-send-buf-ring! ch val rxw))))
 
 (define (%fiber-send-buf-ring! ch val rxw)
-  ;; Fast path B (Streaming): Lock-Free Vyukov Ring Push (0 spinlocks!)
+  ;; Fast path B: Lock-free bounded MPMC ring push (zero spinlocks)
   (if (%vyukov-try-push! ch val)
       (begin
         (if (fx> (%fxatom-load-seq rxw) 0)
@@ -800,7 +927,7 @@
                     (##continuation-capture %park-send-unbuf-cont! ch val))))))))
 
 (define (%fiber-recv-buf! ch)
-  ;; Fast path (Streaming): Lock-Free Vyukov Ring Pop (0 spinlocks!)
+  ;; Fast path: Lock-free bounded MPMC ring pop (zero spinlocks)
   (let ((item (%vyukov-try-pop-or! ch %CH-EMPTY)))
     (if (not (eq? item %CH-EMPTY))
         (begin
@@ -835,31 +962,39 @@
                     (##continuation-capture %park-recv-unbuf-cont! ch))))))))
 
 ;;;----------------------------------------------------------------------------
-;;; Multi-Core M:N Work-Stealing Direct-Switch Trampoline (Recycled %fiber-k)
+;;; Multi-Core M:N Work-Stealing Direct-Switch Trampoline
+;;; (Sticky Victim Locality + Inline Chase-Lev Deque + Recycled %fiber-k)
 
-(define (%worker-try-steal wid num-workers deques)
+(define (%worker-try-steal ctx num-workers deques)
   (if (fx<= num-workers 1)
       #f
-      (let loop ((offset 1))
-        (if (fx= offset num-workers)
-            #f
-            (let* ((victim (let ((v (fx+ wid offset)))
-                             (if (fx>= v num-workers) (fx- v num-workers) v)))
-                   (task (ws-deque-try-steal-or! (##vector-ref deques victim) #f)))
-              (if task
-                  task
-                  (loop (fx+ offset 1))))))))
+      (let ((wid (%wctx-wid ctx))
+            (start (%wctx-steal-cursor ctx)))
+        (let loop ((tried 1) (victim start))
+          (if (fx>= tried num-workers)
+              #f
+              (let ((v (if (fx= victim wid)
+                           (let ((n (fx+ victim 1)))
+                             (if (fx>= n num-workers) 0 n))
+                           victim)))
+                (let ((task (%dq-steal! (##vector-ref deques v))))
+                  (if task
+                      (begin
+                        (%wctx-steal-cursor-set! ctx v)
+                        task)
+                      (let ((nxt (fx+ v 1)))
+                        (loop (fx+ tried 1)
+                              (if (fx>= nxt num-workers) 0 nxt)))))))))))
 
 (define (%worker-poll-task ctx)
   (let* ((sched (%wctx-sched ctx))
          (ticks (%wctx-ticks ctx))
          (local-dq (%wctx-dq ctx))
-         (global-q (%sched-global-q sched))
          (task #f))
     (%wctx-ticks-set! ctx (fx+ ticks 1))
-    ;; 0. Every 32 ticks poll global-q for fairness
+    ;; 0. Every 32 ticks poll global-q for fairness (skipped in 1 load if empty!)
     (if (fx= (fxand ticks 31) 31)
-        (let ((t (lf-queue-try-dequeue-or! global-q #f)))
+        (let ((t (%sched-try-dequeue-global! sched)))
           (if t
               (begin
                 (%wctx-lifo-streak-set! ctx 0)
@@ -872,9 +1007,9 @@
           (set! task (%wctx-lifo ctx))
           (%wctx-lifo-set! ctx #f)
           (%wctx-lifo-streak-set! ctx (fx+ (%wctx-lifo-streak ctx) 1))))
-    ;; 2. Local Chase-Lev deque (zero-closure sentinel pop)
+    ;; 2. Local inline Chase-Lev deque (zero cross-module calls)
     (if (not task)
-        (let ((t (ws-deque-try-pop-or! local-dq #f)))
+        (let ((t (%dq-pop! local-dq)))
           (if t
               (begin
                 (%wctx-lifo-streak-set! ctx 0)
@@ -885,16 +1020,16 @@
           (set! task (%wctx-lifo ctx))
           (%wctx-lifo-set! ctx #f)
           (%wctx-lifo-streak-set! ctx 0)))
-    ;; 4. Global lock-free wakeup/overflow queue
+    ;; 4. Global lock-free wakeup/overflow queue (fast-skipped when pending == 0)
     (if (not task)
-        (let ((t (lf-queue-try-dequeue-or! global-q #f)))
+        (let ((t (%sched-try-dequeue-global! sched)))
           (if t
               (begin
                 (%wctx-lifo-streak-set! ctx 0)
                 (set! task t)))))
-    ;; 5. Work-steal FIFO from peer worker deques
+    ;; 5. Sticky victim-locality FIFO work-steal from peer inline deques
     (if (not task)
-        (let ((stolen (%worker-try-steal (%wctx-wid ctx)
+        (let ((stolen (%worker-try-steal ctx
                                          (%sched-num-workers sched)
                                          (%sched-deques sched))))
           (if stolen
@@ -903,10 +1038,8 @@
                 (set! task stolen)))))
     task))
 
-;; Direct symmetric coroutine handoff with %fiber-k freelist recycling!
-;; Uses no-winding continuation switches so fiber suspension/resumption never
-;; triggers spurious dynamic-wind before/after thrashing (only genuine exits
-;; or exception aborts wind/unwind).
+;; Direct symmetric coroutine handoff with %fiber-k freelist recycling and
+;; lazy #f control-state restore (carrier control-state is invariantly #f here).
 (define (%sched-switch-next! ctx)
   (let ((ticks (%wctx-ticks ctx))
         (lifo (%wctx-lifo ctx))
@@ -922,7 +1055,7 @@
           (%wctx-lifo-set! ctx #f)
           (%wctx-lifo-streak-set! ctx (fx+ streak 1))
           (%free-fk! ctx lifo)
-          (##thread-control-state-set! tc)
+          (if tc (%set-tc! tc))
           (##continuation-return-no-winding raw-k val))
         (##continuation-graft-no-winding (%wctx-sched-k ctx) %worker-dispatch ctx 0))))
 
@@ -935,25 +1068,23 @@
                  (tc (%fk-tc task))
                  (val (%fk-val task)))
              (%free-fk! ctx task)
-             (##thread-control-state-set! tc)
+             (if tc (%set-tc! tc))
              (##continuation-return-no-winding raw-k val)))
           ((pair? task)
-           ;; ZERO-CAPTURE, ZERO-CLOSURE NURSERY CHILD: (thunk . nursery)
+           ;; Zero-capture, zero-closure nursery child: (thunk . nursery)
            (let ((fn (car task))
                  (n (cdr task)))
-             (##thread-control-state-set! #f)
              (##with-exception-handler (%nursery-err-handler n) fn)
              (%nursery-child-done! n)
              (let ((cur-ctx (%current-wctx)))
-               (##thread-control-state-set! #f)
+               (if (%get-tc) (%set-tc! #f))
                (%fxatom-inc-owner-rel! (%wctx-completed cur-ctx))
                (%sched-switch-next! cur-ctx))))
           (else
            ;; Detached fiber thunk
-           (##thread-control-state-set! #f)
            (task)
            (let ((cur-ctx (%current-wctx)))
-             (##thread-control-state-set! #f)
+             (if (%get-tc) (%set-tc! #f))
              (%fxatom-inc-owner-rel! (%wctx-completed cur-ctx))
              (%sched-switch-next! cur-ctx))))
         (if (%sched-quiescent? (%wctx-sched ctx))
@@ -964,13 +1095,19 @@
                   (%worker-dispatch ctx (fx+ idle-spins 1))))))))
 
 (define (%worker-loop sched wid)
-  (let* ((deques (%sched-deques sched))
+  (let* ((w (%sched-num-workers sched))
+         (deques (%sched-deques sched))
          (local-dq (##vector-ref deques wid))
          (spawned (##vector-ref (%sched-spawned-vec sched) wid))
          (completed (##vector-ref (%sched-completed-vec sched) wid))
-         (ctx (%make-worker-ctx sched wid local-dq spawned completed #f 0 0 #f #f 0)))
-    (thread-specific-set! (current-thread) ctx)
-    ;; Capture the carrier's SINGLE reusable trampoline continuation ONCE!
+         (init-victim (if (fx> w 1)
+                          (let ((n (fx+ wid 1))) (if (fx>= n w) 0 n))
+                          0))
+         (ctx (%make-worker-ctx sched wid local-dq spawned completed
+                                #f 0 0 #f #f 0 init-victim)))
+    (macro-thread-specific-set! (##current-thread) ctx)
+    (if (%get-tc) (%set-tc! #f))
+    ;; Capture the carrier's single reusable trampoline continuation once
     (##continuation-capture
      (lambda (base-k)
        (%wctx-sched-k-set! ctx base-k)
@@ -983,7 +1120,7 @@
          (deques (let ((v (make-vector w #f)))
                    (let loop ((i 0))
                      (if (fx< i w)
-                         (begin (##vector-set! v i (make-ws-deque 512))
+                         (begin (##vector-set! v i (%make-local-dq))
                                 (loop (fx+ i 1)))))
                    v))
          (spawned-vec (let ((v (make-vector w #f)))
@@ -999,11 +1136,13 @@
                                        (loop (fx+ i 1)))))
                           v))
          (global-q (make-lf-queue))
+         (global-pending (%make-padded-fxatom 0))
          (root-done (%make-fxatom 0))
          (root-box (cons #f #f))
-         (sched (%make-scheduler w deques global-q spawned-vec completed-vec root-done root-box)))
-    (lf-queue-enqueue!
-     global-q
+         (sched (%make-scheduler w deques global-q global-pending
+                                 spawned-vec completed-vec root-done root-box)))
+    (%sched-enqueue-global!
+     sched
      (lambda ()
        (with-exception-catcher
         (lambda (e)
