@@ -24,6 +24,24 @@
 
 #define ___GC_MAJOR_REMOTE_BATCH      32
 #define ___GC_MAJOR_MAX_STATIC_WORKERS 64
+#define ___GC_MAJOR_PREFETCH_CAP       64u
+#define ___GC_MAJOR_PREFETCH_MASK      (___GC_MAJOR_PREFETCH_CAP - 1u)
+#define ___GC_MAJOR_PREFETCH_MIN       24u
+#define ___GC_MAJOR_MARK_STACK_MAX_CAP 4194304
+
+typedef struct major_prefetch_entry_struct
+  {
+    ___msection *sec;
+    ___WORD *hdr;
+    ___SIZE_TS off;
+  } major_prefetch_entry;
+
+typedef struct major_prefetch_ring_struct
+  {
+    major_prefetch_entry entries[___GC_MAJOR_PREFETCH_CAP];
+    unsigned int head;
+    unsigned int tail;
+  } major_prefetch_ring;
 
 typedef struct major_remote_inbox_struct
   {
@@ -40,6 +58,7 @@ typedef struct major_local_queue_struct
     unsigned int *count;
     unsigned int cap;
     ___msection *last_sec;
+    major_prefetch_ring *ring;
     int owner_w_id;
     int owner_w_cnt;
     major_remote_inbox *inboxes;
@@ -290,6 +309,13 @@ ___HIDDEN void major_mark_stack_push_batch_ex
         ___SCMOBJ *nbuf;
         while (ncap < need)
           ncap *= 2;
+        if (ncap > ___GC_MAJOR_MARK_STACK_MAX_CAP)
+          {
+            /* Bounded mark queue cap (Amp-2): trigger complete Remark overflow scan. */
+            ___WORD_STORE_RELEASE(&vm->mem.satb_overflow_, 1);
+            major_mark_unlock(vm);
+            return;
+          }
         nbuf = ___CAST(___SCMOBJ*, ___ALLOC_MEM(ncap * sizeof(___SCMOBJ)));
         if (nbuf == 0)
           {
@@ -333,6 +359,14 @@ static inline void major_mark_push_q
           major_mark_stack_push_batch_ex(vm, &q->buf[half], cnt - half, allow_alloc);
           cnt = half;
         }
+      else if (allow_alloc && q->inboxes == 0 && cnt >= 32 &&
+               ___WORD_LOAD_RELAXED(&vm->mem.major_mark_stack_count_) == 0)
+        {
+          /* Fast work publication when global stack is empty so peer cores start stealing immediately. */
+          unsigned int keep = 16;
+          major_mark_stack_push_batch_ex(vm, &q->buf[keep], cnt - keep, allow_alloc);
+          cnt = keep;
+        }
       q->buf[cnt++] = obj;
       *q->count = cnt;
       return;
@@ -369,20 +403,20 @@ ___HIDDEN void major_register_weak_table
   major_mark_unlock(vm);
 }
 
-___HIDDEN void major_shade_mature_movable_q
+static inline void major_shade_mature_movable_core
    (___virtual_machine_state vm,
     major_local_queue *q,
     ___msection *sec,
     ___WORD *header,
     ___WORD head,
-    int allow_alloc)
+    int allow_alloc,
+    ___SCMOBJ *scan_now_out)
 {
   ___WORD *half_base = sec->base + sec->active_offset;
   ___SIZE_TS off;
   ___VOLATILE ___WORD *mbits;
   ___SIZE_TS w;
   ___UWORD bit, prev;
-  ___SIZE_TS words;
   int subtype;
 
   if (sec->major_mark_epoch != vm->mem.major_epoch_)
@@ -426,14 +460,105 @@ ___HIDDEN void major_shade_mature_movable_q
         ___WORD_STORE_RELEASE(&sec->major_live_words, 1);
     }
 
-  (void)words;
   subtype = ___HD_SUBTYPE(head);
 
   /* Leaf objects are immediately BLACK without mark-stack traffic. */
   if (!still_subtype_has_pointers(subtype))
     return;
 
-  major_mark_push_q(vm, q, major_make_scmobj_from_body(header + 1, subtype), allow_alloc);
+  {
+    ___SCMOBJ obj = major_make_scmobj_from_body(header + 1, subtype);
+    if (scan_now_out != 0)
+      *scan_now_out = obj;
+    else
+      major_mark_push_q(vm, q, obj, allow_alloc);
+  }
+}
+
+___HIDDEN void major_shade_mature_movable_q
+   (___virtual_machine_state vm,
+    major_local_queue *q,
+    ___msection *sec,
+    ___WORD *header,
+    ___WORD head,
+    int allow_alloc)
+{
+  major_shade_mature_movable_core(vm, q, sec, header, head, allow_alloc, 0);
+}
+
+static inline void major_prefetch_ring_process_one
+   (___virtual_machine_state vm,
+    major_local_queue *q,
+    major_prefetch_entry e,
+    int allow_alloc,
+    ___SCMOBJ *scan_now_out)
+{
+  ___msection *sec = e.sec;
+  ___WORD *header = e.hdr;
+  ___SIZE_TS off = e.off;
+  ___VOLATILE ___WORD *mbits = section_major_mark_bits(sec);
+  ___SIZE_TS w = off / ___WORD_WIDTH;
+  ___UWORD bit = ___CAST(___UWORD, 1) << (off & (___WORD_WIDTH - 1));
+  ___WORD head;
+  int subtype;
+
+  if ((___CAST(___UWORD, ___WORD_LOAD_RELAXED(&mbits[w])) & bit) != 0)
+    return;
+
+  head = ___WORD_LOAD_RELAXED(header);
+  if (___HD_TYP(head) != ___MOVABLE0)
+    return;
+
+  if (q != 0 && q->owner_w_cnt > 1 && q->inboxes != 0)
+    {
+      int owner = ___CAST(int, ___CAST(unsigned int, sec->index) %
+                               ___CAST(unsigned int, q->owner_w_cnt));
+      if (owner != q->owner_w_id)
+        {
+          subtype = ___HD_SUBTYPE(head);
+          major_remote_route(vm, q, owner, major_make_scmobj_from_body(header + 1, subtype));
+          return;
+        }
+      mbits[w] = ___CAST(___WORD, ___CAST(___UWORD, mbits[w]) | bit);
+      if (sec->major_live_words == 0)
+        sec->major_live_words = 1;
+    }
+  else
+    {
+      ___UWORD prev = ___CAST(___UWORD, ___WORD_FETCH_OR_RELEASE(&mbits[w], ___CAST(___WORD, bit)));
+      if ((prev & bit) != 0)
+        return;
+      if (___WORD_LOAD_RELAXED(&sec->major_live_words) == 0)
+        ___WORD_STORE_RELEASE(&sec->major_live_words, 1);
+    }
+
+  subtype = ___HD_SUBTYPE(head);
+  if (!still_subtype_has_pointers(subtype))
+    return;
+
+  {
+    ___SCMOBJ obj = major_make_scmobj_from_body(header + 1, subtype);
+    if (scan_now_out != 0)
+      *scan_now_out = obj;
+    else
+      major_mark_push_q(vm, q, obj, allow_alloc);
+  }
+}
+
+static inline void major_prefetch_ring_drain_to_queue
+   (___virtual_machine_state vm,
+    major_local_queue *q,
+    int allow_alloc)
+{
+  major_prefetch_ring *ring = (q != 0) ? q->ring : 0;
+  if (ring == 0)
+    return;
+  while (ring->head != ring->tail)
+    {
+      major_prefetch_entry e = ring->entries[ring->head & ___GC_MAJOR_PREFETCH_MASK];
+      ring->head++;
+      major_prefetch_ring_process_one(vm, q, e, allow_alloc, 0);
+    }
 }
 
 ___HIDDEN void major_shade_mature_movable
@@ -506,11 +631,54 @@ ___HIDDEN void major_shade_obj_q
   if (sec != 0)
     {
       ___SIZE_TS off = ___CAST(___SIZE_TS, hdr - (sec->base + sec->active_offset));
-      if (off < sec->major_snapshot_words)
+      if (off >= 0 && off < sec->major_snapshot_words)
         {
-          ___WORD head = ___WORD_LOAD_RELAXED(hdr);
-          if (___HD_TYP(head) == ___MOVABLE0)
-            major_shade_mature_movable_q(vm, q, sec, hdr, head, allow_alloc);
+          ___VOLATILE ___WORD *mbits;
+          ___SIZE_TS w;
+          ___UWORD bit;
+
+          if (sec->major_mark_epoch != vm->mem.major_epoch_)
+            return;
+
+          /* Bitmap-first filter (L2-hot ~8 KiB/section): reject 67-90% of duplicate
+           * pointers WITHOUT touching cold DRAM *hdr or polluting the prefetch ring! */
+          mbits = section_major_mark_bits(sec);
+          w = off / ___WORD_WIDTH;
+          bit = ___CAST(___UWORD, 1) << (off & (___WORD_WIDTH - 1));
+          if ((___CAST(___UWORD, ___WORD_LOAD_RELAXED(&mbits[w])) & bit) != 0)
+            return;
+
+          if (q != 0 && q->ring != 0 && allow_alloc != 0)
+            {
+              major_prefetch_ring *ring = q->ring;
+              unsigned int rlen = ring->tail - ring->head;
+              if (rlen >= ___GC_MAJOR_PREFETCH_CAP ||
+                  (q->inboxes == 0 && rlen >= ___GC_MAJOR_PREFETCH_MIN &&
+                   ___WORD_LOAD_RELAXED(&vm->mem.major_mark_stack_count_) == 0))
+                {
+                  major_prefetch_entry old = ring->entries[ring->head & ___GC_MAJOR_PREFETCH_MASK];
+                  ring->head++;
+                  major_prefetch_ring_process_one(vm, q, old, allow_alloc, 0);
+                }
+#if defined(__GNUC__) || defined(__clang__)
+              /* Read-only prefetch of cold DRAM object header + first 56B payload.
+               * Never issue write-intent (RFO) prefetch on shared mark bitmaps. */
+              __builtin_prefetch(hdr, 0, 1);
+#endif
+              {
+                unsigned int slot = ring->tail & ___GC_MAJOR_PREFETCH_MASK;
+                ring->entries[slot].sec = sec;
+                ring->entries[slot].hdr = hdr;
+                ring->entries[slot].off = off;
+                ring->tail++;
+              }
+              return;
+            }
+          {
+            ___WORD head = ___WORD_LOAD_RELAXED(hdr);
+            if (___HD_TYP(head) == ___MOVABLE0)
+              major_shade_mature_movable_q(vm, q, sec, hdr, head, allow_alloc);
+          }
         }
       return;
     }
@@ -764,12 +932,20 @@ ___HIDDEN ___SIZE_TS major_scan_object_q
 
     case ___sPROCEDURE:
       for (i = ___CLO_FREEVARS; i < words; i++)
-        major_shade_obj_q(vm, q, ___WORD_LOAD_RELAXED(&body[i]), 1);
+        {
+          ___SCMOBJ v = ___WORD_LOAD_RELAXED(&body[i]);
+          if (___MEM_ALLOCATED(v))
+            major_shade_obj_q(vm, q, v, 1);
+        }
       break;
 
     default:
       for (i = 0; i < words; i++)
-        major_shade_obj_q(vm, q, ___WORD_LOAD_RELAXED(&body[i]), 1);
+        {
+          ___SCMOBJ v = ___WORD_LOAD_RELAXED(&body[i]);
+          if (___MEM_ALLOCATED(v))
+            major_shade_obj_q(vm, q, v, 1);
+        }
       break;
     }
 
@@ -791,6 +967,7 @@ ___SIZE_TS budget_words;)
   ___virtual_machine_state vm;
   ___SIZE_TS scanned = 0;
   major_local_queue lq = {0};
+  major_prefetch_ring ring;
   unsigned int i;
 
   if (___ps == 0 || budget_words <= 0)
@@ -802,11 +979,14 @@ ___SIZE_TS budget_words;)
   if (___ps->mem.major_mark_local_buf_ == 0)
     return 0;
 
+  ring.head = 0u;
+  ring.tail = 0u;
   lq.buf = ___ps->mem.major_mark_local_buf_;
   lq.count = &___ps->mem.major_mark_local_count_;
   lq.cap = ___GC_MAJOR_LOCAL_MARK_CAP;
+  lq.ring = &ring;
 
-  /* Drain this processor's local SATB buffer directly into local mark buffer. */
+  /* Drain this processor's local SATB buffer directly into prefetch ring / local buffer. */
   if (___ps->mem.satb_buf_ != 0 && ___ps->mem.satb_count_ > 0)
     {
       unsigned int n = ___ps->mem.satb_count_;
@@ -815,9 +995,9 @@ ___SIZE_TS budget_words;)
       ___ps->mem.satb_count_ = 0;
       for (i = 0; i < n; i++)
         major_shade_obj_q(vm, &lq, local_copy[i], 1);
-      major_mark_lock(vm);
-      vm->mem.concurrent_major_satb_logged_ += ___CAST(___F64, n);
-      major_mark_unlock(vm);
+      ___WORD_STORE_RELEASE(
+        &___ps->mem.major_satb_logged_local_,
+        ___ps->mem.major_satb_logged_local_ + ___CAST(___WORD, n));
     }
 
   while (scanned < budget_words)
@@ -825,37 +1005,75 @@ ___SIZE_TS budget_words;)
       if (___WORD_LOAD_ACQUIRE(&vm->mem.major_phase_) != ___GC_MAJOR_MARKING)
         break;
 
-      if (*lq.count == 0)
+      if ((ring.tail - ring.head) < ___GC_MAJOR_PREFETCH_MIN && *lq.count > 0)
         {
-          ___WORD avail;
-          unsigned int take = 0;
-          if (!major_mark_trylock(vm))
+          ___SCMOBJ obj = lq.buf[--(*lq.count)];
+          ___SIZE_TS w;
+#if defined(__GNUC__) || defined(__clang__)
+          if (*lq.count >= 4)
+            __builtin_prefetch(___BODY0(lq.buf[*lq.count - 4]) - 1, 0, 1);
+#endif
+          w = major_scan_object_q(vm, &lq, obj, 0);
+          if (w < 0)
             break;
-          avail = ___WORD_LOAD_RELAXED(&vm->mem.major_mark_stack_count_);
-          if (avail > 0)
-            {
-              take = (avail > 64) ? 64u : ___CAST(unsigned int, avail);
-              avail -= ___CAST(___WORD, take);
-              memcpy(lq.buf, &vm->mem.major_mark_stack_[avail], take * sizeof(___SCMOBJ));
-              ___WORD_STORE_RELEASE(&vm->mem.major_mark_stack_count_, avail);
-              *lq.count = take;
-            }
-          major_mark_unlock(vm);
-          if (take == 0)
-            break;
+          scanned += w;
+          continue;
         }
 
+      if (ring.tail != ring.head)
+        {
+          major_prefetch_entry e = ring.entries[ring.head & ___GC_MAJOR_PREFETCH_MASK];
+          ___SCMOBJ scan_obj = 0;
+          ring.head++;
+          major_prefetch_ring_process_one(vm, &lq, e, 1, &scan_obj);
+          if (scan_obj != 0)
+            {
+              ___SIZE_TS w = major_scan_object_q(vm, &lq, scan_obj, 0);
+              if (w < 0)
+                break;
+              scanned += w;
+            }
+          continue;
+        }
+
+      /* Local buffer and prefetch ring both empty: steal batch from global mark stack. */
       {
-        ___SCMOBJ obj = lq.buf[--(*lq.count)];
-        ___SIZE_TS w = major_scan_object_q(vm, &lq, obj, 0);
-        if (w < 0)
+        ___WORD avail;
+        unsigned int take = 0;
+        int retries = 32;
+        if (___WORD_LOAD_ACQUIRE(&vm->mem.major_mark_stack_count_) <= 0)
           break;
-        scanned += w;
+        while (!major_mark_trylock(vm))
+          {
+            if (--retries <= 0 ||
+                ___WORD_LOAD_ACQUIRE(&vm->mem.major_mark_stack_count_) <= 0 ||
+                ___WORD_LOAD_ACQUIRE(&vm->mem.major_phase_) != ___GC_MAJOR_MARKING)
+              goto done_slice_loop;
+            ___CPU_RELAX();
+          }
+        avail = ___WORD_LOAD_RELAXED(&vm->mem.major_mark_stack_count_);
+        if (avail > 0)
+          {
+            take = (avail > 64) ? 64u : ___CAST(unsigned int, avail);
+            avail -= ___CAST(___WORD, take);
+            memcpy(lq.buf, &vm->mem.major_mark_stack_[avail], take * sizeof(___SCMOBJ));
+            ___WORD_STORE_RELEASE(&vm->mem.major_mark_stack_count_, avail);
+            *lq.count = take;
+          }
+        major_mark_unlock(vm);
+        if (take == 0)
+          break;
       }
     }
 
-  /* Share excess local work back to global stack so other/idle cores can steal. */
+ done_slice_loop:
+  /* Conserve 100% of remaining prefetched entries into local mark buffer before exit. */
+  major_prefetch_ring_drain_to_queue(vm, &lq, 1);
+
+  /* Share excess local work back to global stack so stealing cores never starve
+   * while avoiding unnecessary spinlock traffic when global stack is already deep. */
   if (*lq.count > 32 &&
+      ___WORD_LOAD_ACQUIRE(&vm->mem.major_mark_stack_count_) < 256 &&
       ___WORD_LOAD_ACQUIRE(&vm->mem.major_phase_) == ___GC_MAJOR_MARKING)
     {
       unsigned int spill = *lq.count - 32;
@@ -865,10 +1083,12 @@ ___SIZE_TS budget_words;)
 
   if (scanned > 0)
     {
-      major_mark_lock(vm);
-      vm->mem.concurrent_major_mark_slices_ += 1.0;
-      vm->mem.concurrent_major_marked_words_ += ___CAST(___F64, scanned);
-      major_mark_unlock(vm);
+      ___WORD_STORE_RELEASE(
+        &___ps->mem.major_mark_slices_local_,
+        ___ps->mem.major_mark_slices_local_ + 1);
+      ___WORD_STORE_RELEASE(
+        &___ps->mem.major_marked_words_local_,
+        ___ps->mem.major_marked_words_local_ + ___CAST(___WORD, scanned));
     }
   return scanned;
 }
@@ -899,12 +1119,53 @@ ___processor_state ___ps;)
   w = ___gc_major_mark_slice(___ps, 32768);
   if (w > 0)
     {
-      major_mark_lock(vm);
-      vm->mem.concurrent_major_idle_slices_ += 1.0;
-      major_mark_unlock(vm);
+      ___WORD_STORE_RELEASE(
+        &___ps->mem.major_idle_slices_local_,
+        ___ps->mem.major_idle_slices_local_ + 1);
       return 1;
     }
   return 0;
+}
+
+/* Amp-2 Cut 2B: Opportunistic STW entry spin-wait concurrent marking slice.
+ * Invoked strictly during STW ENTERING (before upward barrier arrival publish,
+ * never during FLIPPING/REMARK/SWEEPING). Strictly bounded to 2048 words (~3us)
+ * and exits in 1 relaxed load when major marking is inactive. */
+int ___gc_major_mark_stw_spin_slice
+   ___P((___processor_state ___ps),
+        (___ps)
+___processor_state ___ps;)
+{
+#ifdef ___USE_HANDLES
+  (void)___ps;
+  return 0;
+#else
+  ___virtual_machine_state vm;
+  ___SIZE_TS w;
+
+  if (___ps == 0 || ___ps->primlock_depth != 0)
+    return 0;
+  if (___EXPECT_TRUE(___WORD_LOAD_RELAXED(&___ps->mem.satb_active_) == 0))
+    return 0;
+
+  vm = ___VMSTATE_FROM_PSTATE(___ps);
+  if (vm == 0 || ___WORD_LOAD_ACQUIRE(&vm->mem.major_phase_) != ___GC_MAJOR_MARKING)
+    return 0;
+  if (___ps->mem.major_mark_local_count_ == 0 &&
+      ___ps->mem.satb_count_ == 0 &&
+      ___WORD_LOAD_ACQUIRE(&vm->mem.major_mark_stack_count_) == 0)
+    return 0;
+
+  w = ___gc_major_mark_slice(___ps, 1024);
+  if (w > 0)
+    {
+      ___WORD_STORE_RELEASE(
+        &___ps->mem.major_spin_slices_local_,
+        ___ps->mem.major_spin_slices_local_ + 1);
+      return 1;
+    }
+  return 0;
+#endif
 }
 
 /* Heapsort helper for mature still base address snapshot (zero libc qsort
@@ -1170,33 +1431,54 @@ ___HIDDEN void major_minor_gc_drain_satb(___virtual_machine_state vm)
     }
 }
 
-/* Single-threaded STW mark-stack drain (used after overflow recovery & wills). */
+/* Single-threaded STW mark-stack drain (used after overflow recovery & wills)
+ * with Amp-2 256-entry software prefetch ring. */
 ___HIDDEN void major_drain_mark_stack_stw(___virtual_machine_state vm)
 {
   ___SCMOBJ lbuf[___GC_MAJOR_LOCAL_MARK_CAP];
   unsigned int lcnt = 0;
+  major_prefetch_ring ring;
   major_local_queue lq = {0};
   ___SIZE_TS scanned = 0;
 
+  ring.head = 0u;
+  ring.tail = 0u;
   lq.buf = lbuf;
   lq.count = &lcnt;
   lq.cap = ___GC_MAJOR_LOCAL_MARK_CAP;
+  lq.ring = &ring;
 
   for (;;)
     {
-      while (lcnt > 0)
+      while (lcnt > 0 || ring.tail != ring.head)
         {
-          ___SCMOBJ obj = lbuf[--lcnt];
-          ___SIZE_TS w = major_scan_object_q(vm, &lq, obj, 1);
-          if (w > 0)
-            scanned += w;
+          if ((ring.tail - ring.head) < ___GC_MAJOR_PREFETCH_MIN && lcnt > 0)
+            {
+              ___SCMOBJ obj = lbuf[--lcnt];
+              ___SIZE_TS w = major_scan_object_q(vm, &lq, obj, 1);
+              if (w > 0)
+                scanned += w;
+            }
+          else
+            {
+              major_prefetch_entry e = ring.entries[ring.head & ___GC_MAJOR_PREFETCH_MASK];
+              ___SCMOBJ scan_obj = 0;
+              ring.head++;
+              major_prefetch_ring_process_one(vm, &lq, e, 1, &scan_obj);
+              if (scan_obj != 0)
+                {
+                  ___SIZE_TS w = major_scan_object_q(vm, &lq, scan_obj, 1);
+                  if (w > 0)
+                    scanned += w;
+                }
+            }
         }
       {
         ___WORD avail = ___WORD_LOAD_RELAXED(&vm->mem.major_mark_stack_count_);
         if (avail <= 0)
           break;
         {
-          unsigned int take = (avail > 64) ? 64u : ___CAST(unsigned int, avail);
+          unsigned int take = (avail > 128) ? 128u : ___CAST(unsigned int, avail);
           avail -= ___CAST(___WORD, take);
           memcpy(lbuf, &vm->mem.major_mark_stack_[avail], take * sizeof(___SCMOBJ));
           ___WORD_STORE_RELEASE(&vm->mem.major_mark_stack_count_, avail);
@@ -1378,14 +1660,18 @@ ___HIDDEN void major_remark_phase_a_parallel
   ___SCMOBJ out_buf[___GC_MAJOR_MAX_STATIC_WORKERS][___GC_MAJOR_REMOTE_BATCH];
   unsigned int out_cnt[___GC_MAJOR_MAX_STATIC_WORKERS];
   major_remote_inbox *inboxes = ___CAST(major_remote_inbox*, g->major_remote_inboxes);
+  major_prefetch_ring ring;
   major_local_queue lq = {0};
   ___SIZE_TS scanned = 0;
   ___SIZE_TS satb_n = 0;
   int use_chez = (w_cnt > 1 && w_cnt <= ___GC_MAJOR_MAX_STATIC_WORKERS && inboxes != 0);
 
+  ring.head = 0u;
+  ring.tail = 0u;
   lq.buf = lbuf;
   lq.count = &lcnt;
   lq.cap = ___GC_MAJOR_LOCAL_MARK_CAP;
+  lq.ring = &ring;
   if (use_chez)
     {
       memset(out_cnt, 0, ___CAST(___SIZE_TS, w_cnt) * sizeof(unsigned int));
@@ -1420,12 +1706,33 @@ ___HIDDEN void major_remark_phase_a_parallel
 
   for (;;)
     {
-      while (lcnt > 0)
+      while (lcnt > 0 || ring.tail != ring.head)
         {
-          ___SCMOBJ obj = lbuf[--lcnt];
-          ___SIZE_TS w = major_scan_object_q(vm, &lq, obj, 1);
-          if (w > 0)
-            scanned += w;
+          if ((ring.tail - ring.head) < ___GC_MAJOR_PREFETCH_MIN && lcnt > 0)
+            {
+              ___SCMOBJ obj = lbuf[--lcnt];
+              ___SIZE_TS w;
+#if defined(__GNUC__) || defined(__clang__)
+              if (lcnt >= 4)
+                __builtin_prefetch(___BODY0(lbuf[lcnt - 4]) - 1, 0, 1);
+#endif
+              w = major_scan_object_q(vm, &lq, obj, 1);
+              if (w > 0)
+                scanned += w;
+            }
+          else
+            {
+              major_prefetch_entry e = ring.entries[ring.head & ___GC_MAJOR_PREFETCH_MASK];
+              ___SCMOBJ scan_obj = 0;
+              ring.head++;
+              major_prefetch_ring_process_one(vm, &lq, e, 1, &scan_obj);
+              if (scan_obj != 0)
+                {
+                  ___SIZE_TS w = major_scan_object_q(vm, &lq, scan_obj, 1);
+                  if (w > 0)
+                    scanned += w;
+                }
+            }
         }
 
       /* Chez remote flush & inbox drain (lock-free of global major_mark_lock_). */
@@ -1467,7 +1774,7 @@ ___HIDDEN void major_remark_phase_a_parallel
         ___WORD avail = ___WORD_LOAD_RELAXED(&vm->mem.major_mark_stack_count_);
         if (avail > 0)
           {
-            unsigned int take = (avail > 32) ? 32u : ___CAST(unsigned int, avail);
+            unsigned int take = (avail > 64) ? 64u : ___CAST(unsigned int, avail);
             avail -= ___CAST(___WORD, take);
             memcpy(lbuf, &vm->mem.major_mark_stack_[avail], take * sizeof(___SCMOBJ));
             ___WORD_STORE_RELEASE(&vm->mem.major_mark_stack_count_, avail);
@@ -1517,7 +1824,7 @@ ___HIDDEN void major_remark_phase_a_parallel
                 ___WORD avail = ___WORD_LOAD_RELAXED(&vm->mem.major_mark_stack_count_);
                 if (avail > 0)
                   {
-                    unsigned int take = (avail > 32) ? 32u : ___CAST(unsigned int, avail);
+                    unsigned int take = (avail > 64) ? 64u : ___CAST(unsigned int, avail);
                     avail -= ___CAST(___WORD, take);
                     memcpy(lbuf, &vm->mem.major_mark_stack_[avail], take * sizeof(___SCMOBJ));
                     ___WORD_STORE_RELEASE(&vm->mem.major_mark_stack_count_, avail);
@@ -1532,6 +1839,7 @@ ___HIDDEN void major_remark_phase_a_parallel
           ___CPU_RELAX();
         }
       if (lcnt == 0 &&
+          ring.tail == ring.head &&
           ___WORD_LOAD_ACQUIRE(&vm->mem.major_remark_working_) == 0 &&
           (!use_chez || ___WORD_LOAD_ACQUIRE(&g->major_remote_pending) == 0))
         break;
@@ -1945,6 +2253,47 @@ ___HIDDEN void major_remark_phase_c_parallel
     }
 }
 
+/* Fold per-processor lock-free major marking counters into VM totals during STW. */
+___HIDDEN void major_fold_local_stats_stw(___virtual_machine_state vm)
+{
+  int np = vm->processor_count;
+  int p;
+  for (p = 0; p < np; p++)
+    {
+      ___processor_state ps = ___PSTATE_FROM_PROCESSOR_ID(p, vm);
+      ___WORD sl = ___WORD_LOAD_ACQUIRE(&ps->mem.major_mark_slices_local_);
+      ___WORD mw = ___WORD_LOAD_ACQUIRE(&ps->mem.major_marked_words_local_);
+      ___WORD sb = ___WORD_LOAD_ACQUIRE(&ps->mem.major_satb_logged_local_);
+      ___WORD id = ___WORD_LOAD_ACQUIRE(&ps->mem.major_idle_slices_local_);
+      ___WORD sp = ___WORD_LOAD_ACQUIRE(&ps->mem.major_spin_slices_local_);
+      if (sl != 0)
+        {
+          vm->mem.concurrent_major_mark_slices_ += ___CAST(___F64, sl);
+          ps->mem.major_mark_slices_local_ = 0;
+        }
+      if (mw != 0)
+        {
+          vm->mem.concurrent_major_marked_words_ += ___CAST(___F64, mw);
+          ps->mem.major_marked_words_local_ = 0;
+        }
+      if (sb != 0)
+        {
+          vm->mem.concurrent_major_satb_logged_ += ___CAST(___F64, sb);
+          ps->mem.major_satb_logged_local_ = 0;
+        }
+      if (id != 0)
+        {
+          vm->mem.concurrent_major_idle_slices_ += ___CAST(___F64, id);
+          ps->mem.major_idle_slices_local_ = 0;
+        }
+      if (sp != 0)
+        {
+          vm->mem.concurrent_major_spin_slices_ += ___CAST(___F64, sp);
+          ps->mem.major_spin_slices_local_ = 0;
+        }
+    }
+}
+
 /* Phase R-D (Coordinator after Phase R-C BARRIER):
  *   1. Aggregate parallel mature still stats.
  *   2. O(M) unlink of 100%-dead mature sections (major_evacuate == 2) to FREE
@@ -2075,6 +2424,7 @@ ___HIDDEN void major_remark_phase_d_coord(___virtual_machine_state vm)
   ___WORD_STORE_RELEASE(&vm->mem.major_phase_, ___GC_MAJOR_IDLE);
 
   gc_update_major_triggers(vm);
+  major_fold_local_stats_stw(vm);
 
   ___process_times(&u1, &s1, &r1);
   vm->mem.nb_concurrent_major_cycles_ += 1.0;
@@ -2148,6 +2498,8 @@ ___HIDDEN void major_abort_for_full_compacting_gc(___virtual_machine_state vm)
   vm->mem.major_still_span_ = 0;
   vm->mem.major_evacuate_count_ = 0;
 
+  major_fold_local_stats_stw(vm);
+
   for (p = 0; p < np; p++)
     {
       ___processor_state ps = ___PSTATE_FROM_PROCESSOR_ID(p, vm);
@@ -2168,17 +2520,29 @@ ___processor_state ___ps;
 double *out_stats;)
 {
   ___virtual_machine_state vm;
+  double add_slices = 0.0;
+  double add_words = 0.0;
+  double add_satb = 0.0;
+  int np, p;
   if (___ps == 0 || out_stats == 0)
     return;
   vm = ___VMSTATE_FROM_PSTATE(___ps);
+  np = vm->processor_count;
+  for (p = 0; p < np; p++)
+    {
+      ___processor_state pps = ___PSTATE_FROM_PROCESSOR_ID(p, vm);
+      add_slices += ___CAST(double, ___WORD_LOAD_ACQUIRE(&pps->mem.major_mark_slices_local_));
+      add_words  += ___CAST(double, ___WORD_LOAD_ACQUIRE(&pps->mem.major_marked_words_local_));
+      add_satb   += ___CAST(double, ___WORD_LOAD_ACQUIRE(&pps->mem.major_satb_logged_local_));
+    }
   major_mark_lock(vm);
   out_stats[0] = vm->mem.nb_concurrent_major_cycles_;
-  out_stats[1] = vm->mem.concurrent_major_mark_slices_;
-  out_stats[2] = vm->mem.concurrent_major_marked_words_;
+  out_stats[1] = vm->mem.concurrent_major_mark_slices_ + add_slices;
+  out_stats[2] = vm->mem.concurrent_major_marked_words_ + add_words;
   out_stats[3] = vm->mem.concurrent_major_reclaimed_sections_;
   out_stats[4] = vm->mem.concurrent_major_reclaimed_still_words_;
   out_stats[5] = vm->mem.concurrent_major_remark_real_time_;
-  out_stats[6] = vm->mem.concurrent_major_satb_logged_;
+  out_stats[6] = vm->mem.concurrent_major_satb_logged_ + add_satb;
   out_stats[7] = ___CAST(double, ___WORD_LOAD_ACQUIRE(&vm->mem.major_phase_));
   major_mark_unlock(vm);
 }

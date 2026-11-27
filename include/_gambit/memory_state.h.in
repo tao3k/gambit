@@ -469,6 +469,13 @@ ___VOLATILE ___WORD local_young_escaped_;
 /* Amp-1 Cut 1A: processor-private recycled still-word credit (already counted
  * inside occupied_words_still_; zero ALLOC_MEM_LOCK on local still GC). */
 ___SIZE_TS local_still_credit_;
+/* Amp-2 Cut 2A/2B: owner-written lock-free major marking telemetry
+ * (eliminates global major_mark_lock_ acquisition on every mark/idle/spin slice). */
+___VOLATILE ___WORD major_mark_slices_local_;
+___VOLATILE ___WORD major_marked_words_local_;
+___VOLATILE ___WORD major_satb_logged_local_;
+___VOLATILE ___WORD major_idle_slices_local_;
+___VOLATILE ___WORD major_spin_slices_local_;
 
 #ifdef ___DEBUG_GARBAGE_COLLECT
 
@@ -670,6 +677,7 @@ ___F64 concurrent_major_remark_real_time_;
 ___F64 concurrent_major_satb_logged_;
 ___F64 concurrent_major_holes_recycled_;
 ___F64 concurrent_major_idle_slices_;
+___F64 concurrent_major_spin_slices_;
 
 } ___vmstate_mem;
 

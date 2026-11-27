@@ -369,6 +369,11 @@ ___processor_state ___ps;)
   ___ps->mem.still_local_count_[3] = 0u;
   ___ps->mem.local_young_escaped_ = 0;
   ___ps->mem.local_still_credit_ = 0;
+  ___ps->mem.major_mark_slices_local_ = 0;
+  ___ps->mem.major_marked_words_local_ = 0;
+  ___ps->mem.major_satb_logged_local_ = 0;
+  ___ps->mem.major_idle_slices_local_ = 0;
+  ___ps->mem.major_spin_slices_local_ = 0;
   memset(&___ps->mem.card_hints_, 0, sizeof(___ps->mem.card_hints_));
   ___ps->mem.satb_active_ = 0;
   ___ps->mem.satb_count_ = 0;
@@ -716,6 +721,7 @@ ___virtual_machine_state ___vms;)
   ___vms->mem.concurrent_major_satb_logged_ = 0.0;
   ___vms->mem.concurrent_major_holes_recycled_ = 0.0;
   ___vms->mem.concurrent_major_idle_slices_ = 0.0;
+  ___vms->mem.concurrent_major_spin_slices_ = 0.0;
 
 #if ___TARGET_HEAP_SPACE_HIST_LENGTH > 0
 

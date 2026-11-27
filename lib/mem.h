@@ -149,6 +149,10 @@ extern ___BOOL ___garbage_collect_pstate
          ___SIZE_TS requested_words_still),
         ());
 
+extern int ___gc_major_mark_stw_spin_slice
+   ___P((___processor_state ___ps),
+        ());
+
 extern void ___gc_request_contraction ___PVOID;
 
 

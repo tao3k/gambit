@@ -566,6 +566,37 @@ do { \
        } \
    } while (0)
 
+/* Amp-2 Cut 2B: Opportunistic STW entry spin-wait concurrent major marking.
+ * Used exclusively during upward tree reduction on STW entry (first_iter != 0),
+ * strictly BEFORE upward SYNC_SEND_MSG release publication. */
+#define SYNC_GET_MSG_SPIN_MARK(expr, allow_spin_mark) \
+do { \
+     int loops_left = SYNC_GET_MSG_SPIN_TIMEOUT; \
+     int spin_slices_left = 4; \
+     while ((expr) == SYNC_WAITING) \
+       { \
+         ___DEV_RESTORE_INSIDE_BARRIER() \
+         if ((allow_spin_mark) && spin_slices_left > 0 && \
+             ___gc_major_mark_stw_spin_slice(___ps)) \
+           { \
+             spin_slices_left--; \
+             continue; \
+           } \
+         WASTE_TIME(); \
+         if (--loops_left == 0) \
+           { \
+             loops_left = SYNC_GET_MSG_SPIN_TIMEOUT; \
+             ___MUTEX_LOCK(___ps->sync_mut); \
+             ___WORD_STORE_RELEASE(&___ps->sync_waiters, 1); \
+             ___SHARED_MEMORY_BARRIER(); \
+             if ((expr) == SYNC_WAITING) \
+               ___sync_wait (___ps); \
+             ___WORD_STORE_RELEASE(&___ps->sync_waiters, 0); \
+             ___MUTEX_UNLOCK(___ps->sync_mut); \
+           } \
+       } \
+   } while (0)
+
 #define SYNC_SEND_MSG(ps,field,val) \
 do { \
      ___WORD_STORE_RELEASE(&ps->field,val); \
@@ -670,16 +701,20 @@ static void raise_sync_op_interrupt_targets(___virtual_machine_state ___vms,
 }
 #endif
 
-___HIDDEN int barrier_sync_op
+___HIDDEN int barrier_sync_op_ex
    ___P((___PSD
-         ___sync_op_struct *sop_ptr),
+         ___sync_op_struct *sop_ptr,
+         int allow_spin_mark),
         (___PSV
-         sop_ptr)
+         sop_ptr,
+         allow_spin_mark)
 ___PSDKR
-___sync_op_struct *sop_ptr;)
+___sync_op_struct *sop_ptr;
+int allow_spin_mark;)
 {
 #ifdef ___SINGLE_THREADED_VMS
 
+  (void)allow_spin_mark;
   return 0;
 
 #else
@@ -785,7 +820,7 @@ ___sync_op_struct *sop_ptr;)
       int sid1;
       ___sync_op_struct sop1;
 
-      SYNC_GET_MSG(sid1 = ___WORD_LOAD_ACQUIRE(&___ps->sync_id1));
+      SYNC_GET_MSG_SPIN_MARK(sid1 = ___WORD_LOAD_ACQUIRE(&___ps->sync_id1), allow_spin_mark);
       sop1 = ___ps->sync_op1;
       SYNC_ACK_MSG(___ps->sync_id1);
 
@@ -818,7 +853,7 @@ ___sync_op_struct *sop_ptr;)
           int sid2;
           ___sync_op_struct sop2;
 
-          SYNC_GET_MSG(sid2 = ___WORD_LOAD_ACQUIRE(&___ps->sync_id2));
+          SYNC_GET_MSG_SPIN_MARK(sid2 = ___WORD_LOAD_ACQUIRE(&___ps->sync_id2), allow_spin_mark);
           sop2 = ___ps->sync_op2;
           SYNC_ACK_MSG(___ps->sync_id2);
 
@@ -950,6 +985,17 @@ ___sync_op_struct *sop_ptr;)
   return sid;
 
 #endif
+}
+
+___HIDDEN int barrier_sync_op
+   ___P((___PSD
+         ___sync_op_struct *sop_ptr),
+        (___PSV
+         sop_ptr)
+___PSDKR
+___sync_op_struct *sop_ptr;)
+{
+  return barrier_sync_op_ex(___PSP sop_ptr, 0);
 }
 
 
@@ -1483,7 +1529,7 @@ ___BOOL first_iter;)
   for (;;)
     {
       ___sync_op_struct sop = *sop_ptr;
-      int winner_id = barrier_sync_op (___PSP &sop);
+      int winner_id = barrier_sync_op_ex (___PSP &sop, first_iter != 0);
 
       if (first_iter)
         {
