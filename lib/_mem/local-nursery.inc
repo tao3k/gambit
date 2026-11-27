@@ -199,7 +199,8 @@ ___HIDDEN ___BOOL try_local_young_still_gc
   if (vm == 0)
     return 0;
 
-  /* Soundness gate (Lean Theorem local_minor_gc_preserves_all_processors):
+  /* Soundness gate: local minor GC runs only when no young pointer has escaped
+   * to mature/shared space and no major cycle or selective evacuation is pending.
    * Require zero young escapes, idle major phase, no wills, and enough young
    * still objects to make local reclamation worthwhile. */
   if (___ps->mem.local_young_escaped_ != 0)

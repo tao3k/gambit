@@ -348,6 +348,104 @@ ___HIDDEN int plan_copy_round(___processor_state ps, ___SIZE_TS requested_words_
   c->largest_request=c->large_count=0;c->failed=0;
   c->source_offset=ps->mem.tospace_offset_;c->state=___GC_PLAN_READING;
 
+  /* Fast O(Y + n) Minor GC admission: when all copied objects come strictly
+   * from the Y active young sections and n active processor stacks (no
+   * selective evacuation, no tight max_heap), the physical word count of those
+   * young sections plus stacks is a sound upper bound on destination demand.
+   * When existing sections already cover that bound (within w sections), skip
+   * the redundant single-threaded full-graph census trace so all w workers
+   * trace and copy in parallel immediately. */
+  if (g->is_minor && !g->evac_selective &&
+      ___GSTATE->setup_params.max_heap == 0 &&
+      the_msections != 0)
+    {
+      ___SIZE_TS half_words = (___MSECTION_SIZE >> 1);
+      ___SIZE_TS actual_young_words = 0;
+      ___SIZE_TS total_stack_words = 0;
+      ___SIZE_TS max_stack_words = ___MSECTION_BIGGEST + 4;
+      int y_secs = 0;
+      int fast_ok = 1;
+      int k_upper = 0;
+
+      for (section = g->young_head; section != 0; section = section->next)
+        {
+          int is_active_heap = 0;
+          int p;
+          y_secs++;
+          for (p = 0; p < n; p++)
+            {
+              ___processor_state pps = round->members[p].owner;
+              if (pps != 0 && pps->mem.heap_msection_ == section)
+                {
+                  ___SIZE_TS used = 0;
+                  if (pps->mem.alloc_heap_ptr_ > pps->mem.alloc_heap_start_)
+                    used = ___CAST(___SIZE_TS, pps->mem.alloc_heap_ptr_ - pps->mem.alloc_heap_start_);
+                  if (used > half_words)
+                    used = half_words;
+                  actual_young_words += used;
+                  is_active_heap = 1;
+                  break;
+                }
+            }
+          if (!is_active_heap)
+            {
+              /* Skip pure stack sections (accounted via total_stack_words below). */
+              int is_stack_only = 0;
+              for (p = 0; p < n; p++)
+                {
+                  ___processor_state pps = round->members[p].owner;
+                  if (pps != 0 && pps->mem.stack_msection_ == section)
+                    {
+                      is_stack_only = 1;
+                      break;
+                    }
+                }
+              if (!is_stack_only)
+                actual_young_words += half_words;
+            }
+          if (section == alloc_msection)
+            break;
+        }
+      for (i = 0; i < n; i++)
+        {
+          int gate = capture_continuation_source(&round->members[i], c->source_offset, &round->resume[i]);
+          if (gate != 0)
+            {
+              fast_ok = 0;
+              break;
+            }
+          total_stack_words += round->resume[i].source_words;
+          if (round->resume[i].source_words > max_stack_words)
+            max_stack_words = round->resume[i].source_words;
+        }
+      if (fast_ok && max_stack_words < capacity)
+        {
+          ___SIZE_TS upper_small = actual_young_words + 2 * total_stack_words;
+          if (y_secs <= 64 &&
+              ___gc_copy_section_bound(w, upper_small, max_stack_words, 0,
+                                       capacity, ___MSECTION_CHUNK, &k_upper))
+            {
+              int nm = vm->mem.nb_msections_mature_;
+              int need_upper = nm + 2 * n + k_upper;
+              /* Avoid over-expanding the heap on low-survival workloads: take
+               * the O(Y + n) fast path whenever existing sections already cover
+               * the bound, or when young allocation is modest relative to the
+               * mature heap (high-survival old-gen churn). */
+              if (need_upper <= the_msections->nb_sections + w ||
+                  (nm >= 16 && need_upper <= the_msections->nb_sections + nm))
+                {
+                  c->source_words = upper_small;
+                  c->destination_words = upper_small;
+                  c->small_words = upper_small;
+                  c->small_max = max_stack_words;
+                  c->large_count = 0;
+                  k = k_upper;
+                  goto fast_minor_admitted;
+                }
+            }
+        }
+    }
+
   if (g->is_minor) {
     if (g->evac_selective && vm->mem.mature_tail_ != 0) {
       for(section=the_msections->head;section;section=section->next) {
@@ -498,6 +596,7 @@ ___HIDDEN int plan_copy_round(___processor_state ps, ___SIZE_TS requested_words_
   if(!___gc_copy_section_bound(w,c->small_words,c->small_max,c->large_count,
        capacity,___MSECTION_CHUNK,&k))goto refuse;
 
+ fast_minor_admitted:
   /* Verify resume grants and stack extents before assigning destination roles. */
   for(i=0;i<n;i++) {
     ___gc_resume_space *r=&round->resume[i];

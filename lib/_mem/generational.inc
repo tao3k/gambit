@@ -685,7 +685,7 @@ ___HIDDEN void prepare_generational_round
           else if (vm->mem.major_evacuate_count_ >= 2 &&
                    vm->mem.nb_msections_mature_ > vm->mem.major_evacuate_count_)
             {
-              /* Slice 2 v3 Selective Immix Evacuation: defragment sparse (<50% live)
+              /* Selective Immix evacuation: defragment sparse (<50% live)
                * mature sections without waiting for 2x heap growth or copying dense
                * mature sections. Runs strictly when major_phase_ == IDLE. */
               g->is_minor = 1;

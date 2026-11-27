@@ -1,4 +1,4 @@
-/* Slice 2 (v2 Production System): Concurrent SATB Major GC and Non-Moving
+/* Concurrent SATB Major GC and Non-Moving Immix Mark-Region Mature Space:
  * Immix Mark-Region Mature Space with:
  *   - Per-processor lock-free local mark-stack buffers (128 entries, batch
  *     spill/steal under major_mark_lock_),
@@ -583,7 +583,7 @@ ___SCMOBJ old_val;)
 
   /* Local SATB buffer full: flush into lock-free local mark buffer (spilling
    * to global without allocating). Sticky satb_overflow_ triggers full Remark
-   * recovery if global stack capacity is exceeded (Quint Mutant 7). */
+   * recovery if global stack capacity is exceeded. */
   vm = ___VMSTATE_FROM_PSTATE(___ps);
   if (vm == 0 || ___WORD_LOAD_ACQUIRE(&vm->mem.major_phase_) != ___GC_MAJOR_MARKING)
     {
@@ -1142,7 +1142,7 @@ ___HIDDEN void major_initial_mark_seed_wills(___virtual_machine_state vm)
 }
 
 /* Parallel Initial-Mark mature section snapshot & mark-bitmap clear across all
- * w_cnt workers (Lean Theorem 5: strided partition si % w_cnt == w_id). */
+ * w_cnt workers using strided partitioning (si % w_cnt == w_id). */
 ___HIDDEN void major_initial_mark_clear_parallel
    (___virtual_machine_state vm,
     int w_id,
@@ -1351,7 +1351,7 @@ ___HIDDEN void major_overflow_recovery_scan_stw(___virtual_machine_state vm)
 }
 
 /* ==========================================================================
- * 4-Barrier Parallel STW Remark & Parallel Non-Moving Immix Sweep (Slice 2 v2)
+ * 4-Barrier Parallel STW Remark & Parallel Non-Moving Immix Sweep
  * ========================================================================== */
 
 /* Coordinator setup before Phase R-A BARRIER. */
@@ -1640,7 +1640,7 @@ ___HIDDEN void major_remark_phase_b_coord(___virtual_machine_state vm)
   major_drain_mark_stack_stw(vm);
 
   /* Atomically clear dead WHITE mature entries in all live weak GC hash
-   * tables BEFORE transitioning to SWEEPING (Quint V2 Mutant 9 invariant). */
+   * tables BEFORE transitioning to SWEEPING. */
   {
     ___SIZE_TS ti;
     for (ti = 0; ti < vm->mem.major_weak_tables_count_; ti++)

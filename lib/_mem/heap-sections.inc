@@ -1235,6 +1235,9 @@ ___HIDDEN void prepare_worker_msection
 
   section->gc_dest_offset = dest_off;
   section->gc_is_dest = (promo_mode == 2) ? 3 : (promo_mode ? 2 : 1);
+  if (promo_mode == 0)
+    memset(section->base + ___MSECTION_SIZE, 0,
+           ___msection_scan_words(___MSECTION_SIZE) * ___WS);
   if (card_lo < card_hi)
     memset(starts + card_lo, ___GC_CARD_NO_OBJ_START, card_hi - card_lo);
 
@@ -1435,11 +1438,9 @@ ___virtual_machine_state ___vms;)
         memset(g->promo_tails[i]->base + ___MSECTION_SIZE, 0,
                ___msection_scan_words(___MSECTION_SIZE) * ___WS);
       }
-    for (section = next_copy_plan_section(g->copy_first);
-         section != 0 && section != g->copy_past;
-         section = next_copy_plan_section(section->next))
-      memset(section->base + ___MSECTION_SIZE, 0,
-             ___msection_scan_words(___MSECTION_SIZE) * ___WS);
+    /* Fresh copy_first..copy_past sections clear their scan-state bitmap lazily
+     * in prepare_worker_msection when actually claimed, avoiding page faults on
+     * reserved-but-unused sections. */
   } else {
     ___msection *section=the_msections->head;
     while(section) { section->copy_gate=0;

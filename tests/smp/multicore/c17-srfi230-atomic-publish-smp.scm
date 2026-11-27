@@ -1,37 +1,16 @@
-;; C17: Phase A.1 SRFI-230 Atomic Publication & GC Barrier Adversarial SMP PBT
-;; Verifies across p1..p12 under simultaneous minor/major/SATB GC pressure:
+;; C17: SRFI-230 Standard Library Atomic Publication & GC Barrier Adversarial SMP PBT
+;; Uses the standard (import (srfi 230)) library directly across p1..p12 under
+;; simultaneous minor/major/SATB GC pressure to verify:
 ;;   1. Release/acquire publication of freshly allocated young cyclic & multi-node
-;;      graphs through ___SRFI230_BOX_STORE / ___SRFI230_BOX_CAS / ___SRFI230_BOX_SWAP.
+;;      graphs through atomic-box-set!, atomic-box-swap!, atomic-box-compare-and-swap!,
+;;      and atomic-pair-set!/compare-and-swap!.
 ;;   2. Zero torn reads, zero dangling pointers, and full SATB reachability preservation.
-;;   3. Exact linearizable contended arithmetic via ___SRFI230_FXBOX_ADD.
+;;   3. Exact linearizable contended arithmetic via atomic-fxbox+/fetch!, -/fetch!, xor/fetch!,
+;;      and spinlock mutual exclusion via atomic-flag-test-and-set!/clear!.
+
+(import (srfi 230))
 
 (declare (standard-bindings) (extended-bindings) (block))
-
-(c-declare "#include \"gambit.h\"")
-
-(define atomic-box-ref-acq
-  (c-lambda (scheme-object) scheme-object
-    "___return(___SRFI230_BOX_LOAD(___arg1, ___SRFI230_ORDER_ACQUIRE));"))
-
-(define atomic-box-set-rel!
-  (c-lambda (scheme-object scheme-object) void
-    "___SRFI230_BOX_STORE(___ps, ___arg1, ___arg2, ___SRFI230_ORDER_RELEASE);"))
-
-(define atomic-box-swap-acqrel!
-  (c-lambda (scheme-object scheme-object) scheme-object
-    "___return(___SRFI230_BOX_SWAP(___ps, ___arg1, ___arg2, ___SRFI230_ORDER_ACQ_REL));"))
-
-(define atomic-box-cas-acqrel!
-  (c-lambda (scheme-object scheme-object scheme-object) scheme-object
-    "___return(___SRFI230_BOX_CAS(___ps, ___arg1, ___arg2, ___arg3, ___SRFI230_ORDER_ACQ_REL));"))
-
-(define atomic-fxbox-add-seqcst!
-  (c-lambda (scheme-object scheme-object) scheme-object
-    "___return(___SRFI230_FXBOX_ADD(___arg1, ___arg2, ___SRFI230_ORDER_SEQ_CST));"))
-
-(define atomic-fence-seqcst!
-  (c-lambda () void
-    "___SRFI230_FENCE(___SRFI230_ORDER_SEQ_CST);"))
 
 (define (make-cyclic-payload id seq)
   (let* ((v (make-vector 6 0))
@@ -69,18 +48,23 @@
   (let* ((nprocs (##current-vm-processor-count))
          (workers (max 4 (* 2 nprocs)))
          (iters 4000)
-         (shared-box (box #f))
-         (swap-box (box #f))
-         (cas-box (box #f))
-         (fx-counter (box 0))
-         (done-box (box 0))
+         (shared-box (make-atomic-box #f))
+         (swap-box (make-atomic-box #f))
+         (cas-box (make-atomic-box #f))
+         (shared-pair (make-atomic-pair #f 0))
+         (fx-add (make-atomic-fxbox 0))
+         (fx-sub (make-atomic-fxbox (* workers iters)))
+         (fx-xor (make-atomic-fxbox 0))
+         (spin-flag (make-atomic-flag))
+         (spin-count (box 0))
+         (done-box (make-atomic-fxbox 0))
          (s0 (##process-statistics))
          (gc-thread
           (thread-start!
            (make-thread
             (lambda ()
               (let loop ((n 0))
-                (if (= (atomic-box-ref-acq done-box) 1)
+                (if (= (atomic-fxbox-ref done-box (memory-order acquire)) 1)
                     n
                     (begin
                       (let ((junk (make-f64vector 512 1.0)))
@@ -101,36 +85,59 @@
                              (if (= i iters)
                                  reads
                                  (let ((pl (make-cyclic-payload w i)))
-                                   (atomic-box-set-rel! shared-box pl)
-                                   (let ((old-sw (atomic-box-swap-acqrel! swap-box pl)))
+                                   (atomic-box-set! shared-box pl (memory-order release))
+                                   (let ((old-sw (atomic-box-swap! swap-box pl (memory-order acquire-release))))
                                      (verify-payload! old-sw))
-                                   (let* ((cur (atomic-box-ref-acq cas-box))
-                                          (prev (atomic-box-cas-acqrel! cas-box cur pl)))
+                                   (let* ((cur (atomic-box-ref cas-box (memory-order acquire)))
+                                          (prev (atomic-box-compare-and-swap! cas-box cur pl (memory-order acquire-release))))
                                      (verify-payload! prev))
-                                   (let ((obs (atomic-box-ref-acq shared-box)))
+                                   (let ((obs (atomic-box-ref shared-box (memory-order acquire))))
                                      (verify-payload! obs))
-                                   (atomic-fxbox-add-seqcst! fx-counter 1)
+                                   (atomic-pair-set! shared-pair pl i (memory-order release))
+                                   (call-with-values
+                                     (lambda () (atomic-pair-ref shared-pair (memory-order acquire)))
+                                     (lambda (p-obj p-seq)
+                                       (verify-payload! p-obj)
+                                       (unless (fixnum? p-seq)
+                                         (error "C17 torn SRFI-230 atomic-pair" p-seq))))
+                                   (atomic-fxbox+/fetch! fx-add 1 (memory-order sequentially-consistent))
+                                   (atomic-fxbox-/fetch! fx-sub 1 (memory-order relaxed))
+                                   (atomic-fxbox-xor/fetch! fx-xor #x3c3c (memory-order relaxed))
+                                   (when (= (modulo i 50) 0)
+                                     (let acq ()
+                                       (when (atomic-flag-test-and-set! spin-flag (memory-order acquire))
+                                         (acq)))
+                                     (set-box! spin-count (+ (unbox spin-count) 1))
+                                     (atomic-flag-clear! spin-flag (memory-order release)))
                                    (when (= (modulo i 500) 0)
-                                     (atomic-fence-seqcst!))
+                                     (atomic-fence (memory-order sequentially-consistent)))
                                    (wloop (+ i 1) (+ reads 1))))))))
                        acc)))))
          (total-reads (apply + (map thread-join! worker-threads))))
-    (atomic-box-set-rel! done-box 1)
+    (atomic-fxbox-set! done-box 1 (memory-order release))
     (let* ((gc-pulses (thread-join! gc-thread))
-           (final-fx (atomic-box-ref-acq fx-counter))
+           (final-add (atomic-fxbox-ref fx-add (memory-order acquire)))
+           (final-sub (atomic-fxbox-ref fx-sub (memory-order acquire)))
+           (final-xor (atomic-fxbox-ref fx-xor (memory-order acquire)))
            (expected-fx (* workers iters))
+           (expected-spin (* workers (/ iters 50)))
            (s1 (##process-statistics))
            (gc-total (inexact->exact (round (- (f64vector-ref s1 6) (f64vector-ref s0 6))))))
-      (verify-payload! (atomic-box-ref-acq shared-box))
-      (verify-payload! (atomic-box-ref-acq swap-box))
-      (verify-payload! (atomic-box-ref-acq cas-box))
-      (unless (= final-fx expected-fx)
-        (error "C17 fxbox linearizability mismatch" final-fx expected-fx))
+      (verify-payload! (atomic-box-ref shared-box (memory-order acquire)))
+      (verify-payload! (atomic-box-ref swap-box (memory-order acquire)))
+      (verify-payload! (atomic-box-ref cas-box (memory-order acquire)))
+      (unless (and (= final-add expected-fx)
+                   (= final-sub 0)
+                   (= final-xor 0)
+                   (= (unbox spin-count) expected-spin))
+        (error "C17 SRFI-230 linearizability mismatch"
+               final-add final-sub final-xor (unbox spin-count)))
       (write (list 'C17-SRFI230-ATOMIC-PUBLISH-PASS
                    'procs nprocs
                    'workers workers
                    'reads total-reads
-                   'fx-sum final-fx
+                   'fx-sum final-add
+                   'spin-locks (unbox spin-count)
                    'gc-pulses gc-pulses
                    'gc-total gc-total))
       (newline))))
