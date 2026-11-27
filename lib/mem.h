@@ -86,7 +86,6 @@ extern void ___gc_write_barrier_slot_vm ___P((___virtual_machine_state vm, ___SC
 #define ___PSECTION_WASTE       32
 #define ___DEFAULT_LIVE_PERCENT 50
 #define ___DEFAULT_MIN_HEAP     (2*(1<<20))
-#define ___DEFAULT_MAX_AUTO_MIN_HEAP (16*(1<<20))
 #define ___DEFAULT_NORMAL_OVERFLOW_RESERVE \
 (4*2*((___MAX_NB_PARMS+___SUBTYPED_BODY) + \
  ___MAX_NB_ARGS*(___PAIR_SIZE+___PAIR_BODY)))

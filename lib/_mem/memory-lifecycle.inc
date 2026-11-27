@@ -710,15 +710,36 @@ ___SCMOBJ ___setup_mem ___PVOID
   if (___GSTATE->setup_params.min_heap == 0)
     {
       /*
-       * Choose a reasonable minimum heap size from the last-level data cache,
-       * clamped to ___DEFAULT_MAX_AUTO_MIN_HEAP so multi-CCD / 3D V-Cache
-       * servers (256-1024+ MiB socket L3) do not inflate every idle VM's
-       * default min_heap to hundreds of MiB. Explicit -:m<N> is never clamped.
+       * Principled hardware-topology automatic min_heap (grounded in
+       * Blackburn/Cheng/McKinley SIGMETRICS 2004, Yang/Berger/McKinley ISMM 2004,
+       * Kirisame/Panchekha MemBalancer OOPSLA 2022, OCaml 5.5.1, and Chez 10):
+       *   - Never size an idle VM's min_heap from socket-wide shared L3 cache
+       *     (512-1152+ MiB on multi-CCD / 3D V-Cache servers).
+       *   - Derive from per-core L2 data/unified cache (level 2), bounded by
+       *     one core's physical RAM share (phys_mem / max(2, cpus) / 256) and
+       *     max_heap / 8 when bounded, floored at ___DEFAULT_MIN_HEAP (2 MiB).
+       *   - Explicit -:m<N> (setup_params.min_heap != 0) is always honored verbatim.
        */
 
-      int llc = ___cpu_cache_size (0, 0);
-      ___SIZE_T auto_min = (llc > 0) ? (___CAST(___SIZE_T, llc) / 2) : 0;
-      SET_MIN(auto_min, ___DEFAULT_MAX_AUTO_MIN_HEAP);
+      int l2 = ___cpu_cache_size (0, 2);
+      ___SIZE_T auto_min = (l2 > 0) ? (___CAST(___SIZE_T, l2) / 2) : 0;
+#ifdef ___USE_MMAP_MSECTIONS
+      {
+        ___SIZE_T phys_mem = msection_os_phys_memory_bytes ();
+        ___SIZE_T cpus = msection_os_cpu_count ();
+        ___SIZE_T eff_cpus = (cpus >= 2) ? cpus : 2;
+        if (phys_mem > 0)
+          {
+            ___SIZE_T ram_idle_bound = (phys_mem / eff_cpus) >> 8;
+            SET_MIN(auto_min, ram_idle_bound);
+          }
+      }
+#endif
+      if (___GSTATE->setup_params.max_heap > 0)
+        {
+          ___SIZE_T max_idle_bound = ___GSTATE->setup_params.max_heap >> 3;
+          SET_MIN(auto_min, max_idle_bound);
+        }
       ___GSTATE->setup_params.min_heap = auto_min;
     }
 

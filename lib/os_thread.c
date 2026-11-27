@@ -295,7 +295,7 @@ int level;)
       mib[0] = CTL_HW;
       mib[1] = sysctl_info[i].name;
 
-      if (sysctl (mib, 2, &size, &sizeof_size, NULL, 0) == 0) {
+      if (sysctl (mib, 2, &size, &sizeof_size, NULL, 0) == 0 && size > 0) {
 
         if (level != 0) {
           cache_size = size;
@@ -379,13 +379,16 @@ int level;)
 
       int size = sysconf (sysconf_info[i].name);
 
-      if (level != 0) {
-        cache_size = size;
-        break;
-      }
+      if (size > 0) {
 
-      if (size > cache_size) {
-        cache_size = size;
+        if (level != 0) {
+          cache_size = size;
+          break;
+        }
+
+        if (size > cache_size) {
+          cache_size = size;
+        }
       }
     }
 
