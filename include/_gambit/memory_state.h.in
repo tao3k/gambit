@@ -466,6 +466,9 @@ void *still_local_free_[4];
 unsigned int still_local_count_[4];
 /* Phase A.2.2: processor-local young escape tracking */
 ___VOLATILE ___WORD local_young_escaped_;
+/* Amp-1 Cut 1A: processor-private recycled still-word credit (already counted
+ * inside occupied_words_still_; zero ALLOC_MEM_LOCK on local still GC). */
+___SIZE_TS local_still_credit_;
 
 #ifdef ___DEBUG_GARBAGE_COLLECT
 
@@ -528,6 +531,11 @@ ___SIZE_TS occupied_words_still_;
 
 /* words pre-reserved in per-processor still-object budgets (deferred + unused) */
 ___SIZE_TS reserved_words_still_;
+
+/* Amp-1 Cut 1A: lock-free atomic accumulator of excess locally reclaimed still
+ * words flushed by try_local_young_still_gc/try_local_movable_nursery_gc without
+ * acquiring alloc_mem_lock_; drained under alloc_mem_lock_ on slow paths & STW. */
+___VOLATILE ___SIZE_TS still_words_reclaimed_pending_;
 
 /* the msections */
 ___msections *the_msections_;
@@ -606,6 +614,10 @@ int mature_sections_cap_;
 ___UWORD mature_addr_lo_;
 ___UWORD mature_addr_span_;
 ___UWORD mature_snapshot_epoch_;
+/* Amp-1 Cut 1C: O(1) 2-level mature msection radix directory (rebuilt exclusively
+ * in STW rebuild_mature_snapshot; strictly read-only during mutator & major epochs). */
+void *mature_radix_l1_;
+void *mature_radix_pool_;
 ___SIZE_TS occupied_words_mature_;
 int major_trigger_sections_;
 int minor_gcs_since_major_;

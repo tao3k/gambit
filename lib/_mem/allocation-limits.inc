@@ -1322,12 +1322,22 @@ ___PSDKR)
 #endif
 
   {
-    /* Phase A.3: try independent processor-local movable nursery collection
-     * before claiming a new section or triggering global STW GC. */
+    /* Phase A.3 + Amp-1 Cut 1B: try independent processor-local unified movable +
+     * young-still nursery collection before claiming a new section or global STW.
+     * On success, heap_msection/stack_msection did not change: restore owned soft
+     * limit directly without taking ALLOC_MEM_LOCK() in prepare_mem_pstate()! */
     if (try_local_movable_nursery_gc(___ps))
       {
         alloc_heap_ptr = ___ps->context->hp;
-        prepare_mem_pstate(___ps);
+        if (alloc_heap_limit &&
+            alloc_heap_limit > alloc_heap_start + ___MSECTION_FUDGE)
+          {
+            ___ps->heap_limit = alloc_heap_limit - ___MSECTION_FUDGE;
+            publish_fast_span(___ps);
+            ___refresh_interrupts_pstate(___ps);
+          }
+        else
+          prepare_mem_pstate(___ps);
         return 0;
       }
 
@@ -1352,6 +1362,7 @@ ___PSDKR)
         /* we need to allocate a new msection */
 
         ALLOC_MEM_LOCK();
+        amp_drain_reclaimed_still_locked(___ps, ___VMSTATE_FROM_PSTATE(___ps));
 
         if (
 #ifdef CALL_GC_FREQUENTLY

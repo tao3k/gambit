@@ -107,6 +107,7 @@ ___virtual_machine_state ___vms;)
       movable += words_movable_objs(ps);
 
       still += ps->mem.words_still_objs_;
+      ps->mem.local_still_credit_ = 0;
 
       /*
        * Note that at this point bytes_allocated_minus_occupied is
@@ -121,6 +122,7 @@ ___virtual_machine_state ___vms;)
   occupied_words_movable = movable;
   occupied_words_still = still + ___lifecycle_retained_words(___vms);
   reserved_words_still = 0;
+  ___vms->mem.still_words_reclaimed_pending_ = 0;
 
   latest_gc_alloc = bytes_allocated;
 

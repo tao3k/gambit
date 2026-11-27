@@ -176,32 +176,7 @@ static inline ___msection *major_find_mature_section_ro
    (___virtual_machine_state vm,
     ___UWORD addr)
 {
-  int nm = vm->mem.nb_msections_mature_;
-  ___UWORD half_bytes = ___CAST(___UWORD, ___MSECTION_SIZE >> 1) * ___WS;
-  ___msection **arr;
-  int lo, hi;
-  ___msection *sec;
-
-  if (nm <= 0)
-    return 0;
-  if (addr - vm->mem.mature_addr_lo_ >= vm->mem.mature_addr_span_)
-    return 0;
-
-  arr = vm->mem.mature_sections_;
-  lo = 0;
-  hi = nm - 1;
-  while (lo < hi)
-    {
-      int mid = (lo + hi + 1) >> 1;
-      if (___CAST(___UWORD, arr[mid]->base) <= addr)
-        lo = mid;
-      else
-        hi = mid - 1;
-    }
-  sec = arr[lo];
-  if (addr - ___CAST(___UWORD, sec->base + sec->active_offset) < half_bytes)
-    return sec;
-  return 0;
+  return mature_radix_lookup_ro(vm, addr);
 }
 
 static inline ___msection *major_find_mature_section_cached

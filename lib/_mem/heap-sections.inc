@@ -1469,6 +1469,7 @@ ___virtual_machine_state ___vms;)
       words_prev_msections = 0;
       words_still_objs_deferred = 0;
       still_words_budget = 0;
+      ___ps->mem.local_still_credit_ = 0;
       heap_msection = 0;
       set_stack_msection(___ps,ssec);
       r->context = ___ps->context;

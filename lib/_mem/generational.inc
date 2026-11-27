@@ -5,16 +5,226 @@
 #ifndef ___GENERATIONAL_INC
 #define ___GENERATIONAL_INC
 
+/* Amp-1 Cut 1C: Exact O(1) 2-Level Mature Msection Radix Directory.
+ * Rebuilt exclusively during STW inside rebuild_mature_snapshot() and strictly
+ * read-only during all mutator and concurrent major-mark epochs (zero races).
+ * Because SECTION_BYTES >= ___MSECTION_SIZE * ___WS (1 MiB on 64-bit), at most
+ * TWO disjoint msections can ever intersect any aligned 1 MiB address bucket
+ * (pigeonhole principle), yielding exact O(1) hits AND O(1) misses! */
+#define ___MATURE_RADIX_L1_BUCKETS 256u
+#define ___MATURE_RADIX_L2_BITS    10u
+#define ___MATURE_RADIX_L2_SIZE    (1u << ___MATURE_RADIX_L2_BITS)
+
+typedef struct ___mature_radix_slot_struct
+  {
+    ___msection *s0;
+    ___msection *s1;
+  } ___mature_radix_slot;
+
+typedef struct ___mature_radix_l2_struct
+  {
+    ___UWORD hi_tag;
+    int overflow;
+    struct ___mature_radix_l2_struct *next;
+    struct ___mature_radix_l2_struct *pool_next;
+    ___mature_radix_slot slots[___MATURE_RADIX_L2_SIZE];
+  } ___mature_radix_l2;
+
+static inline ___UWORD mature_radix_bucket(___UWORD addr)
+{
+#if (___WS == 8) && (___MSECTION_SIZE == 131072)
+  return addr >> 20;
+#else
+  return addr / (___CAST(___UWORD, ___MSECTION_SIZE) * ___WS);
+#endif
+}
+
+static inline ___msection *mature_radix_lookup_ro
+   (___virtual_machine_state vm,
+    ___UWORD addr)
+{
+  int nm = vm->mem.nb_msections_mature_;
+  ___UWORD half_bytes = ___CAST(___UWORD, ___MSECTION_SIZE >> 1) * ___WS;
+  ___mature_radix_l2 **l1;
+
+  if (nm <= 0)
+    return 0;
+  if (addr - vm->mem.mature_addr_lo_ >= vm->mem.mature_addr_span_)
+    return 0;
+
+  l1 = ___CAST(___mature_radix_l2**, vm->mem.mature_radix_l1_);
+  if (__builtin_expect(l1 != 0, 1))
+    {
+      ___UWORD bucket = mature_radix_bucket(addr);
+      ___UWORD hi = bucket >> ___MATURE_RADIX_L2_BITS;
+      unsigned int lo = ___CAST(unsigned int, bucket & (___MATURE_RADIX_L2_SIZE - 1u));
+      ___mature_radix_l2 *l2 = l1[hi & (___MATURE_RADIX_L1_BUCKETS - 1u)];
+      while (l2 != 0)
+        {
+          if (__builtin_expect(l2->hi_tag == hi, 1))
+            {
+              ___msection *s0 = l2->slots[lo].s0;
+              if (s0 != 0 &&
+                  addr - ___CAST(___UWORD, s0->base + s0->active_offset) < half_bytes)
+                return s0;
+              ___msection *s1 = l2->slots[lo].s1;
+              if (s1 != 0 &&
+                  addr - ___CAST(___UWORD, s1->base + s1->active_offset) < half_bytes)
+                return s1;
+              if (__builtin_expect(!l2->overflow, 1))
+                return 0;
+              break; /* rare custom-allocator overflow: fall through to binary search */
+            }
+          l2 = l2->next;
+        }
+      if (l2 == 0)
+        return 0;
+    }
+
+  {
+    ___msection **arr = vm->mem.mature_sections_;
+    int lo = 0;
+    int hi = nm - 1;
+    ___msection *sec;
+    while (lo < hi)
+      {
+        int mid = lo + ((hi - lo + 1) >> 1);
+        if (___CAST(___UWORD, arr[mid]->base) <= addr)
+          lo = mid;
+        else
+          hi = mid - 1;
+      }
+    sec = arr[lo];
+    if (addr - ___CAST(___UWORD, sec->base + sec->active_offset) < half_bytes)
+      return sec;
+  }
+  return 0;
+}
+
+___HIDDEN void mature_radix_cleanup(___virtual_machine_state vm)
+{
+  ___mature_radix_l2 *p = ___CAST(___mature_radix_l2*, vm->mem.mature_radix_pool_);
+  while (p != 0)
+    {
+      ___mature_radix_l2 *next = p->pool_next;
+      ___FREE_MEM(p);
+      p = next;
+    }
+  vm->mem.mature_radix_pool_ = 0;
+  if (vm->mem.mature_radix_l1_ != 0)
+    {
+      ___FREE_MEM(vm->mem.mature_radix_l1_);
+      vm->mem.mature_radix_l1_ = 0;
+    }
+}
+
+static inline void mature_radix_insert_bucket
+   (___mature_radix_l2 **l1,
+    ___mature_radix_l2 **pool_head,
+    ___mature_radix_l2 **free_cursor,
+    ___UWORD bucket,
+    ___msection *sec,
+    int *oom_out)
+{
+  ___UWORD hi = bucket >> ___MATURE_RADIX_L2_BITS;
+  unsigned int lo = ___CAST(unsigned int, bucket & (___MATURE_RADIX_L2_SIZE - 1u));
+  unsigned int hidx = ___CAST(unsigned int, hi & (___MATURE_RADIX_L1_BUCKETS - 1u));
+  ___mature_radix_l2 *l2 = l1[hidx];
+
+  while (l2 != 0)
+    {
+      if (l2->hi_tag == hi)
+        break;
+      l2 = l2->next;
+    }
+  if (l2 == 0)
+    {
+      if (*free_cursor != 0)
+        {
+          l2 = *free_cursor;
+          *free_cursor = l2->pool_next;
+        }
+      else
+        {
+          l2 = ___CAST(___mature_radix_l2*, ___ALLOC_MEM(sizeof(___mature_radix_l2)));
+          if (l2 == 0)
+            {
+              *oom_out = 1;
+              return;
+            }
+          l2->pool_next = *pool_head;
+          *pool_head = l2;
+        }
+      l2->hi_tag = hi;
+      l2->overflow = 0;
+      memset(l2->slots, 0, sizeof(l2->slots));
+      l2->next = l1[hidx];
+      l1[hidx] = l2;
+    }
+
+  if (l2->slots[lo].s0 == 0 || l2->slots[lo].s0 == sec)
+    l2->slots[lo].s0 = sec;
+  else if (l2->slots[lo].s1 == 0 || l2->slots[lo].s1 == sec)
+    l2->slots[lo].s1 = sec;
+  else
+    l2->overflow = 1;
+}
+
+___HIDDEN void mature_radix_rebuild(___virtual_machine_state vm)
+{
+  int nm = vm->mem.nb_msections_mature_;
+  ___mature_radix_l2 **l1 = ___CAST(___mature_radix_l2**, vm->mem.mature_radix_l1_);
+  ___mature_radix_l2 *pool_head = ___CAST(___mature_radix_l2*, vm->mem.mature_radix_pool_);
+  ___mature_radix_l2 *free_cursor = pool_head;
+  int i, oom = 0;
+  ___UWORD half_bytes = ___CAST(___UWORD, ___MSECTION_SIZE >> 1) * ___WS;
+
+  if (nm <= 0)
+    {
+      if (l1 != 0)
+        memset(l1, 0, ___MATURE_RADIX_L1_BUCKETS * sizeof(___mature_radix_l2*));
+      return;
+    }
+
+  if (l1 == 0)
+    {
+      l1 = ___CAST(___mature_radix_l2**,
+                   ___ALLOC_MEM(___MATURE_RADIX_L1_BUCKETS * sizeof(___mature_radix_l2*)));
+      if (l1 == 0)
+        return; /* safe fallback to binary search */
+      vm->mem.mature_radix_l1_ = l1;
+    }
+  memset(l1, 0, ___MATURE_RADIX_L1_BUCKETS * sizeof(___mature_radix_l2*));
+
+  for (i = 0; i < nm && !oom; i++)
+    {
+      ___msection *sec = vm->mem.mature_sections_[i];
+      ___UWORD lo_addr = ___CAST(___UWORD, sec->base + sec->active_offset);
+      ___UWORD hi_addr = lo_addr + half_bytes - 1;
+      ___UWORD b0 = mature_radix_bucket(lo_addr);
+      ___UWORD b1 = mature_radix_bucket(hi_addr);
+      mature_radix_insert_bucket(l1, &pool_head, &free_cursor, b0, sec, &oom);
+      if (!oom && b1 != b0)
+        mature_radix_insert_bucket(l1, &pool_head, &free_cursor, b1, sec, &oom);
+    }
+
+  vm->mem.mature_radix_pool_ = pool_head;
+  if (oom)
+    {
+      /* OOM during radix expansion: fall back cleanly to binary search */
+      mature_radix_cleanup(vm);
+    }
+}
+
 static inline ___msection *wb_find_mature_section
    (___processor_state ___ps,
     ___virtual_machine_state vm,
     ___UWORD addr)
 {
-  int nm = vm->mem.nb_msections_mature_;
   ___UWORD half_bytes = ___CAST(___UWORD, ___MSECTION_SIZE >> 1) * ___WS;
-  ___msection *sec = 0;
+  ___msection *sec;
 
-  if (nm <= 0)
+  if (vm->mem.nb_msections_mature_ <= 0)
     return 0;
   if (addr - vm->mem.mature_addr_lo_ >= vm->mem.mature_addr_span_)
     return 0;
@@ -27,27 +237,13 @@ static inline ___msection *wb_find_mature_section
         return cand;
     }
 
-  {
-    ___msection **arr = vm->mem.mature_sections_;
-    int lo = 0;
-    int hi = nm - 1;
-    while (lo < hi)
-      {
-        int mid = (lo + hi + 1) >> 1;
-        if (___CAST(___UWORD, arr[mid]->base) <= addr)
-          lo = mid;
-        else
-          hi = mid - 1;
-      }
-    sec = arr[lo];
-    if (addr - ___CAST(___UWORD, sec->base + sec->active_offset) < half_bytes)
-      {
-        ___ps->mem.wb_last_sec_ = sec;
-        ___ps->mem.wb_last_epoch_ = vm->mem.mature_snapshot_epoch_;
-        return sec;
-      }
-  }
-  return 0;
+  sec = mature_radix_lookup_ro(vm, addr);
+  if (sec != 0)
+    {
+      ___ps->mem.wb_last_sec_ = sec;
+      ___ps->mem.wb_last_epoch_ = vm->mem.mature_snapshot_epoch_;
+    }
+  return sec;
 }
 
 ___EXP_FUNC(void,___gc_write_barrier_slow)
@@ -161,31 +357,15 @@ ___WORD *slot_ptr;)
     return;
 
   {
-    int nm = vm->mem.nb_msections_mature_;
     ___UWORD addr = ___CAST(___UWORD, slot_ptr);
-    if (nm > 0 && addr - vm->mem.mature_addr_lo_ < vm->mem.mature_addr_span_)
+    ___msection *sec = mature_radix_lookup_ro(vm, addr);
+    if (sec != 0)
       {
-        ___msection **arr = vm->mem.mature_sections_;
-        ___UWORD half_bytes = ___CAST(___UWORD, ___MSECTION_SIZE >> 1) * ___WS;
-        int lo = 0, hi = nm - 1;
-        ___msection *sec;
-        while (lo < hi)
-          {
-            int mid = lo + ((hi - lo + 1) >> 1);
-            if (___CAST(___UWORD, arr[mid]->base) <= addr)
-              lo = mid;
-            else
-              hi = mid - 1;
-          }
-        sec = arr[lo];
-        if (addr - ___CAST(___UWORD, sec->base + sec->active_offset) < half_bytes)
-          {
-            ___SIZE_TS word_off =
-              ___CAST(___SIZE_TS, (addr - ___CAST(___UWORD, sec->base)) / ___WS);
-            ___gc_card_mark_in_section(sec, section_card_bits(sec), word_off,
-                                       ___MSECTION_SIZE, 0);
-            ___WORD_STORE_RELEASE(&vm->mem.card_overflow_any_, 1);
-          }
+        ___SIZE_TS word_off =
+          ___CAST(___SIZE_TS, (addr - ___CAST(___UWORD, sec->base)) / ___WS);
+        ___gc_card_mark_in_section(sec, section_card_bits(sec), word_off,
+                                   ___MSECTION_SIZE, 0);
+        ___WORD_STORE_RELEASE(&vm->mem.card_overflow_any_, 1);
       }
   }
 }
@@ -1230,6 +1410,7 @@ ___HIDDEN void rebuild_mature_snapshot(___virtual_machine_state vm)
     {
       vm->mem.mature_addr_lo_ = 0;
       vm->mem.mature_addr_span_ = 0;
+      mature_radix_rebuild(vm);
       vm->mem.mature_snapshot_epoch_++;
       return;
     }
@@ -1280,6 +1461,7 @@ ___HIDDEN void rebuild_mature_snapshot(___virtual_machine_state vm)
       vm->mem.mature_addr_lo_ = 0;
       vm->mem.mature_addr_span_ = 0;
     }
+  mature_radix_rebuild(vm);
   vm->mem.mature_snapshot_epoch_++;
 }
 

@@ -520,9 +520,79 @@
 #define ___STILL_FLAG_YOUNG 2
 #define ___STILL_FLAG_MAJOR_MARK0 4
 #define ___STILL_FLAG_MAJOR_MARK1 8
-#define ___STILL_MAJOR_COLOR_MASK 0xFC
+#define ___STILL_FLAG_GLOBAL 16
+#define ___STILL_MAJOR_COLOR_MASK 0xEC
 #define ___STILL_MAJOR_MARK_BIT(epoch) \
   (((epoch) & 1) ? ___STILL_FLAG_MAJOR_MARK1 : ___STILL_FLAG_MAJOR_MARK0)
+
+/* Amp-1 Cut 1A: Lock-free local still credit & atomic reclaimed accumulator.
+ * First refunds freed words into this processor's deferred->budget slice
+ * (preserving words_still_objs_deferred_ + still_words_budget_ == reserved
+ * to the exact word), then retains up to max(min_keep, MSECTION_SIZE/4) of
+ * already-settled occupied words in processor-private local_still_credit_
+ * (zero lock, zero atomic!) and publishes any surplus via release fetch_add. */
+static inline void amp_credit_reclaimed_still_words
+   (___processor_state ___ps,
+    ___virtual_machine_state vm,
+    ___SIZE_TS freed_words,
+    ___SIZE_TS min_keep)
+{
+  ___SIZE_TS def = ___ps->mem.words_still_objs_deferred_;
+  ___SIZE_TS f_def = (freed_words <= def) ? freed_words : def;
+  ___SIZE_TS f_occ = freed_words - f_def;
+  if (f_def > 0)
+    {
+      ___ps->mem.words_still_objs_deferred_ = def - f_def;
+      ___ps->mem.still_words_budget_ += f_def;
+    }
+  if (f_occ > 0)
+    {
+      ___SIZE_TS chunk = (___MSECTION_SIZE >> 2);
+      ___SIZE_TS cap = (min_keep > chunk) ? min_keep : chunk;
+      ___SIZE_TS cur = ___ps->mem.local_still_credit_;
+      ___SIZE_TS room = (cur < cap) ? (cap - cur) : 0;
+      ___SIZE_TS take = (f_occ <= room) ? f_occ : room;
+      ___SIZE_TS excess = f_occ - take;
+      ___ps->mem.local_still_credit_ = cur + take;
+      if (excess > 0)
+        {
+#if defined(__ATOMIC_RELEASE)
+          (void)__atomic_fetch_add(&vm->mem.still_words_reclaimed_pending_, excess, __ATOMIC_RELEASE);
+#else
+          vm->mem.still_words_reclaimed_pending_ += excess;
+#endif
+        }
+    }
+}
+
+/* Caller MUST hold ALLOC_MEM_LOCK(). Drains atomic pending reclaimed words and
+ * this processor's local credit into VM occupied_words_still_. */
+static inline void amp_drain_reclaimed_still_locked
+   (___processor_state ___ps,
+    ___virtual_machine_state vm)
+{
+  ___SIZE_TS reclaimed;
+#if defined(__ATOMIC_ACQ_REL)
+  reclaimed = __atomic_exchange_n(&vm->mem.still_words_reclaimed_pending_,
+                                  (___SIZE_TS)0,
+                                  __ATOMIC_ACQ_REL);
+#else
+  reclaimed = vm->mem.still_words_reclaimed_pending_;
+  vm->mem.still_words_reclaimed_pending_ = 0;
+#endif
+  if (___ps != 0 && ___ps->mem.local_still_credit_ > 0)
+    {
+      reclaimed += ___ps->mem.local_still_credit_;
+      ___ps->mem.local_still_credit_ = 0;
+    }
+  if (reclaimed > 0)
+    {
+      if (vm->mem.occupied_words_still_ >= reclaimed)
+        vm->mem.occupied_words_still_ -= reclaimed;
+      else
+        vm->mem.occupied_words_still_ = 0;
+    }
+}
 #define ___STILL_HANDLE ___STILL_BODY
 #define ___STILL_BODY (5+1)/************/
 #endif

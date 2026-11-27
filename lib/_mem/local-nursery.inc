@@ -21,9 +21,9 @@
 #ifndef ___LOCAL_NURSERY_INC
 #define ___LOCAL_NURSERY_INC
 
-#define ___LOCAL_GC_WORKLIST_CAP 256u
-#define ___LOCAL_GC_VISITED_CAP  512u /* power of 2 */
-#define ___LOCAL_GC_VISITED_MAX  384u
+#define ___LOCAL_GC_WORKLIST_CAP 512u
+#define ___LOCAL_GC_VISITED_CAP  1024u /* power of 2 */
+#define ___LOCAL_GC_VISITED_MAX  768u
 
 typedef struct ___local_still_tracer_struct
   {
@@ -205,6 +205,10 @@ ___HIDDEN ___BOOL try_local_young_still_gc
    * still objects to make local reclamation worthwhile. */
   if (___ps->mem.local_young_escaped_ != 0)
     return 0;
+  if (stack_msection != 0 &&
+      (tospace_offset == 0 || tospace_offset == (___MSECTION_SIZE >> 1)) &&
+      section_claim_at(stack_msection, tospace_offset)->raw_marks != 0)
+    return 0;
   if (___ps->mem.young_still_objs_ == 0 ||
       ___ps->mem.words_still_objs_young_ < requested_words_still + 2048)
     return 0;
@@ -235,18 +239,20 @@ ___HIDDEN ___BOOL try_local_young_still_gc
   memset(tr.visited, 0, sizeof(tr.visited));
 
   /* 0. Reset STILL_MARK = -1 on all young_still_objs (alloc initializes STILL_MARK = 0).
-   * Any young still object with non-zero refcount is pinned live and seeded as a root. */
+   * Any young still object with non-zero refcount or ___STILL_FLAG_GLOBAL (Marlow O(1)
+   * global-skip) stays live and is skipped without freeing. */
   {
     ___WORD *base = ___CAST(___WORD*, ___ps->mem.young_still_objs_);
     while (base != 0)
       {
-        if (base[___STILL_REFCOUNT] != 0)
+        if (base[___STILL_REFCOUNT] != 0 ||
+            (base[___STILL_DIRTY] & ___STILL_FLAG_GLOBAL) != 0)
           {
             ___WORD head = base[___STILL_BODY - 1];
             base[___STILL_MARK] = 0;
             if (!local_tracer_is_leaf_subtype(___HD_SUBTYPE(head)))
               {
-                /* Conservatively abort if a pinned pointer-bearing young still exists */
+                /* Conservatively abort if a pinned/global pointer-bearing young still exists */
                 tr.aborted = 1;
                 break;
               }
@@ -336,6 +342,7 @@ ___HIDDEN ___BOOL try_local_young_still_gc
         ___WORD *next = ___CAST(___WORD*, base[___STILL_LINK]);
         if (base[___STILL_MARK] == -1 &&
             base[___STILL_REFCOUNT] == 0 &&
+            (base[___STILL_DIRTY] & ___STILL_FLAG_GLOBAL) == 0 &&
             ___HD_SUBTYPE(base[___STILL_BODY - 1]) != ___sFOREIGN)
           {
             ___SIZE_TS len = base[___STILL_LENGTH];
@@ -369,12 +376,9 @@ ___HIDDEN ___BOOL try_local_young_still_gc
         else
           ___ps->mem.words_still_objs_ = 0;
 
-        ALLOC_MEM_LOCK();
-        if (occupied_words_still >= freed_words)
-          occupied_words_still -= freed_words;
-        else
-          occupied_words_still = 0;
-        ALLOC_MEM_UNLOCK();
+        /* Amp-1 Cut 1A: Zero ALLOC_MEM_LOCK()! Retain recycled credit locally
+         * and publish any surplus atomically via still_words_reclaimed_pending_. */
+        amp_credit_reclaimed_still_words(___ps, vm, freed_words, requested_words_still);
       }
 
     /* Reset write-barrier card cache so any future mature write sets local_young_escaped_ = 1 */
@@ -385,18 +389,20 @@ ___HIDDEN ___BOOL try_local_young_still_gc
 }
 
 /*
- * Phase A.3: Independent Processor-Local Movable Nursery Collection (Zero Global STW).
+ * Phase A.3 + Amp-1 Cut 1B: Unified Independent Processor-Local Movable +
+ * Young-Still Nursery Collection (Zero Global STW, Zero ALLOC_MEM_LOCK).
  *
- * When a processor's private young heap_msection fills (___heap_limit) and:
- *   - local_young_escaped_ == 0 (no pointer escaped to mature/global/SRFI-230/sibling),
- *   - young_still_objs_ == 0, major_phase_ == IDLE, no wills, primlock_depth == 0,
- *   - live movable objects in [alloc_heap_start_, hp) fit in a bounded 32 KiB scratch,
- * this processor compacts those live objects in-place to the start of its OWN
- * heap_msection half (preserving exact section parity!) and resets hp with ZERO
- * global STW (on_all_processors), ZERO ALLOC_MEM_LOCK, and ZERO cross-core barriers.
+ * Traces processor-private roots across BOTH the private young heap_msection
+ * and private young_still_objs_ in a single pass:
+ *   - Compacts surviving young movable objects in-place (preserving parity)
+ *   - Remaps internal pointers inside both movable objects and surviving
+ *     non-leaf young still objects
+ *   - Sweeps unmarked dead young_still_objs_ (skipping ___STILL_FLAG_GLOBAL &
+ *     pinned/foreign objects in O(1)) and credits freed words lock-free!
  */
-#define ___LOCAL_MOV_SCRATCH_WORDS 4096u
-#define ___LOCAL_MOV_MAX_LIVE      200u
+#define ___LOCAL_MOV_SCRATCH_WORDS 8192u
+#define ___LOCAL_MOV_MAX_LIVE      512u
+#define ___LOCAL_MOV_MAX_STILL     256u
 
 typedef struct ___local_mov_compactor_struct
   {
@@ -408,6 +414,8 @@ typedef struct ___local_mov_compactor_struct
     ___SIZE_TS obj_words[___LOCAL_MOV_MAX_LIVE];
     unsigned int live_count;
     ___SIZE_TS total_live_words;
+    ___WORD *live_still[___LOCAL_MOV_MAX_STILL];
+    unsigned int live_still_count;
     ___UWORD vis_keys[___LOCAL_GC_VISITED_CAP];
     int vis_idx[___LOCAL_GC_VISITED_CAP];
     int aborted;
@@ -431,6 +439,17 @@ static inline int local_mov_lookup(___local_mov_compactor *mc, ___WORD *body)
   return -1;
 }
 
+static inline int local_mov_supported_subtype(int subtype)
+{
+  return (local_tracer_is_leaf_subtype(subtype) ||
+          subtype == ___sVECTOR || subtype == ___sPAIR ||
+          subtype == ___sBOXVALUES || subtype == ___sSTRUCTURE ||
+          subtype == ___sSYMBOL || subtype == ___sKEYWORD ||
+          subtype == ___sRATNUM || subtype == ___sCPXNUM ||
+          subtype == ___sMEROON || subtype == ___sJAZZ ||
+          subtype == ___sPROCEDURE);
+}
+
 static inline void local_mov_mark(___local_mov_compactor *mc, ___SCMOBJ obj)
 {
   ___WORD head;
@@ -446,8 +465,34 @@ static inline void local_mov_mark(___local_mov_compactor *mc, ___SCMOBJ obj)
 
   head = ___HEADER(obj);
   htyp = ___HD_TYP(head);
+
+  if (htyp == ___STILL)
+    {
+#ifndef ___USE_HANDLES
+      ___WORD *base = ___BODY0(obj) - ___STILL_BODY;
+      if ((base[___STILL_DIRTY] & ___STILL_FLAG_YOUNG) == 0)
+        return; /* mature still: cannot point into unescaped local nursery */
+      if (base[___STILL_MARK] == -1)
+        {
+          subtype = ___HD_SUBTYPE(head);
+          base[___STILL_MARK] = 0;
+          if (!local_tracer_is_leaf_subtype(subtype))
+            {
+              if (!local_mov_supported_subtype(subtype) ||
+                  mc->live_still_count >= ___LOCAL_MOV_MAX_STILL)
+                {
+                  mc->aborted = 1;
+                  return;
+                }
+              mc->live_still[mc->live_still_count++] = base;
+            }
+        }
+#endif
+      return;
+    }
+
   if (htyp != ___MOVABLE0)
-    return; /* mature/perm/still: cannot point into unescaped local movable nursery */
+    return; /* permanent/other */
 
   body = ___BODY0(obj);
   if (body < mc->heap_lo || body >= mc->heap_hi)
@@ -472,13 +517,7 @@ static inline void local_mov_mark(___local_mov_compactor *mc, ___SCMOBJ obj)
     }
 
   subtype = ___HD_SUBTYPE(head);
-  if (!local_tracer_is_leaf_subtype(subtype) &&
-      subtype != ___sVECTOR && subtype != ___sPAIR &&
-      subtype != ___sBOXVALUES && subtype != ___sSTRUCTURE &&
-      subtype != ___sSYMBOL && subtype != ___sKEYWORD &&
-      subtype != ___sRATNUM && subtype != ___sCPXNUM &&
-      subtype != ___sMEROON && subtype != ___sJAZZ &&
-      subtype != ___sPROCEDURE)
+  if (!local_mov_supported_subtype(subtype))
     {
       mc->aborted = 1;
       return;
@@ -524,6 +563,61 @@ static inline ___SCMOBJ local_mov_remap(___local_mov_compactor *mc, ___SCMOBJ ob
   return ___TAG(mc->heap_lo + mc->new_off[idx] + 1 - ___REFERENCE_TO_BODY, ___TYP(obj));
 }
 
+static inline void local_mov_sweep_young_still
+   (___processor_state ___ps,
+    ___virtual_machine_state vm)
+{
+#ifndef ___USE_HANDLES
+  ___WORD *prev = 0;
+  ___WORD *base = ___CAST(___WORD*, ___ps->mem.young_still_objs_);
+  ___SIZE_TS freed_words = 0;
+  ___SIZE_T freed_malloc_words = 0;
+
+  while (base != 0)
+    {
+      ___WORD *next = ___CAST(___WORD*, base[___STILL_LINK]);
+      if (base[___STILL_MARK] == -1 &&
+          base[___STILL_REFCOUNT] == 0 &&
+          (base[___STILL_DIRTY] & ___STILL_FLAG_GLOBAL) == 0 &&
+          ___HD_SUBTYPE(base[___STILL_BODY - 1]) != ___sFOREIGN)
+        {
+          ___SIZE_TS len = base[___STILL_LENGTH];
+          if (prev == 0)
+            ___ps->mem.young_still_objs_ = ___CAST(___WORD, next);
+          else
+            prev[___STILL_LINK] = ___CAST(___WORD, next);
+          if (!free_mem_aligned_heap_ps(___ps, base) && len > 0)
+            freed_malloc_words += (___SIZE_T)len;
+          freed_words += len;
+        }
+      else
+        {
+          base[___STILL_MARK] = 0;
+          prev = base;
+        }
+      base = next;
+    }
+
+  if (freed_malloc_words > 0)
+    gc_record_freed_malloc_still_words(freed_malloc_words);
+
+  if (freed_words > 0)
+    {
+      if (___ps->mem.words_still_objs_young_ >= freed_words)
+        ___ps->mem.words_still_objs_young_ -= freed_words;
+      else
+        ___ps->mem.words_still_objs_young_ = 0;
+      if (___ps->mem.words_still_objs_ >= freed_words)
+        ___ps->mem.words_still_objs_ -= freed_words;
+      else
+        ___ps->mem.words_still_objs_ = 0;
+      amp_credit_reclaimed_still_words(___ps, vm, freed_words, 0);
+    }
+#else
+  (void)___ps; (void)vm;
+#endif
+}
+
 ___HIDDEN ___BOOL try_local_movable_nursery_gc (___processor_state ___ps)
 {
 #if defined(___USE_HANDLES) || defined(___GAMBIT_REST_OBSERVATION) || defined(___GAMBIT_DEV_RESTORE_PROBE) || (___WS != 8)
@@ -540,7 +634,9 @@ ___HIDDEN ___BOOL try_local_movable_nursery_gc (___processor_state ___ps)
   ___WORD ra = 0;
   int carry = 0;
   int i;
-  unsigned int scan_idx;
+  int has_young_still;
+  unsigned int scan_idx = 0u;
+  unsigned int still_scan_idx = 0u;
 
   if (___ps == 0 || ___ps != ___PSTATE || !___lifecycle_gc_admitted(___ps))
     return 0;
@@ -553,7 +649,9 @@ ___HIDDEN ___BOOL try_local_movable_nursery_gc (___processor_state ___ps)
 
   if (___ps->mem.local_young_escaped_ != 0)
     return 0;
-  if (___ps->mem.young_still_objs_ != 0)
+  if (stack_msection != 0 &&
+      (tospace_offset == 0 || tospace_offset == (___MSECTION_SIZE >> 1)) &&
+      section_claim_at(stack_msection, tospace_offset)->raw_marks != 0)
     return 0;
   if (___WORD_LOAD_ACQUIRE(&vm->mem.major_phase_) != ___GC_MAJOR_IDLE ||
       ___WORD_LOAD_ACQUIRE(&vm->mem.major_request_start_) != 0 ||
@@ -574,17 +672,47 @@ ___HIDDEN ___BOOL try_local_movable_nursery_gc (___processor_state ___ps)
     return 0;
 
   used_words = (___SIZE_TS)(hp - heap_lo);
-  if (used_words < 16384)
+  if (used_words < 4096)
     return 0;
+  if (___ps->mem.alloc_heap_limit_ <= heap_lo + ___MSECTION_FUDGE + 4096)
+    return 0;
+
+  has_young_still = (___ps->mem.young_still_objs_ != 0);
 
   mc.heap_lo = heap_lo;
   mc.heap_hi = hp;
   mc.live_count = 0u;
   mc.total_live_words = 0;
+  mc.live_still_count = 0u;
   mc.aborted = 0;
   memset(mc.vis_keys, 0, sizeof(mc.vis_keys));
 
-  /* Pass 1: Read-only transitive root trace over [heap_lo, hp) */
+  /* Pass 0: Prepare young_still_objs_ marks for unified local trace + sweep */
+  if (has_young_still)
+    {
+      ___WORD *base = ___CAST(___WORD*, ___ps->mem.young_still_objs_);
+      while (base != 0)
+        {
+          if (base[___STILL_REFCOUNT] != 0 ||
+              (base[___STILL_DIRTY] & ___STILL_FLAG_GLOBAL) != 0)
+            {
+              ___WORD head = base[___STILL_BODY - 1];
+              base[___STILL_MARK] = 0;
+              if (!local_tracer_is_leaf_subtype(___HD_SUBTYPE(head)))
+                {
+                  mc.aborted = 1;
+                  break;
+                }
+            }
+          else
+            {
+              base[___STILL_MARK] = -1;
+            }
+          base = ___CAST(___WORD*, base[___STILL_LINK]);
+        }
+    }
+
+  /* Pass 1: Read-only transitive root trace over [heap_lo, hp) + young_still_objs_ */
   for (i = 0; i < ___NB_GVM_REGS && !mc.aborted; i++)
     local_mov_mark(&mc, ctx->r[i]);
   for (i = 0; i < 3 && !mc.aborted; i++)
@@ -629,36 +757,70 @@ ___HIDDEN ___BOOL try_local_movable_nursery_gc (___processor_state ___ps)
   if (!mc.aborted)
     local_mov_mark(&mc, ___FP_STK(fp, -___BREAK_FRAME_NEXT));
 
-  /* BFS drain over discovered live objects (cycle-safe via mc.vis_keys) */
-  for (scan_idx = 0u; !mc.aborted && scan_idx < mc.live_count; scan_idx++)
+  /* Unified BFS drain over discovered live movable + non-leaf young-still objects */
+  while (!mc.aborted && (scan_idx < mc.live_count || still_scan_idx < mc.live_still_count))
     {
-      ___SCMOBJ obj = mc.live_objs[scan_idx];
-      ___WORD head = ___HEADER(obj);
-      int subtype = ___HD_SUBTYPE(head);
-      ___SIZE_TS words = ___HD_WORDS(head);
-      ___WORD *body = mc.old_body[scan_idx];
-      ___SIZE_TS j;
+      while (!mc.aborted && scan_idx < mc.live_count)
+        {
+          ___SCMOBJ obj = mc.live_objs[scan_idx];
+          ___WORD head = ___HEADER(obj);
+          int subtype = ___HD_SUBTYPE(head);
+          ___SIZE_TS words = ___HD_WORDS(head);
+          ___WORD *body = mc.old_body[scan_idx];
+          ___SIZE_TS j;
+          scan_idx++;
 
-      if (local_tracer_is_leaf_subtype(subtype))
-        continue;
-      if (subtype == ___sPROCEDURE)
-        {
-          for (j = 1; j < words && !mc.aborted; j++)
-            local_mov_mark(&mc, body[j]);
+          if (local_tracer_is_leaf_subtype(subtype))
+            continue;
+          if (subtype == ___sPROCEDURE)
+            {
+              for (j = 1; j < words && !mc.aborted; j++)
+                local_mov_mark(&mc, body[j]);
+            }
+          else
+            {
+              for (j = 0; j < words && !mc.aborted; j++)
+                local_mov_mark(&mc, body[j]);
+            }
         }
-      else
+      while (!mc.aborted && still_scan_idx < mc.live_still_count)
         {
-          for (j = 0; j < words && !mc.aborted; j++)
+          ___WORD *base = mc.live_still[still_scan_idx++];
+          ___WORD head = base[___STILL_BODY - 1];
+          int subtype = ___HD_SUBTYPE(head);
+          ___SIZE_TS words = ___HD_WORDS(head);
+          ___WORD *body = base + ___STILL_BODY;
+          ___SIZE_TS j;
+          ___SIZE_TS start_j = (subtype == ___sPROCEDURE) ? 1 : 0;
+          for (j = start_j; j < words && !mc.aborted; j++)
             local_mov_mark(&mc, body[j]);
         }
     }
 
-  if (mc.aborted)
-    return 0;
+  /* Ensure compaction frees substantial space before soft limit (no thrashing) */
+  if (!mc.aborted &&
+      heap_lo + mc.total_live_words + 4096 > ___ps->mem.alloc_heap_limit_ - ___MSECTION_FUDGE)
+    mc.aborted = 1;
 
-  /* Fast zero-live path: 0 live objects in local nursery -> O(1) instant reset! */
+  if (mc.aborted)
+    {
+      if (has_young_still)
+        {
+          ___WORD *base = ___CAST(___WORD*, ___ps->mem.young_still_objs_);
+          while (base != 0)
+            {
+              base[___STILL_MARK] = 0;
+              base = ___CAST(___WORD*, base[___STILL_LINK]);
+            }
+        }
+      return 0;
+    }
+
+  /* Fast zero-live movable path: O(1) instant reset + unified young-still sweep! */
   if (mc.live_count == 0u)
     {
+      if (has_young_still)
+        local_mov_sweep_young_still(___ps, vm);
       ctx->hp = heap_lo;
       ___ps->mem.alloc_heap_ptr_ = heap_lo;
       ___ps->mem.bytes_allocated_minus_occupied_ += (___F64)used_words * ___WS;
@@ -666,7 +828,7 @@ ___HIDDEN ___BOOL try_local_movable_nursery_gc (___processor_state ___ps)
       return 1;
     }
 
-  /* Pass 2: Copy live objects to stack scratch, remap internal & root pointers, copy back */
+  /* Pass 2: Copy live movable objects to scratch, remap internal/root/still pointers, copy back */
   {
     ___WORD scratch[___LOCAL_MOV_SCRATCH_WORDS];
     unsigned int k;
@@ -687,6 +849,20 @@ ___HIDDEN ___BOOL try_local_movable_nursery_gc (___processor_state ___ps)
             for (j = start_j; j < total_w; j++)
               dst[j] = local_mov_remap(&mc, dst[j]);
           }
+      }
+
+    /* Remap pointer slots inside surviving non-leaf young-still objects */
+    for (k = 0u; k < mc.live_still_count; k++)
+      {
+        ___WORD *base = mc.live_still[k];
+        ___WORD head = base[___STILL_BODY - 1];
+        int subtype = ___HD_SUBTYPE(head);
+        ___SIZE_TS words = ___HD_WORDS(head);
+        ___WORD *body = base + ___STILL_BODY;
+        ___SIZE_TS start_j = (subtype == ___sPROCEDURE) ? 1 : 0;
+        ___SIZE_TS j;
+        for (j = start_j; j < words; j++)
+          body[j] = local_mov_remap(&mc, body[j]);
       }
 
     /* Remap all processor-private root slots */
@@ -723,8 +899,13 @@ ___HIDDEN ___BOOL try_local_movable_nursery_gc (___processor_state ___ps)
         carry = 1;
       }
 
+    ___FP_SET_STK(fp, -___BREAK_FRAME_NEXT,
+                  local_mov_remap(&mc, ___FP_STK(fp, -___BREAK_FRAME_NEXT)));
+
     /* Copy compacted live objects back to start of same half (preserving parity!) */
     memcpy(heap_lo, scratch, (___SIZE_T)mc.total_live_words * sizeof(___WORD));
+    if (has_young_still)
+      local_mov_sweep_young_still(___ps, vm);
     ctx->hp = heap_lo + mc.total_live_words;
     ___ps->mem.alloc_heap_ptr_ = ctx->hp;
     ___ps->mem.bytes_allocated_minus_occupied_ +=

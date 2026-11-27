@@ -75,6 +75,7 @@ ___PSDKR)
   words_still_objs = words_still_objs_mature + ___lifecycle_deferred_words(___ps);
   words_still_objs_deferred = 0;
   still_words_budget = 0;
+  ___ps->mem.local_still_credit_ = 0;
   ___ps->mem.local_young_escaped_ = 0;
 }
 
@@ -156,6 +157,7 @@ ___PSDKR)
   words_still_objs = live_words_still + ___lifecycle_deferred_words(___ps);
   words_still_objs_deferred = 0;
   still_words_budget = 0;
+  ___ps->mem.local_still_credit_ = 0;
   ___ps->mem.local_young_escaped_ = 0;
   still_slab_flush_local(___ps);
 
@@ -314,6 +316,8 @@ void ___lifecycle_handoff(___processor_state from,___processor_state to)
   from->mem.words_still_objs_young_=0;from->mem.words_still_objs_deferred_=0;
   to->mem.still_words_budget_+=from->mem.still_words_budget_;
   from->mem.still_words_budget_=0;
+  to->mem.local_still_credit_+=from->mem.local_still_credit_;
+  from->mem.local_still_credit_=0;
   to->mem.bytes_allocated_minus_occupied_+=from->mem.bytes_allocated_minus_occupied_;
   from->mem.bytes_allocated_minus_occupied_=0;
 }

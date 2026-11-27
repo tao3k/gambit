@@ -234,6 +234,16 @@ ___processor_state ___ps;)
       : 0;
   }
 
+#ifndef ___CALL_GC_FREQUENTLY
+  /* Amp-1 Cut 1B: This processor's dedicated heap_msection is ALREADY deducted
+   * in compute_msection_size(nb_msections_assigned). Do not clip heap_limit to 0
+   * when free_approx == 0 on tight heaps (e.g. m16384 on p8/p12), or mutators
+   * immediately trap back into ___heap_limit on the very next allocation. */
+  if (heap_msection != 0 && stack_msection != heap_msection &&
+      heap_avail < heap_left_before_fudge)
+    heap_avail = heap_left_before_fudge;
+#endif
+
   ___ps->context->hp = alloc_heap_ptr;
   ___ps->heap_limit = alloc_heap_ptr
                       + ((heap_avail < heap_left_before_fudge)
@@ -358,6 +368,7 @@ ___processor_state ___ps;)
   ___ps->mem.still_local_count_[2] = 0u;
   ___ps->mem.still_local_count_[3] = 0u;
   ___ps->mem.local_young_escaped_ = 0;
+  ___ps->mem.local_still_credit_ = 0;
   memset(&___ps->mem.card_hints_, 0, sizeof(___ps->mem.card_hints_));
   ___ps->mem.satb_active_ = 0;
   ___ps->mem.satb_count_ = 0;
@@ -500,6 +511,9 @@ ___virtual_machine_state ___vms;)
 
   ___vms->mem.globals_snapshot_=0;
   the_msections=0;
+  ___vms->mem.still_words_reclaimed_pending_ = 0;
+  ___vms->mem.mature_radix_l1_ = 0;
+  ___vms->mem.mature_radix_pool_ = 0;
 #ifndef ___SINGLE_VM
   ___vms->glos=0;
 #endif
@@ -616,6 +630,7 @@ ___virtual_machine_state ___vms;)
   occupied_words_movable = 0;
   occupied_words_still = 0;
   reserved_words_still = 0;
+  ___vms->mem.still_words_reclaimed_pending_ = 0;
 
   nb_msections_assigned = 0;
   nb_msections_stacks   = 0;
@@ -627,6 +642,8 @@ ___virtual_machine_state ___vms;)
   ___vms->mem.mature_addr_lo_ = 0;
   ___vms->mem.mature_addr_span_ = 0;
   ___vms->mem.mature_snapshot_epoch_ = 1;
+  ___vms->mem.mature_radix_l1_ = 0;
+  ___vms->mem.mature_radix_pool_ = 0;
   ___vms->mem.occupied_words_mature_ = 0;
   ___vms->mem.major_trigger_sections_ = 8;
   ___vms->mem.minor_gcs_since_major_ = 0;
@@ -847,6 +864,20 @@ ___processor_state ___ps;)
       still_words_budget = 0;
       ALLOC_MEM_UNLOCK();
     }
+  if (___ps->mem.local_still_credit_ > 0)
+    {
+      ___virtual_machine_state vm = ___VMSTATE_FROM_PSTATE(___ps);
+      ___SIZE_TS credit = ___ps->mem.local_still_credit_;
+      ___ps->mem.local_still_credit_ = 0;
+      if (vm != 0)
+        {
+#if defined(__ATOMIC_RELEASE)
+          (void)__atomic_fetch_add(&vm->mem.still_words_reclaimed_pending_, credit, __ATOMIC_RELEASE);
+#else
+          vm->mem.still_words_reclaimed_pending_ += credit;
+#endif
+        }
+    }
   clear_fast_span (___ps);
   if (___ps->mem.satb_buf_ != 0)
     {
@@ -899,6 +930,7 @@ ___virtual_machine_state ___vms;)
     ___cleanup_mem_pstate (___PSTATE_FROM_PROCESSOR_ID(0,___vms));
 
   free_msections (&the_msections);
+  mature_radix_cleanup(___vms);
   if (___vms->mem.mature_sections_ != 0)
     {
       ___FREE_MEM(___vms->mem.mature_sections_);

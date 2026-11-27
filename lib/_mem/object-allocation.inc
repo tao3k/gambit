@@ -95,7 +95,23 @@ ___SIZE_TS bytes;)
   if (--___gc_calls_to_punt < 0) goto invoke_gc;
 #endif
 
-  if (words <= still_words_budget)
+  if (words <= ___ps->mem.local_still_credit_)
+    {
+      /* Amp-1 Cut 1A fast path: consume processor-private recycled still-word
+       * credit (already accounted in occupied_words_still_; ZERO lock/atomic). */
+#ifdef ___GAMBIT_DEV_RESTORE_PROBE
+      ___dev_restore_census_native("still-scmobj");
+#endif
+      if ((ptr = alloc_mem_aligned_heap_ps (___ps,
+                                            words,
+                                            8>>___LWS,
+                                            (-___STILL_BODY)&((8>>___LWS)-1)))
+          == 0)
+        return ___FIX(___HEAP_OVERFLOW_ERR);
+
+      ___ps->mem.local_still_credit_ -= words;
+    }
+  else if (words <= still_words_budget)
     {
       /*
        * Fast path: consume from this processor's pre-reserved still-object
@@ -133,8 +149,38 @@ ___SIZE_TS bytes;)
       ___SIZE_TS avail;
       int tried_local_gc = 0;
 
+      /* Amp-1 Cut 1A+: Proactive processor-local young-still recycle BEFORE
+       * taking ALLOC_MEM_LOCK() once deferred young-still churn reaches 128 KiB
+       * (~25-50 medium objects, fitting 100% inside still_local_free_[] cap=128
+       * to eliminate concurrent slab-lock and munmap/mmap kernel contention!). */
+      if (___ps->mem.local_young_escaped_ == 0 &&
+          words_still_objs_deferred >= (___MSECTION_SIZE >> 3) &&
+          try_local_young_still_gc(___ps, words))
+        {
+          if (words <= still_words_budget)
+            {
+              if ((ptr = alloc_mem_aligned_heap_ps (___ps,
+                                                    words,
+                                                    8>>___LWS,
+                                                    (-___STILL_BODY)&((8>>___LWS)-1)))
+                  == 0)
+                return ___FIX(___HEAP_OVERFLOW_ERR);
+              still_words_budget -= words;
+              words_still_objs_deferred += words;
+              goto init_still_obj_now;
+            }
+          if (words <= ___ps->mem.local_still_credit_)
+            {
+              ___ps->mem.local_still_credit_ -= words;
+              goto alloc_still_storage_now;
+            }
+          tried_local_gc = 1;
+        }
+
     retry_still_alloc:
       ALLOC_MEM_LOCK();
+
+      amp_drain_reclaimed_still_locked(___ps, vm);
 
       prev_reserved = words_still_objs_deferred + still_words_budget;
       if (reserved_words_still >= prev_reserved)
@@ -191,10 +237,16 @@ ___SIZE_TS bytes;)
           if (___ps != ___PSTATE || !___lifecycle_gc_admitted(___ps)
               || vm->lifecycle->cleanup[___PROCESSOR_ID(___ps,vm)].draining)
             return ___FIX(___HEAP_OVERFLOW_ERR);
-          /* Phase A.2.3: try independent processor-local young-still GC first
-           * (zero global STW barrier, zero cross-core stalling). */
+          /* Phase A.2.3 + Amp-1 Cut 1A: try independent processor-local young-still GC
+           * first (zero global STW barrier, zero ALLOC_MEM_LOCK!). When local credit
+           * covers this request directly, bypass retry_still_alloc entirely. */
           if (!tried_local_gc && try_local_young_still_gc(___ps, words))
             {
+              if (words <= ___ps->mem.local_still_credit_)
+                {
+                  ___ps->mem.local_still_credit_ -= words;
+                  goto alloc_still_storage_now;
+                }
               tried_local_gc = 1;
               goto retry_still_alloc;
             }
@@ -202,6 +254,7 @@ ___SIZE_TS bytes;)
             return ___FIX(___HEAP_OVERFLOW_ERR);
         }
 
+    alloc_still_storage_now:
       /*
        * Allocate the still object.  See comments above for other call
        * to alloc_mem_aligned_heap.
@@ -239,6 +292,7 @@ ___SIZE_TS bytes;)
 
   /* Initialize still object and add it to the young_still_objs list
    * (non-pointer subtypes stay clean and never dirty vm->mem.still_dirty_any_). */
+init_still_obj_now:
 
   base = ___CAST(___WORD*,ptr);
   body = base + ___STILL_BODY;
