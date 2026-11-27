@@ -207,7 +207,9 @@ ___HIDDEN ___BOOL try_local_young_still_gc
   if (___ps->mem.young_still_objs_ == 0 ||
       ___ps->mem.words_still_objs_young_ < requested_words_still + 2048)
     return 0;
-  if (___WORD_LOAD_ACQUIRE(&vm->mem.major_phase_) != ___GC_MAJOR_IDLE)
+  if (___WORD_LOAD_ACQUIRE(&vm->mem.major_phase_) != ___GC_MAJOR_IDLE ||
+      ___WORD_LOAD_ACQUIRE(&vm->mem.major_request_start_) != 0 ||
+      vm->mem.major_evacuate_count_ >= 2)
     return 0;
   if (___UNTAG(___ps->mem.nonexecutable_wills_) != 0 ||
       ___UNTAG(___ps->mem.executable_wills_) != 0)
@@ -552,7 +554,9 @@ ___HIDDEN ___BOOL try_local_movable_nursery_gc (___processor_state ___ps)
     return 0;
   if (___ps->mem.young_still_objs_ != 0)
     return 0;
-  if (___WORD_LOAD_ACQUIRE(&vm->mem.major_phase_) != ___GC_MAJOR_IDLE)
+  if (___WORD_LOAD_ACQUIRE(&vm->mem.major_phase_) != ___GC_MAJOR_IDLE ||
+      ___WORD_LOAD_ACQUIRE(&vm->mem.major_request_start_) != 0 ||
+      vm->mem.major_evacuate_count_ >= 2)
     return 0;
   if (___UNTAG(___ps->mem.nonexecutable_wills_) != 0 ||
       ___UNTAG(___ps->mem.executable_wills_) != 0)

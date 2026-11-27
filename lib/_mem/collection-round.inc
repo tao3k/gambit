@@ -713,6 +713,7 @@ ___SIZE_TS requested_words_still;)
         }
     }
   ___ps->collector=0;
+  ___ps->mem.local_young_escaped_=0;
   ___RESUME(___vms,proc_id).source_drained=1;
   if (is_coord)
     {
@@ -720,7 +721,9 @@ ___SIZE_TS requested_words_still;)
       for (k = 0; k < ___vms->processor_count; k++)
         if (!___COLLECTION(___vms).active[k])
           {
-            ___PSTATE_FROM_PROCESSOR_ID(k, ___vms)->collector = 0;
+            ___processor_state pps = ___PSTATE_FROM_PROCESSOR_ID(k, ___vms);
+            pps->collector = 0;
+            pps->mem.local_young_escaped_ = 0;
             ___RESUME(___vms, k).source_drained = 1;
           }
     }
