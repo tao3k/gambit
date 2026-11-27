@@ -1089,8 +1089,87 @@ ___SIZE_TS budget_words;)
       ___WORD_STORE_RELEASE(
         &___ps->mem.major_marked_words_local_,
         ___ps->mem.major_marked_words_local_ + ___CAST(___WORD, scanned));
+      ___WORD_FETCH_ADD_RELEASE(
+        &vm->mem.major_work_done_words_,
+        ___CAST(___WORD, scanned));
     }
   return scanned;
+}
+
+/* Global atomic work pacer (OCaml-5 alloc_counter / work_counter model):
+ * credits managed + phantom allocation words into vm->mem.major_alloc_words_
+ * and performs a proportional concurrent mark slice whenever completed work
+ * trails ceil(W * alloc / E), guaranteeing marking finishes before 2x headroom. */
+___HIDDEN ___SIZE_TS gc_major_pace_alloc_words
+   (___processor_state ___ps,
+    ___SIZE_TS alloc_words)
+{
+  ___virtual_machine_state vm;
+  ___WORD total_alloc, done;
+  ___SIZE_TS headroom, target_total, target_work, budget;
+  double target_d;
+
+  if (___ps == 0 || alloc_words <= 0 || ___ps->primlock_depth != 0)
+    return 0;
+  if (___EXPECT_TRUE(___WORD_LOAD_RELAXED(&___ps->mem.satb_active_) == 0))
+    return 0;
+
+  vm = ___VMSTATE_FROM_PSTATE(___ps);
+  if (vm == 0 || ___WORD_LOAD_ACQUIRE(&vm->mem.major_phase_) != ___GC_MAJOR_MARKING)
+    return 0;
+
+  total_alloc =
+    ___WORD_FETCH_ADD_RELEASE(&vm->mem.major_alloc_words_, ___CAST(___WORD, alloc_words)) +
+    ___CAST(___WORD, alloc_words);
+
+  headroom = vm->mem.pacing_headroom_words_;
+  if (headroom < 2 * ___MSECTION_SIZE)
+    headroom = 2 * ___MSECTION_SIZE;
+  target_total = vm->mem.pacing_work_target_words_;
+  if (target_total < 2 * ___MSECTION_SIZE)
+    target_total = 2 * ___MSECTION_SIZE;
+
+  target_d = (___CAST(double, target_total) * ___CAST(double, total_alloc)) /
+             ___CAST(double, headroom);
+  if (target_d >= ___CAST(double, target_total))
+    target_work = target_total;
+  else
+    target_work = ___CAST(___SIZE_TS, target_d) + 1;
+
+  done = ___WORD_LOAD_ACQUIRE(&vm->mem.major_work_done_words_);
+  if (target_work > ___CAST(___SIZE_TS, done))
+    {
+      int np = (vm->processor_count > 0) ? vm->processor_count : 1;
+      ___SIZE_TS deficit = target_work - ___CAST(___SIZE_TS, done);
+      double fair_d = (___CAST(double, target_total) * ___CAST(double, alloc_words)) /
+                      ___CAST(double, headroom);
+      ___SIZE_TS fair_slice = ___CAST(___SIZE_TS, fair_d) + 1;
+      ___SIZE_TS share = (deficit + np - 1) / np;
+      budget = (fair_slice > share) ? fair_slice : share;
+      if (budget > deficit)
+        budget = deficit;
+      if (budget < 16384)
+        budget = 16384;
+      if (budget > 131072)
+        budget = 131072;
+    }
+  else if (___CAST(___SIZE_TS, total_alloc) >= headroom &&
+           (___ps->mem.major_mark_local_count_ > 0 ||
+            ___ps->mem.satb_count_ > 0 ||
+            ___WORD_LOAD_ACQUIRE(&vm->mem.major_mark_stack_count_) > 0))
+    {
+      budget = 65536;
+    }
+  else if (___ps->mem.satb_count_ >= (___GC_SATB_BUF_CAP >> 1))
+    {
+      budget = 8192;
+    }
+  else
+    {
+      return 0;
+    }
+
+  return ___gc_major_mark_slice(___ps, budget);
 }
 
 /* Idle-core cooperative marking hook invoked from SMP scheduler right before
@@ -1335,6 +1414,50 @@ ___HIDDEN void major_initial_mark_begin(___virtual_machine_state vm)
 
   /* Publish MARKING phase and arm SATB barrier across ALL processors (active
    * and parked FFI processors alike; ___leave_blocking_ffi also adopts it). */
+  {
+    ___F64 u0, s0, r0;
+    ___SIZE_TS half_sec = ___MSECTION_SIZE >> 1;
+    ___SIZE_TS lim_sec = ___CAST(___SIZE_TS, vm->mem.major_trigger_sections_) * 2;
+    ___SIZE_TS cur_sec = ___CAST(___SIZE_TS, vm->mem.nb_msections_mature_);
+    ___SIZE_TS e_sec = (lim_sec > cur_sec + 4) ? ((lim_sec - cur_sec) * half_sec) : (4 * half_sec);
+    ___SIZE_TS lim_still = vm->mem.major_trigger_still_words_ * 2;
+    ___SIZE_TS cur_still = vm->mem.mature_still_words_;
+    ___SIZE_TS e_still = (lim_still > cur_still + 2 * ___MSECTION_SIZE)
+                           ? (lim_still - cur_still)
+                           : (2 * ___MSECTION_SIZE);
+    ___SIZE_TS e = (e_sec < e_still) ? e_sec : e_still;
+    ___SIZE_TS e_minor = ___CAST(___SIZE_TS, (np > 0 ? np : 1)) * half_sec * 6;
+    ___SIZE_TS w = vm->mem.occupied_words_mature_ + vm->mem.mature_still_words_;
+    ___WORD ph_trig = ___WORD_LOAD_ACQUIRE(&vm->mem.major_trigger_phantom_bytes_);
+    ___WORD ph_live = ___WORD_LOAD_ACQUIRE(&vm->mem.phantom_bytes_live_);
+
+    gc_pacing_sample_mutator(vm);
+    ___process_times(&u0, &s0, &r0);
+    vm->mem.pacing_major_start_real_ = r0;
+
+    if (e_minor < e)
+      e = e_minor;
+    if (ph_trig > 0 && ph_live >= (ph_trig >> 1))
+      {
+        ___WORD ph_rem = (ph_trig * 2 > ph_live) ? (ph_trig * 2 - ph_live) : (ph_trig >> 1);
+        ___SIZE_TS e_ph = ___CAST(___SIZE_TS, ph_rem >> ___LWS);
+        if (e_ph < e)
+          e = e_ph;
+      }
+    /* Target concurrent mark completion at 75% of remaining headroom so
+     * mutator pacing drains the mark graph well before 2x emergency Remark. */
+    e = (e * 3) >> 2;
+    if (e < 2 * ___MSECTION_SIZE)
+      e = 2 * ___MSECTION_SIZE;
+    if (w < 4 * ___MSECTION_SIZE)
+      w = 4 * ___MSECTION_SIZE;
+
+    vm->mem.pacing_headroom_words_ = e;
+    vm->mem.pacing_work_target_words_ = w;
+    ___WORD_STORE_RELEASE(&vm->mem.major_alloc_words_, 0);
+    ___WORD_STORE_RELEASE(&vm->mem.major_work_done_words_, 0);
+    ___WORD_STORE_RELEASE(&vm->mem.phantom_gc_needed_, 0);
+  }
   vm->mem.minor_gcs_since_major_ = 0;
   ___WORD_STORE_RELEASE(&vm->mem.major_phase_, ___GC_MAJOR_MARKING);
   for (p = 0; p < np; p++)
@@ -2080,7 +2203,7 @@ ___HIDDEN void major_remark_phase_c_parallel
               ___WORD head = base[___STILL_HEADER];
               ___SIZE_TS len = base[___STILL_LENGTH];
               my_reclaimed_still += len;
-              if (___HD_SUBTYPE(head) == ___sFOREIGN)
+              if (___HD_SUBTYPE(head) == ___sFOREIGN && !gc_try_reclaim_refc_foreign(base))
                 ___lifecycle_defer(ps, base);
               else if (!free_mem_aligned_heap_ex(base) && len > 0)
                 gc_record_freed_malloc_still_words((___SIZE_T)len);
@@ -2447,45 +2570,212 @@ ___HIDDEN void major_remark_phase_d_coord(___virtual_machine_state vm)
   ___WORD_STORE_RELEASE(&vm->mem.major_request_start_, 0);
   ___WORD_STORE_RELEASE(&vm->mem.major_phase_, ___GC_MAJOR_IDLE);
 
-  gc_update_major_triggers(vm);
   major_fold_local_stats_stw(vm);
   lxr_drc_sync_vm_stats(vm);
 
   ___process_times(&u1, &s1, &r1);
+  {
+    ___F64 remark_sec = r1 - g->major_remark_r0;
+    ___F64 conc_done = ___CAST(___F64, ___WORD_LOAD_ACQUIRE(&vm->mem.major_work_done_words_));
+    ___F64 reclaimed_words =
+      ___CAST(___F64, reclaimed_sections) * ___CAST(___F64, ___MSECTION_SIZE >> 1) +
+      ___CAST(___F64, reclaimed_still_words);
+    ___F64 gc_words = reclaimed_words + conc_done;
+    ___F64 est_gc_sec = (remark_sec > 0.0 ? remark_sec : 0.0) + (conc_done / 4.0e7);
+    if (gc_words < ___CAST(___F64, ___MSECTION_SIZE))
+      gc_words = ___CAST(___F64, ___MSECTION_SIZE);
+    if (est_gc_sec < 1.0e-5)
+      est_gc_sec = 1.0e-5;
+    gc_pacing_sample_mutator(vm);
+    gc_pacing_on_major_gc(vm, gc_words, est_gc_sec);
+  }
+  gc_update_major_triggers(vm);
+
   vm->mem.nb_concurrent_major_cycles_ += 1.0;
   vm->mem.concurrent_major_reclaimed_sections_ += ___CAST(___F64, reclaimed_sections);
   vm->mem.concurrent_major_reclaimed_still_words_ += ___CAST(___F64, reclaimed_still_words);
   vm->mem.concurrent_major_remark_real_time_ += (r1 - g->major_remark_r0);
 }
 
-/* Hardware-adaptive Major GC pacing (reuses gc_adaptive_live_percent):
- * keeps Go-style 2.0x movable / 1.5x still headroom on small/medium heaps
- * (<= soft_budget/8) and tightens smoothly down to 1.25x as mature live
- * heap approaches soft_budget/2, while honoring explicit -:l<N>. */
+/* Portable Newton-Raphson double square root (zero libm dependency). */
+static inline double gc_sqrt_f64(double x)
+{
+  double g;
+  int i;
+  if (x <= 0.0)
+    return 0.0;
+  g = (x >= 1.0) ? x * 0.5 : 1.0;
+  for (i = 0; i < 24; i++)
+    {
+      double next = 0.5 * (g + x / g);
+      if (next == g)
+        break;
+      g = next;
+    }
+  return g;
+}
+
+/* Sum VM-wide cumulative allocated bytes at an STW cut without mutator overhead. */
+static inline ___F64 gc_vm_total_alloc_bytes_stw(___virtual_machine_state vm)
+{
+  int np = vm->processor_count;
+  int p;
+  ___F64 total = ___CAST(___F64, vm->mem.occupied_words_still_) * ___WS +
+                 ___CAST(___F64, ___WORD_LOAD_ACQUIRE(&vm->mem.phantom_bytes_live_));
+  for (p = 0; p < np; p++)
+    {
+      ___processor_state ps = ___PSTATE_FROM_PROCESSOR_ID(p, vm);
+      total += ps->mem.bytes_allocated_minus_occupied_;
+      if (ps->mem.alloc_heap_ptr_ != 0 && ps->mem.alloc_heap_start_ != 0 &&
+          ps->mem.alloc_heap_ptr_ > ps->mem.alloc_heap_start_)
+        total += ___CAST(___F64, ps->mem.alloc_heap_ptr_ - ps->mem.alloc_heap_start_) * ___WS;
+    }
+  return total;
+}
+
+/* MemBalancer mutator allocation-rate EMA update (alpha_g = 0.95). */
+___HIDDEN void gc_pacing_sample_mutator(___virtual_machine_state vm)
+{
+  ___F64 u1, s1, r1;
+  ___F64 alloc_now, d_bytes, dt;
+  if (vm == 0)
+    return;
+  ___process_times(&u1, &s1, &r1);
+  alloc_now = gc_vm_total_alloc_bytes_stw(vm);
+  if (vm->mem.pacing_last_real_time_ > 0.0 && r1 > vm->mem.pacing_last_real_time_)
+    {
+      dt = r1 - vm->mem.pacing_last_real_time_;
+      d_bytes = alloc_now - vm->mem.pacing_last_alloc_bytes_;
+      if (d_bytes > 0.0 && dt > 1.0e-6)
+        {
+          ___F64 d_words = d_bytes / ___CAST(___F64, ___WS);
+          if (vm->mem.pacing_ema_alloc_sec_ <= 0.0)
+            {
+              vm->mem.pacing_ema_alloc_words_ = d_words;
+              vm->mem.pacing_ema_alloc_sec_ = dt;
+            }
+          else
+            {
+              vm->mem.pacing_ema_alloc_words_ =
+                0.95 * vm->mem.pacing_ema_alloc_words_ + 0.05 * d_words;
+              vm->mem.pacing_ema_alloc_sec_ =
+                0.95 * vm->mem.pacing_ema_alloc_sec_ + 0.05 * dt;
+            }
+        }
+    }
+  vm->mem.pacing_last_real_time_ = r1;
+  vm->mem.pacing_last_alloc_bytes_ = alloc_now;
+}
+
+/* MemBalancer GC scan/reclaim-rate EMA update (alpha_s = 0.5). */
+___HIDDEN void gc_pacing_on_major_gc
+   (___virtual_machine_state vm,
+    ___F64 collected_words,
+    ___F64 gc_sec)
+{
+  if (vm == 0 || collected_words <= 0.0 || gc_sec <= 1.0e-7)
+    return;
+  if (vm->mem.pacing_ema_gc_sec_ <= 0.0)
+    {
+      vm->mem.pacing_ema_gc_words_ = collected_words;
+      vm->mem.pacing_ema_gc_sec_ = gc_sec;
+    }
+  else
+    {
+      vm->mem.pacing_ema_gc_words_ =
+        0.5 * vm->mem.pacing_ema_gc_words_ + 0.5 * collected_words;
+      vm->mem.pacing_ema_gc_sec_ =
+        0.5 * vm->mem.pacing_ema_gc_sec_ + 0.5 * gc_sec;
+    }
+}
+
+/* MemBalancer sqrt(L * g / (c * s)) adaptive Major GC trigger pacing coupled
+ * with hardware soft-budget damping and Racket-style external phantom bytes.
+ * Honors explicit -:l<N> verbatim; otherwise adapts headroom sub-linearly
+ * across live heap sizes while enforcing an E_min burst-OOM floor. */
 ___HIDDEN void gc_update_major_triggers(___virtual_machine_state vm)
 {
   int mcnt = vm->mem.nb_msections_mature_;
   ___SIZE_TS mstill = vm->mem.mature_still_words_;
-  ___SIZE_TS mature_live_words = vm->mem.occupied_words_mature_ + mstill;
+  ___WORD ph_live = ___WORD_LOAD_ACQUIRE(&vm->mem.phantom_bytes_live_);
+  ___SIZE_TS ph_words = (ph_live > 0) ? ___CAST(___SIZE_TS, ph_live >> ___LWS) : 0;
+  ___SIZE_TS mature_live_words = vm->mem.occupied_words_mature_ + mstill + ph_words;
+  int explicit_pct = ___live_percent_is_explicit();
+  int cfg_pct = ___GSTATE->setup_params.live_percent;
   int eff_pct = gc_adaptive_live_percent
     (mature_live_words,
-     ___live_percent_is_explicit(),
-     ___GSTATE->setup_params.live_percent,
+     explicit_pct,
+     cfg_pct,
      ___GSTATE->setup_params.max_heap);
   int still_pct;
+  int use_mb = (!explicit_pct && cfg_pct == ___DEFAULT_LIVE_PERCENT &&
+                vm->mem.pacing_ema_gc_sec_ > 1.0e-6 &&
+                vm->mem.pacing_ema_alloc_sec_ > 1.0e-6 &&
+                mature_live_words > 0);
+  double mb_extra_total = 0.0;
   ___SIZE_TS trig64;
   ___SIZE_TS still_trig;
+  ___WORD min_ph = gc_phantom_min_trigger_bytes();
+  ___WORD ph_trig;
   int trig;
 
   if (eff_pct < 10) eff_pct = 10;
   if (eff_pct > 90) eff_pct = 90;
   still_pct = (eff_pct > 67) ? eff_pct : 67;
 
+  if (use_mb)
+    {
+      double g_rate = vm->mem.pacing_ema_alloc_words_ / vm->mem.pacing_ema_alloc_sec_;
+      double s_rate = vm->mem.pacing_ema_gc_words_ / vm->mem.pacing_ema_gc_sec_;
+      double c_scale = ___CAST(double, eff_pct) / 50.0;
+      double c_eff = c_scale * c_scale;
+      /* Dimensionally exact MemBalancer scale M_scale = 1/c_0 = 64 MiB (in words)
+       * so sqrt(L * M_scale * g / (c_eff * s)) yields words directly:
+       * sublinear O(sqrt(L)) headroom saving RSS on large heaps while avoiding
+       * GC thrashing on fast-allocating small/medium heaps. */
+      double scale_words =
+        ___CAST(double, (___CAST(___SIZE_T, 64) * 1024 * 1024) >> ___LWS);
+      if (s_rate < 1.0e4)
+        s_rate = 1.0e4;
+      if (c_eff < 1.0)
+        c_eff = 1.0;
+      mb_extra_total = gc_sqrt_f64((___CAST(double, mature_live_words) * scale_words * g_rate) /
+                                   (c_eff * s_rate));
+    }
+
   if (mcnt <= 0)
     trig = 8;
   else
     {
-      trig64 = (___CAST(___SIZE_TS, mcnt) * 100 + (eff_pct - 1)) / eff_pct;
+      ___SIZE_TS lin_trig = (___CAST(___SIZE_TS, mcnt) * 100 + (eff_pct - 1)) / eff_pct;
+      ___SIZE_TS lin_extra = (lin_trig > ___CAST(___SIZE_TS, mcnt))
+                               ? (lin_trig - ___CAST(___SIZE_TS, mcnt))
+                               : 8;
+      if (lin_extra < 8)
+        lin_extra = 8;
+      if (use_mb)
+        {
+          double mov_share =
+            ___CAST(double, vm->mem.occupied_words_mature_) /
+            ___CAST(double, mature_live_words);
+          double mov_extra_words = mb_extra_total * (mov_share > 0.1 ? mov_share : 0.1);
+          ___SIZE_TS mb_secs =
+            ___CAST(___SIZE_TS, mov_extra_words / ___CAST(double, ___MSECTION_SIZE >> 1)) + 1;
+          ___SIZE_TS max_extra = (___GSTATE->setup_params.max_heap > 0)
+                                   ? lin_extra
+                                   : ((lin_extra * 3) >> 1);
+          if (max_extra < 8)
+            max_extra = 8;
+          if (mb_secs < 8)
+            mb_secs = 8;
+          if (mb_secs > max_extra)
+            mb_secs = max_extra;
+          trig64 = ___CAST(___SIZE_TS, mcnt) + mb_secs;
+        }
+      else
+        {
+          trig64 = ___CAST(___SIZE_TS, mcnt) + lin_extra;
+        }
       if (trig64 < ___CAST(___SIZE_TS, mcnt) + 8)
         trig64 = ___CAST(___SIZE_TS, mcnt) + 8;
       trig = (trig64 > 1000000000) ? 1000000000 : ___CAST(int, trig64);
@@ -2495,14 +2785,68 @@ ___HIDDEN void gc_update_major_triggers(___virtual_machine_state vm)
     still_trig = 2 * ___MSECTION_SIZE;
   else
     {
-      still_trig = (mstill / still_pct) * 100 +
-                   (((mstill % still_pct) * 100 + (still_pct - 1)) / still_pct);
+      ___SIZE_TS lin_still =
+        (mstill / still_pct) * 100 +
+        (((mstill % still_pct) * 100 + (still_pct - 1)) / still_pct);
+      ___SIZE_TS lin_still_extra = (lin_still > mstill) ? (lin_still - mstill) : (2 * ___MSECTION_SIZE);
+      if (lin_still_extra < 2 * ___MSECTION_SIZE)
+        lin_still_extra = 2 * ___MSECTION_SIZE;
+      if (use_mb)
+        {
+          double st_share = ___CAST(double, mstill) / ___CAST(double, mature_live_words);
+          ___SIZE_TS mb_still = ___CAST(___SIZE_TS, mb_extra_total * (st_share > 0.1 ? st_share : 0.1));
+          ___SIZE_TS max_still = (___GSTATE->setup_params.max_heap > 0)
+                                   ? lin_still_extra
+                                   : ((lin_still_extra * 3) >> 1);
+          if (max_still < 2 * ___MSECTION_SIZE)
+            max_still = 2 * ___MSECTION_SIZE;
+          if (mb_still < 2 * ___MSECTION_SIZE)
+            mb_still = 2 * ___MSECTION_SIZE;
+          if (mb_still > max_still)
+            mb_still = max_still;
+          still_trig = mstill + mb_still;
+        }
+      else
+        {
+          still_trig = mstill + lin_still_extra;
+        }
       if (still_trig < 2 * ___MSECTION_SIZE)
         still_trig = 2 * ___MSECTION_SIZE;
     }
 
+  if (ph_live <= 0)
+    ph_trig = min_ph;
+  else
+    {
+      ___WORD lin_ph_extra = (ph_live * ___CAST(___WORD, 100 - still_pct)) / still_pct;
+      ___WORD ph_extra = (lin_ph_extra > min_ph) ? lin_ph_extra : min_ph;
+      if (use_mb)
+        {
+          double ph_share = ___CAST(double, ph_words) / ___CAST(double, mature_live_words);
+          double mb_ph_bytes = mb_extra_total * (ph_share > 0.1 ? ph_share : 0.1) * ___CAST(double, ___WS);
+          ___WORD mb_ph = ___CAST(___WORD, mb_ph_bytes);
+          if (mb_ph < min_ph)
+            mb_ph = min_ph;
+          if (mb_ph < ph_extra)
+            ph_extra = mb_ph;
+        }
+      if (ph_extra > ___CAST(___WORD, 256) * 1024 * 1024)
+        ph_extra = ___CAST(___WORD, 256) * 1024 * 1024;
+      if (___GSTATE->setup_params.max_heap > 0)
+        {
+          ___WORD cap_ph = ___CAST(___WORD, ___GSTATE->setup_params.max_heap >> 1);
+          if (cap_ph < min_ph)
+            cap_ph = min_ph;
+          if (ph_extra > cap_ph)
+            ph_extra = cap_ph;
+        }
+      ph_trig = ph_live + ph_extra;
+    }
+
   vm->mem.major_trigger_sections_ = trig;
   vm->mem.major_trigger_still_words_ = still_trig;
+  ___WORD_STORE_RELEASE(&vm->mem.major_trigger_phantom_bytes_, ph_trig);
+  ___WORD_STORE_RELEASE(&vm->mem.phantom_gc_needed_, 0);
   vm->mem.minor_gcs_since_major_ = 0;
 }
 
@@ -2517,6 +2861,9 @@ ___HIDDEN void major_abort_for_full_compacting_gc(___virtual_machine_state vm)
   ___WORD_STORE_RELEASE(&vm->mem.satb_overflow_, 0);
   ___WORD_STORE_RELEASE(&vm->mem.major_request_start_, 0);
   ___WORD_STORE_RELEASE(&vm->mem.major_mark_stack_count_, 0);
+  ___WORD_STORE_RELEASE(&vm->mem.major_alloc_words_, 0);
+  ___WORD_STORE_RELEASE(&vm->mem.major_work_done_words_, 0);
+  ___WORD_STORE_RELEASE(&vm->mem.phantom_gc_needed_, 0);
   vm->mem.major_weak_tables_count_ = 0;
   vm->mem.major_still_bases_count_ = 0;
   vm->mem.major_still_lo_ = 0;
@@ -2534,6 +2881,36 @@ ___HIDDEN void major_abort_for_full_compacting_gc(___virtual_machine_state vm)
       ps->mem.satb_overflow_ = 0;
       ps->mem.major_mark_local_count_ = 0;
     }
+}
+
+/* Public adaptive pacing, phantom-byte, and off-heap RefC binary telemetry
+ * (12 doubles: phantom_live, phantom_peak, phantom_trigger, major_trig_secs,
+ *  major_trig_still, headroom_words, work_target_words, completed_in_time,
+ *  emergency_remarks, refc_created, refc_shared, refc_freed). */
+___EXP_FUNC(void,___gc_pacing_stats)
+   ___P((___processor_state ___ps,
+         double *out_stats),
+        (___ps,
+         out_stats)
+___processor_state ___ps;
+double *out_stats;)
+{
+  ___virtual_machine_state vm;
+  if (___ps == 0 || out_stats == 0)
+    return;
+  vm = ___VMSTATE_FROM_PSTATE(___ps);
+  out_stats[0]  = ___CAST(double, ___WORD_LOAD_ACQUIRE(&vm->mem.phantom_bytes_live_));
+  out_stats[1]  = ___CAST(double, ___WORD_LOAD_ACQUIRE(&vm->mem.phantom_bytes_peak_));
+  out_stats[2]  = ___CAST(double, ___WORD_LOAD_ACQUIRE(&vm->mem.major_trigger_phantom_bytes_));
+  out_stats[3]  = ___CAST(double, vm->mem.major_trigger_sections_);
+  out_stats[4]  = ___CAST(double, vm->mem.major_trigger_still_words_);
+  out_stats[5]  = ___CAST(double, vm->mem.pacing_headroom_words_);
+  out_stats[6]  = ___CAST(double, vm->mem.pacing_work_target_words_);
+  out_stats[7]  = vm->mem.pacing_completed_in_time_;
+  out_stats[8]  = vm->mem.pacing_emergency_remarks_;
+  out_stats[9]  = ___CAST(double, ___WORD_LOAD_ACQUIRE(&vm->mem.refc_bins_created_));
+  out_stats[10] = ___CAST(double, ___WORD_LOAD_ACQUIRE(&vm->mem.refc_bins_shared_));
+  out_stats[11] = ___CAST(double, ___WORD_LOAD_ACQUIRE(&vm->mem.refc_bins_freed_));
 }
 
 /* Public runtime control & telemetry APIs for tests and diagnostics. */

@@ -731,6 +731,31 @@ ___virtual_machine_state ___vms;)
   ___vms->mem.lxr_lines_deferred_satb_ = 0.0;
   ___vms->mem.lxr_stuck_resets_ = 0.0;
 
+  ___vms->mem.pacing_ema_alloc_words_ = 0.0;
+  ___vms->mem.pacing_ema_alloc_sec_ = 0.0;
+  ___vms->mem.pacing_ema_gc_words_ = 0.0;
+  ___vms->mem.pacing_ema_gc_sec_ = 0.0;
+  {
+    ___F64 u0, s0, r0;
+    ___process_times(&u0, &s0, &r0);
+    ___vms->mem.pacing_last_real_time_ = r0;
+  }
+  ___vms->mem.pacing_last_alloc_bytes_ = 0.0;
+  ___vms->mem.pacing_major_start_real_ = 0.0;
+  ___vms->mem.pacing_headroom_words_ = 4 * ___MSECTION_SIZE;
+  ___vms->mem.pacing_work_target_words_ = 4 * ___MSECTION_SIZE;
+  ___vms->mem.major_alloc_words_ = 0;
+  ___vms->mem.major_work_done_words_ = 0;
+  ___vms->mem.phantom_bytes_live_ = 0;
+  ___vms->mem.phantom_bytes_peak_ = 0;
+  ___vms->mem.major_trigger_phantom_bytes_ = gc_phantom_min_trigger_bytes();
+  ___vms->mem.phantom_gc_needed_ = 0;
+  ___vms->mem.pacing_completed_in_time_ = 0.0;
+  ___vms->mem.pacing_emergency_remarks_ = 0.0;
+  ___vms->mem.refc_bins_created_ = 0;
+  ___vms->mem.refc_bins_shared_ = 0;
+  ___vms->mem.refc_bins_freed_ = 0;
+
 #if ___TARGET_HEAP_SPACE_HIST_LENGTH > 0
 
   {

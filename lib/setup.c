@@ -7140,6 +7140,42 @@ ___HIDDEN void setup_dynamic_linking ___PVOID
   ___GSTATE->___gc_major_mark_idle_slice
     = ___gc_major_mark_idle_slice;
 
+  ___GSTATE->___gc_register_phantom_bytes
+    = ___gc_register_phantom_bytes;
+
+  ___GSTATE->___gc_pacing_stats
+    = ___gc_pacing_stats;
+
+  ___GSTATE->___gc_refc_bin_create
+    = ___gc_refc_bin_create;
+
+  ___GSTATE->___gc_refc_bin_share
+    = ___gc_refc_bin_share;
+
+  ___GSTATE->___gc_refc_bin_freeze
+    = ___gc_refc_bin_freeze;
+
+  ___GSTATE->___gc_refc_bin_release
+    = ___gc_refc_bin_release;
+
+  ___GSTATE->___gc_refc_bin_wrap
+    = ___gc_refc_bin_wrap;
+
+  ___GSTATE->___gc_refc_bin_unwrap
+    = ___gc_refc_bin_unwrap;
+
+  ___GSTATE->___gc_refc_bin_data
+    = ___gc_refc_bin_data;
+
+  ___GSTATE->___gc_refc_bin_length
+    = ___gc_refc_bin_length;
+
+  ___GSTATE->___gc_refc_bin_is_immutable
+    = ___gc_refc_bin_is_immutable;
+
+  ___GSTATE->___gc_refc_bin_refcount
+    = ___gc_refc_bin_refcount;
+
   ___GSTATE->___cleanup
     = ___cleanup;
 

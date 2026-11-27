@@ -87,6 +87,7 @@ static inline ___msection *___gc_find_msection_cached
 #include "_mem/still-refcount.inc"
 ___HIDDEN ___BOOL try_local_young_still_gc(___processor_state ___ps, ___SIZE_TS requested_words_still);
 ___HIDDEN ___BOOL try_local_movable_nursery_gc(___processor_state ___ps);
+___HIDDEN ___SIZE_TS gc_major_pace_alloc_words(___processor_state ___ps, ___SIZE_TS alloc_words);
 #include "_mem/object-allocation.inc"
 #include "_mem/symbols.inc"
 #include "_mem/diagnostics.inc"
@@ -109,6 +110,11 @@ ___HIDDEN void major_remark_phase_d_coord(___virtual_machine_state vm);
 ___HIDDEN void major_abort_for_full_compacting_gc(___virtual_machine_state vm);
 ___HIDDEN int gc_adaptive_live_percent(___SIZE_TS live_words, int explicit_flag, int configured_pct, ___SIZE_T max_heap_bytes);
 ___HIDDEN void gc_update_major_triggers(___virtual_machine_state vm);
+___HIDDEN ___SIZE_TS gc_major_pace_alloc_words(___processor_state ___ps, ___SIZE_TS alloc_words);
+___HIDDEN void gc_pacing_sample_mutator(___virtual_machine_state vm);
+___HIDDEN void gc_pacing_on_major_gc(___virtual_machine_state vm, ___F64 collected_words, ___F64 gc_sec);
+___HIDDEN ___WORD gc_phantom_min_trigger_bytes(void);
+___HIDDEN int gc_try_reclaim_refc_foreign(___WORD *base);
 ___HIDDEN void lxr_drc_mark_promoted_span(___virtual_machine_state vm, ___msection *sec, ___SIZE_TS word_lo, ___SIZE_TS word_hi);
 ___HIDDEN void lxr_drc_ensure_capacity(___virtual_machine_state vm, int need_secs);
 ___HIDDEN int lxr_drc_reclaim_free_lines_idle(___virtual_machine_state vm, ___msection *sec);
@@ -122,6 +128,7 @@ ___HIDDEN void lxr_drc_sync_vm_stats(___virtual_machine_state vm);
 #include "_mem/local-nursery.inc"
 #include "_mem/lxr-drc.inc"
 #include "_mem/concurrent-major.inc"
+#include "_mem/refc-binary.inc"
 #include "_mem/memory-lifecycle.inc"
 #include "_mem/wills.inc"
 #include "_mem/weak-tables.inc"

@@ -1001,8 +1001,13 @@ ___HIDDEN void prepare_generational_round
       int ok = 1;
       ___WORD phase = ___WORD_LOAD_ACQUIRE(&vm->mem.major_phase_);
       ___WORD req_start = ___WORD_LOAD_ACQUIRE(&vm->mem.major_request_start_);
+      ___WORD phantom_live = ___WORD_LOAD_ACQUIRE(&vm->mem.phantom_bytes_live_);
+      ___WORD phantom_trig = ___WORD_LOAD_ACQUIRE(&vm->mem.major_trigger_phantom_bytes_);
+      int phantom_due = (phantom_trig > 0 && phantom_live >= phantom_trig);
+      int phantom_emergency = (phantom_trig > 0 && phantom_live >= phantom_trig * 2);
       int major_due = (vm->mem.nb_msections_mature_ >= vm->mem.major_trigger_sections_ ||
                        vm->mem.mature_still_words_ >= vm->mem.major_trigger_still_words_ ||
+                       phantom_due ||
                        vm->mem.minor_gcs_since_major_ >= 64);
       int need_compact = (vm->mem.major_evacuate_count_ >= 4 &&
                           vm->mem.major_evacuate_count_ * 3 >= vm->mem.nb_msections_mature_);
@@ -1017,13 +1022,24 @@ ___HIDDEN void prepare_generational_round
 
       if (ok && phase == ___GC_MAJOR_MARKING)
         {
+          int mark_finished = !major_has_pending_mark_work(vm);
+          int limit_hit =
+            (vm->mem.nb_msections_mature_ >= vm->mem.major_trigger_sections_ * 2 ||
+             vm->mem.mature_still_words_ >= vm->mem.major_trigger_still_words_ * 2 ||
+             phantom_emergency);
           g->is_minor = 1;
-          if (!major_has_pending_mark_work(vm) ||
+          if (mark_finished ||
               req_start == 2 ||
               vm->mem.minor_gcs_since_major_ >= 8 ||
-              vm->mem.nb_msections_mature_ >= vm->mem.major_trigger_sections_ * 2 ||
-              vm->mem.mature_still_words_ >= vm->mem.major_trigger_still_words_ * 2)
-            g->major_action = 3; /* ___GC_MAJOR_ACTION_REMARK */
+              limit_hit)
+            {
+              g->major_action = 3; /* ___GC_MAJOR_ACTION_REMARK */
+              if (mark_finished ||
+                  (!limit_hit && ___WORD_LOAD_ACQUIRE(&vm->mem.major_mark_stack_count_) == 0))
+                vm->mem.pacing_completed_in_time_ += 1.0;
+              else if (limit_hit)
+                vm->mem.pacing_emergency_remarks_ += 1.0;
+            }
           else
             g->major_action = 2; /* ___GC_MAJOR_ACTION_DRAIN_SATB */
         }
@@ -2223,6 +2239,7 @@ ___HIDDEN void finalize_gc_sections(___virtual_machine_state vm)
       vm->mem.nb_msections_assigned_ = mature_count + active_young_count;
       vm->mem.nb_msections_stacks_ = np;
 
+      gc_pacing_sample_mutator(vm);
       gc_update_major_triggers(vm);
     }
   else
@@ -2249,6 +2266,8 @@ ___HIDDEN void finalize_gc_sections(___virtual_machine_state vm)
         (vm->mem.mature_still_words_ * 2 > 4 * ___MSECTION_SIZE)
         ? (vm->mem.mature_still_words_ * 2)
         : (4 * ___MSECTION_SIZE);
+      gc_pacing_sample_mutator(vm);
+      gc_update_major_triggers(vm);
     }
 
   rebuild_mature_snapshot(vm);

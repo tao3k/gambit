@@ -1114,6 +1114,49 @@ ___IMP_FUNC(___SIZE_TS,___gc_major_mark_slice)
 ___IMP_FUNC(int,___gc_major_mark_idle_slice)
    ___P((___processor_state ___ps),
         ());
+___IMP_FUNC(___SIZE_TS,___gc_register_phantom_bytes)
+   ___P((___processor_state ___ps,
+         ___SIZE_TS delta_bytes),
+        ());
+___IMP_FUNC(void,___gc_pacing_stats)
+   ___P((___processor_state ___ps,
+         double *out_stats),
+        ());
+___IMP_FUNC(___refc_bin*,___gc_refc_bin_create)
+   ___P((___processor_state ___ps,
+         const void *src,
+         ___SIZE_T byte_len,
+         int immutable),
+        ());
+___IMP_FUNC(___refc_bin*,___gc_refc_bin_share)
+   ___P((___refc_bin *bin),
+        ());
+___IMP_FUNC(int,___gc_refc_bin_freeze)
+   ___P((___refc_bin *bin),
+        ());
+___IMP_FUNC(int,___gc_refc_bin_release)
+   ___P((___refc_bin *bin),
+        ());
+___IMP_FUNC(___SCMOBJ,___gc_refc_bin_wrap)
+   ___P((___processor_state ___ps,
+         ___refc_bin *bin,
+         int take_ref),
+        ());
+___IMP_FUNC(___refc_bin*,___gc_refc_bin_unwrap)
+   ___P((___SCMOBJ obj),
+        ());
+___IMP_FUNC(void*,___gc_refc_bin_data)
+   ___P((___refc_bin *bin),
+        ());
+___IMP_FUNC(___SIZE_T,___gc_refc_bin_length)
+   ___P((___refc_bin *bin),
+        ());
+___IMP_FUNC(int,___gc_refc_bin_is_immutable)
+   ___P((___refc_bin *bin),
+        ());
+___IMP_FUNC(___WORD,___gc_refc_bin_refcount)
+   ___P((___refc_bin *bin),
+        ());
 #else
 extern void ___gc_write_barrier_slow
    ___P((___processor_state ___ps,
@@ -1146,6 +1189,49 @@ extern void ___gc_satb_barrier_range
         ());
 extern int ___gc_major_mark_idle_slice
    ___P((___processor_state ___ps),
+        ());
+extern ___SIZE_TS ___gc_register_phantom_bytes
+   ___P((___processor_state ___ps,
+         ___SIZE_TS delta_bytes),
+        ());
+extern void ___gc_pacing_stats
+   ___P((___processor_state ___ps,
+         double *out_stats),
+        ());
+extern ___refc_bin *___gc_refc_bin_create
+   ___P((___processor_state ___ps,
+         const void *src,
+         ___SIZE_T byte_len,
+         int immutable),
+        ());
+extern ___refc_bin *___gc_refc_bin_share
+   ___P((___refc_bin *bin),
+        ());
+extern int ___gc_refc_bin_freeze
+   ___P((___refc_bin *bin),
+        ());
+extern int ___gc_refc_bin_release
+   ___P((___refc_bin *bin),
+        ());
+extern ___SCMOBJ ___gc_refc_bin_wrap
+   ___P((___processor_state ___ps,
+         ___refc_bin *bin,
+         int take_ref),
+        ());
+extern ___refc_bin *___gc_refc_bin_unwrap
+   ___P((___SCMOBJ obj),
+        ());
+extern void *___gc_refc_bin_data
+   ___P((___refc_bin *bin),
+        ());
+extern ___SIZE_T ___gc_refc_bin_length
+   ___P((___refc_bin *bin),
+        ());
+extern int ___gc_refc_bin_is_immutable
+   ___P((___refc_bin *bin),
+        ());
+extern ___WORD ___gc_refc_bin_refcount
+   ___P((___refc_bin *bin),
         ());
 #endif
 

@@ -42,7 +42,7 @@ ___PSDKR)
       if (base[___STILL_MARK] == -1)
         {
           ___WORD head = base[___STILL_BODY-1];
-          if (___HD_SUBTYPE(head) == ___sFOREIGN)
+          if (___HD_SUBTYPE(head) == ___sFOREIGN && !gc_try_reclaim_refc_foreign(base))
             ___lifecycle_defer(___ps, base);
           else
             {
@@ -101,7 +101,7 @@ ___PSDKR)
       if (base[___STILL_MARK] == -1)
         {
           ___WORD head = base[___STILL_BODY-1];
-          if (___HD_SUBTYPE(head) == ___sFOREIGN)
+          if (___HD_SUBTYPE(head) == ___sFOREIGN && !gc_try_reclaim_refc_foreign(base))
             ___lifecycle_defer(___ps,base);
           else
             {
@@ -128,7 +128,7 @@ ___PSDKR)
       if (young[___STILL_MARK] == -1)
         {
           ___WORD head = young[___STILL_BODY-1];
-          if (___HD_SUBTYPE(head) == ___sFOREIGN)
+          if (___HD_SUBTYPE(head) == ___sFOREIGN && !gc_try_reclaim_refc_foreign(young))
             ___lifecycle_defer(___ps,young);
           else
             {
@@ -186,7 +186,8 @@ ___processor_state ___ps;)
   while (base != 0)
     {
       ___WORD link=base[___STILL_LINK];
-      if (___HD_SUBTYPE(base[___STILL_BODY-1])==___sFOREIGN)
+      if (___HD_SUBTYPE(base[___STILL_BODY-1])==___sFOREIGN &&
+          !gc_try_reclaim_refc_foreign(base))
         ___lifecycle_defer(___ps,base);
       else free_mem_aligned_heap(base);
       base=___CAST(___WORD*,link);
@@ -194,7 +195,8 @@ ___processor_state ___ps;)
   while (young != 0)
     {
       ___WORD link=young[___STILL_LINK];
-      if (___HD_SUBTYPE(young[___STILL_BODY-1])==___sFOREIGN)
+      if (___HD_SUBTYPE(young[___STILL_BODY-1])==___sFOREIGN &&
+          !gc_try_reclaim_refc_foreign(young))
         ___lifecycle_defer(___ps,young);
       else free_mem_aligned_heap(young);
       young=___CAST(___WORD*,link);

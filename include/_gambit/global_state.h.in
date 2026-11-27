@@ -1302,6 +1302,49 @@ typedef struct ___global_state_struct
     int (*___gc_major_mark_idle_slice)
        ___P((___processor_state ___ps),
             ());
+    ___SIZE_TS (*___gc_register_phantom_bytes)
+       ___P((___processor_state ___ps,
+             ___SIZE_TS delta_bytes),
+            ());
+    void (*___gc_pacing_stats)
+       ___P((___processor_state ___ps,
+             double *out_stats),
+            ());
+    ___refc_bin *(*___gc_refc_bin_create)
+       ___P((___processor_state ___ps,
+             const void *src,
+             ___SIZE_T byte_len,
+             int immutable),
+            ());
+    ___refc_bin *(*___gc_refc_bin_share)
+       ___P((___refc_bin *bin),
+            ());
+    int (*___gc_refc_bin_freeze)
+       ___P((___refc_bin *bin),
+            ());
+    int (*___gc_refc_bin_release)
+       ___P((___refc_bin *bin),
+            ());
+    ___SCMOBJ (*___gc_refc_bin_wrap)
+       ___P((___processor_state ___ps,
+             ___refc_bin *bin,
+             int take_ref),
+            ());
+    ___refc_bin *(*___gc_refc_bin_unwrap)
+       ___P((___SCMOBJ obj),
+            ());
+    void *(*___gc_refc_bin_data)
+       ___P((___refc_bin *bin),
+            ());
+    ___SIZE_T (*___gc_refc_bin_length)
+       ___P((___refc_bin *bin),
+            ());
+    int (*___gc_refc_bin_is_immutable)
+       ___P((___refc_bin *bin),
+            ());
+    ___WORD (*___gc_refc_bin_refcount)
+       ___P((___refc_bin *bin),
+            ());
     ___BOOL (*___cleanup) ___PVOID;
     void (*___cleanup_and_exit_process)
        ___P((int status),

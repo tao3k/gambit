@@ -95,10 +95,11 @@ ___SIZE_TS bytes;)
   if (--___gc_calls_to_punt < 0) goto invoke_gc;
 #endif
 
-  if (words <= ___ps->mem.local_still_credit_)
+  if (words <= ___ps->mem.local_still_credit_ &&
+      ___EXPECT_TRUE(___WORD_LOAD_RELAXED(&vm->mem.phantom_gc_needed_) == 0))
     {
-      /* Amp-1 Cut 1A fast path: consume processor-private recycled still-word
-       * credit (already accounted in occupied_words_still_; ZERO lock/atomic). */
+      /* Fast path: consume processor-private recycled still-word credit
+       * (already accounted in occupied_words_still_; zero lock/atomic). */
 #ifdef ___GAMBIT_DEV_RESTORE_PROBE
       ___dev_restore_census_native("still-scmobj");
 #endif
@@ -111,7 +112,8 @@ ___SIZE_TS bytes;)
 
       ___ps->mem.local_still_credit_ -= words;
     }
-  else if (words <= still_words_budget)
+  else if (words <= still_words_budget &&
+           ___EXPECT_TRUE(___WORD_LOAD_RELAXED(&vm->mem.phantom_gc_needed_) == 0))
     {
       /*
        * Fast path: consume from this processor's pre-reserved still-object
@@ -191,6 +193,22 @@ ___SIZE_TS bytes;)
       words_still_objs_deferred = 0;
       still_words_budget = 0;
 
+      if (___EXPECT_FALSE(___WORD_LOAD_RELAXED(&vm->mem.phantom_gc_needed_) != 0) &&
+          ___ps == ___PSTATE &&
+          ___lifecycle_gc_admitted(___ps) &&
+          !vm->lifecycle->cleanup[___PROCESSOR_ID(___ps, vm)].draining)
+        {
+          ___WORD expected_ph = 1;
+          if (___WORD_CAS_ACQUIRE(&vm->mem.phantom_gc_needed_, expected_ph, 0))
+            {
+              ALLOC_MEM_UNLOCK();
+              if (___garbage_collect(___PSP words))
+                return ___FIX(___HEAP_OVERFLOW_ERR);
+              ___lifecycle_drain(___ps);
+              goto alloc_still_storage_now;
+            }
+        }
+
       avail = compute_free_heap_space_approximately();
 
       if (words <= avail)
@@ -218,6 +236,10 @@ ___SIZE_TS bytes;)
           still_words_budget = extra;
 
           ALLOC_MEM_UNLOCK();
+#ifndef ___DISABLE_GENERATIONAL_GC
+          if (___EXPECT_FALSE(___ps->mem.satb_active_ != 0 && ___ps->primlock_depth == 0))
+            gc_major_pace_alloc_words(___ps, words + extra);
+#endif
         }
       else
         {

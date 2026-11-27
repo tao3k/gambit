@@ -343,7 +343,8 @@ ___HIDDEN ___BOOL try_local_young_still_gc
         if (base[___STILL_MARK] == -1 &&
             base[___STILL_REFCOUNT] == 0 &&
             (base[___STILL_DIRTY] & ___STILL_FLAG_GLOBAL) == 0 &&
-            ___HD_SUBTYPE(base[___STILL_BODY - 1]) != ___sFOREIGN)
+            (___HD_SUBTYPE(base[___STILL_BODY - 1]) != ___sFOREIGN ||
+             gc_try_reclaim_refc_foreign(base)))
           {
             ___SIZE_TS len = base[___STILL_LENGTH];
             if (prev == 0)
@@ -579,7 +580,8 @@ static inline void local_mov_sweep_young_still
       if (base[___STILL_MARK] == -1 &&
           base[___STILL_REFCOUNT] == 0 &&
           (base[___STILL_DIRTY] & ___STILL_FLAG_GLOBAL) == 0 &&
-          ___HD_SUBTYPE(base[___STILL_BODY - 1]) != ___sFOREIGN)
+          (___HD_SUBTYPE(base[___STILL_BODY - 1]) != ___sFOREIGN ||
+           gc_try_reclaim_refc_foreign(base)))
         {
           ___SIZE_TS len = base[___STILL_LENGTH];
           if (prev == 0)

@@ -306,6 +306,24 @@ typedef struct ___rc_header_struct
     ___SIZE_T root_count; /* immutable Scheme slots in payload; zero for byte RC */
   } ___rc_header;
 
+/*
+ * Off-heap reference-counted binary header (Erlang ProcBin / Rust Arc model).
+ * Cross-core zero-copy sharing strictly requires ___REFC_BIN_FLAG_IMMUTABLE.
+ */
+#define ___REFC_BIN_FLAG_IMMUTABLE 1u
+
+struct ___virtual_machine_state_struct;
+
+typedef struct ___refc_bin_struct
+  {
+    ___VOLATILE ___WORD refcount; /* atomic strong reference count */
+    unsigned int flags;           /* immutability and ownership flags */
+    unsigned int reserved;
+    ___SIZE_T byte_len;           /* payload length in bytes */
+    struct ___virtual_machine_state_struct *owner_vm; /* VM charged for external phantom bytes */
+    unsigned char data[1];        /* off-heap payload bytes */
+  } ___refc_bin;
+
 /* fdset state */
 #ifndef ___OS_WIN32
 typedef struct ___fdset_struct {
@@ -688,6 +706,33 @@ ___F64 immix_overflow_preserved_;
 ___F64 lxr_lines_reclaimed_;
 ___F64 lxr_lines_deferred_satb_;
 ___F64 lxr_stuck_resets_;
+
+/* MemBalancer adaptive pacing, global major work pacing, and phantom bytes.
+ * Separate read-mostly trigger/flag fields from mutator-written atomic
+ * counters by cache-line padding to eliminate SMP false sharing. */
+___F64 pacing_ema_alloc_words_;
+___F64 pacing_ema_alloc_sec_;
+___F64 pacing_ema_gc_words_;
+___F64 pacing_ema_gc_sec_;
+___F64 pacing_last_real_time_;
+___F64 pacing_last_alloc_bytes_;
+___F64 pacing_major_start_real_;
+___SIZE_TS pacing_headroom_words_;
+___SIZE_TS pacing_work_target_words_;
+___F64 pacing_completed_in_time_;
+___F64 pacing_emergency_remarks_;
+___VOLATILE ___WORD major_trigger_phantom_bytes_;
+___VOLATILE ___WORD phantom_gc_needed_;
+char pacing_pad_alloc_[64];
+___VOLATILE ___WORD major_alloc_words_;
+char pacing_pad_work_[64];
+___VOLATILE ___WORD major_work_done_words_;
+char pacing_pad_phantom_[64];
+___VOLATILE ___WORD phantom_bytes_live_;
+___VOLATILE ___WORD phantom_bytes_peak_;
+___VOLATILE ___WORD refc_bins_created_;
+___VOLATILE ___WORD refc_bins_shared_;
+___VOLATILE ___WORD refc_bins_freed_;
 
 } ___vmstate_mem;
 

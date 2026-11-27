@@ -875,6 +875,13 @@ ___SIZE_TS requested_words_still;)
         {
           ___vms->mem.nb_major_gcs_ += 1.0;
           ___vms->mem.major_gc_real_time_ += real_time;
+          if (real_time > 1.0e-6)
+            gc_pacing_on_major_gc
+              (___vms,
+               ___CAST(___F64, ___vms->mem.occupied_words_mature_ +
+                               ___vms->mem.mature_still_words_ +
+                               ___MSECTION_SIZE),
+               real_time);
         }
 
       ___raise_interrupt_pstate (___ps, ___INTR_GC); /* raise gc interrupt */

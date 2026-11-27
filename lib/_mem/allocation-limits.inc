@@ -1322,10 +1322,19 @@ ___PSDKR)
 #endif
 
   {
-    /* Phase A.3 + Amp-1 Cut 1B: try independent processor-local unified movable +
-     * young-still nursery collection before claiming a new section or global STW.
-     * On success, heap_msection/stack_msection did not change: restore owned soft
-     * limit directly without taking ALLOC_MEM_LOCK() in prepare_mem_pstate()! */
+    ___virtual_machine_state vm = ___VMSTATE_FROM_PSTATE(___ps);
+#ifndef ___DISABLE_GENERATIONAL_GC
+    if (___EXPECT_FALSE(___WORD_LOAD_RELAXED(&vm->mem.phantom_gc_needed_) != 0) &&
+        ___ps->primlock_depth == 0)
+      {
+        ___WORD expected_ph = 1;
+        if (___WORD_CAS_ACQUIRE(&vm->mem.phantom_gc_needed_, expected_ph, 0))
+          return 1; /* external phantom-byte pressure exceeded trigger */
+      }
+#endif
+    /* Try independent processor-local unified movable + young-still nursery
+     * collection before claiming a new section or global STW. On success,
+     * restore the owned soft limit directly without ALLOC_MEM_LOCK(). */
     if (try_local_movable_nursery_gc(___ps))
       {
         alloc_heap_ptr = ___ps->context->hp;
@@ -1338,6 +1347,10 @@ ___PSDKR)
           }
         else
           prepare_mem_pstate(___ps);
+#ifndef ___DISABLE_GENERATIONAL_GC
+        if (___EXPECT_FALSE(___ps->mem.satb_active_ != 0 && ___ps->primlock_depth == 0))
+          gc_major_pace_alloc_words(___ps, ___MSECTION_SIZE >> 2);
+#endif
         return 0;
       }
 
@@ -1424,12 +1437,7 @@ ___PSDKR)
 
 #ifndef ___DISABLE_GENERATIONAL_GC
   if (___EXPECT_FALSE(___ps->mem.satb_active_ != 0 && ___ps->primlock_depth == 0))
-    {
-      ___virtual_machine_state vm = ___VMSTATE_FROM_PSTATE(___ps);
-      ___SIZE_TS budget =
-        (___WORD_LOAD_ACQUIRE(&vm->mem.major_mark_stack_count_) > 4096) ? 49152 : 32768;
-      ___gc_major_mark_slice(___ps, budget);
-    }
+    gc_major_pace_alloc_words(___ps, ___MSECTION_SIZE >> 1);
 #endif
 
   return 0;
