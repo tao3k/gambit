@@ -79,22 +79,40 @@ c-end
          (servers (make-vector npairs #f))
          (readers (make-vector npairs #f))
          (results (make-vector npairs #f)))
-    ;; Open npairs simultaneous loopback connections (> 1120 live kernel FDs!).
-    (let ((accepter
-           (thread-start!
-            (make-thread
-             (lambda ()
-               (let loop ((i 0))
-                 (if (< i npairs)
-                     (begin
-                       (vector-set! servers i (read srv))
-                       (loop (+ i 1))))))))))
+    ;; Open npairs simultaneous loopback connections (> 1120 live kernel FDs!)
+    ;; in lockstep (at most 1 SYN in flight) so we never overflow OS
+    ;; kern.ipc.somaxconn (128 on macOS) and clients[i] <-> servers[i] is an
+    ;; exact 1-to-1 bijection even on p1.
+    (let* ((mtx (make-mutex))
+           (cv (make-condition-variable))
+           (accepted 0)
+           (accepter
+            (thread-start!
+             (make-thread
+              (lambda ()
+                (let loop ((i 0))
+                  (if (< i npairs)
+                      (begin
+                        (vector-set! servers i (read srv))
+                        (mutex-lock! mtx)
+                        (set! accepted (+ i 1))
+                        (condition-variable-signal! cv)
+                        (mutex-unlock! mtx)
+                        (loop (+ i 1))))))))))
       (let cloop ((i 0))
         (if (< i npairs)
             (begin
               (vector-set! clients i
                            (open-tcp-client (list server-address: "127.0.0.1"
                                                   port-number: port)))
+              (mutex-lock! mtx)
+              (let wait-acc ()
+                (if (< accepted (+ i 1))
+                    (begin
+                      (mutex-unlock! mtx cv)
+                      (mutex-lock! mtx)
+                      (wait-acc))))
+              (mutex-unlock! mtx)
               (cloop (+ i 1)))))
       (thread-join! accepter))
 
