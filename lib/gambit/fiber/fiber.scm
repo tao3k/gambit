@@ -39,6 +39,7 @@
   (standard-bindings)
   (extended-bindings)
   (not safe)
+  (inlining-limit 400)
   (block))
 
 ;;;----------------------------------------------------------------------------
@@ -244,45 +245,108 @@
                       (%make-padded-fxatom 0)))
 
 (define (%dq-push! dq item)
-  (let* ((bot-box (%dq-bot dq))
-         (b (%fxatom-load-rlx bot-box))
-         (t (%fxatom-load-acq (%dq-top dq))))
-    (if (fx>= (fx- b t) %DQ-CAP)
-        #f
-        (begin
-          (%dq-slot-store-rlx! (%dq-buf dq) (fxand b %DQ-MASK) item)
-          (%fxatom-set-rel! bot-box (fx+ b 1))
-          #t))))
+  (macro-if-c-compiled
+   (##c-code
+    "___WORD *___f = ___BODY_AS(___ARG1, ___tSTRUCTURE);
+     ___SCMOBJ ___buf = ___f[1];
+     ___VOLATILE ___WORD *___top_p = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___f[2], ___tVECTOR));
+     ___VOLATILE ___WORD *___bot_p = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___f[3], ___tVECTOR));
+     ___WORD ___b = ___INT(___atomic_word_load(___bot_p, 0));
+     ___WORD ___t = ___INT(___atomic_word_load(___top_p, 1));
+     if (___b - ___t >= 4096) {
+       ___RESULT = ___FAL;
+     } else {
+       ___WORD *___s = ___BODY_AS(___buf, ___tVECTOR) + (___b & 4095);
+       ___gc_atomic_slot_exchange(
+         ___ps, ___buf, ___s, ___ARG2, 0,
+         ___EXT(___gc_write_barrier_slow), ___EXT(___gc_satb_barrier_val));
+       ___atomic_word_store(___bot_p, ___FIX(___b + 1), 2);
+       ___RESULT = ___TRU;
+     }"
+    dq item)
+   (let* ((bot-box (%dq-bot dq))
+          (b (%fxatom-load-rlx bot-box))
+          (t (%fxatom-load-acq (%dq-top dq))))
+     (if (fx>= (fx- b t) %DQ-CAP)
+         #f
+         (begin
+           (%dq-slot-store-rlx! (%dq-buf dq) (fxand b %DQ-MASK) item)
+           (%fxatom-set-rel! bot-box (fx+ b 1))
+           #t)))))
 
 (define (%dq-pop! dq)
-  (let* ((bot-box (%dq-bot dq))
-         (top-box (%dq-top dq))
-         (b (fx- (%fxatom-load-rlx bot-box) 1)))
-    (%fxatom-set-rlx! bot-box b)
-    (%seq-cst-fence!)
-    (let ((t (%fxatom-load-rlx top-box)))
-      (if (fx<= t b)
-          (let ((item (%dq-slot-load-acq (%dq-buf dq) (fxand b %DQ-MASK))))
-            (if (fx= t b)
-                (let ((won? (fx= (%fxatom-cas-seq! top-box t (fx+ t 1)) t)))
-                  (%fxatom-set-rlx! bot-box (fx+ t 1))
-                  (if won? item #f))
-                item))
-          (begin
-            (%fxatom-set-rlx! bot-box t)
-            #f)))))
+  (macro-if-c-compiled
+   (##c-code
+    "___WORD *___f = ___BODY_AS(___ARG1, ___tSTRUCTURE);
+     ___SCMOBJ ___buf = ___f[1];
+     ___VOLATILE ___WORD *___top_p = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___f[2], ___tVECTOR));
+     ___VOLATILE ___WORD *___bot_p = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___f[3], ___tVECTOR));
+     ___WORD ___b = ___INT(___atomic_word_load(___bot_p, 0)) - 1;
+     ___atomic_word_store(___bot_p, ___FIX(___b), 0);
+     ___atomic_fence_order(4);
+     ___WORD ___t = ___INT(___atomic_word_load(___top_p, 0));
+     if (___t <= ___b) {
+       ___SCMOBJ ___item = ___gc_atomic_slot_load(___BODY_AS(___buf, ___tVECTOR) + (___b & 4095), 1);
+       if (___t == ___b) {
+         ___WORD ___won = (___atomic_word_cas(___top_p, ___FIX(___t), ___FIX(___t + 1), 4) == ___FIX(___t));
+         ___atomic_word_store(___bot_p, ___FIX(___t + 1), 0);
+         ___RESULT = ___won ? ___item : ___FAL;
+       } else {
+         ___RESULT = ___item;
+       }
+     } else {
+       ___atomic_word_store(___bot_p, ___FIX(___t), 0);
+       ___RESULT = ___FAL;
+     }"
+    dq)
+   (let* ((bot-box (%dq-bot dq))
+          (top-box (%dq-top dq))
+          (b (fx- (%fxatom-load-rlx bot-box) 1)))
+     (%fxatom-set-rlx! bot-box b)
+     (%seq-cst-fence!)
+     (let ((t (%fxatom-load-rlx top-box)))
+       (if (fx<= t b)
+           (let ((item (%dq-slot-load-acq (%dq-buf dq) (fxand b %DQ-MASK))))
+             (if (fx= t b)
+                 (let ((won? (fx= (%fxatom-cas-seq! top-box t (fx+ t 1)) t)))
+                   (%fxatom-set-rlx! bot-box (fx+ t 1))
+                   (if won? item #f))
+                 item))
+           (begin
+             (%fxatom-set-rlx! bot-box t)
+             #f))))))
 
 (define (%dq-steal! dq)
-  (let* ((top-box (%dq-top dq))
-         (t (%fxatom-load-acq top-box)))
-    (%seq-cst-fence!)
-    (let ((b (%fxatom-load-acq (%dq-bot dq))))
-      (if (fx< t b)
-          (let ((item (%dq-slot-load-acq (%dq-buf dq) (fxand t %DQ-MASK))))
-            (if (fx= (%fxatom-cas-seq! top-box t (fx+ t 1)) t)
-                item
-                #f))
-          #f))))
+  (macro-if-c-compiled
+   (##c-code
+    "___WORD *___f = ___BODY_AS(___ARG1, ___tSTRUCTURE);
+     ___SCMOBJ ___buf = ___f[1];
+     ___VOLATILE ___WORD *___top_p = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___f[2], ___tVECTOR));
+     ___VOLATILE ___WORD *___bot_p = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___f[3], ___tVECTOR));
+     ___WORD ___t = ___INT(___atomic_word_load(___top_p, 1));
+     ___atomic_fence_order(4);
+     ___WORD ___b = ___INT(___atomic_word_load(___bot_p, 1));
+     if (___t < ___b) {
+       ___SCMOBJ ___item = ___gc_atomic_slot_load(___BODY_AS(___buf, ___tVECTOR) + (___t & 4095), 1);
+       if (___atomic_word_cas(___top_p, ___FIX(___t), ___FIX(___t + 1), 4) == ___FIX(___t)) {
+         ___RESULT = ___item;
+       } else {
+         ___RESULT = ___FAL;
+       }
+     } else {
+       ___RESULT = ___FAL;
+     }"
+    dq)
+   (let* ((top-box (%dq-top dq))
+          (t (%fxatom-load-acq top-box)))
+     (%seq-cst-fence!)
+     (let ((b (%fxatom-load-acq (%dq-bot dq))))
+       (if (fx< t b)
+           (let ((item (%dq-slot-load-acq (%dq-buf dq) (fxand t %DQ-MASK))))
+             (if (fx= (%fxatom-cas-seq! top-box t (fx+ t 1)) t)
+                 item
+                 #f))
+           #f)))))
 
 ;;;----------------------------------------------------------------------------
 ;;; Inline Thread-Local Carrier Context & Lazy #f Control-State Access
@@ -428,15 +492,35 @@
                   (fx= c s))))))))
 
 ;;;----------------------------------------------------------------------------
-;;; Inline C23 Non-Blocking Spinlock Helper (Slow-Path Waiters & Unbuffered)
+;;; Inline C23 Non-Blocking Spinlock Helper (Bounded C Spin + Safepoint Yield)
+
+(define (%spin-trylock-bounded! box)
+  (macro-if-c-compiled
+   (##c-code
+    "___VOLATILE ___WORD *___p = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___ARG1, ___tVECTOR));
+     int ___i;
+     ___SCMOBJ ___ok = ___FAL;
+     for (___i = 0; ___i < 64; ___i++) {
+       if (___atomic_word_cas(___p, ___FIX(0), ___FIX(1), 1) == ___FIX(0)) {
+         ___ok = ___TRU;
+         break;
+       }
+#if defined(__aarch64__)
+       __asm__ __volatile__(\"yield\");
+#elif defined(__x86_64__) || defined(__i386__)
+       __asm__ __volatile__(\"pause\");
+#endif
+     }
+     ___RESULT = ___ok;"
+    box)
+   (fx= (%fxatom-cas-acq! box 0 1) 0)))
 
 (define (%spin-lock! box)
-  (if (not (fx= (%fxatom-cas-acq! box 0 1) 0))
-      (let loop ((spins 1))
-        (if (not (fx= (%fxatom-cas-acq! box 0 1) 0))
-            (if (fx>= spins 64)
-                (begin (thread-yield!) (loop 0))
-                (loop (fx+ spins 1)))))))
+  (if (not (%spin-trylock-bounded! box))
+      (let loop ()
+        (thread-yield!)
+        (if (not (%spin-trylock-bounded! box))
+            (loop)))))
 
 (define (%spin-unlock! box)
   (%fxatom-set-rel! box 0))
@@ -648,57 +732,139 @@
      (%make-wait-q #f #f)
      (%make-wait-q #f #f))))
 
-;; Lock-free bounded MPMC ring push (2*pos / 2*pos+1 encoding supports all cap >= 1)
-(define (%vyukov-try-push! ch val)
-  (let ((tail-box (%ch-tail ch))
-        (seq (%ch-seq ch))
-        (buf (%ch-buf ch))
-        (cap (%ch-cap ch))
-        (mask (%ch-mask ch)))
-    (let loop ()
-      (let* ((pos (%fxatom-load-rlx tail-box))
-             (idx (if (fx>= mask 0) (fxand pos mask) (fxmodulo pos cap)))
-             (s (%vec-fx-load-acq seq idx))
-             (exp (fxarithmetic-shift-left pos 1))
-             (dif (fx- s exp)))
-        (cond
-          ((fx= dif 0)
-           (if (fx= (%fxatom-cas-rlx! tail-box pos (fx+ pos 1)) pos)
-               (begin
-                 (##vector-set! buf idx val)
-                 (%vec-fx-store-seq! seq idx (fx+ exp 1))
-                 #t)
-               (loop)))
-          ((fx< dif 0)
-           #f)
-          (else
-           (loop)))))))
+;; Single-C-block bounded-retry Vyukov ring push (2*pos / 2*pos+1 supports all cap >= 1).
+;; Returns: 0=pushed & rxw==0, 1=pushed & rxw>0, 2=full, 3=retry after safepoint poll.
+(define (%vyukov-try-push-c! ch val)
+  (macro-if-c-compiled
+   (##c-code
+    "___WORD *___f = ___BODY_AS(___ARG1, ___tSTRUCTURE);
+     ___WORD ___cap  = ___INT(___f[1]);
+     ___WORD ___mask = ___INT(___f[2]);
+     ___SCMOBJ ___buf = ___f[3];
+     ___VOLATILE ___WORD *___seq_p  = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___f[4], ___tVECTOR));
+     ___VOLATILE ___WORD *___tail_p = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___f[5], ___tVECTOR));
+     ___VOLATILE ___WORD *___rxw_p  = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___f[7], ___tVECTOR));
+     ___WORD *___buf_p = ___BODY_AS(___buf, ___tVECTOR);
+     ___SCMOBJ ___val = ___ARG2;
+     ___WORD ___res = 3;
+     int ___tries;
+     for (___tries = 0; ___tries < 64; ___tries++) {
+       ___WORD ___pos = ___INT(___atomic_word_load(___tail_p, 0));
+       ___WORD ___idx = (___mask >= 0) ? (___pos & ___mask) : (___pos % ___cap);
+       ___WORD ___s   = ___INT(___atomic_word_load(___seq_p + ___idx, 1));
+       ___WORD ___exp = ___pos << 1;
+       ___WORD ___dif = ___s - ___exp;
+       if (___dif == 0) {
+         if (___atomic_word_cas(___tail_p, ___FIX(___pos), ___FIX(___pos + 1), 0) == ___FIX(___pos)) {
+           ___WORD *___slot = ___buf_p + ___idx;
+           ___GC_WRITE_BARRIER(___ps, ___buf, ___slot, ___val);
+           ___WORD_STORE_RELAXED(___slot, ___val);
+           ___atomic_word_store(___seq_p + ___idx, ___FIX(___exp + 1), 4);
+           ___res = (___INT(___atomic_word_load(___rxw_p, 4)) > 0) ? 1 : 0;
+           break;
+         }
+       } else if (___dif < 0) {
+         ___res = 2;
+         break;
+       }
+     }
+     ___RESULT = ___FIX(___res);"
+    ch val)
+   (let ((tail-box (%ch-tail ch))
+         (seq (%ch-seq ch))
+         (buf (%ch-buf ch))
+         (cap (%ch-cap ch))
+         (mask (%ch-mask ch)))
+     (let loop ()
+       (let* ((pos (%fxatom-load-rlx tail-box))
+              (idx (if (fx>= mask 0) (fxand pos mask) (fxmodulo pos cap)))
+              (s (%vec-fx-load-acq seq idx))
+              (exp (fxarithmetic-shift-left pos 1))
+              (dif (fx- s exp)))
+         (cond
+           ((fx= dif 0)
+            (if (fx= (%fxatom-cas-rlx! tail-box pos (fx+ pos 1)) pos)
+                (begin
+                  (##vector-set! buf idx val)
+                  (%vec-fx-store-seq! seq idx (fx+ exp 1))
+                  (if (fx> (%fxatom-load-seq (%ch-rx-waiters ch)) 0) 1 0))
+                (loop)))
+           ((fx< dif 0) 2)
+           (else (loop))))))))
 
-;; Lock-free bounded MPMC ring pop (2*pos+1 / 2*(pos+cap) encoding supports all cap >= 1)
+(define (%vyukov-try-push! ch val)
+  (let loop ()
+    (let ((st (%vyukov-try-push-c! ch val)))
+      (cond
+        ((fx<= st 1) #t)
+        ((fx= st 2) #f)
+        (else (loop))))))
+
+;; Single-C-block bounded-retry Vyukov ring pop (2*pos+1 / 2*(pos+cap) supports all cap >= 1).
+;; Returns item directly, `default` if empty, or `retry-tag` if retry budget hit safepoint.
+(define (%vyukov-try-pop-c! ch default retry-tag)
+  (macro-if-c-compiled
+   (##c-code
+    "___WORD *___f = ___BODY_AS(___ARG1, ___tSTRUCTURE);
+     ___WORD ___cap  = ___INT(___f[1]);
+     ___WORD ___mask = ___INT(___f[2]);
+     ___SCMOBJ ___buf = ___f[3];
+     ___VOLATILE ___WORD *___seq_p  = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___f[4], ___tVECTOR));
+     ___VOLATILE ___WORD *___head_p = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___f[6], ___tVECTOR));
+     ___WORD *___buf_p = ___BODY_AS(___buf, ___tVECTOR);
+     ___SCMOBJ ___res = ___ARG3;
+     int ___tries;
+     for (___tries = 0; ___tries < 64; ___tries++) {
+       ___WORD ___pos = ___INT(___atomic_word_load(___head_p, 0));
+       ___WORD ___idx = (___mask >= 0) ? (___pos & ___mask) : (___pos % ___cap);
+       ___WORD ___s   = ___INT(___atomic_word_load(___seq_p + ___idx, 1));
+       ___WORD ___exp = (___pos << 1) + 1;
+       ___WORD ___dif = ___s - ___exp;
+       if (___dif == 0) {
+         if (___atomic_word_cas(___head_p, ___FIX(___pos), ___FIX(___pos + 1), 0) == ___FIX(___pos)) {
+           ___WORD *___slot = ___buf_p + ___idx;
+           ___SCMOBJ ___item = ___WORD_LOAD_RELAXED(___slot);
+           ___GC_WRITE_BARRIER(___ps, ___buf, ___slot, ___FAL);
+           ___WORD_STORE_RELAXED(___slot, ___FAL);
+           ___atomic_word_store(___seq_p + ___idx, ___FIX((___pos + ___cap) << 1), 4);
+           ___res = ___item;
+           break;
+         }
+       } else if (___dif < 0) {
+         ___res = ___ARG2;
+         break;
+       }
+     }
+     ___RESULT = ___res;"
+    ch default retry-tag)
+   (let ((head-box (%ch-head ch))
+         (seq (%ch-seq ch))
+         (buf (%ch-buf ch))
+         (cap (%ch-cap ch))
+         (mask (%ch-mask ch)))
+     (let loop ()
+       (let* ((pos (%fxatom-load-rlx head-box))
+              (idx (if (fx>= mask 0) (fxand pos mask) (fxmodulo pos cap)))
+              (s (%vec-fx-load-acq seq idx))
+              (exp (fx+ (fxarithmetic-shift-left pos 1) 1))
+              (dif (fx- s exp)))
+         (cond
+           ((fx= dif 0)
+            (if (fx= (%fxatom-cas-rlx! head-box pos (fx+ pos 1)) pos)
+                (let ((item (##vector-ref buf idx)))
+                  (##vector-set! buf idx #f)
+                  (%vec-fx-store-seq! seq idx (fxarithmetic-shift-left (fx+ pos cap) 1))
+                  item)
+                (loop)))
+           ((fx< dif 0) default)
+           (else (loop))))))))
+
 (define (%vyukov-try-pop-or! ch default)
-  (let ((head-box (%ch-head ch))
-        (seq (%ch-seq ch))
-        (buf (%ch-buf ch))
-        (cap (%ch-cap ch))
-        (mask (%ch-mask ch)))
-    (let loop ()
-      (let* ((pos (%fxatom-load-rlx head-box))
-             (idx (if (fx>= mask 0) (fxand pos mask) (fxmodulo pos cap)))
-             (s (%vec-fx-load-acq seq idx))
-             (exp (fx+ (fxarithmetic-shift-left pos 1) 1))
-             (dif (fx- s exp)))
-        (cond
-          ((fx= dif 0)
-           (if (fx= (%fxatom-cas-rlx! head-box pos (fx+ pos 1)) pos)
-               (let ((item (##vector-ref buf idx)))
-                 (##vector-set! buf idx #f)
-                 (%vec-fx-store-seq! seq idx (fxarithmetic-shift-left (fx+ pos cap) 1))
-                 item)
-               (loop)))
-          ((fx< dif 0)
-           default)
-          (else
-           (loop)))))))
+  (let loop ()
+    (let ((res (%vyukov-try-pop-c! ch default %CH-RETRY)))
+      (if (eq? res %CH-RETRY)
+          (loop)
+          res))))
 
 ;; Slow-path wakeups (called only when waiter count > 0)
 (define (%ch-wake-one-receiver! ch)
@@ -894,16 +1060,18 @@
         (%fiber-send-buf-ring! ch val rxw))))
 
 (define (%fiber-send-buf-ring! ch val rxw)
-  ;; Fast path B: Lock-free bounded MPMC ring push (zero spinlocks)
-  (if (%vyukov-try-push! ch val)
-      (begin
-        (if (fx> (%fxatom-load-seq rxw) 0)
-            (%ch-wake-one-receiver! ch))
-        #t)
-      (let ((res (##continuation-capture %park-send-buf-cont! ch val)))
-        (if (eq? res %CH-RETRY)
-            (%fiber-send-buf! ch val)
-            #t))))
+  ;; Fast path B: Single-C-block lock-free bounded MPMC ring push (zero spinlocks)
+  (let loop ()
+    (let ((st (%vyukov-try-push-c! ch val)))
+      (cond
+        ((fx= st 0) #t)
+        ((fx= st 1) (%ch-wake-one-receiver! ch) #t)
+        ((fx= st 2)
+         (let ((res (##continuation-capture %park-send-buf-cont! ch val)))
+           (if (eq? res %CH-RETRY)
+               (%fiber-send-buf! ch val)
+               #t)))
+        (else (loop))))))
 
 (define (fiber-send! ch val)
   (if (not (fiber-channel? ch))
