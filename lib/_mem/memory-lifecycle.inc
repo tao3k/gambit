@@ -374,6 +374,8 @@ ___processor_state ___ps;)
   ___ps->mem.major_satb_logged_local_ = 0;
   ___ps->mem.major_idle_slices_local_ = 0;
   ___ps->mem.major_spin_slices_local_ = 0;
+  ___ps->mem.stack_watermark_epoch_ = 0;
+  ___ps->mem.stack_watermark_shaded_frames_ = 0;
   memset(&___ps->mem.card_hints_, 0, sizeof(___ps->mem.card_hints_));
   ___ps->mem.satb_active_ = 0;
   ___ps->mem.satb_count_ = 0;

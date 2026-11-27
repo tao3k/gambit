@@ -1350,6 +1350,15 @@
         (macro-thread-specific-set! thread obj)
         (##void)))))
 
+(define-prim (##thread-control-state)
+  (##declare (not interrupts-enabled))
+  (macro-thread-control-state (macro-current-thread)))
+
+(define-prim (##thread-control-state-set! obj)
+  (##declare (not interrupts-enabled))
+  (macro-thread-control-state-set! (macro-current-thread) obj)
+  (##void))
+
 ;;;----------------------------------------------------------------------------
 
 ;; The procedure thread-interrupt! causes the target thread to either
@@ -8004,6 +8013,13 @@
       (begin
         (macro-thread-specific-set! thread obj)
         (##void)))))
+
+(define-prim (##thread-control-state)
+  (macro-thread-control-state (macro-current-thread)))
+
+(define-prim (##thread-control-state-set! obj)
+  (macro-thread-control-state-set! (macro-current-thread) obj)
+  (##void))
 
 (define-prim (thread-base-priority thread)
   (macro-force-vars (thread)

@@ -152,10 +152,6 @@
 (define (make-ws-deque #!optional (min-cap 256))
   (let* ((cap (%next-pow2 (if (and (fixnum? min-cap) (> min-cap 0)) min-cap 256)))
          (slots (make-vector cap #f)))
-    (let init ((i 0))
-      (when (< i cap)
-        (vector-set! slots i (make-atomic-box #f))
-        (init (fx+ i 1))))
     (%make-ws-deque (fx- cap 1) cap slots
                     (make-atomic-fxbox 0)
                     (make-atomic-fxbox 0))))
@@ -173,8 +169,9 @@
          (cap (ws-deque-cap dq)))
     (if (>= (fx- b t) cap)
         #f
-        (let ((slot (vector-ref (ws-deque-slots dq) (fxand b (ws-deque-mask dq)))))
-          (atomic-box-set! slot val (memory-order relaxed))
+        (begin
+          (srfi/230#vector-atomic-set!
+           (ws-deque-slots dq) (fxand b (ws-deque-mask dq)) val (memory-order relaxed))
           (atomic-fxbox-set! (ws-deque-bottom dq) (fx+ b 1) (memory-order release))
           #t))))
 
@@ -182,24 +179,24 @@
 (define (ws-deque-try-pop! dq)
   (let* ((b (fx- (atomic-fxbox-ref (ws-deque-bottom dq) (memory-order relaxed)) 1))
          (top-box (ws-deque-top dq))
-         (bot-box (ws-deque-bottom dq)))
+         (bot-box (ws-deque-bottom dq))
+         (slots (ws-deque-slots dq))
+         (idx (fxand b (ws-deque-mask dq))))
     (atomic-fxbox-set! bot-box b (memory-order relaxed))
     (atomic-fence (memory-order sequentially-consistent))
     (let ((t (atomic-fxbox-ref top-box (memory-order relaxed))))
       (cond
         ((< t b)
-         (let* ((slot (vector-ref (ws-deque-slots dq) (fxand b (ws-deque-mask dq))))
-                (val (atomic-box-ref slot (memory-order relaxed))))
-           (atomic-box-set! slot #f (memory-order relaxed))
+         (let ((val (srfi/230#vector-atomic-ref slots idx (memory-order relaxed))))
+           (srfi/230#vector-atomic-set! slots idx #f (memory-order relaxed))
            (values #t val)))
         ((= t b)
-         (let* ((slot (vector-ref (ws-deque-slots dq) (fxand b (ws-deque-mask dq))))
-                (val (atomic-box-ref slot (memory-order relaxed)))
+         (let* ((val (srfi/230#vector-atomic-ref slots idx (memory-order relaxed)))
                 (prev (atomic-fxbox-compare-and-swap! top-box t (fx+ t 1) (memory-order sequentially-consistent))))
            (atomic-fxbox-set! bot-box (fx+ b 1) (memory-order relaxed))
            (if (= prev t)
                (begin
-                 (atomic-box-set! slot #f (memory-order relaxed))
+                 (srfi/230#vector-atomic-set! slots idx #f (memory-order relaxed))
                  (values #t val))
                (values #f #f))))
         (else
@@ -214,8 +211,8 @@
       (atomic-fence (memory-order sequentially-consistent))
       (let ((b (atomic-fxbox-ref bot-box (memory-order acquire))))
         (if (< t b)
-            (let* ((slot (vector-ref (ws-deque-slots dq) (fxand t (ws-deque-mask dq))))
-                   (val (atomic-box-ref slot (memory-order relaxed)))
+            (let* ((val (srfi/230#vector-atomic-ref
+                         (ws-deque-slots dq) (fxand t (ws-deque-mask dq)) (memory-order relaxed)))
                    (prev (atomic-fxbox-compare-and-swap! top-box t (fx+ t 1) (memory-order sequentially-consistent))))
               (if (= prev t)
                   (values #t val)
@@ -238,17 +235,11 @@
 
 (define (make-concurrent-table #!optional (min-buckets 64) (eq-fn equal?) (hash-fn equal?-hash))
   (let* ((nb (%next-pow2 (if (and (fixnum? min-buckets) (> min-buckets 0)) min-buckets 64)))
-         (buckets (make-vector nb #f)))
-    (let init ((i 0))
-      (when (< i nb)
-        (vector-set! buckets i (make-atomic-box '()))
-        (init (fx+ i 1))))
+         (buckets (make-vector nb '())))
     (%make-concurrent-table (fx- nb 1) buckets eq-fn hash-fn (make-atomic-fxbox 0))))
 
-(define (%ct-bucket ct key)
-  (let ((h ((concurrent-table-hash-fn ct) key)))
-    (vector-ref (concurrent-table-buckets ct)
-                (fxand h (concurrent-table-mask ct)))))
+(define (%ct-bucket-idx ct key)
+  (fxand ((concurrent-table-hash-fn ct) key) (concurrent-table-mask ct)))
 
 (define (%alist-find alist key eq-fn)
   (let loop ((xs alist))
@@ -257,48 +248,54 @@
       ((eq-fn (caar xs) key) (car xs))
       (else (loop (cdr xs))))))
 
+;; Share untouched suffix after matched key to avoid O(n) reverse allocation.
 (define (%alist-replace alist key val eq-fn)
-  (let loop ((xs alist) (acc '()) (found #f))
+  (let loop ((xs alist) (prefix '()))
     (cond
       ((null? xs)
-       (if found
-           (values (reverse acc) #t)
-           (values (cons (cons key val) alist) #f)))
+       (values (cons (cons key val) alist) #f))
       ((eq-fn (caar xs) key)
-       (loop (cdr xs) (cons (cons key val) acc) #t))
+       (let rebuild ((p prefix) (res (cons (cons key val) (cdr xs))))
+         (if (null? p)
+             (values res #t)
+             (rebuild (cdr p) (cons (car p) res)))))
       (else
-       (loop (cdr xs) (cons (car xs) acc) found)))))
+       (loop (cdr xs) (cons (car xs) prefix))))))
 
 (define (%alist-delete alist key eq-fn)
-  (let loop ((xs alist) (acc '()) (found #f))
+  (let loop ((xs alist) (prefix '()))
     (cond
       ((null? xs)
-       (values (if found (reverse acc) alist) found))
+       (values alist #f))
       ((eq-fn (caar xs) key)
-       (loop (cdr xs) acc #t))
+       (let rebuild ((p prefix) (res (cdr xs)))
+         (if (null? p)
+             (values res #t)
+             (rebuild (cdr p) (cons (car p) res)))))
       (else
-       (loop (cdr xs) (cons (car xs) acc) found)))))
+       (loop (cdr xs) (cons (car xs) prefix))))))
 
 (define (concurrent-table-size ct)
   (atomic-fxbox-ref (concurrent-table-count ct) (memory-order acquire)))
 
 ;; Wait-free read: single acquire load + immutable bucket scan.
 (define (concurrent-table-ref ct key #!optional (default #f))
-  (let* ((b (%ct-bucket ct key))
-         (alist (atomic-box-ref b (memory-order acquire)))
+  (let* ((alist (srfi/230#vector-atomic-ref
+                 (concurrent-table-buckets ct) (%ct-bucket-idx ct key) (memory-order acquire)))
          (entry (%alist-find alist key (concurrent-table-eq-fn ct))))
     (if entry (cdr entry) default)))
 
 (define (concurrent-table-set! ct key val)
-  (let ((b (%ct-bucket ct key))
+  (let ((buckets (concurrent-table-buckets ct))
+        (idx (%ct-bucket-idx ct key))
         (eq-fn (concurrent-table-eq-fn ct))
         (cnt (concurrent-table-count ct)))
     (let loop ()
-      (let ((cur (atomic-box-ref b (memory-order acquire))))
+      (let ((cur (srfi/230#vector-atomic-ref buckets idx (memory-order acquire))))
         (call-with-values
           (lambda () (%alist-replace cur key val eq-fn))
           (lambda (nxt existed)
-            (let ((prev (atomic-box-compare-and-swap! b cur nxt (memory-order acquire-release))))
+            (let ((prev (srfi/230#vector-atomic-cas! buckets idx cur nxt (memory-order acquire-release))))
               (if (eq? prev cur)
                   (begin
                     (unless existed
@@ -308,17 +305,18 @@
 
 ;; Atomic functional update: (updater found? old-val) -> new-val.
 (define (concurrent-table-update! ct key updater)
-  (let ((b (%ct-bucket ct key))
+  (let ((buckets (concurrent-table-buckets ct))
+        (idx (%ct-bucket-idx ct key))
         (eq-fn (concurrent-table-eq-fn ct))
         (cnt (concurrent-table-count ct)))
     (let loop ()
-      (let* ((cur (atomic-box-ref b (memory-order acquire)))
+      (let* ((cur (srfi/230#vector-atomic-ref buckets idx (memory-order acquire)))
              (entry (%alist-find cur key eq-fn))
              (new-val (if entry (updater #t (cdr entry)) (updater #f #f))))
         (call-with-values
           (lambda () (%alist-replace cur key new-val eq-fn))
           (lambda (nxt existed)
-            (let ((prev (atomic-box-compare-and-swap! b cur nxt (memory-order acquire-release))))
+            (let ((prev (srfi/230#vector-atomic-cas! buckets idx cur nxt (memory-order acquire-release))))
               (if (eq? prev cur)
                   (begin
                     (unless existed
@@ -327,17 +325,18 @@
                   (loop)))))))))
 
 (define (concurrent-table-delete! ct key)
-  (let ((b (%ct-bucket ct key))
+  (let ((buckets (concurrent-table-buckets ct))
+        (idx (%ct-bucket-idx ct key))
         (eq-fn (concurrent-table-eq-fn ct))
         (cnt (concurrent-table-count ct)))
     (let loop ()
-      (let ((cur (atomic-box-ref b (memory-order acquire))))
+      (let ((cur (srfi/230#vector-atomic-ref buckets idx (memory-order acquire))))
         (call-with-values
           (lambda () (%alist-delete cur key eq-fn))
           (lambda (nxt found)
             (if (not found)
                 #f
-                (let ((prev (atomic-box-compare-and-swap! b cur nxt (memory-order acquire-release))))
+                (let ((prev (srfi/230#vector-atomic-cas! buckets idx cur nxt (memory-order acquire-release))))
                   (if (eq? prev cur)
                       (begin
                         (atomic-fxbox-/fetch! cnt 1 (memory-order relaxed))

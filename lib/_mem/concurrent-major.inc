@@ -1343,6 +1343,7 @@ ___HIDDEN void major_initial_mark_begin(___virtual_machine_state vm)
       ps->mem.satb_count_ = 0;
       ps->mem.satb_overflow_ = 0;
       ps->mem.major_mark_local_count_ = 0;
+      ps->mem.stack_watermark_epoch_ = vm->mem.major_epoch_;
       ___WORD_STORE_RELEASE(&ps->mem.satb_active_, 1);
     }
 }
@@ -1979,6 +1980,7 @@ ___HIDDEN void major_remark_phase_b_coord(___virtual_machine_state vm)
     {
       ___processor_state ps = ___PSTATE_FROM_PROCESSOR_ID(p, vm);
       ___WORD_STORE_RELEASE(&ps->mem.satb_active_, 0);
+      ps->mem.stack_watermark_epoch_ = 0;
       ps->mem.satb_count_ = 0;
       ps->mem.satb_overflow_ = 0;
       ps->mem.major_mark_local_count_ = 0;
@@ -2504,6 +2506,7 @@ ___HIDDEN void major_abort_for_full_compacting_gc(___virtual_machine_state vm)
     {
       ___processor_state ps = ___PSTATE_FROM_PROCESSOR_ID(p, vm);
       ___WORD_STORE_RELEASE(&ps->mem.satb_active_, 0);
+      ps->mem.stack_watermark_epoch_ = 0;
       ps->mem.satb_count_ = 0;
       ps->mem.satb_overflow_ = 0;
       ps->mem.major_mark_local_count_ = 0;

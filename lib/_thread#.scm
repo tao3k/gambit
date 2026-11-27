@@ -1217,6 +1217,7 @@
   (interrupts-tail  init: '())
   (last-processor   init: #f)
   (pinned           init: #f)
+  (control-state    init: #f)
 )
 
 ;;; Access to floating point fields.
@@ -3411,6 +3412,7 @@
   (interrupts-head  init: '())
   (interrupts-tail  init: '())
   (last-processor   init: #f) ;; last processor that executed thread or #f
+  (control-state    init: #f)
 )
 
 ;;; Access to floating point fields.

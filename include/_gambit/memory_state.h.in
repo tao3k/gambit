@@ -476,6 +476,9 @@ ___VOLATILE ___WORD major_marked_words_local_;
 ___VOLATILE ___WORD major_satb_logged_local_;
 ___VOLATILE ___WORD major_idle_slices_local_;
 ___VOLATILE ___WORD major_spin_slices_local_;
+/* Per-processor stack watermark state for concurrent SATB frame shading */
+___UWORD stack_watermark_epoch_;
+___VOLATILE ___WORD stack_watermark_shaded_frames_;
 
 #ifdef ___DEBUG_GARBAGE_COLLECT
 

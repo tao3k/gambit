@@ -1832,8 +1832,9 @@ end-of-code
      {
        /* caller's frame is in the heap */
 
+       ___frame_descriptor fd;
+
        {
-         ___frame_descriptor fd;
          fp = ___BODY_AS(cf,___tFRAME); /* get pointer to frame's body */
          ra1 = fp[___FRAME_RA];
          if (!___decode_heap_frame_descriptor(fp, ___ps->internal_return, &fd))
@@ -1867,6 +1868,17 @@ end-of-code
 
        ___SET_STK(-___BREAK_FRAME_NEXT,___STK(link+1))
        ___SET_STK(link+1,___ps->handler_break)
+
+       if (___EXPECT_FALSE(___ps->mem.satb_active_ != 0))
+         {
+           ___frame_root_cursor cursor = ___frame_ordinary_root_begin (&fd);
+           int first, past;
+           while (___frame_root_next_run (&cursor, &first, &past))
+             ___EXT(___gc_satb_barrier_range)(___ps, &___STK(past - 1),
+                                              ___CAST(___SIZE_TS, past - first));
+           ___WORD_STORE_RELAXED(&___ps->mem.stack_watermark_shaded_frames_,
+                                 ___ps->mem.stack_watermark_shaded_frames_ + 1);
+         }
 
        ___ADJFP(___FRAME_SPACE(fs))
      }
@@ -4344,6 +4356,21 @@ end-of-code
       (if next
           (loop next)
           cont))))
+
+(define-prim (##gc-stack-watermark-shaded-frames)
+  (##declare (not interrupts-enabled))
+  (##c-code #<<end-of-code
+   ___virtual_machine_state vm = ___VMSTATE_FROM_PSTATE(___ps);
+   ___WORD total = 0;
+   int p;
+   for (p = 0; p < vm->processor_count; p++)
+     {
+       ___processor_state pps = ___PSTATE_FROM_PROCESSOR_ID(p, vm);
+       total += ___WORD_LOAD_ACQUIRE(&pps->mem.stack_watermark_shaded_frames_);
+     }
+   ___RESULT = ___FIX(total);
+end-of-code
+  ))
 
 ;;;----------------------------------------------------------------------------
 

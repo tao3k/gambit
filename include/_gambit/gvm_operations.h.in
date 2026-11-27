@@ -2450,6 +2450,7 @@ ___FP_SET_STK((___ps->context->stack_start - ___FIRST_BREAK_FRAME_SPACE), \
 
 #define ___THREAD_SAVE \
 ___INVALIDATE_STACK_OVERFLOW_UNDO \
+___ps->mem.local_young_escaped_ = 1; \
 if (___R0 == ___ps->handler_break) \
   frame = ___STK(-___BREAK_FRAME_NEXT); \
 else \
@@ -2521,6 +2522,7 @@ thread = ___CURRENTTHREAD; \
    payload copy occurs between these root publications and the queue callback. */
 #define ___THREAD_PARK \
 ___INVALIDATE_STACK_OVERFLOW_UNDO \
+___ps->mem.local_young_escaped_ = 1; \
 thread = ___CURRENTTHREAD; \
 frame = ___CONTINUATION_FRAME_FIELD(cont); \
 ___SET_FP(___ps->context->stack_break) \
@@ -2690,6 +2692,7 @@ ___FIELD(STRUCTURE,condvar,___CONDVAR_NAME)
 #define ___THREAD_INTERRUPTS_HEAD 32
 #define ___THREAD_INTERRUPTS_TAIL 33
 #define ___THREAD_LAST_PROCESSOR  34
+#define ___THREAD_CONTROL_STATE   36
 
 #define ___THREAD_CONT_FIELD(thread) \
 ___FIELD(STRUCTURE,thread,___THREAD_CONT)
@@ -2714,6 +2717,9 @@ ___FIELD(STRUCTURE,thread,___THREAD_INTERRUPTS_TAIL)
 
 #define ___THREAD_LAST_PROCESSOR_FIELD(thread) \
 ___FIELD(STRUCTURE,thread,___THREAD_LAST_PROCESSOR)
+
+#define ___THREAD_CONTROL_STATE_FIELD(thread) \
+___FIELD(STRUCTURE,thread,___THREAD_CONTROL_STATE)
 
 
 #define ___PROCESSOR_SIZE 22

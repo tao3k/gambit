@@ -362,6 +362,16 @@ ___WORD ___restore_stack_break_frame(___processor_state ___ps, ___WORD *top,
   }
   *stack_cursor=dest-words;
   ___gc_copy_release(&section->copy_gate);
+  if (___EXPECT_FALSE(___ps->mem.satb_active_ != 0))
+    {
+      ___frame_root_cursor cursor = ___frame_ordinary_root_begin (&frame);
+      int first, past;
+      while (___frame_root_next_run (&cursor, &first, &past))
+        ___gc_satb_barrier_range (___ps, &___FP_STK(dest, past - 1),
+                                  ___CAST(___SIZE_TS, past - first));
+      ___WORD_STORE_RELAXED(&___ps->mem.stack_watermark_shaded_frames_,
+                            ___ps->mem.stack_watermark_shaded_frames_ + 1);
+    }
   return ra;
 
  release_and_refuse:

@@ -163,6 +163,10 @@ ___EXP_FUNC(void,___publish_raw_stack_span)
   if (!section || (tospace_offset!=0 && tospace_offset!=(___MSECTION_SIZE>>1)))
     { rc_contract_error("Raw stack span lacks a current half"); return; }
 
+  /* Detached stack frames may hold pointers into this processor's local
+   * nursery that are not reachable from the next active thread's fp..break. */
+  ___ps->mem.local_young_escaped_ = 1;
+
   base=start_of_tospace(section);
   claim=section_claim_at(section,tospace_offset);
   ___gc_copy_acquire(&section->copy_gate);
