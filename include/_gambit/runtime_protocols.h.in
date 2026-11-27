@@ -1069,6 +1069,11 @@ ___IMP_FUNC(void,___gc_write_barrier_range)
          ___WORD *start_ptr,
          ___SIZE_TS words),
         ());
+___IMP_FUNC(void,___gc_shrink_object_slow)
+   ___P((___processor_state ___ps,
+         ___SCMOBJ obj,
+         ___WORD new_head),
+        ());
 ___IMP_FUNC(void,___gc_generational_stats)
    ___P((___processor_state ___ps,
          double *out_stats),
@@ -1120,6 +1125,11 @@ extern void ___gc_write_barrier_range
          ___SCMOBJ obj,
          ___WORD *start_ptr,
          ___SIZE_TS words),
+        ());
+extern void ___gc_shrink_object_slow
+   ___P((___processor_state ___ps,
+         ___SCMOBJ obj,
+         ___WORD new_head),
         ());
 extern void ___gc_satb_barrier_slot
    ___P((___processor_state ___ps,

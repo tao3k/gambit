@@ -258,6 +258,82 @@ ___SIZE_TS words;)
   }
 }
 
+/* Generational & Concurrent-SATB safe in-place object shrink slow path.
+ * When a mature movable object loses one or more payload words, bridge the
+ * freed tail [body + new_words .. body + old_words) with a valid leaf
+ * ___sU8VECTOR filler header BEFORE publishing the shrunken header so linear
+ * mature walks (Minor GC card scan, selective evacuation, Immix Remark sweep)
+ * remain strictly header-aligned. Also retains dropped pointer slots of
+ * mature/still ___sVECTORs in the SATB buffer when concurrent Major marking
+ * is active. */
+___EXP_FUNC(void,___gc_shrink_object_slow)
+   ___P((___processor_state ___ps,
+         ___SCMOBJ obj,
+         ___WORD new_head),
+        (___ps,
+         obj,
+         new_head)
+___processor_state ___ps;
+___SCMOBJ obj;
+___WORD new_head;)
+{
+  ___WORD *body;
+  ___WORD *hdr;
+  ___WORD old_head;
+  ___SIZE_TS old_words;
+  ___SIZE_TS new_words;
+  int htyp;
+  ___virtual_machine_state vm;
+
+  if (!___MEM_ALLOCATED(obj))
+    return;
+
+  body = ___BODY0(obj);
+  hdr = body - 1;
+  old_head = ___WORD_LOAD_RELAXED(hdr);
+  old_words = ___HD_WORDS(old_head);
+  new_words = ___HD_WORDS(new_head);
+
+  if (new_words >= old_words || ___ps == 0)
+    {
+      ___WORD_STORE_RELAXED(hdr, new_head);
+      return;
+    }
+
+  vm = ___VMSTATE_FROM_PSTATE(___ps);
+  htyp = ___HD_TYP(old_head);
+
+  if (htyp == ___STILL)
+    {
+      if (___EXPECT_FALSE(___ps->mem.satb_active_ != 0) &&
+          ___HD_SUBTYPE(old_head) == ___sVECTOR)
+        ___gc_satb_barrier_range(___ps, body + new_words, old_words - new_words);
+      ___WORD_STORE_RELEASE(hdr, new_head);
+      return;
+    }
+
+  if (htyp == ___MOVABLE0 && vm != 0)
+    {
+      ___UWORD addr = ___CAST(___UWORD, hdr);
+      ___msection *sec = wb_find_mature_section(___ps, vm, addr);
+      if (sec != 0)
+        {
+          ___SIZE_TS gap = old_words - new_words;
+          ___WORD *filler = body + new_words;
+
+          if (___EXPECT_FALSE(___ps->mem.satb_active_ != 0) &&
+              ___HD_SUBTYPE(old_head) == ___sVECTOR)
+            ___gc_satb_barrier_range(___ps, filler, gap);
+
+          ___WORD_STORE_RELEASE(filler, ___MAKE_HD_WORDS(gap - 1, ___sU8VECTOR));
+          ___WORD_STORE_RELEASE(hdr, new_head);
+          return;
+        }
+    }
+
+  ___WORD_STORE_RELAXED(hdr, new_head);
+}
+
 ___EXP_FUNC(void,___gc_generational_stats)
    ___P((___processor_state ___ps,
          double *out_stats),

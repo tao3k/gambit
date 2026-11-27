@@ -1257,6 +1257,11 @@ typedef struct ___global_state_struct
              ___WORD *start_ptr,
              ___SIZE_TS words),
             ());
+    void (*___gc_shrink_object_slow)
+       ___P((___processor_state ___ps,
+             ___SCMOBJ obj,
+             ___WORD new_head),
+            ());
     void (*___gc_generational_stats)
        ___P((___processor_state ___ps,
              double *out_stats),

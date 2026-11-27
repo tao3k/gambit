@@ -7009,6 +7009,9 @@ ___HIDDEN void setup_dynamic_linking ___PVOID
   ___GSTATE->___gc_write_barrier_range
     = ___gc_write_barrier_range;
 
+  ___GSTATE->___gc_shrink_object_slow
+    = ___gc_shrink_object_slow;
+
   ___GSTATE->___gc_generational_stats
     = ___gc_generational_stats;
 

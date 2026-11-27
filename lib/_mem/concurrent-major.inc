@@ -550,7 +550,7 @@ ___HIDDEN ___SIZE_TS major_scan_object_q
     int is_stw)
 {
   ___WORD *body = ___BODY0(obj);
-  ___WORD head = ___WORD_LOAD_RELAXED(body - 1);
+  ___WORD head = ___WORD_LOAD_ACQUIRE(body - 1);
   ___SIZE_TS words = ___HD_WORDS(head);
   int subtype = ___HD_SUBTYPE(head);
   ___SIZE_TS i;

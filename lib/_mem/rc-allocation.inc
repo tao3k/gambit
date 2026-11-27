@@ -1127,7 +1127,7 @@ static enum ___rest_status rest_prove(___processor_state ps,
                                       ___activation_record *record,
                                       ___WORD attempt, ___WORD epoch)
 {
-  ___rest_record_field_loads++;
+  ___FETCH_AND_ADD_WORD(&___rest_record_field_loads, 1);
   if (!record || ps==0 || ps!=___PSTATE || epoch<=0 || !___FIXNUMP(attempt))
     return ___REST_REFUSED;
   if (record->rest_retired_epoch==epoch && record->rest_epoch!=epoch)
@@ -1634,10 +1634,10 @@ void ___rest_stale_probe(___processor_state ps)
     ___rest_stale_pin_status=-3;
     return;
   }
-  loads=___rest_record_field_loads;
+  loads=___WORD_LOAD_RELAXED(&___rest_record_field_loads);
   stale=___rest_token_pin(ps, record, epoch+1);
   ___rest_stale_pin_status=(___WORD)stale;
-  ___rest_stale_load_delta=___rest_record_field_loads-loads;
+  ___rest_stale_load_delta=___WORD_LOAD_RELAXED(&___rest_record_field_loads)-loads;
   held=___rest_token_pin(ps, record, epoch);
   if (held==___REST_OK) {
     ___rest_token_release(ps, record, epoch+1);
@@ -1652,10 +1652,10 @@ void ___rest_stale_probe(___processor_state ps)
     enum ___rest_status wrong;
     ___WORD mark;
     life->incarnation=saved+1;
-    mark=___rest_record_field_loads;
+    mark=___WORD_LOAD_RELAXED(&___rest_record_field_loads);
     wrong=___rest_token_pin(ps, record, epoch);
     ___rest_stale_incarnation_status=(___WORD)wrong;
-    ___rest_stale_incarnation_loads=___rest_record_field_loads-mark;
+    ___rest_stale_incarnation_loads=___WORD_LOAD_RELAXED(&___rest_record_field_loads)-mark;
     life->incarnation=saved;
   }
   ___rest_activation_cleanup(ps, record, ___FIX(1), epoch);
@@ -1705,12 +1705,12 @@ void ___rest_reuse_probe(___processor_state ps)
     ___rest_activation_cleanup(ps, record, ___FIX(1), epoch);
     return;
   }
-  loads=___rest_record_field_loads;
+  loads=___WORD_LOAD_RELAXED(&___rest_record_field_loads);
   rest_reuse_before_cas=1;
   status=___rest_token_pin(ps, record, epoch);
   ___rest_reuse_status=(___WORD)status;
   ___rest_reuse_pin=rest_directory_pin_bit(ps, record);
-  ___rest_reuse_loads=___rest_record_field_loads-loads;
+  ___rest_reuse_loads=___WORD_LOAD_RELAXED(&___rest_record_field_loads)-loads;
   dir_slot = ps->mem.rc_domain_ ? rest_directory_find(ps->mem.rc_domain_, record) : 0;
   if (dir_slot && rest_slot_generation(dir_slot) == epoch + 1)
     rest_slot_set_generation(dir_slot, epoch);
@@ -1723,12 +1723,12 @@ void ___rest_reuse_probe(___processor_state ps)
     ___rest_activation_cleanup(ps, record, ___FIX(1), epoch);
     return;
   }
-  loads=___rest_record_field_loads;
+  loads=___WORD_LOAD_RELAXED(&___rest_record_field_loads);
   rest_close_while_pinned=1;
   status=___rest_token_pin(ps, record, epoch);
   ___rest_close_status=(___WORD)status;
   ___rest_close_pin=rest_directory_pin_bit(ps, record);
-  ___rest_close_loads=___rest_record_field_loads-loads;
+  ___rest_close_loads=___WORD_LOAD_RELAXED(&___rest_record_field_loads)-loads;
   ___rest_activation_cleanup(ps, record, ___FIX(1), epoch);
 }
 

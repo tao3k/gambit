@@ -200,6 +200,13 @@ ___ORDERED_WORD_INLINE void ___gc_card_reset_epoch
   do { (void)(ps); (void)(obj); (void)(slot_ptr); } while (0)
 #define ___GC_WRITE_BARRIER_RANGE(ps,obj,start_ptr,words) \
   do { (void)(ps); (void)(obj); (void)(start_ptr); (void)(words); } while (0)
+#define ___GC_SHRINK_HEADER(ps,obj,hdr_ptr,new_head) \
+  do { \
+    ___WORD *___gsh_h = (hdr_ptr); \
+    ___WORD ___gsh_nh = (new_head); \
+    (void)(ps); (void)(obj); \
+    ___WORD_STORE_RELAXED(___gsh_h, ___gsh_nh); \
+  } while (0)
 #else
 #define ___GC_WRITE_BARRIER(ps,obj,slot_ptr,val) \
   do { \
@@ -249,6 +256,22 @@ ___ORDERED_WORD_INLINE void ___gc_card_reset_epoch
             ___EXT(___gc_write_barrier_range)(___gwb_p, (obj), ___gwb_s, ___gwb_n); \
         } \
       } \
+  } while (0)
+#define ___GC_SHRINK_HEADER(ps,obj,hdr_ptr,new_head) \
+  do { \
+    ___SCMOBJ ___gsh_o = (obj); \
+    ___WORD *___gsh_h = (hdr_ptr); \
+    ___WORD ___gsh_nh = (new_head); \
+    ___processor_state ___gsh_p = (ps); \
+    ___WORD ___gsh_oh = ___WORD_LOAD_RELAXED(___gsh_h); \
+    ___UWORD ___gsh_a = ___CAST(___UWORD, ___gsh_h); \
+    ___UWORD ___gsh_lo = ___CAST(___UWORD, ___gsh_p->mem.alloc_heap_start_); \
+    ___UWORD ___gsh_hi = ___CAST(___UWORD, ___gsh_p->mem.alloc_heap_limit_); \
+    if (___EXPECT_FALSE(___HD_WORDS(___gsh_nh) < ___HD_WORDS(___gsh_oh) && \
+                        ___gsh_a - ___gsh_lo >= ___gsh_hi - ___gsh_lo)) \
+      ___EXT(___gc_shrink_object_slow)(___gsh_p, ___gsh_o, ___gsh_nh); \
+    else \
+      ___WORD_STORE_RELAXED(___gsh_h, ___gsh_nh); \
   } while (0)
 #endif
 #define ___GC_WRITE_BARRIER_SEAM(ps,obj,slot_ptr,val) ___GC_WRITE_BARRIER(ps,obj,slot_ptr,val)
