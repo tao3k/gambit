@@ -470,7 +470,7 @@ ___SCMOBJ old_val;)
    * to global without allocating). Sticky satb_overflow_ triggers full Remark
    * recovery if global stack capacity is exceeded (Quint Mutant 7). */
   vm = ___VMSTATE_FROM_PSTATE(___ps);
-  if (___WORD_LOAD_ACQUIRE(&vm->mem.major_phase_) != ___GC_MAJOR_MARKING)
+  if (vm == 0 || ___WORD_LOAD_ACQUIRE(&vm->mem.major_phase_) != ___GC_MAJOR_MARKING)
     {
       ___ps->mem.satb_count_ = 0;
       return;

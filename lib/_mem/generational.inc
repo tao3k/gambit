@@ -69,6 +69,8 @@ ___WORD *slot_ptr;)
     return;
 
   vm = ___VMSTATE_FROM_PSTATE(___ps);
+  if (vm == 0)
+    return;
   head = ___HEADER(obj);
   htyp = ___HD_TYP(head);
 
@@ -209,6 +211,8 @@ ___SIZE_TS words;)
     return;
 
   vm = ___VMSTATE_FROM_PSTATE(___ps);
+  if (vm == 0)
+    return;
   head = ___HEADER(obj);
   htyp = ___HD_TYP(head);
 

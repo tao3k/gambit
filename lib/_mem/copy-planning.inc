@@ -525,6 +525,64 @@ ___HIDDEN int plan_copy_round(___processor_state ps, ___SIZE_TS requested_words_
        (g->proc_worker[i]<0 && restore_loan_words(length)<___MSECTION_FUDGE+2))goto refuse;
   }
 
+  /* Under a tight explicit max_heap, parallel GC workers each reserve an open
+   * destination section (w buffers), which can exhaust a tight cap even when
+   * single-worker compaction fits cleanly. When requested_workers is not pinned,
+   * demote to serial compaction on the coordinator before the round barrier. */
+  if (!g->is_minor && w > 1 &&
+      ___GSTATE->setup_params.max_heap > 0 &&
+      ___WORD_LOAD_ACQUIRE(&g->requested_workers) == 0 &&
+      g->worker_proc[0] == g->coordinator_id &&
+      the_msections != 0)
+    {
+      ___SIZE_TS cap = ___GSTATE->setup_params.max_heap >> ___LWS;
+      ___SIZE_TS still = occupied_words_still;
+      ___SIZE_TS cap_secs = (still >= 0 && still <= cap)
+        ? ((cap - still) / ___MSECTION_SIZE) : 0;
+      int avail_secs = the_msections->nb_sections;
+      if ((___SIZE_TS)avail_secs < cap_secs)
+        avail_secs = (int)cap_secs;
+      if (n + k + 2 > avail_secs)
+        {
+          int coord_id = g->coordinator_id;
+          int k1 = 0;
+          int loans_ok = (coord_id >= 0 && coord_id < n);
+          for (i = 0; i < n && loans_ok; i++)
+            if (i != coord_id &&
+                restore_loan_words(round->resume[i].source_words) < ___MSECTION_FUDGE + 2)
+              loans_ok = 0;
+          if (loans_ok &&
+              ___gc_copy_section_bound(1, c->small_words, c->small_max,
+                                       c->large_count, capacity,
+                                       ___MSECTION_CHUNK, &k1) &&
+              k1 < k)
+            {
+              for (i = 1; i < w; i++)
+                {
+                  int pid = g->worker_proc[i];
+                  if (pid >= 0 && pid < g->slot_capacity)
+                    g->proc_worker[pid] = -1;
+                  g->worker_proc[i] = 0;
+                }
+              g->worker_count = 1;
+              if (g->promo_tail_count > 1)
+                g->promo_tail_count = 1;
+              for (i = 0; i < n; i++)
+                {
+                  ___root_member *m = &round->members[i];
+                  m->global_task.executor = ps;
+                  m->stack_task.executor = ps;
+                  m->bank_task.executor = ps;
+                  ___RC_LOCK(m->rc);
+                  m->rc->task.executor = ps;
+                  ___RC_UNLOCK(m->rc);
+                }
+              w = 1;
+              k = k1;
+            }
+        }
+    }
+
   /* Reserve sections according to round mode: Minor GC, segregated Major GC,
    * or classic non-segregated Major GC. */
   {
