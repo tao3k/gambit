@@ -740,7 +740,11 @@ ___SIZE_TS requested_words_still;)
                                      ___COLLECTION(___vms).is_minor,
                                      ___GSTATE->setup_params.min_heap,
                                      ___GSTATE->setup_params.max_heap);
-      still_slab_purge_empty();
+      /* Keep bounded empty still-slab chunks warm across minor GCs to avoid
+       * mmap/munmap & page-fault thrashing; purge all empty slabs on major GC
+       * (including explicit ##gc) for immediate OS memory contraction. */
+      if (!___COLLECTION(___vms).is_minor)
+        still_slab_purge_empty();
       if (gc_take_freed_malloc_still_words() >=
           ((___SIZE_T)(4u * 1024u * 1024u) / ___WS))
         os_heap_pressure_relief();
