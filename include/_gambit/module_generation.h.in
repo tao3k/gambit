@@ -344,10 +344,18 @@ ___BEGIN_ALLOC_SUBTYPED(___MAKE_HD_WORDS(n,___sBOXVALUES));
 #define ___INTR_GC         4
 #define ___INTR_OTHER      5
 
-#define ___INTERRUPT_FLAGS() (___ps->intr_flag[0]|___ps->intr_flag[1]|___ps->intr_flag[2]|___ps->intr_flag[3]|___ps->intr_flag[4]|___ps->intr_flag[5])
+#define ___INTERRUPT_FLAGS() \
+(___WORD_LOAD_ACQUIRE(&___ps->intr_flag[0])| \
+ ___WORD_LOAD_ACQUIRE(&___ps->intr_flag[1])| \
+ ___WORD_LOAD_ACQUIRE(&___ps->intr_flag[2])| \
+ ___WORD_LOAD_ACQUIRE(&___ps->intr_flag[3])| \
+ ___WORD_LOAD_ACQUIRE(&___ps->intr_flag[4])| \
+ ___WORD_LOAD_ACQUIRE(&___ps->intr_flag[5]))
 
 #define ___INTERRUPT_AFTER_MASKING(flags) \
-((flags) & ___ps->intr_enabled & ~___ps->intr_mask)
+((flags) & \
+ ___WORD_LOAD_ACQUIRE(___CAST(___VOLATILE ___WORD*,&___ps->intr_enabled)) & \
+ ~___WORD_LOAD_ACQUIRE(___CAST(___VOLATILE ___WORD*,&___ps->intr_mask)))
 
 #define ___INTERRUPT_REQ(flags) \
 (___INTERRUPT_AFTER_MASKING(flags) != ___FIX(0))
@@ -358,13 +366,19 @@ if (___INTERRUPT_REQ(___INTERRUPT_FLAGS())) \
 
 #define ___INTERRUPT_MASK_SET(mask) \
 do { \
-  ___ps->intr_mask = (mask); \
+  ___WORD_STORE_RELEASE(___CAST(___VOLATILE ___WORD*,&___ps->intr_mask),(mask)); \
+  ___SHARED_MEMORY_BARRIER(); \
   ___STACK_TRIP_ON_IF_INTERRUPT_REQ(); \
 } while (0)
 
-#define ___STACK_TRIP_ON()___ps->stack_trip = ___ps->context->stack_start
-#define ___STACK_TRIP_OFF()___ps->stack_trip = ___ps->context->stack_limit
-#define ___STACK_TRIPPED (___fp < ___ps->stack_trip)
+#define ___STACK_TRIP_ON() \
+___WORD_STORE_RELEASE(___CAST(___VOLATILE ___WORD*,&___ps->stack_trip), \
+                      ___WORD_LOAD_ACQUIRE(___CAST(___VOLATILE ___WORD*,&___ps->context->stack_start)))
+#define ___STACK_TRIP_OFF() \
+___WORD_STORE_RELAXED(___CAST(___VOLATILE ___WORD*,&___ps->stack_trip), \
+                      ___CAST(___WORD,___ps->context->stack_limit))
+#define ___STACK_TRIPPED \
+(___fp < ___CAST(___WORD*,___WORD_LOAD_RELAXED(___CAST(___VOLATILE ___WORD*,&___ps->stack_trip))))
 
 #ifdef ___HEARTBEAT_USING_POLL_COUNTDOWN
 #define ___HEARTBEAT_INTERVAL_ENDED (___ps->heartbeat_countdown-- <= 0)

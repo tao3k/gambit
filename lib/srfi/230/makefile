@@ -1,4 +1,4 @@
-# Copyright (c) 2026, All Rights Reserved.
+# Copyright (c) 2026 by Gambit Contributors, All Rights Reserved.
 
 herefromlib = srfi/230
 libfromhere = ../..

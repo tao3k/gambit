@@ -424,7 +424,7 @@ ___collector_worker *owner;)
       unlock_chunk_fifo(owner);
       return 0;
     }
-  node = ___UNTAG_AS(*owner->heap_chunks_to_scan_head_, ___FORW);
+  node = ___UNTAG_AS(___WORD_LOAD_ACQUIRE(owner->heap_chunks_to_scan_head_), ___FORW);
   require_chunk_transition(work,node+1,1,2);
   owner->heap_chunks_to_scan_head_ = node;
 #ifndef ___SINGLE_THREADED_VMS
@@ -449,7 +449,7 @@ ___collector_worker *work;)
    * currently being scanned.
    */
 
-  *work->arena.cursor++ = NULL_CHUNK_LINK; /* leave space for next chunk's link */
+  ___WORD_STORE_RELEASE(work->arena.cursor++, NULL_CHUNK_LINK); /* leave space for next chunk's link */
 
   if (alloc_heap_chunk_start != work->local_scan_chunk_)
     {
@@ -466,7 +466,7 @@ ___collector_worker *work;)
 
       lock_chunk_fifo(work);
 
-      *heap_chunks_to_scan_tail = ___TAG(new_tail, ___FORW);
+      ___WORD_STORE_RELEASE(heap_chunks_to_scan_tail, ___TAG(new_tail, ___FORW));
 
       /*
        * A memory barrier is needed to ensure that the content of the

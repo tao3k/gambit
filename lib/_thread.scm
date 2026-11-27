@@ -1736,7 +1736,10 @@
 
   (##thread-end-locked! (macro-current-thread) exception? result)
 
-  (macro-processor-current-thread-set! (macro-current-processor) #f)
+  (let ((p (macro-current-processor)))
+    (macro-lock-processor! p)
+    (macro-processor-current-thread-set! p #f)
+    (macro-unlock-processor! p))
   (##thread-schedule!))
 
 (define-prim (##thread-end-locked! thread exception? result)

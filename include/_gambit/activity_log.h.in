@@ -336,6 +336,391 @@ ___word_cas_acquire_seq((p),&(expected),(v))
 #error "Modern native atomic primitives (GCC/Clang __atomic_* or MSVC Win32 SDK) are required for multithreaded builds"
 #endif
 
+/* SRFI-230 / Chase-Lev parameterized memory-order atomic operations.
+ * Memory-order codes match (srfi 230):
+ *   0=relaxed, 1=acquire, 2=release, 3=acquire-release, 4=sequentially-consistent. */
+#define ___ATOMIC_ORDER_RELAXED 0
+#define ___ATOMIC_ORDER_ACQUIRE 1
+#define ___ATOMIC_ORDER_RELEASE 2
+#define ___ATOMIC_ORDER_ACQ_REL 3
+#define ___ATOMIC_ORDER_SEQ_CST 4
+
+#if defined(__ATOMIC_ACQUIRE) && defined(__ATOMIC_RELEASE)
+
+___ORDERED_WORD_INLINE void ___atomic_fence_order (int order)
+{
+  switch (order)
+    {
+    case ___ATOMIC_ORDER_RELAXED:
+      break;
+    case ___ATOMIC_ORDER_ACQUIRE:
+      __atomic_thread_fence (__ATOMIC_ACQUIRE);
+      break;
+    case ___ATOMIC_ORDER_RELEASE:
+      __atomic_thread_fence (__ATOMIC_RELEASE);
+      break;
+    case ___ATOMIC_ORDER_ACQ_REL:
+      __atomic_thread_fence (__ATOMIC_ACQ_REL);
+      break;
+    default:
+      __atomic_thread_fence (__ATOMIC_SEQ_CST);
+      break;
+    }
+}
+
+___ORDERED_WORD_INLINE ___WORD ___atomic_word_load
+   (___VOLATILE ___WORD *p, int order)
+{
+  switch (order)
+    {
+    case ___ATOMIC_ORDER_RELAXED:
+      return __atomic_load_n (p, __ATOMIC_RELAXED);
+    case ___ATOMIC_ORDER_ACQUIRE:
+      return __atomic_load_n (p, __ATOMIC_ACQUIRE);
+    default:
+      return __atomic_load_n (p, __ATOMIC_SEQ_CST);
+    }
+}
+
+___ORDERED_WORD_INLINE void ___atomic_word_store
+   (___VOLATILE ___WORD *p, ___WORD v, int order)
+{
+  switch (order)
+    {
+    case ___ATOMIC_ORDER_RELAXED:
+      __atomic_store_n (p, v, __ATOMIC_RELAXED);
+      break;
+    case ___ATOMIC_ORDER_RELEASE:
+      __atomic_store_n (p, v, __ATOMIC_RELEASE);
+      break;
+    default:
+      __atomic_store_n (p, v, __ATOMIC_SEQ_CST);
+      break;
+    }
+}
+
+___ORDERED_WORD_INLINE ___WORD ___atomic_word_exchange
+   (___VOLATILE ___WORD *p, ___WORD v, int order)
+{
+  switch (order)
+    {
+    case ___ATOMIC_ORDER_RELAXED:
+      return __atomic_exchange_n (p, v, __ATOMIC_RELAXED);
+    case ___ATOMIC_ORDER_ACQUIRE:
+      return __atomic_exchange_n (p, v, __ATOMIC_ACQUIRE);
+    case ___ATOMIC_ORDER_RELEASE:
+      return __atomic_exchange_n (p, v, __ATOMIC_RELEASE);
+    case ___ATOMIC_ORDER_ACQ_REL:
+      return __atomic_exchange_n (p, v, __ATOMIC_ACQ_REL);
+    default:
+      return __atomic_exchange_n (p, v, __ATOMIC_SEQ_CST);
+    }
+}
+
+___ORDERED_WORD_INLINE ___WORD ___atomic_word_cas
+   (___VOLATILE ___WORD *p, ___WORD expected, ___WORD desired, int order)
+{
+  ___WORD exp = expected;
+  switch (order)
+    {
+    case ___ATOMIC_ORDER_RELAXED:
+      (void)__atomic_compare_exchange_n (p, &exp, desired, 0, __ATOMIC_RELAXED, __ATOMIC_RELAXED);
+      break;
+    case ___ATOMIC_ORDER_ACQUIRE:
+      (void)__atomic_compare_exchange_n (p, &exp, desired, 0, __ATOMIC_ACQUIRE, __ATOMIC_ACQUIRE);
+      break;
+    case ___ATOMIC_ORDER_RELEASE:
+      (void)__atomic_compare_exchange_n (p, &exp, desired, 0, __ATOMIC_RELEASE, __ATOMIC_RELAXED);
+      break;
+    case ___ATOMIC_ORDER_ACQ_REL:
+      (void)__atomic_compare_exchange_n (p, &exp, desired, 0, __ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE);
+      break;
+    default:
+      (void)__atomic_compare_exchange_n (p, &exp, desired, 0, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
+      break;
+    }
+  return exp;
+}
+
+___ORDERED_WORD_INLINE ___WORD ___atomic_uword_fetch_add
+   (___VOLATILE ___WORD *p, ___WORD delta, int order)
+{
+  ___VOLATILE ___UWORD *up = ___CAST(___VOLATILE ___UWORD*, p);
+  ___UWORD d = ___CAST(___UWORD, delta);
+  switch (order)
+    {
+    case ___ATOMIC_ORDER_RELAXED:
+      return ___CAST(___WORD, __atomic_fetch_add (up, d, __ATOMIC_RELAXED));
+    case ___ATOMIC_ORDER_ACQUIRE:
+      return ___CAST(___WORD, __atomic_fetch_add (up, d, __ATOMIC_ACQUIRE));
+    case ___ATOMIC_ORDER_RELEASE:
+      return ___CAST(___WORD, __atomic_fetch_add (up, d, __ATOMIC_RELEASE));
+    case ___ATOMIC_ORDER_ACQ_REL:
+      return ___CAST(___WORD, __atomic_fetch_add (up, d, __ATOMIC_ACQ_REL));
+    default:
+      return ___CAST(___WORD, __atomic_fetch_add (up, d, __ATOMIC_SEQ_CST));
+    }
+}
+
+___ORDERED_WORD_INLINE ___WORD ___atomic_uword_fetch_sub
+   (___VOLATILE ___WORD *p, ___WORD delta, int order)
+{
+  ___VOLATILE ___UWORD *up = ___CAST(___VOLATILE ___UWORD*, p);
+  ___UWORD d = ___CAST(___UWORD, delta);
+  switch (order)
+    {
+    case ___ATOMIC_ORDER_RELAXED:
+      return ___CAST(___WORD, __atomic_fetch_sub (up, d, __ATOMIC_RELAXED));
+    case ___ATOMIC_ORDER_ACQUIRE:
+      return ___CAST(___WORD, __atomic_fetch_sub (up, d, __ATOMIC_ACQUIRE));
+    case ___ATOMIC_ORDER_RELEASE:
+      return ___CAST(___WORD, __atomic_fetch_sub (up, d, __ATOMIC_RELEASE));
+    case ___ATOMIC_ORDER_ACQ_REL:
+      return ___CAST(___WORD, __atomic_fetch_sub (up, d, __ATOMIC_ACQ_REL));
+    default:
+      return ___CAST(___WORD, __atomic_fetch_sub (up, d, __ATOMIC_SEQ_CST));
+    }
+}
+
+___ORDERED_WORD_INLINE ___WORD ___atomic_uword_fetch_and
+   (___VOLATILE ___WORD *p, ___WORD mask, int order)
+{
+  ___VOLATILE ___UWORD *up = ___CAST(___VOLATILE ___UWORD*, p);
+  ___UWORD m = ___CAST(___UWORD, mask);
+  switch (order)
+    {
+    case ___ATOMIC_ORDER_RELAXED:
+      return ___CAST(___WORD, __atomic_fetch_and (up, m, __ATOMIC_RELAXED));
+    case ___ATOMIC_ORDER_ACQUIRE:
+      return ___CAST(___WORD, __atomic_fetch_and (up, m, __ATOMIC_ACQUIRE));
+    case ___ATOMIC_ORDER_RELEASE:
+      return ___CAST(___WORD, __atomic_fetch_and (up, m, __ATOMIC_RELEASE));
+    case ___ATOMIC_ORDER_ACQ_REL:
+      return ___CAST(___WORD, __atomic_fetch_and (up, m, __ATOMIC_ACQ_REL));
+    default:
+      return ___CAST(___WORD, __atomic_fetch_and (up, m, __ATOMIC_SEQ_CST));
+    }
+}
+
+___ORDERED_WORD_INLINE ___WORD ___atomic_uword_fetch_ior
+   (___VOLATILE ___WORD *p, ___WORD mask, int order)
+{
+  ___VOLATILE ___UWORD *up = ___CAST(___VOLATILE ___UWORD*, p);
+  ___UWORD m = ___CAST(___UWORD, mask);
+  switch (order)
+    {
+    case ___ATOMIC_ORDER_RELAXED:
+      return ___CAST(___WORD, __atomic_fetch_or (up, m, __ATOMIC_RELAXED));
+    case ___ATOMIC_ORDER_ACQUIRE:
+      return ___CAST(___WORD, __atomic_fetch_or (up, m, __ATOMIC_ACQUIRE));
+    case ___ATOMIC_ORDER_RELEASE:
+      return ___CAST(___WORD, __atomic_fetch_or (up, m, __ATOMIC_RELEASE));
+    case ___ATOMIC_ORDER_ACQ_REL:
+      return ___CAST(___WORD, __atomic_fetch_or (up, m, __ATOMIC_ACQ_REL));
+    default:
+      return ___CAST(___WORD, __atomic_fetch_or (up, m, __ATOMIC_SEQ_CST));
+    }
+}
+
+___ORDERED_WORD_INLINE ___WORD ___atomic_uword_fetch_xor
+   (___VOLATILE ___WORD *p, ___WORD mask, int order)
+{
+  ___VOLATILE ___UWORD *up = ___CAST(___VOLATILE ___UWORD*, p);
+  ___UWORD m = ___CAST(___UWORD, mask);
+  switch (order)
+    {
+    case ___ATOMIC_ORDER_RELAXED:
+      return ___CAST(___WORD, __atomic_fetch_xor (up, m, __ATOMIC_RELAXED));
+    case ___ATOMIC_ORDER_ACQUIRE:
+      return ___CAST(___WORD, __atomic_fetch_xor (up, m, __ATOMIC_ACQUIRE));
+    case ___ATOMIC_ORDER_RELEASE:
+      return ___CAST(___WORD, __atomic_fetch_xor (up, m, __ATOMIC_RELEASE));
+    case ___ATOMIC_ORDER_ACQ_REL:
+      return ___CAST(___WORD, __atomic_fetch_xor (up, m, __ATOMIC_ACQ_REL));
+    default:
+      return ___CAST(___WORD, __atomic_fetch_xor (up, m, __ATOMIC_SEQ_CST));
+    }
+}
+
+#elif defined(_MSC_VER) && defined(___USE_WIN32_sync)
+
+___ORDERED_WORD_INLINE void ___atomic_fence_order (int order)
+{
+  if (order != ___ATOMIC_ORDER_RELAXED)
+    MemoryBarrier ();
+}
+
+___ORDERED_WORD_INLINE ___WORD ___atomic_word_load
+   (___VOLATILE ___WORD *p, int order)
+{
+  if (order == ___ATOMIC_ORDER_RELAXED)
+    return ___WORD_LOAD_RELAXED (p);
+  if (order == ___ATOMIC_ORDER_SEQ_CST)
+    MemoryBarrier ();
+  return ___WORD_LOAD_ACQUIRE (p);
+}
+
+___ORDERED_WORD_INLINE void ___atomic_word_store
+   (___VOLATILE ___WORD *p, ___WORD v, int order)
+{
+  if (order == ___ATOMIC_ORDER_RELAXED)
+    ___WORD_STORE_RELAXED (p, v);
+  else if (order == ___ATOMIC_ORDER_RELEASE)
+    ___WORD_STORE_RELEASE (p, v);
+  else
+    {
+#if ___WS == 4
+      (void)_InterlockedExchange (___CAST(LONG volatile*, p), ___CAST(LONG, v));
+#else
+      (void)_InterlockedExchange64 (___CAST(LONG64 volatile*, p), ___CAST(LONG64, v));
+#endif
+    }
+}
+
+___ORDERED_WORD_INLINE ___WORD ___atomic_word_exchange
+   (___VOLATILE ___WORD *p, ___WORD v, int order)
+{
+  (void)order;
+#if ___WS == 4
+  return ___CAST(___WORD, _InterlockedExchange (___CAST(LONG volatile*, p), ___CAST(LONG, v)));
+#else
+  return ___CAST(___WORD, _InterlockedExchange64 (___CAST(LONG64 volatile*, p), ___CAST(LONG64, v)));
+#endif
+}
+
+___ORDERED_WORD_INLINE ___WORD ___atomic_word_cas
+   (___VOLATILE ___WORD *p, ___WORD expected, ___WORD desired, int order)
+{
+  (void)order;
+  return ___COMPARE_AND_SWAP_WORD (p, expected, desired);
+}
+
+___ORDERED_WORD_INLINE ___WORD ___atomic_uword_fetch_add
+   (___VOLATILE ___WORD *p, ___WORD delta, int order)
+{
+  (void)order;
+  return ___FETCH_AND_ADD_WORD (p, delta);
+}
+
+___ORDERED_WORD_INLINE ___WORD ___atomic_uword_fetch_sub
+   (___VOLATILE ___WORD *p, ___WORD delta, int order)
+{
+  (void)order;
+  return ___FETCH_AND_ADD_WORD (p, ___CAST(___WORD, 0 - ___CAST(___UWORD, delta)));
+}
+
+___ORDERED_WORD_INLINE ___WORD ___atomic_uword_fetch_and
+   (___VOLATILE ___WORD *p, ___WORD mask, int order)
+{
+  (void)order;
+  return ___WORD_FETCH_AND_RELEASE (p, mask);
+}
+
+___ORDERED_WORD_INLINE ___WORD ___atomic_uword_fetch_ior
+   (___VOLATILE ___WORD *p, ___WORD mask, int order)
+{
+  (void)order;
+  return ___WORD_FETCH_OR_RELEASE (p, mask);
+}
+
+___ORDERED_WORD_INLINE ___WORD ___atomic_uword_fetch_xor
+   (___VOLATILE ___WORD *p, ___WORD mask, int order)
+{
+  (void)order;
+#if ___WS == 4
+  return ___CAST(___WORD, _InterlockedXor (___CAST(LONG volatile*, p), ___CAST(LONG, mask)));
+#else
+  return ___CAST(___WORD, _InterlockedXor64 (___CAST(LONG64 volatile*, p), ___CAST(LONG64, mask)));
+#endif
+}
+
+#else /* ___USE_sequential_sync */
+
+___ORDERED_WORD_INLINE void ___atomic_fence_order (int order)
+{
+  (void)order;
+}
+
+___ORDERED_WORD_INLINE ___WORD ___atomic_word_load
+   (___VOLATILE ___WORD *p, int order)
+{
+  (void)order;
+  return *p;
+}
+
+___ORDERED_WORD_INLINE void ___atomic_word_store
+   (___VOLATILE ___WORD *p, ___WORD v, int order)
+{
+  (void)order;
+  *p = v;
+}
+
+___ORDERED_WORD_INLINE ___WORD ___atomic_word_exchange
+   (___VOLATILE ___WORD *p, ___WORD v, int order)
+{
+  ___WORD old = *p;
+  (void)order;
+  *p = v;
+  return old;
+}
+
+___ORDERED_WORD_INLINE ___WORD ___atomic_word_cas
+   (___VOLATILE ___WORD *p, ___WORD expected, ___WORD desired, int order)
+{
+  ___WORD old = *p;
+  (void)order;
+  if (old == expected)
+    *p = desired;
+  return old;
+}
+
+___ORDERED_WORD_INLINE ___WORD ___atomic_uword_fetch_add
+   (___VOLATILE ___WORD *p, ___WORD delta, int order)
+{
+  ___UWORD old = ___CAST(___UWORD, *p);
+  (void)order;
+  *p = ___CAST(___WORD, old + ___CAST(___UWORD, delta));
+  return ___CAST(___WORD, old);
+}
+
+___ORDERED_WORD_INLINE ___WORD ___atomic_uword_fetch_sub
+   (___VOLATILE ___WORD *p, ___WORD delta, int order)
+{
+  ___UWORD old = ___CAST(___UWORD, *p);
+  (void)order;
+  *p = ___CAST(___WORD, old - ___CAST(___UWORD, delta));
+  return ___CAST(___WORD, old);
+}
+
+___ORDERED_WORD_INLINE ___WORD ___atomic_uword_fetch_and
+   (___VOLATILE ___WORD *p, ___WORD mask, int order)
+{
+  ___UWORD old = ___CAST(___UWORD, *p);
+  (void)order;
+  *p = ___CAST(___WORD, old & ___CAST(___UWORD, mask));
+  return ___CAST(___WORD, old);
+}
+
+___ORDERED_WORD_INLINE ___WORD ___atomic_uword_fetch_ior
+   (___VOLATILE ___WORD *p, ___WORD mask, int order)
+{
+  ___UWORD old = ___CAST(___UWORD, *p);
+  (void)order;
+  *p = ___CAST(___WORD, old | ___CAST(___UWORD, mask));
+  return ___CAST(___WORD, old);
+}
+
+___ORDERED_WORD_INLINE ___WORD ___atomic_uword_fetch_xor
+   (___VOLATILE ___WORD *p, ___WORD mask, int order)
+{
+  ___UWORD old = ___CAST(___UWORD, *p);
+  (void)order;
+  *p = ___CAST(___WORD, old ^ ___CAST(___UWORD, mask));
+  return ___CAST(___WORD, old);
+}
+
+#endif
+
 typedef struct ___thread_struct
   {
     void (*start_fn) ___P((struct ___thread_struct *self),());

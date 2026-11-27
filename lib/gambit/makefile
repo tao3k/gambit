@@ -4,7 +4,7 @@ herefromlib = gambit
 libfromhere = ..
 SUBDIRS = \
 prim boolean symkey char list vector string \
-procedure process promise parameter random unstable env-vars concurrent
+procedure process promise parameter random unstable env-vars parallel concurrent
 HEADERS_SCM = gambit\#.scm
 MODULES_SCM = gambit.scm gambit.sld
 MAIN_MODULES = gambit

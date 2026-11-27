@@ -3528,7 +3528,12 @@ end-of-code
 
   (define (serialize! obj)
     (let* ((transform (vector-ref state 4))
-           (obj (transform obj)))
+           (obj (if (or (eq? obj (macro-absent-obj))
+                        (and (macro-case-target ((c C) #t) (else #f))
+                             (or (eq? obj (macro-unused-obj))
+                                 (eq? obj (macro-deleted-obj)))))
+                    obj
+                    (transform obj))))
       (cond ((fixnum? obj)
              (cond ((and (fx>= obj #x00)
                          (fx< obj #x0b))
@@ -3878,7 +3883,7 @@ end-of-code
                                      (let ()
                                        (##declare (interrupts-enabled))
                                        (loop (fx+ i 2))))
-                                   (serialize! (macro-unused-obj)))))
+                                   (write-u8 (unused-tag)))))
                            (lambda () (##gc-hash-table-cursor-unpin! obj))))))
 
                    (else
@@ -4139,63 +4144,68 @@ end-of-code
 
   (define (deserialize!)
     (let ((x (read-u8)))
-      (if (fx>= x (shared-tag))
+      (cond ((fx>= x (shared-tag))
 
-          (shared-ref
-           (deserialize-nonneg-fixnum! (fxand x #x7f) 7))
+             (shared-ref
+              (deserialize-nonneg-fixnum! (fxand x #x7f) 7)))
 
-          ((vector-ref state 4) ;; transform
-           (cond ((fx>= x (false-tag))
-                  (cond ((fx= x (false-tag))
-                         #f)
+            ((fx= x (absent-tag))
+             (macro-absent-obj))
 
-                        ((fx= x (true-tag))
-                         #t)
+            ((and (macro-case-target ((c C) #t) (else #f))
+                  (fx= x (unused-tag)))
+             (macro-unused-obj))
 
-                        ((fx= x (nil-tag))
-                         '())
+            ((and (macro-case-target ((c C) #t) (else #f))
+                  (fx= x (deleted-tag)))
+             (macro-deleted-obj))
 
-                        ((fx= x (eof-tag))
-                         #!eof)
+            (else
 
-                        ((fx= x (void-tag))
-                         #!void)
+             ((vector-ref state 4) ;; transform
+              (cond ((fx>= x (false-tag))
+                     (cond ((fx= x (false-tag))
+                            #f)
 
-                        ((fx= x (absent-tag))
-                         (macro-absent-obj))
+                           ((fx= x (true-tag))
+                            #t)
 
-                        ((fx= x (unbound-tag))
-                         #!unbound)
+                           ((fx= x (nil-tag))
+                            '())
 
-                        ((fx= x (unbound2-tag))
-                         #!unbound2)
+                           ((fx= x (eof-tag))
+                            #!eof)
 
-                        ((fx= x (optional-tag))
-                         #!optional)
+                           ((fx= x (void-tag))
+                            #!void)
 
-                        ((fx= x (key-tag))
-                         #!key)
+                           ((fx= x (absent-tag))
+                            (macro-absent-obj))
 
-                        ((fx= x (rest-tag))
-                         #!rest)
+                           ((fx= x (unbound-tag))
+                            #!unbound)
 
-                        ((fx= x (promise-tag))
-                         (let ((obj (make-delay-promise #f)))
-                           (alloc! obj)
-                           (let ((state (deserialize!)))
-                             (promise-state-set! obj state)
-                             obj)))
+                           ((fx= x (unbound2-tag))
+                            #!unbound2)
 
-                        ((macro-case-target ((c C) #t) (else #f))
-                         (cond ((fx= x (unused-tag))
-                                (macro-unused-obj))
-                               ((fx= x (deleted-tag))
-                                (macro-deleted-obj))
-                               (else
-                                (err))))
+                           ((fx= x (optional-tag))
+                            #!optional)
 
-                        (else
-                         (err))))
+                           ((fx= x (key-tag))
+                            #!key)
+
+                           ((fx= x (rest-tag))
+                            #!rest)
+
+                           ((fx= x (promise-tag))
+                            (let ((obj (make-delay-promise #f)))
+                              (alloc! obj)
+                              (let ((state (deserialize!)))
+                                (promise-state-set! obj state)
+                                obj)))
+
+                           (else
+                            (err))))
 
                  ((fx>= x (character-tag))
                   (cond ((fx= x (character-tag))
@@ -4491,7 +4501,7 @@ end-of-code
                          (obj (string->symbol name)))
                     (create-global-var-if-needed obj)
                     (alloc! obj)
-                    obj)))))))
+                    obj))))))))
 
   (let ((obj (deserialize!)))
     (if (eof?)

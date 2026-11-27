@@ -5766,11 +5766,25 @@ end-of-code
   (define-prim (##init-mod module-descr)
     #f)))
 
-(define ##registered-modules '()) ;; inspection mirror of registered modules
+(define ##registered-modules '()) ;; legacy inspection binding (see ##registered-modules-box)
 (define ##registered-modules-box (##vector '()))
 
+(macro-case-target
+
+ ((C)
+
+  (define-prim (##registered-modules-box-load)
+    (##c-code
+     "___RESULT = ___WORD_LOAD_ACQUIRE(___CAST(___VOLATILE ___WORD*, ___FXINDX_WORD(___BODY_AS(___ARG1, ___tVECTOR), ___FIX(0))));"
+     ##registered-modules-box)))
+
+ (else
+
+  (define-prim (##registered-modules-box-load)
+    (##vector-ref ##registered-modules-box 0))))
+
 (define-prim (##lookup-registered-module module-ref)
-  (let ((x (##lookup-module module-ref (##vector-ref ##registered-modules-box 0))))
+  (let ((x (##lookup-module module-ref (##registered-modules-box-load))))
     (and x (##car x))))
 
 (define-prim (##remove-module-pair target lst)
@@ -5781,14 +5795,12 @@ end-of-code
 (define-prim (##remove-registered-module module-ref)
   (##declare (not interrupts-enabled))
   (let loop ()
-    (let* ((cur (##vector-ref ##registered-modules-box 0))
+    (let* ((cur (##registered-modules-box-load))
            (x (##lookup-module module-ref cur)))
       (if x
           (let ((next (##remove-module-pair x cur)))
             (if (##eq? (##vector-cas! ##registered-modules-box 0 next cur) cur)
-                (begin
-                  (set! ##registered-modules next)
-                  (##void))
+                (##void)
                 (loop)))
           #f))))
 
@@ -5802,21 +5814,20 @@ end-of-code
         #f)))
 
 (define-prim (##register-module-descr! module-ref module-descr)
-  ;; Lock-free persistent list update via ##vector-cas! so concurrent module
-  ;; registration/removal cannot drop entries or race with readers.
+  ;; Lock-free persistent list update via ##vector-cas! paired with acquire
+  ;; loads so concurrent module registration/removal cannot drop entries or
+  ;; race with readers under weak memory models.
   (##declare (not interrupts-enabled))
   (let ((module (macro-make-module module-ref module-descr)))
     (let loop ()
-      (let* ((cur (##vector-ref ##registered-modules-box 0))
+      (let* ((cur (##registered-modules-box-load))
              (x (##lookup-module module-ref cur))
              (next (##cons module
                            (if x
                                (##remove-module-pair x cur)
                                cur))))
         (if (##eq? (##vector-cas! ##registered-modules-box 0 next cur) cur)
-            (begin
-              (set! ##registered-modules next)
-              module)
+            module
             (loop))))))
 
 (define-prim (##register-module-descrs module-descrs)

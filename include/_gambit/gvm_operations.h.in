@@ -1594,7 +1594,7 @@ ___VECTUPDATESMALL(___BODY_AS(v,___tBOXVALUES),___INT(i),val,___VALUESSIZE(v),__
 #define ___VECTORLENGTH(v)___HD_FIELDS_FIX(___VECTOR_HEADER(v))
 #define ___VECTORREF(v,i)___FETCH_WORD_FX(___BODY_AS(v,___tVECTOR),i)
 #define ___VECTORSET(v,i,val) do { ___SCMOBJ ___wbo=(v); ___SCMOBJ ___wbv=(val); ___WORD *___wbs=___FXINDX_WORD(___BODY_AS(___wbo,___tVECTOR),(i)); ___GC_WRITE_BARRIER(___ps,___wbo,___wbs,___wbv); ___WORD_STORE_RELAXED(___wbs,___wbv); } while (0);
-#define ___VECTORSHRINK(v,i)___temp=(v);___VECTOR_HEADER_SET(___temp,(___VECTOR_HEADER(___temp)&~___LMASK)+((i)<<(___LF-___TB_FIXNUM+___LWS)));
+#define ___VECTORSHRINK(v,i) do { ___SCMOBJ ___gsh_v=(v); ___WORD *___gsh_hp=&___VECTOR_HEADER(___gsh_v); ___GC_SHRINK_HEADER(___ps,___gsh_v,___gsh_hp,(___WORD_LOAD_RELAXED(___gsh_hp)&~___LMASK)+___CAST(___WORD,___CAST(___UWORD,(i))<<(___LF-___TB_FIXNUM+___LWS))); } while (0);
 #define ___VECTORCAS(v,i,val,oldval)___gc_vector_cas_barrier(___ps,(v),(i),(val),(oldval),___EXT(___gc_write_barrier_slow),___EXT(___gc_satb_barrier_val))
 #define ___VECTORINC(v,i,val)___FETCH_AND_ADD_WORD(___FXINDX_WORD(___BODY_AS(v,___tVECTOR),i),val)
 #define ___VECTORINBOUNDSP(v,i)(___CAST(___UWORD,___INT(i))<___VECTORSIZE(v))
@@ -1621,7 +1621,7 @@ ___VECTUPDATESMALL(___BODY_AS(v,___tVECTOR),___INT(i),val,___VECTORSIZE(v),___BE
 #define ___STRINGLENGTH(v)___FIX(___STRINGSIZE(v))
 #define ___STRINGREF(v,i)___CHR(___FETCH_C_FX(___BODY_AS(v,___tSTRING),i))
 #define ___STRINGSET(v,i,val)___STORE_C_FX(___BODY_AS(v,___tSTRING),i,___ORD(val));
-#define ___STRINGSHRINK(v,i)___temp=(v);___SUBTYPED_HEADER_SET(___temp,(___SUBTYPED_HEADER(___temp)&~___LMASK)+((i)<<(___LF-___TB_FIXNUM+___LCS)));
+#define ___STRINGSHRINK(v,i) do { ___SCMOBJ ___gsh_v=(v); ___WORD *___gsh_hp=&___SUBTYPED_HEADER(___gsh_v); ___GC_SHRINK_HEADER(___ps,___gsh_v,___gsh_hp,(___WORD_LOAD_RELAXED(___gsh_hp)&~___LMASK)+___CAST(___WORD,___CAST(___UWORD,(i))<<(___LF-___TB_FIXNUM+___LCS))); } while (0);
 #define ___STRINGINBOUNDSP(v,i)(___CAST(___UWORD,___INT(i))<___STRINGSIZE(v))
 
 #define ___MAKESTRINGSMALL1(size) \
@@ -1647,7 +1647,7 @@ ___VECTUPDATESMALL(___BODY_AS(v,___tSTRING),___INT(i),___ORD(val),___STRINGSIZE(
 #define ___S8VECTORLENGTH(v)___FIX(___S8VECTORSIZE(v))
 #define ___S8VECTORREF(v,i)___FIX(___FETCH_S8_FX(___BODY_AS(v,___tS8VECTOR),i))
 #define ___S8VECTORSET(v,i,val)___STORE_S8_FX(___BODY_AS(v,___tS8VECTOR),i,___INT(val));
-#define ___S8VECTORSHRINK(v,i)___temp=(v);___SUBTYPED_HEADER_SET(___temp,(___SUBTYPED_HEADER(___temp)&~___LMASK)+((i)<<(___LF-___TB_FIXNUM)));
+#define ___S8VECTORSHRINK(v,i) do { ___SCMOBJ ___gsh_v=(v); ___WORD *___gsh_hp=&___SUBTYPED_HEADER(___gsh_v); ___GC_SHRINK_HEADER(___ps,___gsh_v,___gsh_hp,(___WORD_LOAD_RELAXED(___gsh_hp)&~___LMASK)+___CAST(___WORD,___CAST(___UWORD,(i))<<(___LF-___TB_FIXNUM))); } while (0);
 #define ___S8VECTORINBOUNDSP(v,i)(___CAST(___UWORD,___INT(i))<___S8VECTORSIZE(v))
 
 #define ___MAKES8VECTORSMALL1(size) \
@@ -1673,7 +1673,7 @@ ___VECTUPDATESMALL(___BODY_AS(v,___tS8VECTOR),___INT(i),___INT(val),___S8VECTORS
 #define ___U8VECTORLENGTH(v)___FIX(___U8VECTORSIZE(v))
 #define ___U8VECTORREF(v,i)___FIX(___FETCH_U8_FX(___BODY_AS(v,___tU8VECTOR),i))
 #define ___U8VECTORSET(v,i,val)___STORE_U8_FX(___BODY_AS(v,___tU8VECTOR),i,___INT(val));
-#define ___U8VECTORSHRINK(v,i)___temp=(v);___SUBTYPED_HEADER_SET(___temp,(___SUBTYPED_HEADER(___temp)&~___LMASK)+((i)<<(___LF-___TB_FIXNUM)));
+#define ___U8VECTORSHRINK(v,i) do { ___SCMOBJ ___gsh_v=(v); ___WORD *___gsh_hp=&___SUBTYPED_HEADER(___gsh_v); ___GC_SHRINK_HEADER(___ps,___gsh_v,___gsh_hp,(___WORD_LOAD_RELAXED(___gsh_hp)&~___LMASK)+___CAST(___WORD,___CAST(___UWORD,(i))<<(___LF-___TB_FIXNUM))); } while (0);
 #define ___U8VECTORINBOUNDSP(v,i)(___CAST(___UWORD,___INT(i))<___U8VECTORSIZE(v))
 
 #define ___MAKEU8VECTORSMALL1(size) \
@@ -1699,7 +1699,7 @@ ___VECTUPDATESMALL(___BODY_AS(v,___tU8VECTOR),___INT(i),___INT(val),___U8VECTORS
 #define ___S16VECTORLENGTH(v)___FIX(___S16VECTORSIZE(v))
 #define ___S16VECTORREF(v,i)___FIX(___FETCH_S16_FX(___BODY_AS(v,___tS16VECTOR),i))
 #define ___S16VECTORSET(v,i,val)___STORE_S16_FX(___BODY_AS(v,___tS16VECTOR),i,___INT(val));
-#define ___S16VECTORSHRINK(v,i)___temp=(v);___SUBTYPED_HEADER_SET(___temp,(___SUBTYPED_HEADER(___temp)&~___LMASK)+((i)<<(___LF-___TB_FIXNUM+1)));
+#define ___S16VECTORSHRINK(v,i) do { ___SCMOBJ ___gsh_v=(v); ___WORD *___gsh_hp=&___SUBTYPED_HEADER(___gsh_v); ___GC_SHRINK_HEADER(___ps,___gsh_v,___gsh_hp,(___WORD_LOAD_RELAXED(___gsh_hp)&~___LMASK)+___CAST(___WORD,___CAST(___UWORD,(i))<<(___LF-___TB_FIXNUM+1))); } while (0);
 #define ___S16VECTORINBOUNDSP(v,i)(___CAST(___UWORD,___INT(i))<___S16VECTORSIZE(v))
 
 #define ___MAKES16VECTORSMALL1(size) \
@@ -1725,7 +1725,7 @@ ___VECTUPDATESMALL(___BODY_AS(v,___tS16VECTOR),___INT(i),___INT(val),___S16VECTO
 #define ___U16VECTORLENGTH(v)___FIX(___U16VECTORSIZE(v))
 #define ___U16VECTORREF(v,i)___FIX(___FETCH_U16_FX(___BODY_AS(v,___tU16VECTOR),i))
 #define ___U16VECTORSET(v,i,val)___STORE_U16_FX(___BODY_AS(v,___tU16VECTOR),i,___INT(val));
-#define ___U16VECTORSHRINK(v,i)___temp=(v);___SUBTYPED_HEADER_SET(___temp,(___SUBTYPED_HEADER(___temp)&~___LMASK)+((i)<<(___LF-___TB_FIXNUM+1)));
+#define ___U16VECTORSHRINK(v,i) do { ___SCMOBJ ___gsh_v=(v); ___WORD *___gsh_hp=&___SUBTYPED_HEADER(___gsh_v); ___GC_SHRINK_HEADER(___ps,___gsh_v,___gsh_hp,(___WORD_LOAD_RELAXED(___gsh_hp)&~___LMASK)+___CAST(___WORD,___CAST(___UWORD,(i))<<(___LF-___TB_FIXNUM+1))); } while (0);
 #define ___U16VECTORINBOUNDSP(v,i)(___CAST(___UWORD,___INT(i))<___U16VECTORSIZE(v))
 
 #define ___MAKEU16VECTORSMALL1(size) \
@@ -1753,7 +1753,7 @@ ___VECTUPDATESMALL(___BODY_AS(v,___tU16VECTOR),___INT(i),___INT(val),___U16VECTO
 #define ___S32VECTORREFFIX(v,i)___FIX(___FETCH_S32_FX(___BODY_AS(v,___tS32VECTOR),i))
 #define ___S32VECTORSET(v,i,val)___STORE_S32_FX(___BODY_AS(v,___tS32VECTOR),i,___S32UNBOX(val));
 #define ___S32VECTORSETFIX(v,i,val)___STORE_S32_FX(___BODY_AS(v,___tS32VECTOR),i,___INT(val));
-#define ___S32VECTORSHRINK(v,i)___temp=(v);___SUBTYPED_HEADER_SET(___temp,(___SUBTYPED_HEADER(___temp)&~___LMASK)+((i)<<(___LF-___TB_FIXNUM+2)));
+#define ___S32VECTORSHRINK(v,i) do { ___SCMOBJ ___gsh_v=(v); ___WORD *___gsh_hp=&___SUBTYPED_HEADER(___gsh_v); ___GC_SHRINK_HEADER(___ps,___gsh_v,___gsh_hp,(___WORD_LOAD_RELAXED(___gsh_hp)&~___LMASK)+___CAST(___WORD,___CAST(___UWORD,(i))<<(___LF-___TB_FIXNUM+2))); } while (0);
 #define ___S32VECTORINBOUNDSP(v,i)(___CAST(___UWORD,___INT(i))<___S32VECTORSIZE(v))
 
 #define ___MAKES32VECTORSMALL1(size) \
@@ -1780,7 +1780,7 @@ ___VECTUPDATESMALL(___BODY_AS(v,___tS32VECTOR),___INT(i),___S32UNBOX(val),___S32
 #define ___U32VECTORREFFIX(v,i)___FIX(___FETCH_U32_FX(___BODY_AS(v,___tU32VECTOR),i))
 #define ___U32VECTORSET(v,i,val)___STORE_U32_FX(___BODY_AS(v,___tU32VECTOR),i,___U32UNBOX(val));
 #define ___U32VECTORSETFIX(v,i,val)___STORE_U32_FX(___BODY_AS(v,___tU32VECTOR),i,___INT(val));
-#define ___U32VECTORSHRINK(v,i)___temp=(v);___SUBTYPED_HEADER_SET(___temp,(___SUBTYPED_HEADER(___temp)&~___LMASK)+((i)<<(___LF-___TB_FIXNUM+2)));
+#define ___U32VECTORSHRINK(v,i) do { ___SCMOBJ ___gsh_v=(v); ___WORD *___gsh_hp=&___SUBTYPED_HEADER(___gsh_v); ___GC_SHRINK_HEADER(___ps,___gsh_v,___gsh_hp,(___WORD_LOAD_RELAXED(___gsh_hp)&~___LMASK)+___CAST(___WORD,___CAST(___UWORD,(i))<<(___LF-___TB_FIXNUM+2))); } while (0);
 #define ___U32VECTORINBOUNDSP(v,i)(___CAST(___UWORD,___INT(i))<___U32VECTORSIZE(v))
 
 #define ___MAKEU32VECTORSMALL1(size) \
@@ -1808,7 +1808,7 @@ ___VECTUPDATESMALL(___BODY_AS(v,___tU32VECTOR),___INT(i),___U32UNBOX(val),___U32
 #define ___S64VECTORREFFIX(v,i)___FIX(___FETCH_S64_FX(___BODY_AS(v,___tS64VECTOR),i))
 #define ___S64VECTORSET(v,i,val)___STORE_S64_FX(___BODY_AS(v,___tS64VECTOR),i,___S64UNBOX(val));
 #define ___S64VECTORSETFIX(v,i,val)___STORE_S64_FX(___BODY_AS(v,___tS64VECTOR),i,___INT(val));
-#define ___S64VECTORSHRINK(v,i)___temp=(v);___SUBTYPED_HEADER_SET(___temp,(___SUBTYPED_HEADER(___temp)&~___LMASK)+((i)<<(___LF-___TB_FIXNUM+3)));
+#define ___S64VECTORSHRINK(v,i) do { ___SCMOBJ ___gsh_v=(v); ___WORD *___gsh_hp=&___SUBTYPED_HEADER(___gsh_v); ___GC_SHRINK_HEADER(___ps,___gsh_v,___gsh_hp,(___WORD_LOAD_RELAXED(___gsh_hp)&~___LMASK)+___CAST(___WORD,___CAST(___UWORD,(i))<<(___LF-___TB_FIXNUM+3))); } while (0);
 #define ___S64VECTORINBOUNDSP(v,i)(___CAST(___UWORD,___INT(i))<___S64VECTORSIZE(v))
 
 #define ___MAKES64VECTORSMALL1(size) \
@@ -1836,7 +1836,7 @@ ___VECTUPDATESMALL(___BODY_AS(v,___tS64VECTOR),___INT(i),___S64UNBOX(val),___S64
 #define ___U64VECTORREFFIX(v,i)___FIX(___FETCH_U64_FX(___BODY_AS(v,___tU64VECTOR),i))
 #define ___U64VECTORSET(v,i,val)___STORE_U64_FX(___BODY_AS(v,___tU64VECTOR),i,___U64UNBOX(val));
 #define ___U64VECTORSETFIX(v,i,val)___STORE_U64_FX(___BODY_AS(v,___tU64VECTOR),i,___INT(val));
-#define ___U64VECTORSHRINK(v,i)___temp=(v);___SUBTYPED_HEADER_SET(___temp,(___SUBTYPED_HEADER(___temp)&~___LMASK)+((i)<<(___LF-___TB_FIXNUM+3)));
+#define ___U64VECTORSHRINK(v,i) do { ___SCMOBJ ___gsh_v=(v); ___WORD *___gsh_hp=&___SUBTYPED_HEADER(___gsh_v); ___GC_SHRINK_HEADER(___ps,___gsh_v,___gsh_hp,(___WORD_LOAD_RELAXED(___gsh_hp)&~___LMASK)+___CAST(___WORD,___CAST(___UWORD,(i))<<(___LF-___TB_FIXNUM+3))); } while (0);
 #define ___U64VECTORINBOUNDSP(v,i)(___CAST(___UWORD,___INT(i))<___U64VECTORSIZE(v))
 
 #define ___MAKEU64VECTORSMALL1(size) \
@@ -1862,7 +1862,7 @@ ___VECTUPDATESMALL(___BODY_AS(v,___tU64VECTOR),___INT(i),___U64UNBOX(val),___U64
 #define ___F32VECTORLENGTH(v)___FIX(___F32VECTORSIZE(v))
 #define ___F32VECTORREF(v,i)___FETCH_F32_FX(___BODY_AS(v,___tF32VECTOR),i)
 #define ___F32VECTORSET(v,i,val)___STORE_F32_FX(___BODY_AS(v,___tF32VECTOR),i,val);
-#define ___F32VECTORSHRINK(v,i)___temp=(v);___SUBTYPED_HEADER_SET(___temp,(___SUBTYPED_HEADER(___temp)&~___LMASK)+((i)<<(___LF-___TB_FIXNUM+2)));
+#define ___F32VECTORSHRINK(v,i) do { ___SCMOBJ ___gsh_v=(v); ___WORD *___gsh_hp=&___SUBTYPED_HEADER(___gsh_v); ___GC_SHRINK_HEADER(___ps,___gsh_v,___gsh_hp,(___WORD_LOAD_RELAXED(___gsh_hp)&~___LMASK)+___CAST(___WORD,___CAST(___UWORD,(i))<<(___LF-___TB_FIXNUM+2))); } while (0);
 #define ___F32VECTORINBOUNDSP(v,i)(___CAST(___UWORD,___INT(i))<___F32VECTORSIZE(v))
 
 #define ___MAKEF32VECTORSMALL1(size) \
@@ -1888,7 +1888,7 @@ ___VECTUPDATESMALL(___BODY_AS(v,___tF32VECTOR),___INT(i),___F64UNBOX(val),___F32
 #define ___F64VECTORLENGTH(v)___FIX(___F64VECTORSIZE(v))
 #define ___F64VECTORREF(v,i)___FETCH_F64_FX(___BODY_AS(v,___tF64VECTOR),i)
 #define ___F64VECTORSET(v,i,val)___STORE_F64_FX(___BODY_AS(v,___tF64VECTOR),i,val);
-#define ___F64VECTORSHRINK(v,i)___temp=(v);___SUBTYPED_HEADER_SET(___temp,(___SUBTYPED_HEADER(___temp)&~___LMASK)+((i)<<(___LF-___TB_FIXNUM+3)));
+#define ___F64VECTORSHRINK(v,i) do { ___SCMOBJ ___gsh_v=(v); ___WORD *___gsh_hp=&___SUBTYPED_HEADER(___gsh_v); ___GC_SHRINK_HEADER(___ps,___gsh_v,___gsh_hp,(___WORD_LOAD_RELAXED(___gsh_hp)&~___LMASK)+___CAST(___WORD,___CAST(___UWORD,(i))<<(___LF-___TB_FIXNUM+3))); } while (0);
 #define ___F64VECTORINBOUNDSP(v,i)(___CAST(___UWORD,___INT(i))<___F64VECTORSIZE(v))
 
 #define ___MAKEF64VECTORSMALL1(size) \
@@ -2465,7 +2465,7 @@ else \
 thread = ___CURRENTTHREAD; \
 { ___SCMOBJ ___wbc = ___THREAD_CONT_FIELD(thread); \
   ___GC_WRITE_BARRIER_ALWAYS(___ps, ___wbc, &___CONTINUATION_FRAME_FIELD(___wbc)); \
-  ___CONTINUATION_FRAME_FIELD(___wbc) = frame; }
+  ___WORD_STORE_RELAXED(&___CONTINUATION_FRAME_FIELD(___wbc), frame); }
 
 
 #define ___JUMP_THREAD_SAVE1(jump) \
@@ -2527,7 +2527,7 @@ ___SET_FP(___ps->context->stack_break) \
 ___SET_STK(-___BREAK_FRAME_NEXT,frame) \
 { ___SCMOBJ ___wbc = ___THREAD_CONT_FIELD(thread); \
   ___GC_WRITE_BARRIER_ALWAYS(___ps, ___wbc, &___CONTINUATION_FRAME_FIELD(___wbc)); \
-  ___CONTINUATION_FRAME_FIELD(___wbc) = frame; } \
+  ___WORD_STORE_RELAXED(&___CONTINUATION_FRAME_FIELD(___wbc), frame); } \
 ___SET_R0(___ps->handler_break)
 
 #define ___JUMP_THREAD_PARK2(jump) \
@@ -2582,12 +2582,15 @@ ___SET_R0(___ps->handler_break)
 
 #define ___THREAD_RESTORE \
 { ___SCMOBJ cont = ___THREAD_CONT_FIELD(thread); \
+  ___SCMOBJ ___curp = ___CURRENTPROCESSOR; \
   ___INVALIDATE_STACK_OVERFLOW_UNDO \
   ___SET_FP(___ps->context->stack_break) \
   ___SET_STK(-___BREAK_FRAME_NEXT,___CONTINUATION_FRAME_FIELD(cont)) \
-  ___CONTINUATION_FRAME_FIELD(cont) = ___END_OF_CONT_MARKER; \
+  ___GC_WRITE_BARRIER_ALWAYS(___ps, cont, &___CONTINUATION_FRAME_FIELD(cont)); \
+  ___WORD_STORE_RELAXED(&___CONTINUATION_FRAME_FIELD(cont), ___END_OF_CONT_MARKER); \
   ___INTERRUPT_MASK_SET(___DENV_INTERRUPT_MASK_FIELD(___THREAD_DENV_FIELD(thread))); \
-  ___THREAD_LAST_PROCESSOR_FIELD(thread) = ___CURRENTPROCESSOR; \
+  ___GC_WRITE_BARRIER(___ps, thread, &___THREAD_LAST_PROCESSOR_FIELD(thread), ___curp); \
+  ___WORD_STORE_RELAXED(&___THREAD_LAST_PROCESSOR_FIELD(thread), ___curp); \
   ___CURRENTTHREADSET(thread) \
   ___SET_R0(___ps->handler_break) \
 }
@@ -2865,14 +2868,14 @@ ___SET_STK(-___BREAK_FRAME_NEXT,___CONTINUATION_FRAME_FIELD(cont)) \
 temp = ___CONTINUATION_DENV_FIELD(cont); \
 thread = ___CURRENTTHREAD; \
 ___GC_WRITE_BARRIER(___ps, thread, &___THREAD_DENV_FIELD(thread), temp); \
-___THREAD_DENV_FIELD(thread) = temp; \
+___WORD_STORE_RELAXED(&___THREAD_DENV_FIELD(thread), temp); \
 temp = ___ENV_PARAM_VAL_FIELD(___DENV_LOCAL_FIELD(temp)); \
 ___GC_WRITE_BARRIER(___ps, thread, &___THREAD_DENV_CACHE1_FIELD(thread), temp); \
-___THREAD_DENV_CACHE1_FIELD(thread) = temp; \
+___WORD_STORE_RELAXED(&___THREAD_DENV_CACHE1_FIELD(thread), temp); \
 ___GC_WRITE_BARRIER(___ps, thread, &___THREAD_DENV_CACHE2_FIELD(thread), temp); \
-___THREAD_DENV_CACHE2_FIELD(thread) = temp; \
+___WORD_STORE_RELAXED(&___THREAD_DENV_CACHE2_FIELD(thread), temp); \
 ___GC_WRITE_BARRIER(___ps, thread, &___THREAD_DENV_CACHE3_FIELD(thread), temp); \
-___THREAD_DENV_CACHE3_FIELD(thread) = temp; \
+___WORD_STORE_RELAXED(&___THREAD_DENV_CACHE3_FIELD(thread), temp); \
 ___SET_R0(___ps->handler_break)
 
 #define ___JUMP_CONTINUATION_GRAFT_NO_WINDING2(jump) \
@@ -2937,14 +2940,14 @@ ___SET_R0(___ps->handler_break)
   temp = ___CONTINUATION_DENV_FIELD(cont); \
   thread = ___CURRENTTHREAD; \
   ___GC_WRITE_BARRIER(___ps, thread, &___THREAD_DENV_FIELD(thread), temp); \
-  ___THREAD_DENV_FIELD(thread) = temp; \
+  ___WORD_STORE_RELAXED(&___THREAD_DENV_FIELD(thread), temp); \
   temp = ___ENV_PARAM_VAL_FIELD(___DENV_LOCAL_FIELD(temp)); \
   ___GC_WRITE_BARRIER(___ps, thread, &___THREAD_DENV_CACHE1_FIELD(thread), temp); \
-  ___THREAD_DENV_CACHE1_FIELD(thread) = temp; \
+  ___WORD_STORE_RELAXED(&___THREAD_DENV_CACHE1_FIELD(thread), temp); \
   ___GC_WRITE_BARRIER(___ps, thread, &___THREAD_DENV_CACHE2_FIELD(thread), temp); \
-  ___THREAD_DENV_CACHE2_FIELD(thread) = temp; \
+  ___WORD_STORE_RELAXED(&___THREAD_DENV_CACHE2_FIELD(thread), temp); \
   ___GC_WRITE_BARRIER(___ps, thread, &___THREAD_DENV_CACHE3_FIELD(thread), temp); \
-  ___THREAD_DENV_CACHE3_FIELD(thread) = temp; \
+  ___WORD_STORE_RELAXED(&___THREAD_DENV_CACHE3_FIELD(thread), temp); \
   ___JUMPPRM(___NOTHING,___ps->handler_break) \
 }
 

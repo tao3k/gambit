@@ -647,6 +647,12 @@
 "##cte-macro-descr"
 "##cte-macro-name"
 "##cte-macro-table"
+"##cte-macro-table-copy"
+"##cte-macro-table-for-each"
+"##cte-macro-table-insert-slots!"
+"##cte-macro-table-make"
+"##cte-macro-table-ref"
+"##cte-macro-table-set!"
 "##cte-macro-table-table"
 "##cte-macro-table?"
 "##cte-macro?"
@@ -2265,6 +2271,7 @@
 "##receive"
 "##register-module-descr!"
 "##register-module-descrs"
+"##registered-modules-box-load"
 "##remainder"
 "##remove"
 "##remove-module-pair"
@@ -6421,6 +6428,11 @@
 "##cte-lookup-decl"
 "##cte-macro-descr"
 "##cte-macro-table"
+"##cte-macro-table-copy"
+"##cte-macro-table-insert-slots!"
+"##cte-macro-table-make"
+"##cte-macro-table-ref"
+"##cte-macro-table-set!"
 "##cte-macro-table-table"
 "##cte-macro-table?"
 "##cte-macro?"
@@ -7690,6 +7702,7 @@
 "##register-module-descr!"
 "##register-module-descrs"
 "##registered-modules-box"
+"##registered-modules-box-load"
 "##remainder"
 "##remove"
 "##remove-module-pair"
@@ -8032,7 +8045,6 @@
 "##symbol->string"
 "##symbol-append"
 "##symbol-counter"
-"##symbol-hash"
 "##symbol-table"
 "##symbol-table-foldl"
 "##symkey-table-foldl"
@@ -9212,6 +9224,7 @@
 "##cte-decl-name"
 "##cte-macro"
 "##cte-macro-name"
+"##cte-macro-table-for-each"
 "##cte-namespace"
 "##cte-namespace-prefix"
 "##cte-parent-cte-set!"
@@ -9864,6 +9877,7 @@
 "##subvalues-move!"
 "##subvector-small"
 "##symbol->string?"
+"##symbol-hash"
 "##symbol-hash-set!"
 "##symbol-interned?"
 "##symbol-name"
@@ -11732,6 +11746,12 @@ ___DEF_OLD_SYM_GLO(___S__23__23_cte_2d_macro,___G__23__23_cte_2d_macro)
 ___DEF_OLD_SYM_GLO(___S__23__23_cte_2d_macro_2d_descr,___G__23__23_cte_2d_macro_2d_descr)
 ___DEF_OLD_SYM_GLO(___S__23__23_cte_2d_macro_2d_name,___G__23__23_cte_2d_macro_2d_name)
 ___DEF_OLD_SYM_GLO(___S__23__23_cte_2d_macro_2d_table,___G__23__23_cte_2d_macro_2d_table)
+___DEF_OLD_SYM_GLO(___S__23__23_cte_2d_macro_2d_table_2d_copy,___G__23__23_cte_2d_macro_2d_table_2d_copy)
+___DEF_OLD_SYM_GLO(___S__23__23_cte_2d_macro_2d_table_2d_for_2d_each,___G__23__23_cte_2d_macro_2d_table_2d_for_2d_each)
+___DEF_OLD_SYM_GLO(___S__23__23_cte_2d_macro_2d_table_2d_insert_2d_slots_21_,___G__23__23_cte_2d_macro_2d_table_2d_insert_2d_slots_21_)
+___DEF_OLD_SYM_GLO(___S__23__23_cte_2d_macro_2d_table_2d_make,___G__23__23_cte_2d_macro_2d_table_2d_make)
+___DEF_OLD_SYM_GLO(___S__23__23_cte_2d_macro_2d_table_2d_ref,___G__23__23_cte_2d_macro_2d_table_2d_ref)
+___DEF_OLD_SYM_GLO(___S__23__23_cte_2d_macro_2d_table_2d_set_21_,___G__23__23_cte_2d_macro_2d_table_2d_set_21_)
 ___DEF_OLD_SYM_GLO(___S__23__23_cte_2d_macro_2d_table_2d_table,___G__23__23_cte_2d_macro_2d_table_2d_table)
 ___DEF_OLD_SYM_GLO(___S__23__23_cte_2d_macro_2d_table_3f_,___G__23__23_cte_2d_macro_2d_table_3f_)
 ___DEF_OLD_SYM_GLO(___S__23__23_cte_2d_macro_3f_,___G__23__23_cte_2d_macro_3f_)
@@ -13540,6 +13560,7 @@ ___DEF_OLD_SYM_GLO(___S__23__23_register_2d_module_2d_descr_21_,___G__23__23_reg
 ___DEF_OLD_SYM_GLO(___S__23__23_register_2d_module_2d_descrs,___G__23__23_register_2d_module_2d_descrs)
 ___DEF_OLD_SYM_GLO(___S__23__23_registered_2d_modules,___G__23__23_registered_2d_modules)
 ___DEF_OLD_SYM_GLO(___S__23__23_registered_2d_modules_2d_box,___G__23__23_registered_2d_modules_2d_box)
+___DEF_OLD_SYM_GLO(___S__23__23_registered_2d_modules_2d_box_2d_load,___G__23__23_registered_2d_modules_2d_box_2d_load)
 ___DEF_OLD_SYM_GLO(___S__23__23_remainder,___G__23__23_remainder)
 ___DEF_OLD_SYM_GLO(___S__23__23_remove,___G__23__23_remove)
 ___DEF_OLD_SYM_GLO(___S__23__23_remove_2d_module_2d_pair,___G__23__23_remove_2d_module_2d_pair)

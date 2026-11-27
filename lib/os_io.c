@@ -845,7 +845,7 @@ ___HIDDEN ___MUTEX process_reap_mutex;
 ___HIDDEN ___BOOL process_reap_mutex_ready = 0;
 ___HIDDEN ___MUTEX process_fork_mutex;
 ___HIDDEN ___BOOL process_fork_mutex_ready = 0;
-___HIDDEN volatile sig_atomic_t sigchld_pending = 0;
+___HIDDEN ___VOLATILE ___WORD sigchld_pending = 0;
 
 typedef struct ___orphan_pid_node_struct
   {
@@ -5391,9 +5391,9 @@ ___device_process *dev;)
         ___device_process_status_set (dev, status); /* ignore error */
     }
 
-  if (sigchld_pending && orphan_pid_list != NULL)
+  if (___WORD_LOAD_ACQUIRE (&sigchld_pending) != 0 && orphan_pid_list != NULL)
     {
-      sigchld_pending = 0;
+      ___WORD_STORE_RELAXED (&sigchld_pending, 0);
       drain_orphan_pids_locked ();
     }
 
@@ -10383,7 +10383,7 @@ int sig;)
    * per-PID in ___device_process_status_poll under process_reap_mutex.
    */
 
-  sigchld_pending = 1;
+  ___WORD_STORE_RELEASE (&sigchld_pending, 1);
   errno = save_errno;
 #endif
 }
@@ -13831,7 +13831,17 @@ ___SCMOBJ timeout;)
         }
 
       if (read_pos > 0)
-        memcpy (r->orig_devs, r->devs, (___SIZE_T)read_pos * sizeof (___device*));
+        {
+          memcpy (r->orig_devs, r->devs, (___SIZE_T)read_pos * sizeof (___device*));
+          /* Borrow a refcount on every snapshotted device BEFORE releasing
+           * devices' lock so concurrent close + GC finalization cannot free a
+           * ___device before device_select_impl acquires device_select_mutex. */
+          for (i = 0; i < read_pos; i++)
+            {
+              if (r->orig_devs[i] != NULL)
+                device_add_ref (r->orig_devs[i]);
+            }
+        }
 
       /* Hold ZERO moving ___SCMOBJ pointers across device_select_impl so
        * Tier 3.3 blocking-FFI parking is 100% GC-moving safe. */
@@ -13844,8 +13854,6 @@ ___SCMOBJ timeout;)
                               to,
                               allow_park);
 
-      ___PRIMITIVELOCK(devices,___FIX(___OBJ_LOCK1),___FIX(___OBJ_LOCK2))
-
       for (i = 0; i < read_pos; i++)
         {
           if (r->devs[i] == NULL && r->orig_devs[i] != NULL)
@@ -13855,6 +13863,14 @@ ___SCMOBJ timeout;)
               ready_count++;
             }
         }
+
+      for (i = 0; i < read_pos; i++)
+        {
+          if (r->orig_devs[i] != NULL)
+            ___device_release (r->orig_devs[i]);
+        }
+
+      ___PRIMITIVELOCK(devices,___FIX(___OBJ_LOCK1),___FIX(___OBJ_LOCK2))
 
       if (ready_count > 0)
         {
@@ -13926,6 +13942,7 @@ ___SCMOBJ timeout;)
         }
 #else
       ___device *devs[MAX_CONDVARS];
+      ___device *orig_devs[MAX_CONDVARS];
       ___SCMOBJ condvars[MAX_CONDVARS];
       ___SCMOBJ condvar;
       int event_pos = 0;
@@ -13969,6 +13986,9 @@ ___SCMOBJ timeout;)
         {
           devs[i] = ___CAST(___device*,
                             ___FOREIGN_PTR_FIELD(___CONDVAR_NAME_FIELD(condvars[i])));
+          orig_devs[i] = devs[i];
+          if (orig_devs[i] != NULL)
+            device_add_ref (orig_devs[i]);
         }
 
       ___PRIMITIVEUNLOCK(devices,___FIX(___OBJ_LOCK1),___FIX(___OBJ_LOCK2))
@@ -13979,6 +13999,12 @@ ___SCMOBJ timeout;)
                               event_pos,
                               to,
                               0);
+
+      for (i=0; i<read_pos; i++)
+        {
+          if (orig_devs[i] != NULL)
+            ___device_release (orig_devs[i]);
+        }
 
       ___PRIMITIVELOCK(devices,___FIX(___OBJ_LOCK1),___FIX(___OBJ_LOCK2))
 
