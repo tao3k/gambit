@@ -150,6 +150,11 @@ ___HIDDEN void raw_stack_set_mark(unsigned char *marks, ___SIZE_TS index,
   marks[index/4] |= mark << (2*(index%4));
 }
 
+___HIDDEN void raw_stack_clear_mark(unsigned char *marks, ___SIZE_TS index)
+{
+  marks[index/4] &= ___CAST(unsigned char, ~(3U << (2*(index%4))));
+}
+
 /* Called by the running stack owner before publishing a detached raw fp.
  * Once detached, a segment's bounds survive stack parking and undo. */
 ___EXP_FUNC(void,___publish_raw_stack_span)

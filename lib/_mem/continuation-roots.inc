@@ -381,6 +381,127 @@ ___WORD ___restore_stack_break_frame(___processor_state ___ps, ___WORD *top,
   return ___FAL;
 }
 
+/* Reclaim and rewind a linearly-claimed one-shot continuation in-place when
+ * its captured span sits directly above stack_break on this processor's active
+ * stack section and the handler tail-resumed directly on escape_k. Eliminates
+ * monotonic stack_break ratcheting, break-frame copying, and dead-frame GC
+ * pressure while preserving ZGC stack watermark SATB invariants. */
+int ___try_rewind_oneshot_span(___processor_state ___ps,
+                               ___SCMOBJ sub_k,
+                               ___SCMOBJ escape_k,
+                               ___WORD *cur_fp,
+                               ___WORD cur_r0,
+                               ___WORD *ra_out,
+                               ___WORD **new_fp_out)
+{
+  ___msection *section = stack_msection;
+  section_claim *claim;
+  ___WORD *base, *top, *brk, *span_end;
+  ___SCMOBJ raw, esc_frame, cur_denv, sub_denv;
+  ___SIZE_TS capture_delta, half_words;
+
+  if (!section || !___TESTTYPE(sub_k, ___tCONTINUATION) ||
+      !___TESTTYPE(escape_k, ___tCONTINUATION))
+    return 0;
+
+  brk = ___ps->context->stack_break;
+  if (cur_fp != brk || cur_r0 != ___ps->handler_break)
+    return 0;
+
+  esc_frame = ___CONTINUATION_FRAME_FIELD(escape_k);
+  if (___FP_STK(cur_fp, -___BREAK_FRAME_NEXT) != esc_frame)
+    return 0;
+
+  /* Require identical dynamic environment so dynamic-wind / parameterize
+   * transitions always take the general winding path. */
+  cur_denv = ___THREAD_DENV_FIELD(___CURRENTTHREAD);
+  sub_denv = ___CONTINUATION_DENV_FIELD(sub_k);
+  if (cur_denv != sub_denv)
+    return 0;
+
+  raw = ___CONTINUATION_FRAME_FIELD(sub_k);
+  if (raw == ___END_OF_CONT_MARKER || !___FIXNUMP(raw))
+    return 0;
+  top = ___CAST(___WORD*, raw);
+  capture_delta =
+    ___ROUND_TO_MULT(___SUBTYPED_BODY + ___CONTINUATION_SIZE, ___FRAME_ALIGN) +
+    ___BREAK_FRAME_SPACE;
+  if (top - capture_delta != brk)
+    return 0;
+
+  if (tospace_offset != 0 && tospace_offset != (___MSECTION_SIZE >> 1))
+    return 0;
+  base = start_of_tospace(section);
+  half_words = ___MSECTION_SIZE >> 1;
+  if (top < base || top >= base + half_words)
+    return 0;
+
+  claim = section_claim_at(section, tospace_offset);
+  ___gc_copy_acquire(&section->copy_gate);
+  if (claim->stack_owner != ___ps || claim->stack_state != STACK_ACTIVE ||
+      !claim->raw_marks || claim->raw_low != top)
+    {
+      ___gc_copy_release(&section->copy_gate);
+      return 0;
+    }
+
+  span_end = raw_stack_span_end(claim, base, top);
+  if (!span_end || span_end <= top || span_end > base + half_words)
+    {
+      ___gc_copy_release(&section->copy_gate);
+      return 0;
+    }
+
+  raw_stack_clear_mark(claim->raw_marks, top - base);
+  raw_stack_clear_mark(claim->raw_marks, span_end - base);
+  if (span_end >= claim->raw_high)
+    {
+      claim->raw_marks = 0;
+      claim->raw_low = 0;
+      claim->raw_high = 0;
+    }
+  else
+    {
+      ___SIZE_TS idx = (span_end - base) + 1;
+      ___SIZE_TS hi = claim->raw_high - base;
+      while (idx < hi && raw_stack_mark_at(claim->raw_marks, idx) != RAW_STACK_START)
+        idx++;
+      if (idx < hi)
+        claim->raw_low = base + idx;
+      else
+        {
+          claim->raw_marks = 0;
+          claim->raw_low = 0;
+          claim->raw_high = 0;
+        }
+    }
+  ___gc_copy_release(&section->copy_gate);
+
+  if (___EXPECT_FALSE(___ps->mem.satb_active_ != 0))
+    {
+      ___WORD tmp_ra;
+      ___frame_descriptor fd;
+      if (decode_source_stack_frame(top, span_end - top, &tmp_ra, 0, &fd))
+        {
+          ___WORD *fbase = top + ___FRAME_SPACE(fd.fs);
+          ___frame_root_cursor cursor = ___frame_ordinary_root_begin(&fd);
+          int first, past;
+          while (___frame_root_next_run(&cursor, &first, &past))
+            ___gc_satb_barrier_range(___ps, &___FP_STK(fbase, past - 1),
+                                     ___CAST(___SIZE_TS, past - first));
+          ___WORD_STORE_RELAXED(&___ps->mem.stack_watermark_shaded_frames_,
+                                ___ps->mem.stack_watermark_shaded_frames_ + 1);
+        }
+    }
+
+  ___ps->context->stack_break = span_end;
+  *new_fp_out = top;
+  *ra_out = ___FP_STK(top, -___FRAME_STACK_RA);
+  ___WORD_STORE_RELAXED(&___ps->mem.oneshot_rewinds_local_,
+                        ___ps->mem.oneshot_rewinds_local_ + 1);
+  return 1;
+}
+
 /* Inspect or change one raw frame under the same gate as restore. A
  * debugger payload write must not alter the chain or saved descriptor. */
 ___SCMOBJ ___access_raw_continuation_frame

@@ -56,6 +56,10 @@ shift
 %tc-barriers-set!
 %tc-handlers
 %tc-handlers-set!
+%tc-rewind-escape
+%tc-rewind-escape-set!
+%tc-rewind-frame
+%tc-rewind-frame-set!
 %make-mc-frame
 %mc-frame-kind
 %mc-frame-tag

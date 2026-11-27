@@ -4372,6 +4372,49 @@ end-of-code
 end-of-code
   ))
 
+(define-prim (##gc-oneshot-continuation-rewinds)
+  (##declare (not interrupts-enabled))
+  (##c-code #<<end-of-code
+   ___virtual_machine_state vm = ___VMSTATE_FROM_PSTATE(___ps);
+   ___WORD total = 0;
+   int p;
+   for (p = 0; p < vm->processor_count; p++)
+     {
+       ___processor_state pps = ___PSTATE_FROM_PROCESSOR_ID(p, vm);
+       total += ___WORD_LOAD_ACQUIRE(&pps->mem.oneshot_rewinds_local_);
+     }
+   ___RESULT = ___FIX(total);
+end-of-code
+  ))
+
+(define-prim (##continuation-try-rewind-oneshot! sub-k val fallback)
+  (##declare (not interrupts-enabled))
+  (if (##c-code #<<end-of-code
+   extern int ___try_rewind_oneshot_span(___processor_state, ___SCMOBJ, ___SCMOBJ, ___WORD*, ___WORD, ___WORD*, ___WORD**);
+   ___SCMOBJ sub_k = ___ARG1;
+   ___SCMOBJ val = ___ARG2;
+   ___SCMOBJ tc = ___THREAD_CONTROL_STATE_FIELD(___CURRENTTHREAD);
+   ___SCMOBJ escape_k = (tc != ___FAL && ___TESTTYPE(tc, ___tSTRUCTURE))
+                        ? ___FIELD(STRUCTURE, tc, 5) : ___FAL;
+   ___WORD ra;
+   ___WORD *new_fp;
+   if (escape_k != ___FAL)
+     {
+       ___GC_WRITE_BARRIER_ALWAYS(___ps, tc, &___FIELD(STRUCTURE, tc, 5));
+       ___WORD_STORE_RELAXED(&___FIELD(STRUCTURE, tc, 5), ___FAL);
+     }
+   if (___try_rewind_oneshot_span(___ps, sub_k, escape_k, ___fp, ___R0, &ra, &new_fp))
+     {
+       ___SET_FP(new_fp)
+       ___SET_R1(val)
+       ___JUMPEXTPRM(___NOTHING, ra)
+     }
+   ___RESULT = ___FAL;
+end-of-code
+       sub-k val)
+      (##void)
+      (fallback sub-k val)))
+
 ;;;----------------------------------------------------------------------------
 
 ;;; Symbols and keywords.

@@ -79,12 +79,13 @@
   id: 8B1F3A70-9C24-4D6B-A5E1-EFF000000004
   constructor: %make-effect-continuation
   predicate: effect-continuation?
-  (sub-k    %ec-sub-k)     ;; native Gambit continuation object
-  (prefix   %ec-prefix)    ;; metacontinuation prefix frames (usually '())
-  (marks    %ec-marks)     ;; captured continuation marks (usually '())
-  (handlers %ec-handlers)  ;; captured inner effect handlers (usually '())
-  (frame    %ec-frame)     ;; deep handler frame to reinstall on resume
-  (state    %ec-state))    ;; SRFI 230 atomic-fxbox (0=live, 1=consumed, 2=multishot)
+  (sub-k    %ec-sub-k    %ec-sub-k-set!)    ;; native Gambit continuation object
+  (pframe   %ec-pframe   %ec-pframe-set!)   ;; saved prompt frame for zero-alloc tail-resume
+  (prefix   %ec-prefix)                     ;; metacontinuation prefix frames (usually '())
+  (marks    %ec-marks)                      ;; captured continuation marks (usually '())
+  (handlers %ec-handlers)                   ;; captured inner effect handlers (usually '())
+  (frame    %ec-frame    %ec-frame-set!)    ;; deep handler frame to reinstall on resume
+  (state    %ec-state))                     ;; SRFI 230 atomic-fxbox (0=live, 1=consumed, 2=multishot)
 
 ;;;----------------------------------------------------------------------------
 ;;; Handler Lookup & Installation
@@ -209,6 +210,7 @@
                              (lambda (sub-k)
                                (let ((ek (%make-effect-continuation
                                           sub-k
+                                          pframe
                                           '()
                                           cap-marks
                                           cap-handlers
@@ -246,6 +248,7 @@
                                  (lambda (sub-k)
                                    (let ((ek (%make-effect-continuation
                                               sub-k
+                                              pframe
                                               prefix
                                               cap-marks
                                               cap-handlers
@@ -267,7 +270,41 @@
                                                               (cons ek (cons a1 (cons a2 more)))))))))))))))))))))
 
 ;;;----------------------------------------------------------------------------
-;;; Resume & Resume-Multishot (1 Atomic CAS + 1 Capture + 1 Native Return)
+;;; Resume & Resume-Multishot
+;;;
+;;; Phase C3 Fast Path: when a one-shot continuation is resumed in tail
+;;; position of its handler with empty prefix/marks/handlers, clear all live
+;;; references to the stack-allocated continuation and tail-call the C runtime
+;;; `##continuation-try-rewind-oneshot!` to reclaim the captured stack span in
+;;; O(1) with ZERO bytes of stack growth and ZERO frame copies. Non-tail
+;;; resumes (e.g. generators, collectors) transparently enter the zero-closure
+;;; fallback `%resume-non-tail-fallback`.
+
+(define (%resume-non-tail-fallback sub-k val)
+  (let* ((st (%tc-current))
+         (frame (%tc-rewind-frame st))
+         (saved-mc (cdr (%tc-mc st)))
+         (saved-handlers (cdr (%tc-handlers st))))
+    (%tc-rewind-frame-set! st #f)
+    (%tc-mc-set! st saved-mc)
+    (%tc-handlers-set! st saved-handlers)
+    (##continuation-capture
+     (lambda (caller-k)
+       (let* ((cst (%tc-current))
+              (cur-mc (%tc-mc cst))
+              (cur-marks (%tc-marks cst))
+              (cur-barriers (%tc-barriers cst))
+              (cur-handlers (%tc-handlers cst))
+              (pframe (%make-mc-frame 'prompt
+                                      (%frame-tag frame)
+                                      #f
+                                      caller-k
+                                      cur-marks
+                                      cur-barriers
+                                      cur-handlers)))
+         (%tc-mc-set! cst (cons pframe cur-mc))
+         (%tc-handlers-set! cst (cons frame cur-handlers))
+         (##continuation-return sub-k val))))))
 
 (define (%resume-checked ek v1 v2 more)
   (let ((sub-k (%ec-sub-k ek))
@@ -324,7 +361,28 @@
     (if (not (or (fx= prev %EC-ONE-SHOT-LIVE)
                  (fx= prev %EC-MULTISHOT-COW)))
         (error "one-shot continuation already consumed" ek))
-    (%resume-checked ek v1 v2 more)))
+    ;; Phase C3 tail-resume one-shot stack-rewind fast path (1-arg common case)
+    (if (and (fx= prev %EC-ONE-SHOT-LIVE)
+             (not (eq? v1 %ABSENT))
+             (eq? v2 %ABSENT)
+             (null? (%ec-prefix ek))
+             (null? (%ec-marks ek))
+             (null? (%ec-handlers ek)))
+        (let* ((sub-k (%ec-sub-k ek))
+               (pframe (%ec-pframe ek))
+               (frame (%ec-frame ek))
+               (st (%tc-current)))
+          ;; Sever all heap references to the stack-allocated sub-k before rewind!
+          (%ec-sub-k-set! ek #f)
+          (%ec-pframe-set! ek #f)
+          (%ec-frame-set! ek #f)
+          ;; Speculatively reinstall pframe (reusing existing object, zero alloc)
+          (%tc-mc-set! st (cons pframe (%tc-mc st)))
+          (%tc-handlers-set! st (cons frame (%tc-handlers st)))
+          (%tc-rewind-escape-set! st (%mc-frame-escape-k pframe))
+          (%tc-rewind-frame-set! st frame)
+          (##continuation-try-rewind-oneshot! sub-k v1 %resume-non-tail-fallback))
+        (%resume-checked ek v1 v2 more))))
 
 (define (resume-multishot ek
                           #!optional
@@ -344,23 +402,28 @@
     (%resume-checked ek v1 v2 more)))
 
 ;;;----------------------------------------------------------------------------
-;;; Built-in Direct-Style Generator (yield / make-generator)
+;;; Built-in Direct-Style Generator (yield / make-generator — Zero Per-Yield Closure)
 
 (define yield (make-effect 'yield))
 
 (define (make-generator thunk)
-  (let ((next-step #f))
-    (set! next-step
-          (lambda ()
-            (with-handler
-              ((yield (k val)
-                 (set! next-step (lambda () (resume k #f)))
-                 val)
-               (return: (r)
-                 (set! next-step (lambda () #!eof))
-                 #!eof))
-              (thunk))))
+  (let ((state 'init))
     (lambda ()
-      (next-step))))
+      (cond
+        ((eq? state 'done) #!eof)
+        ((eq? state 'init)
+         (set! state 'done)
+         (with-handler
+           ((yield (k val)
+              (set! state k)
+              val)
+            (return: (r)
+              (set! state 'done)
+              #!eof))
+           (thunk)))
+        (else
+         (let ((k state))
+           (set! state 'done)
+           (resume k #f)))))))
 
 ;;;============================================================================

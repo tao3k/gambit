@@ -280,3 +280,30 @@
     (test-equal num-threads (atomic-fxbox-ref ok))))
 
 ;;;============================================================================
+;;; 7. Phase C3 One-Shot Stack-Rewind Verification & Escaped-Handle GC Safety
+;;;
+;;; Verifies that tail-resuming one-shot handlers trigger the C-runtime
+;;; in-place stack-rewind fast path and that holding a consumed `ek` handle
+;;; across a full GC after stack rewind is 100% memory-safe.
+
+(let ((rw-before (##gc-oneshot-continuation-rewinds))
+      (escaped-eks '()))
+  (let ((res
+         (with-handler
+           ((emit (k v)
+              (set! escaped-eks (cons k escaped-eks))
+              (resume k (fx+ v 1))))
+           (let loop ((i 0) (acc 0))
+             (if (fx< i 200)
+                 (loop (fx+ i 1) (perform emit acc))
+                 acc)))))
+    (test-equal 200 res)
+    (test-equal #t (fx>= (fx- (##gc-oneshot-continuation-rewinds) rw-before) 180))
+    ;; Force GC while retaining all 200 consumed effect-continuation handles
+    (##gc)
+    (test-equal 200 (length escaped-eks))
+    ;; Every retained handle must still report consumed and reject re-invocation
+    (test-equal #t (raises-error? (lambda () (resume (car escaped-eks) 0))))
+    (test-equal #t (raises-error? (lambda () (resume-multishot (car escaped-eks) 0))))))
+
+;;;============================================================================

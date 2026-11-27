@@ -87,16 +87,18 @@
   id: 8B1F3A70-9C24-4D6B-A5E1-226000000004
   constructor: %make-tc-state
   predicate: %tc-state?
-  (mc       %tc-mc       %tc-mc-set!)
-  (marks    %tc-marks    %tc-marks-set!)
-  (barriers %tc-barriers %tc-barriers-set!)
-  (handlers %tc-handlers %tc-handlers-set!))
+  (mc            %tc-mc            %tc-mc-set!)
+  (marks         %tc-marks         %tc-marks-set!)
+  (barriers      %tc-barriers      %tc-barriers-set!)
+  (handlers      %tc-handlers      %tc-handlers-set!)
+  (rewind-escape %tc-rewind-escape %tc-rewind-escape-set!)
+  (rewind-frame  %tc-rewind-frame  %tc-rewind-frame-set!))
 
 (define (%tc-current)
   (let ((st (##thread-control-state)))
     (if st
         st
-        (let ((fresh (%make-tc-state '() '() '() '())))
+        (let ((fresh (%make-tc-state '() '() '() '() #f #f)))
           (##thread-control-state-set! fresh)
           fresh))))
 
