@@ -26,7 +26,7 @@ ___collector_worker *work;)
 
 #ifndef ___SINGLE_THREADED_VMS
 
-#define ___GC_SCAN_STEAL_WORK_CYCLES 16
+#define ___GC_SCAN_STEAL_WORK_CYCLES 64
 
   if (np <= 1)
     return;

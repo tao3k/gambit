@@ -176,8 +176,19 @@ static inline void acquire_frame_access
 #ifndef ___SINGLE_THREADED_VMS
   ___virtual_machine_state vms = work->vm;
   if (___COLLECTION(vms).worker_count > 1)
-    while (___COMPARE_AND_SWAP_WORD(&___COLLECTION(vms).frame_gate,0,1) != 0)
-      ___CPU_RELAX();
+    {
+      int spins = 0;
+      for (;;)
+        {
+          while (___WORD_LOAD_RELAXED(&___COLLECTION(vms).frame_gate) != 0)
+            {
+              if (spins < 64) { ___CPU_RELAX(); spins++; }
+              else { ___THREAD_YIELD(); spins = 0; }
+            }
+          if (___COMPARE_AND_SWAP_WORD(&___COLLECTION(vms).frame_gate, 0, 1) == 0)
+            break;
+        }
+    }
 #endif
   work->frame_accesses_++;
 }
@@ -510,20 +521,19 @@ ___WORD n;)
                     }
                   else
                     {
-                      ___VOLATILE ___WORD *copy_gate =
-                        &source_section->copy_gate;
-
-                      /* The old path reserved/refilled before discovering another
-                       * copier's forwarding. Refunding that private grant did not
-                       * recover a section already closed by refill. Serialize only
-                       * the claim/reservation/header publication, not payload copy.
-                       * Re-read under authority: the earlier header is a hint. */
-                      ___gc_copy_acquire (copy_gate);
-                      if (___WORD_LOAD_ACQUIRE(&body[-1]) != head)
-                        {
-                          ___gc_copy_release (copy_gate);
+#define ___GC_FWD_IN_PROGRESS ___TAG(0, ___FORW)
+                      /* Phase B (OCaml 5 Three-State Lock-Free CAS Forwarding):
+                       *   ORIG (head) -> ___GC_FWD_IN_PROGRESS -> ___TAG(new_addr, ___FORW)
+                       * Eliminates per-section copy_gate spinlock contention across parallel
+                       * evacuation workers; only the single CAS winner reserves destination space. */
+#ifndef ___SINGLE_THREADED_VMS
+                      {
+                        ___WORD prev_hd =
+                          ___COMPARE_AND_SWAP_WORD(&body[-1], head, ___GC_FWD_IN_PROGRESS);
+                        if (__builtin_expect(prev_hd != head, 0))
                           goto again;
-                        }
+                      }
+#endif
                       prepare_copy_request(work,source_section,header,words+1,
                                            words,subtype >= ___sS64VECTOR,0);
                       grant = reserve_copy
@@ -537,23 +547,8 @@ ___WORD n;)
 #ifdef ___SINGLE_THREADED_VMS
                       body[-1] = ___TAG(alloc - ___REFERENCE_TO_BODY, ___FORW);
 #else
-                      {
-                        ___WORD head_now =
-                          ___COMPARE_AND_SWAP_WORD(&body[-1],
-                                                   head,
-                                                   ___TAG(alloc - ___REFERENCE_TO_BODY, ___FORW));
-
-                        if (__builtin_expect(head_now != head, 0))
-                          {
-                            /* Every admitted forwarding writer owns this gate.
-                             * A changed header here is an unknown foreign write,
-                             * never a known losing reservation eligible for refund. */
-                            static char *msgs[] = { "GC unknown forwarding result retains reservation", NULL };
-                            ___fatal_error (msgs);
-                          }
-                      }
+                      ___WORD_STORE_RELEASE(&body[-1], ___TAG(alloc - ___REFERENCE_TO_BODY, ___FORW));
 #endif
-                      ___gc_copy_release (copy_gate);
                     }
 
                   work->copied_words += words+1;
@@ -668,6 +663,19 @@ ___WORD n;)
               }
             else if (___TESTTYPE(head_typ, ___FORW))
               {
+#ifndef ___SINGLE_THREADED_VMS
+                if (__builtin_expect(head == ___GC_FWD_IN_PROGRESS, 0))
+                  {
+                    int fspins = 0;
+                    do
+                      {
+                        if (fspins < 64) { ___CPU_RELAX(); fspins++; }
+                        else { ___THREAD_YIELD(); fspins = 0; }
+                        head = ___WORD_LOAD_ACQUIRE(&body[-1]);
+                      }
+                    while (head == ___GC_FWD_IN_PROGRESS);
+                  }
+#endif
                 *cell = ___TAG(___UNTAG_AS(head, ___FORW), ___TYP(obj));
                 REST_OBS_REPAIR(___ps,cell,obj,*cell,work->arena.epoch);
               }
