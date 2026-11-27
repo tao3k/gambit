@@ -245,7 +245,7 @@ ___HIDDEN int capture_continuation_source
   section=owner->mem.stack_msection_;
   fp=context->fp;
   brk=context->stack_break;
-  if(section==0 || section->base==0) return 2;
+  if(section==0) return 2;
   half_base=section->base+source_offset;
   half_past=half_base+(___MSECTION_SIZE>>1);
   /* Geometry, the first frame load and later copy share fp. A cursor

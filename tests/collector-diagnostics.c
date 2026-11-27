@@ -931,8 +931,10 @@ static int continuation_extent_controls(void)
 
 #if ___MAX_PROCESSORS >= 3 && !defined(___SINGLE_THREADED_VMS)
   {
-    ___processor_state p0=___PSTATE_FROM_PROCESSOR_ID(0,&vm);
-    ___processor_state carrier=___PSTATE_FROM_PROCESSOR_ID(2,&vm);
+    static ___aligned_processor_state_struct multi_pstates[4];
+    static ___execution_context multi_contexts[4];
+    ___processor_state p0;
+    ___processor_state carrier;
     ___execution_context independent={0};
     ___msection *nsource=calloc(1,SECTION_BYTES);
     ___msection *ndest=calloc(1,SECTION_BYTES);
@@ -940,6 +942,13 @@ static int continuation_extent_controls(void)
     ___WORD *nfp;
     ___WORD poison;
     ___SIZE_TS words, n;
+    memset(multi_pstates,0,sizeof multi_pstates);
+    memset(multi_contexts,0,sizeof multi_contexts);
+    vm.aligned_pstate=multi_pstates;
+    vm.execution_contexts=multi_contexts;
+    vm.processor_capacity=4;
+    p0=___PSTATE_FROM_PROCESSOR_ID(0,&vm);
+    carrier=___PSTATE_FROM_PROCESSOR_ID(2,&vm);
     CHECK(nsource && ndest);
     CHECK(___PROCESSOR_ID(carrier,&vm)==2);
     p0->mem.rc_domain_=&domain;

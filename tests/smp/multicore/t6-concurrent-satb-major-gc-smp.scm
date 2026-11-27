@@ -478,32 +478,52 @@ c-end
 ;; + Per-Processor Local Mark-Buffer Flush, & Idle-Core Cooperative Marking
 ;; ---------------------------------------------------------------------------
 (define (test-immix-hole-recycling-and-v2-features)
-  (let* ((n-groups 24)
-         (dead-per-group 96)
-         (stride (+ 1 dead-per-group))
+  (let* ((n-groups 16)
+         (live-per-group 96)
+         (dead-per-group 64)
+         (stride (+ 1 live-per-group dead-per-group))
          (live-grid (make-vector n-groups #f))
+         (live-keep (make-vector (* n-groups live-per-group) #f))
          (v2-0 (gc-cm-v2-stats))
          (holes0 (inexact->exact (round (f64vector-ref v2-0 0)))))
-    ;; Place live anchors and 96x200-word (~19.2K-word) movable dead blocks
-    ;; in strictly alternating BFS order inside one flat vector so compacting
-    ;; (##gc) lays them out physically interleaved inside shared mature sections.
+    ;; Place ~60% live (anchor + 96x200w) and ~40% dead (64x200w = ~12.8Kw hole)
+    ;; in alternating BFS order inside ONE sole root `interleaved` across (##gc).
+    ;; Because live occupancy is ~60% (>= 50%), Immix classifies each mature
+    ;; section as recycle-in-place (major_evacuate == 0) rather than sparse
+    ;; evacuation, and keeping only `interleaved` rooted during (##gc) prevents
+    ;; parallel GC workers from splitting live and dead blocks into separate sections.
     (let ((interleaved (make-vector (* n-groups stride) #f)))
       (let gloop ((g 0))
         (if (< g n-groups)
             (let ((anchor (make-tagged-payload (+ 90000 g)))
                   (base (* g stride)))
-              (vector-set! live-grid g anchor)
               (vector-set! interleaved base anchor)
+              (let lloop ((k 0))
+                (if (< k live-per-group)
+                    (begin
+                      (vector-set! interleaved (+ base 1 k) (make-vector 200 (+ 1000 (* g 100) k)))
+                      (lloop (+ k 1)))))
               (let dloop ((k 0))
                 (if (< k dead-per-group)
                     (begin
                       ;; 200 words <= ___MSECTION_BIGGEST(255) -> movable!
-                      (vector-set! interleaved (+ base 1 k) (make-vector 200 (+ g k)))
+                      (vector-set! interleaved (+ base 1 live-per-group k) (make-vector 200 (+ g k)))
                       (dloop (+ k 1)))))
               (gloop (+ g 1)))))
-      ;; Promote interleaved anchors + dead spans into shared mature sections.
+      ;; Promote interleaved live+dead spans into shared mature sections.
       (##gc)
-      ;; Drop interleaved container while keeping every live-grid anchor pinned!
+      ;; Now retain the live anchors & live-keep vectors, and drop the dead spans!
+      (let gloop ((g 0))
+        (if (< g n-groups)
+            (let ((base (* g stride)))
+              (vector-set! live-grid g (vector-ref interleaved base))
+              (let lloop ((k 0))
+                (if (< k live-per-group)
+                    (begin
+                      (vector-set! live-keep (+ (* g live-per-group) k)
+                                   (vector-ref interleaved (+ base 1 k)))
+                      (lloop (+ k 1)))))
+              (gloop (+ g 1)))))
       (let clear ((i 0))
         (if (< i (vector-length interleaved))
             (begin
@@ -511,7 +531,7 @@ c-end
               (clear (+ i 1))))))
 
     ;; Run a full Concurrent SATB Major GC cycle -> Parallel STW Remark sweeps
-    ;; dead runs and records ~19K-word card-aligned Immix holes inside live
+    ;; dead runs and records ~12.8K-word card-aligned Immix holes inside >=50%-live
     ;; mature sections!
     (gc-start-concurrent-major! 0)
     (assert-true (drive-to-phase! 1 40) "s10-enter-marking")
@@ -544,6 +564,15 @@ c-end
             (begin
               (verify-tagged-payload (vector-ref live-grid i) (+ 90000 i) "s10-live-grid")
               (check1 (+ i 1)))))
+      (let check-keep ((i 0))
+        (if (< i (vector-length live-keep))
+            (let* ((g (quotient i live-per-group))
+                   (k (modulo i live-per-group))
+                   (v (vector-ref live-keep i)))
+              (assert-true (and (vector? v) (= (vector-length v) 200)
+                                (= (vector-ref v 0) (+ 1000 (* g 100) k)))
+                           "s10-live-keep" i)
+              (check-keep (+ i 1)))))
       (let check2 ((i 0))
         (if (< i 1600)
             (begin

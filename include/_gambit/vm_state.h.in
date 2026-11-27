@@ -2,8 +2,17 @@
 
 typedef struct ___virtual_machine_state_struct
   {
-    ___aligned_processor_state_struct aligned_pstate[___MAX_PROCESSORS]; /* VM's processors */
-    ___execution_context execution_contexts[___MAX_PROCESSORS]; /* stable VM slots */
+#ifdef ___SINGLE_THREADED_VMS
+    ___aligned_processor_state_struct aligned_pstate[1]; /* VM's sole processor */
+    ___execution_context execution_contexts[1]; /* stable VM slot */
+#else
+    ___aligned_processor_state_struct *aligned_pstate; /* dynamically allocated [processor_capacity] */
+    ___execution_context *execution_contexts; /* dynamically allocated [processor_capacity] */
+    void *processor_storage; /* single 64-byte-aligned backing allocation */
+    int processor_capacity; /* runtime max processors (>= 1; 0 = inline0 fallback) */
+    ___aligned_processor_state_struct aligned_pstate0; /* zero-init / static test fallback */
+    ___execution_context execution_context0; /* zero-init / static test fallback */
+#endif
 
     ___VOLATILE int processor_count; /* number of processors in this VM */
 
@@ -36,11 +45,39 @@ typedef struct ___virtual_machine_state_struct
     struct ___vm_lifecycle_struct *lifecycle; /* VM-owned entry, launch and release custody */
   } ___virtual_machine_state_struct;
 
+#ifdef ___SINGLE_THREADED_VMS
+
+#define ___VM_PROCESSOR_CAPACITY(vms) 1
+
 #define ___PROCESSOR_ID(ps,vms) \
 (___CAST(___aligned_processor_state_struct*,ps) - \
  ___CAST(___aligned_processor_state_struct*,&(vms)->aligned_pstate[0].pstate))
 
-
 #define ___PSTATE_FROM_PROCESSOR_ID(id,vms) \
 (&(vms)->aligned_pstate[id].pstate)
+
+#define ___EXECUTION_CONTEXT_FROM_PROCESSOR_ID(id,vms) \
+(&(vms)->execution_contexts[id])
+
+#else
+
+#define ___VM_PROCESSOR_CAPACITY(vms) \
+((vms)->processor_capacity > 0 ? (vms)->processor_capacity : 1)
+
+#define ___PROCESSOR_ID(ps,vms) \
+((vms)->aligned_pstate != 0 \
+ ? ___CAST(int, ___CAST(___aligned_processor_state_struct*,ps) - (vms)->aligned_pstate) \
+ : 0)
+
+#define ___PSTATE_FROM_PROCESSOR_ID(id,vms) \
+((vms)->aligned_pstate != 0 \
+ ? &(vms)->aligned_pstate[id].pstate \
+ : &(vms)->aligned_pstate0.pstate)
+
+#define ___EXECUTION_CONTEXT_FROM_PROCESSOR_ID(id,vms) \
+((vms)->execution_contexts != 0 \
+ ? &(vms)->execution_contexts[id] \
+ : &(vms)->execution_context0)
+
+#endif
 

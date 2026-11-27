@@ -490,13 +490,16 @@ ___virtual_machine_state ___vms;)
   ___vms->glos=0;
 #endif
 
-  /* Fresh VM setup owns every fixed source slot before any PS publication. */
-  for (source=0; source<___MAX_PROCESSORS; ++source)
-    {
-      ___PSTATE_FROM_PROCESSOR_ID(source,___vms)->mem.rc_domain_ = 0;
-      ___PSTATE_FROM_PROCESSOR_ID(source,___vms)->mem.satb_buf_ = 0;
-      ___PSTATE_FROM_PROCESSOR_ID(source,___vms)->mem.major_mark_local_buf_ = 0;
-    }
+  /* Fresh VM setup owns every dynamic source slot before any PS publication. */
+  {
+    int cap = ___VM_PROCESSOR_CAPACITY(___vms);
+    for (source=0; source<cap; ++source)
+      {
+        ___PSTATE_FROM_PROCESSOR_ID(source,___vms)->mem.rc_domain_ = 0;
+        ___PSTATE_FROM_PROCESSOR_ID(source,___vms)->mem.satb_buf_ = 0;
+        ___PSTATE_FROM_PROCESSOR_ID(source,___vms)->mem.major_mark_local_buf_ = 0;
+      }
+  }
 
 #ifndef ___SINGLE_THREADED_VMS
 
@@ -616,6 +619,20 @@ ___virtual_machine_state ___vms;)
   ___vms->mem.mature_still_words_ = 0;
   ___vms->mem.major_trigger_still_words_ = 4 * ___MSECTION_SIZE;
   ___vms->mem.promo_cand_count_ = 0;
+  ___vms->mem.promo_cand_cap_ = 0;
+  ___vms->mem.promo_cands_ = 0;
+  {
+    int pcap = ___VM_PROCESSOR_CAPACITY(___vms) * 2;
+    if (pcap > 0)
+      {
+        ___vms->mem.promo_cands_ =
+          ___CAST(___msection**, ___ALLOC_MEM(___CAST(___SIZE_T, pcap) * sizeof(___msection*)));
+        if (___vms->mem.promo_cands_ == 0)
+          return ___FIX(___HEAP_OVERFLOW_ERR);
+        memset(___vms->mem.promo_cands_, 0, ___CAST(___SIZE_T, pcap) * sizeof(___msection*));
+        ___vms->mem.promo_cand_cap_ = pcap;
+      }
+  }
   ___vms->mem.still_dirty_any_ = 0;
   ___vms->mem.card_overflow_any_ = 0;
   ___vms->mem.force_major_gc_ = 0;
@@ -883,6 +900,13 @@ ___virtual_machine_state ___vms;)
       ___FREE_MEM(___vms->mem.major_weak_tables_);
       ___vms->mem.major_weak_tables_ = 0;
       ___vms->mem.major_weak_tables_cap_ = 0;
+    }
+  if (___vms->mem.promo_cands_ != 0)
+    {
+      ___FREE_MEM(___vms->mem.promo_cands_);
+      ___vms->mem.promo_cands_ = 0;
+      ___vms->mem.promo_cand_cap_ = 0;
+      ___vms->mem.promo_cand_count_ = 0;
     }
   if (___vms->mem.major_still_bases_ != 0)
     {

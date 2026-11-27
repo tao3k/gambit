@@ -135,14 +135,88 @@ static ___BOOL vm_lifecycle_alloc_slots(___vm_lifecycle *life, int cap)
   return 1;
 }
 
+#ifndef ___SINGLE_THREADED_VMS
+/* Slice 3A-2 dynamic per-VM processor capacity (OCaml-5 / Erlang-OTP-28 model,
+ * verified in Slice3ADynamicDomainsRefinement.lean and slice3a_dynamic_domains_pso.c):
+ * eliminates the compile-time 64-core ceiling by sizing from hardware cores,
+ * explicit -:p<N>, and optional GAMBIT_MAX_PROCESSORS while keeping >= ___MAX_PROCESSORS. */
+static int vm_compute_processor_capacity(void)
+{
+  int hard_max = 65536;
+  int cap = ___MAX_PROCESSORS;
+  int hw = ___cpu_count(-1);
+  int req = ___GSTATE->setup_params.parallelism_level;
+  const char *env_str = getenv("GAMBIT_MAX_PROCESSORS");
+  if (cap < 1) cap = 1;
+  if (hw > 0) {
+    int hw2 = (hw > hard_max / 2) ? hard_max : (hw * 2);
+    if (hw2 > cap) cap = hw2;
+  }
+  if (req > cap) cap = req;
+  if (env_str != 0 && env_str[0] != '\0') {
+    long parsed = strtol(env_str, 0, 10);
+    if (parsed > cap)
+      cap = (parsed > hard_max) ? hard_max : ___CAST(int, parsed);
+  }
+  if (cap > hard_max) cap = hard_max;
+  return cap;
+}
+
+static ___BOOL vm_alloc_processor_storage(___virtual_machine_state vm, int cap)
+{
+  ___SIZE_T pstate_bytes, ctx_bytes, off, total;
+  ___SIZE_T ucap;
+  unsigned char *raw, *aligned;
+  if (!vm || cap < 1) return 0;
+  if (vm->processor_storage != 0) return 1;
+  ucap = ___CAST(___SIZE_T, cap);
+  if (ucap > (~___CAST(___SIZE_T, 0) - 128) / sizeof(___aligned_processor_state_struct))
+    return 0;
+  pstate_bytes = ucap * sizeof(___aligned_processor_state_struct);
+  if (pstate_bytes > ~___CAST(___SIZE_T, 0) - 128) return 0;
+  off = (pstate_bytes + 63) & ~___CAST(___SIZE_T, 63);
+  if (ucap > (~___CAST(___SIZE_T, 0) - 64 - off) / sizeof(___execution_context))
+    return 0;
+  ctx_bytes = ucap * sizeof(___execution_context);
+  total = 64 + off + ctx_bytes;
+  raw = ___CAST(unsigned char*, calloc(1, total));
+  if (!raw) return 0;
+  aligned = ___CAST(unsigned char*,
+                    (___CAST(___UWORD, raw) + 63) & ~___CAST(___UWORD, 63));
+  vm->processor_storage = raw;
+  vm->aligned_pstate = ___CAST(___aligned_processor_state_struct*, aligned);
+  vm->execution_contexts = ___CAST(___execution_context*, aligned + off);
+  vm->processor_capacity = cap;
+  return 1;
+}
+
+static void vm_free_processor_storage(___virtual_machine_state vm)
+{
+  if (!vm) return;
+  if (vm->processor_storage != 0) {
+    free(vm->processor_storage);
+    vm->processor_storage = 0;
+  }
+  vm->aligned_pstate = 0;
+  vm->execution_contexts = 0;
+  vm->processor_capacity = 0;
+}
+#else
+static void vm_free_processor_storage(___virtual_machine_state vm)
+{
+  (void)vm;
+}
+#endif
+
 static ___vm_lifecycle *vm_lifecycle_create(___virtual_machine_state vm)
 {
   ___vm_lifecycle *life;
+  int cap = ___VM_PROCESSOR_CAPACITY(vm);
   if(vm_incarnation==___MAX_FIX)return 0;
   life=___CAST(___vm_lifecycle*,___ALLOC_MEM(sizeof(*life)));
   if(!life)return 0;
   memset(life,0,sizeof(*life));
-  if(!vm_lifecycle_alloc_slots(life, ___MAX_PROCESSORS)) {
+  if(!vm_lifecycle_alloc_slots(life, cap)) {
     ___FREE_MEM(life);return 0;
   }
   life->incarnation=++vm_incarnation;

@@ -471,10 +471,11 @@ ___HIDDEN ___SIZE_TS section_best_promo_span
 
 ___HIDDEN void promo_cand_add(___virtual_machine_state vm, ___msection *sec)
 {
-  int cap = ___MAX_PROCESSORS * 2;
+  int cap = vm->mem.promo_cand_cap_;
   int i;
   ___SIZE_TS room;
-  if (sec == 0 || sec->region_age != ___GC_REGION_MATURE)
+  if (sec == 0 || sec->region_age != ___GC_REGION_MATURE ||
+      vm->mem.promo_cands_ == 0 || cap <= 0)
     return;
   room = section_best_promo_span(sec, 1, 0, 0, 0);
   if (room == 0)

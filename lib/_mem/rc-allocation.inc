@@ -1811,7 +1811,7 @@ ___WORD ___rest_observation_one_fresh_section(___processor_state ps)
   if (!___ps || ___ps!=___PSTATE || occupied_words_still<0 || the_msections==0)
     return -1;
   np=___VMSTATE_FROM_PSTATE(___ps)->processor_count;
-  if (np<1 || np>___MAX_PROCESSORS/2) return -1;
+  if (np<1 || np>___VM_PROCESSOR_CAPACITY(___VMSTATE_FROM_PSTATE(___ps))/2) return -1;
   /* The measured startup list is already longer than one fresh tail:
    * 8 sections, 4 assigned, resume reserve 2. The next collection's
    * lower bound is at least 6, and setup then assigns 4, so at least

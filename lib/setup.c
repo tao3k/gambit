@@ -1812,7 +1812,10 @@ static ___SCMOBJ current_vm_resize_request(___PSD ___SCMOBJ thunk,
 #ifdef ___SINGLE_THREADED_VMS
   if (managed && target_processor_count!=1) return ___FIX(___UNKNOWN_ERR);
 #endif
-  if (target_processor_count>___MAX_PROCESSORS) target_processor_count=___MAX_PROCESSORS;
+  {
+    int max_cap = ___VM_PROCESSOR_CAPACITY(___VMSTATE_FROM_PSTATE(___ps));
+    if (target_processor_count > max_cap) target_processor_count = max_cap;
+  }
   target=managed ? -target_processor_count : target_processor_count;
   root=___alloc_rc(___PSP 0);
   if (root==0) return ___FIX(___HEAP_OVERFLOW_ERR);
@@ -5698,7 +5701,7 @@ ___virtual_machine_state ___vms;)
   if (___ps->mem.rc_domain_ != 0)
     return ___FIX(___UNKNOWN_ERR); /* Never overwrite an attached RC source. */
 
-  ___ps->context = &___vms->execution_contexts[___PROCESSOR_ID(___ps, ___vms)];
+  ___ps->context = ___EXECUTION_CONTEXT_FROM_PROCESSOR_ID(___PROCESSOR_ID(___ps, ___vms), ___vms);
   memset(&___ps->context->binding_view,0,sizeof(___ps->context->binding_view));
 
   /*
@@ -5803,6 +5806,9 @@ ___virtual_machine_state ___vms;)
   ___SCMOBJ err;
   ___vm_lifecycle *life;
 #ifndef ___SINGLE_THREADED_VMS
+  if (!___vms->aligned_pstate &&
+      !vm_alloc_processor_storage(___vms, vm_compute_processor_capacity()))
+    return ___FIX(___HEAP_OVERFLOW_ERR);
   if (___PSTATE_FROM_PROCESSOR_ID(0,___vms)->mem.rc_domain_ != 0)
     return ___FIX(___UNKNOWN_ERR);
 #endif
@@ -7286,7 +7292,7 @@ ___setup_params_struct *setup_params;)
 {
   ___SCMOBJ err;
   ___virtual_machine_state ___vms = &___GSTATE->vmstate0;
-  ___processor_state ___ps = ___PSTATE_FROM_PROCESSOR_ID(0,___vms);
+  ___processor_state ___ps;
   ___SCMOBJ module_descrs;
   ___SCMOBJ supply_modules;
   int registry_owned=0;
@@ -7307,6 +7313,13 @@ ___setup_params_struct *setup_params;)
   if (!vm_registry_begin_setup()) return ___FIX(___UNKNOWN_ERR);
   registry_owned=1;
   ___GSTATE->setup_params = *setup_params;
+#ifndef ___SINGLE_THREADED_VMS
+  if (!vm_alloc_processor_storage(___vms, vm_compute_processor_capacity())) {
+    ___WORD_STORE_RELEASE(&vm_registry_gate, VM_REGISTRY_CLOSED);
+    return ___FIX(___HEAP_OVERFLOW_ERR);
+  }
+#endif
+  ___ps = ___PSTATE_FROM_PROCESSOR_ID(0,___vms);
 
   /*
    * Disallow cleanup, in case setup fails.
@@ -7357,7 +7370,7 @@ ___setup_params_struct *setup_params;)
   {
     ___virtual_machine_state ___vms = &___GSTATE->vmstate0;
     ___processor_state initial = ___PSTATE_FROM_PROCESSOR_ID(0,___vms);
-    initial->context = &___vms->execution_contexts[0];
+    initial->context = ___EXECUTION_CONTEXT_FROM_PROCESSOR_ID(0,___vms);
     setup_interrupts_pstate (initial);
   }
 
@@ -7372,9 +7385,7 @@ ___setup_params_struct *setup_params;)
    */
 
   if ((err = setup_os_and_mem ()) != ___FIX(___NO_ERR)) {
-#ifndef ___SINGLE_VM
-
-#endif
+    vm_free_processor_storage(___vms);
     ___WORD_STORE_RELEASE(&vm_registry_gate,VM_REGISTRY_CLOSED);
     return err;
   }
@@ -7495,6 +7506,7 @@ ___setup_params_struct *setup_params;)
 
 #endif
     cleanup_os_and_mem();___GSTATE->setup_state=2;
+    vm_free_processor_storage(___vms);
     ___WORD_STORE_RELEASE(&vm_registry_gate,VM_REGISTRY_CLOSED);
   }else if (err != ___FIX(___NO_ERR)) {
 #ifdef __APPLE__

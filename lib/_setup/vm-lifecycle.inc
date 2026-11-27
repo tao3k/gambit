@@ -83,6 +83,7 @@ static ___BOOL lifecycle_dispose(___virtual_machine_state vm)
   vm_registry_remove(vm);vm->lifecycle=0;
   if(life->slot_storage)___FREE_MEM(life->slot_storage);
   ___FREE_MEM(life);
+  if(vm!=&___GSTATE->vmstate0)vm_free_processor_storage(vm);
   return 1;
 }
 /* Known constructor failure has never published an executable VM. Reclaim
@@ -90,7 +91,10 @@ static ___BOOL lifecycle_dispose(___virtual_machine_state vm)
 static void abort_vm_setup(___virtual_machine_state vm)
 {
   ___vm_lifecycle *life=vm->lifecycle;
-  if(!life)return;
+  if(!life) {
+    if(vm!=&___GSTATE->vmstate0)vm_free_processor_storage(vm);
+    return;
+  }
   if(life->setup_stages & ___VM_SETUP_PROCESSOR) {
     cleanup_interrupts_pstate(___PSTATE_FROM_PROCESSOR_ID(0,vm));
     cleanup_os_and_mem_pstate(___PSTATE_FROM_PROCESSOR_ID(0,vm));
@@ -107,6 +111,7 @@ static void abort_vm_setup(___virtual_machine_state vm)
   vm->lifecycle=0;
   if(life->slot_storage)___FREE_MEM(life->slot_storage);
   ___FREE_MEM(life);
+  if(vm!=&___GSTATE->vmstate0)vm_free_processor_storage(vm);
 }
 ___EXP_FUNC(___SCMOBJ,___setup_vmstate)
  ___P((___virtual_machine_state vm),(vm)
@@ -185,6 +190,7 @@ static ___BOOL cleanup_runtime(int terminal)
 
 #endif
   cleanup_os_and_mem();___GSTATE->setup_state=2;
+  vm_free_processor_storage(vm);
   ___WORD_STORE_RELEASE(&vm_registry_gate,VM_REGISTRY_CLOSED);return 1;
 }
 ___EXP_FUNC(___BOOL,___cleanup) ___PVOID

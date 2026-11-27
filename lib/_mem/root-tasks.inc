@@ -205,7 +205,8 @@ ___HIDDEN ___BOOL root_context_executor(___execution_context *source,
   id=___PROCESSOR_ID(executor,vm);
   if(id<0 || id>=vm->processor_count ||
      (vm->lifecycle && id>=vm->lifecycle->slot_capacity)) return 0;
-  if(source==executor->context && source==&vm->execution_contexts[id]) return 1;
+  if(source==executor->context &&
+     source==___EXECUTION_CONTEXT_FROM_PROCESSOR_ID(id,vm)) return 1;
   if(executor->collector != 0) {
     ___root_round *round=___ROOT_UNION(vm); int i, w=executor->collector->id;
     if(round->state!=___ROOT_ROUND_FROZEN || w<0 || w>=round->collection.worker_count ||
