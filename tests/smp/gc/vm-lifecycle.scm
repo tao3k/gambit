@@ -65,6 +65,8 @@ static int lifecycle_check(___processor_state primary,___SCMOBJ host_code) {
   REQUIRE(___cleanup_vmstate(extra),17);
   REQUIRE(extra->lifecycle==0 && releases==1 && rejected_reentries==1,18);
   REQUIRE(!___cleanup_vmstate(extra),19);
+  ___ps=___PSTATE_FROM_PROCESSOR_ID(0,extra);
+  ___thread_set_pstate(___ps);
   REQUIRE(___run(___PSP ___FAL)==___FIX(___UNKNOWN_ERR),20);
   ___thread_set_pstate(primary); ___ps=primary;
   free(extra); extra=NULL;

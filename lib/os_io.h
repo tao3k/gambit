@@ -92,6 +92,7 @@ typedef struct ___device_struct
     int select_active;             /* active ___device_select borrowers */
     int close_in_progress;         /* serialized closer gate (0 or 1) */
     int close_waiters;             /* closer waiters on device_select_cond */
+    ___U64 dev_gen;                /* monotonic FD-generation custody epoch */
   } ___device;
 
 #ifndef MAX_CONDVARS
@@ -125,7 +126,7 @@ typedef struct ___device_select_state_struct
     ___F64 relative_timeout; /* relative timeout of the select in seconds */
     ___BOOL timeout_reached; /* did select reach the timeout? */
 
-    int devs_next[MAX_CONDVARS];
+    int *devs_next; /* dynamic array (size >= read_pos) */
 
 #ifdef USE_select_or_poll
 
@@ -137,9 +138,19 @@ typedef struct ___device_select_state_struct
 #endif
 
 #ifdef USE_poll
-    struct pollfd pollfds[MAX_CONDVARS];
+    struct pollfd *pollfds;
     int pollfd_count;
+    int pollfd_cap;
     /* active set bitmaps */
+    ___fdbits *readfds;
+    ___fdbits *writefds;
+#endif
+
+#if defined(USE_kqueue) || defined(USE_epoll)
+    void *reactor;
+    ___U64 current_dev_gen;
+    ___BOOL immediate_ready;
+    /* active set bitmaps (O(ready)-cleared private per-processor bitmaps) */
     ___fdbits *readfds;
     ___fdbits *writefds;
 #endif

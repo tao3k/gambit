@@ -62,7 +62,11 @@ for(i=0;i<3;i++) {
   * No caller-owned registry lock or separate premature PSTATE teardown. */
  if(!___cleanup_vmstate(other)) _Exit(72);
  ___thread_set_pstate(source);
+#ifndef ___SINGLE_THREADED_VMS
+ ok=ok && other->lifecycle==0 && other->glos==0 && other->processor_storage==0 && other->aligned_pstate==0;
+#else
  ok=ok && other->lifecycle==0 && other->glos==0 && writer->mem.rc_domain_==0;
+#endif
 }
 ___EXT(___bind_primitive)(source,global,___FIX(41));
 ok=ok && ___GLOBALVARPRIMREF(___arg1)==___FIX(41);
@@ -2654,22 +2658,23 @@ c-end
      (display "VM-ROOT-MOVING-PASS\n"))
    vm-clear))
 
-(c-declare "static ___SCMOBJ bank_root_before; static ___execution_context *bank_root_context; static int bank_root_owned;")
+(c-declare "static ___SCMOBJ bank_root_before; static ___SCMOBJ bank_root_saved; static ___execution_context *bank_root_context; static int bank_root_owned;")
 (define bank-install
   (c-lambda (scheme-object) bool #<<c-end
 ___execution_context *source=___PSTATE->context;
 ___SCMOBJ *cells=___BODY0_AS(___SUBTYPED_FROM_START(___ALIGNUP(source->processor_scmobj,___WS)),___tSUBTYPED);
-/* unused-field15 in the real processor definition, _thread#.scm. */
-___result=cells[15]==___FAL && !bank_root_owned;
-if(___result) { cells[15]=___arg1; bank_root_before=___arg1; bank_root_context=source; bank_root_owned=1; }
+/* unused-field15 in _thread#.scm (holds #f or Tier 3.2 epoch/cursor fixnum). */
+___SCMOBJ cur=___WORD_LOAD_ACQUIRE(___CAST(___VOLATILE ___WORD*, &cells[15]));
+___result=(cur==___FAL || ___FIXNUMP(cur)) && !bank_root_owned;
+if(___result) { bank_root_saved=cur; ___WORD_STORE_RELEASE(___CAST(___VOLATILE ___WORD*, &cells[15]), ___arg1); bank_root_before=___arg1; bank_root_context=source; bank_root_owned=1; }
 c-end
 ))
 (define bank-value
-  (c-lambda () scheme-object "___result=___BODY0_AS(___SUBTYPED_FROM_START(___ALIGNUP(___PSTATE->context->processor_scmobj,___WS)),___tSUBTYPED)[15];"))
+  (c-lambda () scheme-object "___result=___WORD_LOAD_ACQUIRE(___CAST(___VOLATILE ___WORD*, &___BODY0_AS(___SUBTYPED_FROM_START(___ALIGNUP(___PSTATE->context->processor_scmobj,___WS)),___tSUBTYPED)[15]));"))
 (define bank-moved?
-  (c-lambda () bool "___result=bank_root_owned && bank_root_context==___PSTATE->context && ___BODY0_AS(___SUBTYPED_FROM_START(___ALIGNUP(bank_root_context->processor_scmobj,___WS)),___tSUBTYPED)[15]!=bank_root_before;"))
+  (c-lambda () bool "___result=bank_root_owned && bank_root_context==___PSTATE->context && ___WORD_LOAD_ACQUIRE(___CAST(___VOLATILE ___WORD*, &___BODY0_AS(___SUBTYPED_FROM_START(___ALIGNUP(bank_root_context->processor_scmobj,___WS)),___tSUBTYPED)[15]))!=bank_root_before;"))
 (define bank-clear
-  (c-lambda () void "if(bank_root_owned && bank_root_context==___PSTATE->context) { ___BODY0_AS(___SUBTYPED_FROM_START(___ALIGNUP(bank_root_context->processor_scmobj,___WS)),___tSUBTYPED)[15]=___FAL; bank_root_before=___FAL; bank_root_context=0; bank_root_owned=0; }"))
+  (c-lambda () void "if(bank_root_owned && bank_root_context==___PSTATE->context) { ___WORD_STORE_RELEASE(___CAST(___VOLATILE ___WORD*, &___BODY0_AS(___SUBTYPED_FROM_START(___ALIGNUP(bank_root_context->processor_scmobj,___WS)),___tSUBTYPED)[15]), bank_root_saved); bank_root_before=___FAL; bank_root_saved=___FAL; bank_root_context=0; bank_root_owned=0; }"))
 (define (bank-moving-roots)
   (for-each
    (lambda (owner)

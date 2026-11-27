@@ -134,7 +134,17 @@ static void *c7_vm_churn_worker(void *arg) {
       ___thread_set_pstate(NULL);
       break; /* Never free a VM still linked in vm_registry! */
     }
-#ifndef ___OS_WIN32
+#ifndef ___SINGLE_THREADED_VMS
+    /* Slice 3A-2: ___cleanup_vmstate frees extra->processor_storage (holding sec
+     * and its os.fdset / os.reactor) upon dispose; verify full release without
+     * dereferencing freed processor storage (which Linux glibc immediately munmaps). */
+    if (extra->processor_storage != NULL ||
+        extra->aligned_pstate != NULL ||
+        extra->execution_contexts != NULL ||
+        extra->processor_capacity != 0) {
+      atomic_fetch_add(&c7_churn_errors, 1);
+    }
+#elif !defined(___OS_WIN32)
     if (sec->os.fdset.readfds != NULL ||
         sec->os.fdset.writefds != NULL ||
         sec->os.fdset.exceptfds != NULL ||

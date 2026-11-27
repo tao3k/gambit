@@ -200,6 +200,9 @@ static void vm_free_processor_storage(___virtual_machine_state vm)
   vm->aligned_pstate = 0;
   vm->execution_contexts = 0;
   vm->processor_capacity = 0;
+#ifndef ___SINGLE_VM
+  vm->aligned_pstate0.pstate.vmstate = vm;
+#endif
 }
 #else
 static void vm_free_processor_storage(___virtual_machine_state vm)

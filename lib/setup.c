@@ -1660,7 +1660,12 @@ ___sync_op_struct *sop_ptr;)
 #ifndef ___SINGLE_THREADED_VMS
   {
     int requires_full = (sop_ptr->op == OP_VM_RESIZE ||
-                         sop_ptr->op == OP_PROCESSOR_0_THROW_ERROR);
+                         sop_ptr->op == OP_PROCESSOR_0_THROW_ERROR ||
+                         sop_ptr->op == OP_FDSET_RESIZE ||
+                         (sop_ptr->op == OP_GARBAGE_COLLECT &&
+                          ___PSTATE_FROM_PROCESSOR_ID(0, ___vms)->mem.rc_domain_ != 0 &&
+                          ___ROOT_UNION(___vms) != 0 &&
+                          ___WORD_LOAD_ACQUIRE(&___COLLECTION(___vms).requested_workers) > 0));
     int blocking_parks = 0;
     int initiator = 0;
     int target_n = 0;
@@ -1720,10 +1725,18 @@ ___sync_op_struct *sop_ptr;)
         /* SYNC_OP_IDLE */
         if (requires_full && life->sync_parked_count > 0)
           {
+            int k;
             if (!blocking_parks)
               {
                 life->sync_block_new_parks++;
                 blocking_parks = 1;
+              }
+            /* Wake any reactors parked in blocking kqueue/epoll/poll/select
+             * so requires_full (OP_VM_RESIZE / OP_FDSET_RESIZE) never deadlocks. */
+            for (k = 0; k < ___vms->processor_count; k++)
+              {
+                if (life->sync_parked[k])
+                  ___device_select_abort (___PSTATE_FROM_PROCESSOR_ID(k, ___vms));
               }
             ___CONDVAR_WAIT(life->sync_part_cv, life->sync_part_mut);
             ___MUTEX_UNLOCK(life->sync_part_mut);
@@ -1974,6 +1987,13 @@ ___EXP_FUNC(___BOOL, ___fdset_resize)
 int fd1;
 int fd2;)
 {
+#if defined(USE_kqueue) || defined(USE_epoll)
+  /* Per-processor kqueue/epoll reactors size private FD bitmaps locally
+   * without stop-the-world OP_FDSET_RESIZE pauses or FD_SETSIZE limits. */
+  (void)fd1;
+  (void)fd2;
+  return 1;
+#else
   ___processor_state ___ps = ___PSTATE;
   ___virtual_machine_state ___vms = ___VMSTATE_FROM_PSTATE(___ps);
   ___sync_op_struct sop = {0,{0,0}};
@@ -1990,6 +2010,7 @@ int fd2;)
   on_all_processors (___PSP &sop);
 
   return !___vms->os.fdset.overflow;
+#endif
 }
 
 #endif

@@ -114,13 +114,17 @@ c-end
           (loop (+ i 1) (+ acc (vector-ref v 0) (car p)))))))
 
 (define (drive-to-phase! target-phase max-iters)
-  (let loop ((k 0))
-    (cond
-      ((= (cm-phase (gc-cm-stats)) target-phase) #t)
-      ((>= k max-iters) #f)
-      (else
-       (churn-young! 4000)
-       (loop (+ k 1))))))
+  ;; Step in sub-nursery chunks (~200 * 135 words ~ 216 KiB < 512 KiB nursery)
+  ;; so fast idle-core marking under the evented reactor cannot complete a full
+  ;; IDLE -> MARKING -> REMARK -> IDLE cycle inside a single churn call.
+  (let ((limit (* max-iters 20)))
+    (let loop ((k 0))
+      (cond
+        ((= (cm-phase (gc-cm-stats)) target-phase) #t)
+        ((>= k limit) #f)
+        (else
+         (churn-young! 200)
+         (loop (+ k 1)))))))
 
 (define (make-tagged-payload id)
   (let ((s (string-append "satb-" (number->string id))))
