@@ -440,6 +440,62 @@ ___HIDDEN int section_has_promo_room(___msection *sec, ___SIZE_TS *start_w_out)
   return 0;
 }
 
+___HIDDEN int section_advance_next_immix_hole(___msection *sec)
+{
+  const ___SIZE_TS max_lines = 8 * ___WORD_WIDTH;
+  ___SIZE_TS best_lo = 0, best_hi = 0;
+  ___SIZE_TS cur_lo = 0;
+  int in_run = 0;
+  ___SIZE_TS ln;
+
+  if (sec == 0)
+    return 0;
+
+  /* Scan 512-bit free-line bitmap (8 words) for the largest contiguous run
+   * of >= 4 free 128-word Immix lines (>= 512 words). */
+  for (ln = 0; ln < max_lines; ln++)
+    {
+      ___UWORD w = sec->major_line_live[ln / ___WORD_WIDTH];
+      ___UWORD bit = ___CAST(___UWORD, 1) << (ln & (___WORD_WIDTH - 1));
+      if ((w & bit) != 0)
+        {
+          if (!in_run)
+            {
+              in_run = 1;
+              cur_lo = ln;
+            }
+        }
+      else if (in_run)
+        {
+          if ((ln - cur_lo) >= 4 && (ln - cur_lo) > (best_hi - best_lo))
+            {
+              best_lo = cur_lo;
+              best_hi = ln;
+            }
+          in_run = 0;
+        }
+    }
+  if (in_run && (max_lines - cur_lo) >= 4 && (max_lines - cur_lo) > (best_hi - best_lo))
+    {
+      best_lo = cur_lo;
+      best_hi = max_lines;
+    }
+
+  if (best_hi > best_lo)
+    {
+      for (ln = best_lo; ln < best_hi; ln++)
+        sec->major_line_live[ln / ___WORD_WIDTH] &=
+          ~(___CAST(___UWORD, 1) << (ln & (___WORD_WIDTH - 1)));
+      sec->major_hole_start = best_lo << 7;
+      sec->major_hole_end = best_hi << 7;
+      return 1;
+    }
+
+  sec->major_hole_start = 0;
+  sec->major_hole_end = 0;
+  return 0;
+}
+
 ___HIDDEN ___SIZE_TS section_best_promo_span
    (___msection *sec,
     int allow_hole,
@@ -1293,8 +1349,8 @@ ___HIDDEN void finalize_gc_sections(___virtual_machine_state vm)
                         {
                           hbase[cur_off] = ___MAKE_HD_WORDS(hole_hi - cur_off - 1, ___sU8VECTOR);
                           record_mature_obj_start(s, hbase + cur_off);
-                          s->major_hole_start = 0;
-                          s->major_hole_end = 0;
+                          /* Multi-hole Immix: immediately advance to next free line run. */
+                          section_advance_next_immix_hole(s);
                         }
                       vm->mem.concurrent_major_holes_recycled_ += 1.0;
                     }

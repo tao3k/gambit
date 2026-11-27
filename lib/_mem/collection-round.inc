@@ -524,6 +524,15 @@ ___SIZE_TS requested_words_still;)
   active_worker=(worker_idx>=0);
   work=active_worker?&___COLLECTORS(___vms)[worker_idx]:0;
   ___ps->collector=work;
+  if (___COLLECTION(___vms).major_action == ___GC_MAJOR_ACTION_START)
+    {
+      if (active_worker)
+        major_initial_mark_clear_parallel(___vms, worker_idx, ___COLLECTION(___vms).worker_count);
+      BARRIER();
+      if (is_coord)
+        major_initial_mark_seed_wills(___vms);
+      BARRIER();
+    }
   if (!___COLLECTION(___vms).is_minor || ___COLLECTION(___vms).has_young_still)
     {
       if(active_worker) garbage_collect_setup_phase(work);

@@ -22,12 +22,101 @@
 
 #define ___GC_IMMIX_MIN_HOLE_WORDS    512
 
+#define ___GC_MAJOR_REMOTE_BATCH      32
+#define ___GC_MAJOR_MAX_STATIC_WORKERS 64
+
+typedef struct major_remote_inbox_struct
+  {
+    ___VOLATILE ___WORD lock;
+    ___SCMOBJ *buf;
+    ___SIZE_TS count;
+    ___SIZE_TS cap;
+    char pad[64 - (sizeof(___WORD) + sizeof(___SCMOBJ*) + 2 * sizeof(___SIZE_TS))];
+  } major_remote_inbox;
+
 typedef struct major_local_queue_struct
   {
     ___SCMOBJ *buf;
     unsigned int *count;
     unsigned int cap;
+    ___msection *last_sec;
+    int owner_w_id;
+    int owner_w_cnt;
+    major_remote_inbox *inboxes;
+    ___SCMOBJ (*out_buf)[___GC_MAJOR_REMOTE_BATCH];
+    unsigned int *out_cnt;
+    ___VOLATILE ___WORD *remote_pending;
   } major_local_queue;
+
+static inline void major_inbox_lock(major_remote_inbox *ib)
+{
+  for (;;)
+    {
+      ___WORD expected = 0;
+      if (___WORD_CAS_ACQUIRE(&ib->lock, expected, 1))
+        break;
+      ___CPU_RELAX();
+    }
+}
+
+static inline void major_inbox_unlock(major_remote_inbox *ib)
+{
+  ___WORD_STORE_RELEASE(&ib->lock, 0);
+}
+
+___HIDDEN void major_remote_flush_one
+   (___virtual_machine_state vm,
+    major_local_queue *q,
+    int dst)
+{
+  unsigned int n = q->out_cnt[dst];
+  major_remote_inbox *ib;
+
+  if (n == 0)
+    return;
+  ib = &q->inboxes[dst];
+  major_inbox_lock(ib);
+  if (ib->count + ___CAST(___SIZE_TS, n) > ib->cap)
+    {
+      ___SIZE_TS need = ib->count + ___CAST(___SIZE_TS, n);
+      ___SIZE_TS ncap = ib->cap ? (ib->cap * 2) : 512;
+      ___SCMOBJ *nbuf;
+      while (ncap < need)
+        ncap *= 2;
+      nbuf = ___CAST(___SCMOBJ*, ___ALLOC_MEM(ncap * sizeof(___SCMOBJ)));
+      if (nbuf == 0)
+        {
+          ___WORD_STORE_RELEASE(&vm->mem.satb_overflow_, 1);
+          major_inbox_unlock(ib);
+          q->out_cnt[dst] = 0;
+          return;
+        }
+      if (ib->count > 0 && ib->buf != 0)
+        memcpy(nbuf, ib->buf, ib->count * sizeof(___SCMOBJ));
+      if (ib->buf != 0)
+        ___FREE_MEM(ib->buf);
+      ib->buf = nbuf;
+      ib->cap = ncap;
+    }
+  memcpy(&ib->buf[ib->count], q->out_buf[dst], n * sizeof(___SCMOBJ));
+  ib->count += ___CAST(___SIZE_TS, n);
+  ___WORD_FETCH_ADD_RELEASE(q->remote_pending, ___CAST(___WORD, n));
+  major_inbox_unlock(ib);
+  q->out_cnt[dst] = 0;
+}
+
+static inline void major_remote_route
+   (___virtual_machine_state vm,
+    major_local_queue *q,
+    int dst,
+    ___SCMOBJ obj)
+{
+  unsigned int c = q->out_cnt[dst];
+  q->out_buf[dst][c++] = obj;
+  q->out_cnt[dst] = c;
+  if (c >= ___GC_MAJOR_REMOTE_BATCH)
+    major_remote_flush_one(vm, q, dst);
+}
 
 static inline void major_mark_lock(___virtual_machine_state vm)
 {
@@ -113,6 +202,25 @@ static inline ___msection *major_find_mature_section_ro
   if (addr - ___CAST(___UWORD, sec->base + sec->active_offset) < half_bytes)
     return sec;
   return 0;
+}
+
+static inline ___msection *major_find_mature_section_cached
+   (___virtual_machine_state vm,
+    major_local_queue *q,
+    ___UWORD addr)
+{
+  ___msection *sec;
+  if (q != 0 && q->last_sec != 0)
+    {
+      ___msection *ls = q->last_sec;
+      ___UWORD half_bytes = ___CAST(___UWORD, ___MSECTION_SIZE >> 1) * ___WS;
+      if (addr - ___CAST(___UWORD, ls->base + ls->active_offset) < half_bytes)
+        return ls;
+    }
+  sec = major_find_mature_section_ro(vm, addr);
+  if (q != 0 && sec != 0)
+    q->last_sec = sec;
+  return sec;
 }
 
 static inline ___WORD *major_find_mature_still_base_ro
@@ -313,31 +421,38 @@ ___HIDDEN void major_shade_mature_movable_q
   bit = ___CAST(___UWORD, 1) << (off & (___WORD_WIDTH - 1));
   if ((___CAST(___UWORD, ___WORD_LOAD_RELAXED(&mbits[w])) & bit) != 0)
     return;
-  prev = ___CAST(___UWORD, ___WORD_FETCH_OR_RELEASE(&mbits[w], ___CAST(___WORD, bit)));
-  if ((prev & bit) != 0)
-    return;
 
-  words = ___HD_WORDS(head);
+  /* Chez Creator-Owned Segment Routing during parallel Remark (Phase R-A):
+   *   - Owned section (sec->index % w_cnt == w_id): non-atomic mark, zero RMW!
+   *   - Remote section: route object to owner's remote inbox (zero cross-core
+   *     mark-bitmap cache-line bouncing). */
+  if (q != 0 && q->owner_w_cnt > 1 && q->inboxes != 0)
+    {
+      int owner = ___CAST(int, ___CAST(unsigned int, sec->index) %
+                               ___CAST(unsigned int, q->owner_w_cnt));
+      if (owner != q->owner_w_id)
+        {
+          subtype = ___HD_SUBTYPE(head);
+          major_remote_route(vm, q, owner, major_make_scmobj_from_body(header + 1, subtype));
+          return;
+        }
+      mbits[w] = ___CAST(___WORD, ___CAST(___UWORD, mbits[w]) | bit);
+      if (sec->major_live_words == 0)
+        sec->major_live_words = 1;
+    }
+  else
+    {
+      prev = ___CAST(___UWORD, ___WORD_FETCH_OR_RELEASE(&mbits[w], ___CAST(___WORD, bit)));
+      if ((prev & bit) != 0)
+        return;
+      /* Zero-contention monotonic 0->1 any_marked flag; exact live_words &
+       * Immix free-line bitmaps are computed locally in parallel Phase R-C. */
+      if (___WORD_LOAD_RELAXED(&sec->major_live_words) == 0)
+        ___WORD_STORE_RELEASE(&sec->major_live_words, 1);
+    }
+
+  (void)words;
   subtype = ___HD_SUBTYPE(head);
-  ___WORD_FETCH_ADD_RELEASE(&sec->major_live_words, ___CAST(___WORD, words + 1));
-
-  /* Record 128-word Immix line occupancy. */
-  {
-    ___SIZE_TS max_lines = 8 * ___WORD_WIDTH;
-    ___SIZE_TS line_lo = off >> 7;
-    ___SIZE_TS line_hi = (off + words) >> 7;
-    ___SIZE_TS ln;
-    if (line_hi >= max_lines)
-      line_hi = max_lines - 1;
-    for (ln = line_lo; ln <= line_hi; ln++)
-      {
-        ___VOLATILE ___WORD *lw =
-          ___CAST(___VOLATILE ___WORD*, &sec->major_line_live[ln / ___WORD_WIDTH]);
-        ___UWORD lbit = ___CAST(___UWORD, 1) << (ln & (___WORD_WIDTH - 1));
-        if ((___CAST(___UWORD, ___WORD_LOAD_RELAXED(lw)) & lbit) == 0)
-          ___WORD_FETCH_OR_RELEASE(lw, ___CAST(___WORD, lbit));
-      }
-  }
 
   /* Leaf objects are immediately BLACK without mark-stack traffic. */
   if (!still_subtype_has_pointers(subtype))
@@ -412,7 +527,7 @@ ___HIDDEN void major_shade_obj_q
 
   body = ___BODY0(val);
   hdr = body - 1;
-  sec = major_find_mature_section_ro(vm, ___CAST(___UWORD, hdr));
+  sec = major_find_mature_section_cached(vm, q, ___CAST(___UWORD, hdr));
   if (sec != 0)
     {
       ___SIZE_TS off = ___CAST(___SIZE_TS, hdr - (sec->base + sec->active_offset));
@@ -478,7 +593,7 @@ ___SCMOBJ old_val;)
 
   if (___ps->mem.major_mark_local_buf_ != 0)
     {
-      major_local_queue lq;
+      major_local_queue lq = {0};
       lq.buf = ___ps->mem.major_mark_local_buf_;
       lq.count = &___ps->mem.major_mark_local_count_;
       lq.cap = ___GC_MAJOR_LOCAL_MARK_CAP;
@@ -700,7 +815,7 @@ ___SIZE_TS budget_words;)
 {
   ___virtual_machine_state vm;
   ___SIZE_TS scanned = 0;
-  major_local_queue lq;
+  major_local_queue lq = {0};
   unsigned int i;
 
   if (___ps == 0 || budget_words <= 0)
@@ -909,26 +1024,12 @@ ___HIDDEN void major_initial_mark_begin(___virtual_machine_state vm)
         }
     }
 
-  /* Snapshot all existing mature sections and clear their mark bitmaps.
-   * Clear Immix hole markers until this cycle's Remark sweeps fresh dead runs. */
-  if (ms != 0)
-    {
-      for (sec = ms->head; sec != 0; sec = sec->next)
-        {
-          if (sec->region_age != ___GC_REGION_MATURE)
-            break;
-          sec->major_mark_epoch = epoch;
-          sec->major_snapshot_words = sec->mature_words;
-          sec->major_live_words = 0;
-          sec->major_evacuate = 0;
-          sec->major_hole_start = 0;
-          sec->major_hole_end = 0;
-          memset(sec->major_line_live, 0, sizeof(sec->major_line_live));
-          memset(___CAST(void*, section_major_mark_bits(sec)), 0, SECTION_MAJOR_MARK_BYTES);
-          if (sec == vm->mem.mature_tail_)
-            break;
-        }
-    }
+  /* Record mature section count for parallel Initial-Mark bitmap clear
+   * (major_initial_mark_clear_parallel runs across all w_cnt workers). */
+  ___COLLECTION(vm).major_sweep_nm = vm->mem.nb_msections_mature_;
+  (void)ms;
+  (void)sec;
+  (void)epoch;
 
   /* Snapshot all existing mature still object bases (read-only during MARKING)
    * and shade C-pinned (refcount > 0) mature still roots. */
@@ -996,8 +1097,25 @@ ___HIDDEN void major_initial_mark_begin(___virtual_machine_state vm)
         }
     }
 
-  /* Shade existing mature wills: executable wills keep testator+action live;
-   * nonexecutable wills keep will+action live without resurrecting testator. */
+  /* Publish MARKING phase and arm SATB barrier across ALL processors (active
+   * and parked FFI processors alike; ___leave_blocking_ffi also adopts it). */
+  vm->mem.minor_gcs_since_major_ = 0;
+  ___WORD_STORE_RELEASE(&vm->mem.major_phase_, ___GC_MAJOR_MARKING);
+  for (p = 0; p < np; p++)
+    {
+      ___processor_state ps = ___PSTATE_FROM_PROCESSOR_ID(p, vm);
+      ps->mem.satb_count_ = 0;
+      ps->mem.satb_overflow_ = 0;
+      ps->mem.major_mark_local_count_ = 0;
+      ___WORD_STORE_RELEASE(&ps->mem.satb_active_, 1);
+    }
+}
+
+/* Shade existing mature wills AFTER parallel section epoch/bitmap clear. */
+___HIDDEN void major_initial_mark_seed_wills(___virtual_machine_state vm)
+{
+  int np = vm->processor_count;
+  int p;
   for (p = 0; p < np; p++)
     {
       ___processor_state ps = ___PSTATE_FROM_PROCESSOR_ID(p, vm);
@@ -1021,18 +1139,32 @@ ___HIDDEN void major_initial_mark_begin(___virtual_machine_state vm)
           curr = wbody[___WILL_NEXT];
         }
     }
+}
 
-  /* Publish MARKING phase and arm SATB barrier across ALL processors (active
-   * and parked FFI processors alike; ___leave_blocking_ffi also adopts it). */
-  vm->mem.minor_gcs_since_major_ = 0;
-  ___WORD_STORE_RELEASE(&vm->mem.major_phase_, ___GC_MAJOR_MARKING);
-  for (p = 0; p < np; p++)
+/* Parallel Initial-Mark mature section snapshot & mark-bitmap clear across all
+ * w_cnt workers (Lean Theorem 5: strided partition si % w_cnt == w_id). */
+___HIDDEN void major_initial_mark_clear_parallel
+   (___virtual_machine_state vm,
+    int w_id,
+    int w_cnt)
+{
+  int nm = ___COLLECTION(vm).major_sweep_nm;
+  ___UWORD epoch = vm->mem.major_epoch_;
+  int si;
+
+  for (si = w_id; si < nm; si += w_cnt)
     {
-      ___processor_state ps = ___PSTATE_FROM_PROCESSOR_ID(p, vm);
-      ps->mem.satb_count_ = 0;
-      ps->mem.satb_overflow_ = 0;
-      ps->mem.major_mark_local_count_ = 0;
-      ___WORD_STORE_RELEASE(&ps->mem.satb_active_, 1);
+      ___msection *sec = vm->mem.mature_sections_[si];
+      if (sec == 0 || sec->region_age != ___GC_REGION_MATURE)
+        continue;
+      sec->major_mark_epoch = epoch;
+      sec->major_snapshot_words = sec->mature_words;
+      sec->major_live_words = 0;
+      sec->major_evacuate = 0;
+      sec->major_hole_start = 0;
+      sec->major_hole_end = 0;
+      memset(sec->major_line_live, 0, sizeof(sec->major_line_live));
+      memset(___CAST(void*, section_major_mark_bits(sec)), 0, SECTION_MAJOR_MARK_BYTES);
     }
 }
 
@@ -1068,7 +1200,7 @@ ___HIDDEN void major_drain_mark_stack_stw(___virtual_machine_state vm)
 {
   ___SCMOBJ lbuf[___GC_MAJOR_LOCAL_MARK_CAP];
   unsigned int lcnt = 0;
-  major_local_queue lq;
+  major_local_queue lq = {0};
   ___SIZE_TS scanned = 0;
 
   lq.buf = lbuf;
@@ -1232,6 +1364,18 @@ ___HIDDEN void major_remark_phase_a_prepare(___virtual_machine_state vm)
   ___process_times(&u0, &s0, &r0);
   g->major_remark_r0 = r0;
   ___WORD_STORE_RELEASE(&vm->mem.major_remark_working_, ___CAST(___WORD, g->worker_count));
+  ___WORD_STORE_RELEASE(&g->major_remote_pending, 0);
+  g->major_remote_inboxes = 0;
+  if (g->worker_count > 1 && g->worker_count <= ___GC_MAJOR_MAX_STATIC_WORKERS)
+    {
+      major_remote_inbox *ibs = ___CAST(major_remote_inbox*,
+        ___ALLOC_MEM(___CAST(___SIZE_TS, g->worker_count) * sizeof(major_remote_inbox)));
+      if (ibs != 0)
+        {
+          memset(ibs, 0, ___CAST(___SIZE_TS, g->worker_count) * sizeof(major_remote_inbox));
+          g->major_remote_inboxes = ibs;
+        }
+    }
   for (i = 0; i < g->worker_count; i++)
     {
       g->major_reclaimed_still[i] = 0;
@@ -1241,25 +1385,42 @@ ___HIDDEN void major_remark_phase_a_prepare(___virtual_machine_state vm)
 
 /* Phase R-A (Parallel across all w_cnt workers):
  *   1. Flush per-processor SATB + local mark buffers for p % w_cnt == w_id.
- *   2. Parallel work-stealing drain of global mark stack using stack-local
- *      lbuf[128] and exact atomic active-worker quiescence counter
- *      (major_remark_working_ == 0 && major_mark_stack_count_ == 0). */
+ *   2. Chez Creator-Owned Segment Routing: each worker owns sections where
+ *      (sec->index % w_cnt == w_id) with ZERO atomic RMWs on owned mark bitmaps;
+ *      remote pointers are batched into per-owner inboxes, eliminating global
+ *      major_mark_lock_ contention and cross-core bitmap cache-line bouncing.
+ *   3. Exact atomic quiescence: working == 0 && remote_pending == 0 && stack == 0. */
 ___HIDDEN void major_remark_phase_a_parallel
    (___virtual_machine_state vm,
     int w_id,
     int w_cnt)
 {
+  ___gc_round *g = &___COLLECTION(vm);
   int np = vm->processor_count;
-  int p;
+  int p, dst;
   ___SCMOBJ lbuf[___GC_MAJOR_LOCAL_MARK_CAP];
   unsigned int lcnt = 0;
-  major_local_queue lq;
+  ___SCMOBJ out_buf[___GC_MAJOR_MAX_STATIC_WORKERS][___GC_MAJOR_REMOTE_BATCH];
+  unsigned int out_cnt[___GC_MAJOR_MAX_STATIC_WORKERS];
+  major_remote_inbox *inboxes = ___CAST(major_remote_inbox*, g->major_remote_inboxes);
+  major_local_queue lq = {0};
   ___SIZE_TS scanned = 0;
   ___SIZE_TS satb_n = 0;
+  int use_chez = (w_cnt > 1 && w_cnt <= ___GC_MAJOR_MAX_STATIC_WORKERS && inboxes != 0);
 
   lq.buf = lbuf;
   lq.count = &lcnt;
   lq.cap = ___GC_MAJOR_LOCAL_MARK_CAP;
+  if (use_chez)
+    {
+      memset(out_cnt, 0, ___CAST(___SIZE_TS, w_cnt) * sizeof(unsigned int));
+      lq.owner_w_id = w_id;
+      lq.owner_w_cnt = w_cnt;
+      lq.inboxes = inboxes;
+      lq.out_buf = out_buf;
+      lq.out_cnt = out_cnt;
+      lq.remote_pending = &g->major_remote_pending;
+    }
 
   for (p = w_id; p < np; p += w_cnt)
     {
@@ -1292,6 +1453,40 @@ ___HIDDEN void major_remark_phase_a_parallel
             scanned += w;
         }
 
+      /* Chez remote flush & inbox drain (lock-free of global major_mark_lock_). */
+      if (use_chez)
+        {
+          for (dst = 0; dst < w_cnt; dst++)
+            {
+              if (out_cnt[dst] > 0)
+                major_remote_flush_one(vm, &lq, dst);
+            }
+          if (___WORD_LOAD_ACQUIRE(&inboxes[w_id].count) > 0)
+            {
+              major_remote_inbox *my_ib = &inboxes[w_id];
+              ___SCMOBJ rbatch[___GC_MAJOR_LOCAL_MARK_CAP];
+              unsigned int take = 0;
+              unsigned int ri;
+              major_inbox_lock(my_ib);
+              if (my_ib->count > 0)
+                {
+                  take = (my_ib->count > ___GC_MAJOR_LOCAL_MARK_CAP)
+                           ? ___GC_MAJOR_LOCAL_MARK_CAP
+                           : ___CAST(unsigned int, my_ib->count);
+                  my_ib->count -= ___CAST(___SIZE_TS, take);
+                  memcpy(rbatch, &my_ib->buf[my_ib->count], take * sizeof(___SCMOBJ));
+                  ___WORD_FETCH_ADD_RELEASE(&g->major_remote_pending, -___CAST(___WORD, take));
+                }
+              major_inbox_unlock(my_ib);
+              if (take > 0)
+                {
+                  for (ri = 0; ri < take; ri++)
+                    major_shade_obj_q(vm, &lq, rbatch[ri], 1);
+                  continue;
+                }
+            }
+        }
+
       major_mark_lock(vm);
       {
         ___WORD avail = ___WORD_LOAD_RELAXED(&vm->mem.major_mark_stack_count_);
@@ -1312,8 +1507,34 @@ ___HIDDEN void major_remark_phase_a_parallel
       if (w_cnt <= 1)
         break;
 
-      while (___WORD_LOAD_ACQUIRE(&vm->mem.major_remark_working_) > 0)
+      while (___WORD_LOAD_ACQUIRE(&vm->mem.major_remark_working_) > 0 ||
+             (use_chez && ___WORD_LOAD_ACQUIRE(&g->major_remote_pending) > 0))
         {
+          if (use_chez && ___WORD_LOAD_ACQUIRE(&inboxes[w_id].count) > 0)
+            {
+              major_remote_inbox *my_ib = &inboxes[w_id];
+              ___SCMOBJ rbatch[___GC_MAJOR_LOCAL_MARK_CAP];
+              unsigned int take = 0;
+              unsigned int ri;
+              major_inbox_lock(my_ib);
+              if (my_ib->count > 0)
+                {
+                  take = (my_ib->count > ___GC_MAJOR_LOCAL_MARK_CAP)
+                           ? ___GC_MAJOR_LOCAL_MARK_CAP
+                           : ___CAST(unsigned int, my_ib->count);
+                  my_ib->count -= ___CAST(___SIZE_TS, take);
+                  memcpy(rbatch, &my_ib->buf[my_ib->count], take * sizeof(___SCMOBJ));
+                  ___WORD_FETCH_ADD_RELEASE(&vm->mem.major_remark_working_, 1);
+                  ___WORD_FETCH_ADD_RELEASE(&g->major_remote_pending, -___CAST(___WORD, take));
+                }
+              major_inbox_unlock(my_ib);
+              if (take > 0)
+                {
+                  for (ri = 0; ri < take; ri++)
+                    major_shade_obj_q(vm, &lq, rbatch[ri], 1);
+                  break;
+                }
+            }
           if (___WORD_LOAD_ACQUIRE(&vm->mem.major_mark_stack_count_) > 0)
             {
               major_mark_lock(vm);
@@ -1335,7 +1556,9 @@ ___HIDDEN void major_remark_phase_a_parallel
             }
           ___CPU_RELAX();
         }
-      if (lcnt == 0)
+      if (lcnt == 0 &&
+          ___WORD_LOAD_ACQUIRE(&vm->mem.major_remark_working_) == 0 &&
+          (!use_chez || ___WORD_LOAD_ACQUIRE(&g->major_remote_pending) == 0))
         break;
     }
 
@@ -1349,15 +1572,29 @@ ___HIDDEN void major_remark_phase_a_parallel
 }
 
 /* Phase R-B (Coordinator after Phase R-A BARRIER):
- *   1. Overflow recovery if satb_overflow_ != 0.
- *   2. Resolve mature wills and drain any shaded testator subgraph.
- *   3. Atomically clear dead WHITE weak-table entries BEFORE SWEEPING.
- *   4. Transition phase -> SWEEPING, disarm SATB, freeze mature_sections count. */
+ *   1. Free Chez remote inboxes.
+ *   2. Overflow recovery if satb_overflow_ != 0.
+ *   3. Resolve mature wills and drain any shaded testator subgraph.
+ *   4. Atomically clear dead WHITE weak-table entries BEFORE SWEEPING.
+ *   5. Transition phase -> SWEEPING, disarm SATB, freeze mature_sections count. */
 ___HIDDEN void major_remark_phase_b_coord(___virtual_machine_state vm)
 {
   ___gc_round *g = &___COLLECTION(vm);
   int np = vm->processor_count;
   int p;
+
+  if (g->major_remote_inboxes != 0)
+    {
+      major_remote_inbox *ibs = ___CAST(major_remote_inbox*, g->major_remote_inboxes);
+      int wi;
+      for (wi = 0; wi < g->worker_count; wi++)
+        {
+          if (ibs[wi].buf != 0)
+            ___FREE_MEM(ibs[wi].buf);
+        }
+      ___FREE_MEM(ibs);
+      g->major_remote_inboxes = 0;
+    }
 
   if (___WORD_LOAD_ACQUIRE(&vm->mem.satb_overflow_) != 0)
     major_overflow_recovery_scan_stw(vm);
@@ -1469,39 +1706,42 @@ ___HIDDEN void major_remark_phase_b_coord(___virtual_machine_state vm)
 
 /* Close one contiguous dead WHITE run [run_lo, run_hi) strictly inside full
  * cards [0 .. full_card_words) by emitting card-aligned leaf ___sU8VECTOR
- * fillers, recording exact card starts, and tracking the largest Immix hole. */
+ * fillers, recording exact card starts, and recording ALL >=512-word 128-word
+ * aligned Immix free line runs in sec->major_line_live[] for multi-hole reuse. */
 static inline void major_close_dead_run
    (___msection *sec,
     ___WORD *base,
     ___SIZE_TS run_lo,
-    ___SIZE_TS run_hi,
-    ___SIZE_TS *best_lo,
-    ___SIZE_TS *best_hi)
+    ___SIZE_TS run_hi)
 {
-  ___SIZE_TS h_lo, h_hi;
+  ___SIZE_TS l_lo, l_hi;
   if (run_hi <= run_lo)
     return;
-  h_lo = (run_lo + ___GC_CARD_WORDS - 1) & ~___CAST(___SIZE_TS, ___GC_CARD_WORDS - 1);
-  h_hi = run_hi & ~___CAST(___SIZE_TS, ___GC_CARD_WORDS - 1);
-  if (h_hi > h_lo)
+  l_lo = (run_lo + 127) & ~___CAST(___SIZE_TS, 127);
+  l_hi = run_hi & ~___CAST(___SIZE_TS, 127);
+  if (l_hi > l_lo && (l_hi - l_lo) >= ___GC_IMMIX_MIN_HOLE_WORDS)
     {
-      if (h_lo > run_lo)
+      const ___SIZE_TS max_lines = 8 * ___WORD_WIDTH;
+      ___SIZE_TS ln_lo = l_lo >> 7;
+      ___SIZE_TS ln_hi = l_hi >> 7;
+      ___SIZE_TS ln;
+      if (l_lo > run_lo)
         {
-          base[run_lo] = ___MAKE_HD_WORDS(h_lo - run_lo - 1, ___sU8VECTOR);
+          base[run_lo] = ___MAKE_HD_WORDS(l_lo - run_lo - 1, ___sU8VECTOR);
           record_mature_obj_start(sec, base + run_lo);
         }
-      base[h_lo] = ___MAKE_HD_WORDS(h_hi - h_lo - 1, ___sU8VECTOR);
-      record_mature_obj_start(sec, base + h_lo);
-      if (run_hi > h_hi)
+      base[l_lo] = ___MAKE_HD_WORDS(l_hi - l_lo - 1, ___sU8VECTOR);
+      record_mature_obj_start(sec, base + l_lo);
+      if (run_hi > l_hi)
         {
-          base[h_hi] = ___MAKE_HD_WORDS(run_hi - h_hi - 1, ___sU8VECTOR);
-          record_mature_obj_start(sec, base + h_hi);
+          base[l_hi] = ___MAKE_HD_WORDS(run_hi - l_hi - 1, ___sU8VECTOR);
+          record_mature_obj_start(sec, base + l_hi);
         }
-      if ((h_hi - h_lo) > (*best_hi - *best_lo))
-        {
-          *best_lo = h_lo;
-          *best_hi = h_hi;
-        }
+      if (ln_hi > max_lines)
+        ln_hi = max_lines;
+      for (ln = ln_lo; ln < ln_hi; ln++)
+        sec->major_line_live[ln / ___WORD_WIDTH] |=
+          (___CAST(___UWORD, 1) << (ln & (___WORD_WIDTH - 1)));
     }
   else
     {
@@ -1600,8 +1840,10 @@ ___HIDDEN void major_remark_phase_c_parallel
         }
 
       {
-        ___SIZE_TS best_lo = 0, best_hi = 0;
+        ___SIZE_TS local_live_words = 0;
         ___SIZE_TS effective_live;
+
+        memset(sec->major_line_live, 0, sizeof(sec->major_line_live));
 
         if (sec->major_mark_epoch == epoch && sec->major_snapshot_words > 0)
           {
@@ -1661,7 +1903,7 @@ ___HIDDEN void major_remark_phase_c_parallel
                                * flush prior run and overwrite this header in place. */
                               if (in_dead)
                                 {
-                                  major_close_dead_run(sec, base, run_lo, run_hi, &best_lo, &best_hi);
+                                  major_close_dead_run(sec, base, run_lo, run_hi);
                                   in_dead = 0;
                                 }
                               *ptr = ___MAKE_HD_WORDS(words, ___sU8VECTOR);
@@ -1670,9 +1912,10 @@ ___HIDDEN void major_remark_phase_c_parallel
                         }
                       else
                         {
+                          local_live_words += (words + 1);
                           if (in_dead)
                             {
-                              major_close_dead_run(sec, base, run_lo, run_hi, &best_lo, &best_hi);
+                              major_close_dead_run(sec, base, run_lo, run_hi);
                               in_dead = 0;
                             }
                           record_mature_obj_start(sec, ptr);
@@ -1685,36 +1928,31 @@ ___HIDDEN void major_remark_phase_c_parallel
                        * without altering starts[boundary_card]. */
                       if (in_dead)
                         {
-                          major_close_dead_run(sec, base, run_lo, run_hi, &best_lo, &best_hi);
+                          major_close_dead_run(sec, base, run_lo, run_hi);
                           in_dead = 0;
                         }
                       if (!major_is_marked_word(sec, off))
                         *ptr = ___MAKE_HD_WORDS(words, ___sU8VECTOR);
+                      else
+                        local_live_words += (words + 1);
                     }
                   ptr += words + 1;
                 }
               }
             if (in_dead)
-              major_close_dead_run(sec, base, run_lo, run_hi, &best_lo, &best_hi);
+              major_close_dead_run(sec, base, run_lo, run_hi);
+            sec->major_live_words = ___CAST(___WORD, local_live_words);
           }
 
-        if (best_hi > best_lo && (best_hi - best_lo) >= ___GC_IMMIX_MIN_HOLE_WORDS)
-          {
-            sec->major_hole_start = best_lo;
-            sec->major_hole_end = best_hi;
-          }
-        else
-          {
-            sec->major_hole_start = 0;
-            sec->major_hole_end = 0;
-          }
+        /* Multi-hole Immix: claim first/largest dead hole from major_line_live[]. */
+        section_advance_next_immix_hole(sec);
 
         if (sec->major_mark_epoch == epoch)
           {
             ___SIZE_TS post_snap = (sec->mature_words > sec->major_snapshot_words)
                                      ? (sec->mature_words - sec->major_snapshot_words)
                                      : 0;
-            effective_live = ___CAST(___SIZE_TS, sec->major_live_words) + post_snap;
+            effective_live = local_live_words + post_snap;
           }
         else
           effective_live = sec->mature_words;

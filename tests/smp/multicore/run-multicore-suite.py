@@ -216,6 +216,73 @@ SCALING_WORKLOADS: dict[str, tuple[str, str, str]] = {
 (run-par-gc-live)
 """,
     ),
+    "par_oldgen_churn_live": (
+        "PAR_OLDGEN_CHURN_PASS",
+        ",m65536",
+        r"""
+(declare (standard-bindings) (extended-bindings) (block))
+;; Large mutable old-gen churn: each worker owns a 4096-slot mature ring buffer
+;; of mixed vectors+pairs and replaces 40,000 old-gen entries concurrently,
+;; stressing concurrent SATB major GC, parallel Remark, and Immix hole recycling.
+(define (make-old-node id seq)
+  (vector id seq (cons seq (+ seq 1)) (make-vector 16 seq)))
+(define (run-par-oldgen-churn)
+  (let* ((ready (make-vector 8 #f))
+         (go (make-vector 1 #f))
+         (ring-len 4096)
+         (iters 40000)
+         (threads
+          (let loop ((w 0) (acc '()))
+            (if (= w 8)
+                acc
+                (loop (+ w 1)
+                      (cons
+                       (thread-start!
+                        (make-thread
+                         (lambda ()
+                           (let ((ring (make-vector ring-len #f)))
+                             (let init ((i 0))
+                               (if (< i ring-len)
+                                   (begin
+                                     (vector-set! ring i (make-old-node w i))
+                                     (init (+ i 1)))))
+                             (vector-set! ready w #t)
+                             (let wait ()
+                               (if (not (vector-ref go 0))
+                                   (begin (thread-yield!) (wait))))
+                             (let m-loop ((i 0) (s 0))
+                               (if (= i iters)
+                                   s
+                                   (let* ((slot (bitwise-and i 4095))
+                                          (probe (bitwise-and (+ i 17) 4095)))
+                                     (vector-set! ring slot (make-old-node w (+ i ring-len)))
+                                     (let ((p (vector-ref ring probe)))
+                                       (m-loop (+ i 1)
+                                               (+ s (vector-ref p 1)
+                                                  (vector-ref (vector-ref p 3) 0)))))))))))
+                       acc)))))
+         (_ (let wait-all ()
+              (if (let chk ((i 0))
+                    (cond ((= i 8) #t)
+                          ((vector-ref ready i) (chk (+ i 1)))
+                          (else #f)))
+                  'ok
+                  (begin (thread-yield!) (wait-all)))))
+         (_ (##gc))
+         (s0 (##process-statistics))
+         (t0 (f64vector-ref s0 2)))
+    (vector-set! go 0 #t)
+    (let* ((vals (map thread-join! threads))
+           (s1 (##process-statistics))
+           (work-real (- (f64vector-ref s1 2) t0))
+           (gcs (inexact->exact (round (- (f64vector-ref s1 6) (f64vector-ref s0 6)))))
+           (gc-user (- (f64vector-ref s1 3) (f64vector-ref s0 3)))
+           (gc-real (- (f64vector-ref s1 5) (f64vector-ref s0 5))))
+      (for-each (lambda (v) (if (<= v 0) (error "oldgen churn mismatch" v))) vals)
+      (println "PAR_OLDGEN_CHURN_PASS workers=8 ring=4096 iters=40000 work_real=" work-real " gcs=" gcs " gc_real=" gc-real " gc_user=" gc-user))))
+(run-par-oldgen-churn)
+""",
+    ),
     "par_sync_mailbox_cas": (
         "PAR_SYNC_MAILBOX_PASS",
         "",

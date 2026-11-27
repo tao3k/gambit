@@ -301,6 +301,8 @@ typedef struct ___gc_round_struct
     ___F64 major_remark_r0;
     ___SIZE_TS *major_reclaimed_still;
     ___SIZE_TS *major_live_still;
+    void *major_remote_inboxes;
+    ___VOLATILE ___WORD major_remote_pending;
     ___msection **young_heap_secs;
     ___gc_card_hint *hints;
   } ___gc_round;
