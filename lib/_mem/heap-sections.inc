@@ -1235,6 +1235,8 @@ ___HIDDEN void prepare_worker_msection
 
   section->gc_dest_offset = dest_off;
   section->gc_is_dest = (promo_mode == 2) ? 3 : (promo_mode ? 2 : 1);
+  if (promo_mode == 2)
+    section->region_generation++;
   if (promo_mode == 0)
     memset(section->base + ___MSECTION_SIZE, 0,
            ___msection_scan_words(___MSECTION_SIZE) * ___WS);

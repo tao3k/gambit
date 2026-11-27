@@ -116,6 +116,8 @@ MEMORY_SOURCES = rest-observation.h _mem/rest-observation.inc _mem/configuration
   _mem/root-origins.inc \
   _mem/collection-round.inc \
   _mem/generational.inc \
+  _mem/local-nursery.inc \
+  _mem/lxr-drc.inc \
   _mem/concurrent-major.inc \
   _mem/allocation-limits.inc \
   _mem/allocation-statistics.inc

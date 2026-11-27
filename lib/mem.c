@@ -108,6 +108,7 @@ ___HIDDEN void major_remark_phase_d_coord(___virtual_machine_state vm);
 ___HIDDEN void major_abort_for_full_compacting_gc(___virtual_machine_state vm);
 ___HIDDEN int gc_adaptive_live_percent(___SIZE_TS live_words, int explicit_flag, int configured_pct, ___SIZE_T max_heap_bytes);
 ___HIDDEN void gc_update_major_triggers(___virtual_machine_state vm);
+___HIDDEN void lxr_drc_mark_promoted_span(___virtual_machine_state vm, ___msection *sec, ___SIZE_TS word_lo, ___SIZE_TS word_hi);
 #include "_mem/copy-reservations.inc"
 #include "_mem/continuation-roots.inc"
 #include "_mem/rc-roots.inc"
@@ -115,6 +116,7 @@ ___HIDDEN void gc_update_major_triggers(___virtual_machine_state vm);
 #include "_mem/generational.inc"
 #include "_mem/still-sweep.inc"
 #include "_mem/local-nursery.inc"
+#include "_mem/lxr-drc.inc"
 #include "_mem/concurrent-major.inc"
 #include "_mem/memory-lifecycle.inc"
 #include "_mem/wills.inc"

@@ -303,6 +303,7 @@ typedef struct ___gc_round_struct
     ___SIZE_TS *major_live_still;
     void *major_remote_inboxes;
     ___VOLATILE ___WORD major_remote_pending;
+    void *lxr_drc;
     ___msection **young_heap_secs;
     ___gc_card_hint *hints;
   } ___gc_round;

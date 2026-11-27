@@ -1702,6 +1702,8 @@ ___HIDDEN void major_remark_phase_b_coord(___virtual_machine_state vm)
     }
 
   g->major_sweep_nm = vm->mem.nb_msections_mature_;
+  if (vm->mem.the_msections_ != 0)
+    lxr_drc_ensure(vm, vm->mem.the_msections_->nb_sections);
 }
 
 /* Close one contiguous dead WHITE run [run_lo, run_hi) strictly inside full
@@ -1944,7 +1946,9 @@ ___HIDDEN void major_remark_phase_c_parallel
             sec->major_live_words = ___CAST(___WORD, local_live_words);
           }
 
-        /* Multi-hole Immix: claim first/largest dead hole from major_line_live[]. */
+        /* Sync 2-bit deferred-RC side-table from exact SATB sweep liveness,
+         * then claim the first/largest dead hole from major_line_live[]. */
+        lxr_drc_sync_section_after_sweep(vm, sec);
         section_advance_next_immix_hole(sec);
 
         if (sec->major_mark_epoch == epoch)

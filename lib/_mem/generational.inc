@@ -1352,6 +1352,7 @@ ___HIDDEN void finalize_gc_sections(___virtual_machine_state vm)
                           /* Multi-hole Immix: immediately advance to next free line run. */
                           section_advance_next_immix_hole(s);
                         }
+                      lxr_drc_mark_promoted_span(vm, s, hole_lo, cur_off);
                       vm->mem.concurrent_major_holes_recycled_ += 1.0;
                     }
                   s->region_age = ___GC_REGION_MATURE;

@@ -886,6 +886,8 @@ ___virtual_machine_state ___vms;)
 
 #endif
 
+  lxr_drc_free(___vms);
+
   /* An already cleaned or unconstructed processor owns no still/RC state.
    * Failure rollback must not run its cleanup twice or inspect stale fields. */
   if (___PSTATE_FROM_PROCESSOR_ID(0,___vms)->mem.rc_domain_ != 0)
