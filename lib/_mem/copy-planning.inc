@@ -350,8 +350,10 @@ ___HIDDEN int plan_copy_round(___processor_state ps, ___SIZE_TS requested_words_
 
   /* Fast O(Y + n) Minor GC admission: when all copied objects come strictly
    * from the Y active young sections and n active processor stacks (no
-   * selective evacuation, no tight max_heap), the physical word count of those
-   * young sections plus stacks is a sound upper bound on destination demand.
+   * selective evacuation, no tight max_heap), the physical half-space capacity
+   * of every young section plus active stacks is a sound upper bound on
+   * destination demand (covering both heap objects and captured/suspended
+   * continuation frames in any young section, plus 32-bit align8 padding).
    * When existing sections already cover that bound (within w sections), skip
    * the redundant single-threaded full-graph census trace so all w workers
    * trace and copy in parallel immediately. */
@@ -360,6 +362,11 @@ ___HIDDEN int plan_copy_round(___processor_state ps, ___SIZE_TS requested_words_
       the_msections != 0)
     {
       ___SIZE_TS half_words = (___MSECTION_SIZE >> 1);
+#if ___WS == 4
+      ___SIZE_TS sec_bound = half_words + (half_words >> 1);
+#else
+      ___SIZE_TS sec_bound = half_words;
+#endif
       ___SIZE_TS actual_young_words = 0;
       ___SIZE_TS total_stack_words = 0;
       ___SIZE_TS max_stack_words = ___MSECTION_BIGGEST + 4;
@@ -369,40 +376,8 @@ ___HIDDEN int plan_copy_round(___processor_state ps, ___SIZE_TS requested_words_
 
       for (section = g->young_head; section != 0; section = section->next)
         {
-          int is_active_heap = 0;
-          int p;
           y_secs++;
-          for (p = 0; p < n; p++)
-            {
-              ___processor_state pps = round->members[p].owner;
-              if (pps != 0 && pps->mem.heap_msection_ == section)
-                {
-                  ___SIZE_TS used = 0;
-                  if (pps->mem.alloc_heap_ptr_ > pps->mem.alloc_heap_start_)
-                    used = ___CAST(___SIZE_TS, pps->mem.alloc_heap_ptr_ - pps->mem.alloc_heap_start_);
-                  if (used > half_words)
-                    used = half_words;
-                  actual_young_words += used;
-                  is_active_heap = 1;
-                  break;
-                }
-            }
-          if (!is_active_heap)
-            {
-              /* Skip pure stack sections (accounted via total_stack_words below). */
-              int is_stack_only = 0;
-              for (p = 0; p < n; p++)
-                {
-                  ___processor_state pps = round->members[p].owner;
-                  if (pps != 0 && pps->mem.stack_msection_ == section)
-                    {
-                      is_stack_only = 1;
-                      break;
-                    }
-                }
-              if (!is_stack_only)
-                actual_young_words += half_words;
-            }
+          actual_young_words += sec_bound;
           if (section == alloc_msection)
             break;
         }
