@@ -156,6 +156,12 @@ ___SIZE_TS bytes;)
               ___SIZE_TS cap = rem / (2 * vm->processor_count + 2);
               ___SIZE_TS chunk = (___MSECTION_SIZE >> 2);
               extra = cap < chunk ? cap : chunk;
+              if (extra < words)
+                {
+                  ___SIZE_TS target = (words <= ((___SIZE_TS)-1) / 4) ? (4 * words) : rem;
+                  ___SIZE_TS floor_extra = rem < target ? rem : target;
+                  extra = floor_extra < chunk ? floor_extra : chunk;
+                }
             }
 
           occupied_words_still += words;
