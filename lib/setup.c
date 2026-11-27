@@ -106,7 +106,12 @@ int code;)
     return;
 #endif
 
-  if (___INTERRUPT_REQ(___ps->intr_flag[code] = ___FIX(1)<<code))
+  ___WORD_STORE_RELEASE(&___ps->intr_flag[code], ___FIX(1)<<code);
+  /* Dekker Store-Load fence: publish intr_flag[code] before checking
+   * intr_enabled/intr_mask so a concurrent ___enable_interrupts_pstate or
+   * ___INTERRUPT_MASK_SET cannot miss this interrupt on TSO/PSO/ARM64. */
+  ___SHARED_MEMORY_BARRIER();
+  if (___INTERRUPT_REQ(___FIX(1)<<code))
     {
       ___STACK_TRIP_ON();
       ___SHARED_MEMORY_BARRIER(); /* make sure write happens promptly */
@@ -249,7 +254,7 @@ ___processor_state ___ps;)
       if (code < ___INTR_OTHER ||
           service_procedural_interrupts_pstate (___ps) == ___FIX(___NO_ERR))
         {
-          ___ps->intr_flag[code] = ___FIX(0);
+          ___WORD_STORE_RELEASE(&___ps->intr_flag[code], ___FIX(0));
 
           result = ___FIX(code);
 
@@ -358,7 +363,8 @@ ___EXP_FUNC(void,___disable_interrupts_pstate)
 ___processor_state ___ps;)
 {
   /* Disable all interrupts except ___INTR_SYNC_OP */
-  ___ps->intr_enabled = ___FIX(1<<___INTR_SYNC_OP);
+  ___WORD_STORE_RELEASE(___CAST(___VOLATILE ___WORD*, &___ps->intr_enabled),
+                        ___FIX(1<<___INTR_SYNC_OP));
 
   ___refresh_interrupts_pstate (___ps);
 }
@@ -370,7 +376,8 @@ ___EXP_FUNC(void,___enable_interrupts_pstate)
 ___processor_state ___ps;)
 {
   /* Enable all interrupts */
-  ___ps->intr_enabled = ___FIX((1<<___NB_INTRS)-1);
+  ___WORD_STORE_RELEASE(___CAST(___VOLATILE ___WORD*, &___ps->intr_enabled),
+                        ___FIX((1<<___NB_INTRS)-1));
 
   ___refresh_interrupts_pstate (___ps);
 }
@@ -384,14 +391,16 @@ ___processor_state ___ps;)
   int i;
 
   /* Disable all interrupts except ___INTR_SYNC_OP */
-  ___ps->intr_enabled = ___FIX(1<<___INTR_SYNC_OP);
+  ___WORD_STORE_RELEASE(___CAST(___VOLATILE ___WORD*, &___ps->intr_enabled),
+                        ___FIX(1<<___INTR_SYNC_OP));
 
   /* Mask no interrupts */
-  ___ps->intr_mask = ___FIX(0);
+  ___WORD_STORE_RELEASE(___CAST(___VOLATILE ___WORD*, &___ps->intr_mask),
+                        ___FIX(0));
 
   /* None of the interrupts are requested */
   for (i=0; i<___NB_INTRS; i++)
-    ___ps->intr_flag[i] = ___FIX(0);
+    ___WORD_STORE_RELEASE(&___ps->intr_flag[i], ___FIX(0));
 
   /* Initialize empty queue of procedural interrupts */
   ___ps->procedural_interrupts_head = NULL;
@@ -1432,7 +1441,7 @@ ___BOOL first_iter;)
            * synchronization to get out of sync).
            */
 
-          ___ps->intr_flag[___INTR_SYNC_OP] = ___FIX(0);
+          ___WORD_STORE_RELEASE(&___ps->intr_flag[___INTR_SYNC_OP], ___FIX(0));
         }
 
       if (sop.op == OP_NOOP)

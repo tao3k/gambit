@@ -182,9 +182,12 @@ ___processor_state ___ps;)
   ___ps->mem.gc_calls_to_punt_ = 2000;
 #else
   {
-    ___SIZE_TS free_approx = compute_free_heap_space_approximately();
+    ___SIZE_TS free_approx;
     int np = ___VMSTATE_FROM_PSTATE(___ps)->processor_count;
     int div = (np <= 1) ? 2 : (np + 1);
+    ALLOC_MEM_LOCK();
+    free_approx = compute_free_heap_space_approximately();
+    ALLOC_MEM_UNLOCK();
     if (div > 8) div = 8;
     avail = (free_approx > 0) ? (free_approx / div) : 0;
   }
@@ -216,11 +219,11 @@ ___processor_state ___ps;)
       alloc_heap_ptr && alloc_heap_limit &&
       alloc_heap_ptr >= alloc_heap_start &&
       alloc_heap_ptr <= alloc_heap_limit &&
-      (___SIZE_TS)(alloc_heap_limit - alloc_heap_ptr) <= (___SIZE_TS)___MSECTION_FUDGE &&
-      compute_free_heap_space_approximately() >= ___MSECTION_SIZE)
+      (___SIZE_TS)(alloc_heap_limit - alloc_heap_ptr) <= (___SIZE_TS)___MSECTION_FUDGE)
     {
       ALLOC_MEM_LOCK();
-      next_heap_msection_without_locking (___ps);
+      if (compute_free_heap_space_approximately() >= ___MSECTION_SIZE)
+        next_heap_msection_without_locking (___ps);
       ALLOC_MEM_UNLOCK();
     }
   {
@@ -417,7 +420,9 @@ ___processor_state ___ps;)
    * ___stack_overflow_undo_if_possible).
    */
 
-  ___ps->context->stack_start = alloc_stack_start;
+  ___WORD_STORE_RELEASE(
+    ___CAST(___VOLATILE ___WORD*, &___ps->context->stack_start),
+    ___CAST(___WORD, alloc_stack_start));
   alloc_stack_ptr = alloc_stack_start;
 
   ___FP_ADJFP(alloc_stack_ptr,___FIRST_BREAK_FRAME_SPACE)

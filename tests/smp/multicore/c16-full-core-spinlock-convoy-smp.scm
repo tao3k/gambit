@@ -15,10 +15,10 @@
                (s (+ (f64vector-ref v 0) (f64vector-ref v 255))))
           ;; Interleave contended CAS every 32 iterations to amplify lock/cache traffic
           (if (= (modulo i 32) 0)
-              (let retry ()
-                (let ((old (vector-ref cas-box 0)))
-                  (if (not (eq? (##vector-cas! cas-box 0 (+ old 1) old) old))
-                      (retry)))))
+              (let retry ((old (##vector-cas! cas-box 0 0 0)))
+                (let ((prev (##vector-cas! cas-box 0 (+ old 1) old)))
+                  (if (not (eq? prev old))
+                      (retry prev)))))
           (loop (+ i 1) (+ acc s (if (pair? p) 1.0 0.0)))))))
 
 (define (run-c16)

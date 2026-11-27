@@ -2293,6 +2293,7 @@
 "##receive"
 "##register-module-descr!"
 "##register-module-descrs"
+"##registered-modules-box-load"
 "##remainder"
 "##remove"
 "##remove-module-pair"
@@ -12190,6 +12191,7 @@
 "##register-module-descr!"
 "##register-module-descrs"
 "##registered-modules-box"
+"##registered-modules-box-load"
 "##remainder"
 "##remove"
 "##remove-module-pair"
@@ -22222,6 +22224,7 @@ ___DEF_OLD_SYM_GLO(___S__23__23_register_2d_module_2d_descr_21_,___G__23__23_reg
 ___DEF_OLD_SYM_GLO(___S__23__23_register_2d_module_2d_descrs,___G__23__23_register_2d_module_2d_descrs)
 ___DEF_OLD_SYM_GLO(___S__23__23_registered_2d_modules,___G__23__23_registered_2d_modules)
 ___DEF_OLD_SYM_GLO(___S__23__23_registered_2d_modules_2d_box,___G__23__23_registered_2d_modules_2d_box)
+___DEF_OLD_SYM_GLO(___S__23__23_registered_2d_modules_2d_box_2d_load,___G__23__23_registered_2d_modules_2d_box_2d_load)
 ___DEF_OLD_SYM_GLO(___S__23__23_remainder,___G__23__23_remainder)
 ___DEF_OLD_SYM_GLO(___S__23__23_remove,___G__23__23_remove)
 ___DEF_OLD_SYM_GLO(___S__23__23_remove_2d_module_2d_pair,___G__23__23_remove_2d_module_2d_pair)

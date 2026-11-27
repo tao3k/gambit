@@ -172,7 +172,9 @@ ___PSDKR)
        * Move to the new stack msection.
        */
 
-      ___ps->context->stack_start = alloc_stack_start;
+      ___WORD_STORE_RELEASE(
+        ___CAST(___VOLATILE ___WORD*, &___ps->context->stack_start),
+        ___CAST(___WORD, alloc_stack_start));
       alloc_stack_ptr = alloc_stack_start;
 
       /*
@@ -320,10 +322,11 @@ ___PSDKR)
           words_prev_msections += alloc_heap_ptr-alloc_heap_start;
           set_heap_msection (___ps, heap_ms);
         }
-      else if (compute_free_heap_space_approximately() >= ___MSECTION_SIZE)
+      else
         {
           ALLOC_MEM_LOCK();
-          next_heap_msection_without_locking (___ps);
+          if (compute_free_heap_space_approximately() >= ___MSECTION_SIZE)
+            next_heap_msection_without_locking (___ps);
           ALLOC_MEM_UNLOCK();
         }
     }
@@ -409,7 +412,9 @@ ___PSDKR)
       alloc_stack_limit=floor;
       ___ps->context->stack_break=break_frame;
       alloc_stack_ptr=next_frame;
-      ___ps->context->stack_start = alloc_stack_start;
+      ___WORD_STORE_RELEASE(
+        ___CAST(___VOLATILE ___WORD*, &___ps->context->stack_start),
+        ___CAST(___WORD, alloc_stack_start));
 
       stack_msection_resume_using (___ps, alloc_stack_start, alloc_stack_ptr);
       release_stack_section(___ps,outgoing);
@@ -998,10 +1003,15 @@ static int bump_heap_section_for_demand(___processor_state ___ps, ___WORD *hp,
    * back so the next free section can be published. */
   if (hp>alloc_heap_limit) hp=alloc_heap_limit;
   if (hp<alloc_heap_start) return 0;
-  if (compute_free_heap_space_approximately()<___MSECTION_SIZE) return 0;
+  ALLOC_MEM_LOCK();
+  if (compute_free_heap_space_approximately()<___MSECTION_SIZE) {
+    ALLOC_MEM_UNLOCK();
+    return 0;
+  }
   if (heap_words>0 && ___heap_alloc_fits(___ps, hp, heap_words) &&
       alloc_heap_limit && hp<=alloc_heap_limit &&
       (___SIZE_TS)(alloc_heap_limit-hp)>(___SIZE_TS)___MSECTION_FUDGE) {
+    ALLOC_MEM_UNLOCK();
     if ((___SIZE_TS)(alloc_heap_limit-hp)-(___SIZE_TS)___MSECTION_FUDGE>=heap_words) {
       alloc_heap_ptr=hp;
       publish_bumped_heap_limit(___ps);
@@ -1010,7 +1020,8 @@ static int bump_heap_section_for_demand(___processor_state ___ps, ___WORD *hp,
     return 0;
   }
   alloc_heap_ptr=hp;
-  next_heap_msection(___ps);
+  next_heap_msection_without_locking(___ps);
+  ALLOC_MEM_UNLOCK();
   publish_bumped_heap_limit(___ps);
   return ___ps->context->hp==alloc_heap_ptr;
 }
@@ -1064,16 +1075,17 @@ int ___heap_continue_on_free_section(___processor_state ___ps)
   /* Assigned sections are not a heap limit before GC admission opens.
    * Once GC is admitted, do not bypass collection by growing the pool here. */
   if (!___lifecycle_gc_admitted(___ps) &&
-      compute_free_heap_space_approximately()<___MSECTION_SIZE &&
       ___GSTATE->setup_params.max_heap==0 && the_msections) {
     int n, add, grown;
     ALLOC_MEM_LOCK();
-    n=the_msections->nb_sections;
-    add=n/2;
-    if (add<8) add=8;
-    grown=n>0 && add<=INT_MAX-n ? n+add : n;
-    if (grown>n) adjust_msections(&the_msections, grown);
-    heap_size=compute_heap_size();
+    if (compute_free_heap_space_approximately()<___MSECTION_SIZE) {
+      n=the_msections->nb_sections;
+      add=n/2;
+      if (add<8) add=8;
+      grown=n>0 && add<=INT_MAX-n ? n+add : n;
+      if (grown>n) adjust_msections(&the_msections, grown);
+      heap_size=compute_heap_size();
+    }
     ALLOC_MEM_UNLOCK();
   }
   return bump_heap_section_for_demand(___ps, hp, 0);

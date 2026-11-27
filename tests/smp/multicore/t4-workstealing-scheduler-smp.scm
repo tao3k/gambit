@@ -66,14 +66,14 @@
                            (if (not s)
                                (begin
                                  (let ((pid (cur-proc-id)))
+                                   (busy-work 4000)
+                                   (mutex-lock! done-m)
                                    (vector-set! seen-procs pid
-                                                (+ (vector-ref seen-procs pid) 1)))
-                                 (busy-work 4000)
-                                 (mutex-lock! done-m)
-                                 (set! completed (+ completed 1))
-                                 (if (= completed n-workers)
-                                     (condition-variable-signal! done-cv))
-                                 (mutex-unlock! done-m)
+                                                (+ (vector-ref seen-procs pid) 1))
+                                   (set! completed (+ completed 1))
+                                   (if (= completed n-workers)
+                                       (condition-variable-signal! done-cv))
+                                   (mutex-unlock! done-m))
                                  (wloop cur))))))))
                    acc))))))
       ;; Run 120 broadcast + short-sleep burst rounds; every round must complete

@@ -53,7 +53,9 @@ ___PSDKR)
   p1 = start + length;
   p2 = alloc_stack_ptr;
 
-  ___ps->context->stack_start = alloc_stack_start;
+  ___WORD_STORE_RELEASE(
+    ___CAST(___VOLATILE ___WORD*, &___ps->context->stack_start),
+    ___CAST(___WORD, alloc_stack_start));
   ___ps->context->stack_break = p2 - ___FIRST_BREAK_FRAME_SPACE;
 
   while (p1 != start)

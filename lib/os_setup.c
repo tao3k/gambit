@@ -3178,6 +3178,86 @@ int sig;)
 #endif
 
 
+#ifdef USE_WIN32
+#ifdef ___DEBUG_C_BACKTRACE
+
+___HIDDEN void win32_write_stderr_str
+   ___P((const char *s),
+        (s)
+const char *s;)
+{
+  HANDLE h = GetStdHandle (STD_ERROR_HANDLE);
+  if (h != INVALID_HANDLE_VALUE && h != NULL)
+    {
+      DWORD len = 0;
+      DWORD written = 0;
+      while (s[len] != '\0') len++;
+      WriteFile (h, s, len, &written, NULL);
+    }
+}
+
+___HIDDEN void win32_write_stderr_hex
+   ___P((___UWORD v),
+        (v)
+___UWORD v;)
+{
+  static const char hex[] = "0123456789abcdef";
+  char buf[2 + sizeof(___UWORD) * 2 + 1];
+  int i;
+  buf[0] = '0';
+  buf[1] = 'x';
+  for (i = (int)(sizeof(___UWORD) * 2) - 1; i >= 0; i--)
+    {
+      buf[2 + i] = hex[v & 0xf];
+      v >>= 4;
+    }
+  buf[2 + sizeof(___UWORD) * 2] = '\0';
+  win32_write_stderr_str (buf);
+}
+
+___HIDDEN LONG WINAPI win32_crash_exception_handler
+   ___P((EXCEPTION_POINTERS *ep),
+        (ep)
+EXCEPTION_POINTERS *ep;)
+{
+  if (ep != NULL && ep->ExceptionRecord != NULL)
+    {
+      EXCEPTION_RECORD *er = ep->ExceptionRecord;
+      win32_write_stderr_str ("*** WIN32 UNHANDLED EXCEPTION code=");
+      win32_write_stderr_hex (___CAST(___UWORD, er->ExceptionCode));
+      win32_write_stderr_str (" addr=");
+      win32_write_stderr_hex (___CAST(___UWORD, er->ExceptionAddress));
+      win32_write_stderr_str (" base=");
+      win32_write_stderr_hex (___CAST(___UWORD, GetModuleHandleA (NULL)));
+      if (er->NumberParameters >= 2)
+        {
+          win32_write_stderr_str (" op=");
+          win32_write_stderr_hex (___CAST(___UWORD, er->ExceptionInformation[0]));
+          win32_write_stderr_str (" fault=");
+          win32_write_stderr_hex (___CAST(___UWORD, er->ExceptionInformation[1]));
+        }
+      win32_write_stderr_str ("\n");
+#ifdef CaptureStackBackTrace
+      {
+        void *frames[32];
+        USHORT n = CaptureStackBackTrace (0, 32, frames, NULL);
+        USHORT i;
+        for (i = 0; i < n; i++)
+          {
+            win32_write_stderr_str ("  frame: ");
+            win32_write_stderr_hex (___CAST(___UWORD, frames[i]));
+            win32_write_stderr_str ("\n");
+          }
+      }
+#endif
+    }
+  return EXCEPTION_CONTINUE_SEARCH;
+}
+
+#endif
+#endif
+
+
 ___SCMOBJ ___setup_os_pstate
    ___P((___processor_state ___ps),
         (___ps)
@@ -3242,6 +3322,11 @@ ___SCMOBJ ___setup_os ___PVOID
                   ___set_signal_handler (SIGSEGV, crash_signal_handler);
                   ___set_signal_handler (SIGILL,  crash_signal_handler);
                   ___set_signal_handler (SIGABRT, crash_signal_handler);
+#endif
+#endif
+#ifdef USE_WIN32
+#ifdef ___DEBUG_C_BACKTRACE
+                  SetUnhandledExceptionFilter (win32_crash_exception_handler);
 #endif
 #endif
                   return ___FIX(___NO_ERR);

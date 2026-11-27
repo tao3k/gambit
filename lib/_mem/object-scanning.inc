@@ -478,7 +478,7 @@ int origin;)
   ___ACTLOG_BEGIN_PS(scan_complete_heap_chunk,_);
 #endif
 
-  while (!___TESTTYPE(head = *ptr, ___FORW)) /* not end of complete chunk? */
+  while (!___TESTTYPE(head = ___WORD_LOAD_RELAXED(ptr), ___FORW)) /* not end of complete chunk? */
     {
       scan_and_advance(ptr, head); /* note: this advances ptr */
     }
@@ -543,7 +543,7 @@ ___collector_worker *work;)
       ___WORD head;
       work->active_scan_chunk_ = work->local_scan_chunk_;
       work->scan_origin_ = 1;
-      while (!___TESTTYPE(head = *ptr, ___FORW)) /* not end of complete chunk? */
+      while (!___TESTTYPE(head = ___WORD_LOAD_RELAXED(ptr), ___FORW)) /* not end of complete chunk? */
         {
           scan_and_advance(ptr, head); /* note: this advances ptr */
           if (ptr == work->arena.cursor) /* end of incomplete chunk? */
