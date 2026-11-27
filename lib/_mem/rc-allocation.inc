@@ -601,8 +601,10 @@ static void rest_observation_emit_parent(unsigned phase, ___WORD *fp,
 
 void ___rest_note_before_collect(void)
 {
-  ___rest_before_collect_pops=___rest_fallback_pops;
-  ___rest_before_collect_writes=___rest_fallback_pair_writes;
+  ___WORD_STORE_RELAXED(&___rest_before_collect_pops,
+                        ___WORD_LOAD_RELAXED(&___rest_fallback_pops));
+  ___WORD_STORE_RELAXED(&___rest_before_collect_writes,
+                        ___WORD_LOAD_RELAXED(&___rest_fallback_pair_writes));
 #ifdef ___GAMBIT_REST_OBSERVATION
   /* The handler has already published the parent fp. Record that entry
    * before this collection moves it. */
@@ -622,8 +624,9 @@ ___WORD ___rest_user_restores;
 int ___rest_user_continuation_restore(___WORD continuation_identity)
 {
   ___WORD word_max=(___WORD)((~(___UWORD)0)>>1);
-  if (!continuation_identity || ___rest_user_restores>=word_max) return 0;
-  ___rest_user_restores++;
+  if (!continuation_identity ||
+      ___WORD_LOAD_RELAXED(&___rest_user_restores)>=word_max) return 0;
+  ___WORD_FETCH_ADD_RELAXED(&___rest_user_restores, 1);
   return 1;
 }
 
@@ -1769,7 +1772,7 @@ void ___rest_once_probe(___processor_state ps)
     ___rest_once_first=-4;
     return;
   }
-  before=___rest_internal_entries;
+  before=___WORD_LOAD_RELAXED(&___rest_internal_entries);
   first=___rest_resume_delivery(ps, record, epoch, ___FIX(1), &old_hp, &new_hp,
                                 &entered);
   first_result=entered;
@@ -1777,7 +1780,7 @@ void ___rest_once_probe(___processor_state ps)
                                  &entered);
   ___rest_once_first=(___WORD)first;
   ___rest_once_second=(___WORD)second;
-  ___rest_once_delta=___rest_internal_entries-before;
+  ___rest_once_delta=___WORD_LOAD_RELAXED(&___rest_internal_entries)-before;
   ___rest_once_result=first_result==___FIX(7);
   ___rest_activation_cleanup(ps, record, ___FIX(1), epoch);
 }
@@ -2020,11 +2023,11 @@ void ___rest_arm_attempt(___WORD words, ___WORD floor)
   ___rest_attempt_entry_word=0;
   ___rest_attempt_entry_arg=0;
   ___rest_attempt_cut_arg=0;
-  ___rest_before_collect_pops=-1;
-  ___rest_before_collect_writes=-1;
-  ___rest_chain_gates=0;
-  ___rest_chain_reads=0;
-  ___rest_chain_ungated=0;
+  ___WORD_STORE_RELAXED(&___rest_before_collect_pops, -1);
+  ___WORD_STORE_RELAXED(&___rest_before_collect_writes, -1);
+  ___WORD_STORE_RELAXED(&___rest_chain_gates, 0);
+  ___WORD_STORE_RELAXED(&___rest_chain_reads, 0);
+  ___WORD_STORE_RELAXED(&___rest_chain_ungated, 0);
   ___rest_attempt_acquired_heap=0;
   ___rest_attempt_acquired_frame=0;
   ___rest_attempt_acquired_word=0;
@@ -2434,7 +2437,7 @@ enum ___rest_status ___rest_resume_delivery(___processor_state ps,
   }
   result=___CAST(___SCMOBJ*,record->roots)[root_count-1];
   record->rest_delivered=1;
-  ___rest_internal_entries++;
+  ___WORD_FETCH_ADD_RELAXED(&___rest_internal_entries, 1);
 #ifdef ___GAMBIT_REST_OBSERVATION
   ___rest_observation_delivered(ps,record,attempt,generation);
 #endif

@@ -1145,13 +1145,24 @@ ___HIDDEN ___SIZE_TS gc_major_pace_alloc_words
                       ___CAST(double, headroom);
       ___SIZE_TS fair_slice = ___CAST(___SIZE_TS, fair_d) + 1;
       ___SIZE_TS share = (deficit + np - 1) / np;
-      budget = (fair_slice > share) ? fair_slice : share;
-      if (budget > deficit)
-        budget = deficit;
-      if (budget < 16384)
-        budget = 16384;
-      if (budget > 131072)
-        budget = 131072;
+      if (target_d >= ___CAST(double, target_total))
+        {
+          /* Past 75% of remaining headroom: drain remaining mark work
+           * aggressively before concurrent allocation hits the 2x limit. */
+          budget = (deficit > 262144) ? 262144 : deficit;
+          if (budget < 16384)
+            budget = 16384;
+        }
+      else
+        {
+          budget = (fair_slice > share) ? fair_slice : share;
+          if (budget > deficit)
+            budget = deficit;
+          if (budget < 16384)
+            budget = 16384;
+          if (budget > 131072)
+            budget = 131072;
+        }
     }
   else if (___CAST(___SIZE_TS, total_alloc) >= headroom &&
            (___ps->mem.major_mark_local_count_ > 0 ||

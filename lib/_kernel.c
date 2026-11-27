@@ -12430,8 +12430,8 @@ ___DEF_SLBL(8,___L8__23__23_kernel_2d_handlers)
 
    if (__builtin_expect(held != 0 || ___rest_attempt_words != 0, 0))
      {
-       ___rest_fallback_pops += i;
-       ___rest_fallback_pair_writes += i;
+       ___WORD_FETCH_ADD_RELAXED(&___rest_fallback_pops, (___WORD)i);
+       ___WORD_FETCH_ADD_RELAXED(&___rest_fallback_pair_writes, (___WORD)i);
      }
    while (i > 0)
      {
@@ -13046,8 +13046,8 @@ ___DEF_SLBL(10,___L10__23__23_kernel_2d_handlers)
 
    if (__builtin_expect(held != 0 || ___rest_attempt_words != 0, 0))
      {
-       ___rest_fallback_pops += i;
-       ___rest_fallback_pair_writes += i;
+       ___WORD_FETCH_ADD_RELAXED(&___rest_fallback_pops, (___WORD)i);
+       ___WORD_FETCH_ADD_RELAXED(&___rest_fallback_pair_writes, (___WORD)i);
      }
    while (i > 0)
      {

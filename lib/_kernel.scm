@@ -936,8 +936,8 @@ end-of-code
 
    if (__builtin_expect(held != 0 || ___rest_attempt_words != 0, 0))
      {
-       ___rest_fallback_pops += i;
-       ___rest_fallback_pair_writes += i;
+       ___WORD_FETCH_ADD_RELAXED(&___rest_fallback_pops, (___WORD)i);
+       ___WORD_FETCH_ADD_RELAXED(&___rest_fallback_pair_writes, (___WORD)i);
      }
    while (i > 0)
      {
@@ -1544,8 +1544,8 @@ end-of-code
 
    if (__builtin_expect(held != 0 || ___rest_attempt_words != 0, 0))
      {
-       ___rest_fallback_pops += i;
-       ___rest_fallback_pair_writes += i;
+       ___WORD_FETCH_ADD_RELAXED(&___rest_fallback_pops, (___WORD)i);
+       ___WORD_FETCH_ADD_RELAXED(&___rest_fallback_pair_writes, (___WORD)i);
      }
    while (i > 0)
      {

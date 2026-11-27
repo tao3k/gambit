@@ -91,7 +91,7 @@ static inline void local_tracer_mark_obj(___local_still_tracer *tr, ___SCMOBJ ob
     {
 #ifndef ___USE_HANDLES
       ___WORD *base = ___BODY0(obj) - ___STILL_BODY;
-      if ((base[___STILL_DIRTY] & ___STILL_FLAG_YOUNG) == 0)
+      if ((___WORD_LOAD_RELAXED(&base[___STILL_DIRTY]) & ___STILL_FLAG_YOUNG) == 0)
         return; /* mature still: cannot reference local young still when unescaped */
       if (base[___STILL_MARK] == -1)
         {
@@ -273,7 +273,7 @@ ___HIDDEN ___BOOL try_local_young_still_gc
   for (i = 0; i < 2 && !tr.aborted; i++)
     local_tracer_mark_obj(&tr, ctx->type_cache[i]);
   for (i = 0; i < ___PROCESSOR_SIZE && !tr.aborted; i++)
-    local_tracer_mark_obj(&tr, ctx->processor_scmobj[___SUBTYPED_BODY + i]);
+    local_tracer_mark_obj(&tr, ___WORD_LOAD_RELAXED(&ctx->processor_scmobj[___SUBTYPED_BODY + i]));
 
   /* 2. Read-only walk of active Scheme continuation stack frames on this processor */
   fp = ctx->fp;
@@ -471,7 +471,7 @@ static inline void local_mov_mark(___local_mov_compactor *mc, ___SCMOBJ obj)
     {
 #ifndef ___USE_HANDLES
       ___WORD *base = ___BODY0(obj) - ___STILL_BODY;
-      if ((base[___STILL_DIRTY] & ___STILL_FLAG_YOUNG) == 0)
+      if ((___WORD_LOAD_RELAXED(&base[___STILL_DIRTY]) & ___STILL_FLAG_YOUNG) == 0)
         return; /* mature still: cannot point into unescaped local nursery */
       if (base[___STILL_MARK] == -1)
         {
@@ -721,8 +721,28 @@ ___HIDDEN ___BOOL try_local_movable_nursery_gc (___processor_state ___ps)
     local_mov_mark(&mc, ctx->saved[i]);
   for (i = 0; i < 2 && !mc.aborted; i++)
     local_mov_mark(&mc, ctx->type_cache[i]);
+  /* processor_scmobj is cross-core-visible (work-stealing runqueue & locks):
+   * read atomically without mutating in Pass 2; abort conservatively if any
+   * slot points into this processor's movable young nursery. */
   for (i = 0; i < ___PROCESSOR_SIZE && !mc.aborted; i++)
-    local_mov_mark(&mc, ctx->processor_scmobj[___SUBTYPED_BODY + i]);
+    {
+      ___SCMOBJ pslot = ___WORD_LOAD_RELAXED(&ctx->processor_scmobj[___SUBTYPED_BODY + i]);
+      if (___MEM_ALLOCATED(pslot))
+        {
+          ___WORD phead = ___HEADER(pslot);
+          if (___HD_TYP(phead) == ___MOVABLE0)
+            {
+              ___WORD *pbody = ___BODY0(pslot);
+              if (pbody >= mc.heap_lo && pbody < mc.heap_hi)
+                {
+                  mc.aborted = 1;
+                  break;
+                }
+            }
+          else
+            local_mov_mark(&mc, pslot);
+        }
+    }
 
   fp = ctx->fp;
   if (fp > ctx->stack_break)
@@ -874,9 +894,8 @@ ___HIDDEN ___BOOL try_local_movable_nursery_gc (___processor_state ___ps)
       ctx->saved[i] = local_mov_remap(&mc, ctx->saved[i]);
     for (i = 0; i < 2; i++)
       ctx->type_cache[i] = local_mov_remap(&mc, ctx->type_cache[i]);
-    for (i = 0; i < ___PROCESSOR_SIZE; i++)
-      ctx->processor_scmobj[___SUBTYPED_BODY + i] =
-        local_mov_remap(&mc, ctx->processor_scmobj[___SUBTYPED_BODY + i]);
+    /* processor_scmobj was verified free of local movable nursery pointers in
+     * Pass 1 and must not be written here while peer cores access it atomically. */
 
     fp = ctx->fp;
     ra = 0;

@@ -8,15 +8,15 @@
 #ifdef ___GAMBIT_REST_OBSERVATION
 #define ___FP_PUSH(fp,val)(___REST_OBS_ADJUST((fp),1),___REST_OBS_STORE((fp)-1,(fp)-1),*--fp=(val));
 #define ___FP_POP(fp)(___REST_OBS_POP(fp),___REST_OBS_ADJUST((fp),-1),*fp++)
-#define ___FP_SET_STK(fp,fpo,val)(___REST_OBS_STORE((fp),(fp)-(fpo)),fp[-(fpo)]=(val));
-#define ___FP_ADJFP(fp,fpa)(___REST_OBS_ADJUST((fp),(fpa)),fp-=(fpa));
+#define ___FP_SET_STK(fp,fpo,val)(___REST_OBS_STORE((fp),(fp)-___CAST(___SSIZE_T,(fpo))),fp[-___CAST(___SSIZE_T,(fpo))]=(val));
+#define ___FP_ADJFP(fp,fpa)(___REST_OBS_ADJUST((fp),(fpa)),fp-=___CAST(___SSIZE_T,(fpa)));
 #else
 #define ___FP_PUSH(fp,val)*--fp=(val);
 #define ___FP_POP(fp)*fp++
-#define ___FP_SET_STK(fp,fpo,val)fp[-(fpo)]=(val);
-#define ___FP_ADJFP(fp,fpa)fp-=(fpa);
+#define ___FP_SET_STK(fp,fpo,val)fp[-___CAST(___SSIZE_T,(fpo))]=(val);
+#define ___FP_ADJFP(fp,fpa)fp-=___CAST(___SSIZE_T,(fpa));
 #endif
-#define ___FP_STK(fp,fpo)fp[-(fpo)]
+#define ___FP_STK(fp,fpo)fp[-___CAST(___SSIZE_T,(fpo))]
 
 #define ___PUSH(val)___FP_PUSH(___fp,val)
 #define ___POP ___FP_POP(___fp)

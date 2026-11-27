@@ -95,7 +95,7 @@ ___EXP_FUNC(___SCMOBJ,___call_sfun)
   /* Same existing call-frame reserve and arity contract as ___call. No GC,
    * conversion, callback or poll can observe the partial argument prefix. */
   for (i=0;i<h->root_count;i++)
-    ___PSSTK(___FRAME_SPACE(2)+i+1)=___CAST(___SCMOBJ*,record->roots)[i];
+    ___PSSTK(___CAST(___SSIZE_T,___FRAME_SPACE(2)+i+1))=___CAST(___SCMOBJ*,record->roots)[i];
   ___RC_UNLOCK(d);
   return ___call(___PSA(ps) h->root_count,
                 ___VECTORELEM(record->marker,0),record->marker);

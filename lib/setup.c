@@ -6139,7 +6139,13 @@ int level;)
 
 ___EXP_FUNC(int,___get_debug_settings) ___PVOID
 {
+#if defined(__ATOMIC_RELAXED)
+  return __atomic_load_n (&___GSTATE->setup_params.debug_settings, __ATOMIC_RELAXED);
+#elif defined(_MSC_VER) && defined(___USE_WIN32_sync)
+  return (int)ReadNoFence ((LONG const volatile *)&___GSTATE->setup_params.debug_settings);
+#else
   return ___GSTATE->setup_params.debug_settings;
+#endif
 }
 
 
@@ -6151,12 +6157,55 @@ ___EXP_FUNC(int,___set_debug_settings)
 int mask;
 int new_settings;)
 {
+#if defined(__ATOMIC_RELAXED)
+  int old_settings =
+    __atomic_load_n (&___GSTATE->setup_params.debug_settings, __ATOMIC_RELAXED);
+
+  if (mask == 0)
+    return old_settings;
+
+  for (;;)
+    {
+      int next_settings = (old_settings & ~mask) | (new_settings & mask);
+      if (next_settings == old_settings)
+        return old_settings;
+      if (__atomic_compare_exchange_n (&___GSTATE->setup_params.debug_settings,
+                                       &old_settings,
+                                       next_settings,
+                                       0,
+                                       __ATOMIC_RELAXED,
+                                       __ATOMIC_RELAXED))
+        return old_settings;
+    }
+#elif defined(_MSC_VER) && defined(___USE_WIN32_sync)
+  LONG old_settings =
+    ReadNoFence ((LONG const volatile *)&___GSTATE->setup_params.debug_settings);
+
+  if (mask == 0)
+    return (int)old_settings;
+
+  for (;;)
+    {
+      LONG next_settings = (LONG)(((int)old_settings & ~mask) | (new_settings & mask));
+      LONG seen;
+      if (next_settings == old_settings)
+        return (int)old_settings;
+      seen = _InterlockedCompareExchange (
+               (LONG volatile *)&___GSTATE->setup_params.debug_settings,
+               next_settings,
+               old_settings);
+      if (seen == old_settings)
+        return (int)old_settings;
+      old_settings = seen;
+    }
+#else
   int old_settings = ___GSTATE->setup_params.debug_settings;
 
   ___GSTATE->setup_params.debug_settings =
     (old_settings & ~mask) | (new_settings & mask);
 
   return old_settings;
+#endif
 }
 
 

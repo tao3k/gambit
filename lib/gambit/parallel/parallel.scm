@@ -108,8 +108,7 @@
                 a0))
          (mask (##fx- (##vector-length a) 1)))
     (vector-atomic-set! a (##fxand b mask) item 'relaxed)
-    (atomic-fence 'release)
-    (atomic-fxbox-set! (macro-work-stealing-deque-bottom q) (##fx+ b 1) 'relaxed)
+    (atomic-fxbox-set! (macro-work-stealing-deque-bottom q) (##fx+ b 1) 'release)
     (##void)))
 
 ;;; Owner-only LIFO pop from bottom (with Le et al. PPoPP 2013 seq_cst Dekker fence).
