@@ -2329,3 +2329,161 @@
       (test-equal num-threads (atomic-fxbox-ref ok-count)))))
 
 ;;;============================================================================
+;;; Lexical Tail-Capability Creation-Site Dynamic Scope Isolation,
+;;; Cross-Extent Splicing & Exception/Continuable Coherency
+
+(let ()
+  (define e2 (make-effect 'tail-cap-iso-e2))
+  (define e3 (make-effect 'tail-cap-iso-e3))
+  (define (raises-unhandled? thunk)
+    (with-exception-catcher (lambda (_) #t) (lambda () (thunk) #f)))
+
+  ;; 1. Outer tail capability MUST execute in its creation-site handler stack,
+  ;;    never hijacked by an inner with-handler for the same effect.
+  (test-equal '(outer-e2 inner-e2)
+    (with-handler ((tail: e2 () 'outer-e2))
+      (call-with-tail-capability
+       (lambda () (perform e2))
+       (lambda (cap)
+         (with-handler ((tail: e2 () 'inner-e2))
+           (list (perform-cap cap) (perform e2)))))))
+
+  ;; 2. Top-level tail capability (empty creation-site handler stack) MUST NOT
+  ;;    be hijacked by an inner handler installed inside its body.
+  (test-equal #t
+    (call-with-tail-capability
+     (lambda () (perform e2))
+     (lambda (cap)
+       (with-handler ((tail: e2 () 'inner-e2))
+         (raises-unhandled? (lambda () (perform-cap cap)))))))
+
+  ;; 3. Tail capability performing an outer SUSPENDING effect resumed under an
+  ;;    extra resumer handler preserves BOTH the inner handler AND resumer handler.
+  (let ((saved-k #f))
+    (test-equal '(from-outer-e2 from-inner-e2 from-resumer-e3)
+      (let ((first
+             (with-handler ((e2 (k) (set! saved-k k) 'suspended))
+               (call-with-tail-capability
+                (lambda () (perform e2))
+                (lambda (cap)
+                  (with-handler ((tail: e2 () 'from-inner-e2))
+                    (let ((a (perform-cap cap))
+                          (b (perform e2))
+                          (c (perform e3)))
+                      (list a b c))))))))
+        (test-equal 'suspended first)
+        (with-handler ((tail: e3 () 'from-resumer-e3))
+          (resume saved-k 'from-outer-e2)))))
+
+  ;; 4. Tail capability whose own body was suspended and resumed under an extra
+  ;;    resumer handler sees the resumer handler while staying isolated from
+  ;;    inner handlers installed after resume.
+  (let ((e-susp (make-effect 'tail-cap-iso-susp))
+        (saved-k #f))
+    (test-equal '((outer-e2 from-resumer-e3) inner-e2)
+      (let ((first
+             (with-handler ((e-susp (k) (set! saved-k k) 'suspended))
+               (with-handler ((tail: e2 () 'outer-e2))
+                 (call-with-tail-capability
+                  (lambda () (list (perform e2) (perform e3)))
+                  (lambda (cap)
+                    (let ((_ (perform e-susp)))
+                      (with-handler ((tail: e2 () 'inner-e2))
+                        (list (perform-cap cap) (perform e2))))))))))
+        (test-equal 'suspended first)
+        (with-handler ((tail: e3 () 'from-resumer-e3))
+          (resume saved-k 'go)))))
+
+  ;; 5. Escaping exception raised inside isolated tail-cap caught by an inner
+  ;;    catcher pops the inner handler while keeping the capability live and
+  ;;    outer handler intact.
+  (test-equal '(cap-boom outer-e2 cap-still-live)
+    (let ((flag #f))
+      (with-handler ((tail: e2 () 'outer-e2))
+        (call-with-tail-capability
+         (lambda () (if flag 'cap-still-live (raise 'cap-boom)))
+         (lambda (cap)
+           (with-exception-catcher
+            (lambda (ex)
+              (set! flag #t)
+              (list ex (perform e2) (perform-cap cap)))
+            (lambda ()
+              (with-handler ((tail: e2 () 'inner-bad))
+                (perform-cap cap)))))))))
+
+  ;; 6. Continuable exception raised inside isolated tail-cap preserves creation-site
+  ;;    scope after recovery AND restores inner handler on return.
+  (test-equal '((105 outer-e2) inner-e2)
+    (with-exception-handler
+     (lambda (ex) (fx+ ex 100))
+     (lambda ()
+       (with-handler ((tail: e2 () 'outer-e2))
+         (call-with-tail-capability
+          (lambda ()
+            (let ((v (raise 5)))
+              (list v (perform e2))))
+          (lambda (cap)
+            (with-handler ((tail: e2 () 'inner-e2))
+              (list (perform-cap cap) (perform e2)))))))))
+
+  ;; 7. Multiple values returned through isolated tail-cap are preserved intact.
+  (test-equal '((outer-e2 10 20) inner-e2)
+    (with-handler ((tail: e2 () 'outer-e2))
+      (call-with-tail-capability
+       (lambda (x y) (values (perform e2) x y))
+       (lambda (cap)
+         (with-handler ((tail: e2 () 'inner-e2))
+           (let ((mv (call-with-values (lambda () (perform-cap cap 10 20)) list)))
+             (list mv (perform e2))))))))
+
+  ;; 8. Adaptive-P SMP torture: concurrent isolated tail-capabilities with
+  ;;    cross-extent resume, continuable exceptions, and ##gc.
+  (let* ((num-threads (max 2 (min 8 (##current-vm-processor-count))))
+         (rounds 30)
+         (ok-count (make-atomic-fxbox 0)))
+    (let ((threads
+           (let loop ((t 0) (acc '()))
+             (if (fx= t num-threads)
+                 acc
+                 (loop (fx+ t 1)
+                       (cons
+                        (thread-start!
+                         (make-thread
+                          (lambda ()
+                            (let ((ea (make-effect 'smp-tc-a))
+                                  (eb (make-effect 'smp-tc-b)))
+                              (let rloop ((r 0) (good #t))
+                                (if (fx< r rounds)
+                                    (let* ((r1 (with-handler ((tail: ea () 'outer))
+                                                 (call-with-tail-capability
+                                                  (lambda () (perform ea))
+                                                  (lambda (cap)
+                                                    (with-handler ((tail: ea () 'inner))
+                                                      (list (perform-cap cap) (perform ea)))))))
+                                           (r2 (with-handler ((ea (k) (resume k (fx+ r 10))))
+                                                 (call-with-tail-capability
+                                                  (lambda () (perform ea))
+                                                  (lambda (cap)
+                                                    (with-handler ((tail: ea () 'inner))
+                                                      (list (perform-cap cap) (perform ea)))))))
+                                           (r3 (with-exception-handler
+                                                (lambda (ex) (fx+ ex 100))
+                                                (lambda ()
+                                                  (with-handler ((tail: eb () 'outer-b))
+                                                    (call-with-tail-capability
+                                                     (lambda () (list (raise r) (perform eb)))
+                                                     (lambda (cap)
+                                                       (with-handler ((tail: eb () 'inner-b))
+                                                         (list (perform-cap cap) (perform eb))))))))))
+                                      (if (and (fx= t 0) (fx= (fxand r 7) 7)) (##gc))
+                                      (rloop (fx+ r 1)
+                                             (and good
+                                                  (equal? r1 '(outer inner))
+                                                  (equal? r2 (list (fx+ r 10) 'inner))
+                                                  (equal? r3 (list (list (fx+ r 100) 'outer-b) 'inner-b)))))
+                                    (if good (atomic-fxbox+/fetch! ok-count 1))))))))
+                        acc))))))
+      (for-each thread-join! threads)
+      (test-equal num-threads (atomic-fxbox-ref ok-count)))))
+
+;;;============================================================================

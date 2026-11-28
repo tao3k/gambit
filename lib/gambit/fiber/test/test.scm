@@ -2276,3 +2276,45 @@
     (test-equal rounds (fx+ (atomic-fxbox-ref spawn-ok) (atomic-fxbox-ref spawn-err)))))
 
 ;;;============================================================================
+;;; Tail-Recursive O(1)-Stack Channel Wakeup Cascade Stress (cap = 1 MPMC)
+
+(let ()
+  (let* ((p (max 2 (min 8 (##current-vm-processor-count))))
+         (pairs 500)
+         (ch (make-fiber-channel 1))
+         (rx-sum (make-atomic-fxbox 0))
+         (rx-cnt (make-atomic-fxbox 0))
+         (tx-cnt (make-atomic-fxbox 0))
+         (expected (fxquotient (fx* pairs (fx+ pairs 1)) 2)))
+    (run-fibers
+     (lambda ()
+       (with-nursery
+        (lambda (n)
+          ;; Park a deep wave of receivers first, then trigger a deep wave of senders
+          ;; on a cap=1 channel to exercise long alternating receiver/sender wakeup cascades.
+          (let loop-r ((i 0))
+            (if (fx< i pairs)
+                (begin
+                  (fiber-spawn
+                   (lambda ()
+                     (let ((v (fiber-recv! ch)))
+                       (atomic-fxbox+/fetch! rx-sum v)
+                       (atomic-fxbox+/fetch! rx-cnt 1)))
+                   n)
+                  (loop-r (fx+ i 1)))))
+          (fiber-yield)
+          (let loop-s ((i 1))
+            (if (fx<= i pairs)
+                (begin
+                  (fiber-spawn
+                   (lambda ()
+                     (fiber-send! ch i)
+                     (atomic-fxbox+/fetch! tx-cnt 1))
+                   n)
+                  (loop-s (fx+ i 1))))))))
+     workers: p)
+    (test-equal pairs (atomic-fxbox-ref rx-cnt))
+    (test-equal pairs (atomic-fxbox-ref tx-cnt))
+    (test-equal expected (atomic-fxbox-ref rx-sum))))
+
+;;;============================================================================

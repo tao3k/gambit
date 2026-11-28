@@ -125,6 +125,7 @@
 
 (##namespace ("gambit/effect/capability#"
   %cap-pop-guard!
+  %cap-split-handlers
   %install-cap-cont!
   %install-cap-cont-scoped!))
 

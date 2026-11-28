@@ -356,17 +356,20 @@
                       (thread-yield!)
                       (loop 0)))))))))
 
-;; Slow-path wakeups (called only when rx-fast/tx-fast occupied or waiter count > 0)
+;; Slow-path wakeups (called only when rx-fast/tx-fast occupied or waiter count > 0).
+;; Wakes the popped peer immediately before tail-calling the reciprocal wakeup
+;; so deep MPMC wakeup cascades execute in strictly O(1) stack space without
+;; pinning continuation frames or delaying peer handoff.
 (define (%ch-wake-one-receiver! ch)
   (let ((rk (%ch-try-pop-rxfast-c! ch)))
     (if rk
         (let ((item (%vyukov-try-pop-or! ch %CH-EMPTY)))
           (if (not (eq? item %CH-EMPTY))
               (begin
-                (if (%ch-tx-any-waiters-seq? ch)
-                    (%ch-wake-one-sender! ch))
                 (%fk-val-set! rk item)
-                (%wake-fk! rk))
+                (%wake-fk! rk)
+                (if (%ch-tx-any-waiters-seq? ch)
+                    (%ch-wake-one-sender! ch)))
               (begin
                 (%fk-val-set! rk %CH-RETRY)
                 (%wake-fk! rk))))
@@ -385,10 +388,10 @@
           (if rk2
               (if (not (eq? item %CH-EMPTY))
                   (begin
-                    (if (%ch-tx-any-waiters-seq? ch)
-                        (%ch-wake-one-sender! ch))
                     (%fk-val-set! rk2 item)
-                    (%wake-fk! rk2))
+                    (%wake-fk! rk2)
+                    (if (%ch-tx-any-waiters-seq? ch)
+                        (%ch-wake-one-sender! ch)))
                   (begin
                     (%fk-val-set! rk2 %CH-RETRY)
                     (%wake-fk! rk2))))))))
@@ -398,10 +401,10 @@
     (if sk
         (if (and (not (%ch-closed-rlx? ch)) (%vyukov-try-push! ch (%fk-val sk)))
             (begin
-              (if (%ch-rx-any-waiters-seq? ch)
-                  (%ch-wake-one-receiver! ch))
               (%fk-val-set! sk #t)
-              (%wake-fk! sk))
+              (%wake-fk! sk)
+              (if (%ch-rx-any-waiters-seq? ch)
+                  (%ch-wake-one-receiver! ch)))
             (begin
               (%fk-val-set! sk %CH-RETRY)
               (%wake-fk! sk)))
@@ -421,10 +424,10 @@
           (if sk2
               (if pushed?
                   (begin
-                    (if (%ch-rx-any-waiters-seq? ch)
-                        (%ch-wake-one-receiver! ch))
                     (%fk-val-set! sk2 #t)
-                    (%wake-fk! sk2))
+                    (%wake-fk! sk2)
+                    (if (%ch-rx-any-waiters-seq? ch)
+                        (%ch-wake-one-receiver! ch)))
                   (begin
                     (%fk-val-set! sk2 %CH-RETRY)
                     (%wake-fk! sk2))))))))
