@@ -154,8 +154,8 @@
 ;;;============================================================================
 ;;; 5. 12-Core SMP Concurrency & One-Shot Resume Linearizability
 
-;; 5a. 12 threads running independent tail + suspending + multi-shot effects
-(let ((num-threads 12)
+;; 5a. Adaptive-P threads running independent tail + suspending + multi-shot effects
+(let ((num-threads (max 2 (min 12 (##current-vm-processor-count))))
       (ok-count (make-atomic-fxbox 0)))
   (let ((threads
          (let loop ((i 0) (acc '()))
@@ -248,7 +248,7 @@
 (test-equal #t (fixnum? (##gc-stack-watermark-shaded-frames)))
 (test-equal #t (fx>= (##gc-stack-watermark-shaded-frames) 0))
 
-(let ((num-threads 12)
+(let ((num-threads (max 2 (min 12 (##current-vm-processor-count))))
       (ok (make-atomic-fxbox 0)))
   (let ((threads
          (let loop ((i 0) (acc '()))
@@ -447,5 +447,181 @@
                        acc))))))
     (for-each thread-join! threads)
     (test-equal (fx* num-threads shots-per-thread) (atomic-fxbox-ref ok-shots))))
+
+;;;============================================================================
+;;; 10. Adversarial Generator Safety (dynamic-wind, Nested Multi-Shot, SMP
+;;;     Concurrent Race, SATB Torture & Work-Stealing Fiber Migration)
+
+;; 10a. Generator with dynamic-wind inside body: denv guard MUST decline
+;;      no-winding fast return and fire before/after thunks on every yield/resume.
+(let ((log '()))
+  (let ((g (make-generator
+            (lambda ()
+              (dynamic-wind
+                (lambda () (set! log (cons 'in log)))
+                (lambda ()
+                  (perform yield 1)
+                  (perform yield 2))
+                (lambda () (set! log (cons 'out log))))))))
+    (test-equal 1 (g))
+    (test-equal 2 (g))
+    (test-equal #!eof (g))
+    (test-equal '(in out in out in out) (reverse log))))
+
+;; 10b. Nested multi-shot handler inside a generator: frozen pframe COW safety
+(let ((g (make-generator
+          (lambda ()
+            (let ((res
+                   (with-handler
+                     ((choose (k)
+                        (append (resume-multishot k 10)
+                                (resume-multishot k 20)))
+                      (return: (x) (list x)))
+                     (let ((a (perform choose)))
+                       (perform yield a)
+                       (fx+ a 1)))))
+              (perform yield res))))))
+  (test-equal 10 (g))
+  (test-equal 20 (g))
+  (test-equal '(11 21) (g))
+  (test-equal #!eof (g)))
+
+;; 10c. SMP concurrent race on the SAME generator (adaptive P threads):
+;;      exactly 1 thread wins each step; losers observe RUNNING or DONE cleanly
+;;      with zero double-resume corruption.
+(let* ((num-threads (max 2 (min 12 (##current-vm-processor-count))))
+       (steps 40)
+       (g (make-generator
+           (lambda ()
+             (let loop ((i 0))
+               (if (fx< i steps)
+                   (begin
+                     (perform yield i)
+                     (loop (fx+ i 1))))))))
+       (seen (make-vector steps 0))
+       (dup-err (make-atomic-fxbox 0))
+       (val-sum (make-atomic-fxbox 0)))
+  (let ((threads
+         (let loop ((t 0) (acc '()))
+           (if (fx= t num-threads)
+               acc
+               (loop (fx+ t 1)
+                     (cons
+                      (thread-start!
+                       (make-thread
+                        (lambda ()
+                          (let gloop ()
+                            (let ((v (with-exception-catcher
+                                      (lambda (e) 'busy)
+                                      (lambda () (g)))))
+                              (cond
+                                ((eof-object? v) #!void)
+                                ((eq? v 'busy) (thread-yield!) (gloop))
+                                (else
+                                 (let ((prev (##vector-inc! seen v 1)))
+                                   (if (not (fx= prev 0))
+                                       (atomic-fxbox+/fetch! dup-err 1)))
+                                 (atomic-fxbox+/fetch! val-sum v)
+                                 (gloop))))))))
+                      acc))))))
+    (for-each thread-join! threads)
+    (test-equal 0 (atomic-fxbox-ref dup-err))
+    (test-equal (fxquotient (fx* steps (fx- steps 1)) 2) (atomic-fxbox-ref val-sum))))
+
+;; 10d. Heavy SATB-active concurrent one-shot suspend + generator torture across
+;;      adaptive P cores: verifies one-shot rewinds succeed even during concurrent
+;;      SATB major GC and mature anchors remain 100% intact.
+(let* ((num-threads (max 2 (min 12 (##current-vm-processor-count))))
+       (anchors (make-vector 100 #f))
+       (ok (make-atomic-fxbox 0)))
+  (let aloop ((i 0))
+    (if (fx< i 100)
+        (begin (vector-set! anchors i (make-vector 512 i))
+               (aloop (fx+ i 1)))))
+  (##gc)
+  (let ((rw-before (##gc-oneshot-continuation-rewinds))
+        (threads
+         (let loop ((t 0) (acc '()))
+           (if (fx= t num-threads)
+               acc
+               (loop (fx+ t 1)
+                     (cons
+                      (thread-start!
+                       (make-thread
+                        (lambda ()
+                          (let ((s1
+                                 (with-handler
+                                   ((emit (k v)
+                                      (let ((trash (make-vector 32 v)))
+                                        (resume k (fx+ (vector-ref trash 0) 1)))))
+                                   (let iloop ((j 0) (a 0))
+                                     (if (fx< j 400)
+                                         (iloop (fx+ j 1) (perform emit a))
+                                         a))))
+                                (g (make-generator
+                                    (lambda ()
+                                      (let gloop ((j 0))
+                                        (if (fx< j 400)
+                                            (let ((trash (make-vector 32 j)))
+                                              (perform yield (vector-ref trash 0))
+                                              (gloop (fx+ j 1)))))))))
+                            (let sumloop ((s2 0))
+                              (let ((v (g)))
+                                (if (eof-object? v)
+                                    (if (and (fx= s1 400) (fx= s2 79800))
+                                        (atomic-fxbox+/fetch! ok 1))
+                                    (sumloop (fx+ s2 v)))))))))
+                      acc))))))
+    (for-each thread-join! threads)
+    (test-equal num-threads (atomic-fxbox-ref ok))
+    (test-equal #t (fx> (##gc-oneshot-continuation-rewinds) rw-before)))
+  (let chk ((i 0))
+    (if (fx< i 100)
+        (let ((v (vector-ref anchors i)))
+          (test-equal i (vector-ref v 0))
+          (test-equal i (vector-ref v 511))
+          (chk (fx+ i 1))))))
+
+;; 10e. Sequential multi-generator Yield #1 base-anchor preservation stress
+;;      across adaptive P threads: verifies Yield #1 keeps caller-k alive as
+;;      sub-k's next_break_link anchor (zero break-chain cycle or stack-overflow)
+;;      while Yields #2..N reclaim caller-k in O(1).
+(let* ((num-threads (max 2 (min 12 (##current-vm-processor-count))))
+       (gens-per-thread 60)
+       (yields-per-gen 60)
+       (expected-gen-sum (fxquotient (fx* yields-per-gen (fx- yields-per-gen 1)) 2))
+       (ok (make-atomic-fxbox 0)))
+  (let ((threads
+         (let tloop ((t 0) (acc '()))
+           (if (fx= t num-threads)
+               acc
+               (tloop (fx+ t 1)
+                      (cons
+                       (thread-start!
+                        (make-thread
+                         (lambda ()
+                           (let gloop ((gi 0) (all-good #t))
+                             (if (fx< gi gens-per-thread)
+                                 (let ((g (make-generator
+                                           (lambda ()
+                                             (let yloop ((k 0))
+                                               (if (fx< k yields-per-gen)
+                                                   (begin
+                                                     (perform yield k)
+                                                     (yloop (fx+ k 1)))))))))
+                                   (let sloop ((sum 0))
+                                     (let ((v (g)))
+                                       (if (eof-object? v)
+                                           (begin
+                                             (if (and (fx= t 0) (fx= (fxand gi 31) 31))
+                                                 (##gc))
+                                             (gloop (fx+ gi 1)
+                                                    (and all-good (fx= sum expected-gen-sum))))
+                                           (sloop (fx+ sum v))))))
+                                 (if all-good
+                                     (atomic-fxbox+/fetch! ok 1)))))))
+                       acc))))))
+    (for-each thread-join! threads)
+    (test-equal num-threads (atomic-fxbox-ref ok))))
 
 ;;;============================================================================

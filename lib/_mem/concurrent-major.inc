@@ -65,9 +65,21 @@ typedef struct major_local_queue_struct
     ___SCMOBJ (*out_buf)[___GC_MAJOR_REMOTE_BATCH];
     unsigned int *out_cnt;
     ___VOLATILE ___WORD *remote_pending;
+    ___VOLATILE ___WORD *inflight_counter;
     int track_nonstatic;
     int saw_nonstatic;
   } major_local_queue;
+
+static inline ___WORD major_inflight_add
+   (___VOLATILE ___WORD *p,
+    ___WORD delta)
+{
+#if defined(__GNUC__) || defined(__clang__)
+  return __atomic_fetch_add(p, delta, __ATOMIC_ACQ_REL);
+#else
+  return ___WORD_FETCH_ADD_RELEASE(p, delta);
+#endif
+}
 
 static inline void major_inbox_lock(major_remote_inbox *ib)
 {
@@ -121,7 +133,8 @@ ___HIDDEN void major_remote_flush_one
     }
   memcpy(&ib->buf[ib->count], q->out_buf[dst], n * sizeof(___SCMOBJ));
   ib->count += ___CAST(___SIZE_TS, n);
-  ___WORD_FETCH_ADD_RELEASE(q->remote_pending, ___CAST(___WORD, n));
+  if (q->inflight_counter != 0)
+    major_inflight_add(q->inflight_counter, ___CAST(___WORD, n));
   major_inbox_unlock(ib);
   q->out_cnt[dst] = 0;
 }
@@ -282,13 +295,15 @@ ___HIDDEN int major_has_pending_mark_work(___virtual_machine_state vm)
 }
 
 /* Batch push onto global major mark stack under ONE lock acquisition.
- * When allow_alloc == 0 (inside mutator write barriers), never allocate; mark
- * sticky satb_overflow_ if full so STW Remark runs complete overflow recovery. */
-___HIDDEN void major_mark_stack_push_batch_ex
+ * When inflight_counter != 0 (parallel STW Remark), atomically accounts for the
+ * newly queued items in the single-word quiescence counter while holding
+ * major_mark_lock so queued items are never invisible to quiescence checks. */
+___HIDDEN void major_mark_stack_push_batch_inflight
    (___virtual_machine_state vm,
     const ___SCMOBJ *items,
     unsigned int n,
-    int allow_alloc)
+    int allow_alloc,
+    ___VOLATILE ___WORD *inflight_counter)
 {
   ___SIZE_TS cur;
   if (n == 0)
@@ -313,7 +328,6 @@ ___HIDDEN void major_mark_stack_push_batch_ex
           ncap *= 2;
         if (ncap > ___GC_MAJOR_MARK_STACK_MAX_CAP)
           {
-            /* Bounded mark queue cap (Amp-2): trigger complete Remark overflow scan. */
             ___WORD_STORE_RELEASE(&vm->mem.satb_overflow_, 1);
             major_mark_unlock(vm);
             return;
@@ -335,7 +349,18 @@ ___HIDDEN void major_mark_stack_push_batch_ex
     }
   memcpy(&vm->mem.major_mark_stack_[cur], items, n * sizeof(___SCMOBJ));
   ___WORD_STORE_RELEASE(&vm->mem.major_mark_stack_count_, ___CAST(___WORD, cur + n));
+  if (inflight_counter != 0)
+    major_inflight_add(inflight_counter, ___CAST(___WORD, n));
   major_mark_unlock(vm);
+}
+
+___HIDDEN void major_mark_stack_push_batch_ex
+   (___virtual_machine_state vm,
+    const ___SCMOBJ *items,
+    unsigned int n,
+    int allow_alloc)
+{
+  major_mark_stack_push_batch_inflight(vm, items, n, allow_alloc, 0);
 }
 
 ___HIDDEN void major_mark_stack_push_ex
@@ -343,7 +368,7 @@ ___HIDDEN void major_mark_stack_push_ex
     ___SCMOBJ obj,
     int allow_alloc)
 {
-  major_mark_stack_push_batch_ex(vm, &obj, 1, allow_alloc);
+  major_mark_stack_push_batch_inflight(vm, &obj, 1, allow_alloc, 0);
 }
 
 static inline void major_mark_push_q
@@ -358,7 +383,8 @@ static inline void major_mark_push_q
       if (cnt >= q->cap)
         {
           unsigned int half = q->cap >> 1;
-          major_mark_stack_push_batch_ex(vm, &q->buf[half], cnt - half, allow_alloc);
+          major_mark_stack_push_batch_inflight(
+            vm, &q->buf[half], cnt - half, allow_alloc, q->inflight_counter);
           cnt = half;
         }
       else if (allow_alloc && q->inboxes == 0 && cnt >= 32 &&
@@ -366,7 +392,8 @@ static inline void major_mark_push_q
         {
           /* Fast work publication when global stack is empty so peer cores start stealing immediately. */
           unsigned int keep = 16;
-          major_mark_stack_push_batch_ex(vm, &q->buf[keep], cnt - keep, allow_alloc);
+          major_mark_stack_push_batch_inflight(
+            vm, &q->buf[keep], cnt - keep, allow_alloc, q->inflight_counter);
           cnt = keep;
         }
       q->buf[cnt++] = obj;
@@ -1866,7 +1893,16 @@ ___HIDDEN void major_remark_phase_a_prepare(___virtual_machine_state vm)
 
   ___process_times(&u0, &s0, &r0);
   g->major_remark_r0 = r0;
-  ___WORD_STORE_RELEASE(&vm->mem.major_remark_working_, ___CAST(___WORD, g->worker_count));
+  {
+    /* Single-word atomic quiescence counter:
+     *   inflight = working_workers + sum(inboxes[d].count) + major_mark_stack_count_
+     * Stored in vm->mem.major_remark_working_ so termination is a single
+     * monotonic zero-latch atomic load with zero split-counter races. */
+    ___WORD init_stack = ___WORD_LOAD_RELAXED(&vm->mem.major_mark_stack_count_);
+    ___WORD_STORE_RELEASE(
+      &vm->mem.major_remark_working_,
+      ___CAST(___WORD, g->worker_count) + init_stack);
+  }
   ___WORD_STORE_RELEASE(&g->major_remote_pending, 0);
   g->major_remote_inboxes = 0;
   if (g->worker_count > 1 && g->worker_count <= ___GC_MAJOR_MAX_STATIC_WORKERS)
@@ -1910,6 +1946,7 @@ ___HIDDEN void major_remark_phase_a_parallel
   major_local_queue lq = {0};
   ___SIZE_TS scanned = 0;
   ___SIZE_TS satb_n = 0;
+  ___VOLATILE ___WORD *inflight = &vm->mem.major_remark_working_;
   int use_chez = (w_cnt > 1 && w_cnt <= ___GC_MAJOR_MAX_STATIC_WORKERS && inboxes != 0);
 
   ring.head = 0u;
@@ -1918,6 +1955,7 @@ ___HIDDEN void major_remark_phase_a_parallel
   lq.count = &lcnt;
   lq.cap = ___GC_MAJOR_LOCAL_MARK_CAP;
   lq.ring = &ring;
+  lq.inflight_counter = inflight;
   if (use_chez)
     {
       memset(out_cnt, 0, ___CAST(___SIZE_TS, w_cnt) * sizeof(unsigned int));
@@ -1926,7 +1964,7 @@ ___HIDDEN void major_remark_phase_a_parallel
       lq.inboxes = inboxes;
       lq.out_buf = out_buf;
       lq.out_cnt = out_cnt;
-      lq.remote_pending = &g->major_remote_pending;
+      lq.remote_pending = inflight;
     }
 
   for (p = w_id; p < np; p += w_cnt)
@@ -1935,8 +1973,8 @@ ___HIDDEN void major_remark_phase_a_parallel
       unsigned int i;
       if (pps->mem.major_mark_local_count_ > 0)
         {
-          major_mark_stack_push_batch_ex(
-            vm, pps->mem.major_mark_local_buf_, pps->mem.major_mark_local_count_, 1);
+          major_mark_stack_push_batch_inflight(
+            vm, pps->mem.major_mark_local_buf_, pps->mem.major_mark_local_count_, 1, inflight);
           pps->mem.major_mark_local_count_ = 0;
         }
       if (pps->mem.satb_overflow_ != 0)
@@ -2018,7 +2056,7 @@ ___HIDDEN void major_remark_phase_a_parallel
                            : ___CAST(unsigned int, my_ib->count);
                   my_ib->count -= ___CAST(___SIZE_TS, take);
                   memcpy(rbatch, &my_ib->buf[my_ib->count], take * sizeof(___SCMOBJ));
-                  ___WORD_FETCH_ADD_RELEASE(&g->major_remote_pending, -___CAST(___WORD, take));
+                  major_inflight_add(inflight, -___CAST(___WORD, take));
                 }
               major_inbox_unlock(my_ib);
               if (take > 0)
@@ -2039,11 +2077,12 @@ ___HIDDEN void major_remark_phase_a_parallel
             avail -= ___CAST(___WORD, take);
             memcpy(lbuf, &vm->mem.major_mark_stack_[avail], take * sizeof(___SCMOBJ));
             ___WORD_STORE_RELEASE(&vm->mem.major_mark_stack_count_, avail);
+            major_inflight_add(inflight, -___CAST(___WORD, take));
             lcnt = take;
             major_mark_unlock(vm);
             continue;
           }
-        ___WORD_FETCH_ADD_RELEASE(&vm->mem.major_remark_working_, -1);
+        major_inflight_add(inflight, -1);
       }
       major_mark_unlock(vm);
 
@@ -2052,8 +2091,7 @@ ___HIDDEN void major_remark_phase_a_parallel
 
       {
         unsigned int idle_spins = 0;
-        while (___WORD_LOAD_ACQUIRE(&vm->mem.major_remark_working_) > 0 ||
-               (use_chez && ___WORD_LOAD_ACQUIRE(&g->major_remote_pending) > 0))
+        while (___WORD_LOAD_ACQUIRE(inflight) > 0)
           {
             if (use_chez && ___WORD_LOAD_ACQUIRE(&inboxes[w_id].count) > 0)
               {
@@ -2069,8 +2107,9 @@ ___HIDDEN void major_remark_phase_a_parallel
                              : ___CAST(unsigned int, my_ib->count);
                     my_ib->count -= ___CAST(___SIZE_TS, take);
                     memcpy(rbatch, &my_ib->buf[my_ib->count], take * sizeof(___SCMOBJ));
-                    ___WORD_FETCH_ADD_RELEASE(&vm->mem.major_remark_working_, 1);
-                    ___WORD_FETCH_ADD_RELEASE(&g->major_remote_pending, -___CAST(___WORD, take));
+                    /* Single atomic RMW exchanges `take` queued inbox units for 1
+                     * working credit so inflight never visits 0 while work exists. */
+                    major_inflight_add(inflight, 1 - ___CAST(___WORD, take));
                   }
                 major_inbox_unlock(my_ib);
                 if (take > 0)
@@ -2091,7 +2130,7 @@ ___HIDDEN void major_remark_phase_a_parallel
                       avail -= ___CAST(___WORD, take);
                       memcpy(lbuf, &vm->mem.major_mark_stack_[avail], take * sizeof(___SCMOBJ));
                       ___WORD_STORE_RELEASE(&vm->mem.major_mark_stack_count_, avail);
-                      ___WORD_FETCH_ADD_RELEASE(&vm->mem.major_remark_working_, 1);
+                      major_inflight_add(inflight, 1 - ___CAST(___WORD, take));
                       lcnt = take;
                       major_mark_unlock(vm);
                       break;
@@ -2126,8 +2165,7 @@ ___HIDDEN void major_remark_phase_a_parallel
       }
       if (lcnt == 0 &&
           ring.tail == ring.head &&
-          ___WORD_LOAD_ACQUIRE(&vm->mem.major_remark_working_) == 0 &&
-          (!use_chez || ___WORD_LOAD_ACQUIRE(&g->major_remote_pending) == 0))
+          ___WORD_LOAD_ACQUIRE(inflight) == 0)
         break;
     }
 

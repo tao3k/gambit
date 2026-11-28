@@ -949,4 +949,225 @@
           (rloop (fx+ r 1)))))
   (test-assert all-ok))
 
+;; 14f. Adversarial cap=1/cap=2 tx-fast/rx-fast cancel pointer-ABA & slow-path
+;;      non-empty-ring FIFO torture across adaptive P cores: hammers rapid
+;;      full-ring + parked-sender / empty-ring + parked-receiver transitions
+;;      while recycling %fiber-k heavily.
+(let* ((p (max 2 (min 12 (##current-vm-processor-count))))
+       (items-per-prod 80)
+       (ok-all #t))
+  (let cloop ((caps '(1 2)))
+    (if (pair? caps)
+        (let* ((cap (car caps))
+               (ch (make-fiber-channel cap))
+               (last-seq (make-vector p -1))
+               (order-bad (make-atomic-fxbox 0))
+               (total (fx* p items-per-prod)))
+          (run-fibers
+           (lambda ()
+             (with-nursery
+              (lambda (n)
+                (let ploop ((pid 0))
+                  (if (fx< pid p)
+                      (begin
+                        (fiber-spawn
+                         (lambda ()
+                           (let sloop ((seq 0))
+                             (if (fx< seq items-per-prod)
+                                 (begin
+                                   (fiber-send! ch (fx+ (fx* pid items-per-prod) seq))
+                                   (sloop (fx+ seq 1))))))
+                         n)
+                        (ploop (fx+ pid 1)))))
+                (fiber-spawn
+                 (lambda ()
+                   (let rloop ((k 0))
+                     (if (fx< k total)
+                         (let* ((v (fiber-recv! ch))
+                                (pid (fxquotient v items-per-prod))
+                                (seq (fxmodulo v items-per-prod)))
+                           (if (not (fx= seq (fx+ (vector-ref last-seq pid) 1)))
+                               (atomic-fxbox+/fetch! order-bad 1))
+                           (vector-set! last-seq pid seq)
+                           (if (fx= (fxand k 15) 15) (fiber-yield))
+                           (rloop (fx+ k 1))))))
+                 n))))
+           workers: p)
+          (if (not (fx= (atomic-fxbox-ref order-bad) 0))
+              (set! ok-all #f))
+          (cloop (cdr caps)))))
+  (test-assert ok-all))
+
+;; 14g. Rapid nested nursery flush vs stolen-LIFO regression (catches stale
+;;      ctx.lifo cached across %nursery-flush! in %sched-switch-next!):
+;;      forces (ticks & 15) == 15 batched nursery completion wakes while
+;;      ctx.lifo holds a woken %fiber-k and peer workers steal from ctx.dq.
+(let* ((p (max 2 (min 12 (##current-vm-processor-count))))
+       (rounds 40)
+       (done-count (make-atomic-fxbox 0)))
+  (run-fibers
+   (lambda ()
+     (let rloop ((r 0))
+       (if (fx< r rounds)
+           (let ((ch (make-fiber-channel 1))
+                 (children (fx+ 20 (fxmodulo r 24))))
+             (with-nursery
+              (lambda (outer)
+                (fiber-spawn
+                 (lambda ()
+                   (with-nursery
+                    (lambda (inner)
+                      (let cloop ((i 0))
+                        (if (fx< i children)
+                            (begin
+                              (fiber-spawn
+                               (lambda ()
+                                 (fiber-yield)
+                                 (atomic-fxbox+/fetch! done-count 1))
+                               inner)
+                              (cloop (fx+ i 1)))))))
+                   (fiber-send! ch r))
+                 outer)
+                (fiber-spawn
+                 (lambda ()
+                   (fiber-recv! ch)
+                   (fiber-yield))
+                 outer)))
+             (rloop (fx+ r 1))))))
+   workers: p)
+  (let ((expected (let loop ((r 0) (s 0))
+                    (if (fx< r rounds)
+                        (loop (fx+ r 1) (fx+ s (fx+ 20 (fxmodulo r 24))))
+                        s))))
+    (test-equal expected (atomic-fxbox-ref done-count))))
+
+;; 14h. Oversubscribed W = 3 * P deadlock-freedom regression: verifies
+;;      cooperative pre-park (thread-yield!) prevents carrier starvation on
+;;      small/CI machines when workers exceed VM processor count.
+(let* ((p (max 1 (min 4 (##current-vm-processor-count))))
+       (w (fx* 3 p))
+       (done (make-atomic-fxbox 0)))
+  (run-fibers
+   (lambda ()
+     (let rloop ((r 0))
+       (if (fx< r 12)
+           (let ((ch (make-fiber-channel 4)))
+             (with-nursery
+              (lambda (n)
+                (let iloop ((i 0))
+                  (if (fx< i 80)
+                      (begin
+                        (fiber-spawn
+                         (lambda ()
+                           (fiber-yield)
+                           (fiber-send! ch i)
+                           (atomic-fxbox+/fetch! done 1))
+                         n)
+                        (fiber-spawn
+                         (lambda ()
+                           (fiber-recv! ch))
+                         n)
+                        (iloop (fx+ i 1)))))))
+             (rloop (fx+ r 1))))))
+   workers: w)
+  (test-equal (fx* 12 80) (atomic-fxbox-ref done)))
+
+;; 14i. Parallel STW Remark Phase R-A Chez remote-inbox quiescence regression:
+;;      spawns (3000 * P) simultaneously live suspended fibers referencing a
+;;      cross-core mature-anchor graph and triggers explicit STW Major GC
+;;      Remark ((##gc)) to guard against split-counter Remark livelock.
+(let* ((p (max 2 (min 12 (##current-vm-processor-count))))
+       (n-fibers (fx* 3000 p))
+       (started (make-atomic-fxbox 0))
+       (done (make-atomic-fxbox 0))
+       (anchors (make-vector 512 #f)))
+  (let aloop ((i 0))
+    (if (fx< i 512)
+        (begin (vector-set! anchors i (make-vector 64 i))
+               (aloop (fx+ i 1)))))
+  (##gc)
+  (run-fibers
+   (lambda ()
+     (with-nursery
+      (lambda (n)
+        (let loop ((i 0))
+          (if (fx< i n-fibers)
+              (begin
+                (fiber-spawn
+                 (lambda ()
+                   (let ((local-obj (cons (vector-ref anchors (fxand i 511))
+                                          (make-vector 4 i))))
+                     (atomic-fxbox+/fetch! started 1)
+                     (fiber-yield)
+                     (fiber-yield)
+                     (if (fx= (vector-ref (cdr local-obj) 0) i)
+                         (atomic-fxbox+/fetch! done 1))))
+                 n)
+                (loop (fx+ i 1)))))
+        (##gc)
+        (##gc))))
+   workers: p)
+  (test-equal n-fibers (atomic-fxbox-ref started))
+  (test-equal n-fibers (atomic-fxbox-ref done)))
+
+;; 14j. Cross-module (gambit effect) + (gambit fiber) work-stealing carrier
+;;      migration: fibers run suspending with-handler, direct-style generators,
+;;      and multi-shot effects while parking on channels and migrating across
+;;      all P carrier threads.
+(let* ((p (max 2 (min 12 (##current-vm-processor-count))))
+       (n-fibers (fx* 8 p))
+       (eff-step (make-effect 'fiber-mig-step))
+       (eff-choose (make-effect 'fiber-mig-choose))
+       (ok (make-atomic-fxbox 0)))
+  (run-fibers
+   (lambda ()
+     (let ((ch (make-fiber-channel 4)))
+       (with-nursery
+        (lambda (n)
+          (let loop ((i 0))
+            (if (fx< i n-fibers)
+                (begin
+                  (fiber-spawn
+                   (lambda ()
+                     ;; Suspending handler + generator + channel park across carriers
+                     (let ((s1
+                            (with-handler
+                              ((eff-step (k v) (resume k (fx+ v 1))))
+                              (let iloop ((j 0) (a 0))
+                                (if (fx< j 16)
+                                    (begin
+                                      (if (fx= (fxand j 3) 3)
+                                          (begin (fiber-send! ch j)
+                                                 (fiber-recv! ch)))
+                                      (iloop (fx+ j 1) (perform eff-step a)))
+                                    a))))
+                           (g (make-generator
+                               (lambda ()
+                                 (let gloop ((j 0))
+                                   (if (fx< j 16)
+                                       (begin
+                                         (if (fx= (fxand j 3) 3) (fiber-yield))
+                                         (perform yield j)
+                                         (gloop (fx+ j 1))))))))
+                           (ms (with-handler
+                                 ((eff-choose (k)
+                                    (append (resume-multishot k 1)
+                                            (resume-multishot k 2)))
+                                  (return: (x) (list x)))
+                                 (let ((a (perform eff-choose)))
+                                   (fiber-yield)
+                                   (fx+ a (perform eff-choose))))))
+                       (let sumloop ((s2 0))
+                         (let ((v (g)))
+                           (if (eof-object? v)
+                               (if (and (fx= s1 16)
+                                        (fx= s2 120)
+                                        (equal? ms '(2 3 3 4)))
+                                   (atomic-fxbox+/fetch! ok 1))
+                               (sumloop (fx+ s2 v)))))))
+                   n)
+                  (loop (fx+ i 1)))))))))
+   workers: p)
+  (test-equal n-fibers (atomic-fxbox-ref ok)))
+
 ;;;============================================================================
