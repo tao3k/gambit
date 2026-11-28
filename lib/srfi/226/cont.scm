@@ -370,6 +370,23 @@
                          (%osc-tag-fast cell)
                          v1 v2 v3 more))
 
+;; Exact metacontinuation frame diff: returns elements of `xs` not present in
+;; `ys` (preserving order). O(1) when `xs` and `ys` are eq? or either is null,
+;; and fast-paths the common suffix case where `ys` is a tail of `xs`.
+(define (%mc-diff-list xs ys)
+  (cond
+    ((or (null? xs) (eq? xs ys)) '())
+    ((null? ys) xs)
+    (else
+     (let loop ((cur xs) (acc '()))
+       (cond
+         ((or (null? cur) (eq? cur ys))
+          (reverse acc))
+         ((memq (car cur) ys)
+          (loop (cdr cur) acc))
+         (else
+          (loop (cdr cur) (cons (car cur) acc))))))))
+
 ;; Transactional raw continuation invocation: restore captured control state
 ;; (metacontinuation, marks, barriers, handlers) directly on the fast path
 ;; when no dynamic-wind frames separate caller and target, or inside a
@@ -382,12 +399,15 @@
     (if (%entering-barrier? cap-barriers (%st-barriers cst))
         (error "continuation invocation blocked by continuation barrier"))
     (if (%mc-same-dynwind? sub-k)
-        (let ((dropped (%list-prefix-until (%st-mc cst) cap-mc)))
+        (let* ((cur-mc (%st-mc cst))
+               (dropped (%mc-diff-list cur-mc cap-mc))
+               (reentered (%mc-diff-list cap-mc cur-mc)))
           (%st-mc-set! cst cap-mc)
           (%st-marks-set! cst cap-marks)
           (%st-barriers-set! cst cap-barriers)
           (%st-handlers-set! cst cap-handlers)
           (if (pair? dropped) (%mc-run-unwind-hooks! dropped 'unwind))
+          (if (pair? reentered) (%mc-run-unwind-hooks! reentered 'restore))
           (cond
             ((eq? v1 %ABSENT) (##continuation-return sub-k))
             ((eq? v2 %ABSENT) (##continuation-return sub-k v1))
@@ -398,12 +418,15 @@
          sub-k
          (lambda ()
            (let* ((st (%tc-current))
-                  (dropped (%list-prefix-until (%st-mc st) cap-mc)))
+                  (cur-mc (%st-mc st))
+                  (dropped (%mc-diff-list cur-mc cap-mc))
+                  (reentered (%mc-diff-list cap-mc cur-mc)))
              (%st-mc-set! st cap-mc)
              (%st-marks-set! st cap-marks)
              (%st-barriers-set! st cap-barriers)
              (%st-handlers-set! st cap-handlers)
-             (if (pair? dropped) (%mc-run-unwind-hooks! dropped 'unwind)))
+             (if (pair? dropped) (%mc-run-unwind-hooks! dropped 'unwind))
+             (if (pair? reentered) (%mc-run-unwind-hooks! reentered 'restore)))
            (cond
              ((eq? v1 %ABSENT) (values))
              ((eq? v2 %ABSENT) v1)

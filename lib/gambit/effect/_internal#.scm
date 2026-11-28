@@ -124,6 +124,7 @@
   %resume-checked))
 
 (##namespace ("gambit/effect/capability#"
+  %cap-pop-guard!
   %install-cap-cont!
   %install-cap-cont-scoped!))
 

@@ -123,20 +123,34 @@
 (define (%call-with-handler-entries entries return-fn thunk)
   (if (%entries-all-tail? entries)
       ;; Tail-Resumptive Fast Path:
-      ;; Zero prompt, zero continuation capture, zero parameterize, and
-      ;; continuation-replay-safe dynamic frame popping on exit/unwind.
+      ;; Zero prompt, zero continuation capture, continuable-exception safe
+      ;; via macro-dynamic-bind (or zero-overhead trampoline bypass when
+      ;; already enclosed by an active prompt/handler trampoline).
       (let* ((frame (%make-handler-frame #f entries))
-             (st (%tc-fast)))
+             (st (%tc-fast))
+             (cur-eh (macro-current-exception-handler)))
         (%st-handlers-set! st (cons frame (%st-handlers st)))
         (let ((res
-               (with-exception-catcher
-                (lambda (e)
-                  (%pop-handler-frame! (%tc-fast) frame)
-                  (raise e))
-                (lambda ()
-                  (let ((r (thunk)))
-                    (%pop-handler-frame! (%tc-fast) frame)
-                    r)))))
+               (if (%mc-eh-trampoline? cur-eh)
+                   (let ((r (thunk)))
+                     (%pop-handler-frame! (%tc-fast) frame)
+                     r)
+                   (macro-dynamic-bind
+                    exception-handler
+                    (lambda (exc)
+                      (let* ((cst (%tc-fast))
+                             (saved (%st-handlers cst)))
+                        (%pop-handler-frame! cst frame)
+                        (let ((r (macro-dynamic-bind
+                                  exception-handler
+                                  cur-eh
+                                  (lambda () (cur-eh exc)))))
+                          (%st-handlers-set! (%tc-fast) saved)
+                          r)))
+                    (lambda ()
+                      (let ((r (thunk)))
+                        (%pop-handler-frame! (%tc-fast) frame)
+                        r))))))
           (if return-fn
               (if (##values? res)
                   (##call-with-values (lambda () res) return-fn)

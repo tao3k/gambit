@@ -120,6 +120,7 @@
   %commit-noncomp-and-return!
   %invoke-noncomp-parts
   %invoke-noncomp-cell
+  %mc-diff-list
   %invoke-raw-parts
   %invoke-raw-cell
   %make-composable-closure

@@ -9,12 +9,66 @@
 ;;; Lexa OOPSLA '24 / Effekt OOPSLA '23 O(1) Lexical Capability Handles
 ;;; with scope-bound exception-unwind coherency.
 
+(define (%cap-pop-guard! guard-frame)
+  (let* ((st (%tc-fast))
+         (mc (%st-mc st)))
+    (if (pair? mc)
+        (if (eq? (car mc) guard-frame)
+            (%st-mc-set! st (cdr mc))
+            (let loop ((cur mc) (acc '()))
+              (cond
+                ((null? cur) #!void)
+                ((eq? (car cur) guard-frame)
+                 (%st-mc-set! st (append (reverse acc) (cdr cur))))
+                (else
+                 (loop (cdr cur) (cons (car cur) acc)))))))))
+
 (define (call-with-tail-capability handler-proc body-proc)
   (if (not (procedure? handler-proc))
       (error "call-with-tail-capability: expected procedure" handler-proc))
   (if (not (procedure? body-proc))
       (error "call-with-tail-capability: expected procedure" body-proc))
-  (body-proc (%make-capability 'tail handler-proc #f)))
+  (let* ((live-box (cons #t #f))
+         (cap (%make-capability 'tail handler-proc live-box))
+         (st (macro-thread-control-state (##current-thread)))
+         (cur-eh (macro-current-exception-handler))
+         (guard-frame
+          (if (and st (pair? (%st-mc st)))
+              (let ((gf (%make-mc-frame-9
+                         'unwind-guard
+                         #f
+                         #t
+                         #f
+                         (%st-marks st)
+                         (%st-barriers st)
+                         (%st-handlers st)
+                         #f
+                         (lambda (phase)
+                           (set-car! live-box (eq? phase 'restore))))))
+                (%st-mc-set! st (cons gf (%st-mc st)))
+                gf)
+              #f)))
+    (if (and guard-frame (%mc-eh-trampoline? cur-eh))
+        (let ((r (body-proc cap)))
+          (%cap-pop-guard! guard-frame)
+          (set-car! live-box #f)
+          r)
+        (macro-dynamic-bind
+         exception-handler
+         (lambda (exc)
+           (let ((prev (car live-box)))
+             (set-car! live-box #f)
+             (let ((r (macro-dynamic-bind
+                       exception-handler
+                       cur-eh
+                       (lambda () (cur-eh exc)))))
+               (set-car! live-box prev)
+               r)))
+         (lambda ()
+           (let ((r (body-proc cap)))
+             (if guard-frame (%cap-pop-guard! guard-frame))
+             (set-car! live-box #f)
+             r))))))
 
 (define (%install-cap-cont! escape-k cap body-proc)
   (let* ((st (%tc-fast))
@@ -89,13 +143,16 @@
   (if (not (effect-capability? cap))
       (error "perform-cap: expected effect-capability" cap))
   (if (eq? (%cap-kind cap) 'tail)
-      ;; O(1) direct dispatch — zero handler-chain walk, zero capture!
-      (let ((proc (%cap-proc cap)))
-        (cond
-          ((eq? a1 %ABSENT) (proc))
-          ((eq? a2 %ABSENT) (proc a1))
-          ((null? more)     (proc a1 a2))
-          (else             (apply proc a1 a2 more))))
+      ;; O(1) direct dispatch with lexical scope liveness guard — zero handler-chain walk!
+      (let ((live-box (%cap-frame cap)))
+        (if (not (car live-box))
+            (error "perform-cap: capability handler no longer active" cap))
+        (let ((proc (%cap-proc cap)))
+          (cond
+            ((eq? a1 %ABSENT) (proc))
+            ((eq? a2 %ABSENT) (proc a1))
+            ((null? more)     (proc a1 a2))
+            (else             (apply proc a1 a2 more)))))
       ;; Direct suspending capability dispatch (zero-closure capture)
       (let* ((st (%tc-fast))
              (frame (%cap-frame cap))

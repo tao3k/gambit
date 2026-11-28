@@ -1833,3 +1833,203 @@
       (test-equal num-threads (atomic-fxbox-ref ok-count)))))
 
 ;;;============================================================================
+;;; Zero-Capture Tail-Resumptive Continuable-Exception Parity, Lexical Tail-
+;;; Capability Scope Safety, and Raw call/1cc Cross-Prompt Restore Hooks
+
+(let ()
+  (define (raises-err? thunk)
+    (with-exception-catcher (lambda (e) #t) (lambda () (thunk) #f)))
+
+  ;; 1. Tail-resumptive with-handler preserves continuable exceptions (with-exception-handler),
+  ;;    hiding the inner handler during outer eh execution and restoring it upon return.
+  (let ((e (make-effect 'tail-cont-exc))
+        (saw-in-outer #f))
+    (test-equal 143
+      (with-exception-handler
+       (lambda (ex) (fx+ ex 100))
+       (lambda ()
+         (with-handler ((tail: e (v) v))
+           (fx+ 1 (raise 42))))))
+    (test-equal 240
+      (with-handler ((tail: e (v) (list 'outer v)))
+        (with-exception-handler
+         (lambda (ex)
+           (set! saw-in-outer (perform e ex))
+           (fx+ ex 100))
+         (lambda ()
+           (with-handler ((tail: e (v) (fx* v 2)))
+             (let ((r (raise 20)))
+               (perform e r)))))))
+    (test-equal '(outer 20) saw-in-outer)
+    ;; Also inside an enclosing SRFI-226 prompt trampoline (zero-overhead path)
+    (let ((pt (make-continuation-prompt-tag 'tail-tramp-cont)))
+      (test-equal 240
+        (with-exception-handler
+         (lambda (ex) (fx+ ex 100))
+         (lambda ()
+           (call-with-continuation-prompt
+            (lambda ()
+              (with-handler ((tail: e (v) (fx* v 2)))
+                (let ((r (raise 20)))
+                  (perform e r))))
+            pt))))
+      ;; Escaping exception inside prompt leaves handler stack clean
+      (test-equal 'caught-esc
+        (with-exception-catcher
+         (lambda (ex) ex)
+         (lambda ()
+           (call-with-continuation-prompt
+            (lambda ()
+              (with-handler ((tail: e (v) 'leaked))
+                (raise 'caught-esc)))
+            pt))))
+      (test-equal #t (raises-err? (lambda () (perform e 1))))))
+
+  ;; 2. Lexical tail-capability scope safety across normal exit, exceptions,
+  ;;    continuable exceptions, non-local aborts, and multi-shot replay.
+  (let ((escaped #f)
+        (escaped-exc #f)
+        (escaped-ab #f)
+        (pt (make-continuation-prompt-tag 'cap-ab-pt))
+        (e-out (make-effect 'cap-out-susp)))
+    ;; Normal exit invalidates escaped tail capability
+    (test-equal 15
+      (call-with-tail-capability
+       (lambda (x) (fx+ x 5))
+       (lambda (cap)
+         (set! escaped cap)
+         (perform-cap cap 10))))
+    (test-equal #t (raises-err? (lambda () (perform-cap escaped 10))))
+
+    ;; Escaping exception invalidates escaped tail capability
+    (test-equal 'cap-boom
+      (with-exception-catcher
+       (lambda (ex) ex)
+       (lambda ()
+         (call-with-tail-capability
+          (lambda (x) x)
+          (lambda (cap)
+            (set! escaped-exc cap)
+            (raise 'cap-boom))))))
+    (test-equal #t (raises-err? (lambda () (perform-cap escaped-exc 1))))
+
+    ;; Continuable exception disables cap during outer eh and re-enables on return
+    (let ((outer-blocked #f))
+      (test-equal 220
+        (with-exception-handler
+         (lambda (ex)
+           (set! outer-blocked (raises-err? (lambda () (perform-cap (cdr ex) 1))))
+           (fx+ (car ex) 100))
+         (lambda ()
+           (call-with-tail-capability
+            (lambda (x) (fx* x 2))
+            (lambda (cap)
+              (let ((v (raise (cons 10 cap))))
+                (perform-cap cap v)))))))
+      (test-equal #t outer-blocked))
+
+    ;; Non-local abort invalidates escaped tail capability
+    (test-equal 'aborted-cap
+      (call-with-continuation-prompt
+       (lambda ()
+         (call-with-tail-capability
+          (lambda (x) x)
+          (lambda (cap)
+            (set! escaped-ab cap)
+            (abort-current-continuation pt 'aborted-cap))))
+       pt
+       (lambda (v) v)))
+    (test-equal #t (raises-err? (lambda () (perform-cap escaped-ab 1))))
+
+    ;; Outer suspending perform disables cap during handler ('suspend) and
+    ;; re-enables across multi-shot resume-multishot ('restore)!
+    (let ((handler-blocked #f)
+          (escaped-ms #f))
+      (test-equal '(110 120)
+        (with-handler ((e-out (k cap)
+                         (set! handler-blocked (raises-err? (lambda () (perform-cap cap 1))))
+                         (list (resume-multishot k 10)
+                               (resume-multishot k 20))))
+          (call-with-tail-capability
+           (lambda (x) (fx+ x 100))
+           (lambda (cap)
+             (set! escaped-ms cap)
+             (let ((v (perform e-out cap)))
+               (perform-cap cap v))))))
+      (test-equal #t handler-blocked)
+      (test-equal #t (raises-err? (lambda () (perform-cap escaped-ms 1))))))
+
+  ;; 3. Promoted raw call/1cc divergent jump restores re-entered tail-capability
+  ;;    guard cleanly via exact LCA diff.
+  (let ((absent (make-continuation-prompt-tag 'raw-cap-absent))
+        (pt-a (make-continuation-prompt-tag 'raw-cap-a))
+        (pt-b (make-continuation-prompt-tag 'raw-cap-b))
+        (saved-k #f)
+        (shot 0)
+        (out '()))
+    (call-with-continuation-prompt
+     (lambda ()
+       (call-with-tail-capability
+        (lambda (x) (fx+ x 1000))
+        (lambda (cap)
+          (let ((v (call/1cc (lambda (k)
+                               (promote-one-shot-continuation! k)
+                               (set! saved-k k)
+                               1)
+                             absent)))
+            (set! out (cons (perform-cap cap v) out))))))
+     pt-a)
+    (if (fx= shot 0)
+        (begin
+          (set! shot 1)
+          (call-with-continuation-prompt
+           (lambda () (saved-k 2))
+           pt-b)))
+    (test-equal '(1002 1001) out))
+
+  ;; 4. Adaptive-P SMP torture combining tail-resumptive continuable exceptions,
+  ;;    lexical tail-capability scope checks across aborts & multi-shot replay + ##gc.
+  (let* ((hw (##current-vm-processor-count))
+         (num-threads (max 2 (min 8 hw)))
+         (rounds 30)
+         (ok-count (make-atomic-fxbox 0)))
+    (let ((threads
+           (let loop ((t 0) (acc '()))
+             (if (fx= t num-threads)
+                 acc
+                 (loop (fx+ t 1)
+                       (cons
+                        (thread-start!
+                         (make-thread
+                          (lambda ()
+                            (let ((e1 (make-effect 'smp-c-e1))
+                                  (e2 (make-effect 'smp-c-e2)))
+                              (let rloop ((r 0) (good #t))
+                                (if (fx< r rounds)
+                                    (let* ((r1 (with-exception-handler
+                                                (lambda (ex) (fx+ ex 10))
+                                                (lambda ()
+                                                  (with-handler ((tail: e1 (x) (fx* x 2)))
+                                                    (perform e1 (raise r))))))
+                                           (esc #f)
+                                           (r2 (with-handler ((e2 (k cap)
+                                                                (list (resume-multishot k r)
+                                                                      (resume-multishot k (fx+ r 1)))))
+                                                 (call-with-tail-capability
+                                                  (lambda (x) (fx+ x 5))
+                                                  (lambda (cap)
+                                                    (set! esc cap)
+                                                    (perform-cap cap (perform e2 cap))))))
+                                           (dead? (raises-err? (lambda () (perform-cap esc 0)))))
+                                      (if (and (fx= t 0) (fx= (fxand r 7) 7)) (##gc))
+                                      (rloop (fx+ r 1)
+                                             (and good
+                                                  (fx= r1 (fx* (fx+ r 10) 2))
+                                                  (equal? r2 (list (fx+ r 5) (fx+ r 6)))
+                                                  dead?)))
+                                    (if good (atomic-fxbox+/fetch! ok-count 1))))))))
+                        acc))))))
+      (for-each thread-join! threads)
+      (test-equal num-threads (atomic-fxbox-ref ok-count)))))
+
+;;;============================================================================
