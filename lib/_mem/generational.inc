@@ -562,10 +562,11 @@ ___WORD *slot_ptr;)
 }
 
 /* Value-aware generational write barrier slow path.
- * Elides card/still marking and local_young_escaped_ transitions whenever the
- * stored value is already permanent or mature (cannot create an old-to-young
- * edge or escape a local nursery object). SATB old-value logging has already
- * executed in the inline macro prior to reaching this function. */
+ * Checks target object generation first so writes into cross-core young objects
+ * return immediately without probing mature sections for `val`, and short-circuits
+ * mature->local-nursery writes directly to card marking without a second lookup.
+ * Still elides card/still marking whenever `val` is permanent or mature.
+ * SATB old-value logging has already executed in the inline macro. */
 ___EXP_FUNC(void,___gc_write_barrier_slow_val)
    ___P((___processor_state ___ps,
          ___SCMOBJ obj,
@@ -581,6 +582,9 @@ ___WORD *slot_ptr;
 ___SCMOBJ val;)
 {
   ___virtual_machine_state vm;
+  ___WORD head;
+  int htyp;
+  int val_in_local_nursery = 0;
 
   if (___ps == 0 || !___MEM_ALLOCATED(obj) || slot_ptr == 0)
     return;
@@ -591,41 +595,118 @@ ___SCMOBJ val;)
 
   if (___MEM_ALLOCATED(val))
     {
-      ___WORD vhead = ___WORD_LOAD_RELAXED(&___BODY0(val)[-1]);
-      int vtyp = ___HD_TYP(vhead);
-      if (vtyp == ___PERM)
-        return;
-      if (vtyp == ___STILL)
-        {
-#ifndef ___USE_HANDLES
-          ___WORD *vbase = ___BODY0(val) - ___STILL_BODY;
-          if ((___WORD_LOAD_RELAXED(&vbase[___STILL_DIRTY]) & ___STILL_FLAG_YOUNG) == 0)
-            {
-              if (___EXPECT_FALSE(vm->mem.nb_msections_static_ > 0) &&
-                  ___HD_TYP(___WORD_LOAD_RELAXED(&___BODY0(obj)[-1])) == ___MOVABLE0)
-                static_mark_dirty_section(
-                  wb_find_mature_section(___ps, vm, ___CAST(___UWORD, slot_ptr)));
-              return;
-            }
-#else
-          return;
-#endif
-        }
-      else if (vtyp == ___MOVABLE0)
-        {
-          ___msection *vsec = wb_find_mature_section(___ps, vm, ___CAST(___UWORD, ___BODY0(val)));
-          if (vsec != 0)
-            {
-              if (___EXPECT_FALSE(vm->mem.nb_msections_static_ > 0 && vsec->major_static_gen == 0) &&
-                  ___HD_TYP(___WORD_LOAD_RELAXED(&___BODY0(obj)[-1])) == ___MOVABLE0)
-                static_mark_dirty_section(
-                  wb_find_mature_section(___ps, vm, ___CAST(___UWORD, slot_ptr)));
-              return;
-            }
-        }
+      ___UWORD va = ___CAST(___UWORD, ___BODY0(val));
+      ___UWORD lo = ___CAST(___UWORD, ___ps->mem.alloc_heap_start_);
+      ___UWORD hi = ___CAST(___UWORD, ___ps->mem.alloc_heap_limit_);
+      val_in_local_nursery = (va - lo < hi - lo);
     }
 
-  ___gc_write_barrier_slow(___ps, obj, slot_ptr);
+  head = ___WORD_LOAD_RELAXED(&___BODY0(obj)[-1]);
+  htyp = ___HD_TYP(head);
+
+  if (htyp == ___MOVABLE0)
+    {
+      ___UWORD addr = ___CAST(___UWORD, slot_ptr);
+      ___msection *sec = wb_find_mature_section(___ps, vm, addr);
+      if (sec == 0)
+        {
+          /* Target is in a young nursery (e.g. another processor's nursery):
+           * cannot create a mature->young edge; only flag local escape if needed. */
+          if (val_in_local_nursery)
+            ___ps->mem.local_young_escaped_ = 1;
+          else if (___MEM_ALLOCATED(val))
+            {
+              ___WORD vhead = ___WORD_LOAD_RELAXED(&___BODY0(val)[-1]);
+              if (___HD_TYP(vhead) == ___MOVABLE0 &&
+                  wb_find_mature_section(___ps, vm, ___CAST(___UWORD, ___BODY0(val))) == 0)
+                ___ps->mem.local_young_escaped_ = 1;
+            }
+          return;
+        }
+
+      if (!val_in_local_nursery && ___MEM_ALLOCATED(val))
+        {
+          ___WORD vhead = ___WORD_LOAD_RELAXED(&___BODY0(val)[-1]);
+          int vtyp = ___HD_TYP(vhead);
+          if (vtyp == ___PERM)
+            return;
+          if (vtyp == ___STILL)
+            {
+#ifndef ___USE_HANDLES
+              ___WORD *vbase = ___BODY0(val) - ___STILL_BODY;
+              if ((___WORD_LOAD_RELAXED(&vbase[___STILL_DIRTY]) & ___STILL_FLAG_YOUNG) == 0)
+                {
+                  if (___EXPECT_FALSE(vm->mem.nb_msections_static_ > 0))
+                    static_mark_dirty_section(sec);
+                  return;
+                }
+#else
+              return;
+#endif
+            }
+          else if (vtyp == ___MOVABLE0)
+            {
+              ___msection *vsec = wb_find_mature_section(___ps, vm, ___CAST(___UWORD, ___BODY0(val)));
+              if (vsec != 0)
+                {
+                  if (___EXPECT_FALSE(vm->mem.nb_msections_static_ > 0 && vsec->major_static_gen == 0))
+                    static_mark_dirty_section(sec);
+                  return;
+                }
+            }
+        }
+
+      /* Target is mature and value is young: mark card directly without re-lookup. */
+      ___ps->mem.local_young_escaped_ = 1;
+      {
+        ___SIZE_TS word_off =
+          ___CAST(___SIZE_TS, (addr - ___CAST(___UWORD, sec->base)) / ___WS);
+        ___SIZE_TS card_word_base =
+          (word_off >> ___GC_CARD_SHIFT_WORDS) << ___GC_CARD_SHIFT_WORDS;
+        static_mark_dirty_section(sec);
+        ___gc_card_mark_in_section(sec, section_card_bits(sec), word_off,
+                                   ___MSECTION_SIZE, &___ps->mem.card_hints_);
+        ___ps->mem.wb_last_card_lo_ = ___CAST(___UWORD, sec->base + card_word_base);
+      }
+      return;
+    }
+
+  if (htyp == ___STILL)
+    {
+#ifndef ___USE_HANDLES
+      ___WORD *base = ___BODY0(obj) - ___STILL_BODY;
+      if ((___WORD_LOAD_RELAXED(&base[___STILL_DIRTY]) & ___STILL_FLAG_YOUNG) != 0)
+        {
+          if (val_in_local_nursery)
+            ___ps->mem.local_young_escaped_ = 1;
+          return;
+        }
+#endif
+      if (!val_in_local_nursery && ___MEM_ALLOCATED(val))
+        {
+          ___WORD vhead = ___WORD_LOAD_RELAXED(&___BODY0(val)[-1]);
+          int vtyp = ___HD_TYP(vhead);
+          if (vtyp == ___PERM)
+            return;
+          if (vtyp == ___STILL)
+            {
+#ifndef ___USE_HANDLES
+              ___WORD *vbase = ___BODY0(val) - ___STILL_BODY;
+              if ((___WORD_LOAD_RELAXED(&vbase[___STILL_DIRTY]) & ___STILL_FLAG_YOUNG) == 0)
+                return;
+#else
+              return;
+#endif
+            }
+          else if (vtyp == ___MOVABLE0 &&
+                   wb_find_mature_section(___ps, vm, ___CAST(___UWORD, ___BODY0(val))) != 0)
+            return;
+        }
+      ___ps->mem.local_young_escaped_ = 1;
+#ifndef ___USE_HANDLES
+      still_mark_dirty_slot(___ps, vm, obj, head, slot_ptr, 1);
+#endif
+    }
 }
 
 /* Cross-processor-safe card barrier for C runtime writes where the caller's

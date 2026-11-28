@@ -57,10 +57,10 @@
   (##raise-type-exception 1 'memory-order proc (##list order)))
 
 (##define-macro (macro-order->code order proc)
-  `(cond ((##eq? ,order 'sequentially-consistent) 4)
-         ((##eq? ,order 'acquire) 1)
-         ((##eq? ,order 'release) 2)
+  `(cond ((##eq? ,order 'acquire) 1)
          ((##eq? ,order 'relaxed) 0)
+         ((##eq? ,order 'release) 2)
+         ((##eq? ,order 'sequentially-consistent) 4)
          ((##eq? ,order 'acquire-release) 3)
          (else (bad-memory-order ,order ,proc))))
 
@@ -318,7 +318,7 @@
 ;;;============================================================================
 
 (define (make-atomic-flag)
-  (macro-make-atomic-flag (##vector 0)))
+  (macro-make-atomic-flag (##make-vector 16 0)))
 
 (define (atomic-flag? obj)
   (macro-atomic-flag? obj))
@@ -339,7 +339,9 @@
 ;;;============================================================================
 
 (define (make-atomic-box obj)
-  (macro-make-atomic-box (##vector obj)))
+  (let ((cell (##make-vector 16 #f)))
+    (##vector-set! cell 0 obj)
+    (macro-make-atomic-box cell)))
 
 (define (atomic-box? obj)
   (macro-atomic-box? obj))
@@ -382,7 +384,9 @@
 
 (define (make-atomic-fxbox fx)
   (macro-check-fixnum fx 1 make-atomic-fxbox)
-  (macro-make-atomic-fxbox (##vector fx)))
+  (let ((cell (##make-vector 16 0)))
+    (##vector-set! cell 0 fx)
+    (macro-make-atomic-fxbox cell)))
 
 (define (atomic-fxbox? obj)
   (macro-atomic-fxbox? obj))

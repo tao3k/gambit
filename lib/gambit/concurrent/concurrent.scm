@@ -138,15 +138,17 @@
                   (loop))))))))
 
 ;;;============================================================================
-;;; 2. Lock-Free Unbounded Segmented MPMC FIFO Queue (128-slot movable segments)
+;;; 2. Lock-Free Unbounded Segmented MPMC FIFO Queue (504-slot sentinel segments)
 ;;;
-;;; Each segment is a 4-element vector: #(base slots states next)
-;;;   [0] base   : immutable fixnum start ticket (k * 128)
-;;;   [1] slots  : 128-element movable payload vector (cleared to #f upon dequeue)
-;;;   [2] states : 128-element movable atomic fixnum state vector (0=EMPTY, 1=READY)
-;;;   [3] next   : #f or lazily CAS-linked next segment
-;;; (128 words stays strictly below Gambit's still-object threshold so every
-;;;  segment allocates via fast movable bump-pointer nursery allocation.)
+;;; Each segment is a 3-element vector: #(base slots next)
+;;;   [0] base  : immutable fixnum start ticket (k * 504)
+;;;   [1] slots : 504-element movable payload vector initialized to an internal
+;;;               empty sentinel (___UNB2 in C-compiled mode; private pair when
+;;;               interpreted). Eliminates the separate states vector and avoids
+;;;               card-dirtying barriers when clearing consumed slots.
+;;;   [2] next  : #f or lazily CAS-linked next segment
+;;; (504 + 1 = 505 words <= ___MSECTION_BIGGEST [512], so every segment allocates
+;;;  via fast movable bump-pointer nursery allocation.)
 ;;;
 ;;; Queue holds two 128-byte padded control vectors:
 ;;;   head-ctr : #(head_ticket head_seg 0 ... 0)
@@ -166,12 +168,25 @@
 
 (define %lfq-empty (##cons 'lfq-empty 'lfq-empty))
 (define %lfq-retry (##cons 'lfq-retry 'lfq-retry))
+(define %lfq-slot-empty (##cons 'lfq-slot-empty 'lfq-slot-empty))
 
 (define (%make-lf-qseg base)
-  (##vector base
-            (##make-vector 128 #f)
-            (##make-vector 128 0)
-            #f))
+  (let ((slots (##make-vector 504 #f)))
+    (macro-if-c-compiled
+     (##c-code
+      "___WORD *sp = ___BODY_AS(___ARG1, ___tVECTOR);
+       ___WORD i;
+       for (i = 0; i < 504; i++)
+         ___WORD_STORE_RELAXED(&sp[i], ___CAST(___WORD, ___UNB2));
+       ___RESULT = ___ARG1;"
+      slots)
+     (let loop ((i 0))
+       (if (##fx< i 504)
+           (begin
+             (##vector-set! slots i %lfq-slot-empty)
+             (loop (##fx+ i 1)))
+           slots)))
+    (##vector base slots #f)))
 
 (define (make-lf-queue)
   (let* ((seg0 (%make-lf-qseg 0))
@@ -191,7 +206,7 @@
         (t (%ctr-load-acq (macro-lf-queue-tail q))))
     (##fx>= h t)))
 
-;; Returns #t if enqueued, #f to yield/retry, or `seg` needing seg[3] allocation.
+;; Returns #t if enqueued, #f to yield/retry, or `seg` needing seg[2] allocation.
 (##define-macro (%lfq-enq-fast! tc val)
   `(macro-if-c-compiled
     (##c-code
@@ -213,8 +228,8 @@
           ___CPU_RELAX();
           continue;
         }
-        if (off >= 128) {
-          ___SCMOBJ nxt = ___gc_atomic_slot_load(&svec[3], 1);
+        if (off >= 504) {
+          ___SCMOBJ nxt = ___gc_atomic_slot_load(&svec[2], 1);
           if (nxt == ___FAL) {
             ___RESULT = seg;
             break;
@@ -227,15 +242,11 @@
         }
         if (___atomic_word_cas(tt_p, t_fix, ___FIX(t + 1), 3) == t_fix) {
           ___SCMOBJ slots = svec[1];
-          ___SCMOBJ states = svec[2];
           ___WORD *slot_ptr = ___BODY_AS(slots, ___tVECTOR) + off;
-          ___VOLATILE ___WORD *st_ptr =
-            ___CAST(___VOLATILE ___WORD*, ___BODY_AS(states, ___tVECTOR) + off);
           ___GC_WRITE_BARRIER(___ps, slots, slot_ptr, val);
-          ___atomic_word_store(___CAST(___VOLATILE ___WORD*, slot_ptr), ___CAST(___WORD, val), 0);
-          ___atomic_word_store(st_ptr, ___FIX(1), 2);
-          if (off == 127) {
-            ___SCMOBJ nxt = ___gc_atomic_slot_load(&svec[3], 1);
+          ___atomic_word_store(___CAST(___VOLATILE ___WORD*, slot_ptr), ___CAST(___WORD, val), 2);
+          if (off == 503) {
+            ___SCMOBJ nxt = ___gc_atomic_slot_load(&svec[2], 1);
             if (nxt != ___FAL) {
               (void)___gc_atomic_slot_cas(
                 ___ps, tc, tseg_p, seg, nxt, 2,
@@ -246,7 +257,10 @@
           break;
         }
         if (++spins >= 64) { ___RESULT = ___FAL; break; }
-        ___CPU_RELAX();
+        {
+          int bk = 1 << (spins < 3 ? spins : 3);
+          while (bk-- > 0) ___CPU_RELAX();
+        }
       }"
      ,tc ,val)
     ;; Interpreted fallback
@@ -256,18 +270,16 @@
            (off (##fx- t base)))
       (cond
         ((##fx< off 0) #f)
-        ((##fx>= off 128)
-         (let ((nxt (%slot-load-acq seg 3)))
+        ((##fx>= off 504)
+         (let ((nxt (%slot-load-acq seg 2)))
            (if nxt
                (begin (%slot-cas-acqrel! ,tc 1 seg nxt) #f)
                seg)))
         (else
          (let ((prev (##vector-cas! ,tc 0 (##fx+ t 1) t)))
            (if (##fx= prev t)
-               (let ((slots (##vector-ref seg 1))
-                     (states (##vector-ref seg 2)))
-                 (##vector-set! slots off ,val)
-                 (##vector-cas! states off 1 0)
+               (let ((slots (##vector-ref seg 1)))
+                 (##vector-cas! slots off ,val %lfq-slot-empty)
                  #t)
                #f)))))))
 
@@ -282,14 +294,15 @@
           ((##eq? r #f) (loop))
           (else
            ;; `r` is the tail segment needing a lazily linked successor
-           (let* ((next-base (##fx+ (##vector-ref r 0) 128))
+           (let* ((next-base (##fx+ (##vector-ref r 0) 504))
                   (new-seg (%make-lf-qseg next-base))
-                  (prev (%slot-cas-acqrel! r 3 #f new-seg))
+                  (prev (%slot-cas-acqrel! r 2 #f new-seg))
                   (winner (if (##not prev) new-seg prev)))
              (%slot-cas-acqrel! tc 1 r winner)
              (loop))))))))
 
 ;; Returns dequeued item, `empty-sent` if empty, or `retry-sent` to retry in Scheme.
+;; Steady-state fast path reads slots[off] acquire directly without touching producer tail.
 (##define-macro (%lfq-deq-fast! hc tc empty-sent retry-sent)
   `(macro-if-c-compiled
     (##c-code
@@ -309,21 +322,17 @@
         ___WORD base = ___INT(svec[0]);
         ___WORD h_fix = ___atomic_word_load(ht_p, 1);
         ___WORD h = ___INT(h_fix);
-        ___WORD t = ___INT(___atomic_word_load(tt_p, 1));
-        if (h >= t) {
-          ___RESULT = empty_sent;
-          break;
-        }
         ___WORD off = h - base;
         if (off < 0) {
           if (++spins >= 64) { ___RESULT = retry_sent; break; }
           ___CPU_RELAX();
           continue;
         }
-        if (off >= 128) {
-          ___SCMOBJ nxt = ___gc_atomic_slot_load(&svec[3], 1);
+        if (off >= 504) {
+          ___SCMOBJ nxt = ___gc_atomic_slot_load(&svec[2], 1);
           if (nxt == ___FAL) {
-            ___RESULT = retry_sent;
+            ___WORD t = ___INT(___atomic_word_load(tt_p, 1));
+            ___RESULT = (h >= t) ? empty_sent : retry_sent;
             break;
           }
           (void)___gc_atomic_slot_cas(
@@ -332,38 +341,47 @@
           if (++spins >= 64) { ___RESULT = retry_sent; break; }
           continue;
         }
-        /* Verify producer has already release-published states[off] == 1 BEFORE
-         * claiming ticket h so a preempted producer can never trap a consumer. */
         {
-          ___SCMOBJ states = svec[2];
-          ___VOLATILE ___WORD *st_ptr =
-            ___CAST(___VOLATILE ___WORD*, ___BODY_AS(states, ___tVECTOR) + off);
-          if (___atomic_word_load(st_ptr, 1) == ___FIX(0)) {
+          ___SCMOBJ slots = svec[1];
+          ___WORD *slot_ptr = ___BODY_AS(slots, ___tVECTOR) + off;
+          ___SCMOBJ val = ___gc_atomic_slot_load(slot_ptr, 1);
+          if (val == ___UNB2) {
+            /* Slot not yet published or already cleared by a peer consumer. */
+            if (___atomic_word_load(ht_p, 1) != h_fix) {
+              if (++spins >= 64) { ___RESULT = retry_sent; break; }
+              continue;
+            }
+            {
+              ___WORD t = ___INT(___atomic_word_load(tt_p, 1));
+              if (h >= t) {
+                ___RESULT = empty_sent;
+                break;
+              }
+            }
             if (++spins >= 32) { ___RESULT = retry_sent; break; }
             ___CPU_RELAX();
             continue;
           }
-        }
-        if (___atomic_word_cas(ht_p, h_fix, ___FIX(h + 1), 3) == h_fix) {
-          ___SCMOBJ slots = svec[1];
-          ___WORD *slot_ptr = ___BODY_AS(slots, ___tVECTOR) + off;
-          ___SCMOBJ val =
-            ___CAST(___SCMOBJ, ___atomic_word_load(___CAST(___VOLATILE ___WORD*, slot_ptr), 0));
-          ___GC_WRITE_BARRIER(___ps, slots, slot_ptr, ___FAL);
-          ___atomic_word_store(___CAST(___VOLATILE ___WORD*, slot_ptr), ___CAST(___WORD, ___FAL), 0);
-          if (off == 127) {
-            ___SCMOBJ nxt = ___gc_atomic_slot_load(&svec[3], 1);
-            if (nxt != ___FAL) {
-              (void)___gc_atomic_slot_cas(
-                ___ps, hc, hseg_p, seg, nxt, 2,
-                ___EXT(___gc_write_barrier_slow), ___EXT(___gc_satb_barrier_val));
+          if (___atomic_word_cas(ht_p, h_fix, ___FIX(h + 1), 3) == h_fix) {
+            ___GC_WRITE_BARRIER(___ps, slots, slot_ptr, ___UNB2);
+            ___atomic_word_store(___CAST(___VOLATILE ___WORD*, slot_ptr), ___CAST(___WORD, ___UNB2), 0);
+            if (off == 503) {
+              ___SCMOBJ nxt = ___gc_atomic_slot_load(&svec[2], 1);
+              if (nxt != ___FAL) {
+                (void)___gc_atomic_slot_cas(
+                  ___ps, hc, hseg_p, seg, nxt, 2,
+                  ___EXT(___gc_write_barrier_slow), ___EXT(___gc_satb_barrier_val));
+              }
             }
+            ___RESULT = val;
+            break;
           }
-          ___RESULT = val;
-          break;
         }
         if (++spins >= 64) { ___RESULT = retry_sent; break; }
-        ___CPU_RELAX();
+        {
+          int bk = 1 << (spins < 3 ? spins : 3);
+          while (bk-- > 0) ___CPU_RELAX();
+        }
       }"
      ,hc ,tc ,empty-sent ,retry-sent)
     ;; Interpreted fallback
@@ -376,19 +394,19 @@
           (let ((off (##fx- h base)))
             (cond
               ((##fx< off 0) ,retry-sent)
-              ((##fx>= off 128)
-               (let ((nxt (%slot-load-acq seg 3)))
+              ((##fx>= off 504)
+               (let ((nxt (%slot-load-acq seg 2)))
                  (if nxt (%slot-cas-acqrel! ,hc 1 seg nxt))
                  ,retry-sent))
               (else
-               (let ((states (##vector-ref seg 2)))
-                 (if (##fx= (%slot-load-acq states off) 0)
+               (let* ((slots (##vector-ref seg 1))
+                      (val (%slot-load-acq slots off)))
+                 (if (##eq? val %lfq-slot-empty)
                      ,retry-sent
                      (let ((prev (##vector-cas! ,hc 0 (##fx+ h 1) h)))
                        (if (##fx= prev h)
-                           (let* ((slots (##vector-ref seg 1))
-                                  (val (##vector-ref slots off)))
-                             (##vector-set! slots off #f)
+                           (begin
+                             (##vector-set! slots off %lfq-slot-empty)
                              val)
                            ,retry-sent)))))))))))
 
@@ -564,25 +582,33 @@
       ___SCMOBJ empty_sent = ___ARG5;
       ___VOLATILE ___WORD *tp = ___CAST(___VOLATILE ___WORD*, &tvec[0]);
       ___VOLATILE ___WORD *bp = ___CAST(___VOLATILE ___WORD*, &bvec[0]);
-      ___WORD t = ___INT(___atomic_word_load(tp, 1));
+      ___SCMOBJ res = empty_sent;
+      ___WORD t_peek = ___INT(___atomic_word_load(tp, 0));
       ___WORD b_peek = ___INT(___atomic_word_load(bp, 0));
-      if (t >= b_peek) {
-        ___RESULT = empty_sent;
-      } else {
-        ___atomic_fence_order(4);
-        ___WORD b = ___INT(___atomic_word_load(bp, 1));
-        if (t < b) {
-          ___WORD *sp = ___BODY_AS(slots, ___tVECTOR) + (t & mask);
-          ___SCMOBJ val = ___gc_atomic_slot_load(sp, 1);
-          if (___atomic_word_cas(tp, ___FIX(t), ___FIX(t + 1), 4) == ___FIX(t)) {
-            ___RESULT = val;
-          } else {
-            ___RESULT = empty_sent;
+      if (t_peek < b_peek) {
+        int attempt;
+        for (attempt = 0; attempt < 4; attempt++) {
+          ___WORD t = ___INT(___atomic_word_load(tp, 1));
+          ___atomic_fence_order(4);
+          ___WORD b = ___INT(___atomic_word_load(bp, 1));
+          if (t >= b) {
+            break;
           }
-        } else {
-          ___RESULT = empty_sent;
+          {
+            ___WORD *sp = ___BODY_AS(slots, ___tVECTOR) + (t & mask);
+            ___SCMOBJ val = ___gc_atomic_slot_load(sp, 1);
+            if (___atomic_word_cas(tp, ___FIX(t), ___FIX(t + 1), 4) == ___FIX(t)) {
+              res = val;
+              break;
+            }
+          }
+          {
+            int bk = 1 << attempt;
+            while (bk-- > 0) ___CPU_RELAX();
+          }
         }
-      }"
+      }
+      ___RESULT = res;"
      (macro-ws-deque-top ,dq) (macro-ws-deque-bottom ,dq) (macro-ws-deque-slots ,dq)
      (macro-ws-deque-mask ,dq) ,empty-sent)
     (let* ((top-box (macro-ws-deque-top ,dq))
