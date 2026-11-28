@@ -240,21 +240,54 @@
                          (%osc-tag-fast cell)
                          v1 v2 v3 more))
 
-(define (%invoke-raw-parts sub-k cap-barriers oneshot? v1 v2 v3 more)
-  (if (%entering-barrier? cap-barriers (%st-barriers (%tc-current)))
-      (error "continuation invocation blocked by continuation barrier"))
-  (cond
-    ((eq? v1 %ABSENT) (##continuation-return sub-k))
-    ((eq? v2 %ABSENT)
-     (if oneshot?
-         (let () (declare (inlining-limit 0)) (%return-oneshot-same-dynwind! sub-k v1))
-         (##continuation-return sub-k v1)))
-    ((eq? v3 %ABSENT) (##continuation-return sub-k v1 v2))
-    ((null? more) (##continuation-return sub-k v1 v2 v3))
-    (else (##apply ##continuation-return sub-k v1 v2 v3 more))))
+;; Transactional raw continuation invocation: restore captured control state
+;; (metacontinuation, marks, barriers, handlers) directly on the fast path
+;; when no dynamic-wind frames separate caller and target, or inside a
+;; post-unwind landing thunk via `##continuation-graft` when winding so
+;; after-thunks observe intact inner control state and raising inside an
+;; after-thunk never corrupts thread control state.
+(define (%invoke-raw-parts sub-k cap-mc cap-marks cap-barriers cap-handlers
+                           oneshot? v1 v2 v3 more)
+  (let ((cst (%tc-current)))
+    (if (%entering-barrier? cap-barriers (%st-barriers cst))
+        (error "continuation invocation blocked by continuation barrier"))
+    (if (%mc-same-dynwind? sub-k)
+        (begin
+          (%st-mc-set! cst cap-mc)
+          (%st-marks-set! cst cap-marks)
+          (%st-barriers-set! cst cap-barriers)
+          (%st-handlers-set! cst cap-handlers)
+          (cond
+            ((eq? v1 %ABSENT) (##continuation-return sub-k))
+            ((eq? v2 %ABSENT)
+             (if oneshot?
+                 (let () (declare (inlining-limit 0)) (%return-oneshot-same-dynwind! sub-k v1))
+                 (##continuation-return sub-k v1)))
+            ((eq? v3 %ABSENT) (##continuation-return sub-k v1 v2))
+            ((null? more) (##continuation-return sub-k v1 v2 v3))
+            (else (##apply ##continuation-return sub-k v1 v2 v3 more))))
+        (##continuation-graft
+         sub-k
+         (lambda ()
+           (let ((st (%tc-current)))
+             (%st-mc-set! st cap-mc)
+             (%st-marks-set! st cap-marks)
+             (%st-barriers-set! st cap-barriers)
+             (%st-handlers-set! st cap-handlers))
+           (cond
+             ((eq? v1 %ABSENT) (values))
+             ((eq? v2 %ABSENT) v1)
+             ((eq? v3 %ABSENT) (values v1 v2))
+             ((null? more) (values v1 v2 v3))
+             (else (apply values v1 v2 v3 more))))))))
 
 (define (%invoke-raw-cell cell v1 v2 v3 more)
-  (%invoke-raw-parts (%osc-sub-k-fast cell) (%osc-barriers-fast cell) #f v1 v2 v3 more))
+  (%invoke-raw-parts (%osc-sub-k-fast cell)
+                     (%osc-prefix-fast cell)
+                     (%osc-marks-fast cell)
+                     (%osc-barriers-fast cell)
+                     (%osc-handlers-fast cell)
+                     #f v1 v2 v3 more))
 
 ;; Multi-shot composable & non-composable closures (sole free variable: `cell`)
 (define (%make-composable-closure cell)
@@ -297,6 +330,10 @@
 (define (call-with-composable-continuation proc
                                            #!optional
                                            (tag %default-prompt-tag))
+  (if (not (procedure? proc))
+      (error "call-with-composable-continuation: expected procedure" proc))
+  (if (not (or (eq? tag %default-prompt-tag) (continuation-prompt-tag? tag)))
+      (error "call-with-composable-continuation: expected continuation-prompt-tag" tag))
   (let* ((st (%tc-current))
          (mc (%st-mc st))
          (prefix '())
@@ -325,6 +362,10 @@
 (define (call-with-non-composable-continuation proc
                                                #!optional
                                                (tag %default-prompt-tag))
+  (if (not (procedure? proc))
+      (error "call-with-non-composable-continuation: expected procedure" proc))
+  (if (not (or (eq? tag %default-prompt-tag) (continuation-prompt-tag? tag)))
+      (error "call-with-non-composable-continuation: expected continuation-prompt-tag" tag))
   (let* ((st (%tc-current))
          (mc (%st-mc st))
          (prefix '())
@@ -370,7 +411,7 @@
            ((eq? kind 'noncomp)
             (%invoke-noncomp-parts sub-k prefix marks barriers handlers tag v1 v2 v3 more))
            (else
-            (%invoke-raw-parts sub-k barriers #t v1 v2 v3 more)))))
+            (%invoke-raw-parts sub-k prefix marks barriers handlers #t v1 v2 v3 more)))))
       ((fx= prev %CONT-MULTISHOT-COW)
        ;; Promoted multi-shot continuation: never clear shared cell slots!
        (let ((kind (%osc-kind-fast cell)))
@@ -459,10 +500,10 @@
                %CONT-ONE-SHOT-LIVE
                'raw
                sub-k
-               '()
+               (%osc-prefix-fast cell-template)
                (%osc-marks-fast cell-template)
                (%osc-barriers-fast cell-template)
-               '()
+               (%osc-handlers-fast cell-template)
                #f)))
     (proc (let () (declare (inlining-limit 0)) (%make-one-shot-closure cell)))))
 
@@ -499,6 +540,10 @@
     (proc (let () (declare (inlining-limit 0)) (%make-one-shot-closure cell)))))
 
 (define (call/1cc proc #!optional (tag %default-prompt-tag))
+  (if (not (procedure? proc))
+      (error "call/1cc: expected procedure" proc))
+  (if (not (or (eq? tag %default-prompt-tag) (continuation-prompt-tag? tag)))
+      (error "call/1cc: expected continuation-prompt-tag" tag))
   (let* ((st (%tc-current))
          (mc (%st-mc st)))
     (if (and (pair? mc)
@@ -526,13 +571,20 @@
                        (tmpl (%make-one-shot-cell %CONT-ONE-SHOT-LIVE 'noncomp #f
                                                   prefix cap-marks cap-barriers cap-handlers tag)))
                   (##continuation-capture %capture-1cc-noncomp! proc tmpl)))
-              (let ((tmpl (%make-one-shot-cell %CONT-ONE-SHOT-LIVE 'raw #f
-                                               '() (%st-marks st) (%st-barriers st) '() #f)))
-                (##continuation-capture %capture-1cc-raw! proc tmpl)))))))
+              (begin
+                (if (pair? mc) (%freeze-mc-prefix! mc))
+                (let ((tmpl (%make-one-shot-cell %CONT-ONE-SHOT-LIVE 'raw #f
+                                                 mc (%st-marks st) (%st-barriers st)
+                                                 (%st-handlers st) #f)))
+                  (##continuation-capture %capture-1cc-raw! proc tmpl))))))))
 
 (define (call-with-one-shot-composable-continuation proc
                                                     #!optional
                                                     (tag %default-prompt-tag))
+  (if (not (procedure? proc))
+      (error "call-with-one-shot-composable-continuation: expected procedure" proc))
+  (if (not (or (eq? tag %default-prompt-tag) (continuation-prompt-tag? tag)))
+      (error "call-with-one-shot-composable-continuation: expected continuation-prompt-tag" tag))
   (let* ((st (%tc-current))
          (mc (%st-mc st))
          (prefix '())

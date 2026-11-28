@@ -947,3 +947,248 @@
     (test-equal num-threads (atomic-fxbox-ref ok-count))))
 
 ;;;============================================================================
+;;; Raw call/1cc Transactional Control-State Restore & Public API Guards
+
+;; Raw call/1cc escaping an inner prompt, continuation mark, and barrier must
+;; restore outer control state cleanly with zero zombie prompts or marks.
+(let ((t-inner (make-continuation-prompt-tag 'raw-inner))
+      (t-outer (make-continuation-prompt-tag 'raw-outer))
+      (t-absent (make-continuation-prompt-tag 'raw-absent)))
+  ;; Top-level raw call/1cc escaping inner prompt + mark + barrier
+  (let ((res
+         (with-continuation-mark 'scope 'top
+           (call/1cc
+            (lambda (k)
+              (call-with-continuation-prompt
+               (lambda ()
+                 (with-continuation-mark 'scope 'inner
+                   (call-with-continuation-barrier
+                    (lambda () (k 'escaped-top)))))
+               t-inner
+               (lambda (v) (list 'wrong-prompt v))))))))
+    (test-equal 'escaped-top res)
+    (test-equal #f (continuation-prompt-available? t-inner))
+    (test-equal '() (continuation-mark-set->list (current-continuation-marks) 'scope)))
+
+  ;; Raw call/1cc captured inside an outer prompt (with absent tag) escaping an
+  ;; inner prompt must discard the inner prompt while preserving the outer one.
+  (let ((outer-res
+         (call-with-continuation-prompt
+          (lambda ()
+            (with-continuation-mark 'layer 'outer
+              (let ((v (call/1cc
+                        (lambda (k)
+                          (call-with-continuation-prompt
+                           (lambda ()
+                             (with-continuation-mark 'layer 'inner
+                               (k 'escaped-to-outer)))
+                           t-inner))
+                        t-absent)))
+                (list v
+                      (continuation-prompt-available? t-outer)
+                      (continuation-prompt-available? t-inner)
+                      (continuation-mark-set->list (current-continuation-marks t-outer) 'layer)))))
+          t-outer)))
+    (test-equal '(escaped-to-outer #t #f (outer)) outer-res)
+    (test-equal #f (continuation-prompt-available? t-outer))
+    (test-equal #f (continuation-prompt-available? t-inner))))
+
+;; Raw call/1cc escaping across dynamic-wind: after-thunk must observe intact
+;; inner prompt and marks; throwing inside after-thunk caught within the inner
+;; prompt must keep inner control state completely intact.
+(let ((t-dw1 (make-continuation-prompt-tag 'raw-dw-ok))
+      (t-dw2 (make-continuation-prompt-tag 'raw-dw-throw))
+      (t-abs (make-continuation-prompt-tag 'raw-dw-absent))
+      (seen-prompt #f)
+      (seen-marks #f))
+  (let ((res
+         (with-continuation-mark 'dw-raw 'outer
+           (call/1cc
+            (lambda (k)
+              (call-with-continuation-prompt
+               (lambda ()
+                 (with-continuation-mark 'dw-raw 'inner
+                   (dynamic-wind
+                     (lambda () #!void)
+                     (lambda () (k 'jumped-clean))
+                     (lambda ()
+                       (set! seen-prompt (continuation-prompt-available? t-dw1))
+                       (set! seen-marks
+                             (continuation-mark-set->list
+                              (current-continuation-marks t-dw1) 'dw-raw))))))
+               t-dw1))
+            t-abs))))
+    (test-equal 'jumped-clean res)
+    (test-equal #t seen-prompt)
+    (test-equal '(inner) seen-marks)
+    (test-equal #f (continuation-prompt-available? t-dw1))
+    (test-equal '() (continuation-mark-set->list (current-continuation-marks) 'dw-raw)))
+
+  ;; After-thunk raises inside inner prompt: raw jump is aborted cleanly and
+  ;; inner prompt/marks remain intact.
+  (let ((res2
+         (call/1cc
+          (lambda (k)
+            (call-with-continuation-prompt
+             (lambda ()
+               (with-continuation-mark 'dw-raw2 'survives
+                 (with-exception-catcher
+                  (lambda (e)
+                    (list 'caught-after
+                          (continuation-prompt-available? t-dw2)
+                          (continuation-mark-set->list
+                           (current-continuation-marks t-dw2) 'dw-raw2)))
+                  (lambda ()
+                    (dynamic-wind
+                      (lambda () #!void)
+                      (lambda () (k 'never-reaches))
+                      (lambda () (error "raw-after-boom")))))))
+             t-dw2))
+          t-abs)))
+    (test-equal '(caught-after #t (survives)) res2)
+    (test-equal #f (continuation-prompt-available? t-dw2))))
+
+;; Promoted multi-shot raw call/1cc restores captured outer prompt and marks
+;; cleanly across repeated replays.
+(let ((t-outer (make-continuation-prompt-tag 'raw-promo-outer))
+      (t-inner (make-continuation-prompt-tag 'raw-promo-inner))
+      (t-abs (make-continuation-prompt-tag 'raw-promo-absent))
+      (saved-k #f)
+      (replays 0)
+      (log '()))
+  (call-with-continuation-prompt
+   (lambda ()
+     (with-continuation-mark 'pm 'outer-mark
+       (let ((v (call/1cc
+                 (lambda (k)
+                   (promote-one-shot-continuation! k)
+                   (set! saved-k k)
+                   0)
+                 t-abs)))
+         (set! log
+               (cons (list v
+                           (continuation-prompt-available? t-outer)
+                           (continuation-prompt-available? t-inner)
+                           (continuation-mark-set->list
+                            (current-continuation-marks t-outer) 'pm))
+                     log))
+         (if (fx< replays 2)
+             (begin
+               (set! replays (fx+ replays 1))
+               (call-with-continuation-prompt
+                (lambda ()
+                  (with-continuation-mark 'pm 'inner-zombie
+                    (saved-k replays)))
+                t-inner))))))
+   t-outer)
+  (test-equal '((2 #t #f (outer-mark))
+                (1 #t #f (outer-mark))
+                (0 #t #f (outer-mark)))
+              log)
+  (test-equal #f (continuation-prompt-available? t-outer))
+  (test-equal #f (continuation-prompt-available? t-inner)))
+
+;; Public API argument validation under (declare (not safe)): invalid arguments
+;; raise clean Scheme errors without crashing.
+(let ((check-err
+       (lambda (thunk)
+         (with-exception-catcher (lambda (e) #t) (lambda () (thunk) #f)))))
+  (test-equal #t (check-err (lambda () (call-with-continuation-prompt 123))))
+  (test-equal #t (check-err (lambda () (call-with-continuation-prompt (lambda () 1) 'bad-tag))))
+  (test-equal #t (check-err (lambda () (call-with-continuation-prompt (lambda () 1) t1 456))))
+  (test-equal #t (check-err (lambda () (continuation-prompt-available? 'bad-tag))))
+  (test-equal #t (check-err (lambda () (abort-current-continuation 'bad-tag))))
+  (test-equal #t (check-err (lambda () (call-with-continuation-barrier 123))))
+  (test-equal #t (check-err (lambda () (call-with-composable-continuation 123))))
+  (test-equal #t (check-err (lambda () (call-with-composable-continuation (lambda (k) k) 'bad-tag))))
+  (test-equal #t (check-err (lambda () (call-with-non-composable-continuation 123))))
+  (test-equal #t (check-err (lambda () (call-with-non-composable-continuation (lambda (k) k) 'bad-tag))))
+  (test-equal #t (check-err (lambda () (call/1cc 123))))
+  (test-equal #t (check-err (lambda () (call/1cc (lambda (k) k) 'bad-tag))))
+  (test-equal #t (check-err (lambda () (call-with-one-shot-composable-continuation 123))))
+  (test-equal #t (check-err (lambda () (call-with-one-shot-composable-continuation (lambda (k) k) 'bad-tag))))
+  (test-equal #t (check-err (lambda () (current-continuation-marks 'bad-tag))))
+  (test-equal #t (check-err (lambda () (continuation-marks #f 'bad-tag))))
+  (test-equal #t (check-err (lambda () (continuation-mark-set->list #f 'k 'bad-tag))))
+  (test-equal #t (check-err (lambda () (continuation-mark-set->list* #f 123))))
+  (test-equal #t (check-err (lambda () (continuation-mark-set->list* #f '(k) #f 'bad-tag))))
+  (test-equal #t (check-err (lambda () (continuation-mark-set-first #f 'k #f 'bad-tag))))
+  (test-equal #t (check-err (lambda () (call-with-immediate-continuation-mark 'k 123))))
+  ;; Default prompt handler rejects non-procedure abort value cleanly
+  (test-equal #t
+    (check-err
+     (lambda ()
+       (call-with-continuation-prompt
+        (lambda () (abort-current-continuation t1 999))
+        t1)))))
+
+;; Adaptive-P SMP torture: concurrent raw call/1cc escapes across prompts,
+;; marks, and dynamic-wind (both clean completion and throwing after-thunks)
+;; interleaved with GC.
+(let* ((num-threads (max 2 (min 12 (##current-vm-processor-count))))
+       (rounds 40)
+       (ok-count (make-atomic-fxbox 0)))
+  (let ((threads
+         (let loop ((t 0) (acc '()))
+           (if (fx= t num-threads)
+               acc
+               (loop (fx+ t 1)
+                     (cons
+                      (thread-start!
+                       (make-thread
+                        (lambda ()
+                          (let ((tg-in (make-continuation-prompt-tag 'smp-raw-in))
+                                (tg-abs (make-continuation-prompt-tag 'smp-raw-abs)))
+                            (let rloop ((r 0) (good #t))
+                              (if (fx< r rounds)
+                                  (let ((after-ok #f))
+                                    (let ((v1
+                                           (call/1cc
+                                            (lambda (k)
+                                              (call-with-continuation-prompt
+                                               (lambda ()
+                                                 (with-continuation-mark 'raw-k r
+                                                   (dynamic-wind
+                                                     (lambda () #!void)
+                                                     (lambda () (k r))
+                                                     (lambda ()
+                                                       (set! after-ok
+                                                             (and (continuation-prompt-available? tg-in)
+                                                                  (equal? (continuation-mark-set->list
+                                                                           (current-continuation-marks tg-in) 'raw-k)
+                                                                          (list r))))))))
+                                               tg-in))
+                                            tg-abs))
+                                          (v2
+                                           (call/1cc
+                                            (lambda (k)
+                                              (call-with-continuation-prompt
+                                               (lambda ()
+                                                 (with-continuation-mark 'raw-k2 r
+                                                   (with-exception-catcher
+                                                    (lambda (e)
+                                                      (and (continuation-prompt-available? tg-in)
+                                                           (equal? (continuation-mark-set->list
+                                                                    (current-continuation-marks tg-in) 'raw-k2)
+                                                                   (list r))))
+                                                    (lambda ()
+                                                      (dynamic-wind
+                                                        (lambda () #!void)
+                                                        (lambda () (k #f))
+                                                        (lambda () (error "smp-raw-after")))))))
+                                               tg-in))
+                                            tg-abs)))
+                                      (if (and (fx= t 0) (fx= (fxand r 15) 15)) (##gc))
+                                      (rloop (fx+ r 1)
+                                             (and good after-ok (fx= v1 r) v2
+                                                  (not (continuation-prompt-available? tg-in))
+                                                  (null? (continuation-mark-set->list
+                                                          (current-continuation-marks) 'raw-k))
+                                                  (null? (continuation-mark-set->list
+                                                          (current-continuation-marks) 'raw-k2))))))
+                                  (if good (atomic-fxbox+/fetch! ok-count 1))))))))
+                      acc))))))
+    (for-each thread-join! threads)
+    (test-equal num-threads (atomic-fxbox-ref ok-count))))
+
+;;;============================================================================

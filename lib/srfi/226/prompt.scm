@@ -154,6 +154,12 @@
                                        #!optional
                                        (tag %default-prompt-tag)
                                        (handler %DEFAULT-PROMPT-HANDLER))
+  (if (not (procedure? proc))
+      (error "call-with-continuation-prompt: expected procedure" proc))
+  (if (not (or (eq? tag %default-prompt-tag) (continuation-prompt-tag? tag)))
+      (error "call-with-continuation-prompt: expected continuation-prompt-tag" tag))
+  (if (not (or (eq? handler %DEFAULT-PROMPT-HANDLER) (procedure? handler)))
+      (error "call-with-continuation-prompt: expected handler procedure" handler))
   (let ((cur-eh (macro-current-exception-handler)))
     (if (%mc-eh-trampoline? cur-eh)
         (##continuation-capture %prompt-cont! proc tag handler)
@@ -166,6 +172,8 @@
              (##continuation-capture %prompt-cont-scoped! proc tag handler)))))))
 
 (define (continuation-prompt-available? tag)
+  (if (not (or (eq? tag %default-prompt-tag) (continuation-prompt-tag? tag)))
+      (error "continuation-prompt-available?: expected continuation-prompt-tag" tag))
   (let loop ((cur (%st-mc (%tc-current))))
     (cond
       ((null? cur) #f)
@@ -245,6 +253,8 @@
                                     (a3 %ABSENT)
                                     #!rest
                                     more)
+  (if (not (or (eq? tag %default-prompt-tag) (continuation-prompt-tag? tag)))
+      (error "abort-current-continuation: expected continuation-prompt-tag" tag))
   (let* ((st (%tc-current))
          (mc (%st-mc st)))
     (if (and (pair? mc)
@@ -258,6 +268,8 @@
                 (%abort-to-pframe! st (car tail) (cdr tail) tag a1 a2 a3 more)))))))
 
 (define (call-with-continuation-barrier thunk)
+  (if (not (procedure? thunk))
+      (error "call-with-continuation-barrier: expected procedure" thunk))
   (let* ((st (%tc-current))
          (barrier-token (list 'continuation-barrier))
          (saved-barriers (%st-barriers st))

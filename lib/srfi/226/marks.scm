@@ -77,6 +77,8 @@
     #f)))
 
 (define (current-continuation-marks #!optional (tag %default-prompt-tag))
+  (if (not (or (eq? tag %default-prompt-tag) (continuation-prompt-tag? tag)))
+      (error "current-continuation-marks: expected continuation-prompt-tag" tag))
   (let* ((st (%tc-current))
          (mc (%st-mc st)))
     (if (and (pair? mc)
@@ -89,6 +91,8 @@
               (%make-mark-set (%st-marks st)))))))
 
 (define (continuation-marks cont #!optional (tag %default-prompt-tag))
+  (if (not (or (eq? tag %default-prompt-tag) (continuation-prompt-tag? tag)))
+      (error "continuation-marks: expected continuation-prompt-tag" tag))
   (cond
     ((continuation-mark-set? cont) cont)
     ((%extract-any-cont-cell cont)
@@ -98,6 +102,8 @@
      (current-continuation-marks tag))))
 
 (define (continuation-mark-set->list mark-set key #!optional (tag %default-prompt-tag))
+  (if (not (or (eq? tag %default-prompt-tag) (continuation-prompt-tag? tag)))
+      (error "continuation-mark-set->list: expected continuation-prompt-tag" tag))
   (let ((frames (if (continuation-mark-set? mark-set)
                     (%mark-set-frames mark-set)
                     (%mark-set-frames (continuation-marks mark-set tag)))))
@@ -112,6 +118,10 @@
                                       #!optional
                                       (none-v #f)
                                       (tag %default-prompt-tag))
+  (if (not (list? key-list))
+      (error "continuation-mark-set->list*: expected proper list of keys" key-list))
+  (if (not (or (eq? tag %default-prompt-tag) (continuation-prompt-tag? tag)))
+      (error "continuation-mark-set->list*: expected continuation-prompt-tag" tag))
   (let ((frames (if (continuation-mark-set? mark-set)
                     (%mark-set-frames mark-set)
                     (%mark-set-frames (continuation-marks mark-set tag))))
@@ -137,6 +147,8 @@
                                      #!optional
                                      (none-v #f)
                                      (tag %default-prompt-tag))
+  (if (not (or (eq? tag %default-prompt-tag) (continuation-prompt-tag? tag)))
+      (error "continuation-mark-set-first: expected continuation-prompt-tag" tag))
   (let ((frames (if (continuation-mark-set? mark-set)
                     (%mark-set-frames mark-set)
                     (%mark-set-frames (continuation-marks mark-set tag)))))
@@ -149,6 +161,8 @@
                 (loop (cdr fs))))))))
 
 (define (call-with-immediate-continuation-mark key proc #!optional (default #f))
+  (if (not (procedure? proc))
+      (error "call-with-immediate-continuation-mark: expected procedure" proc))
   (let ((ms (%st-marks (%tc-current))))
     (if (null? ms)
         (proc default)
