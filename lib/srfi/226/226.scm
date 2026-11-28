@@ -20,6 +20,7 @@
 (##namespace ("srfi/226#"))
 (##include "~~lib/gambit/prim/prim#.scm")
 (##include "~~lib/_gambit#.scm")
+(##include "~~lib/_thread#.scm")
 (##namespace (""
   dynamic-wind
   error))
@@ -31,6 +32,14 @@
   (block)
   (not safe)
   (inlining-limit 400))
+
+(##define-macro (macro-if-c-compiled then-expr else-expr)
+  (let ((co (##global-var-ref (##make-global-var '##compilation-options))))
+    (if (and (##not (##unbound? co))
+             (let ((t (##assq 'target co)))
+               (or (##not t) (##eq? (##cadr t) 'C))))
+        then-expr
+        else-expr)))
 
 ;;;----------------------------------------------------------------------------
 ;;; Atomic One-Shot Continuation States & Sentinels
@@ -69,22 +78,28 @@
 
 (define-type %mc-frame
   id: 8B1F3A70-9C24-4D6B-A5E1-226000000002
-  constructor: %make-mc-frame
+  constructor: %make-mc-frame-9
   predicate: %mc-frame?
-  (kind     %mc-frame-kind)     ;; 'prompt or 'underflow
-  (tag      %mc-frame-tag)      ;; prompt-tag (or #f for underflow)
-  (handler  %mc-frame-handler %mc-frame-handler-set!)
+  (kind        %mc-frame-kind)     ;; 'prompt, 'underflow, or 'replay
+  (tag         %mc-frame-tag)      ;; prompt-tag (or #f for underflow)
+  (handler     %mc-frame-handler     %mc-frame-handler-set!)
   ;; handler values:
   ;;   #f                              = rewindable effect/underflow frame
   ;;   #t                              = frozen/shared effect/underflow frame
+  ;;   'init                           = generator initial anchor frame (unreclaimable)
   ;;   %DEFAULT-PROMPT-HANDLER         = rewindable default prompt handler
   ;;   %FROZEN-DEFAULT-PROMPT-HANDLER  = frozen/shared default prompt handler
   ;;   procedure                       = custom abort handler
-  (escape-k %mc-frame-escape-k %mc-frame-escape-k-set!) ;; native Gambit continuation object
-  (marks    %mc-frame-marks)    ;; saved marks outside this frame
-  (barriers %mc-frame-barriers) ;; saved barriers outside this frame
-  (handlers %mc-frame-handlers) ;; saved effect handlers outside this frame
-  )
+  (escape-k    %mc-frame-escape-k    %mc-frame-escape-k-set!) ;; native Gambit continuation object
+  (marks       %mc-frame-marks)    ;; saved marks outside this frame
+  (barriers    %mc-frame-barriers) ;; saved barriers outside this frame
+  (handlers    %mc-frame-handlers) ;; saved effect handlers outside this frame
+  (eh-scope    %mc-frame-eh-scope    %mc-frame-eh-scope-set!) ;; #f, trampoline closure, or caller-eh
+  (unwind-hook %mc-frame-unwind-hook %mc-frame-unwind-hook-set!)) ;; #f or (lambda (phase) ...)
+
+(define (%make-mc-frame kind tag handler escape-k marks barriers handlers
+                        #!optional (eh-scope #f) (unwind-hook #f))
+  (%make-mc-frame-9 kind tag handler escape-k marks barriers handlers eh-scope unwind-hook))
 
 (define-type %tc-state
   id: 8B1F3A70-9C24-4D6B-A5E1-226000000004
@@ -95,7 +110,11 @@
   (barriers      %tc-barriers      %tc-barriers-set!)
   (handlers      %tc-handlers      %tc-handlers-set!)
   (rewind-escape %tc-rewind-escape %tc-rewind-escape-set!)
-  (rewind-frame  %tc-rewind-frame  %tc-rewind-frame-set!))
+  (rewind-frame  %tc-rewind-frame  %tc-rewind-frame-set!)
+  (eh-outer-denv %tc-eh-outer-denv %tc-eh-outer-denv-set!)
+  (eh-outer-proc %tc-eh-outer-proc %tc-eh-outer-proc-set!)
+  (eh-tramp-denv %tc-eh-tramp-denv %tc-eh-tramp-denv-set!)
+  (eh-tramp-proc %tc-eh-tramp-proc %tc-eh-tramp-proc-set!))
 
 ;; Inline unchecked accessors for %tc-state and %mc-frame (1-instruction load/store)
 (define-macro (%tc-slot)
@@ -111,6 +130,14 @@
 (define-macro (%st-barriers-set! st v) `(##unchecked-structure-set! ,st ,v 3 #f #f))
 (define-macro (%st-handlers st) `(##unchecked-structure-ref ,st 4 #f #f))
 (define-macro (%st-handlers-set! st v) `(##unchecked-structure-set! ,st ,v 4 #f #f))
+(define-macro (%st-eh-outer-denv st) `(##unchecked-structure-ref ,st 7 #f #f))
+(define-macro (%st-eh-outer-denv-set! st v) `(##unchecked-structure-set! ,st ,v 7 #f #f))
+(define-macro (%st-eh-outer-proc st) `(##unchecked-structure-ref ,st 8 #f #f))
+(define-macro (%st-eh-outer-proc-set! st v) `(##unchecked-structure-set! ,st ,v 8 #f #f))
+(define-macro (%st-eh-tramp-denv st) `(##unchecked-structure-ref ,st 9 #f #f))
+(define-macro (%st-eh-tramp-denv-set! st v) `(##unchecked-structure-set! ,st ,v 9 #f #f))
+(define-macro (%st-eh-tramp-proc st) `(##unchecked-structure-ref ,st 10 #f #f))
+(define-macro (%st-eh-tramp-proc-set! st v) `(##unchecked-structure-set! ,st ,v 10 #f #f))
 
 (define-macro (%pf-kind pf) `(##unchecked-structure-ref ,pf 1 #f #f))
 (define-macro (%pf-tag pf) `(##unchecked-structure-ref ,pf 2 #f #f))
@@ -121,14 +148,123 @@
 (define-macro (%pf-marks pf) `(##unchecked-structure-ref ,pf 5 #f #f))
 (define-macro (%pf-barriers pf) `(##unchecked-structure-ref ,pf 6 #f #f))
 (define-macro (%pf-handlers pf) `(##unchecked-structure-ref ,pf 7 #f #f))
+(define-macro (%pf-eh-scope pf) `(##unchecked-structure-ref ,pf 8 #f #f))
+(define-macro (%pf-eh-scope-set! pf v) `(##unchecked-structure-set! ,pf ,v 8 #f #f))
+(define-macro (%pf-unwind-hook pf) `(##unchecked-structure-ref ,pf 9 #f #f))
+(define-macro (%pf-unwind-hook-set! pf v) `(##unchecked-structure-set! ,pf ,v 9 #f #f))
 
 (define (%tc-current)
   (let ((st (%tc-slot)))
     (if st
         st
-        (let ((fresh (%make-tc-state '() '() '() '() #f #f)))
+        (let ((fresh (%make-tc-state '() '() '() '() #f #f #f #f #f #f)))
           (%tc-slot-set! fresh)
           fresh))))
+
+;;;----------------------------------------------------------------------------
+;;; Scope-Bound Exception Unwind Trampoline (Zero-Cost When Nested)
+;;;
+;;; Keeps `st.mc`, `st.marks`, `st.barriers`, `st.handlers`, and generator
+;;; unwind hooks coherent whenever an uncaught exception escapes through an
+;;; enclosing `with-exception-catcher` or `with-exception-handler`.
+;;; Bound outside `##continuation-capture` once per outer exception-handler
+;;; scope so `escape-k` and captured `sub-k` share identical `denv` (preserving
+;;; 100% of one-shot stack rewinds) and nested prompts incur only a single `eq?`.
+
+(define (%make-mc-eh-trampoline prev-eh)
+  (let ((box (cons prev-eh #f)))
+    (let ((fn (lambda (exc)
+                (%mc-unwind-and-raise! exc box))))
+      (set-cdr! box fn)
+      fn)))
+
+(define %mc-eh-trampoline-code
+  (let ()
+    (declare (inlining-limit 0))
+    (##closure-code (%make-mc-eh-trampoline #f))))
+
+(define (%mc-eh-trampoline? proc)
+  (and (##closure? proc)
+       (##eq? (##closure-code proc) %mc-eh-trampoline-code)))
+
+(define (%mc-eh-trampoline-prev proc)
+  (car (##closure-ref proc 1)))
+
+(define (%mc-ensure-tramp-denv st cur-denv cur-eh)
+  (if (and (eq? cur-denv (%st-eh-outer-denv st))
+           (eq? cur-eh (%st-eh-outer-proc st)))
+      (%st-eh-tramp-denv st)
+      (let* ((tramp (let () (declare (inlining-limit 0)) (%make-mc-eh-trampoline cur-eh)))
+             (tdenv (macro-denv-set cur-denv exception-handler tramp)))
+        (%st-eh-outer-denv-set! st cur-denv)
+        (%st-eh-outer-proc-set! st cur-eh)
+        (%st-eh-tramp-denv-set! st tdenv)
+        (%st-eh-tramp-proc-set! st tramp)
+        tdenv)))
+
+(define (%mc-unwind-and-raise! exc box)
+  (let* ((fallback-eh (car box))
+         (self-tramp (cdr box))
+         (st (%tc-current))
+         (cur-mc (%st-mc st))
+         (cur-marks (%st-marks st))
+         (cur-barriers (%st-barriers st))
+         (cur-handlers (%st-handlers st)))
+    (let loop ((cur cur-mc) (hooks '()) (crossed-replay? #f))
+      (if (null? cur)
+          (macro-dynamic-bind
+           exception-handler
+           fallback-eh
+           (lambda () (fallback-eh exc)))
+          (let* ((f (car cur))
+                 (rest (cdr cur))
+                 (kind (%pf-kind f))
+                 (hook (%pf-unwind-hook f))
+                 (next-hooks (if (procedure? hook) (cons hook hooks) hooks))
+                 (next-crossed? (or crossed-replay?
+                                    hook
+                                    (eq? kind 'underflow)))
+                 (scope (%pf-eh-scope f)))
+            (if scope
+                (let ((scope-is-tramp (%mc-eh-trampoline? scope)))
+                  (if (or (eq? scope self-tramp)
+                          (not scope-is-tramp)
+                          crossed-replay?)
+                      (let ((target-eh
+                             (if scope-is-tramp
+                                 (%mc-eh-trampoline-prev scope)
+                                 scope)))
+                        (%st-mc-set! st rest)
+                        (%st-marks-set! st (%pf-marks f))
+                        (%st-barriers-set! st (%pf-barriers f))
+                        (%st-handlers-set! st (%pf-handlers f))
+                        (let hloop ((hs next-hooks))
+                          (if (pair? hs)
+                              (begin
+                                ((car hs) 'unwind)
+                                (hloop (cdr hs)))))
+                        (let ((res
+                               (macro-dynamic-bind
+                                exception-handler
+                                target-eh
+                                (lambda () (target-eh exc)))))
+                          (%st-mc-set! st cur-mc)
+                          (%st-marks-set! st cur-marks)
+                          (%st-barriers-set! st cur-barriers)
+                          (%st-handlers-set! st cur-handlers)
+                          (let rloop ((hs next-hooks))
+                            (if (pair? hs)
+                                (begin
+                                  ((car hs) 'restore)
+                                  (rloop (cdr hs)))))
+                          res))
+                      ;; Foreign outer trampoline with no intervening replay/generator:
+                      ;; our own prompt was already popped; delegate without popping outer mc.
+                      (macro-dynamic-bind
+                       exception-handler
+                       fallback-eh
+                       (lambda () (fallback-eh exc)))))
+                (loop rest next-hooks next-crossed?)))))))
 
 ;;;----------------------------------------------------------------------------
 ;;; Continuation Mark Sets
@@ -167,20 +303,28 @@
   (tag      %osc-tag))      ;; slot 8: target prompt tag (for 'noncomp)
 
 (define-macro (%osc-cas-state! cell expected desired)
-  `(##c-code
-    "___WORD *___f = ___BODY_AS(___ARG1, ___tSTRUCTURE);
-     ___RESULT = ___CAST(___SCMOBJ,
-       ___atomic_word_cas(___CAST(___VOLATILE ___WORD*, &___f[1]),
-                          ___CAST(___WORD, ___ARG2),
-                          ___CAST(___WORD, ___ARG3), 4));"
-    ,cell ,expected ,desired))
+  `(macro-if-c-compiled
+    (##c-code
+     "___WORD *___f = ___BODY_AS(___ARG1, ___tSTRUCTURE);
+      ___RESULT = ___CAST(___SCMOBJ,
+        ___atomic_word_cas(___CAST(___VOLATILE ___WORD*, &___f[1]),
+                           ___CAST(___WORD, ___ARG2),
+                           ___CAST(___WORD, ___ARG3), 4));"
+     ,cell ,expected ,desired)
+    (let* ((c ,cell)
+           (prev (##unchecked-structure-ref c 1 #f #f)))
+      (if (fx= prev ,expected)
+          (##unchecked-structure-set! c ,desired 1 #f #f))
+      prev)))
 
 (define-macro (%osc-load-state cell)
-  `(##c-code
-    "___WORD *___f = ___BODY_AS(___ARG1, ___tSTRUCTURE);
-     ___RESULT = ___CAST(___SCMOBJ,
-       __atomic_load_n(&___f[1], __ATOMIC_ACQUIRE));"
-    ,cell))
+  `(macro-if-c-compiled
+    (##c-code
+     "___WORD *___f = ___BODY_AS(___ARG1, ___tSTRUCTURE);
+      ___RESULT = ___CAST(___SCMOBJ,
+        __atomic_load_n(&___f[1], __ATOMIC_ACQUIRE));"
+     ,cell)
+    (##unchecked-structure-ref ,cell 1 #f #f)))
 
 (define-macro (%osc-kind-fast c) `(##unchecked-structure-ref ,c 2 #f #f))
 (define-macro (%osc-sub-k-fast c) `(##unchecked-structure-ref ,c 3 #f #f))
@@ -223,32 +367,45 @@
 ;; active Gambit write-group is committed before `___JUMPEXTPRM`.
 (define (%mc-try-reclaim-return! pframe ek val)
   (##declare (not inline) (not interrupts-enabled))
-  (##c-code
-   "___SCMOBJ ___pf = ___ARG1;
-    ___SCMOBJ ___cont = ___ARG2;
-    ___SCMOBJ ___val = ___ARG3;
-    if (___TESTTYPE(___cont, ___tCONTINUATION) &&
-        ___THREAD_DENV_FIELD(___CURRENTTHREAD) == ___CONTINUATION_DENV_FIELD(___cont)) {
-      ___WORD ___ra;
-      ___WORD *___new_fp;
-      if (___EXT(___try_return_oneshot_fiber_cont)(___ps, ___cont, &___ra, &___new_fp)) {
-        ___BODY_AS(___pf, ___tSTRUCTURE)[4] = ___FAL;
-        ___SET_FP(___new_fp)
-        ___SET_R1(___val)
+  (macro-if-c-compiled
+   (##c-code
+    "___SCMOBJ ___pf = ___ARG1;
+     ___SCMOBJ ___cont = ___ARG2;
+     ___SCMOBJ ___val = ___ARG3;
+     if (___TESTTYPE(___cont, ___tCONTINUATION)) {
+       ___SCMOBJ ___thr    = ___CURRENTTHREAD;
+       ___SCMOBJ ___cur_d  = ___THREAD_DENV_FIELD(___thr);
+       ___SCMOBJ ___cont_d = ___CONTINUATION_DENV_FIELD(___cont);
+       if (___cur_d == ___cont_d ||
+           (___VECTORREF(___cur_d, ___FIX(1L)) == ___VECTORREF(___cont_d, ___FIX(1L)) &&
+            ___VECTORREF(___cur_d, ___FIX(0L)) == ___VECTORREF(___cont_d, ___FIX(0L)) &&
+            ___VECTORREF(___cur_d, ___FIX(2L)) == ___VECTORREF(___cont_d, ___FIX(2L)))) {
+         ___WORD ___ra;
+         ___WORD *___new_fp;
+         if (___EXT(___try_return_oneshot_fiber_cont)(___ps, ___cont, &___ra, &___new_fp)) {
+           if (___cur_d != ___cont_d) {
+             ___GC_WRITE_BARRIER(___ps, ___thr, &___THREAD_DENV_FIELD(___thr), ___cont_d);
+             ___WORD_STORE_RELAXED(&___THREAD_DENV_FIELD(___thr), ___cont_d);
+           }
+           ___BODY_AS(___pf, ___tSTRUCTURE)[4] = ___FAL;
+           ___SET_FP(___new_fp)
+           ___SET_R1(___val)
 #if ___NB_GVM_REGS > 2
-        ___SET_R2(___FIX(0L))
+           ___SET_R2(___FIX(0L))
 #endif
 #if ___NB_GVM_REGS > 3
-        ___SET_R3(___FIX(0L))
+           ___SET_R3(___FIX(0L))
 #endif
 #if ___NB_GVM_REGS > 4
-        ___SET_R4(___FIX(0L))
+           ___SET_R4(___FIX(0L))
 #endif
-        ___JUMPEXTPRM(___NOTHING, ___ra)
-      }
-    }
-    ___RESULT = ___FAL;"
-   pframe ek val))
+           ___JUMPEXTPRM(___NOTHING, ___ra)
+         }
+       }
+     }
+     ___RESULT = ___FAL;"
+    pframe ek val)
+   #f))
 
 ;; Fast single-value return through topmost metacontinuation frame (zero thunk,
 ;; zero rest-list; SATB-safe in-place stack reclaim for unfrozen frames).
@@ -360,13 +517,34 @@
          (saved-marks (%st-marks st))
          (saved-barriers (%st-barriers st))
          (saved-handlers (%st-handlers st))
-         (frame (%make-mc-frame 'prompt
-                                tag
-                                handler
-                                escape-k
-                                saved-marks
-                                saved-barriers
-                                saved-handlers)))
+         (frame (%make-mc-frame-9 'prompt
+                                  tag
+                                  handler
+                                  escape-k
+                                  saved-marks
+                                  saved-barriers
+                                  saved-handlers
+                                  #f
+                                  #f)))
+    (%st-mc-set! st (cons frame saved-mc))
+    (call-with-values proc %mc-return-vals)))
+
+(define (%prompt-cont-scoped! escape-k proc tag handler)
+  (let* ((st (%tc-current))
+         (tramp (macro-current-exception-handler))
+         (saved-mc (%st-mc st))
+         (saved-marks (%st-marks st))
+         (saved-barriers (%st-barriers st))
+         (saved-handlers (%st-handlers st))
+         (frame (%make-mc-frame-9 'prompt
+                                  tag
+                                  handler
+                                  escape-k
+                                  saved-marks
+                                  saved-barriers
+                                  saved-handlers
+                                  tramp
+                                  #f)))
     (%st-mc-set! st (cons frame saved-mc))
     (call-with-values proc %mc-return-vals)))
 
@@ -374,7 +552,16 @@
                                        #!optional
                                        (tag %default-prompt-tag)
                                        (handler %DEFAULT-PROMPT-HANDLER))
-  (##continuation-capture %prompt-cont! proc tag handler))
+  (let ((cur-eh (macro-current-exception-handler)))
+    (if (%mc-eh-trampoline? cur-eh)
+        (##continuation-capture %prompt-cont! proc tag handler)
+        (let* ((st (%tc-current))
+               (cur-denv (macro-thread-denv (macro-current-thread)))
+               (tdenv (%mc-ensure-tramp-denv st cur-denv cur-eh)))
+          (##dynamic-env-bind
+           tdenv
+           (lambda ()
+             (##continuation-capture %prompt-cont-scoped! proc tag handler)))))))
 
 (define (continuation-prompt-available? tag)
   (let loop ((cur (%st-mc (%tc-current))))
@@ -451,6 +638,8 @@
 ;; Zero-closure <=4-arg capture receiver for 1-value / 0-value composable replay
 (define (%composable-replay-1! caller-k cell v1)
   (let* ((cst (%tc-current))
+         (cur-eh (macro-current-exception-handler))
+         (eh-scope (if (%mc-eh-trampoline? cur-eh) #f cur-eh))
          (caller-mc (%st-mc cst))
          (caller-marks (%st-marks cst))
          (caller-barriers (%st-barriers cst))
@@ -459,13 +648,15 @@
          (cap-marks (%osc-marks-fast cell))
          (cap-handlers (%osc-handlers-fast cell))
          (sub-k (%osc-sub-k-fast cell))
-         (uframe (%make-mc-frame 'underflow
-                                 #f
-                                 #t
-                                 caller-k
-                                 caller-marks
-                                 caller-barriers
-                                 caller-handlers)))
+         (uframe (%make-mc-frame-9 'underflow
+                                   #f
+                                   #t
+                                   caller-k
+                                   caller-marks
+                                   caller-barriers
+                                   caller-handlers
+                                   eh-scope
+                                   #f)))
     (%st-mc-set! cst
                  (if (null? prefix)
                      (cons uframe caller-mc)
@@ -489,6 +680,8 @@
       (##continuation-capture
        (lambda (caller-k)
          (let* ((cst (%tc-current))
+                (cur-eh (macro-current-exception-handler))
+                (eh-scope (if (%mc-eh-trampoline? cur-eh) #f cur-eh))
                 (caller-mc (%st-mc cst))
                 (caller-marks (%st-marks cst))
                 (caller-barriers (%st-barriers cst))
@@ -497,13 +690,15 @@
                 (cap-marks (%osc-marks-fast cell))
                 (cap-handlers (%osc-handlers-fast cell))
                 (sub-k (%osc-sub-k-fast cell))
-                (uframe (%make-mc-frame 'underflow
-                                        #f
-                                        #t
-                                        caller-k
-                                        caller-marks
-                                        caller-barriers
-                                        caller-handlers)))
+                (uframe (%make-mc-frame-9 'underflow
+                                          #f
+                                          #t
+                                          caller-k
+                                          caller-marks
+                                          caller-barriers
+                                          caller-handlers
+                                          eh-scope
+                                          #f)))
            (%st-mc-set! cst
                         (if (null? prefix)
                             (cons uframe caller-mc)
@@ -856,6 +1051,11 @@
         (%st-marks-set! st (cdr ms)))
     res))
 
+(define (%mark-push-and-run! st ms kv thunk)
+  (##declare (not inline))
+  (%st-marks-set! st (cons (list kv) ms))
+  (%mark-pop-frame (thunk)))
+
 (define (%mark-dispatch caller-r0 kv thunk)
   (let* ((st (%tc-current))
          (ms (%st-marks st))
@@ -865,9 +1065,22 @@
         (begin
           (%st-marks-set! st (cons (%alist-replace (car ms) key val) (cdr ms)))
           (thunk))
-        (begin
-          (%st-marks-set! st (cons (list kv) ms))
-          (%mark-pop-frame (thunk))))))
+        (let ((cur-eh (macro-current-exception-handler)))
+          (if (%mc-eh-trampoline? cur-eh)
+              (%mark-push-and-run! st ms kv thunk)
+              (macro-dynamic-bind
+               exception-handler
+               (lambda (exc)
+                 (let ((saved (%st-marks st)))
+                   (%st-marks-set! st ms)
+                   (let ((res (macro-dynamic-bind
+                               exception-handler
+                               cur-eh
+                               (lambda () (cur-eh exc)))))
+                     (%st-marks-set! st saved)
+                     res)))
+               (lambda ()
+                 (%mark-push-and-run! st ms kv thunk))))))))
 
 (define (%call-with-continuation-mark key val thunk)
   (##tail-call-with-r0 %mark-dispatch (cons key val) thunk))

@@ -625,3 +625,244 @@
     (test-equal num-threads (atomic-fxbox-ref ok))))
 
 ;;;============================================================================
+;;; 11. Exception-Unwind Coherency, Generator Cross-Call Fault Propagation,
+;;;     Non-Tail Frozen Anchor Safety & Concurrent resume vs resume-multishot
+
+;; 11a. Suspending `with-handler` & `with-capability-handler` exception unwind:
+;;      both body-throws and handler-clause-throws inside an inner catcher
+;;      enclosed by an outer prompt must unwind cleanly with after-count == 1
+;;      and zero leaked handlers.
+(let ((t-outer (make-continuation-prompt-tag 'eff-exn-outer))
+      (leaked-eff (make-effect 'eff-exn-leaked))
+      (after-count 0))
+  (let ((res
+         (call-with-continuation-prompt
+          (lambda ()
+            (let ((v1 (with-exception-catcher
+                       (lambda (e) (error-exception-message e))
+                       (lambda ()
+                         (with-handler ((leaked-eff (k x) (resume k x)))
+                           (error "body-boom")))))
+                  (v2 (with-exception-catcher
+                       (lambda (e) (error-exception-message e))
+                       (lambda ()
+                         (with-handler ((leaked-eff (k x) (error "clause-boom")))
+                           (perform leaked-eff 1)))))
+                  (v3 (with-exception-catcher
+                       (lambda (e) (error-exception-message e))
+                       (lambda ()
+                         (with-capability-handler cap ((k x) (resume k x))
+                           (error "cap-boom"))))))
+              (set! after-count (fx+ after-count 1))
+              (test-equal #t (raises-error? (lambda () (perform leaked-eff 99))))
+              (list v1 v2 v3)))
+          t-outer)))
+    (test-equal '("body-boom" "clause-boom" "cap-boom") res)
+    (test-equal 1 after-count)))
+
+;; 11b. Generator Call #1 and Call #2 (post-yield) fault propagation inside
+;;      caller's with-exception-catcher + dynamic-wind cleanup + DONE state.
+(let ((t-outer (make-continuation-prompt-tag 'gen-exn-outer))
+      (after-count 0)
+      (dw-log '()))
+  (let ((res
+         (call-with-continuation-prompt
+          (lambda ()
+            (let ((g1 (make-generator (lambda () (error "gen-call1-boom"))))
+                  (g2 (make-generator
+                       (lambda ()
+                         (dynamic-wind
+                           (lambda () (set! dw-log (cons 'in dw-log)))
+                           (lambda ()
+                             (perform yield 10)
+                             (error "gen-call2-boom"))
+                           (lambda () (set! dw-log (cons 'out dw-log))))))))
+              (let* ((m1 (with-exception-catcher
+                          (lambda (e) (list (error-exception-message e) (g1)))
+                          (lambda () (g1))))
+                     (y1 (g2))
+                     (m2 (with-exception-catcher
+                          (lambda (e) (list (error-exception-message e) (g2)))
+                          (lambda () (g2)))))
+                (set! after-count (fx+ after-count 1))
+                (list m1 y1 m2 (g1) (g2)))))
+          t-outer)))
+    (test-equal (list (list "gen-call1-boom" #!eof)
+                      10
+                      (list "gen-call2-boom" #!eof)
+                      #!eof
+                      #!eof)
+                res)
+    (test-equal 1 after-count)
+    (test-equal '(in out in out) (reverse dw-log))))
+
+;; 11c. Cross-thread generator fault propagation: Thread A runs Call #1 (yields),
+;;      Thread B runs Call #2 inside Thread B's with-exception-catcher where the
+;;      generator throws; Thread B's catcher must catch it cleanly and mark DONE.
+(let* ((g (make-generator
+           (lambda ()
+             (perform yield 'from-thread-a)
+             (error "fault-on-thread-b"))))
+       (t1 (thread-start! (make-thread (lambda () (g)))))
+       (v1 (thread-join! t1))
+       (t2 (thread-start!
+            (make-thread
+             (lambda ()
+               (with-exception-catcher
+                (lambda (e) (list 'caught-on-b (error-exception-message e) (g)))
+                (lambda () (g)))))))
+       (v2 (thread-join! t2)))
+  (test-equal 'from-thread-a v1)
+  (test-equal (list 'caught-on-b "fault-on-thread-b" #!eof) v2)
+  (test-equal #!eof (g)))
+
+;; 11d. Non-tail one-shot resume under denv mismatch (with-exception-catcher +
+;;      dynamic-wind) + nested perform + GC: verifies frozen non-tail replay
+;;      pframe never corrupts caller-k's break-chain anchor.
+(let ((outer-e (make-effect 'nontail-outer))
+      (inner-e (make-effect 'nontail-inner)))
+  (let loop ((i 0) (acc 0))
+    (if (fx< i 80)
+        (let ((r
+               (with-handler
+                 ((outer-e (k v)
+                    ;; Non-tail resume inside a fresh dynamic-wind / catcher (denv mismatch!)
+                    (let ((res
+                           (with-exception-catcher
+                            (lambda (e) -999)
+                            (lambda ()
+                              (dynamic-wind
+                                (lambda () #!void)
+                                (lambda () (resume k (fx+ v 1)))
+                                (lambda () #!void))))))
+                      (fx+ res 10))))
+                 (with-handler
+                   ((inner-e (k2 x)
+                      (fx+ 100 (resume k2 (fx+ x 2)))))
+                   (let* ((a (perform outer-e i))
+                          (b (perform inner-e a)))
+                     (if (fx= (fxand i 15) 15) (##gc))
+                     b)))))
+          (loop (fx+ i 1) (fx+ acc r)))
+        (test-equal (fx+ (fxquotient (fx* 80 79) 2) (fx* 80 113)) acc))))
+
+;; 11e. Adaptive-P SMP race directly pitting `resume` vs `resume-multishot` on
+;;      the SAME `ONE_SHOT_LIVE` effect-continuation with nested handler prefix
+;;      and concurrent GC: either strictly 1 one-shot winner + 0 promotes, OR
+;;      promoted `MULTISHOT_COW` with every racer freezing idempotently before
+;;      entering `%resume-checked` and producing exact results.
+(let* ((num-threads (max 4 (min 12 (##current-vm-processor-count))))
+       (rounds 40)
+       (race-outer (make-effect 'race-outer-11e))
+       (race-inner (make-effect 'race-inner-11e))
+       (good-rounds (make-atomic-fxbox 0)))
+  (let rloop ((r 0))
+    (if (fx< r rounds)
+        (let ((shared-ek #f)
+              (resume-wins (make-atomic-fxbox 0))
+              (promote-wins (make-atomic-fxbox 0))
+              (bad-result (make-atomic-fxbox 0))
+              (go (make-atomic-fxbox 0)))
+          (with-handler
+            ((race-outer (k seed)
+               (set! shared-ek k)
+               'captured))
+            (with-handler
+              ((race-inner (k2 v)
+                 (resume k2 (fx+ v 5)))
+               (return: (x) (fx* x 2)))
+              (let* ((a (perform race-outer 0))
+                     (b (perform race-inner a)))
+                (fx+ b 1))))
+          (let ((threads
+                 (let tloop ((i 0) (acc '()))
+                   (if (fx= i num-threads)
+                       acc
+                       (tloop (fx+ i 1)
+                              (cons
+                               (thread-start!
+                                (make-thread
+                                 (lambda ()
+                                   (let spin ()
+                                     (if (fx= (atomic-fxbox-ref go) 0)
+                                         (begin (thread-yield!) (spin))))
+                                   (let ((arg (fx+ r i))
+                                         (exp (fx* (fx+ (fx+ (fx+ r i) 5) 1) 2)))
+                                     (if (fx= (fxand i 1) 0)
+                                         (with-exception-catcher
+                                          (lambda (e) #f)
+                                          (lambda ()
+                                            (let ((res (resume shared-ek arg)))
+                                              (if (fx= res exp)
+                                                  (atomic-fxbox+/fetch! resume-wins 1)
+                                                  (atomic-fxbox+/fetch! bad-result 1)))))
+                                         (with-exception-catcher
+                                          (lambda (e) #f)
+                                          (lambda ()
+                                            (let ((res (resume-multishot shared-ek arg)))
+                                              (if (fx= res exp)
+                                                  (atomic-fxbox+/fetch! promote-wins 1)
+                                                  (atomic-fxbox+/fetch! bad-result 1))))))))))
+                               acc))))))
+            (atomic-fxbox-set! go 1)
+            (for-each thread-join! threads)
+            (if (fx= (fxand r 15) 15) (##gc))
+            (let ((rw (atomic-fxbox-ref resume-wins))
+                  (pw (atomic-fxbox-ref promote-wins))
+                  (br (atomic-fxbox-ref bad-result)))
+              (if (and (fx= br 0)
+                       (or (and (fx= rw 1) (fx= pw 0))
+                           (and (fx>= pw 1) (fx>= (fx+ rw pw) 2))))
+                  (atomic-fxbox+/fetch! good-rounds 1)))
+            (rloop (fx+ r 1)))))
+  (test-equal rounds (atomic-fxbox-ref good-rounds))))
+
+;; 11f. Adaptive-P SMP concurrent generator fault + nested handler throw torture
+(let* ((num-threads (max 2 (min 12 (##current-vm-processor-count))))
+       (iters 60)
+       (ok-count (make-atomic-fxbox 0)))
+  (let ((threads
+         (let loop ((t 0) (acc '()))
+           (if (fx= t num-threads)
+               acc
+               (loop (fx+ t 1)
+                     (cons
+                      (thread-start!
+                       (make-thread
+                        (lambda ()
+                          (let ((to (make-continuation-prompt-tag 'smp-eff-to))
+                                (ef (make-effect 'smp-eff-f)))
+                            (let iloop ((i 0) (good #t))
+                              (if (fx< i iters)
+                                  (let ((cnt 0))
+                                    (let ((res
+                                           (call-with-continuation-prompt
+                                            (lambda ()
+                                              (let ((g (make-generator
+                                                        (lambda ()
+                                                          (perform yield i)
+                                                          (error "smp-gen-fault")))))
+                                                (let* ((v1 (g))
+                                                       (v2 (with-exception-catcher
+                                                            (lambda (e) 'caught-g)
+                                                            (lambda () (g))))
+                                                       (v3 (g))
+                                                       (v4 (with-exception-catcher
+                                                            (lambda (e) 'caught-h)
+                                                            (lambda ()
+                                                              (with-handler ((ef (k x) (resume k x)))
+                                                                (error "smp-h-fault"))))))
+                                                  (set! cnt (fx+ cnt 1))
+                                                  (and (fx= v1 i)
+                                                       (eq? v2 'caught-g)
+                                                       (eof-object? v3)
+                                                       (eq? v4 'caught-h)))))
+                                            to)))
+                                      (if (and (fx= t 0) (fx= (fxand i 31) 31)) (##gc))
+                                      (iloop (fx+ i 1) (and good res (fx= cnt 1)))))
+                                  (if good (atomic-fxbox+/fetch! ok-count 1))))))))
+                      acc))))))
+    (for-each thread-join! threads)
+    (test-equal num-threads (atomic-fxbox-ref ok-count))))
+
+;;;============================================================================

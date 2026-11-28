@@ -627,3 +627,138 @@
     (test-equal num-threads (atomic-fxbox-ref ok-count))))
 
 ;;;============================================================================
+;;; 10. Exception-Unwind Metacontinuation & Continuation-Mark Coherency
+;;;     (Single-Thread Exactness + Adaptive-P SMP Torture)
+
+;; 10a. Nested prompt exception unwind: outer prompt -> inner catcher -> inner
+;;      prompt + marks -> error. Must pop ONLY inner prompt & inner marks,
+;;      preserve outer prompt & outer marks, and execute post-catcher code
+;;      EXACTLY once (zero stale-frame time-travel).
+(let ((t-outer (make-continuation-prompt-tag 'exn-outer))
+      (t-inner (make-continuation-prompt-tag 'exn-inner))
+      (after-count 0))
+  (let ((res
+         (call-with-continuation-prompt
+          (lambda ()
+            (with-continuation-mark 'outer-mark 'alive
+              (let ((v (with-exception-catcher
+                        (lambda (e) 'caught-inner)
+                        (lambda ()
+                          (call-with-continuation-prompt
+                           (lambda ()
+                             (with-continuation-mark 'inner-mark 'leaked
+                               (error "inner-prompt-boom")))
+                           t-inner)))))
+                (set! after-count (fx+ after-count 1))
+                (test-equal #f (continuation-prompt-available? t-inner))
+                (test-equal #t (continuation-prompt-available? t-outer))
+                (test-equal '() (continuation-mark-set->list (current-continuation-marks) 'inner-mark))
+                (test-equal '(alive) (continuation-mark-set->list (current-continuation-marks) 'outer-mark))
+                (list 'done v))))
+          t-outer)))
+    (test-equal '(done caught-inner) res)
+    (test-equal 1 after-count)
+    (test-equal #f (continuation-prompt-available? t-outer))))
+
+;; 10b. Top-level & nested with-continuation-mark exception unwind (outside any
+;;      prompt) + O(1) tail-recursive mark preservation.
+(with-exception-catcher
+ (lambda (e) 'caught-top-mark)
+ (lambda ()
+   (with-continuation-mark 'top-leaked 123
+     (error "top-mark-boom"))))
+(test-equal '() (continuation-mark-set->list (current-continuation-marks) 'top-leaked))
+
+(with-continuation-mark 'outer-k 'ok
+  (begin
+    (with-exception-catcher
+     (lambda (e) 'caught-nested-mark)
+     (lambda ()
+       (with-continuation-mark 'inner-k 'gone
+         (error "nested-mark-boom"))))
+    (test-equal '() (continuation-mark-set->list (current-continuation-marks) 'inner-k))
+    (test-equal '(ok) (continuation-mark-set->list (current-continuation-marks) 'outer-k))))
+
+;; 10c. Composable continuation captured under one prompt/catcher and replayed
+;;      inside a DIFFERENT with-exception-catcher where it throws: exception
+;;      must be delivered to the replayer's catcher with zero leaked uframe.
+(let ((t-cap (make-continuation-prompt-tag 'cap-exn))
+      (t-outer (make-continuation-prompt-tag 'outer-replay-exn))
+      (saved-k #f)
+      (after-count 0))
+  (call-with-continuation-prompt
+   (lambda ()
+     (let ((x (call-with-composable-continuation
+               (lambda (k)
+                 (set! saved-k k)
+                 (abort-current-continuation t-cap (lambda () 'captured)))
+               t-cap)))
+       (if (eq? x 'boom)
+           (error "replayed-boom")
+           (fx+ x 1))))
+   t-cap)
+  (let ((res
+         (call-with-continuation-prompt
+          (lambda ()
+            (let ((v (with-exception-catcher
+                      (lambda (e) (error-exception-message e))
+                      (lambda () (saved-k 'boom)))))
+              (set! after-count (fx+ after-count 1))
+              (list v (saved-k 41))))
+          t-outer)))
+    (test-equal '("replayed-boom" 42) res)
+    (test-equal 1 after-count)))
+
+;; 10d. Adaptive-P SMP concurrent exception-unwind + continuable handler torture
+(let* ((num-threads (max 2 (min 12 (##current-vm-processor-count))))
+       (rounds 80)
+       (ok-count (make-atomic-fxbox 0)))
+  (let ((threads
+         (let loop ((t 0) (acc '()))
+           (if (fx= t num-threads)
+               acc
+               (loop (fx+ t 1)
+                     (cons
+                      (thread-start!
+                       (make-thread
+                        (lambda ()
+                          (let ((to (make-continuation-prompt-tag 'smp-to))
+                                (ti (make-continuation-prompt-tag 'smp-ti)))
+                            (let rloop ((r 0) (good #t))
+                              (if (fx< r rounds)
+                                  (let ((cnt 0))
+                                    (let ((res
+                                           (call-with-continuation-prompt
+                                            (lambda ()
+                                              (let ((v (with-exception-catcher
+                                                        (lambda (e) r)
+                                                        (lambda ()
+                                                          (call-with-continuation-prompt
+                                                           (lambda ()
+                                                             (with-continuation-mark 'k r
+                                                               (error "smp-boom")))
+                                                           ti)))))
+                                                (set! cnt (fx+ cnt 1))
+                                                (and (not (continuation-prompt-available? ti))
+                                                     (null? (continuation-mark-set->list
+                                                             (current-continuation-marks) 'k))
+                                                     (fx= v r))))
+                                            to)))
+                                      ;; Also exercise continuable with-exception-handler
+                                      (let ((cres
+                                             (with-exception-handler
+                                              (lambda (e) (fx+ e 100))
+                                              (lambda ()
+                                                (call-with-continuation-prompt
+                                                 (lambda () (fx+ (raise r) 1))
+                                                 ti)))))
+                                        (if (and (fx= t 0) (fx= (fxand r 31) 31)) (##gc))
+                                        (rloop (fx+ r 1)
+                                               (and good res (fx= cnt 1)
+                                                    (fx= cres (fx+ r 101)))))))
+                                  (if good (atomic-fxbox+/fetch! ok-count 1))))))))
+                      acc))))))
+    (for-each thread-join! threads)
+    (test-equal num-threads (atomic-fxbox-ref ok-count))))
+
+;;;============================================================================

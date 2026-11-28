@@ -61,6 +61,7 @@ shift
 %tc-rewind-frame
 %tc-rewind-frame-set!
 %make-mc-frame
+%make-mc-frame-9
 %mc-frame-kind
 %mc-frame-tag
 %mc-frame-handler
@@ -69,6 +70,12 @@ shift
 %mc-frame-marks
 %mc-frame-barriers
 %mc-frame-handlers
+%mc-frame-eh-scope
+%mc-frame-eh-scope-set!
+%mc-frame-unwind-hook
+%mc-frame-unwind-hook-set!
+%mc-eh-trampoline?
+%mc-ensure-tramp-denv
 %mc-split-at-tag
 %mc-return1
 %freeze-mc-prefix!
