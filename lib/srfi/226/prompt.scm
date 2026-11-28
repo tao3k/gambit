@@ -171,16 +171,23 @@
            (lambda ()
              (##continuation-capture %prompt-cont-scoped! proc tag handler)))))))
 
-(define (continuation-prompt-available? tag)
+(define (continuation-prompt-available? tag #!optional (cont %ABSENT))
   (if (not (or (eq? tag %default-prompt-tag) (continuation-prompt-tag? tag)))
       (error "continuation-prompt-available?: expected continuation-prompt-tag" tag))
-  (let loop ((cur (%st-mc (%tc-current))))
-    (cond
-      ((null? cur) #f)
-      ((and (eq? (%pf-kind (car cur)) 'prompt)
-            (eq? (%pf-tag (car cur)) tag))
-       #t)
-      (else (loop (cdr cur))))))
+  (let ((frames
+         (if (eq? cont %ABSENT)
+             (%st-mc (%tc-current))
+             (let ((cell (%extract-any-cont-cell cont)))
+               (if cell
+                   (%osc-prefix-fast cell)
+                   (error "continuation-prompt-available?: expected continuation" cont))))))
+    (let loop ((cur frames))
+      (cond
+        ((null? cur) #f)
+        ((and (eq? (%pf-kind (car cur)) 'prompt)
+              (eq? (%pf-tag (car cur)) tag))
+         #t)
+        (else (loop (cdr cur)))))))
 
 (define (%invoke-abort-handler handler tag a1 a2 a3 more)
   (if (or (eq? handler %DEFAULT-PROMPT-HANDLER)
@@ -243,10 +250,11 @@
         (##continuation-graft
          escape-k
          (lambda ()
-           (%st-mc-set! st rest)
-           (%st-marks-set! st (%pf-marks pframe))
-           (%st-barriers-set! st (%pf-barriers pframe))
-           (%st-handlers-set! st (%pf-handlers pframe))
+           (let ((st2 (%tc-current)))
+             (%st-mc-set! st2 rest)
+             (%st-marks-set! st2 (%pf-marks pframe))
+             (%st-barriers-set! st2 (%pf-barriers pframe))
+             (%st-handlers-set! st2 (%pf-handlers pframe)))
            (if (pair? prefix) (%mc-run-unwind-hooks! prefix 'unwind))
            (let ((uh (%pf-unwind-hook pframe)))
              (if (procedure? uh) (uh 'unwind)))

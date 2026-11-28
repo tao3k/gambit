@@ -116,6 +116,7 @@
   %composable-oneshot-replay-1!
   %invoke-composable-parts
   %invoke-composable-cell
+  %rebind-noncomp-pframe
   %commit-noncomp-and-return!
   %invoke-noncomp-parts
   %invoke-noncomp-cell

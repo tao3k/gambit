@@ -251,56 +251,89 @@
                     ((null? more) (values v1 v2 v3))
                     (else (apply values v1 v2 v3 more)))))))))))
 
+(define (%rebind-noncomp-pframe cur-pframe)
+  (let ((orig-scope (%pf-eh-scope cur-pframe)))
+    (cond
+      ((%mc-eh-trampoline? orig-scope)
+       (%make-mc-frame-9 'prompt
+                         (%pf-tag cur-pframe)
+                         (%pf-handler cur-pframe)
+                         (%pf-escape-k cur-pframe)
+                         (%pf-marks cur-pframe)
+                         (%pf-barriers cur-pframe)
+                         (%pf-handlers cur-pframe)
+                         (%mc-eh-trampoline-prev orig-scope)
+                         (%pf-unwind-hook cur-pframe)))
+      ((not orig-scope)
+       (%make-mc-frame-9 'prompt
+                         (%pf-tag cur-pframe)
+                         (%pf-handler cur-pframe)
+                         (%pf-escape-k cur-pframe)
+                         (%pf-marks cur-pframe)
+                         (%pf-barriers cur-pframe)
+                         (%pf-handlers cur-pframe)
+                         'replay
+                         (%pf-unwind-hook cur-pframe)))
+      (else cur-pframe))))
+
 (define (%commit-noncomp-and-return! cst cur-prefix cur-pframe cur-rest sub-k prefix
                                      cap-marks cap-barriers cap-handlers
                                      v1 v2 v3 more)
-  (if (%mc-same-dynwind? sub-k)
-      (begin
-        (%st-mc-set! cst
-                     (if (null? prefix)
-                         (cons cur-pframe cur-rest)
-                         (append prefix (cons cur-pframe cur-rest))))
-        (%st-marks-set! cst
-                        (if (null? cap-marks)
-                            (%pf-marks cur-pframe)
-                            (append cap-marks (%pf-marks cur-pframe))))
-        (%st-barriers-set! cst cap-barriers)
-        (%st-handlers-set! cst
-                           (if (null? cap-handlers)
-                               (%pf-handlers cur-pframe)
-                               (append cap-handlers (%pf-handlers cur-pframe))))
-        (if (pair? cur-prefix) (%mc-run-unwind-hooks! cur-prefix 'unwind))
-        (if (pair? prefix) (%mc-run-unwind-hooks! prefix 'restore))
-        (cond
-          ((eq? v1 %ABSENT) (##continuation-return sub-k))
-          ((eq? v2 %ABSENT) (##continuation-return sub-k v1))
-          ((eq? v3 %ABSENT) (##continuation-return sub-k v1 v2))
-          ((null? more) (##continuation-return sub-k v1 v2 v3))
-          (else (##apply ##continuation-return sub-k v1 v2 v3 more))))
-      (##continuation-graft
-       sub-k
-       (lambda ()
-         (%st-mc-set! cst
-                      (if (null? prefix)
-                          (cons cur-pframe cur-rest)
-                          (append prefix (cons cur-pframe cur-rest))))
-         (%st-marks-set! cst
-                         (if (null? cap-marks)
-                             (%pf-marks cur-pframe)
-                             (append cap-marks (%pf-marks cur-pframe))))
-         (%st-barriers-set! cst cap-barriers)
-         (%st-handlers-set! cst
-                            (if (null? cap-handlers)
-                                (%pf-handlers cur-pframe)
-                                (append cap-handlers (%pf-handlers cur-pframe))))
-         (if (pair? cur-prefix) (%mc-run-unwind-hooks! cur-prefix 'unwind))
-         (if (pair? prefix) (%mc-run-unwind-hooks! prefix 'restore))
-         (cond
-           ((eq? v1 %ABSENT) (values))
-           ((eq? v2 %ABSENT) v1)
-           ((eq? v3 %ABSENT) (values v1 v2))
-           ((null? more) (values v1 v2 v3))
-           (else (apply values v1 v2 v3 more)))))))
+  (let ((bound-pframe (%rebind-noncomp-pframe cur-pframe)))
+    (if (%mc-same-dynwind? sub-k)
+        (begin
+          (%st-mc-set! cst
+                       (if (null? prefix)
+                           (cons bound-pframe cur-rest)
+                           (append prefix (cons bound-pframe cur-rest))))
+          (%st-marks-set! cst
+                          (if (null? cap-marks)
+                              (%pf-marks cur-pframe)
+                              (append cap-marks (%pf-marks cur-pframe))))
+          (%st-barriers-set! cst
+                             (if (null? cap-barriers)
+                                 (%pf-barriers cur-pframe)
+                                 (append cap-barriers (%pf-barriers cur-pframe))))
+          (%st-handlers-set! cst
+                             (if (null? cap-handlers)
+                                 (%pf-handlers cur-pframe)
+                                 (append cap-handlers (%pf-handlers cur-pframe))))
+          (if (pair? cur-prefix) (%mc-run-unwind-hooks! cur-prefix 'unwind))
+          (if (pair? prefix) (%mc-run-unwind-hooks! prefix 'restore))
+          (cond
+            ((eq? v1 %ABSENT) (##continuation-return sub-k))
+            ((eq? v2 %ABSENT) (##continuation-return sub-k v1))
+            ((eq? v3 %ABSENT) (##continuation-return sub-k v1 v2))
+            ((null? more) (##continuation-return sub-k v1 v2 v3))
+            (else (##apply ##continuation-return sub-k v1 v2 v3 more))))
+        (##continuation-graft
+         sub-k
+         (lambda ()
+           (let ((st (%tc-current)))
+             (%st-mc-set! st
+                          (if (null? prefix)
+                              (cons bound-pframe cur-rest)
+                              (append prefix (cons bound-pframe cur-rest))))
+             (%st-marks-set! st
+                             (if (null? cap-marks)
+                                 (%pf-marks cur-pframe)
+                                 (append cap-marks (%pf-marks cur-pframe))))
+             (%st-barriers-set! st
+                                (if (null? cap-barriers)
+                                    (%pf-barriers cur-pframe)
+                                    (append cap-barriers (%pf-barriers cur-pframe))))
+             (%st-handlers-set! st
+                                (if (null? cap-handlers)
+                                    (%pf-handlers cur-pframe)
+                                    (append cap-handlers (%pf-handlers cur-pframe))))
+             (if (pair? cur-prefix) (%mc-run-unwind-hooks! cur-prefix 'unwind))
+             (if (pair? prefix) (%mc-run-unwind-hooks! prefix 'restore)))
+           (cond
+             ((eq? v1 %ABSENT) (values))
+             ((eq? v2 %ABSENT) v1)
+             ((eq? v3 %ABSENT) (values v1 v2))
+             ((null? more) (values v1 v2 v3))
+             (else (apply values v1 v2 v3 more))))))))
 
 (define (%invoke-noncomp-parts sub-k prefix cap-marks cap-barriers cap-handlers tag
                                v1 v2 v3 more)
@@ -479,7 +512,7 @@
     (%freeze-mc-frame! pframe)
     (if (pair? prefix) (%freeze-mc-prefix! prefix))
     (let* ((cap-marks (%list-prefix-until (%st-marks st) (%pf-marks pframe)))
-           (cap-barriers (%st-barriers st))
+           (cap-barriers (%list-prefix-until (%st-barriers st) (%pf-barriers pframe)))
            (cap-handlers (%list-prefix-until (%st-handlers st) (%pf-handlers pframe)))
            (tmpl (%make-one-shot-cell %CONT-MULTISHOT-COW 'noncomp #f
                                       prefix cap-marks cap-barriers cap-handlers tag)))
@@ -648,7 +681,7 @@
              (eq? (%pf-tag (car mc)) tag))
         (let* ((pframe (car mc))
                (cap-marks (%list-prefix-until (%st-marks st) (%pf-marks pframe)))
-               (cap-barriers (%st-barriers st))
+               (cap-barriers (%list-prefix-until (%st-barriers st) (%pf-barriers pframe)))
                (cap-handlers (%list-prefix-until (%st-handlers st) (%pf-handlers pframe))))
           (%freeze-mc-frame! pframe)
           (if (and (null? cap-marks) (null? cap-barriers) (null? cap-handlers))
@@ -663,7 +696,7 @@
                 (%freeze-mc-frame! pframe)
                 (if (pair? prefix) (%freeze-mc-prefix! prefix))
                 (let* ((cap-marks (%list-prefix-until (%st-marks st) (%pf-marks pframe)))
-                       (cap-barriers (%st-barriers st))
+                       (cap-barriers (%list-prefix-until (%st-barriers st) (%pf-barriers pframe)))
                        (cap-handlers (%list-prefix-until (%st-handlers st) (%pf-handlers pframe)))
                        (tmpl (%make-one-shot-cell %CONT-ONE-SHOT-LIVE 'noncomp #f
                                                   prefix cap-marks cap-barriers cap-handlers tag)))

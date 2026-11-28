@@ -76,7 +76,7 @@
                                     hook
                                     (eq? kind 'underflow)))
                  (scope (%pf-eh-scope f)))
-            (if scope
+            (if (and scope (not (eq? scope 'replay)))
                 (let ((scope-is-tramp (%mc-eh-trampoline? scope)))
                   (if (or (eq? scope self-tramp)
                           (not scope-is-tramp)
@@ -115,6 +115,6 @@
                        exception-handler
                        fallback-eh
                        (lambda () (fallback-eh exc)))))
-                (loop rest next-hooks next-crossed?)))))))
+                (loop rest next-hooks (or next-crossed? (eq? scope 'replay)))))))))
 
 ;;;============================================================================

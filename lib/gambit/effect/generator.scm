@@ -53,10 +53,11 @@
         (##continuation-graft
          ck
          (lambda ()
-           (%st-mc-set! st rest)
-           (%st-marks-set! st (%pf-marks pframe))
-           (%st-barriers-set! st (%pf-barriers pframe))
-           (%st-handlers-set! st (%pf-handlers pframe))
+           (let ((st2 (%tc-fast)))
+             (%st-mc-set! st2 rest)
+             (%st-marks-set! st2 (%pf-marks pframe))
+             (%st-barriers-set! st2 (%pf-barriers pframe))
+             (%st-handlers-set! st2 (%pf-handlers pframe)))
            (if unfrozen
                (begin
                  (%pf-escape-k-set! pframe #f)

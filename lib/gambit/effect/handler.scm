@@ -178,10 +178,11 @@
         (##continuation-graft
          escape-k
          (lambda ()
-           (%st-mc-set! st rest)
-           (%st-marks-set! st pf-marks)
-           (%st-barriers-set! st (%pf-barriers pframe))
-           (%st-handlers-set! st (%pf-handlers pframe))
+           (let ((st2 (%tc-fast)))
+             (%st-mc-set! st2 rest)
+             (%st-marks-set! st2 pf-marks)
+             (%st-barriers-set! st2 (%pf-barriers pframe))
+             (%st-handlers-set! st2 (%pf-handlers pframe)))
            (proc ek))))))
 
 (define (%perform-fast-cap-1! sub-k frame proc a1)
@@ -211,10 +212,11 @@
         (##continuation-graft
          escape-k
          (lambda ()
-           (%st-mc-set! st rest)
-           (%st-marks-set! st pf-marks)
-           (%st-barriers-set! st (%pf-barriers pframe))
-           (%st-handlers-set! st (%pf-handlers pframe))
+           (let ((st2 (%tc-fast)))
+             (%st-mc-set! st2 rest)
+             (%st-marks-set! st2 pf-marks)
+             (%st-barriers-set! st2 (%pf-barriers pframe))
+             (%st-handlers-set! st2 (%pf-handlers pframe)))
            (proc ek a1))))))
 
 (define (%perform-fast-cap-n! sub-k frame proc args)
@@ -244,10 +246,11 @@
         (##continuation-graft
          escape-k
          (lambda ()
-           (%st-mc-set! st rest)
-           (%st-marks-set! st pf-marks)
-           (%st-barriers-set! st (%pf-barriers pframe))
-           (%st-handlers-set! st (%pf-handlers pframe))
+           (let ((st2 (%tc-fast)))
+             (%st-mc-set! st2 rest)
+             (%st-marks-set! st2 pf-marks)
+             (%st-barriers-set! st2 (%pf-barriers pframe))
+             (%st-handlers-set! st2 (%pf-handlers pframe)))
            (##apply proc (cons ek args)))))))
 
 (define (%perform-suspend-dispatch st handlers frame proc a1 a2 more)
@@ -299,10 +302,11 @@
                        (##continuation-graft
                         escape-k
                         (lambda ()
-                          (%st-mc-set! st rest)
-                          (%st-marks-set! st (%pf-marks pframe))
-                          (%st-barriers-set! st (%pf-barriers pframe))
-                          (%st-handlers-set! st (%pf-handlers pframe))
+                          (let ((st2 (%tc-fast)))
+                            (%st-mc-set! st2 rest)
+                            (%st-marks-set! st2 (%pf-marks pframe))
+                            (%st-barriers-set! st2 (%pf-barriers pframe))
+                            (%st-handlers-set! st2 (%pf-handlers pframe)))
                           (if (pair? prefix) (%mc-run-unwind-hooks! prefix 'unwind))
                           (cond
                             ((eq? a1 %ABSENT) (proc ek))

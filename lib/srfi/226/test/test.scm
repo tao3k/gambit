@@ -1638,4 +1638,190 @@
     (test-equal #t (check-err (lambda () (continuation-mark-set->list* 42 '(m)))))
     (test-equal #t (check-err (lambda () (continuation-mark-set-first "bad" 'm))))))
 
+;; Prompt-scoped barrier capture/restore for non-composable continuations and
+;; prompted call/1cc:
+;; 1) Invoking a barrier-free non-composable continuation or prompted call/1cc
+;;    inside an enclosing outer barrier must preserve that outer barrier.
+;; 2) Capturing a non-composable continuation or prompted call/1cc inside an
+;;    outer barrier that lies outside the delimiting prompt must NOT suffer a
+;;    false-positive barrier error when invoked in a fresh prompt outside that
+;;    outer barrier.
+;; 3) Capturing across an inner barrier inside the delimiting prompt must block
+;;    invocation from outside that inner barrier while permitting invocation
+;;    within the same inner barrier.
+(let ((t-out (make-continuation-prompt-tag 'ncb-out))
+      (t-in  (make-continuation-prompt-tag 'ncb-in))
+      (saved-nc #f)
+      (saved-1cc #f))
+  (call-with-continuation-prompt
+   (lambda ()
+     (let ((v (call-with-non-composable-continuation
+               (lambda (k) (set! saved-nc k) 'cap)
+               t-in)))
+       (if (eq? v 'probe)
+           (call-with-composable-continuation (lambda (k) 'bypassed) t-out)
+           v)))
+   t-in)
+  (call-with-continuation-prompt
+   (lambda ()
+     (let ((v (call/1cc (lambda (k) (set! saved-1cc k) 'cap) t-in)))
+       (if (eq? v 'probe)
+           (call-with-composable-continuation (lambda (k) 'bypassed) t-out)
+           v)))
+   t-in)
+  (test-equal 'blocked-nc
+    (call-with-continuation-prompt
+     (lambda ()
+       (call-with-continuation-barrier
+        (lambda ()
+          (with-exception-catcher
+           (lambda (e) 'blocked-nc)
+           (lambda ()
+             (call-with-continuation-prompt
+              (lambda () (saved-nc 'probe))
+              t-in))))))
+     t-out))
+  (test-equal 'blocked-1cc
+    (call-with-continuation-prompt
+     (lambda ()
+       (call-with-continuation-barrier
+        (lambda ()
+          (with-exception-catcher
+           (lambda (e) 'blocked-1cc)
+           (lambda ()
+             (call-with-continuation-prompt
+              (lambda () (saved-1cc 'probe))
+              t-in))))))
+     t-out)))
+
+(let ((t-in (make-continuation-prompt-tag 'ncb-nofp))
+      (saved-nc #f)
+      (saved-1cc #f))
+  (call-with-continuation-barrier
+   (lambda ()
+     (call-with-continuation-prompt
+      (lambda ()
+        (let ((v (call-with-non-composable-continuation
+                  (lambda (k) (set! saved-nc k) 'cap)
+                  t-in)))
+          (if (number? v) (fx+ v 10) v)))
+      t-in)
+     (call-with-continuation-prompt
+      (lambda ()
+        (let ((v (call/1cc (lambda (k) (set! saved-1cc k) 'cap) t-in)))
+          (if (number? v) (fx+ v 20) v)))
+      t-in)))
+  (test-equal 42 (call-with-continuation-prompt (lambda () (saved-nc 32)) t-in))
+  (test-equal 52 (call-with-continuation-prompt (lambda () (saved-1cc 32)) t-in)))
+
+(let ((t-in (make-continuation-prompt-tag 'ncb-inner))
+      (saved-inner #f)
+      (in-same-res #f))
+  (call-with-continuation-prompt
+   (lambda ()
+     (call-with-continuation-barrier
+      (lambda ()
+        (let ((v (call-with-non-composable-continuation
+                  (lambda (k) (set! saved-inner k) 'first)
+                  t-in)))
+          (if (eq? v 'first)
+              (saved-inner 'same-barrier-ok)
+              (set! in-same-res v))))))
+   t-in)
+  (test-equal 'same-barrier-ok in-same-res)
+  (test-equal 'inner-blocked
+    (call-with-continuation-prompt
+     (lambda ()
+       (with-exception-catcher
+        (lambda (e) 'inner-blocked)
+        (lambda () (saved-inner 'illegal-entry))))
+     t-in)))
+
+;; Optional continuation argument on continuation-prompt-available?
+(let ((t1 (make-continuation-prompt-tag 'cpa-t1))
+      (t2 (make-continuation-prompt-tag 'cpa-t2))
+      (t3 (make-continuation-prompt-tag 'cpa-t3))
+      (k-comp #f)
+      (k-1shot #f)
+      (k-raw #f))
+  (call-with-continuation-prompt
+   (lambda ()
+     (call-with-continuation-prompt
+      (lambda ()
+        (call-with-composable-continuation (lambda (k) (set! k-comp k) 'ok) t1)
+        (call-with-one-shot-composable-continuation (lambda (k) (set! k-1shot k) 'ok) t1)
+        (call/1cc (lambda (k) (set! k-raw k) 'ok) t3))
+      t2))
+   t1)
+  (test-equal #t (continuation-prompt-available? t2 k-comp))
+  (test-equal #f (continuation-prompt-available? t1 k-comp))
+  (test-equal #f (continuation-prompt-available? t3 k-comp))
+  (test-equal #t (continuation-prompt-available? t2 k-1shot))
+  (test-equal #t (continuation-prompt-available? t2 k-raw))
+  (test-equal #t (continuation-prompt-available? t1 k-raw))
+  (test-equal #f (continuation-prompt-available? t3 k-raw))
+  ;; Consumed one-shot continuation returns #f cleanly
+  (k-1shot 'consume)
+  (test-equal #f (continuation-prompt-available? t2 k-1shot))
+  ;; Invalid continuation argument raises
+  (test-equal #t
+    (with-exception-catcher
+     (lambda (e) #t)
+     (lambda () (continuation-prompt-available? t1 'not-a-cont) #f))))
+
+;; Adaptive-P SMP torture: concurrent non-composable barrier preservation +
+;; false-positive absence + dynamic-wind unwind + ##gc across P threads.
+(let* ((hw (##current-vm-processor-count))
+       (num-threads (max 2 (min 8 hw)))
+       (rounds 30)
+       (ok-count (make-atomic-fxbox 0)))
+  (let ((threads
+         (let loop ((t 0) (acc '()))
+           (if (fx= t num-threads)
+               acc
+               (loop (fx+ t 1)
+                     (cons
+                      (thread-start!
+                       (make-thread
+                        (lambda ()
+                          (let ((tg-out (make-continuation-prompt-tag 'smp-ncb-out))
+                                (tg-in  (make-continuation-prompt-tag 'smp-ncb-in)))
+                            (let rloop ((r 0) (good #t))
+                              (if (fx< r rounds)
+                                  (let ((sk #f))
+                                    (call-with-continuation-barrier
+                                     (lambda ()
+                                       (call-with-continuation-prompt
+                                        (lambda ()
+                                          (let ((v (call-with-non-composable-continuation
+                                                    (lambda (k) (set! sk k) 'init)
+                                                    tg-in)))
+                                            (if (eq? v 'probe)
+                                                (call-with-composable-continuation
+                                                 (lambda (k) 'bypassed)
+                                                 tg-out)
+                                                v)))
+                                        tg-in)))
+                                    (let ((r1 (call-with-continuation-prompt
+                                               (lambda () (sk r))
+                                               tg-in))
+                                          (r2 (call-with-continuation-prompt
+                                               (lambda ()
+                                                 (call-with-continuation-barrier
+                                                  (lambda ()
+                                                    (with-exception-catcher
+                                                     (lambda (e) 'blocked)
+                                                     (lambda ()
+                                                       (call-with-continuation-prompt
+                                                        (lambda () (sk 'probe))
+                                                        tg-in))))))
+                                               tg-out)))
+                                      (if (and (fx= t 0) (fx= (fxand r 7) 7)) (##gc))
+                                      (rloop (fx+ r 1)
+                                             (and good (fx= r1 r) (eq? r2 'blocked)))))
+                                  (if good (atomic-fxbox+/fetch! ok-count 1))))))))
+                      acc))))))
+    (for-each thread-join! threads)
+    (test-equal num-threads (atomic-fxbox-ref ok-count))))
+
 ;;;============================================================================
