@@ -33,6 +33,30 @@
             (reverse acc)
             (loop (cdr cur) (cons (car cur) acc))))))
 
+;; Pop the active handler prompt frame and restore outer control state BEFORE
+;; invoking `return-fn` in tail position on `escape-k`, supporting 0/1/N
+;; multiple values with zero overhead on the single-value fast path.
+(define (%mc-return1-with-fn val return-fn)
+  (let* ((st (%tc-fast))
+         (mc (%st-mc st)))
+    (if (null? mc)
+        (if (##values? val)
+            (##call-with-values (lambda () val) return-fn)
+            (return-fn val))
+        (let* ((top (car mc))
+               (rest (cdr mc))
+               (ek (%pf-escape-k top)))
+          (%st-mc-set! st rest)
+          (%st-marks-set! st (%pf-marks top))
+          (%st-barriers-set! st (%pf-barriers top))
+          (%st-handlers-set! st (%pf-handlers top))
+          (if (##values? val)
+              (##continuation-graft
+               ek
+               (lambda ()
+                 (##call-with-values (lambda () val) return-fn)))
+              (##continuation-graft ek return-fn val))))))
+
 ;; Zero-closure multi-arg capture receivers for suspending with-handler (<= 4 args)
 (define (%install-handler-cont! escape-k frame return-fn thunk)
   (let* ((st (%tc-fast))
@@ -52,8 +76,10 @@
                                    #f)))
     (%st-mc-set! st (cons pframe saved-mc))
     (%st-handlers-set! st (cons frame saved-handlers))
-    (let ((res (if return-fn (return-fn (thunk)) (thunk))))
-      (%mc-return1 res))))
+    (if return-fn
+        (let ((res (thunk)))
+          (%mc-return1-with-fn res return-fn))
+        (%mc-return1 (thunk)))))
 
 (define (%install-handler-cont-scoped! escape-k frame return-fn thunk)
   (let* ((st (%tc-fast))
@@ -74,8 +100,10 @@
                                    #f)))
     (%st-mc-set! st (cons pframe saved-mc))
     (%st-handlers-set! st (cons frame saved-handlers))
-    (let ((res (if return-fn (return-fn (thunk)) (thunk))))
-      (%mc-return1 res))))
+    (if return-fn
+        (let ((res (thunk)))
+          (%mc-return1-with-fn res return-fn))
+        (%mc-return1 (thunk)))))
 
 ;; Dynamically pop `frame` (and any unpopped inner frames above it on exception
 ;; unwind) from the current thread's handler stack instead of restoring a stale
@@ -100,14 +128,20 @@
       (let* ((frame (%make-handler-frame #f entries))
              (st (%tc-fast)))
         (%st-handlers-set! st (cons frame (%st-handlers st)))
-        (with-exception-catcher
-         (lambda (e)
-           (%pop-handler-frame! (%tc-fast) frame)
-           (raise e))
-         (lambda ()
-           (let ((res (thunk)))
-             (%pop-handler-frame! (%tc-fast) frame)
-             (if return-fn (return-fn res) res)))))
+        (let ((res
+               (with-exception-catcher
+                (lambda (e)
+                  (%pop-handler-frame! (%tc-fast) frame)
+                  (raise e))
+                (lambda ()
+                  (let ((r (thunk)))
+                    (%pop-handler-frame! (%tc-fast) frame)
+                    r)))))
+          (if return-fn
+              (if (##values? res)
+                  (##call-with-values (lambda () res) return-fn)
+                  (return-fn res))
+              res)))
       ;; Native Single-Capture Deep Effect Handler on SRFI-226 metacontinuation
       ;; with scope-bound exception unwind trampoline outside ##continuation-capture
       ;; so escape-k and sub-k share identical denv.

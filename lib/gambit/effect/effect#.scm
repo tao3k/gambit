@@ -79,11 +79,13 @@ make-generator
                             (##eq? (##desourcify (##car c)) 'return:)
                             (##pair? (##cdr c))
                             (##pair? (##cddr c)))
-                       (let ((params (##cadr c))
-                             (rbody (##cddr c)))
-                         (loop (##cdr cs)
-                               entries
-                               (##cons 'lambda (##cons params rbody)))))
+                       (if ret-fn
+                           (##raise-expression-parsing-exception 'ill-formed-special-form src)
+                           (let ((params (##cadr c))
+                                 (rbody (##cddr c)))
+                             (loop (##cdr cs)
+                                   entries
+                                   (##cons 'lambda (##cons params rbody))))))
                       ;; (tail: eff (args ...) body ...)
                       ((and (##pair? c)
                             (##eq? (##desourcify (##car c)) 'tail:)

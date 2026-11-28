@@ -1461,4 +1461,125 @@
     (for-each thread-join! threads)
     (test-equal num-threads (atomic-fxbox-ref ok-count))))
 
+;; Out-of-scope tail-position return: clause execution & full 0/1/N multiple-value
+;; return: dispatch for both suspending and tail-resumptive handlers.
+(let ((e-ret (make-effect 'ret-scope))
+      (e-ch  (make-effect 'ret-choose)))
+  ;; Performing the same effect inside a suspending handler's return: clause
+  ;; must dispatch to the enclosing outer handler (never hijacked by inner),
+  ;; matching tail-resumptive handler semantics identically.
+  (test-equal '(outer 40)
+    (with-handler
+      ((e-ret (k x) (list 'outer x)))
+      (with-handler
+        ((e-ret (k x) (resume k (fx+ x 1)))
+         (return: (v) (perform e-ret (fx* v 10))))
+        (perform e-ret 3))))
+  (test-equal '(outer 40)
+    (with-handler
+      ((e-ret (k x) (list 'outer x)))
+      (with-handler
+        ((tail: e-ret (x) (fx+ x 1))
+         (return: (v) (perform e-ret (fx* v 10))))
+        (perform e-ret 3))))
+  ;; Multi-shot resume-multishot runs return: once per branch outside inner handler
+  (test-equal '(10 20)
+    (with-handler
+      ((e-ret (k x) (resume k (fx* x 10))))
+      (with-handler
+        ((e-ch (k) (append (resume-multishot k 1) (resume-multishot k 2)))
+         (e-ret (k x) (resume k (fx+ x 999)))
+         (return: (x) (list (perform e-ret x))))
+        (perform e-ch))))
+  ;; 0-value, 2-value, and 3-value return: clauses (both suspending and tail)
+  (test-equal 'susp-zero
+    (with-handler
+      ((e-ret (k x) (resume k x))
+       (return: () 'susp-zero))
+      (perform e-ret 1)
+      (values)))
+  (test-equal 'tail-zero
+    (with-handler
+      ((tail: e-ret (x) x)
+       (return: () 'tail-zero))
+      (perform e-ret 1)
+      (values)))
+  (test-equal '(susp-2 11 22)
+    (with-handler
+      ((e-ret (k x) (resume k (fx+ x 1)))
+       (return: (a b) (list 'susp-2 a b)))
+      (values (perform e-ret 10) (perform e-ret 21))))
+  (test-equal '(tail-2 11 22)
+    (with-handler
+      ((tail: e-ret (x) (fx+ x 1))
+       (return: (a b) (list 'tail-2 a b)))
+      (values (perform e-ret 10) (perform e-ret 21))))
+  (test-equal 60
+    (with-handler
+      ((e-ret (k x) (resume k x))
+       (return: (a b c) (fx+ a b c)))
+      (values (perform e-ret 10) (perform e-ret 20) (perform e-ret 30))))
+  ;; Exception raised inside return: observes clean outer stack (inner popped)
+  (test-equal '(caught-ret-exc outer-alive)
+    (with-handler
+      ((tail: e-ret (x) 'outer-alive))
+      (with-exception-catcher
+       (lambda (ex) (list ex (perform e-ret 0)))
+       (lambda ()
+         (with-handler
+           ((e-ret (k x) (resume k 'inner-zombie))
+            (return: (v) (raise 'caught-ret-exc)))
+           (perform e-ret 1))))))
+  (test-equal '(caught-tail-ret-exc outer-alive)
+    (with-handler
+      ((tail: e-ret (x) 'outer-alive))
+      (with-exception-catcher
+       (lambda (ex) (list ex (perform e-ret 0)))
+       (lambda ()
+         (with-handler
+           ((tail: e-ret (x) 'inner-zombie)
+            (return: (v) (raise 'caught-tail-ret-exc)))
+           (perform e-ret 1))))))
+  ;; Adaptive-P SMP torture combining out-of-scope return: + multival + ##gc
+  (let* ((hw (##current-vm-processor-count))
+         (num-threads (max 2 (min 8 hw)))
+         (rounds 30)
+         (ok-count (make-atomic-fxbox 0)))
+    (let ((threads
+           (let loop ((t 0) (acc '()))
+             (if (fx= t num-threads)
+                 acc
+                 (loop (fx+ t 1)
+                       (cons
+                        (thread-start!
+                         (make-thread
+                          (lambda ()
+                            (let ((e1 (make-effect 'smp-ret1))
+                                  (e2 (make-effect 'smp-ret2)))
+                              (let rloop ((r 0) (good #t))
+                                (if (fx< r rounds)
+                                    (let ((r1
+                                           (with-handler
+                                             ((e1 (k x) (fx+ x 100)))
+                                             (with-handler
+                                               ((e1 (k x) (resume k (fx+ x 1)))
+                                                (return: (a b) (perform e1 (fx+ a b))))
+                                               (values (perform e1 r) (perform e1 1)))))
+                                          (r2
+                                           (with-handler
+                                             ((tail: e2 (x) (fx* x 2)))
+                                             (with-handler
+                                               ((tail: e2 (x) (fx+ x 1))
+                                                (return: (a b) (perform e2 (fx+ a b))))
+                                               (values (perform e2 r) (perform e2 1))))))
+                                      (if (and (fx= t 0) (fx= (fxand r 7) 7)) (##gc))
+                                      (rloop (fx+ r 1)
+                                             (and good
+                                                  (fx= r1 (fx+ r 103))
+                                                  (fx= r2 (fx* (fx+ r 3) 2)))))
+                                    (if good (atomic-fxbox+/fetch! ok-count 1))))))))
+                        acc))))))
+      (for-each thread-join! threads)
+      (test-equal num-threads (atomic-fxbox-ref ok-count)))))
+
 ;;;============================================================================

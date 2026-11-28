@@ -106,6 +106,7 @@
   %find-entry-in-frame
   %handlers-prefix-before
   %pop-handler-frame!
+  %mc-return1-with-fn
   %install-handler-cont!
   %install-handler-cont-scoped!
   %perform-fast-cap-0!
