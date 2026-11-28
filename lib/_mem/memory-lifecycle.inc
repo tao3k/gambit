@@ -567,6 +567,7 @@ ___virtual_machine_state ___vms;)
     ___vms->glos->count=0; ___vms->glos->unbound=___UNB1;
     ___vms->glos->prim_override_bits[0]=0; ___vms->glos->prim_override_bits[1]=0;
     ___vms->glos->prim_override_bits[2]=0; ___vms->glos->prim_override_bits[3]=0;
+    memset(___vms->glos->inline_pages, 0, sizeof(___vms->glos->inline_pages));
     /* The initial image is this VM's bootstrap binding inventory. Later
      * identities registered by another VM do not reserve cells in this VM. */
     ___MUTEX_LOCK(___GSTATE->mem.global_gate);

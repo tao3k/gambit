@@ -680,6 +680,7 @@ static ___WORD rest_observation_last_entry_room = -1;
 static int rest_observation_last_one_word;
 static int rest_observation_last_physical;
 static ___VOLATILE ___WORD rest_observation_admission_captured;
+___VOLATILE ___WORD ___rest_hooks_gate = 1;
 
 ___WORD ___rest_observation_last_demand(___WORD *pending, ___WORD *parameters)
 {
@@ -700,6 +701,7 @@ ___WORD ___rest_observation_last_decision(void)
 
 void ___rest_observation_reset_admission(void)
 {
+  ___WORD_STORE_RELEASE(&___rest_hooks_gate, 1);
   ___WORD_STORE_RELEASE(&rest_observation_admission_captured, 0);
 }
 
@@ -1899,6 +1901,18 @@ ___BOOL ___rest_one_word_short(___processor_state ps, ___WORD *hp, ___WORD *fp,
   return room+1==(___SIZE_TS)words;
 }
 
+static inline void rest_hooks_gate_refresh(void)
+{
+  int keep_open = (___WORD_LOAD_ACQUIRE(&rest_attempt_active_flag) != 0) ||
+                  (___WORD_LOAD_ACQUIRE(&rest_observation_admission_captured) == 0);
+#ifdef ___GAMBIT_REST_OBSERVATION
+  if (!keep_open)
+    keep_open = (__atomic_load_n(&rest_observation_map, __ATOMIC_ACQUIRE) != 0) ||
+                (__atomic_load_n(&rest_observation_env_probed, __ATOMIC_ACQUIRE) == 0);
+#endif
+  ___WORD_STORE_RELEASE(&___rest_hooks_gate, keep_open ? 1 : 0);
+}
+
 void ___rest_note_attempt_entry(___processor_state ps, ___WORD *hp, ___WORD *fp)
 {
 #ifdef ___GAMBIT_REST_OBSERVATION
@@ -1907,7 +1921,10 @@ void ___rest_note_attempt_entry(___processor_state ps, ___WORD *hp, ___WORD *fp)
    * observation state entirely when no observation mapping is open. */
   if (!__atomic_load_n(&rest_observation_map,__ATOMIC_ACQUIRE) &&
       !__atomic_load_n(&rest_observation_env_probed,__ATOMIC_ACQUIRE))
-    ___rest_observation_open(0);
+    {
+      ___rest_observation_open(0);
+      rest_hooks_gate_refresh();
+    }
   if (__atomic_load_n(&rest_observation_map,__ATOMIC_ACQUIRE)) {
     if (!rest_observation_current_case()) {
       static uint64_t rest_observation_next_case=1;
@@ -2007,6 +2024,7 @@ void ___rest_arm_force_slow(void)
 {
   rest_attempt_owner=___PSTATE;
   rest_force_slow=1;
+  ___WORD_STORE_RELEASE(&___rest_hooks_gate, 1);
   ___WORD_STORE_RELEASE(&rest_attempt_active_flag, 1);
 }
 
@@ -2017,6 +2035,7 @@ void ___rest_arm_attempt(___WORD words, ___WORD floor)
   ___rest_attempt_floor=floor>0?floor:0;
   rest_attempt_blocked_flag=0;
   rest_attempt_entry_noted=0;
+  ___WORD_STORE_RELEASE(&___rest_hooks_gate, 1);
   ___WORD_STORE_RELEASE(&rest_attempt_active_flag, 1);
   ___rest_attempt_entry_heap=0;
   ___rest_attempt_entry_frame=0;
@@ -2134,13 +2153,17 @@ void ___rest_disarm_attempt(void)
   }
 #endif
   if (__builtin_expect(___WORD_LOAD_RELAXED(&rest_attempt_active_flag) == 0, 1))
-    return;
+    {
+      rest_hooks_gate_refresh();
+      return;
+    }
   ___rest_attempt_words=0;
   ___rest_attempt_floor=0;
   rest_attempt_blocked_flag=0;
   rest_attempt_owner=0;
   rest_force_slow=0;
   ___WORD_STORE_RELEASE(&rest_attempt_active_flag, 0);
+  rest_hooks_gate_refresh();
 }
 
 ___WORD ___rest_heap_cursor(___processor_state ps)
@@ -2206,6 +2229,7 @@ ___BOOL ___rest_fast_grant_fits(___processor_state ps, ___WORD *hp, ___WORD *fp,
     rest_observation_last_physical=
       ___rest_physical_tail_short(ps, pending, np) ? 1 : 0;
     ___WORD_STORE_RELEASE(&rest_observation_admission_captured, 1);
+    rest_hooks_gate_refresh();
   }
 #ifdef ___GAMBIT_REST_OBSERVATION
   if (__builtin_expect(__atomic_load_n(&rest_observation_map,__ATOMIC_ACQUIRE)!=0, 0)) {

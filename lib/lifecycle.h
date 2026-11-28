@@ -404,6 +404,71 @@ extern void ___rest_observation_note_return_fp(___processor_state ps,
                                              ___activation_record *record,
                                              ___WORD epoch, ___WORD *fp);
 extern void ___rest_observation_note_body(___processor_state ps);
+/* Single read-hot atomic gate: zero when no rest refusal injection or
+ * observation hook is active and initial admission has been captured. */
+extern ___VOLATILE ___WORD ___rest_hooks_gate;
+#if !defined(___INCLUDED_FROM_MEM) && !defined(___MEM_SOURCE_FILE) && \
+    (defined(__GNUC__) || defined(__clang__)) && defined(__ATOMIC_RELAXED)
+static inline ___BOOL ___rest_signed_sum_inline(___WORD a, ___WORD b, ___WORD *sum)
+{
+  if (!sum) return 0;
+  return !__builtin_add_overflow(a, b, sum);
+}
+static inline void ___rest_note_attempt_entry_inline(___processor_state ps,
+                                                     ___WORD *hp, ___WORD *fp)
+{
+  if (__builtin_expect(__atomic_load_n(&___rest_hooks_gate, __ATOMIC_RELAXED) != 0, 0))
+    (___rest_note_attempt_entry)(ps, hp, fp);
+}
+static inline void ___rest_disarm_attempt_inline(void)
+{
+  if (__builtin_expect(__atomic_load_n(&___rest_hooks_gate, __ATOMIC_RELAXED) != 0, 0))
+    (___rest_disarm_attempt)();
+}
+static inline void ___rest_observation_note_body_inline(___processor_state ps)
+{
+  if (__builtin_expect(__atomic_load_n(&___rest_hooks_gate, __ATOMIC_RELAXED) != 0, 0))
+    (___rest_observation_note_body)(ps);
+}
+static inline ___BOOL ___rest_fast_grant_fits_inline(___processor_state ps,
+                                                     ___WORD *hp, ___WORD *fp,
+                                                     ___WORD pending, ___WORD np,
+                                                     ___WORD stack_slots)
+{
+  if (__builtin_expect(
+        __atomic_load_n(&___rest_hooks_gate, __ATOMIC_RELAXED) == 0 &&
+        ps != 0 && ps->context != 0 && hp != 0 && fp != 0 &&
+        ps->context->hp == hp && pending >= 0 && np >= 0 && stack_slots >= 0,
+        1))
+    {
+      ___WORD pair_words = (___WORD)(___PAIR_SIZE + ___PAIR_BODY);
+      ___WORD pairs, payload, words;
+      if (__builtin_expect(
+            !__builtin_mul_overflow(pending, pair_words, &pairs) &&
+            !__builtin_add_overflow(pairs, np, &payload) &&
+            !__builtin_add_overflow(payload, (___WORD)___VECTOR_BODY, &words),
+            1))
+        {
+          ___UWORD sd = ___CAST(___UWORD, fp) - ps->stack_fast_floor_b;
+          ___UWORD hd = ___CAST(___UWORD, hp) - ps->heap_fast_lo_b;
+          if (__builtin_expect(
+                sd < ps->stack_fast_limit_b &&
+                (sd / sizeof(___WORD)) >= (___UWORD)stack_slots &&
+                hd < ps->heap_fast_bytes &&
+                ((ps->heap_fast_bytes - hd) / sizeof(___WORD)) >= (___UWORD)words,
+                1))
+            return 1;
+        }
+    }
+  return (___rest_fast_grant_fits)(ps, hp, fp, pending, np, stack_slots);
+}
+#define ___rest_signed_sum(a,b,sum) ___rest_signed_sum_inline((a),(b),(sum))
+#define ___rest_note_attempt_entry(ps,hp,fp) ___rest_note_attempt_entry_inline((ps),(hp),(fp))
+#define ___rest_disarm_attempt() ___rest_disarm_attempt_inline()
+#define ___rest_observation_note_body(ps) ___rest_observation_note_body_inline((ps))
+#define ___rest_fast_grant_fits(ps,hp,fp,pending,np,slots) \
+  ___rest_fast_grant_fits_inline((ps),(hp),(fp),(pending),(np),(slots))
+#endif
 /* Fallible pin, view, domain and phase checks. Does not store a result
  * and does not construct a pair. Call it before the first pair write. */
 extern enum ___rest_status ___rest_ready_preflight(___processor_state ps,

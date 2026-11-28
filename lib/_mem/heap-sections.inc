@@ -705,10 +705,21 @@ ___collector_worker *work;)
       ___SHARED_MEMORY_BARRIER();
 
       unlock_chunk_fifo(work);
-#if !defined(___SINGLE_THREADED_VMS) && !(defined(__ATOMIC_ACQ_REL) && defined(__ATOMIC_ACQUIRE))
+#ifndef ___SINGLE_THREADED_VMS
+#if defined(__ATOMIC_ACQ_REL) && defined(__ATOMIC_ACQUIRE) && defined(__ATOMIC_SEQ_CST)
+      {
+        ___gc_round *g = &___COLLECTION(___VMSTATE_FROM_PSTATE(___ps));
+        int tw = traverse_weak_refs;
+        __atomic_fetch_add(&g->scan_state[tw], (1u << 12), __ATOMIC_RELEASE);
+        __atomic_thread_fence(__ATOMIC_SEQ_CST);
+        if (__atomic_load_n(&g->scan_waiters[tw], __ATOMIC_RELAXED) > 0u)
+          ___gc_futex_wake_all_u32(&g->scan_state[tw]);
+      }
+#else
       if (___WORD_LOAD_ACQUIRE(&scan_workers_count[traverse_weak_refs]) <
           ___COLLECTION(___VMSTATE_FROM_PSTATE(___ps)).worker_count)
         ___CONDVAR_SIGNAL(scan_termination_condvar);
+#endif
 #endif
     }
 }
@@ -1867,8 +1878,8 @@ ___virtual_machine_state ___vms;)
 
   scan_workers_count[0] = nw;
   scan_workers_count[1] = nw;
-  g->scan_active[0] = ___CAST(uint32_t, nw);
-  g->scan_active[1] = ___CAST(uint32_t, nw);
+  g->scan_state[0] = ___CAST(uint32_t, nw);
+  g->scan_state[1] = ___CAST(uint32_t, nw);
   g->scan_waiters[0] = 0u;
   g->scan_waiters[1] = 0u;
 

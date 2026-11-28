@@ -348,17 +348,15 @@ ___HIDDEN int plan_copy_round(___processor_state ps, ___SIZE_TS requested_words_
   c->largest_request=c->large_count=0;c->failed=0;
   c->source_offset=ps->mem.tospace_offset_;c->state=___GC_PLAN_READING;
 
-  /* Fast O(Y + n) Minor GC admission: when all copied objects come strictly
-   * from the Y active young sections and n active processor stacks (no
-   * selective evacuation, no tight max_heap, no detached/parked stacks),
-   * sum exact allocated words across heap-bearing young sections (skipping
-   * stack-only sections and reading exact alloc_heap_ptr - alloc_heap_start
-   * on active heap sections) plus 2x active stack words as a strict upper
-   * bound on destination demand. Skip single-threaded full-graph census so
-   * all w workers trace and copy in parallel immediately. */
+  /* Fast O(Y + M_evac + n) Minor GC admission: when all copied objects come
+   * strictly from the Y active young sections, optional sparse gc_evacuating
+   * mature sections, and n active processor stacks (no tight max_heap, no
+   * detached/parked stacks), compute a strict destination-word upper bound
+   * directly and skip single-threaded full-graph census so all w workers trace
+   * and copy in parallel immediately. */
   g->fast_minor_pre_nb = 0;
   ___WORD_STORE_RELAXED(&g->has_reached_gc_hash_tables, 0);
-  if (g->is_minor && !g->evac_selective &&
+  if (g->is_minor &&
       ___GSTATE->setup_params.max_heap == 0 &&
       the_msections != 0)
     {
@@ -375,7 +373,35 @@ ___HIDDEN int plan_copy_round(___processor_state ps, ___SIZE_TS requested_words_
       int fast_ok = 1;
       int k_upper = 0;
 
-      for (section = g->young_head; section != 0; section = section->next)
+      if (g->evac_selective && g->old_mature_tail != 0)
+        {
+          for (section = the_msections->head; section != 0; section = section->next)
+            {
+              if (section->gc_evacuating)
+                {
+                  section_claim *cl = section_claim_at(section, section->gc_src_offset);
+                  ___SIZE_TS u = section->mature_words;
+                  if (cl->raw_marks != 0 || cl->stack_state == STACK_PARKED)
+                    {
+                      fast_ok = 0;
+                      break;
+                    }
+                  if (section->gc_dest_words > u)
+                    u = section->gc_dest_words;
+                  if (u <= 0 || u > half_words)
+                    u = half_words;
+#if ___WS == 4
+                  u = u + (u >> 1);
+#endif
+                  actual_young_words += u;
+                  y_secs++;
+                }
+              if (section == g->old_mature_tail)
+                break;
+            }
+        }
+
+      for (section = g->young_head; section != 0 && fast_ok; section = section->next)
         {
           section_claim *cl = section_claim_at(section, c->source_offset);
           y_secs++;

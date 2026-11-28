@@ -74,6 +74,8 @@ ___HIDDEN ___BOOL global_prepare_locked(___virtual_machine_state vm, int id)
   }
   store->pages=page; ++store->count;
   ___WORD_STORE_RELEASE(&directory->entries[position],page);
+  if (key < ___GLOBAL_INLINE_PAGES)
+    ___WORD_STORE_RELEASE(&store->inline_pages[key], page);
   if (replacement!=0) ___WORD_STORE_RELEASE(&store->directory,replacement);
   return 1;
 }

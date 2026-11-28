@@ -34,7 +34,12 @@ static ___BINDING_NOINLINE ___global_slot_page *___global_page_at(___global_slot
 
 static ___global_slot_page *___global_page(___virtual_machine_state vm, int id)
 {
-  if (vm==0 || vm->glos==0) return 0;
+  if (vm==0 || vm->glos==0 || id<0) return 0;
+  {
+    ___SIZE_T key = ___CAST(___SIZE_T, id) / ___WORD_WIDTH;
+    if (___EXPECT_TRUE(key < ___GLOBAL_INLINE_PAGES))
+      return ___CAST(___global_slot_page*, ___WORD_LOAD_ACQUIRE(&vm->glos->inline_pages[key]));
+  }
   return ___global_page_at(___CAST(___global_slot_directory*,
     ___WORD_LOAD_ACQUIRE(&vm->glos->directory)),id);
 }
@@ -98,12 +103,13 @@ static ___SCMOBJ ___binding_primitive(___virtual_machine_state vm, ___glo_struct
 #endif
   return ___PRMCELL(global->prm);
 }
-/* Keep the ___binding_vm branch inside a single outlined TU-local helper so
- * giant single-host functions emit one direct call per GLO/PRM instead of
- * thousands of ternary CFG diamonds and duplicated fallback paths. */
-static ___BINDING_NOINLINE ___SCMOBJ ___binding_glo_load
+/* Keep cold resolution paths outlined in TU-local helpers so giant single-host
+ * functions avoid CFG explosion while ordinary modules (< 2000 globals) inline
+ * the O(1) inline_pages[] and relaxed 256-bit primitive-override bloom checks. */
+static ___BINDING_NOINLINE ___SCMOBJ ___binding_glo_slow
    (___processor_state ___ps, ___virtual_machine_state vm, ___glo_struct *global)
 {
+  (void)___ps;
   if (___EXPECT_TRUE(vm != 0))
     {
 #ifdef ___SINGLE_VM
@@ -135,27 +141,65 @@ static ___BINDING_NOINLINE ___SCMOBJ ___binding_glo_load
     }
   return ___WORD_LOAD_ACQUIRE(&___GLOCELL(global->val));
 }
-static ___BINDING_NOINLINE ___SCMOBJ ___binding_prm_load
+static ___BINDING_NOINLINE ___SCMOBJ ___binding_prm_slow
    (___processor_state ___ps, ___virtual_machine_state vm, ___glo_struct *global)
 {
   if (___EXPECT_TRUE(vm != 0))
-    {
+    return ___binding_primitive(vm, global);
+  return ___EXT(___primitive_ref)(___ps, global);
+}
+#if (!defined(___LBLCOUNT) || (___LBLCOUNT < 4000)) && \
+    (!defined(___GLOCOUNT) || (___GLOCOUNT < 1000)) && \
+    (defined(__GNUC__) || defined(__clang__))
+#define ___BINDING_FAST_ATTR static inline
+#else
+#define ___BINDING_FAST_ATTR static ___BINDING_NOINLINE
+#endif
+___BINDING_FAST_ATTR ___SCMOBJ ___binding_glo_load
+   (___processor_state ___ps, ___virtual_machine_state vm, ___glo_struct *global)
+{
 #ifndef ___SINGLE_VM
+  if (___EXPECT_TRUE(vm != 0))
+    {
+      ___global_slot_store *store = vm->glos;
+      int id = global->val;
+      if (___EXPECT_TRUE(store != 0 && id >= 0))
+        {
+          ___SIZE_T uid = ___CAST(___SIZE_T, id);
+          ___SIZE_T key = uid / ___WORD_WIDTH;
+          if (___EXPECT_TRUE(key < ___GLOBAL_INLINE_PAGES))
+            {
+              ___global_slot_page *page =
+                ___CAST(___global_slot_page*, ___WORD_LOAD_ACQUIRE(&store->inline_pages[key]));
+              if (___EXPECT_TRUE(page != 0))
+                return ___WORD_LOAD_ACQUIRE(&page->ordinary[uid % ___WORD_WIDTH]);
+            }
+        }
+    }
+#endif
+  return ___binding_glo_slow(___ps, vm, global);
+}
+___BINDING_FAST_ATTR ___SCMOBJ ___binding_prm_load
+   (___processor_state ___ps, ___virtual_machine_state vm, ___glo_struct *global)
+{
+#ifndef ___SINGLE_VM
+  if (___EXPECT_TRUE(vm != 0))
+    {
       ___global_slot_store *store = vm->glos;
       int id = global->val;
       if (___EXPECT_TRUE(store != 0 && id >= 0))
         {
           ___SIZE_T uid = ___CAST(___SIZE_T, id);
           ___UWORD mask = ___CAST(___UWORD, 1) << (uid % ___WORD_WIDTH);
-          if (___EXPECT_TRUE((___CAST(___UWORD, ___WORD_LOAD_ACQUIRE(
+          if (___EXPECT_TRUE((___CAST(___UWORD, ___WORD_LOAD_RELAXED(
                 &store->prim_override_bits[(uid / ___WORD_WIDTH) & 3])) & mask) == 0))
             return ___PRMCELL(global->prm);
         }
-#endif
-      return ___binding_primitive(vm, global);
     }
-  return ___EXT(___primitive_ref)(___ps, global);
+#endif
+  return ___binding_prm_slow(___ps, vm, global);
 }
+#undef ___BINDING_FAST_ATTR
 #define ___PRM(i,glo) ___binding_prm_load(___ps,___binding_vm,&___GLOSTRUCT(i,glo))
 #define ___GLO(i,glo) ___binding_glo_load(___ps,___binding_vm,&___GLOSTRUCT(i,glo))
 #define ___GLOBALVARPRIMREF(gv) ___binding_prm_load(___ps,___binding_vm,___GLOBALVARSTRUCT(gv))

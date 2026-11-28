@@ -174,6 +174,9 @@ int ___rest_observation_open(const char *path)
       map[3] || map[4] || map[5] || map[6]!=16 || map[7]) {
     munmap(map,(size_t)st.st_size); return 0;
   }
+#ifdef ___MEM_SOURCE_FILE
+  ___WORD_STORE_RELEASE(&___rest_hooks_gate, 1);
+#endif
   __atomic_store_n(&rest_observation_map,map,__ATOMIC_RELEASE);
   __atomic_store_n(&___rest_observation_active,1,__ATOMIC_RELEASE);
   {

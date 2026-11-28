@@ -304,7 +304,7 @@ typedef struct ___gc_round_struct
     int has_wills;
     int has_young_still;
     ___VOLATILE ___WORD has_reached_gc_hash_tables;
-    ___VOLATILE uint32_t scan_active[2];
+    ___VOLATILE uint32_t scan_state[2]; /* packed: (work_gen << 12) | active_workers */
     ___VOLATILE uint32_t scan_waiters[2];
     int card_overflow;
     int hint_count;

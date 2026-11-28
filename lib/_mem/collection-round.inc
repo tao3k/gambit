@@ -36,6 +36,7 @@ ___collector_worker *work;)
       /* Try stealing a queued chunk from another processor */
 
       int cycle;
+    continue_steal:
       for (cycle = ___GC_SCAN_STEAL_WORK_CYCLES; cycle > 0; cycle--)
         {
           for (i = 1; i < np; i++)
@@ -52,43 +53,56 @@ ___collector_worker *work;)
           ___CPU_RELAX();
         }
 
-      /* Lock-free atomic termination wait with adaptive spin + OS futex
-       * (zero sched_yield storms, zero nanosleep overshoot, zero mutexes). */
+      /* Lock-free packed (work_gen << 12) | active_workers futex work-stealing
+       * termination protocol: wakes idle workers immediately when another
+       * worker publishes a new heap chunk (work_gen advance) and prevents
+       * post-termination resurrection via CAS on (active != 0). */
 #if defined(__ATOMIC_ACQ_REL) && defined(__ATOMIC_ACQUIRE) && defined(__ATOMIC_SEQ_CST)
       {
         ___gc_round *g = &___COLLECTION(___vms);
         int tw = traverse_weak_refs;
-        uint32_t rem;
+        uint32_t prev, seen_gen;
+        int wspins = 0;
         (void)__atomic_sub_fetch(workers_count, 1, __ATOMIC_RELAXED);
-        rem = __atomic_sub_fetch(&g->scan_active[tw], 1u, __ATOMIC_ACQ_REL);
-        if (rem == 0u)
+        prev = __atomic_fetch_sub(&g->scan_state[tw], 1u, __ATOMIC_ACQ_REL);
+        if ((prev & 0xFFFu) == 1u)
           {
             __atomic_thread_fence(__ATOMIC_SEQ_CST);
             if (__atomic_load_n(&g->scan_waiters[tw], __ATOMIC_RELAXED) > 0u)
-              ___gc_futex_wake_all_u32(&g->scan_active[tw]);
+              ___gc_futex_wake_all_u32(&g->scan_state[tw]);
             break;
           }
-        {
-          int wspins = 0;
-          uint32_t cur;
-          while ((cur = __atomic_load_n(&g->scan_active[tw], __ATOMIC_ACQUIRE)) != 0u)
-            {
-              if (wspins < 2048)
-                {
-                  ___CPU_RELAX();
-                  wspins++;
-                }
-              else
-                {
-                  __atomic_fetch_add(&g->scan_waiters[tw], 1u, __ATOMIC_SEQ_CST);
-                  while ((cur = __atomic_load_n(&g->scan_active[tw], __ATOMIC_ACQUIRE)) != 0u)
-                    ___gc_futex_wait_u32(&g->scan_active[tw], cur);
-                  __atomic_fetch_sub(&g->scan_waiters[tw], 1u, __ATOMIC_RELAXED);
-                  break;
-                }
-            }
-          break;
-        }
+        seen_gen = prev >> 12;
+        for (;;)
+          {
+            uint32_t cur = __atomic_load_n(&g->scan_state[tw], __ATOMIC_ACQUIRE);
+            if ((cur & 0xFFFu) == 0u)
+              return;
+            if ((cur >> 12) != seen_gen)
+              {
+                if (__atomic_compare_exchange_n(&g->scan_state[tw], &cur, cur + 1u,
+                                                0, __ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE))
+                  {
+                    (void)__atomic_add_fetch(workers_count, 1, __ATOMIC_RELAXED);
+                    goto continue_steal;
+                  }
+                continue;
+              }
+            if (wspins < 2048)
+              {
+                ___CPU_RELAX();
+                wspins++;
+              }
+            else
+              {
+                __atomic_fetch_add(&g->scan_waiters[tw], 1u, __ATOMIC_SEQ_CST);
+                while ((((cur = __atomic_load_n(&g->scan_state[tw], __ATOMIC_ACQUIRE)) & 0xFFFu) != 0u) &&
+                       ((cur >> 12) == seen_gen))
+                  ___gc_futex_wait_u32(&g->scan_state[tw], cur);
+                __atomic_fetch_sub(&g->scan_waiters[tw], 1u, __ATOMIC_RELAXED);
+                wspins = 0;
+              }
+          }
       }
 #else
       /* Signal being idle and wait for more work or termination */
