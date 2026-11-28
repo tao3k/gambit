@@ -139,47 +139,40 @@
                                    eh-scope
                                    'replay)))
     (if clear? (%clear-consumed-ec! ek))
-    (if (eq? (macro-denv-dynwind (macro-thread-denv (macro-current-thread)))
-             (macro-denv-dynwind (##continuation-denv sub-k)))
-        (begin
-          (%st-mc-set! st
-                       (if (null? prefix)
-                           (cons pframe saved-mc)
-                           (append prefix (cons pframe saved-mc))))
-          (%st-marks-set! st
-                          (if (null? cap-marks)
-                              saved-marks
-                              (append cap-marks saved-marks)))
-          (%st-barriers-set! st saved-barriers)
-          (%st-handlers-set! st
-                             (let ((base (cons frame saved-handlers)))
-                               (if (null? cap-handlers)
-                                   base
-                                   (append cap-handlers base))))
-          (if (pair? prefix) (%mc-run-unwind-hooks! prefix 'restore))
-          (if (eq? v1 %ABSENT)
-              (##continuation-return sub-k)
-              (##continuation-return sub-k v1)))
-        (##continuation-graft
-         sub-k
-         (lambda ()
-           (let ((st2 (%tc-fast)))
-             (%st-mc-set! st2
-                          (if (null? prefix)
-                              (cons pframe saved-mc)
-                              (append prefix (cons pframe saved-mc))))
-             (%st-marks-set! st2
-                             (if (null? cap-marks)
-                                 saved-marks
-                                 (append cap-marks saved-marks)))
-             (%st-barriers-set! st2 saved-barriers)
-             (%st-handlers-set! st2
-                                (let ((base (cons frame saved-handlers)))
-                                  (if (null? cap-handlers)
-                                      base
-                                      (append cap-handlers base))))
-             (if (pair? prefix) (%mc-run-unwind-hooks! prefix 'restore)))
-           (if (eq? v1 %ABSENT) (values) v1))))))
+    (let* ((new-marks (if (null? cap-marks) saved-marks (append cap-marks saved-marks)))
+           (base-handlers (cons frame saved-handlers))
+           (new-handlers (if (null? cap-handlers) base-handlers (append cap-handlers base-handlers)))
+           (rprefix (%mc-rebase-prefix prefix
+                                       cap-marks new-marks saved-marks
+                                       '() saved-barriers saved-barriers
+                                       cap-handlers new-handlers base-handlers)))
+      (if (eq? (macro-denv-dynwind (macro-thread-denv (macro-current-thread)))
+               (macro-denv-dynwind (##continuation-denv sub-k)))
+          (begin
+            (%st-mc-set! st
+                         (if (null? rprefix)
+                             (cons pframe saved-mc)
+                             (append rprefix (cons pframe saved-mc))))
+            (%st-marks-set! st new-marks)
+            (%st-barriers-set! st saved-barriers)
+            (%st-handlers-set! st new-handlers)
+            (if (pair? rprefix) (%mc-run-unwind-hooks! rprefix 'restore))
+            (if (eq? v1 %ABSENT)
+                (##continuation-return sub-k)
+                (##continuation-return sub-k v1)))
+          (##continuation-graft
+           sub-k
+           (lambda ()
+             (let ((st2 (%tc-fast)))
+               (%st-mc-set! st2
+                            (if (null? rprefix)
+                                (cons pframe saved-mc)
+                                (append rprefix (cons pframe saved-mc))))
+               (%st-marks-set! st2 new-marks)
+               (%st-barriers-set! st2 saved-barriers)
+               (%st-handlers-set! st2 new-handlers)
+               (if (pair? rprefix) (%mc-run-unwind-hooks! rprefix 'restore)))
+             (if (eq? v1 %ABSENT) (values) v1)))))))
 
 (define (%resume-checked ek v1 v2 more clear?)
   (if (eq? v2 %ABSENT)
@@ -208,49 +201,42 @@
                                           eh-scope
                                           'replay)))
            (if clear? (%clear-consumed-ec! ek))
-           (if (eq? (macro-denv-dynwind (macro-thread-denv (macro-current-thread)))
-                    (macro-denv-dynwind (##continuation-denv sub-k)))
-               (begin
-                 (%st-mc-set! st
-                              (if (null? prefix)
-                                  (cons pframe saved-mc)
-                                  (append prefix (cons pframe saved-mc))))
-                 (%st-marks-set! st
-                                 (if (null? cap-marks)
-                                     saved-marks
-                                     (append cap-marks saved-marks)))
-                 (%st-barriers-set! st saved-barriers)
-                 (%st-handlers-set! st
-                                    (let ((base (cons frame saved-handlers)))
-                                      (if (null? cap-handlers)
-                                          base
-                                          (append cap-handlers base))))
-                 (if (pair? prefix) (%mc-run-unwind-hooks! prefix 'restore))
-                 (if (null? more)
-                     (##continuation-return sub-k v1 v2)
-                     (##apply ##continuation-return sub-k v1 v2 more)))
-               (##continuation-graft
-                sub-k
-                (lambda ()
-                  (let ((st2 (%tc-fast)))
-                    (%st-mc-set! st2
-                                 (if (null? prefix)
-                                     (cons pframe saved-mc)
-                                     (append prefix (cons pframe saved-mc))))
-                    (%st-marks-set! st2
-                                    (if (null? cap-marks)
-                                        saved-marks
-                                        (append cap-marks saved-marks)))
-                    (%st-barriers-set! st2 saved-barriers)
-                    (%st-handlers-set! st2
-                                       (let ((base (cons frame saved-handlers)))
-                                         (if (null? cap-handlers)
-                                             base
-                                             (append cap-handlers base))))
-                    (if (pair? prefix) (%mc-run-unwind-hooks! prefix 'restore)))
-                  (if (null? more)
-                      (values v1 v2)
-                      (apply values v1 v2 more))))))))))
+           (let* ((new-marks (if (null? cap-marks) saved-marks (append cap-marks saved-marks)))
+                  (base-handlers (cons frame saved-handlers))
+                  (new-handlers (if (null? cap-handlers) base-handlers (append cap-handlers base-handlers)))
+                  (rprefix (%mc-rebase-prefix prefix
+                                              cap-marks new-marks saved-marks
+                                              '() saved-barriers saved-barriers
+                                              cap-handlers new-handlers base-handlers)))
+             (if (eq? (macro-denv-dynwind (macro-thread-denv (macro-current-thread)))
+                      (macro-denv-dynwind (##continuation-denv sub-k)))
+                 (begin
+                   (%st-mc-set! st
+                                (if (null? rprefix)
+                                    (cons pframe saved-mc)
+                                    (append rprefix (cons pframe saved-mc))))
+                   (%st-marks-set! st new-marks)
+                   (%st-barriers-set! st saved-barriers)
+                   (%st-handlers-set! st new-handlers)
+                   (if (pair? rprefix) (%mc-run-unwind-hooks! rprefix 'restore))
+                   (if (null? more)
+                       (##continuation-return sub-k v1 v2)
+                       (##apply ##continuation-return sub-k v1 v2 more)))
+                 (##continuation-graft
+                  sub-k
+                  (lambda ()
+                    (let ((st2 (%tc-fast)))
+                      (%st-mc-set! st2
+                                   (if (null? rprefix)
+                                       (cons pframe saved-mc)
+                                       (append rprefix (cons pframe saved-mc))))
+                      (%st-marks-set! st2 new-marks)
+                      (%st-barriers-set! st2 saved-barriers)
+                      (%st-handlers-set! st2 new-handlers)
+                      (if (pair? rprefix) (%mc-run-unwind-hooks! rprefix 'restore)))
+                    (if (null? more)
+                        (values v1 v2)
+                        (apply values v1 v2 more)))))))))))
 
 (define (resume ek
                 #!optional

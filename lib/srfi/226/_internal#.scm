@@ -104,6 +104,8 @@
   %default-prompt-handler
   %mc-return-vals
   %mc-find-tail-slow
+  %list-tail-n
+  %tail-for-rel
   %entering-barrier?
   %pop-barrier-token!
   %prompt-cont!
@@ -120,6 +122,7 @@
   %commit-noncomp-and-return!
   %invoke-noncomp-parts
   %invoke-noncomp-cell
+  %mc-frame-in?
   %mc-diff-list
   %invoke-raw-parts
   %invoke-raw-cell

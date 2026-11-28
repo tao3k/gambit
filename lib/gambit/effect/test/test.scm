@@ -2487,3 +2487,91 @@
       (test-equal num-threads (atomic-fxbox-ref ok-count)))))
 
 ;;;============================================================================
+;;; Re-Based Inner Effect Handlers & Generators Across Cross-Extent Resumption
+
+(let ()
+  (define e-out (make-effect 'rb-eff-out))
+  (define e-in  (make-effect 'rb-eff-in))
+  (define e-res (make-effect 'rb-eff-res))
+
+  ;; 1. Returning from a replayed inner suspending handler inside a resumed
+  ;;    outer effect continuation MUST preserve all resumer effect handlers.
+  (let ((saved-k #f))
+    (test-equal 'suspended
+      (with-handler ((e-out (k) (set! saved-k k) 'suspended))
+        (let ((v (with-handler ((e-in (k) (resume k 'inner-ok)))
+                   (list (perform e-out) (perform e-in)))))
+          (list v (perform e-res)))))
+    (test-equal '((from-outer inner-ok) from-resumer-1)
+      (with-handler ((tail: e-res () 'from-resumer-1))
+        (resume-multishot saved-k 'from-outer)))
+    (test-equal '((from-outer-2 inner-ok) from-resumer-2)
+      (with-handler ((tail: e-res () 'from-resumer-2))
+        (resume-multishot saved-k 'from-outer-2))))
+
+  ;; 2. Returning from an inner handler with return: clause inside a resumed
+  ;;    outer effect continuation preserves resumer handlers and continuation marks.
+  (let ((saved-k #f))
+    (test-equal 'suspended
+      (with-handler ((e-out (k) (set! saved-k k) 'suspended))
+        (with-continuation-mark 'mk 'outer-mk
+          (let ((v (with-handler ((e-in (k) (resume k 7))
+                                  (return: (x) (fx* x 10)))
+                     (fx+ (perform e-out) (perform e-in)))))
+            (list v
+                  (perform e-res)
+                  (continuation-mark-set->list (current-continuation-marks) 'mk))))))
+    (test-equal '(100 from-resumer (outer-mk resumer-mk))
+      (with-handler ((tail: e-res () 'from-resumer))
+        (with-continuation-mark 'mk 'resumer-mk
+          (resume saved-k 3)))))
+
+  ;; 3. Generator slow-path yield inside inner suspending handler, resumed under
+  ;;    different resumer handlers on each step, preserves resumer handlers!
+  (let ((g (make-generator
+            (lambda ()
+              (with-handler ((e-in (k) (resume k 'in-val)))
+                (perform yield (perform e-in)))
+              (perform yield (perform e-res))))))
+    (test-equal 'in-val (g))
+    (test-equal 'resumer-step-2
+      (with-handler ((tail: e-res () 'resumer-step-2))
+        (g)))
+    (test-equal #!eof (g)))
+
+  ;; 4. Adaptive-P SMP torture: concurrent multi-shot effect resumption of a
+  ;;    shared continuation with nested inner suspending handlers across
+  ;;    distinct per-thread resumer handlers with ##gc.
+  (let* ((num-threads (max 2 (min 8 (##current-vm-processor-count))))
+         (rounds 30)
+         (shared-k #f)
+         (ok-count (make-atomic-fxbox 0)))
+    (with-handler ((e-out (k) (set! shared-k k) 'suspended))
+      (let ((v (with-handler ((e-in (k) (resume k 5)))
+                 (fx+ (perform e-out) (perform e-in)))))
+        (list v (perform e-res))))
+    (let ((threads
+           (let loop ((t 0) (acc '()))
+             (if (fx= t num-threads)
+                 acc
+                 (loop (fx+ t 1)
+                       (cons
+                        (thread-start!
+                         (make-thread
+                          (lambda ()
+                            (let rloop ((r 0) (good #t))
+                              (if (fx< r rounds)
+                                  (let* ((tag (fx+ (fx* t 100) r))
+                                         (res
+                                          (with-handler ((tail: e-res () tag))
+                                            (resume-multishot shared-k r))))
+                                    (if (and (fx= t 0) (fx= (fxand r 7) 7)) (##gc))
+                                    (rloop (fx+ r 1)
+                                           (and good
+                                                (equal? res (list (fx+ r 5) tag)))))
+                                  (if good (atomic-fxbox+/fetch! ok-count 1)))))))
+                        acc))))))
+      (for-each thread-join! threads)
+      (test-equal num-threads (atomic-fxbox-ref ok-count)))))
+
+;;;============================================================================

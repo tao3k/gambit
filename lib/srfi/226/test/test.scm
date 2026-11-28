@@ -2027,3 +2027,206 @@
     (test-equal #t all-ok)))
 
 ;;;============================================================================
+;;; Metacontinuation Prefix Relativization & Re-Basing Across Cross-Extent
+;;; Composable, Non-Composable & Multi-Shot Replays
+
+(let ()
+  (define (raises-err? thunk)
+    (with-exception-catcher (lambda (_) #t) (lambda () (thunk) #f)))
+
+  ;; 1. current-continuation-marks on a replayed inner prompt MUST stop at
+  ;;    that inner prompt boundary (never leaking outer or resumer marks).
+  (let ((pt-out (make-continuation-prompt-tag 'rb-out-1))
+        (pt-in  (make-continuation-prompt-tag 'rb-in-1))
+        (saved-k #f))
+    (call-with-continuation-prompt
+     (lambda ()
+       (with-continuation-mark 'k 'outer-m
+         (call-with-continuation-prompt
+          (lambda ()
+            (with-continuation-mark 'k 'inner-m
+              (begin
+                (call-with-composable-continuation
+                 (lambda (k) (set! saved-k k) 'captured)
+                 pt-out)
+                (continuation-mark-set->list (current-continuation-marks pt-in) 'k))))
+          pt-in)))
+     pt-out)
+    (test-equal '(inner-m)
+      (with-continuation-mark 'k 'resumer-m1
+        (saved-k #t)))
+    ;; Multi-shot replay in a second extent stays equally isolated!
+    (test-equal '(inner-m)
+      (with-continuation-mark 'k 'resumer-m2
+        (saved-k #t))))
+
+  ;; 2. Normal return from a replayed inner prompt MUST preserve resumer marks
+  ;;    independently across multiple distinct extents.
+  (let ((pt-out (make-continuation-prompt-tag 'rb-out-2))
+        (pt-in  (make-continuation-prompt-tag 'rb-in-2))
+        (saved-k #f))
+    (call-with-continuation-prompt
+     (lambda ()
+       (with-continuation-mark 'k 'outer-m
+         (begin
+           (call-with-continuation-prompt
+            (lambda ()
+              (call-with-composable-continuation
+               (lambda (k) (set! saved-k k) 'captured)
+               pt-out)
+              'done-in)
+            pt-in)
+           (continuation-mark-set->list (current-continuation-marks) 'k))))
+     pt-out)
+    (test-equal '(outer-m resumer-1)
+      (with-continuation-mark 'k 'resumer-1
+        (saved-k #t)))
+    (test-equal '(outer-m resumer-2)
+      (with-continuation-mark 'k 'resumer-2
+        (saved-k #t))))
+
+  ;; 3. Abort to a replayed inner prompt MUST preserve resumer marks and barriers.
+  (let ((pt-out (make-continuation-prompt-tag 'rb-out-3))
+        (pt-in  (make-continuation-prompt-tag 'rb-in-3))
+        (pt-top (make-continuation-prompt-tag 'rb-top-3))
+        (saved-k #f))
+    (call-with-continuation-prompt
+     (lambda ()
+       (with-continuation-mark 'k 'outer-m
+         (let ((v (call-with-continuation-prompt
+                   (lambda ()
+                     (call-with-composable-continuation
+                      (lambda (k) (set! saved-k k) 'captured)
+                      pt-out)
+                     (abort-current-continuation pt-in 'aborted-in))
+                   pt-in
+                   (lambda (x) x))))
+           (list v
+                 (continuation-mark-set->list (current-continuation-marks pt-top) 'k)
+                 (raises-err?
+                  (lambda ()
+                    (call-with-composable-continuation (lambda (k) 'bypassed) pt-top)))))))
+     pt-out)
+    (test-equal '(aborted-in (outer-m resumer-m) #t)
+      (call-with-continuation-prompt
+       (lambda ()
+         (with-continuation-mark 'k 'resumer-m
+           (call-with-continuation-barrier
+            (lambda () (saved-k #t)))))
+       pt-top)))
+
+  ;; 4. Returning from a replayed inner prompt MUST NEVER bypass an enclosing
+  ;;    resumer call-with-continuation-barrier (both one-shot and multi-shot).
+  (let ((pt-out (make-continuation-prompt-tag 'rb-out-4))
+        (pt-in  (make-continuation-prompt-tag 'rb-in-4))
+        (pt-top (make-continuation-prompt-tag 'rb-top-4))
+        (saved-1s #f))
+    (call-with-continuation-prompt
+     (lambda ()
+       (call-with-continuation-prompt
+        (lambda ()
+          (call-with-one-shot-composable-continuation
+           (lambda (k) (set! saved-1s k) 'captured)
+           pt-out)
+          'done-in)
+        pt-in)
+       (raises-err?
+        (lambda ()
+          (call-with-composable-continuation (lambda (k) 'bypassed) pt-top))))
+     pt-out)
+    (test-equal #t
+      (call-with-continuation-prompt
+       (lambda ()
+         (call-with-continuation-barrier
+          (lambda () (saved-1s #t))))
+       pt-top)))
+
+  ;; 5. Nested re-capture inside an already-replayed inner prompt preserves
+  ;;    inductive tail-sharing across two successive dynamic extents.
+  (let ((pt-out1 (make-continuation-prompt-tag 'rb-nest-out1))
+        (pt-out2 (make-continuation-prompt-tag 'rb-nest-out2))
+        (pt-in   (make-continuation-prompt-tag 'rb-nest-in))
+        (k1 #f)
+        (k2 #f))
+    (call-with-continuation-prompt
+     (lambda ()
+       (with-continuation-mark 'k 'm1
+         (begin
+           (call-with-continuation-prompt
+            (lambda ()
+              (if (eq? (call-with-composable-continuation
+                        (lambda (k) (set! k1 k) 'cap1)
+                        pt-out1)
+                       'go1)
+                  (if (eq? (call-with-composable-continuation
+                            (lambda (k) (set! k2 k) 'cap2)
+                            pt-out2)
+                           'go2)
+                      'in-done)))
+            pt-in)
+           (continuation-mark-set->list (current-continuation-marks) 'k))))
+     pt-out1)
+    (call-with-continuation-prompt
+     (lambda ()
+       (with-continuation-mark 'k 'm2
+         (k1 'go1)))
+     pt-out2)
+    (test-equal '(m1 m2 m3)
+      (with-continuation-mark 'k 'm3
+        (k2 'go2))))
+
+  ;; 6. Adaptive-P SMP torture: concurrent multi-shot replay of a shared
+  ;;    captured inner-prompt continuation across distinct per-thread marks
+  ;;    and continuation barriers with ##gc.
+  (let* ((num-threads (max 2 (min 8 (##current-vm-processor-count))))
+         (rounds 30)
+         (pt-out (make-continuation-prompt-tag 'rb-smp-out))
+         (pt-in  (make-continuation-prompt-tag 'rb-smp-in))
+         (shared-k #f)
+         (ok-count (make-atomic-fxbox 0)))
+    (call-with-continuation-prompt
+     (lambda ()
+       (with-continuation-mark 'k 'cap-outer
+         (let ((in-ms
+                (call-with-continuation-prompt
+                 (lambda ()
+                   (with-continuation-mark 'k 'cap-inner
+                     (begin
+                       (call-with-composable-continuation
+                        (lambda (k) (set! shared-k k) 'cap)
+                        pt-out)
+                       (continuation-mark-set->list (current-continuation-marks pt-in) 'k))))
+                 pt-in)))
+           (list in-ms
+                 (continuation-mark-set->list (current-continuation-marks) 'k)))))
+     pt-out)
+    (let ((threads
+           (let loop ((t 0) (acc '()))
+             (if (fx= t num-threads)
+                 acc
+                 (loop (fx+ t 1)
+                       (cons
+                        (thread-start!
+                         (make-thread
+                          (lambda ()
+                            (let ((pt-top (make-continuation-prompt-tag 'rb-smp-top)))
+                              (let rloop ((r 0) (good #t))
+                                (if (fx< r rounds)
+                                    (let* ((tok (list t r))
+                                           (res
+                                            (call-with-continuation-prompt
+                                             (lambda ()
+                                               (with-continuation-mark 'k tok
+                                                 (call-with-continuation-barrier
+                                                  (lambda () (shared-k #t)))))
+                                             pt-top)))
+                                      (if (and (fx= t 0) (fx= (fxand r 7) 7)) (##gc))
+                                      (rloop (fx+ r 1)
+                                             (and good
+                                                  (equal? res (list '(cap-inner) (list 'cap-outer tok))))))
+                                    (if good (atomic-fxbox+/fetch! ok-count 1))))))))
+                        acc))))))
+      (for-each thread-join! threads)
+      (test-equal num-threads (atomic-fxbox-ref ok-count)))))
+
+;;;============================================================================

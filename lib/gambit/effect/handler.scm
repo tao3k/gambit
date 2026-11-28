@@ -49,19 +49,20 @@
                  (rest (cdr mc))
                  (ek (%pf-escape-k top)))
             (%st-mc-set! st rest)
-            (%st-marks-set! st (%pf-marks top))
-            (%st-barriers-set! st (%pf-barriers top))
-            (%st-handlers-set! st (%pf-handlers top))
             (if (not ek)
                 (let ((uh (%pf-unwind-hook top)))
                   (if (procedure? uh) (uh 'unwind))
                   (loop))
-                (if (##values? val)
-                    (##continuation-graft
-                     ek
-                     (lambda ()
-                       (##call-with-values (lambda () val) return-fn)))
-                    (##continuation-graft ek return-fn val))))))))
+                (begin
+                  (%st-marks-set! st (%pf-marks top))
+                  (%st-barriers-set! st (%pf-barriers top))
+                  (%st-handlers-set! st (%pf-handlers top))
+                  (if (##values? val)
+                      (##continuation-graft
+                       ek
+                       (lambda ()
+                         (##call-with-values (lambda () val) return-fn)))
+                      (##continuation-graft ek return-fn val)))))))))
 
 ;; Zero-closure multi-arg capture receivers for suspending with-handler (<= 4 args)
 (define (%install-handler-cont! escape-k frame return-fn thunk)
@@ -341,13 +342,20 @@
                 (error "perform: handler prompt not active"))
             (if (not (eq? (%st-barriers st) (%pf-barriers pframe)))
                 (error "perform: cannot suspend across continuation barrier"))
-            (if (pair? prefix) (%freeze-mc-prefix! prefix))
-            (let ((cap-marks (%list-prefix-until (%st-marks st) (%pf-marks pframe)))
-                  (cap-handlers (%handlers-prefix-before handlers frame))
-                  (escape-k (%pf-escape-k pframe)))
+            (let* ((base-h (or (memq frame handlers) (%pf-handlers pframe)))
+                   (rel-prefix
+                    (if (pair? prefix)
+                        (%mc-relativize-prefix prefix
+                                               (%pf-marks pframe)
+                                               (%pf-barriers pframe)
+                                               base-h)
+                        '()))
+                   (cap-marks (%list-prefix-until (%st-marks st) (%pf-marks pframe)))
+                   (cap-handlers (%handlers-prefix-before handlers frame))
+                   (escape-k (%pf-escape-k pframe)))
               (##continuation-capture
                (lambda (sub-k)
-                 (let ((ek (%make-effect-continuation sub-k pframe prefix cap-marks cap-handlers frame (%make-ec-state))))
+                 (let ((ek (%make-effect-continuation sub-k pframe rel-prefix cap-marks cap-handlers frame (%make-ec-state))))
                    (if (eq? (macro-denv-dynwind (macro-thread-denv (macro-current-thread)))
                             (macro-denv-dynwind (##continuation-denv escape-k)))
                        (begin

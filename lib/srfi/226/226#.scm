@@ -81,6 +81,8 @@ shift
 %mc-return1
 %mc-run-unwind-hooks!
 %freeze-mc-prefix!
+%mc-relativize-prefix
+%mc-rebase-prefix
 %list-prefix-until
 %barrier-between?
 

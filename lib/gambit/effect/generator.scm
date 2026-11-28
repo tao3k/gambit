@@ -49,29 +49,34 @@
           (if is-init
               (##continuation-return ck val)
               (let () (declare (inlining-limit 0)) (%return-oneshot-same-denv! ck val))))
-        ;; Winding path: defer st/SUSPENDED commit until dynamic-wind after-thunks finish
-        (##continuation-graft
-         ck
-         (lambda ()
-           (let ((st2 (%tc-fast)))
-             (%st-mc-set! st2 rest)
-             (%st-marks-set! st2 (%pf-marks pframe))
-             (%st-barriers-set! st2 (%pf-barriers pframe))
-             (%st-handlers-set! st2 (%pf-handlers pframe)))
-           (if unfrozen
-               (begin
-                 (%pf-escape-k-set! pframe #f)
-                 (%pf-eh-scope-set! pframe #f)
-                 (%pf-marks-set! pframe '())
-                 (%pf-barriers-set! pframe '())
-                 (%pf-handlers-set! pframe '())
-                 (let ((mc-cell (%gen-mc-cell gen))
-                       (h-cell (%gen-h-cell gen)))
-                   (if (pair? mc-cell) (set-cdr! mc-cell '()))
-                   (if (pair? h-cell) (set-cdr! h-cell '())))))
-           (%gen-sub-k-set! gen sub-k)
-           (%gen-state-store-rel! gen %GEN-SUSPENDED)
-           val)))))
+        ;; Winding path: defer st/SUSPENDED commit until dynamic-wind after-thunks finish,
+        ;; marking rewind-escape as 'suspending so dynamic-wind guards distinguish yield
+        ;; from permanent escape.
+        (let ((prev-re (%tc-rewind-escape st)))
+          (%tc-rewind-escape-set! st 'suspending)
+          (##continuation-graft
+           ck
+           (lambda ()
+             (let ((st2 (%tc-fast)))
+               (%tc-rewind-escape-set! st2 prev-re)
+               (%st-mc-set! st2 rest)
+               (%st-marks-set! st2 (%pf-marks pframe))
+               (%st-barriers-set! st2 (%pf-barriers pframe))
+               (%st-handlers-set! st2 (%pf-handlers pframe)))
+             (if unfrozen
+                 (begin
+                   (%pf-escape-k-set! pframe #f)
+                   (%pf-eh-scope-set! pframe #f)
+                   (%pf-marks-set! pframe '())
+                   (%pf-barriers-set! pframe '())
+                   (%pf-handlers-set! pframe '())
+                   (let ((mc-cell (%gen-mc-cell gen))
+                         (h-cell (%gen-h-cell gen)))
+                     (if (pair? mc-cell) (set-cdr! mc-cell '()))
+                     (if (pair? h-cell) (set-cdr! h-cell '())))))
+             (%gen-sub-k-set! gen sub-k)
+             (%gen-state-store-rel! gen %GEN-SUSPENDED)
+             val))))))
 
 ;; Slow generator yield handler when nested prompts, continuation marks,
 ;; frozen multi-shot frames, or 0/multi-value yields are active.
@@ -157,48 +162,53 @@
           (%st-handlers-set! st h-cell)))))
 
 (define (%gen-finish! gen)
-  (let* ((st (%tc-fast))
-         (mc (%st-mc st)))
-    (if (pair? mc)
-        (let* ((top (car mc))
-               (rest (cdr mc))
-               (ck (%pf-escape-k top))
-               (unfrozen (not (%pf-handler top)))
-               (mc-cell (%gen-mc-cell gen))
-               (h-cell (%gen-h-cell gen)))
-          (%st-mc-set! st rest)
-          (%st-marks-set! st (%pf-marks top))
-          (%st-barriers-set! st (%pf-barriers top))
-          (%st-handlers-set! st (%pf-handlers top))
-          (if unfrozen
-              (begin
-                (%pf-escape-k-set! top #f)
-                (%pf-eh-scope-set! top #f)
-                (%pf-marks-set! top '())
-                (%pf-barriers-set! top '())
-                (%pf-handlers-set! top '())
-                (%pf-unwind-hook-set! top #f)
-                (if (pair? mc-cell) (set-cdr! mc-cell '()))
-                (if (pair? h-cell) (set-cdr! h-cell '()))))
-          (%gen-sub-k-set! gen #f)
-          (%gen-pframe-set! gen #f)
-          (%gen-mc-cell-set! gen #f)
-          (%gen-h-cell-set! gen #f)
-          (%gen-thunk-set! gen #f)
-          (%gen-unwind-fn-set! gen #f)
-          (%gen-state-store-rel! gen %GEN-DONE)
-          (if unfrozen
-              (let () (declare (inlining-limit 0)) (%return-oneshot-same-denv! ck #!eof))
-              (##continuation-return ck #!eof)))
-        (begin
-          (%gen-sub-k-set! gen #f)
-          (%gen-pframe-set! gen #f)
-          (%gen-mc-cell-set! gen #f)
-          (%gen-h-cell-set! gen #f)
-          (%gen-thunk-set! gen #f)
-          (%gen-unwind-fn-set! gen #f)
-          (%gen-state-store-rel! gen %GEN-DONE)
-          #!eof))))
+  (let loop ()
+    (let* ((st (%tc-fast))
+           (mc (%st-mc st)))
+      (if (pair? mc)
+          (let* ((top (car mc))
+                 (rest (cdr mc))
+                 (ck (%pf-escape-k top)))
+            (%st-mc-set! st rest)
+            (if (not ck)
+                (let ((uh (%pf-unwind-hook top)))
+                  (if (procedure? uh) (uh 'unwind))
+                  (loop))
+                (let ((unfrozen (not (%pf-handler top)))
+                      (mc-cell (%gen-mc-cell gen))
+                      (h-cell (%gen-h-cell gen)))
+                  (%st-marks-set! st (%pf-marks top))
+                  (%st-barriers-set! st (%pf-barriers top))
+                  (%st-handlers-set! st (%pf-handlers top))
+                  (if unfrozen
+                      (begin
+                        (%pf-escape-k-set! top #f)
+                        (%pf-eh-scope-set! top #f)
+                        (%pf-marks-set! top '())
+                        (%pf-barriers-set! top '())
+                        (%pf-handlers-set! top '())
+                        (%pf-unwind-hook-set! top #f)
+                        (if (pair? mc-cell) (set-cdr! mc-cell '()))
+                        (if (pair? h-cell) (set-cdr! h-cell '()))))
+                  (%gen-sub-k-set! gen #f)
+                  (%gen-pframe-set! gen #f)
+                  (%gen-mc-cell-set! gen #f)
+                  (%gen-h-cell-set! gen #f)
+                  (%gen-thunk-set! gen #f)
+                  (%gen-unwind-fn-set! gen #f)
+                  (%gen-state-store-rel! gen %GEN-DONE)
+                  (if unfrozen
+                      (let () (declare (inlining-limit 0)) (%return-oneshot-same-denv! ck #!eof))
+                      (##continuation-return ck #!eof)))))
+          (begin
+            (%gen-sub-k-set! gen #f)
+            (%gen-pframe-set! gen #f)
+            (%gen-mc-cell-set! gen #f)
+            (%gen-h-cell-set! gen #f)
+            (%gen-thunk-set! gen #f)
+            (%gen-unwind-fn-set! gen #f)
+            (%gen-state-store-rel! gen %GEN-DONE)
+            #!eof)))))
 
 (define (%gen-start-cont! caller-k gen thunk)
   (let* ((st (%tc-fast))
@@ -308,61 +318,54 @@
                                    eh-scope
                                    unwind-fn)))
     (if clear? (%clear-consumed-ec! sk))
-    (if (eq? cur-dw sub-dw)
-        (begin
-          (%st-mc-set! st
-                       (if (null? prefix)
-                           (cons pframe cur-mc)
-                           (append prefix (cons pframe cur-mc))))
-          (%st-marks-set! st
-                          (if (null? cap-marks)
-                              cur-marks
-                              (append cap-marks cur-marks)))
-          (%st-barriers-set! st cur-barriers)
-          (%st-handlers-set! st
-                             (let ((base (cons frame cur-handlers)))
-                               (if (null? cap-handlers)
-                                   base
-                                   (append cap-handlers base))))
-          (if (pair? prefix) (%mc-run-unwind-hooks! prefix 'restore))
-          (##continuation-return sub-k #f))
-        (let ((gframe (if (%gen-winding-guard-safe? cur-dw sub-dw)
-                          (%make-mc-frame-9 'unwind-guard
-                                            #f
-                                            #t
-                                            #f
-                                            cur-marks
-                                            cur-barriers
-                                            cur-handlers
-                                            eh-scope
-                                            unwind-fn)
-                          #f)))
-          (if gframe
-              (%st-mc-set! st (cons gframe cur-mc)))
-          (##continuation-graft
-           sub-k
-           (lambda ()
-             (let* ((st2 (%tc-fast))
-                    (mc2 (%st-mc st2))
-                    (base-mc (if (and gframe (pair? mc2) (eq? (car mc2) gframe))
-                                 (cdr mc2)
-                                 cur-mc)))
-               (%st-mc-set! st2
-                            (if (null? prefix)
-                                (cons pframe base-mc)
-                                (append prefix (cons pframe base-mc))))
-               (%st-marks-set! st2
-                               (if (null? cap-marks)
-                                   cur-marks
-                                   (append cap-marks cur-marks)))
-               (%st-barriers-set! st2 cur-barriers)
-               (%st-handlers-set! st2
-                                  (let ((base (cons frame cur-handlers)))
-                                    (if (null? cap-handlers)
-                                        base
-                                        (append cap-handlers base))))
-               (if (pair? prefix) (%mc-run-unwind-hooks! prefix 'restore)))
-             #f))))))
+    (let* ((new-marks (if (null? cap-marks) cur-marks (append cap-marks cur-marks)))
+           (base-handlers (cons frame cur-handlers))
+           (new-handlers (if (null? cap-handlers) base-handlers (append cap-handlers base-handlers)))
+           (rprefix (%mc-rebase-prefix prefix
+                                       cap-marks new-marks cur-marks
+                                       '() cur-barriers cur-barriers
+                                       cap-handlers new-handlers base-handlers)))
+      (if (eq? cur-dw sub-dw)
+          (begin
+            (%st-mc-set! st
+                         (if (null? rprefix)
+                             (cons pframe cur-mc)
+                             (append rprefix (cons pframe cur-mc))))
+            (%st-marks-set! st new-marks)
+            (%st-barriers-set! st cur-barriers)
+            (%st-handlers-set! st new-handlers)
+            (if (pair? rprefix) (%mc-run-unwind-hooks! rprefix 'restore))
+            (##continuation-return sub-k #f))
+          (let ((gframe (if (%gen-winding-guard-safe? cur-dw sub-dw)
+                            (%make-mc-frame-9 'unwind-guard
+                                              #f
+                                              #t
+                                              #f
+                                              cur-marks
+                                              cur-barriers
+                                              cur-handlers
+                                              eh-scope
+                                              unwind-fn)
+                            #f)))
+            (if gframe
+                (%st-mc-set! st (cons gframe cur-mc)))
+            (##continuation-graft
+             sub-k
+             (lambda ()
+               (let* ((st2 (%tc-fast))
+                      (mc2 (%st-mc st2))
+                      (base-mc (if (and gframe (pair? mc2) (eq? (car mc2) gframe))
+                                   (cdr mc2)
+                                   cur-mc)))
+                 (%st-mc-set! st2
+                              (if (null? rprefix)
+                                  (cons pframe base-mc)
+                                  (append rprefix (cons pframe base-mc))))
+                 (%st-marks-set! st2 new-marks)
+                 (%st-barriers-set! st2 cur-barriers)
+                 (%st-handlers-set! st2 new-handlers)
+                 (if (pair? rprefix) (%mc-run-unwind-hooks! rprefix 'restore)))
+               #f)))))))
 
 (define (%gen-resume-ec! gen sk)
   (let ((prev (%ec-cas-state! sk %EC-ONE-SHOT-LIVE %EC-ONE-SHOT-CONSUMED)))
