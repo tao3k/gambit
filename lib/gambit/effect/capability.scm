@@ -56,12 +56,19 @@
         (macro-dynamic-bind
          exception-handler
          (lambda (exc)
-           (let ((prev (car live-box)))
+           (let ((prev (car live-box))
+                 (saved-mc #f))
              (set-car! live-box #f)
+             (if guard-frame
+                 (let ((cst (%tc-fast)))
+                   (set! saved-mc (%st-mc cst))
+                   (%cap-pop-guard! guard-frame)))
              (let ((r (macro-dynamic-bind
                        exception-handler
                        cur-eh
                        (lambda () (cur-eh exc)))))
+               (if guard-frame
+                   (%st-mc-set! (%tc-fast) saved-mc))
                (set-car! live-box prev)
                r)))
          (lambda ()

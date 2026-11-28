@@ -35,27 +35,33 @@
 
 ;; Pop the active handler prompt frame and restore outer control state BEFORE
 ;; invoking `return-fn` in tail position on `escape-k`, supporting 0/1/N
-;; multiple values with zero overhead on the single-value fast path.
+;; multiple values with zero overhead on the single-value fast path and
+;; skipping any leading `'unwind-guard` frames (whose `escape-k` is `#f`).
 (define (%mc-return1-with-fn val return-fn)
-  (let* ((st (%tc-fast))
-         (mc (%st-mc st)))
-    (if (null? mc)
-        (if (##values? val)
-            (##call-with-values (lambda () val) return-fn)
-            (return-fn val))
-        (let* ((top (car mc))
-               (rest (cdr mc))
-               (ek (%pf-escape-k top)))
-          (%st-mc-set! st rest)
-          (%st-marks-set! st (%pf-marks top))
-          (%st-barriers-set! st (%pf-barriers top))
-          (%st-handlers-set! st (%pf-handlers top))
+  (let loop ()
+    (let* ((st (%tc-fast))
+           (mc (%st-mc st)))
+      (if (null? mc)
           (if (##values? val)
-              (##continuation-graft
-               ek
-               (lambda ()
-                 (##call-with-values (lambda () val) return-fn)))
-              (##continuation-graft ek return-fn val))))))
+              (##call-with-values (lambda () val) return-fn)
+              (return-fn val))
+          (let* ((top (car mc))
+                 (rest (cdr mc))
+                 (ek (%pf-escape-k top)))
+            (%st-mc-set! st rest)
+            (%st-marks-set! st (%pf-marks top))
+            (%st-barriers-set! st (%pf-barriers top))
+            (%st-handlers-set! st (%pf-handlers top))
+            (if (not ek)
+                (let ((uh (%pf-unwind-hook top)))
+                  (if (procedure? uh) (uh 'unwind))
+                  (loop))
+                (if (##values? val)
+                    (##continuation-graft
+                     ek
+                     (lambda ()
+                       (##call-with-values (lambda () val) return-fn)))
+                    (##continuation-graft ek return-fn val))))))))
 
 ;; Zero-closure multi-arg capture receivers for suspending with-handler (<= 4 args)
 (define (%install-handler-cont! escape-k frame return-fn thunk)

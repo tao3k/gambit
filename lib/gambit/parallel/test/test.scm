@@ -665,3 +665,126 @@
     (work-stealing-pool-shutdown! pool)))
 
 ;;;============================================================================
+;;; Zero-Capture Continuable Fork-Join Combinators & Stale Guard Elimination
+
+(let* ((w (max 2 (min 4 (##current-vm-processor-count))))
+       (pool (make-work-stealing-pool w)))
+  (parameterize ((current-work-stealing-pool pool))
+    ;; 1. Continuable exceptions in parallel-vector-map, parallel-reduce, and
+    ;;    parallel-for-each preserve exact return values (bare AND inside prompt).
+    (test-equal '#(143 1 2 3 4 5 6 7)
+      (with-exception-handler
+       (lambda (e) (+ e 100))
+       (lambda ()
+         (parallel-vector-map
+          (lambda (x) (if (= x 0) (+ 1 (raise 42)) x))
+          (vector 0 1 2 3 4 5 6 7)
+          1))))
+
+    (test-equal '#(143 1 2 3 4 5 6 7)
+      (with-exception-handler
+       (lambda (e) (+ e 100))
+       (lambda ()
+         (call-with-continuation-prompt
+          (lambda ()
+            (parallel-vector-map
+             (lambda (x) (if (= x 0) (+ 1 (raise 42)) x))
+             (vector 0 1 2 3 4 5 6 7)
+             1))))))
+
+    (test-equal 171
+      (with-exception-handler
+       (lambda (e) (+ e 100))
+       (lambda ()
+         (call-with-continuation-prompt
+          (lambda ()
+            (parallel-reduce
+             (lambda (a b) (if (= b 0) (+ a 1 (raise 42)) (+ a b)))
+             0
+             (vector 0 1 2 3 4 5 6 7)
+             1))))))
+
+    (let ((acc (make-atomic-fxbox 0)))
+      (with-exception-handler
+       (lambda (e) (+ e 100))
+       (lambda ()
+         (call-with-continuation-prompt
+          (lambda ()
+            (parallel-for-each
+             (lambda (x)
+               (let ((v (if (= x 0) (+ 1 (raise 42)) x)))
+                 (atomic-fxbox-fetch-add! acc v)))
+             '(0 1 2 3 4 5 6 7)
+             1)))))
+      (test-equal 171 (atomic-fxbox-ref acc)))
+
+    ;; 2. Escaping with-exception-catcher INSIDE a SRFI-226 prompt joins all right
+    ;;    futures BEFORE catcher body runs and leaves zero stale unwind-guards.
+    (let ((rd (make-atomic-fxbox 0))
+          (catcher-saw -1))
+      (test-equal 'fj-esc
+        (call-with-continuation-prompt
+         (lambda ()
+           (with-exception-catcher
+            (lambda (e)
+              (set! catcher-saw (atomic-fxbox-ref rd 'acquire))
+              e)
+            (lambda ()
+              (parallel-vector-map
+               (lambda (x)
+                 (cond
+                   ((= x 0) (raise 'fj-esc))
+                   ((= x 7)
+                    (let spin ((k 0)) (if (< k 30) (begin (thread-yield!) (spin (+ k 1)))))
+                    (atomic-fxbox-set! rd 1 'release)
+                    x)
+                   (else x)))
+               (vector 0 1 2 3 4 5 6 7)
+               1))))))
+      (test-equal 1 (atomic-fxbox-ref rd 'acquire))
+      (test-equal 1 catcher-saw))
+
+    ;; 3. Concurrent multi-thread torture: continuable + escaping exceptions inside
+    ;;    prompts across w threads with ##gc.
+    (let* ((ok (make-atomic-fxbox 0))
+           (threads
+            (let loop ((t 0) (acc '()))
+              (if (= t w)
+                  acc
+                  (loop (+ t 1)
+                        (cons
+                         (thread-start!
+                          (make-thread
+                           (lambda ()
+                             (parameterize ((current-work-stealing-pool pool))
+                               (let ((vec (vector 0 1 2 3 4 5 6 7)))
+                                 (let rloop ((r 0) (good #t))
+                                   (if (< r 12)
+                                       (let* ((v1 (with-exception-handler
+                                                   (lambda (e) (+ e 10))
+                                                   (lambda ()
+                                                     (call-with-continuation-prompt
+                                                      (lambda ()
+                                                        (parallel-vector-map
+                                                         (lambda (x) (if (= x 0) (+ 1 (raise r)) x))
+                                                         vec 1))))))
+                                              (v2 (call-with-continuation-prompt
+                                                   (lambda ()
+                                                     (with-exception-catcher
+                                                      (lambda (e) e)
+                                                      (lambda ()
+                                                        (parallel-vector-map
+                                                         (lambda (x) (if (= x 0) (raise r) x))
+                                                         vec 1)))))))
+                                         (if (and (= t 0) (= (bitwise-and r 3) 3)) (##gc))
+                                         (rloop (+ r 1)
+                                                (and good
+                                                     (= (vector-ref v1 0) (+ r 11))
+                                                     (= v2 r))))
+                                       (if good (atomic-fxbox-fetch-add! ok 1)))))))))
+                         acc))))))
+      (for-each thread-join! threads)
+      (test-equal w (atomic-fxbox-ref ok))))
+  (work-stealing-pool-shutdown! pool))
+
+;;;============================================================================

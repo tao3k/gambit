@@ -29,7 +29,7 @@
               make-mutex mutex-lock! mutex-unlock!
               make-condition-variable condition-variable-signal! condition-variable-broadcast!
               make-thread thread-start! thread-join! thread-yield!
-              make-parameter parameterize with-exception-catcher raise error))
+              make-parameter parameterize dynamic-wind with-exception-catcher raise error))
 
 (##include "parallel#.scm")
 (##include "_internal#.scm")

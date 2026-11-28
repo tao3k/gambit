@@ -2150,6 +2150,62 @@
                                     (if good (atomic-fxbox+/fetch! ok-count 1))))))))
                         acc))))))
       (for-each thread-join! threads)
-      (test-equal num-threads (atomic-fxbox-ref ok-count)))))
+      (test-equal num-threads (atomic-fxbox-ref ok-count))))
+
+  ;; 7. Tail capability inside prompt + non-trampoline with-exception-catcher or
+  ;;    with-exception-handler MUST pop its unwind-guard before delegating to the
+  ;;    catcher (zero stale guard leak on prompt return) and restore it on
+  ;;    continuable return.
+  (let ((leaked-cap #f)
+        (mid-dead #f)
+        (pt (make-continuation-prompt-tag 'cap-catcher-pt)))
+    (test-equal 'caught-cap
+      (call-with-continuation-prompt
+       (lambda ()
+         (with-exception-catcher
+          (lambda (e) e)
+          (lambda ()
+            (call-with-tail-capability
+             (lambda (x) (fx+ x 1))
+             (lambda (cap)
+               (set! leaked-cap cap)
+               (raise 'caught-cap))))))
+       pt))
+    (test-equal #t (raises-err? (lambda () (perform-cap leaked-cap 1))))
+
+    ;; With return: clause inside suspending with-handler as well
+    (let ((e-ret (make-effect 'cap-ret-eff)))
+      (test-equal '(wrapped caught-ret)
+        (with-handler ((e-ret (k) (resume k #f))
+                       (return: (v) (list 'wrapped v)))
+          (with-exception-catcher
+           (lambda (e) e)
+           (lambda ()
+             (call-with-tail-capability
+              (lambda (x) x)
+              (lambda (cap) (raise 'caught-ret))))))))
+
+    ;; Continuable exception inside prompt + inner with-exception-handler restores
+    ;; guard-frame so a subsequent abort still deactivates the capability!
+    (let ((c2 #f))
+      (test-equal 'aborted-after-cont
+        (call-with-continuation-prompt
+         (lambda ()
+           (with-exception-handler
+            (lambda (e)
+              (set! mid-dead (raises-err? (lambda () (perform-cap c2 0))))
+              (fx+ e 10))
+            (lambda ()
+              (call-with-tail-capability
+               (lambda (x) (fx* x 2))
+               (lambda (cap)
+                 (set! c2 cap)
+                 (let ((v (perform-cap cap (raise 5))))
+                   (test-equal 30 v)
+                   (abort-current-continuation pt 'aborted-after-cont)))))))
+         pt
+         (lambda (v) v)))
+      (test-equal #t mid-dead)
+      (test-equal #t (raises-err? (lambda () (perform-cap c2 0)))))))
 
 ;;;============================================================================
