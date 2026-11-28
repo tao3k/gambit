@@ -10,6 +10,13 @@
 ;;; Mark Inspection (`with-continuation-mark`, `current-continuation-marks`,
 ;;; `continuation-marks`, `continuation-mark-set->list*`,
 ;;; `call-with-immediate-continuation-mark`) for `(srfi 226)`.
+;;;
+;;; Each entry on `st.marks` is an immutable `(fid . alist)` pair where `fid`
+;;; identifies the dynamic `with-continuation-mark` frame and is preserved
+;;; across tail-position mark replacements. Exception unwinding pops by `fid`
+;;; on the invoking thread's current control state so composable continuation
+;;; replay (same-thread or cross-thread) preserves resumer marks and never
+;;; mutates another thread's state.
 
 (define %mark-pop-ra #f)
 
@@ -24,6 +31,20 @@
           (else
            (loop (cdr xs) (cons (car xs) acc)))))))
 
+;; O(1) dynamic mark-frame pop by frame identity (`fid`). Fast-paths the top
+;; frame in a single pointer compare; unwinds any unpopped inner mark frames
+;; above `fid`, and leaves `ms` untouched if `fid` is absent.
+(define (%pop-mark-frame-by-id ms fid)
+  (if (null? ms)
+      ms
+      (if (eq? (caar ms) fid)
+          (cdr ms)
+          (let loop ((cur (cdr ms)))
+            (cond
+              ((null? cur) ms)
+              ((eq? (caar cur) fid) (cdr cur))
+              (else (loop (cdr cur))))))))
+
 (define (%mark-pop-frame res)
   (let* ((st (%tc-current))
          (ms (%st-marks st)))
@@ -31,9 +52,9 @@
         (%st-marks-set! st (cdr ms)))
     res))
 
-(define (%mark-push-and-run! st ms kv thunk)
+(define (%mark-push-and-run! st ms fid kv thunk)
   (##declare (not inline))
-  (%st-marks-set! st (cons (list kv) ms))
+  (%st-marks-set! st (cons (cons fid (list kv)) ms))
   (%mark-pop-frame (thunk)))
 
 (define (%mark-dispatch caller-r0 kv thunk)
@@ -42,31 +63,37 @@
          (key (car kv))
          (val (cdr kv)))
     (if (and %mark-pop-ra (eq? caller-r0 %mark-pop-ra) (pair? ms))
-        (begin
-          (%st-marks-set! st (cons (%alist-replace (car ms) key val) (cdr ms)))
+        (let ((top (car ms)))
+          (%st-marks-set!
+           st
+           (cons (cons (car top) (%alist-replace (cdr top) key val))
+                 (cdr ms)))
           (thunk))
         (let ((cur-eh (macro-current-exception-handler)))
           (if (%mc-eh-trampoline? cur-eh)
-              (%mark-push-and-run! st ms kv thunk)
+              (%mark-push-and-run! st ms kv kv thunk)
               (macro-dynamic-bind
                exception-handler
                (lambda (exc)
-                 (let ((saved (%st-marks st)))
-                   (%st-marks-set! st ms)
+                 (let* ((cst (%tc-current))
+                        (saved (%st-marks cst))
+                        (rest (%pop-mark-frame-by-id saved kv)))
+                   (%st-marks-set! cst rest)
                    (let ((res (macro-dynamic-bind
                                exception-handler
                                cur-eh
                                (lambda () (cur-eh exc)))))
-                     (%st-marks-set! st saved)
+                     (%st-marks-set! (%tc-current) saved)
                      res)))
                (lambda ()
-                 (%mark-push-and-run! st ms kv thunk))))))))
+                 (%mark-push-and-run! st ms kv kv thunk))))))))
 
 (define (%call-with-continuation-mark key val thunk)
   (##tail-call-with-r0 %mark-dispatch (cons key val) thunk))
 
 ;; Capture the exact Gambit C return label of `(thunk)` inside `%mark-push-and-run!`
-;; once at module load time so tail-recursive `with-continuation-mark` is O(1).
+;; once at module load time so tail-recursive `with-continuation-mark` and
+;; `call-with-immediate-continuation-mark` are O(1) and tail-exact.
 (%call-with-continuation-mark
  '%srfi226-init
  #t
@@ -75,6 +102,28 @@
     (lambda (r0 _ __) (set! %mark-pop-ra r0))
     #f
     #f)))
+
+(define (%marks-tail-matches-prefix? xs stop)
+  (let loop ((a xs) (b stop))
+    (cond
+      ((null? a) #t)
+      ((null? b) #f)
+      ((eq? (car a) (car b)) (loop (cdr a) (cdr b)))
+      (else #f))))
+
+;; Exact prompt-tag mark slicing on captured continuations (handles both raw
+;; tail-shared mark lists and copied composable/non-composable mark prefixes,
+;; including nested multi-shot self-replay with repeated frames).
+(define (%marks-slice-until-stop marks stop)
+  (if (null? stop)
+      marks
+      (let loop ((xs marks) (acc '()))
+        (cond
+          ((null? xs) marks)
+          ((or (eq? xs stop) (%marks-tail-matches-prefix? xs stop))
+           (reverse acc))
+          (else
+           (loop (cdr xs) (cons (car xs) acc)))))))
 
 (define (current-continuation-marks #!optional (tag %default-prompt-tag))
   (if (not (or (eq? tag %default-prompt-tag) (continuation-prompt-tag? tag)))
@@ -97,9 +146,19 @@
     ((continuation-mark-set? cont) cont)
     ((%extract-any-cont-cell cont)
      => (lambda (cell)
-          (%make-mark-set (%osc-marks-fast cell))))
+          (let* ((marks (%osc-marks-fast cell))
+                 (prefix (%osc-prefix-fast cell)))
+            (if (or (null? marks) (null? prefix))
+                (%make-mark-set marks)
+                (let ((found (%mc-find-tail-slow prefix tag)))
+                  (if found
+                      (%make-mark-set
+                       (%marks-slice-until-stop marks (%pf-marks (cadr found))))
+                      (%make-mark-set marks)))))))
+    ((or (not cont) (##continuation? cont))
+     (current-continuation-marks tag))
     (else
-     (current-continuation-marks tag))))
+     (error "continuation-marks: expected continuation or continuation-mark-set" cont))))
 
 (define (continuation-mark-set->list mark-set key #!optional (tag %default-prompt-tag))
   (if (not (or (eq? tag %default-prompt-tag) (continuation-prompt-tag? tag)))
@@ -110,7 +169,7 @@
     (let loop ((fs frames) (acc '()))
       (if (null? fs)
           (reverse acc)
-          (let ((entry (assq key (car fs))))
+          (let ((entry (assq key (cdar fs))))
             (loop (cdr fs)
                   (if entry (cons (cdr entry) acc) acc)))))))
 
@@ -129,7 +188,7 @@
     (let loop ((fs frames) (acc '()))
       (if (null? fs)
           (reverse acc)
-          (let ((alist (car fs))
+          (let ((alist (cdar fs))
                 (vec (make-vector n none-v))
                 (found? #f))
             (let kloop ((ks key-list) (i 0))
@@ -155,18 +214,34 @@
     (let loop ((fs frames))
       (if (null? fs)
           none-v
-          (let ((entry (assq key (car fs))))
+          (let ((entry (assq key (cdar fs))))
             (if entry
                 (cdr entry)
                 (loop (cdr fs))))))))
 
+(define (%immediate-mark-dispatch-default-f caller-r0 key proc)
+  (let* ((st (%tc-current))
+         (ms (%st-marks st)))
+    (if (and %mark-pop-ra (eq? caller-r0 %mark-pop-ra) (pair? ms))
+        (let ((entry (assq key (cdar ms))))
+          (proc (if entry (cdr entry) #f)))
+        (proc #f))))
+
+(define (%immediate-mark-dispatch caller-r0 kd proc)
+  (let* ((st (%tc-current))
+         (ms (%st-marks st))
+         (key (car kd))
+         (default (cdr kd)))
+    (if (and %mark-pop-ra (eq? caller-r0 %mark-pop-ra) (pair? ms))
+        (let ((entry (assq key (cdar ms))))
+          (proc (if entry (cdr entry) default)))
+        (proc default))))
+
 (define (call-with-immediate-continuation-mark key proc #!optional (default #f))
   (if (not (procedure? proc))
       (error "call-with-immediate-continuation-mark: expected procedure" proc))
-  (let ((ms (%st-marks (%tc-current))))
-    (if (null? ms)
-        (proc default)
-        (let ((entry (assq key (car ms))))
-          (proc (if entry (cdr entry) default))))))
+  (if (eq? default #f)
+      (##tail-call-with-r0 %immediate-mark-dispatch-default-f key proc)
+      (##tail-call-with-r0 %immediate-mark-dispatch (cons key default) proc)))
 
 ;;;============================================================================

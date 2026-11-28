@@ -1419,4 +1419,223 @@
            (lambda () (saved 'go))))))
      t-out)))
 
+;; Dynamic continuation-mark exception unwind across same-thread and cross-thread
+;; composable continuation replay (including tail-position mark replacement).
+(let ((tag (make-continuation-prompt-tag 'dynmark-same))
+      (saved-k #f))
+  (with-continuation-mark 'outer 'dead
+    (call-with-continuation-prompt
+     (lambda ()
+       (with-exception-catcher
+        (lambda (e)
+          (list 'caught
+                (continuation-mark-set->list (current-continuation-marks) 'resumer)
+                (continuation-mark-set->list (current-continuation-marks) 'outer)
+                (continuation-mark-set->list (current-continuation-marks) 'inner)))
+        (lambda ()
+          (with-continuation-mark 'inner 'v1
+            (with-continuation-mark 'inner 'v2
+              (let ((x (call-with-composable-continuation
+                        (lambda (k)
+                          (set! saved-k k)
+                          (abort-current-continuation tag 'cap))
+                        tag)))
+                (if (eq? x 'boom) (raise 'kaboom) x)))))))
+     tag
+     (lambda (v) v)))
+  (test-equal '() (continuation-mark-set->list (current-continuation-marks) 'outer))
+  (with-continuation-mark 'resumer 'alive
+    (let ((r (saved-k 'boom)))
+      (test-equal '(caught (alive) () ()) r)))
+  ;; Non-escaping exception handler returns into active inner mark and exits cleanly.
+  (let ((tag2 (make-continuation-prompt-tag 'dynmark-nonesc))
+        (saved-k2 #f))
+    (call-with-continuation-prompt
+     (lambda ()
+       (with-exception-handler
+        (lambda (e)
+          (list 'handled
+                (continuation-mark-set->list (current-continuation-marks) 'resumer)
+                (continuation-mark-set->list (current-continuation-marks) 'inner)))
+        (lambda ()
+          (with-continuation-mark 'inner 'in-val
+            (let ((x (call-with-composable-continuation
+                      (lambda (k)
+                        (set! saved-k2 k)
+                        (abort-current-continuation tag2 'cap))
+                      tag2)))
+              (let ((hr (if (eq? x 'go) (raise 'soft) x)))
+                (list hr (continuation-mark-set->list (current-continuation-marks) 'inner))))))))
+     tag2
+     (lambda (v) v))
+    (with-continuation-mark 'resumer 'alive2
+      (test-equal '((handled (alive2) ()) (in-val)) (saved-k2 'go)))))
+
+;; Cross-thread SMP replay of with-continuation-mark exception unwind:
+;; invoking threads must unwind only their own mark stacks without touching the
+;; capture thread's mark stack.
+(let* ((hw (##current-vm-processor-count))
+       (num-threads (max 2 (min 8 hw)))
+       (rounds 40)
+       (tag (make-continuation-prompt-tag 'dynmark-smp))
+       (saved-k #f)
+       (ok-count (make-atomic-fxbox 0)))
+  (with-continuation-mark 'origin-dead 'corrupt
+    (call-with-continuation-prompt
+     (lambda ()
+       (with-exception-catcher
+        (lambda (e)
+          (list (continuation-mark-set->list (current-continuation-marks) 'worker-mark)
+                (continuation-mark-set->list (current-continuation-marks) 'origin-dead)
+                (continuation-mark-set->list (current-continuation-marks) 'inner)))
+        (lambda ()
+          (with-continuation-mark 'inner 'v1
+            (with-continuation-mark 'inner 'v2
+              (let ((x (call-with-composable-continuation
+                        (lambda (k)
+                          (set! saved-k k)
+                          (abort-current-continuation tag 'cap))
+                        tag)))
+                (if (eq? x 'boom) (raise 'smp-err) x)))))))
+     tag
+     (lambda (v) v)))
+  (let ((threads
+         (let loop ((t 0) (acc '()))
+           (if (fx= t num-threads)
+               acc
+               (loop (fx+ t 1)
+                     (cons
+                      (thread-start!
+                       (make-thread
+                        (lambda ()
+                          (let rloop ((r 0) (good #t))
+                            (if (fx< r rounds)
+                                (let ((res
+                                       (with-continuation-mark 'worker-mark t
+                                         (saved-k 'boom))))
+                                  (if (and (fx= t 0) (fx= (fxand r 7) 7)) (##gc))
+                                  (rloop (fx+ r 1)
+                                         (and good
+                                              (equal? res (list (list t) '() '()))
+                                              (null? (continuation-mark-set->list
+                                                      (current-continuation-marks) 'inner))
+                                              (null? (continuation-mark-set->list
+                                                      (current-continuation-marks) 'worker-mark)))))
+                                (if good (atomic-fxbox+/fetch! ok-count 1)))))))
+                      acc))))))
+    (for-each thread-join! threads)
+    (test-equal num-threads (atomic-fxbox-ref ok-count))
+    (test-equal '() (continuation-mark-set->list (current-continuation-marks) 'origin-dead))
+    (test-equal '() (continuation-mark-set->list (current-continuation-marks) 'inner))))
+
+;; Tail-checked call-with-immediate-continuation-mark:
+;; tail position observes the immediate mark (including chained tail marks and
+;; tail helper calls); non-tail, cross-prompt, and outer-only frames see default.
+(let ((tail-helper
+       (lambda (k d) (call-with-immediate-continuation-mark k (lambda (v) v) d))))
+  (test-equal 42
+    (with-continuation-mark 'imm 42
+      (call-with-immediate-continuation-mark 'imm (lambda (v) v) 'none)))
+  (test-equal 42
+    (with-continuation-mark 'imm 42
+      (call-with-immediate-continuation-mark 'imm (lambda (v) v))))
+  (test-equal 99
+    (with-continuation-mark 'imm 42
+      (with-continuation-mark 'other 'x
+        (with-continuation-mark 'imm 99
+          (tail-helper 'imm 'none)))))
+  (test-equal 'x
+    (with-continuation-mark 'imm 42
+      (with-continuation-mark 'other 'x
+        (tail-helper 'other 'none))))
+  (test-equal '(none)
+    (with-continuation-mark 'imm 42
+      (list (call-with-immediate-continuation-mark 'imm (lambda (v) v) 'none))))
+  (test-equal '(#f)
+    (with-continuation-mark 'imm 42
+      (list (call-with-immediate-continuation-mark 'imm (lambda (v) v)))))
+  (test-equal 'none
+    (with-continuation-mark 'imm 42
+      (call-with-continuation-prompt
+       (lambda ()
+         (call-with-immediate-continuation-mark 'imm (lambda (v) v) 'none)))))
+  (test-equal 'none
+    (with-continuation-mark 'imm 42
+      (let ((x (with-continuation-mark 'other 1
+                 (call-with-immediate-continuation-mark 'imm (lambda (v) v) 'none))))
+        x))))
+
+;; Prompt-scoped continuation-marks slicing on captured continuations (including
+;; nested self-replay) and strict argument validation.
+(let ((t1 (make-continuation-prompt-tag 'cm-t1))
+      (t2 (make-continuation-prompt-tag 'cm-t2))
+      (saved-comp #f)
+      (saved-raw #f))
+  (call-with-continuation-prompt
+   (lambda ()
+     (with-continuation-mark 'm 'outer
+       (call-with-continuation-prompt
+        (lambda ()
+          (with-continuation-mark 'm 'inner
+            (call-with-composable-continuation
+             (lambda (k)
+               (set! saved-comp k)
+               (abort-current-continuation t1 'done))
+             t1)))
+        t2
+        (lambda (v) v))))
+   t1
+   (lambda (v) v))
+  (test-equal '(inner outer) (continuation-mark-set->list (continuation-marks saved-comp t1) 'm))
+  (test-equal '(inner) (continuation-mark-set->list (continuation-marks saved-comp t2) 'm))
+  ;; Raw call/1cc captured across nested prompt t2:
+  (with-continuation-mark 'rm 'outer
+    (call-with-continuation-prompt
+     (lambda ()
+       (with-continuation-mark 'rm 'inner
+         (call/1cc (lambda (k) (set! saved-raw k) 'ok) t1)))
+     t2
+     (lambda (v) v)))
+  (test-equal '(inner) (continuation-mark-set->list (continuation-marks saved-raw t2) 'rm))
+  ;; Nested self-replay: replay inner continuation inside t2 and capture again up to t1.
+  (let ((t-rep (make-continuation-prompt-tag 'cm-rep))
+        (t-mid (make-continuation-prompt-tag 'cm-mid))
+        (k-once #f)
+        (k-twice #f))
+    (call-with-continuation-prompt
+     (lambda ()
+       (with-continuation-mark 'rep 'a
+         (let ((x (call-with-composable-continuation
+                   (lambda (k)
+                     (set! k-once k)
+                     (abort-current-continuation t-rep 'c1))
+                   t-rep)))
+           (if (eq? x 'capture-again)
+               (call-with-composable-continuation
+                (lambda (k)
+                  (set! k-twice k)
+                  (abort-current-continuation t-rep 'c2))
+                t-rep)
+               x))))
+     t-rep
+     (lambda (v) v))
+    (call-with-continuation-prompt
+     (lambda ()
+       (with-continuation-mark 'rep 'a
+         (call-with-continuation-prompt
+          (lambda () (k-once 'capture-again))
+          t-mid
+          (lambda (v) v))))
+     t-rep
+     (lambda (v) v))
+    (test-equal '(a a) (continuation-mark-set->list (continuation-marks k-twice t-rep) 'rep))
+    (test-equal '(a) (continuation-mark-set->list (continuation-marks k-twice t-mid) 'rep)))
+  ;; Invalid non-continuation argument rejection:
+  (let ((check-err (lambda (th)
+                     (with-exception-catcher (lambda (e) #t) (lambda () (th) #f)))))
+    (test-equal #t (check-err (lambda () (continuation-marks 123))))
+    (test-equal #t (check-err (lambda () (continuation-mark-set->list 'bad 'm))))
+    (test-equal #t (check-err (lambda () (continuation-mark-set->list* 42 '(m)))))
+    (test-equal #t (check-err (lambda () (continuation-mark-set-first "bad" 'm))))))
+
 ;;;============================================================================

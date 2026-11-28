@@ -1019,8 +1019,8 @@
     (with-handler ((e0 (k) (set! saved-nested k) (resume k 42)))
       (with-handler ((e-inner (k v) (resume k v)))
         (with-continuation-mark 'k 'mark-v
-          (list (perform e0)
-                (call-with-immediate-continuation-mark 'k (lambda (v) v)))))))
+          (let ((x (perform e0)))
+            (call-with-immediate-continuation-mark 'k (lambda (v) (list x v))))))))
   (test-equal #f (##structure-ref saved-nested 1 (##structure-type saved-nested) #f))
   (test-equal '() (##structure-ref saved-nested 3 (##structure-type saved-nested) #f))
   (test-equal '() (##structure-ref saved-nested 4 (##structure-type saved-nested) #f))
