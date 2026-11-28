@@ -403,13 +403,56 @@
                 (let ((kind (%entry-kind entry)))
                   (cond
                     ((eq? kind 'tail)
-                     ;; Koka Tail-Resumptive Fast Path: direct call, zero capture!
-                     (let ((proc (%entry-proc entry)))
-                       (cond
-                         ((eq? a1 %ABSENT) (proc))
-                         ((eq? a2 %ABSENT) (proc a1))
-                         ((null? more)     (proc a1 a2))
-                         (else             (apply proc a1 a2 more)))))
+                     ;; Koka Tail-Resumptive Fast Path with exact deep-handler
+                     ;; dynamic scope isolation: temporarily shift `st.handlers`
+                     ;; to `(cdr fs)` so delegating `(perform eff ...)` reaches
+                     ;; outer handlers (zero self-recursion) and inner handlers
+                     ;; never hijack the outer clause's scope; splice paused
+                     ;; prefix on return if an outer suspending effect resumed
+                     ;; under additional handlers, and preserve handler stack
+                     ;; coherency across escaping and continuable exceptions.
+                     (let ((proc (%entry-proc entry))
+                           (outer-handlers (cdr fs))
+                           (cur-eh (macro-current-exception-handler)))
+                       (%st-handlers-set! st outer-handlers)
+                       (let ((res
+                              (if (%mc-eh-trampoline? cur-eh)
+                                  (cond
+                                    ((eq? a1 %ABSENT) (proc))
+                                    ((eq? a2 %ABSENT) (proc a1))
+                                    ((null? more)     (proc a1 a2))
+                                    (else             (apply proc a1 a2 more)))
+                                  (macro-dynamic-bind
+                                   exception-handler
+                                   (lambda (exc)
+                                     (let* ((cst (%tc-fast))
+                                            (saved-h (%st-handlers cst)))
+                                       (%st-handlers-set!
+                                        cst
+                                        (if (eq? saved-h outer-handlers)
+                                            handlers
+                                            (append (%list-prefix-until handlers outer-handlers)
+                                                    saved-h)))
+                                       (let ((r (macro-dynamic-bind
+                                                 exception-handler
+                                                 cur-eh
+                                                 (lambda () (cur-eh exc)))))
+                                         (%st-handlers-set! (%tc-fast) saved-h)
+                                         r)))
+                                   (lambda ()
+                                     (cond
+                                       ((eq? a1 %ABSENT) (proc))
+                                       ((eq? a2 %ABSENT) (proc a1))
+                                       ((null? more)     (proc a1 a2))
+                                       (else             (apply proc a1 a2 more))))))))
+                         (let* ((cst (%tc-fast))
+                                (cur-h (%st-handlers cst)))
+                           (%st-handlers-set!
+                            cst
+                            (if (eq? cur-h outer-handlers)
+                                handlers
+                                (append (%list-prefix-until handlers outer-handlers) cur-h))))
+                         res)))
                     ((eq? kind 'gen)
                      ;; Direct-Style Symmetric Generator Fast Path (0 alloc!)
                      (let* ((gen (%entry-proc entry))

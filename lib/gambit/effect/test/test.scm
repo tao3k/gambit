@@ -2209,3 +2209,123 @@
       (test-equal #t (raises-err? (lambda () (perform-cap c2 0)))))))
 
 ;;;============================================================================
+;;; Tail-Resumptive Deep-Handler Delegation, Dynamic Scope Isolation &
+;;; Cross-Extent Suspend/Resume Splicing
+
+(let ()
+  (define ask (make-effect 'tail-del-ask))
+  (define e1 (make-effect 'tail-del-e1))
+  (define e2 (make-effect 'tail-del-e2))
+  (define e3 (make-effect 'tail-del-e3))
+
+  ;; 1. Tail-resumptive handler delegating same effect to outer handler (zero self-recursion!)
+  (test-equal 11
+    (with-handler ((tail: ask () 10))
+      (with-handler ((tail: ask () (fx+ 1 (perform ask))))
+        (perform ask))))
+
+  ;; 3-level tail delegation chain
+  (test-equal 111
+    (with-handler ((tail: ask () 100))
+      (with-handler ((tail: ask () (fx+ 10 (perform ask))))
+        (with-handler ((tail: ask () (fx+ 1 (perform ask))))
+          (perform ask)))))
+
+  ;; 2. Outer tail handler dynamic scope isolation: inner e2 handler MUST NOT hijack
+  ;;    outer tail e1 handler when e1 performs e2!
+  (test-equal '(outer-e2 inner-e2)
+    (with-handler ((tail: e2 () 'outer-e2))
+      (with-handler ((tail: e1 () (perform e2)))
+        (with-handler ((tail: e2 () 'inner-e2))
+          (list (perform e1) (perform e2))))))
+
+  ;; 3. Mixed handler block (tail: e1 + suspend e2): tail e1 delegates cleanly to outer e1!
+  (test-equal 21
+    (with-handler ((tail: e1 () 20))
+      (with-handler ((tail: e1 () (fx+ 1 (perform e1)))
+                     (e2 (k) (resume k 0)))
+        (perform e1))))
+
+  ;; 4. Outer tail handler performing a SUSPENDING outer effect resumed in a DIFFERENT
+  ;;    dynamic extent with an extra resumer handler e3: preserves BOTH inner e2 AND e3!
+  (let ((saved-k #f))
+    (test-equal '(from-outer-e2 from-inner-e2 from-resumer-e3)
+      (let ((first
+             (with-handler ((e2 (k) (set! saved-k k) 'suspended))
+               (with-handler ((tail: e1 () (perform e2)))
+                 (with-handler ((tail: e2 () 'from-inner-e2))
+                   (let ((a (perform e1))
+                         (b (perform e2))
+                         (c (perform e3)))
+                     (list a b c)))))))
+        (test-equal 'suspended first)
+        (with-handler ((tail: e3 () 'from-resumer-e3))
+          (resume saved-k 'from-outer-e2)))))
+
+  ;; 5. Tail handler delegation + continuable exception preserves outer scope & value!
+  (test-equal 106
+    (with-exception-handler
+     (lambda (e) (fx+ e 100))
+     (lambda ()
+       (with-handler ((tail: ask () (raise 5)))
+         (with-handler ((tail: ask () (fx+ 1 (perform ask))))
+           (perform ask))))))
+
+  ;; 6. Tail handler raising an escaping exception caught by an INNER catcher
+  ;;    preserves the outer tail handler while popping inner handlers!
+  (test-equal '(boom outer-ok from-e2-still-live)
+    (let ((flag #f))
+      (with-handler ((tail: e1 () 'outer-ok))
+        (with-handler ((tail: e2 ()
+                         (if flag 'from-e2-still-live (raise 'boom))))
+          (with-exception-catcher
+           (lambda (e)
+             (set! flag #t)
+             (list e (perform e1) (perform e2)))
+           (lambda ()
+             (with-handler ((tail: e1 () 'inner-bad))
+               (perform e2))))))))
+
+  ;; 7. Adaptive-P SMP torture: concurrent delegated tail handlers + suspending
+  ;;    outer resume + continuable exceptions with ##gc.
+  (let* ((num-threads (max 2 (min 8 (##current-vm-processor-count))))
+         (rounds 30)
+         (ok-count (make-atomic-fxbox 0)))
+    (let ((threads
+           (let loop ((t 0) (acc '()))
+             (if (fx= t num-threads)
+                 acc
+                 (loop (fx+ t 1)
+                       (cons
+                        (thread-start!
+                         (make-thread
+                          (lambda ()
+                            (let ((ea (make-effect 'smp-td-a))
+                                  (eb (make-effect 'smp-td-b)))
+                              (let rloop ((r 0) (good #t))
+                                (if (fx< r rounds)
+                                    (let* ((r1 (with-handler ((tail: ea (x) (fx+ x 10)))
+                                                 (with-handler ((tail: ea (x) (fx+ 1 (perform ea x))))
+                                                   (perform ea r))))
+                                           (r2 (with-handler ((eb (k) (resume k 'outer)))
+                                                 (with-handler ((tail: ea () (perform eb)))
+                                                   (with-handler ((tail: eb () 'inner))
+                                                     (list (perform ea) (perform eb))))))
+                                           (r3 (with-exception-handler
+                                                (lambda (ex) (fx+ ex 100))
+                                                (lambda ()
+                                                  (with-handler ((tail: ea () (raise r)))
+                                                    (with-handler ((tail: ea () (fx+ 1 (perform ea))))
+                                                      (perform ea)))))))
+                                      (if (and (fx= t 0) (fx= (fxand r 7) 7)) (##gc))
+                                      (rloop (fx+ r 1)
+                                             (and good
+                                                  (fx= r1 (fx+ r 11))
+                                                  (equal? r2 '(outer inner))
+                                                  (fx= r3 (fx+ r 101)))))
+                                    (if good (atomic-fxbox+/fetch! ok-count 1))))))))
+                        acc))))))
+      (for-each thread-join! threads)
+      (test-equal num-threads (atomic-fxbox-ref ok-count)))))
+
+;;;============================================================================
