@@ -3,8 +3,10 @@
 herefromlib = gambit/fiber
 libfromhere = ../..
 SUBDIRS =
-HEADERS_SCM = fiber\#.scm
-MODULES_SCM = fiber.scm fiber.sld test/test.scm
+HEADERS_SCM = fiber\#.scm _internal\#.scm
+MODULES_SCM = fiber.scm fiber.sld atomics.scm deque.scm context.scm \
+  nursery.scm spawn.scm channel-ring.scm channel-send.scm channel-recv.scm \
+  channel.scm scheduler.scm test/test.scm
 MAIN_MODULES = fiber
 OTHER_RCFILES = makefile
 

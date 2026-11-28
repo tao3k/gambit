@@ -21,6 +21,9 @@ fiber-spawn
 fiber-yield
 fiber-worker-count
 fiber-performance-core-count
+fiber-carrier-wid
+fiber-carrier-tls
+fiber-carrier-tls-set!
 
 make-fiber-channel
 fiber-channel?

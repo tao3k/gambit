@@ -1170,4 +1170,157 @@
    workers: p)
   (test-equal n-fibers (atomic-fxbox-ref ok)))
 
+;; 14k. Post-serial-phase steal-cascade wakeup regression:
+;;      All W-1 peer carriers genuinely park in OS futex/ulock during a 30ms
+;;      serial pause, then 1 worker bursts W*8 CPU-bound tasks into its local
+;;      deque. Verifies steal-cascade wakes peers instead of stalling at 2/W.
+(let* ((p (##current-vm-processor-count))
+       (w (max 2 (min 12 p)))
+       (n-tasks (fx* w 8))
+       (seen (let ((v (make-vector w #f)))
+               (let loop ((i 0))
+                 (if (fx< i w)
+                     (begin (vector-set! v i (make-atomic-fxbox 0))
+                            (loop (fx+ i 1)))))
+               v))
+       (done (make-atomic-fxbox 0)))
+  (run-fibers
+   (lambda ()
+     ;; Let peer carriers spin out and park in OS futex/ulock
+     (thread-sleep! 0.03)
+     (with-nursery
+      (lambda (n)
+        (let loop ((i 0))
+          (if (fx< i n-tasks)
+              (begin
+                (fiber-spawn
+                 (lambda ()
+                   (let ((wid (fiber-carrier-wid)))
+                     (if (and wid (fx>= wid 0) (fx< wid w))
+                         (atomic-fxbox-set! (vector-ref seen wid) 1)))
+                   ;; Brief CPU burn so steals fan out across all woken carriers
+                   (let spin ((k 0) (acc 0))
+                     (if (fx< k 60000)
+                         (spin (fx+ k 1) (fx+ acc (fxand k 7)))
+                         (if (fx>= acc 0)
+                             (atomic-fxbox+/fetch! done 1)))))
+                 n)
+                (loop (fx+ i 1))))))))
+   workers: w)
+  (test-equal n-tasks (atomic-fxbox-ref done))
+  (let ((awake-wids
+         (let loop ((i 0) (c 0))
+           (if (fx< i w)
+               (loop (fx+ i 1)
+                     (fx+ c (atomic-fxbox-ref (vector-ref seen i))))
+               c))))
+    ;; On p>=4, steal cascade MUST wake >2 carriers (proving no 2/W stall!)
+    (if (fx>= p 4)
+        (test-assert (fx>= awake-wids (min w 3)))
+        (test-assert (fx>= awake-wids 1)))))
+
+;; 14l. Global-queue overflow cascade wakeup regression after serial park:
+;;      Channel-woken burst lands in global-q while peers are parked; verifies
+;;      global-pop cascade wakes parked peers and completes 100% of tasks.
+(let* ((p (##current-vm-processor-count))
+       (w (max 2 (min 12 p)))
+       (n-waiters (fx* w 6))
+       (done (make-atomic-fxbox 0)))
+  (run-fibers
+   (lambda ()
+     (let ((ch (make-fiber-channel n-waiters)))
+       (with-nursery
+        (lambda (n)
+          (let loop ((i 0))
+            (if (fx< i n-waiters)
+                (begin
+                  (fiber-spawn
+                   (lambda ()
+                     (let ((v (fiber-recv! ch)))
+                       (let spin ((k 0) (acc v))
+                         (if (fx< k 15000)
+                             (spin (fx+ k 1) (fx+ acc 1))
+                             (if (fx>= acc 0)
+                                 (atomic-fxbox+/fetch! done 1))))))
+                   n)
+                  (loop (fx+ i 1)))))
+          ;; Wait for all waiters to block and peer carriers to park
+          (thread-sleep! 0.03)
+          ;; Unblock all waiters in one burst (queues wakeups into global/local)
+          (let sloop ((i 0))
+            (if (fx< i n-waiters)
+                (begin (fiber-send! ch i) (sloop (fx+ i 1)))))))))
+   workers: w)
+  (test-equal n-waiters (atomic-fxbox-ref done)))
+
+;; 14m. Lock-free per-carrier TLS (fiber-carrier-tls / fiber-carrier-tls-set!):
+;;      Verifies #f outside run-fibers, strict per-carrier ownership isolation
+;;      across thousands of cross-carrier fiber yields, and 0 cross-carrier clobber.
+(test-equal #f (fiber-carrier-tls))
+(test-equal #f (fiber-carrier-wid))
+(let* ((p (##current-vm-processor-count))
+       (w (max 2 (min 12 p)))
+       (n-fibers (fx* w 32))
+       (ok-reads (make-atomic-fxbox 0))
+       (bad-reads (make-atomic-fxbox 0)))
+  (run-fibers
+   (lambda ()
+     (with-nursery
+      (lambda (n)
+        (let loop ((i 0))
+          (if (fx< i n-fibers)
+              (begin
+                (fiber-spawn
+                 (lambda ()
+                   (let step ((j 0))
+                     (if (fx< j 40)
+                         (let* ((wid (fiber-carrier-wid))
+                                (cur (fiber-carrier-tls)))
+                           (if (not cur)
+                               (let ((slot (cons wid (make-vector 4 wid))))
+                                 (fiber-carrier-tls-set! slot)
+                                 (set! cur slot)))
+                           (if (and (pair? cur)
+                                    (fx= (car cur) wid)
+                                    (fx= (vector-ref (cdr cur) 3) wid))
+                               (atomic-fxbox+/fetch! ok-reads 1)
+                               (atomic-fxbox+/fetch! bad-reads 1))
+                           (fiber-yield)
+                           (step (fx+ j 1))))))
+                 n)
+                (loop (fx+ i 1))))))))
+   workers: w)
+  (test-equal (fx* n-fibers 40) (atomic-fxbox-ref ok-reads))
+  (test-equal 0 (atomic-fxbox-ref bad-reads))
+  (test-equal #f (fiber-carrier-tls)))
+
+;; 14n. Adaptive-P multi-fiber allocation churn + explicit GC packed-ulock
+;;      STW barrier & active young-nursery contraction regression.
+(let* ((p (##current-vm-processor-count))
+       (w (max 2 (min 12 p)))
+       (n-fibers (fx* w 16))
+       (done (make-atomic-fxbox 0)))
+  (run-fibers
+   (lambda ()
+     (with-nursery
+      (lambda (n)
+        (let loop ((i 0))
+          (if (fx< i n-fibers)
+              (begin
+                (fiber-spawn
+                 (lambda ()
+                   (let iter ((k 0) (acc 0))
+                     (if (fx< k 120)
+                         (let ((v (make-vector 256 k)))
+                           (if (and (fx= i 0) (fx= (fxand k 15) 15)) (##gc))
+                           (if (fx= (fxand k 7) 7) (fiber-yield))
+                           (iter (fx+ k 1) (fx+ acc (vector-ref v 0) (vector-ref v 255))))
+                         (if (fx= acc (fx* 120 119))
+                             (atomic-fxbox+/fetch! done 1)))))
+                 n)
+                (loop (fx+ i 1))))))))
+   workers: w)
+  (##gc)
+  (test-equal n-fibers (atomic-fxbox-ref done)))
+
 ;;;============================================================================
