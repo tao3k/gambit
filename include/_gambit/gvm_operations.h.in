@@ -2346,10 +2346,10 @@ do { \
   ___UWORD ___spins = 0; \
   while ((___cur = ___WORD_LOAD_ACQUIRE(___CAST(___VOLATILE ___WORD*,&current))) != ___ticket) \
     { \
-      if (___spins < 64) \
+      if (___spins < 256) \
         { \
-          ___UWORD ___wait = (___CAST(___UWORD,___ticket) - ___CAST(___UWORD,___cur)) >> ___TB; \
-          if (___wait > 16) ___wait = 16; \
+          ___UWORD ___wait = ((___CAST(___UWORD,___ticket) - ___CAST(___UWORD,___cur)) >> ___TB); \
+          if (___wait > 8) ___wait = 8; \
           if (___wait == 0) ___wait = 1; \
           do { ___CPU_RELAX(); } while (--___wait > 0); \
           ___spins++; \

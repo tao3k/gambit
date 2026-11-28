@@ -15,7 +15,7 @@
  *     >0 : explicit minimum msection threshold
  * - Only active for non-executable anonymous mappings (when ___SUPPORT_LOWLEVEL_EXEC
  *   is off and custom_msection_alloc == 0).
- * - Slice 2 Generational + Immix aware: NEVER touches live mature active_offset
+ * - Generational + Immix aware: NEVER touches live mature active_offset
  *   halves or active young stack/heap halves; releases drained opposite halves
  *   and both halves of completely unclaimed FREE YOUNG sections (incl. 100%-dead
  *   mature sections returned by Immix Remark).
@@ -448,7 +448,8 @@ void *ptr;)
  * 'nb_sections' field.
  */
 
-#define ___GC_MSECTION_SPARE_CAP 64
+#define ___GC_MSECTION_SPARE_MIN 8
+#define ___GC_MSECTION_SPARE_MAX 32
 
 ___HIDDEN ___msection *msection_spare_pool_pop(___virtual_machine_state vm)
 {
@@ -469,13 +470,21 @@ ___HIDDEN void msection_spare_pool_push(___virtual_machine_state vm, ___msection
 {
   if (s == 0)
     return;
-  if (keep_spare && vm != 0 && vm->mem.msection_spare_count_ < ___GC_MSECTION_SPARE_CAP)
+  if (keep_spare && vm != 0)
     {
-      s->prev = 0;
-      s->next = vm->mem.msection_spare_head_;
-      vm->mem.msection_spare_head_ = s;
-      vm->mem.msection_spare_count_++;
-      return;
+      int cap = (vm->processor_count > 0) ? (vm->processor_count * 2) : ___GC_MSECTION_SPARE_MIN;
+      if (cap < ___GC_MSECTION_SPARE_MIN)
+        cap = ___GC_MSECTION_SPARE_MIN;
+      if (cap > ___GC_MSECTION_SPARE_MAX)
+        cap = ___GC_MSECTION_SPARE_MAX;
+      if (vm->mem.msection_spare_count_ < cap)
+        {
+          s->prev = 0;
+          s->next = vm->mem.msection_spare_head_;
+          vm->mem.msection_spare_head_ = s;
+          vm->mem.msection_spare_count_++;
+          return;
+        }
     }
   free_msection_storage (s);
 }

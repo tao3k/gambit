@@ -136,6 +136,8 @@ typedef struct ___processor_state_struct
     ___MUTEX_DECL(sync_mut)
     ___CONDVAR_DECL(sync_cv)
     ___WORD sync_waiters; /* atomic waiter flag for fast-path barrier send */
+    ___VOLATILE ___U32 sync_futex_seq;     /* atomic futex sequence counter for tree sync messages */
+    ___VOLATILE ___U32 sync_futex_waiters; /* atomic Dekker waiter count for OS futex wake */
 
 #endif
 

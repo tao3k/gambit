@@ -518,7 +518,8 @@ typedef struct ___vm_lifecycle_struct {
   unsigned char *sync_active;
   unsigned char *sync_targets; /* initiator-owned interrupt target mask while non-IDLE */
   int sync_bar_arrived;
-  ___UWORD sync_bar_gen;
+  ___VOLATILE uint32_t sync_bar_gen;
+  ___VOLATILE uint32_t sync_bar_waiters;
   /* Cache-line-isolated lock-free adaptive-spin + futex sense-reversing barrier for internal GC BARRIER() */
   char fast_bar_pad0[128];
   ___VOLATILE uint32_t fast_bar_gen;
@@ -527,8 +528,8 @@ typedef struct ___vm_lifecycle_struct {
   char fast_bar_pad1[128];
   ___sync_op_struct sync_bar_sop;
   int sync_bar_winner;
-  ___sync_op_struct sync_bar_out_sop;
-  int sync_bar_out_winner;
+  ___sync_op_struct sync_bar_out_sop[2];
+  int sync_bar_out_winner[2];
   enum ___resize_phase resize_phase;
   int first, target, saved_assigned, saved_stacks, refusal;
   ___msection *saved_cursor;
