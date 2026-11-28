@@ -923,6 +923,7 @@
 ;;   1               : yielded fk pushed; caller dispatches via %sched-switch-next!
 ;;   2               : fk-pool empty or dq full; caller uses slow path
 (define (%yield-push-and-pop-c! ctx raw-k)
+  (##declare (not interrupts-enabled))
   (macro-if-c-compiled
    (##c-code
     "___WORD *___ctx_f = ___BODY_AS(___ARG1, ___tSTRUCTURE);
@@ -941,6 +942,7 @@
        } else {
          /* Pop fk from private freelist and populate */
          ___WORD *___fk_f = ___BODY_AS(___fk, ___tSTRUCTURE);
+         ___SCMOBJ ___fk_type = ___fk_f[0];
          ___SCMOBJ ___pool_nxt = ___fk_f[4];
          ___GC_WRITE_BARRIER(___ps, ___ARG1, &___ctx_f[10], ___pool_nxt);
          ___WORD_STORE_RELAXED(&___ctx_f[10], ___pool_nxt);
@@ -979,6 +981,7 @@
            if (___need_global) {
              ___RESULT = ___FIX(1);
            } else {
+             ___SCMOBJ ___next_task = ___FIX(1);
              ___SCMOBJ ___lifo = ___ctx_f[6];
              ___WORD ___streak = ___INT(___ctx_f[7]);
              if (___lifo != ___FAL && ___STRUCTUREP(___lifo) && ___streak < 8) {
@@ -986,10 +989,9 @@
                ___GC_WRITE_BARRIER(___ps, ___ARG1, &___ctx_f[6], ___FAL);
                ___WORD_STORE_RELAXED(&___ctx_f[6], ___FAL);
                ___ctx_f[7] = ___FIX(___streak + 1);
-               ___RESULT = ___lifo;
+               ___next_task = ___lifo;
              } else {
                ___WORD ___nt = ___t + 1;
-               ___SCMOBJ ___picked = ___FIX(1);
                ___SCMOBJ ___picked_n = ___FAL;
                int ___tries;
                for (___tries = 0; ___tries < 16; ___tries++) {
@@ -1007,15 +1009,60 @@
                    ___atomic_word_store(___CAST(___VOLATILE ___WORD*, ___ns), ___CAST(___WORD, ___FAL), 0);
                    ___ctx_f[8] = ___FIX(___ticks + 1);
                    ___ctx_f[7] = ___FIX(0);
-                   ___picked = ___item;
+                   ___next_task = ___item;
                    ___picked_n = ___item_n;
                    break;
                  }
                }
                ___GC_WRITE_BARRIER(___ps, ___ARG1, &___ctx_f[16], ___picked_n);
                ___WORD_STORE_RELAXED(&___ctx_f[16], ___picked_n);
-               ___RESULT = ___picked;
              }
+             /* Direct zero-hop switch when next_task is a %fiber-k with tc == #f */
+             if (___STRUCTUREP(___next_task)) {
+               ___WORD *___nf = ___BODY_AS(___next_task, ___tSTRUCTURE);
+               if (___nf[0] == ___fk_type && ___nf[2] == ___FAL) {
+                 ___SCMOBJ ___nk = ___nf[1];
+                 ___SCMOBJ ___nval = ___nf[3];
+                 ___SCMOBJ ___phead = ___ctx_f[10];
+                 ___GC_WRITE_BARRIER(___ps, ___next_task, &___nf[1], ___FAL);
+                 ___WORD_STORE_RELAXED(&___nf[1], ___FAL);
+                 ___GC_WRITE_BARRIER(___ps, ___next_task, &___nf[3], ___FAL);
+                 ___WORD_STORE_RELAXED(&___nf[3], ___FAL);
+                 ___GC_WRITE_BARRIER(___ps, ___next_task, &___nf[4], ___phead);
+                 ___WORD_STORE_RELAXED(&___nf[4], ___phead);
+                 ___GC_WRITE_BARRIER(___ps, ___ARG1, &___ctx_f[10], ___next_task);
+                 ___WORD_STORE_RELAXED(&___ctx_f[10], ___next_task);
+                 ___ctx_f[11] = ___FIX(___INT(___ctx_f[11]) + 1);
+                 {
+                   ___WORD ___ra;
+                   ___WORD *___new_fp;
+                   if (___EXT(___try_return_oneshot_fiber_cont)(___ps, ___nk, &___ra, &___new_fp)) {
+                     ___SET_FP(___new_fp)
+                     ___SET_R1(___nval)
+#if ___NB_GVM_REGS > 2
+                     ___SET_R2(___FIX(0L))
+#endif
+#if ___NB_GVM_REGS > 3
+                     ___SET_R3(___FIX(0L))
+#endif
+#if ___NB_GVM_REGS > 4
+                     ___SET_R4(___FIX(0L))
+#endif
+                     ___JUMPEXTPRM(___NOTHING, ___ra)
+                   }
+                 }
+                 ___GC_WRITE_BARRIER(___ps, ___ARG1, &___ctx_f[10], ___phead);
+                 ___WORD_STORE_RELAXED(&___ctx_f[10], ___phead);
+                 ___ctx_f[11] = ___FIX(___INT(___ctx_f[11]) - 1);
+                 ___GC_WRITE_BARRIER(___ps, ___next_task, &___nf[1], ___nk);
+                 ___WORD_STORE_RELAXED(&___nf[1], ___nk);
+                 ___GC_WRITE_BARRIER(___ps, ___next_task, &___nf[3], ___nval);
+                 ___WORD_STORE_RELAXED(&___nf[3], ___nval);
+                 ___GC_WRITE_BARRIER(___ps, ___next_task, &___nf[4], ___FAL);
+                 ___WORD_STORE_RELAXED(&___nf[4], ___FAL);
+               }
+             }
+             ___RESULT = ___next_task;
            }
          }
        }
@@ -1710,6 +1757,7 @@
 ;;   5        : pending nursery batch > 0; caller flushes in slow path
 ;;   6        : race on rx-fast canceled cleanly (fk recycled); caller returns %CH-RETRY
 (define (%ch-park-recv-and-pop-c! ctx ch raw-k)
+  (##declare (not interrupts-enabled))
   (macro-if-c-compiled
    (##c-code
     "___WORD *___ctx_f = ___BODY_AS(___ARG1, ___tSTRUCTURE);
@@ -1720,6 +1768,8 @@
        if (___fk == ___FAL) {
          ___RESULT = ___FIX(4);
        } else {
+         ___WORD *___fk_head_f = ___BODY_AS(___fk, ___tSTRUCTURE);
+         ___SCMOBJ ___fk_type = ___fk_head_f[0];
          ___WORD *___f = ___BODY_AS(___ARG2, ___tSTRUCTURE);
          ___SCMOBJ ___rxw_vec = ___f[7];
          ___WORD *___rxw_base = ___BODY_AS(___rxw_vec, ___tVECTOR);
@@ -1735,7 +1785,7 @@
          /* Fast path: lock-free single-waiter rx-fast slot (0 spinlocks!) */
          if (___INT(___atomic_word_load(___txw_p, 0)) == 0 &&
              ___gc_atomic_slot_load(___rxf_p, 0) == ___FAL) {
-           ___WORD *___fk_f = ___BODY_AS(___fk, ___tSTRUCTURE);
+           ___WORD *___fk_f = ___fk_head_f;
            ___SCMOBJ ___pool_nxt = ___fk_f[4];
            ___GC_WRITE_BARRIER(___ps, ___fk, &___fk_f[1], ___ARG3);
            ___WORD_STORE_RELAXED(&___fk_f[1], ___ARG3);
@@ -1815,7 +1865,7 @@
              ___SCMOBJ ___swq = ___f[11];
              ___WORD *___swq_f = ___BODY_AS(___swq, ___tSTRUCTURE);
              if (___s - ((___pos << 1) + 1) < 0 && ___swq_f[1] == ___FAL) {
-               ___WORD *___fk_f = ___BODY_AS(___fk, ___tSTRUCTURE);
+               ___WORD *___fk_f = ___fk_head_f;
                ___SCMOBJ ___pool_nxt = ___fk_f[4];
                ___GC_WRITE_BARRIER(___ps, ___ARG1, &___ctx_f[10], ___pool_nxt);
                ___WORD_STORE_RELAXED(&___ctx_f[10], ___pool_nxt);
@@ -1853,7 +1903,7 @@
            }
          }
          if (___parked) {
-           /* Fused LIFO direct-switch candidate check */
+           /* Fused LIFO direct-switch candidate check + zero-hop jump */
            ___SCMOBJ ___lifo = ___ctx_f[6];
            if (___lifo != ___FAL && ___STRUCTUREP(___lifo)) {
              ___WORD ___ticks = ___INT(___ctx_f[8]);
@@ -1877,6 +1927,48 @@
                  ___GC_WRITE_BARRIER(___ps, ___ARG1, &___ctx_f[6], ___FAL);
                  ___WORD_STORE_RELAXED(&___ctx_f[6], ___FAL);
                  ___ctx_f[7] = ___FIX((___streak < 8) ? (___streak + 1) : 8);
+                 ___WORD *___lf = ___BODY_AS(___lifo, ___tSTRUCTURE);
+                 if (___lf[0] == ___fk_type && ___lf[2] == ___FAL) {
+                   ___SCMOBJ ___nk = ___lf[1];
+                   ___SCMOBJ ___nval = ___lf[3];
+                   ___SCMOBJ ___phead = ___ctx_f[10];
+                   ___GC_WRITE_BARRIER(___ps, ___lifo, &___lf[1], ___FAL);
+                   ___WORD_STORE_RELAXED(&___lf[1], ___FAL);
+                   ___GC_WRITE_BARRIER(___ps, ___lifo, &___lf[3], ___FAL);
+                   ___WORD_STORE_RELAXED(&___lf[3], ___FAL);
+                   ___GC_WRITE_BARRIER(___ps, ___lifo, &___lf[4], ___phead);
+                   ___WORD_STORE_RELAXED(&___lf[4], ___phead);
+                   ___GC_WRITE_BARRIER(___ps, ___ARG1, &___ctx_f[10], ___lifo);
+                   ___WORD_STORE_RELAXED(&___ctx_f[10], ___lifo);
+                   ___ctx_f[11] = ___FIX(___INT(___ctx_f[11]) + 1);
+                   {
+                     ___WORD ___ra;
+                     ___WORD *___new_fp;
+                     if (___EXT(___try_return_oneshot_fiber_cont)(___ps, ___nk, &___ra, &___new_fp)) {
+                       ___SET_FP(___new_fp)
+                       ___SET_R1(___nval)
+#if ___NB_GVM_REGS > 2
+                       ___SET_R2(___FIX(0L))
+#endif
+#if ___NB_GVM_REGS > 3
+                       ___SET_R3(___FIX(0L))
+#endif
+#if ___NB_GVM_REGS > 4
+                       ___SET_R4(___FIX(0L))
+#endif
+                       ___JUMPEXTPRM(___NOTHING, ___ra)
+                     }
+                   }
+                   ___GC_WRITE_BARRIER(___ps, ___ARG1, &___ctx_f[10], ___phead);
+                   ___WORD_STORE_RELAXED(&___ctx_f[10], ___phead);
+                   ___ctx_f[11] = ___FIX(___INT(___ctx_f[11]) - 1);
+                   ___GC_WRITE_BARRIER(___ps, ___lifo, &___lf[1], ___nk);
+                   ___WORD_STORE_RELAXED(&___lf[1], ___nk);
+                   ___GC_WRITE_BARRIER(___ps, ___lifo, &___lf[3], ___nval);
+                   ___WORD_STORE_RELAXED(&___lf[3], ___nval);
+                   ___GC_WRITE_BARRIER(___ps, ___lifo, &___lf[4], ___FAL);
+                   ___WORD_STORE_RELAXED(&___lf[4], ___FAL);
+                 }
                  ___RESULT = ___lifo;
                } else {
                  ___RESULT = ___FIX(1);
@@ -2002,16 +2094,17 @@
           (%spin-unlock! lock)))
     (%sched-switch-next! ctx)))
 
-;; Single-C-block fused buffered send (linearizable direct handoff + bounded-retry Vyukov push).
+;; Single-C-block fused buffered send (linearizable direct handoff + fused
+;; empty-LIFO wakeup placement + bounded-retry Vyukov push).
 ;; Returns:
-;;   #t        : pushed into ring and rx-waiters == 0 (immediate return)
-;;   %fiber-k  : handed off directly to parked receiver (caller pushes onto LIFO slot)
+;;   #t        : pushed into ring (rx-waiters == 0) OR handed off directly into empty ctx.lifo
+;;   %fiber-k  : handed off directly to parked receiver while ctx.lifo occupied (caller evicts)
 ;;   1         : pushed into ring and rx-waiters > 0 (caller wakes one receiver)
 ;;   2         : ring full (caller parks)
 ;;   3         : Vyukov CAS retry budget exhausted (caller polls safepoint and retries)
 ;;   4         : unbuffered channel (cap == 0)
 ;;   5         : direct-handoff spinlock budget exhausted (caller yields and retries)
-(define (%ch-send-fast-c! ch val)
+(define (%ch-send-fast-c! ch val ctx)
   (macro-if-c-compiled
    (##c-code
     "___WORD *___f = ___BODY_AS(___ARG1, ___tSTRUCTURE);
@@ -2024,6 +2117,7 @@
        ___VOLATILE ___WORD *___rxw_p = ___CAST(___VOLATILE ___WORD*, ___rxw_base);
        ___WORD *___rxf_p = ___rxw_base + 1;
        ___SCMOBJ ___out = ___FAL;
+       ___SCMOBJ ___woke = ___FAL;
        int ___done = 0;
        /* Fast path A1: Lock-free single-waiter rx-fast direct handoff (0 spinlocks!) */
        ___SCMOBJ ___rxf = ___gc_atomic_slot_load(___rxf_p, 0);
@@ -2037,7 +2131,7 @@
              ___WORD *___rk_f = ___BODY_AS(___rxf, ___tSTRUCTURE);
              ___GC_WRITE_BARRIER(___ps, ___rxf, &___rk_f[3], ___ARG2);
              ___WORD_STORE_RELAXED(&___rk_f[3], ___ARG2);
-             ___out = ___rxf;
+             ___woke = ___rxf;
              ___done = 1;
            }
          }
@@ -2085,11 +2179,30 @@
                ___WORD_STORE_RELAXED(&___rk_f[3], ___ARG2);
                ___WORD ___cur_rxw = ___INT(___WORD_LOAD_RELAXED(___CAST(___WORD*, ___rxw_p)));
                ___atomic_word_store(___rxw_p, ___FIX(___cur_rxw - 1), 4);
-               ___out = ___rk;
+               ___woke = ___rk;
                ___done = 1;
              }
            }
            ___atomic_word_store(___lock_p, ___FIX(0), 2);
+         }
+       }
+       if (___woke != ___FAL) {
+         ___SCMOBJ ___ctx = ___ARG3;
+         if (___ctx != ___FAL) {
+           ___WORD *___ctx_f = ___BODY_AS(___ctx, ___tSTRUCTURE);
+           if (___ctx_f[6] == ___FAL) {
+             ___GC_WRITE_BARRIER(___ps, ___ctx, &___ctx_f[6], ___woke);
+             ___WORD_STORE_RELAXED(&___ctx_f[6], ___woke);
+             if (___ctx_f[15] != ___FAL) {
+               ___GC_WRITE_BARRIER(___ps, ___ctx, &___ctx_f[15], ___FAL);
+               ___WORD_STORE_RELAXED(&___ctx_f[15], ___FAL);
+             }
+             ___out = ___TRU;
+           } else {
+             ___out = ___woke;
+           }
+         } else {
+           ___out = ___woke;
          }
        }
        if (!___done) {
@@ -2125,7 +2238,7 @@
        }
        ___RESULT = ___out;
      }"
-    ch val)
+    ch val ctx)
    (if (fx<= (%ch-cap ch) 0)
        4
        (let ((rxw (%ch-rx-waiters ch))
@@ -2232,14 +2345,14 @@
 (define (fiber-send! ch val)
   (if (not (fiber-channel? ch))
       (error "fiber-send!: expected fiber-channel" ch)
-      (let ((st (%ch-send-fast-c! ch val)))
+      (let* ((ctx (%carrier-wctx))
+             (st (%ch-send-fast-c! ch val (if (%worker-ctx? ctx) ctx #f))))
         (cond
           ((eq? st #t) #t)
           ((fixnum? st) (%fiber-send-slow! ch val st))
           (else
-           (let* ((ctx (%carrier-wctx))
-                  (prev (%wctx-lifo ctx))
-                  (prev-n (%wctx-lifo-n ctx)))
+           (let ((prev (%wctx-lifo ctx))
+                 (prev-n (%wctx-lifo-n ctx)))
              (%wctx-lifo-set! ctx st)
              (%wctx-lifo-n-set! ctx #f)
              (if prev

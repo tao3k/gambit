@@ -80,7 +80,6 @@ ___PSDKR)
        * msections, zero STW GC! */
       if (prev_stack_msection != 0 &&
           prev_stack_msection != heap_msection &&
-          ___ps->mem.satb_active_ == 0 &&
           prev_alloc_stack_ptr != prev_stack_break &&
           (tospace_offset == 0 || tospace_offset == (___MSECTION_SIZE >> 1)))
         {

@@ -701,8 +701,10 @@ int ___try_rewind_oneshot_span(___processor_state ___ps,
 /* Linearly consume a one-shot fiber continuation, reclaiming its raw stack span
  * either in-place (when sitting directly above stack_break on this processor's
  * active stack section) or after restoring its full contiguous span onto the
- * current stack. Never fires during concurrent SATB marking, on dynamic-env
- * mismatches, on aliased captures, or on partial (> 4 KiB) chunk restores. */
+ * current stack. During active concurrent SATB marking, all restored frames and
+ * cont_denv are shaded via the stack watermark barrier before mutator execution
+ * resumes; young stack continuations are never dereferenced by address-only
+ * mature SATB draining. */
 ___EXP_FUNC(int,___try_return_oneshot_fiber_cont)
  (___processor_state ___ps, ___SCMOBJ cont, ___WORD *ra_out, ___WORD **new_fp_out)
 {
@@ -711,7 +713,7 @@ ___EXP_FUNC(int,___try_return_oneshot_fiber_cont)
   ___msection *section;
   section_claim *claim;
   ___WORD *top, *brk, *own_base, *src_base, *known_break, *base, *last_base, *dest;
-  ___WORD *dest_lo = 0, *dest_hi = 0;
+  ___WORD *dest_lo = 0, *dest_hi = 0, *new_fp;
   ___SCMOBJ raw, cur_denv, cont_denv;
   ___SIZE_TS cont_alloc, capture_delta, half_words, words, total_words, dest_room = 0;
   ___SIZE_TS off = tospace_offset;
@@ -720,15 +722,12 @@ ___EXP_FUNC(int,___try_return_oneshot_fiber_cont)
   ___SIZE_TS fwords[CHUNK_MAX_FRAMES];
   int nframes = 0;
   int same_section = 0;
+  int satb_active;
 
   if (!own || !___TESTTYPE(cont, ___tCONTINUATION))
     return 0;
 
-  /* Never reclaim a stack-allocated continuation while concurrent SATB major GC
-   * is active: SATB write barriers or concurrent markers may still scan it. */
-  if (___EXPECT_FALSE(___ps->mem.satb_active_ != 0))
-    return 0;
-
+  satb_active = (___ps->mem.satb_active_ != 0);
   cur_denv = ___THREAD_DENV_FIELD(___CURRENTTHREAD);
   cont_denv = ___CONTINUATION_DENV_FIELD(cont);
 
@@ -756,8 +755,9 @@ ___EXP_FUNC(int,___try_return_oneshot_fiber_cont)
     same_section = 1;
 
   /* Fast Path A: Direct zero-copy in-place rewind when the span sits directly
-   * above stack_break on this processor's active stack section. */
-  if (same_section && (top - capture_delta == brk))
+   * above stack_break on this processor's active stack section (skipped when
+   * SATB is active so Fast Path B decodes and watermark-shades every frame). */
+  if (same_section && !satb_active && (top - capture_delta == brk))
     {
       ___WORD *span_end;
       claim = section_claim_at(own, off);
@@ -809,35 +809,54 @@ ___EXP_FUNC(int,___try_return_oneshot_fiber_cont)
    * (keeping >= 128 words above hard alloc_stack_limit) so the span is always
    * fully reclaimed before the next ___POLL triggers ___stack_limit(). */
   dest = brk;
-  if (!same_section &&
-      ___owned_stack_span(___ps, &dest_lo, &dest_hi) &&
-      dest >= dest_lo && dest <= dest_hi)
+  if (same_section)
     {
-      ___WORD *safe_lo = dest_lo + 128;
-      if (dest > safe_lo)
-        dest_room = ___CAST(___SIZE_TS, dest - safe_lo);
-    }
-
-  section = lock_source_stack_frame(___ps, top, &half_words, &ra, &fds[0], &known_break);
-  if (!section)
-    return 0;
-
-  if (same_section && section == own)
-    {
-      const section_claim *own_claim = section_claim_at(own, off);
-      if (own_claim->stack_owner == ___ps && own_claim->stack_state == STACK_ACTIVE)
+      ___WORD *half_past = own_base + half_words;
+      ___WORD *lo = ___ps->mem.alloc_stack_limit_;
+      ___WORD *hi = ___ps->mem.alloc_stack_start_;
+      section = own;
+      src_base = own_base;
+      claim = section_claim_at(own, off);
+      ___gc_copy_acquire(&own->copy_gate);
+      if (claim->stack_owner != ___ps ||
+          claim->stack_state != STACK_ACTIVE ||
+          claim->raw_marks == 0 ||
+          raw_stack_mark_at(claim->raw_marks, top - own_base) != RAW_STACK_START)
+        goto release_fallback;
+      known_break = raw_stack_span_end(claim, own_base, top);
+      if (!known_break || known_break <= top || known_break > half_past)
+        goto release_fallback;
+      half_words = ___CAST(___SIZE_TS, half_past - top);
+      if (!decode_source_stack_frame(top, ___CAST(___SIZE_TS, known_break - top),
+                                     &ra, 0, &fds[0]))
+        goto release_fallback;
+      if (lo && hi && lo >= own_base && hi <= half_past && hi > lo &&
+          dest >= lo && dest <= hi)
         {
-          ___WORD *lo = ___ps->mem.alloc_stack_limit_;
-          ___WORD *hi = ___ps->mem.alloc_stack_start_;
-          ___WORD *half_past = own_base + (___MSECTION_SIZE >> 1);
-          if (lo && hi && lo >= own_base && hi <= half_past && hi > lo &&
-              dest >= lo && dest <= hi)
-            {
-              ___WORD *safe_lo = lo + 128;
-              if (dest > safe_lo)
-                dest_room = ___CAST(___SIZE_TS, dest - safe_lo);
-            }
+          ___WORD *safe_lo = lo + 128;
+          if (dest > safe_lo)
+            dest_room = ___CAST(___SIZE_TS, dest - safe_lo);
         }
+    }
+  else
+    {
+      if (___owned_stack_span(___ps, &dest_lo, &dest_hi) &&
+          dest >= dest_lo && dest <= dest_hi)
+        {
+          ___WORD *safe_lo = dest_lo + 128;
+          if (dest > safe_lo)
+            dest_room = ___CAST(___SIZE_TS, dest - safe_lo);
+        }
+
+      section = lock_source_stack_frame(___ps, top, &half_words, &ra, &fds[0], &known_break);
+      if (!section)
+        return 0;
+      src_base = start_of_tospace(section);
+      claim = section_claim_at(section, off);
+      if (!claim->raw_marks || !known_break ||
+          raw_stack_mark_at(claim->raw_marks, top - src_base) != RAW_STACK_START ||
+          raw_stack_mark_at(claim->raw_marks, known_break - src_base) != RAW_STACK_END)
+        goto release_fallback;
     }
 
   words = ___FRAME_SPACE(fds[0].fs);
@@ -895,13 +914,6 @@ ___EXP_FUNC(int,___try_return_oneshot_fiber_cont)
   if (last_next != ___GSTATE->handler_break || !known_break || last_base != known_break)
     goto release_fallback;
 
-  src_base = start_of_tospace(section);
-  claim = section_claim_at(section, off);
-  if (!claim->raw_marks ||
-      raw_stack_mark_at(claim->raw_marks, top - src_base) != RAW_STACK_START ||
-      raw_stack_mark_at(claim->raw_marks, known_break - src_base) != RAW_STACK_END)
-    goto release_fallback;
-
   next_break_link = ___FP_STK(last_base, -___BREAK_FRAME_NEXT);
 
   /* Bonus active-section reset: if reclaiming this span leaves our own active
@@ -929,25 +941,9 @@ ___EXP_FUNC(int,___try_return_oneshot_fiber_cont)
               ___ps->context->stack_limit = own_base + ___MSECTION_FUDGE;
             }
           ___gc_copy_release(&section->copy_gate);
-          if (___EXPECT_FALSE(cur_denv != cont_denv))
-            {
-              ___SCMOBJ thread = ___CURRENTTHREAD;
-              ___SCMOBJ local_val = ___ENV_PARAM_VAL_FIELD(___DENV_LOCAL_FIELD(cont_denv));
-              ___GC_WRITE_BARRIER(___ps, thread, &___THREAD_DENV_FIELD(thread), cont_denv);
-              ___WORD_STORE_RELAXED(&___THREAD_DENV_FIELD(thread), cont_denv);
-              ___GC_WRITE_BARRIER(___ps, thread, &___THREAD_DENV_CACHE1_FIELD(thread), local_val);
-              ___WORD_STORE_RELAXED(&___THREAD_DENV_CACHE1_FIELD(thread), local_val);
-              ___GC_WRITE_BARRIER(___ps, thread, &___THREAD_DENV_CACHE2_FIELD(thread), local_val);
-              ___WORD_STORE_RELAXED(&___THREAD_DENV_CACHE2_FIELD(thread), local_val);
-              ___GC_WRITE_BARRIER(___ps, thread, &___THREAD_DENV_CACHE3_FIELD(thread), local_val);
-              ___WORD_STORE_RELAXED(&___THREAD_DENV_CACHE3_FIELD(thread), local_val);
-            }
           ___ps->context->stack_break = top_break;
-          *new_fp_out = top_break - total_words;
-          *ra_out = ra;
-          ___WORD_STORE_RELAXED(&___ps->mem.oneshot_rewinds_local_,
-                                ___ps->mem.oneshot_rewinds_local_ + 1);
-          return 1;
+          new_fp = top_break - total_words;
+          goto finish_restore;
         }
     }
 
@@ -974,6 +970,26 @@ ___EXP_FUNC(int,___try_return_oneshot_fiber_cont)
     }
 
   ___gc_copy_release(&section->copy_gate);
+  new_fp = dest - total_words;
+
+ finish_restore:
+  if (___EXPECT_FALSE(satb_active))
+    {
+      ___WORD *fbase = new_fp;
+      int fi;
+      for (fi = 0; fi < nframes; fi++)
+        {
+          ___frame_root_cursor cursor = ___frame_ordinary_root_begin(&fds[fi]);
+          int first, past;
+          fbase += fwords[fi];
+          while (___frame_root_next_run(&cursor, &first, &past))
+            ___gc_satb_barrier_range(___ps, &___FP_STK(fbase, past - 1),
+                                     ___CAST(___SIZE_TS, past - first));
+        }
+      ___gc_satb_barrier_val(___ps, cont_denv);
+      ___WORD_STORE_RELAXED(&___ps->mem.stack_watermark_shaded_frames_,
+                            ___ps->mem.stack_watermark_shaded_frames_ + nframes);
+    }
   if (___EXPECT_FALSE(cur_denv != cont_denv))
     {
       ___SCMOBJ thread = ___CURRENTTHREAD;
@@ -987,7 +1003,7 @@ ___EXP_FUNC(int,___try_return_oneshot_fiber_cont)
       ___GC_WRITE_BARRIER(___ps, thread, &___THREAD_DENV_CACHE3_FIELD(thread), local_val);
       ___WORD_STORE_RELAXED(&___THREAD_DENV_CACHE3_FIELD(thread), local_val);
     }
-  *new_fp_out = dest - total_words;
+  *new_fp_out = new_fp;
   *ra_out = ra;
   ___WORD_STORE_RELAXED(&___ps->mem.oneshot_rewinds_local_,
                         ___ps->mem.oneshot_rewinds_local_ + 1);
