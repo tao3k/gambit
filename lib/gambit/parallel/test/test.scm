@@ -438,3 +438,21 @@
   (test-equal rounds ok-rounds))
 
 ;;;============================================================================
+;;; Proper-List Validation & Overflow-Safe Deque Capacity Guard
+
+(let ((check-err
+       (lambda (thunk)
+         (with-exception-catcher (lambda (e) #t) (lambda () (thunk) #f)))))
+  (test-equal #t (check-err (lambda () (parallel-map (lambda (x) x) '(1 . 2)))))
+  (test-equal #t (check-err (lambda () (parallel-map (lambda (x) x) '(1 2 . 3)))))
+  (test-equal #t (check-err (lambda () (parallel-for-each (lambda (x) x) '(1 . 2)))))
+  (test-equal #t (check-err (lambda () (parallel-for-each (lambda (x) x) '(1 2 . 3)))))
+  (test-equal #t (check-err (lambda () (parallel-reduce + 0 '(1 . 2)))))
+  (test-equal #t (check-err (lambda () (parallel-reduce + 0 '(1 2 . 3)))))
+  (let ((max-pow2
+         (let lp ((x 1))
+           (let ((y (##fxarithmetic-shift-left x 1)))
+             (if (##fx<= y x) x (lp y))))))
+    (test-equal #t (check-err (lambda () (make-work-stealing-deque (##fx+ max-pow2 1)))))))
+
+;;;============================================================================

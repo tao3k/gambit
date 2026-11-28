@@ -154,6 +154,22 @@
                     (##continuation-graft-no-winding (%wctx-sched-k ctx) %worker-dispatch ctx 0)))
               (##continuation-graft-no-winding (%wctx-sched-k ctx) %worker-dispatch ctx 0))))))
 
+;; Executed on the clean carrier trampoline AFTER ##continuation-graft has
+;; completed all dynamic-wind after-thunks of a faulting detached fiber so
+;; the carrier OS worker survives, control state stays isolated, and
+;; quiescence (completed == spawned) always converges.
+(define (%detached-fiber-abort! exc)
+  (let ((cur-ctx (%current-wctx)))
+    (%nursery-flush! cur-ctx)
+    (if (%get-tc) (%set-tc! #f))
+    (%fxatom-inc-owner-rel! (%wctx-completed cur-ctx))
+    (%worker-dispatch cur-ctx 0)))
+
+(define (%detached-err-handler exc)
+  (let ((cur-ctx (%current-wctx)))
+    (##continuation-graft (%wctx-sched-k cur-ctx)
+                          %detached-fiber-abort! exc)))
+
 (define (%worker-run-task ctx task n)
   (cond
     ((%fiber-k? task)
@@ -182,8 +198,9 @@
          (%fxatom-inc-owner-rel! (%wctx-completed cur-ctx))
          (%sched-switch-next! cur-ctx))))
     (else
-     ;; Detached fiber thunk
-     (task)
+     ;; Detached fiber thunk: isolate uncaught exceptions so carrier OS workers
+     ;; stay alive, cleanups run, and scheduler quiescence always converges.
+     (##with-exception-handler %detached-err-handler task)
      (let ((cur-ctx (%carrier-wctx)))
        (if (%get-tc) (%set-tc! #f))
        (%fxatom-inc-owner-rel! (%wctx-completed cur-ctx))
@@ -316,7 +333,12 @@
                               (make-thread
                                (lambda () (%worker-loop sched i))))
                              acc))))))
-      (for-each thread-join! threads))
+      (with-exception-catcher
+       (lambda (e)
+         (%destroy-parker! parker)
+         (raise e))
+       (lambda ()
+         (for-each thread-join! threads))))
     (%destroy-parker! parker)
     (if (car root-box)
         (cdr root-box)

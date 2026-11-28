@@ -1636,3 +1636,56 @@
   (test-equal n-siblings (atomic-fxbox-ref cleaned)))
 
 ;;;============================================================================
+;;; Detached-Fiber Fault Isolation, Cleanup & Multi-Worker Quiescence
+
+;; Uncaught exceptions in detached fibers must unwind dynamic-wind / with-finally
+;; cleanups, clear carrier control state, keep all carrier OS worker threads alive,
+;; and allow run-fibers to quiesce and return cleanly without deadlocking.
+(let* ((p (##current-vm-processor-count))
+       (w (max 2 (min 12 p)))
+       (n-fault (max 8 (* 2 w)))
+       (n-ok (max 8 (* 2 w)))
+       (finally-cnt (make-atomic-fxbox 0))
+       (dw-after-cnt (make-atomic-fxbox 0))
+       (ok-cnt (make-atomic-fxbox 0))
+       (mark-leaks (make-atomic-fxbox 0)))
+  (let ((res
+         (run-fibers
+          (lambda ()
+            (let loop ((i 0))
+              (if (fx< i n-fault)
+                  (begin
+                    (fiber-spawn
+                     (lambda ()
+                       (with-continuation-mark 'detached-leak 'dirty
+                         (with-finally
+                          (lambda ()
+                            (dynamic-wind
+                              (lambda () #!void)
+                              (lambda ()
+                                (fiber-yield)
+                                (error "detached-fault" i))
+                              (lambda ()
+                                (atomic-fxbox+/fetch! dw-after-cnt 1))))
+                          (lambda ()
+                            (atomic-fxbox+/fetch! finally-cnt 1))))))
+                    (loop (fx+ i 1)))))
+            (let loop2 ((i 0))
+              (if (fx< i n-ok)
+                  (begin
+                    (fiber-spawn
+                     (lambda ()
+                       (fiber-yield)
+                       (if (continuation-mark-set-first #f 'detached-leak #f)
+                           (atomic-fxbox+/fetch! mark-leaks 1))
+                       (atomic-fxbox+/fetch! ok-cnt 1)))
+                    (loop2 (fx+ i 1)))))
+            'root-survived)
+          workers: w)))
+    (test-equal 'root-survived res)
+    (test-equal n-fault (atomic-fxbox-ref finally-cnt))
+    (test-equal n-fault (atomic-fxbox-ref dw-after-cnt))
+    (test-equal n-ok (atomic-fxbox-ref ok-cnt))
+    (test-equal 0 (atomic-fxbox-ref mark-leaks))))
+
+;;;============================================================================

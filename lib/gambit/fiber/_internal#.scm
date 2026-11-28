@@ -240,6 +240,8 @@
 ))
 
 (##namespace ("gambit/fiber/scheduler#"
+  %detached-fiber-abort!
+  %detached-err-handler
   %worker-try-steal
   %worker-poll-task
   %sched-switch-next!

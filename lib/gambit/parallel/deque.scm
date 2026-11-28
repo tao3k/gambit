@@ -28,7 +28,12 @@
 
 (define (next-pow2 n)
   (let loop ((p 4))
-    (if (##fx>= p n) p (loop (##fxarithmetic-shift-left p 1)))))
+    (if (##fx>= p n)
+        p
+        (let ((nxt (##fxarithmetic-shift-left p 1)))
+          (if (##fx<= nxt p)
+              (error "make-work-stealing-deque: capacity exceeds maximum supported power of two" n)
+              (loop nxt))))))
 
 (define (make-work-stealing-deque #!optional (initial-capacity 64))
   (let ((cap (next-pow2 (if (and (##fixnum? initial-capacity)
