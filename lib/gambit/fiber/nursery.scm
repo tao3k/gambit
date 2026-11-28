@@ -23,12 +23,12 @@
   (first-err   %nursery-first-err    %nursery-first-err-set!)
   (has-err?    %nursery-has-err?     %nursery-has-err?-set!)
   (err-handler %nursery-err-handler  %nursery-err-handler-set!)
-  (cancelled   %nursery-cancelled))  ;; 128B-padded fxatom (0=live, 1=cancelled)
+  (cancelled   %nursery-cancelled))  ;; 128B-padded fxatom (0=live, 1=cancelled, 2=closed)
 
 (define (nursery-cancel! n)
   (if (not (nursery? n))
       (error "nursery-cancel!: expected nursery" n))
-  (%fxatom-set-seq! (%nursery-cancelled n) 1)
+  (%fxatom-cas-seq! (%nursery-cancelled n) 0 1)
   #!void)
 
 (define (nursery-cancelled? n)
@@ -38,7 +38,7 @@
 
 (define (%nursery-record-error! n exc)
   ;; Automatically signal cooperative cancellation to sibling fibers on first error.
-  (%fxatom-set-seq! (%nursery-cancelled n) 1)
+  (%fxatom-cas-seq! (%nursery-cancelled n) 0 1)
   (%spin-lock! (%nursery-lock n))
   (if (not (%nursery-has-err? n))
       (begin
@@ -148,6 +148,7 @@
             (let ((prev (%fxatom-sub-acqrel! (%nursery-active n) 1)))
               (if (fx> prev 1)
                   (##continuation-capture %park-nursery-cont! n))))))
+    (%fxatom-set-seq! (%nursery-cancelled n) 2)
     (if (%nursery-has-err? n)
         (raise (%nursery-first-err n))
         parent-res)))

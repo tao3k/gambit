@@ -55,6 +55,7 @@
   %dq-push-pair!
   %dq-pop!
   %dq-empty-rlx?
+  %dq-nonempty-seq?
   %dq-steal-batch!
   %make-local-dq-raw
   %local-dq?
@@ -196,6 +197,7 @@
   %make-wait-q
   %wait-q?
   %wq-head
+  %wq-head-acq
   %wq-head-set!
   %wait-q
   %make-fiber-channel

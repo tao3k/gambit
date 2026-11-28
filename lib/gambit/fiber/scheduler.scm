@@ -207,13 +207,13 @@
        (%sched-switch-next! cur-ctx)))))
 
 (define (%sched-any-work-visible? sched)
-  (if (fx> (%fxatom-load-acq (%sched-global-pending sched)) 0)
+  (if (fx> (%fxatom-load-seq (%sched-global-pending sched)) 0)
       #t
       (let ((w (%sched-num-workers sched))
             (deques (%sched-deques sched)))
         (let loop ((i 0))
           (if (fx< i w)
-              (if (not (%dq-empty-rlx? (##vector-ref deques i)))
+              (if (%dq-nonempty-seq? (##vector-ref deques i))
                   #t
                   (loop (fx+ i 1)))
               #f)))))

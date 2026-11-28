@@ -39,7 +39,7 @@
        ___WORD ___mask = ___INT(___f[2]);
        ___VOLATILE ___WORD *___seq_p  = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___f[4], ___tVECTOR));
        ___VOLATILE ___WORD *___head_p = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___f[6], ___tVECTOR));
-       ___WORD ___pos = ___INT(___atomic_word_load(___head_p, 0));
+       ___WORD ___pos = ___INT(___atomic_word_load(___head_p, 4));
        ___WORD ___idx = (___mask >= 0) ? (___pos & ___mask) : (___pos % ___cap);
        ___WORD ___s   = ___INT(___atomic_word_load(___seq_p + ___idx, 4));
        ___SCMOBJ ___swq = ___f[11];
@@ -139,7 +139,7 @@
              ___WORD_STORE_RELAXED(&___ctx_f[10], ___pool_nxt);
              ___ctx_f[11] = ___FIX(___INT(___ctx_f[11]) - 1);
              /* Dekker seq_cst re-check against ring arrival, parked senders & channel close */
-             ___WORD ___pos = ___INT(___atomic_word_load(___head_p, 0));
+             ___WORD ___pos = ___INT(___atomic_word_load(___head_p, 4));
              ___WORD ___idx = (___mask >= 0) ? (___pos & ___mask) : (___pos % ___cap);
              ___WORD ___s   = ___INT(___atomic_word_load(___seq_p + ___idx, 4));
              ___WORD ___txw2 = ___INT(___atomic_word_load(___txw_p, 4));
@@ -194,7 +194,7 @@
            } else {
              ___WORD ___cur_rxw = ___INT(___WORD_LOAD_RELAXED(___CAST(___WORD*, ___rxw_p)));
              ___atomic_word_store(___rxw_p, ___FIX(___cur_rxw + 1), 4);
-             ___WORD ___pos = ___INT(___atomic_word_load(___head_p, 0));
+             ___WORD ___pos = ___INT(___atomic_word_load(___head_p, 4));
              ___WORD ___idx = (___mask >= 0) ? (___pos & ___mask) : (___pos % ___cap);
              ___WORD ___s   = ___INT(___atomic_word_load(___seq_p + ___idx, 4));
              ___SCMOBJ ___swq = ___f[11];
@@ -441,7 +441,7 @@
              (let ((w (%wctx-picked-n ctx)))
                (%wctx-picked-n-set! ctx #f)
                (%fk-val-set! w %CH-RETRY)
-               (%sched-push-lifo! ctx w)
+               (%wake-fk! w)
                (%sched-switch-next! ctx)))
             ((fx= res 7)
              (%os-sched-yield!)

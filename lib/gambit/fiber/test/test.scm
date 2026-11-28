@@ -1689,3 +1689,146 @@
     (test-equal 0 (atomic-fxbox-ref mark-leaks))))
 
 ;;;============================================================================
+;;; Cross-Scheduler Multi-Peer Fast-Slot Contention, Unbuffered Try-Ops &
+;;; Closed-Nursery Lifecycle Guard
+
+;; Multi-peer cross-scheduler contention on cap=1 and cap=2 channels exercises
+;; concurrent rx-fast / tx-fast exchange-cancel routing across distinct
+;; run-fibers schedulers with concurrent GC and verifies exact conservation.
+(let* ((p (##current-vm-processor-count))
+       (w (max 2 (min 6 (fxmax 2 (fxquotient p 2)))))
+       (per-peer 200))
+  (for-each
+   (lambda (cap)
+     (let ((ch (make-fiber-channel cap))
+           (sum-sent (make-atomic-fxbox 0))
+           (sum-recv (make-atomic-fxbox 0)))
+       (let ((tA (thread-start!
+                  (make-thread
+                   (lambda ()
+                     (run-fibers
+                      (lambda ()
+                        (with-nursery
+                         (lambda (n)
+                           (let loop ((i 0))
+                             (if (fx< i 3)
+                                 (begin
+                                   (fiber-spawn
+                                    (lambda ()
+                                      (let lp ((k 0))
+                                        (if (fx< k per-peer)
+                                            (let ((v (fx+ (fx* i 1000) k)))
+                                              (fiber-send! ch v)
+                                              (atomic-fxbox+/fetch! sum-sent v)
+                                              (if (and (fx= i 0) (fx= (fxand k 63) 63)) (##gc))
+                                              (lp (fx+ k 1))))))
+                                    n)
+                                   (fiber-spawn
+                                    (lambda ()
+                                      (let lp ((k 0))
+                                        (if (fx< k per-peer)
+                                            (begin
+                                              (atomic-fxbox+/fetch! sum-recv (fiber-recv! ch))
+                                              (lp (fx+ k 1))))))
+                                    n)
+                                   (loop (fx+ i 1))))))))
+                      workers: w)))))
+             (tB (thread-start!
+                  (make-thread
+                   (lambda ()
+                     (run-fibers
+                      (lambda ()
+                        (with-nursery
+                         (lambda (n)
+                           (let loop ((i 0))
+                             (if (fx< i 3)
+                                 (begin
+                                   (fiber-spawn
+                                    (lambda ()
+                                      (let lp ((k 0))
+                                        (if (fx< k per-peer)
+                                            (let ((v (fx+ 5000 (fx* i 1000) k)))
+                                              (fiber-send! ch v)
+                                              (atomic-fxbox+/fetch! sum-sent v)
+                                              (lp (fx+ k 1))))))
+                                    n)
+                                   (fiber-spawn
+                                    (lambda ()
+                                      (let lp ((k 0))
+                                        (if (fx< k per-peer)
+                                            (begin
+                                              (atomic-fxbox+/fetch! sum-recv (fiber-recv! ch))
+                                              (lp (fx+ k 1))))))
+                                    n)
+                                   (loop (fx+ i 1))))))))
+                      workers: w))))))
+         (thread-join! tA)
+         (thread-join! tB)
+         (test-equal (atomic-fxbox-ref sum-sent) (atomic-fxbox-ref sum-recv)))))
+   '(1 2)))
+
+;; Unbuffered (cap=0) fiber-try-send! / fiber-try-recv! linearizability:
+;; observes parked peers reliably under lock synchronization and reports #!eof
+;; after close without spurious misses.
+(let ((ch-rx (make-fiber-channel 0))
+      (ch-tx (make-fiber-channel 0))
+      (got-tx #f)
+      (got-rx #f))
+  (run-fibers
+   (lambda ()
+     (with-nursery
+      (lambda (n)
+        (fiber-spawn (lambda () (set! got-rx (fiber-recv! ch-rx))) n)
+        (fiber-spawn (lambda () (set! got-tx (fiber-send! ch-tx 'unbuf-payload))) n)
+        ;; Wait until both peers are parked, then rendezvous via try-ops
+        (let loop ((tries 0))
+          (if (not (fiber-try-send! ch-rx 'ping-unbuf))
+              (begin (fiber-yield) (loop (fx+ tries 1)))))
+        (let loop ((tries 0))
+          (let ((v (fiber-try-recv! ch-tx 'none)))
+            (if (eq? v 'none)
+                (begin (fiber-yield) (loop (fx+ tries 1)))
+                (test-equal 'unbuf-payload v)))))))
+   workers: (max 2 (min 4 (##current-vm-processor-count))))
+  (test-equal 'ping-unbuf got-rx)
+  (test-equal #t got-tx)
+  (fiber-channel-close! ch-rx)
+  (test-equal #!eof (fiber-try-recv! ch-rx 'none))
+  (test-equal #t (with-exception-catcher (lambda (e) #t) (lambda () (fiber-try-send! ch-rx 1) #f))))
+
+;; Closed-nursery lifecycle guard: spawning into an escaped nursery after
+;; with-nursery exits (normally or via exception) must raise an error instead
+;; of resurrecting active credits, and nursery-cancelled? remains #t.
+(let ((escaped-ok #f)
+      (escaped-err #f)
+      (rejected-ok #f)
+      (rejected-err #f))
+  (run-fibers
+   (lambda ()
+     (with-nursery
+      (lambda (n)
+        (set! escaped-ok n)
+        (fiber-spawn (lambda () (fiber-yield)) n)))
+     (test-equal #t (nursery-cancelled? escaped-ok))
+     (nursery-cancel! escaped-ok)
+     (set! rejected-ok
+       (with-exception-catcher
+        (lambda (e) #t)
+        (lambda () (fiber-spawn (lambda () #!void) escaped-ok) #f)))
+     (with-exception-catcher
+      (lambda (e) #!void)
+      (lambda ()
+        (with-nursery
+         (lambda (n)
+           (set! escaped-err n)
+           (fiber-spawn (lambda () (raise 'nursery-err)) n)))))
+     (test-equal #t (nursery-cancelled? escaped-err))
+     (set! rejected-err
+       (with-exception-catcher
+        (lambda (e) #t)
+        (lambda () (fiber-spawn (lambda () #!void) escaped-err) #f))))
+   workers: (max 2 (min 4 (##current-vm-processor-count))))
+  (test-equal #t rejected-ok)
+  (test-equal #t rejected-err))
+
+;;;============================================================================

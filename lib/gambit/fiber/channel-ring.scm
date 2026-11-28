@@ -22,6 +22,14 @@
 (define (%wq-empty? q)
   (not (%wq-head q)))
 
+(define (%wq-head-acq q)
+  (macro-if-c-compiled
+   (##c-code
+    "___WORD *___f = ___BODY_AS(___ARG1, ___tSTRUCTURE);
+     ___RESULT = ___gc_atomic_slot_load(&___f[1], 1);"
+    q)
+   (%wq-head q)))
+
 (define (%wq-push! q fk)
   (%fk-next-set! fk #f)
   (let ((t (%wq-tail q)))

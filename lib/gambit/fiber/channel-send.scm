@@ -444,7 +444,7 @@
              (let ((w (%wctx-picked-n ctx)))
                (%wctx-picked-n-set! ctx #f)
                (%fk-val-set! w %CH-RETRY)
-               (%sched-push-lifo! ctx w)
+               (%wake-fk! w)
                (%sched-switch-next! ctx)))
             ((fx= res 7)
              (%os-sched-yield!)

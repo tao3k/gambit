@@ -259,12 +259,12 @@
      (thread-yield!)
      (fiber-send! ch val))
     (else
-     ;; Unbuffered rendezvous (cap == 0) with relaxed hint
+     ;; Unbuffered rendezvous (cap == 0) with acquire hint
      (let ((rwq (%ch-recv-waiters ch))
            (in-fiber? (%worker-ctx? (%carrier-wctx))))
        (if (%ch-closed-seq? ch)
            (error "fiber-send!: channel closed" ch)
-           (if (not (%wq-head rwq))
+           (if (not (%wq-head-acq rwq))
                (if in-fiber?
                    (let ((res (##continuation-capture %park-send-unbuf-cont! ch val)))
                      (if (eq? res %CH-RETRY) (fiber-send! ch val) #t))
@@ -330,26 +330,22 @@
                ((fx= st 5) (thread-yield!) (loop))
                (else
                 ;; Unbuffered channel: succeed only if a receiver is already parked
-                (if (%ch-closed-seq? ch)
-                    (error "fiber-try-send!: channel closed" ch)
-                    (let ((rwq (%ch-recv-waiters ch)))
-                      (if (not (%wq-head rwq))
-                          #f
-                          (let ((lock (%ch-lock ch)))
-                            (%spin-lock! lock)
-                            (cond
-                              ((%ch-closed-seq? ch)
-                               (%spin-unlock! lock)
-                               (error "fiber-try-send!: channel closed" ch))
-                              ((not (%wq-empty? rwq))
-                               (let ((rk (%wq-pop! rwq)))
-                                 (%spin-unlock! lock)
-                                 (%fk-val-set! rk val)
-                                 (%wake-fk! rk)
-                                 #t))
-                              (else
-                               (%spin-unlock! lock)
-                               #f)))))))))
+                (let ((rwq (%ch-recv-waiters ch))
+                      (lock (%ch-lock ch)))
+                  (%spin-lock! lock)
+                  (cond
+                    ((%ch-closed-seq? ch)
+                     (%spin-unlock! lock)
+                     (error "fiber-try-send!: channel closed" ch))
+                    ((not (%wq-empty? rwq))
+                     (let ((rk (%wq-pop! rwq)))
+                       (%spin-unlock! lock)
+                       (%fk-val-set! rk val)
+                       (%wake-fk! rk)
+                       #t))
+                    (else
+                     (%spin-unlock! lock)
+                     #f))))))
             (else
              (%wake-fk! st)
              #t))))))
@@ -373,18 +369,16 @@
 (define (%fiber-recv-slow! ch)
   (if (fx> (%ch-cap ch) 0)
       (fiber-recv! ch)
-      ;; Unbuffered rendezvous (cap == 0) with relaxed hint
+      ;; Unbuffered rendezvous (cap == 0) with acquire hint
       (let ((swq (%ch-send-waiters ch))
             (in-fiber? (%worker-ctx? (%carrier-wctx))))
-        (if (not (%wq-head swq))
-            (if (%ch-closed-seq? ch)
-                #!eof
-                (if in-fiber?
-                    (let ((res (##continuation-capture %park-recv-unbuf-cont! ch)))
-                      (if (eq? res %CH-RETRY) (fiber-recv! ch) res))
-                    (begin
-                      (thread-yield!)
-                      (fiber-recv! ch))))
+        (if (and (not (%wq-head-acq swq)) (not (%ch-closed-seq? ch)))
+            (if in-fiber?
+                (let ((res (##continuation-capture %park-recv-unbuf-cont! ch)))
+                  (if (eq? res %CH-RETRY) (fiber-recv! ch) res))
+                (begin
+                  (thread-yield!)
+                  (fiber-recv! ch)))
             (let ((lock (%ch-lock ch)))
               (%spin-lock! lock)
               (cond
@@ -431,25 +425,23 @@
              (if (fx> (%ch-cap ch) 0)
                  (loop)
                  ;; Unbuffered channel: succeed only if a sender is already parked
-                 (let ((swq (%ch-send-waiters ch)))
-                   (if (not (%wq-head swq))
-                       (if (%ch-closed-seq? ch) #!eof default)
-                       (let ((lock (%ch-lock ch)))
-                         (%spin-lock! lock)
-                         (cond
-                           ((not (%wq-empty? swq))
-                            (let* ((sk (%wq-pop! swq))
-                                   (sval (%fk-val sk)))
-                              (%spin-unlock! lock)
-                              (%fk-val-set! sk #t)
-                              (%wake-fk! sk)
-                              sval))
-                           ((%ch-closed-seq? ch)
-                            (%spin-unlock! lock)
-                            #!eof)
-                           (else
-                            (%spin-unlock! lock)
-                            default)))))))
+                 (let ((swq (%ch-send-waiters ch))
+                       (lock (%ch-lock ch)))
+                   (%spin-lock! lock)
+                   (cond
+                     ((not (%wq-empty? swq))
+                      (let* ((sk (%wq-pop! swq))
+                             (sval (%fk-val sk)))
+                        (%spin-unlock! lock)
+                        (%fk-val-set! sk #t)
+                        (%wake-fk! sk)
+                        sval))
+                     ((%ch-closed-seq? ch)
+                      (%spin-unlock! lock)
+                      #!eof)
+                     (else
+                      (%spin-unlock! lock)
+                      default)))))
             ((not (%ch-tx-any-waiters-seq? ch)) item)
             (else (%fiber-recv-wake-and-ret! ch item)))))))
 

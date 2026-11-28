@@ -132,6 +132,16 @@
     dq)
    (fx<= (%fxatom-load-rlx (%dq-bot dq)) (%fxatom-load-rlx (%dq-top dq)))))
 
+(define (%dq-nonempty-seq? dq)
+  (macro-if-c-compiled
+   (##c-code
+    "___WORD *___f = ___BODY_AS(___ARG1, ___tSTRUCTURE);
+     ___VOLATILE ___WORD *___head_p = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___f[2], ___tVECTOR));
+     ___VOLATILE ___WORD *___tail_p = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___f[3], ___tVECTOR));
+     ___RESULT = (___INT(___atomic_word_load(___tail_p, 4)) > ___INT(___atomic_word_load(___head_p, 4))) ? ___TRU : ___FAL;"
+    dq)
+   (fx> (%fxatom-load-seq (%dq-bot dq)) (%fxatom-load-seq (%dq-top dq)))))
+
 ;; Batch work-steal: claims up to min((avail+1)/2, 16) (task, nursery) pairs from
 ;; victim-dq in ONE single CAS(victim.head, h -> h+n), pushes n-1 pairs into
 ;; ctx.dq, stores batch_n[0] in ctx.picked-n, and returns batch_t[0].
