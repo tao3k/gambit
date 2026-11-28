@@ -977,7 +977,19 @@
 (##define-macro (macro-btq-right node)          `(macro-struct-slot 7 ,node))
 (##define-macro (macro-btq-right-set! node x)   `(macro-struct-slot 7 ,node ,x))
 (##define-macro (macro-btq-leftmost node)       `(macro-struct-slot 7 ,node))
-(##define-macro (macro-btq-leftmost-set! node x)`(macro-struct-slot 7 ,node ,x))
+(##define-macro (macro-btq-leftmost-atomic-ref node)
+  `(##c-code
+    "___WORD *___s = ___BODY_AS(___ARG1, ___tSTRUCTURE) + 7;
+     ___RESULT = ___gc_atomic_slot_load(___s, 1);"
+    ,node))
+(##define-macro (macro-btq-leftmost-set! node x)
+  `(##c-code
+    "___WORD *___s = ___BODY_AS(___ARG1, ___tSTRUCTURE) + 7;
+     ___gc_atomic_slot_store_release(
+       ___ps, ___ARG1, ___s, ___ARG2,
+       ___EXT(___gc_write_barrier_slow), ___EXT(___gc_satb_barrier_val));
+     ___RESULT = ___VOID;"
+    ,node ,x))
 (##define-macro (macro-btq-owner node)          `(macro-struct-slot 8 ,node))
 (##define-macro (macro-btq-owner-set! node x)   `(macro-struct-slot 8 ,node ,x))
 (##define-macro (macro-btq-lock2 node)          `(macro-struct-slot 9 ,node))
@@ -1217,6 +1229,7 @@
   (interrupts-tail  init: '())
   (last-processor   init: #f)
   (pinned           init: #f)
+  (control-state    init: #f)
 )
 
 ;;; Access to floating point fields.
@@ -1233,8 +1246,22 @@
 (##define-macro (macro-priority-boost-set! f x)    `(##f64vector-set! ,f 4 ,x))
 (##define-macro (macro-boosted-priority f)         `(##f64vector-ref ,f 5))
 (##define-macro (macro-boosted-priority-set! f x)  `(##f64vector-set! ,f 5 ,x))
+;; Public payloads and scheduling keys have separate contracts. Normalize at
+;; every producer, before consumers use the non-NaN ordered key. Branch around
+;; the stores, not a floating-point return value: the latter can force boxing
+;; and an implicit GC point in generated C while a queue lease is held.
+(##define-macro (macro-priority-key-set! floats index x)
+  ;; The target is private or protected by the complete mutation lease. Store
+  ;; the payload once, then canonicalize in place before publication. Keeping
+  ;; the numeric temporary in its F64 slot avoids a live boxed Scheme value
+  ;; across the branch and preserves single evaluation of the payload.
+  `(begin
+     (##f64vector-set! ,floats ,index ,x)
+     (if (##flnan? (##f64vector-ref ,floats ,index))
+         (##f64vector-set! ,floats ,index -inf.0))))
+
 (##define-macro (macro-effective-priority f)       `(##f64vector-ref ,f 6))
-(##define-macro (macro-effective-priority-set! f x)`(##f64vector-set! ,f 6 ,x))
+(##define-macro (macro-effective-priority-set! f x)`(macro-priority-key-set! ,f 6 ,x))
 
 (##define-macro (macro-thread-timeout t)
   `(macro-timeout (macro-thread-floats ,t)))
@@ -1279,20 +1306,14 @@
   `(macro-effective-priority-set! (macro-thread-floats ,t) ,x))
 
 (##define-macro (macro-make-thread-floats parent-thread)
-  `(let* ((floats
-           (macro-thread-floats ,parent-thread))
-          (base-priority
-           (macro-base-priority floats))
-          (priority-boost
-           (macro-priority-boost floats)))
-     (##f64vector
-      (macro-inexact-+0)
-      base-priority
-      (macro-quantum floats)
-      (macro-inexact-+0)
-      priority-boost
-      base-priority
-      base-priority)))
+  `(let* ((floats (macro-thread-floats ,parent-thread))
+          (base-priority (macro-base-priority floats))
+          (priority-boost (macro-priority-boost floats))
+          (result (##f64vector
+                   (macro-inexact-+0) base-priority (macro-quantum floats)
+                   (macro-inexact-+0) priority-boost base-priority -inf.0)))
+     (macro-effective-priority-set! result base-priority)
+     result))
 
 (##define-macro (macro-make-thread-end-condvar parent-thread)
   `(macro-make-condvar #f))
@@ -1484,69 +1505,45 @@
                 (macro-effective-priority floats1))))))
 
 (##define-macro (macro-thread-boost-and-clear-quantum-used! thread)
-  `(let ((thread ,thread))
-
-     (##declare (not interrupts-enabled))
-
-     (let ((floats (macro-thread-floats thread)))
-       (macro-quantum-used-set! floats (macro-inexact-+0))
-       (if (##not (##fl= (##fl+ (macro-base-priority floats)
-                                (macro-priority-boost floats))
-                         (macro-boosted-priority floats)))
-         (begin
-
-           ;; save old boosted priority for ##thread-boosted-priority-changed!
-
-           (macro-temp-set!
-            (macro-thread-floats (macro-current-processor))
-            (macro-boosted-priority floats))
-
-           (macro-boosted-priority-set!
-            floats
-            (##fl+ (macro-base-priority floats)
-                   (macro-priority-boost floats)))
-
-            (##thread-boosted-priority-changed! thread))))))
+  `(##thread-priority-update! ,thread #f 2))
 
 (##define-macro (macro-thread-unboost-and-clear-quantum-used! thread)
-  `(let ((thread ,thread))
+  `(##thread-priority-update! ,thread #f 3))
 
-     (##declare (not interrupts-enabled))
-
-     (let ((floats (macro-thread-floats thread)))
-       (macro-quantum-used-set! floats (macro-inexact-+0))
-       (if (##not (##fl= (macro-base-priority floats)
-                         (macro-boosted-priority floats)))
-         (begin
-
-           ;; save old boosted priority for ##thread-boosted-priority-changed!
-
-           (macro-temp-set!
-            (macro-thread-floats (macro-current-processor))
-            (macro-boosted-priority floats))
-
-           (macro-boosted-priority-set!
-            floats
-            (macro-base-priority floats))
-
-           (##thread-boosted-priority-changed! thread))))))
-
-(##define-macro (macro-thread-inherit-priority! thread parent);;;;;;;;;;;;;;;
+(##define-macro (macro-thread-inherit-priority! thread parent)
+  ;; Recompute from the actual owned queues, not a stale parent's scalar.
   `(let ((thread ,thread) (parent ,parent))
-
-     (##declare (not interrupts-enabled))
-
-     (let ((thread-floats (macro-thread-floats thread))
-           (parent-floats (macro-thread-floats parent)))
-       (if (##fl< (macro-effective-priority thread-floats)
-                  (macro-effective-priority parent-floats))
-         (begin
-           (macro-effective-priority-set!
-            thread-floats
-            (macro-effective-priority parent-floats))
-           (##thread-effective-priority-changed! thread #t))))))
+     (##thread-priority-update! thread #f 4)))
 
 ;;; Representation of thread mailboxes.
+
+(define-type priority-update
+  id: 824803b3-2917-4ad5-953e-eb0e6717635d
+  constructor: macro-make-priority-update
+  implementer: implement-type-priority-update
+  opaque:
+  macros:
+  prefix: macro-
+  unprintable:
+
+  (lock1 init: 0)
+  (lock2 init: 0)
+  (floats read-only: no-functional-setter:)
+  (queues read-only: no-functional-setter:)
+  (threads read-only: no-functional-setter:)
+  (owners read-only: no-functional-setter:)
+  (offsets read-only: no-functional-setter:)
+  (counts read-only: no-functional-setter:)
+  (next read-only: no-functional-setter:)
+)
+
+;; PRIMITIVELOCK addresses STRUCTURE fields. A vector may carry a different
+;; primary tag; it is not a lock record even when its body has ticket words.
+(##define-macro (macro-trylock-priority-update! work)
+  `(##primitive-trylock! ,work 1 2))
+
+(##define-macro (macro-unlock-priority-update! work)
+  `(##primitive-unlock! ,work 1 2))
 
 (define-type mailbox
   id: f1bd59e2-25fc-49af-b624-e00f0c5975f8
@@ -1573,6 +1570,26 @@
      (macro-construct-mailbox mutex condvar fifo #f)))
 
 ;;; Representation of mutexes.
+
+(##define-macro (macro-make-thread-request target thunk completion state result)
+  ;; Same intrusive vector prefix as processor callbacks. Slot0 is queue-owned;
+  ;; target/thunk/completion are immutable; completion's lock owns state/result.
+  `(##vector '() ,target ,thunk ,completion ,state ,result))
+
+(##define-macro (macro-thread-request? obj)
+  `(let ((obj ,obj))
+     (and (##vector? obj)
+          (##fx= (##vector-length obj) 6)
+          (macro-thread? (##vector-ref obj 1))
+          (macro-mutex? (##vector-ref obj 3)))))
+
+(##define-macro (macro-thread-request-target request) `(##vector-ref ,request 1))
+(##define-macro (macro-thread-request-thunk request) `(##vector-ref ,request 2))
+(##define-macro (macro-thread-request-completion request) `(##vector-ref ,request 3))
+(##define-macro (macro-thread-request-state request) `(##vector-ref ,request 4))
+(##define-macro (macro-thread-request-state-set! request value) `(##vector-set! ,request 4 ,value))
+(##define-macro (macro-thread-request-result request) `(##vector-ref ,request 5))
+(##define-macro (macro-thread-request-result-set! request value) `(##vector-set! ,request 5 ,value))
 
 (define-type mutex
   id: 42fe9aac-e9c6-4227-893e-a0ad76f58932
@@ -1654,33 +1671,37 @@
      ;; acquire low-level lock of mutex
      (macro-lock-mutex! mutex)
 
-     ;; acquire low-level lock of thread
-     (macro-lock-thread! new-owner)
-
      (let ((owner (macro-btq-owner mutex)))
-       (if (and (##eq? owner (macro-mutex-state-not-abandoned))
-                (##not (macro-terminated-thread-given-initialized? new-owner)))
+       (if (##eq? owner (macro-mutex-state-not-abandoned))
            (begin
+             ;; acquire low-level lock of thread only on unlocked fast path
+             (macro-lock-thread! new-owner)
+             (if (##not (macro-terminated-thread-given-initialized? new-owner))
+                 (begin
 
-             ;; Fast path... the mutex's state is unlocked/not-abandoned.
+                   ;; Fast path... the mutex's state is unlocked/not-abandoned.
 
-             ;; thread becomes the mutex's owner
-             (macro-btq-link! mutex new-owner)
+                   ;; thread becomes the mutex's owner
+                   (macro-btq-link! mutex new-owner)
 
-             ;; release low-level lock of thread
-             (macro-unlock-thread! new-owner)
+                   ;; release low-level lock of thread
+                   (macro-unlock-thread! new-owner)
 
-             ;; release low-level lock of mutex
-             (macro-unlock-mutex! mutex)
+                   ;; release low-level lock of mutex
+                   (macro-unlock-mutex! mutex)
 
-             #t) ;; signal success
+                   #t) ;; signal success
+
+                 (begin
+                   (macro-unlock-thread! new-owner)
+                   (##mutex-lock-unlocked-owner-out-of-line! mutex absrel-timeout new-owner))))
 
            (begin
 
              ;; Slow path... the mutex's state is not unlocked/not-abandoned.
 
-             ;; handle this case out of line
-             (##mutex-lock-out-of-line! mutex absrel-timeout new-owner))))))
+             ;; handle this case out of line without locking new-owner
+             (##mutex-lock-unlocked-owner-out-of-line! mutex absrel-timeout new-owner))))))
 
 (##define-macro (macro-mutex-lock-anonymously! mutex absrel-timeout)
   `(let ((mutex ,mutex) (absrel-timeout ,absrel-timeout))
@@ -1730,13 +1751,17 @@
 
 (##define-macro (macro-mutex-unlock! mutex)
   `(let ((mutex ,mutex))
+     (##declare (not interrupts-enabled))
+     (##check-heap-limit)
+     (macro-lock-mutex! mutex)
+     (macro-mutex-unlock-with-acquired-lock! mutex)))
+
+;; The caller owns the low-level lock and a complete no-GC root view.
+;; One lock lease covers result publication and physical ownership transfer.
+(##define-macro (macro-mutex-unlock-with-acquired-lock! mutex)
+  `(let ((mutex ,mutex))
 
      (##declare (not interrupts-enabled))
-
-     (##check-heap-limit) ;; prevent GC while mutex is locked
-
-     ;; acquire low-level lock of mutex
-     (macro-lock-mutex! mutex)
 
      ;; get first waiting thread
      (macro-if-btq-next
@@ -1920,6 +1945,7 @@
 
 (##define-macro (macro-make-tgroup name parent)
   `(let ((name ,name) (parent ,parent))
+     (##declare (not interrupts-enabled))
      (let* ((tgroups
              (macro-construct-tgroups #f #f #f))
             (tgroup
@@ -1942,9 +1968,12 @@
        (macro-tgroup-tgroups-deq-init! tgroups)
        (macro-tgroup-threads-deq-init! tgroup)
        (if parent
-         (macro-tgroup-tgroups-deq-insert-at-tail!
-          (macro-tgroup-tgroups parent)
-          tgroup))
+         (begin
+           (macro-lock-tgroup! parent)
+           (macro-tgroup-tgroups-deq-insert-at-tail!
+            (macro-tgroup-tgroups parent)
+            tgroup)
+           (macro-unlock-tgroup! parent)))
        tgroup)))
 
 (define-deq
@@ -3399,6 +3428,7 @@
   (interrupts-head  init: '())
   (interrupts-tail  init: '())
   (last-processor   init: #f) ;; last processor that executed thread or #f
+  (control-state    init: #f)
 )
 
 ;;; Access to floating point fields.

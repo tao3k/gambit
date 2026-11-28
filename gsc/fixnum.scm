@@ -703,6 +703,7 @@ copy-loc
 copy-opnd
 debug-info-add!
 debug-info-generate
+debug-info-skip!
 enter-opnd
 frame-closed
 frame-live
@@ -1985,6 +1986,7 @@ targ-lbl-val?
 targ-make-glbl
 targ-res-op
 targ-scan-procedure
+targ-scan-procedure-end!
 ))
 
 ;;-----------------------------------------------------------------------------
@@ -2004,6 +2006,14 @@ targ-fixnum32?
 targ-fixnum64?
 targ-flonum?
 targ-gc-map-chunks
+targ-make-frame-spec
+targ-frame-spec-kind
+targ-frame-spec-stored-fs
+targ-frame-spec-actual-fs
+targ-frame-spec-link
+targ-frame-spec-gc-map
+targ-frame-spec-out-of-line?
+targ-frame-spec-chunks
 targ-hash
 targ-iflonum?
 targ-imag-part
@@ -2024,7 +2034,6 @@ targ-numerator
 targ-obj-subtype
 targ-obj-subtype-integer
 targ-obj-type
-targ-out-of-line-frame?
 targ-real-part
 targ-s32->hex-string
 targ-s64->hi-lo-bits

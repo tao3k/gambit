@@ -10,10 +10,6 @@
 
 /*---------------------------------------------------------------------------*/
 
-#define DECLARE_HASH_MUTEX(name,size) ___MUTEX name[size]
-
-#define HASH_MUTEX_SIZE 67
-
 
 typedef struct ___thread_module_struct
   {
@@ -22,10 +18,6 @@ typedef struct ___thread_module_struct
     int processor0_cpu_id;  /* cpu id of processor 0 */
     int cpu_count[2];       /* cpu count for: performant and efficient cpus */
     int core_count;         /* core count */
-
-#ifdef ___USE_emulated_sync
-    DECLARE_HASH_MUTEX(hash_mutex,HASH_MUTEX_SIZE);
-#endif
 
 #ifndef ___THREAD_LOCAL_STORAGE_CLASS
 

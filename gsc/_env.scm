@@ -63,9 +63,18 @@
 
 (define (env-frame env vars)
   (vector
-   ;; cell containing variables in this frame and an association between each
-   ;; symbol and it's namespace
-   (cons vars #f)
+   ;; All functional views of the frame share the ordered list and, for a
+   ;; global frame, its name index. Lexical frames keep the existing list.
+   (cons vars
+         (and (not env)
+              (let ((index (make-table 'test: eq?)))
+                (for-each
+                 (lambda (var)
+                   (let ((name (var-name var)))
+                     (if (not (table-ref index name #f))
+                         (table-set! index name var))))
+                 vars)
+                index)))
    ;; macro definitions
    '()
    ;; declarations
@@ -81,8 +90,11 @@
 
 (define (env-new-var! env name source)
   (let* ((glob (not (env-parent-ref env)))
-         (var (make-var name (not glob) (ptset-empty) (ptset-empty) source #f)))
-    (env-vars-set! env (cons var (env-vars-ref env)))
+         (var (make-var name (not glob) (ptset-empty) (ptset-empty) source #f))
+         (frame (vector-ref env 0)))
+    (if glob
+        (table-set! (cdr frame) name var))
+    (set-car! frame (cons var (car frame)))
     var))
 
 (define (env-macro env name def)
@@ -122,12 +134,23 @@
           (env-externals-ref env)))
 
 (define (env-vars-ref env)              (car (vector-ref env 0)))
-(define (env-vars-set! env vars)        (set-car! (vector-ref env 0) vars))
 (define (env-macros-ref env)            (vector-ref env 1))
 (define (env-decl-ref env)              (vector-ref env 2))
 (define (env-namespace-ref env)         (vector-ref env 3))
 (define (env-parent-ref env)            (vector-ref env 4))
 (define (env-externals-ref env)         (vector-ref env 5))
+
+(define (env-frame-lookup-var env name)
+  (let* ((frame (vector-ref env 0))
+         (index (cdr frame)))
+    (if index
+        (table-ref index name #f)
+        (let loop ((vars (car frame)))
+          (and (pair? vars)
+               (let ((var (car vars)))
+                 (if (eq? (var-name var) name)
+                     var
+                     (loop (cdr vars)))))))))
 
 (define (env-namespace-lookup env name)
   (let loop ((lst (env-namespace-ref env)))
@@ -159,6 +182,99 @@
         #f)))
 
 
+;; One index per macro-list object. The first binding in the list wins, matching
+;; the previous left-to-right scan. A new list is a new binding generation, so
+;; the index is not reused for a different list, parent, or namespace.
+;; A generation that only conses onto an already indexed tail shares that tail
+;; index. The new binding is an overlay and wins over the same name in the tail.
+;; Long unindexed spines still build one table. Overlay chains flatten so a
+;; lookup does not walk every generation.
+(define macro-list-index (make-table 'test: eq? 'weak-keys: #t))
+(define macro-index-miss (cons 'macro-index-miss '()))
+(define macro-overlay-limit 32)
+
+(define (macro-list-cached lst)
+  (table-ref macro-list-index lst #f))
+
+(define (macro-list-empty)
+  (make-table 'test: eq?))
+
+(define (macro-list-ref node name)
+  (let loop ((node node))
+    (cond ((table? node)
+           (table-ref node name macro-index-miss))
+          ((eq? (vector-ref node 1) name)
+           (vector-ref node 2))
+          (else
+           (loop (vector-ref node 3))))))
+
+(define (macro-list-flatten node)
+  (let ((index (macro-list-empty)))
+    (let loop ((node node))
+      (cond ((table? node)
+             (table-for-each
+               (lambda (k v)
+                 (if (eq? (table-ref index k macro-index-miss)
+                          macro-index-miss)
+                     (table-set! index k v)))
+               node))
+            (else
+             (let ((name (vector-ref node 1)))
+               (if (eq? (table-ref index name macro-index-miss)
+                        macro-index-miss)
+                   (table-set! index name (vector-ref node 2))))
+             (loop (vector-ref node 3)))))
+    index))
+
+(define (macro-list-extend name value base)
+  (let ((depth (if (table? base)
+                   1
+                   (+ 1 (vector-ref base 4)))))
+    (if (> depth macro-overlay-limit)
+        (let ((index (macro-list-flatten base)))
+          (table-set! index name value)
+          index)
+        (vector 'macro-overlay name value base depth))))
+
+(define (macro-list-prefix-length lst limit)
+  (let loop ((lst lst) (n 0))
+    (cond ((>= n limit) n)
+          ((or (not (pair? lst)) (macro-list-cached lst)) n)
+          (else (loop (cdr lst) (+ n 1))))))
+
+(define (macro-list-suffix lst n)
+  (if (= n 0)
+      lst
+      (macro-list-suffix (cdr lst) (- n 1))))
+
+(define (macro-list-overlay-prefix lst base n)
+  (if (= n 0)
+      base
+      (let ((rest (macro-list-overlay-prefix (cdr lst) base (- n 1))))
+        (let ((head (car lst)))
+          (macro-list-extend (car head) (cdr head) rest)))))
+
+(define (macro-list-table macros)
+  (or (table-ref macro-list-index macros #f)
+      (let ((n (macro-list-prefix-length macros macro-overlay-limit)))
+        (if (and (> n 0) (< n macro-overlay-limit))
+            (let* ((suffix (macro-list-suffix macros n))
+                   (base (or (macro-list-cached suffix)
+                             (macro-list-empty)))
+                   (index (macro-list-overlay-prefix macros base n)))
+              (table-set! macro-list-index macros index)
+              index)
+            (let ((index (make-table 'test: eq?)))
+              (let loop ((lst macros))
+                (if (pair? lst)
+                    (let ((name (caar lst)))
+                      (if (eq? (table-ref index name macro-index-miss)
+                               macro-index-miss)
+                          (table-set! index name (cdar lst)))
+                      (loop (cdr lst)))))
+              (table-set! macro-list-index macros index)
+              index)))))
+
 (define (env-lookup env name stop-at-first-frame? proc)
   (define (search env name full?)
     (if full?
@@ -177,24 +293,14 @@
   (define (search* env name full?)
 
     (define (search-macros macros)
-      (if (pair? macros)
-          (let ((m (car macros)))
-            (if (eq? (car m) name)
-                (proc env name (cdr m))
-                (search-macros (cdr macros))))
-          (search-vars (env-vars-ref env))))
-
-    (define (search-vars vars)
-      (if (pair? vars)
-          (let* ((v (car vars))
-                 (vn (var-name v)))
-            (if (eq? vn name)
-                (proc env name v)
-                (search-vars (cdr vars))))
-          (let ((env* (env-parent-ref env)))
-            (if (or stop-at-first-frame? (not env*))
-                (proc env name #f)
-                (search env* name full?)))))
+      (let ((hit (macro-list-ref (macro-list-table macros) name)))
+        (if (not (eq? hit macro-index-miss))
+            (proc env name hit)
+            (let ((var (env-frame-lookup-var env name))
+                  (parent (env-parent-ref env)))
+              (cond (var (proc env name var))
+                    ((or stop-at-first-frame? (not parent)) (proc env name #f))
+                    (else (search parent name full?)))))))
 
     (search-macros (env-macros-ref env)))
 
@@ -244,16 +350,8 @@
 
 (define (env-lookup-global-var env name)
   (let ((env* (env-global-env env)))
-
-    (define (search-vars vars)
-      (if (pair? vars)
-          (let ((v (car vars)))
-            (if (eq? (var-name v) name)
-                v
-                (search-vars (cdr vars))))
-          (env-new-var! env* name #f)))
-
-    (search-vars (env-vars-ref env*))))
+    (or (env-frame-lookup-var env* name)
+        (env-new-var! env* name #f))))
 
 (define (env-global-variables env)
   (env-vars-ref (env-global-env env)))

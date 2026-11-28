@@ -1,0 +1,3 @@
+/* Mutation authority belongs to the actual lifecycle activation and RC source
+ * gate. No parallel token table, actor id or fixed admission capacity exists.
+ * This composition boundary intentionally declares no additional VM storage. */

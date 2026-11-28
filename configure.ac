@@ -521,13 +521,66 @@ AC_ARG_ENABLE(optimized-module-limit,
               AS_HELP_STRING([--enable-optimized-module-limit=N],
                              [set the maximal size of a module to use the normal C compilation optimization level (N is the number of control points in the module beyond which the optimization level is lowered; N=0 deactivates the lowering of the optimization level; N=20000 is the default)]),
               ENABLE_OPTIMIZED_MODULE_LIMIT=$enableval,
-              ENABLE_OPTIMIZED_MODULE_LIMIT=20000)
+              ENABLE_OPTIMIZED_MODULE_LIMIT=6000)
 
 CONF_OPTIMIZED_MODULE_LIMIT="$ENABLE_OPTIMIZED_MODULE_LIMIT"
 
+AC_ARG_ENABLE(optimized-host-limit,
+              AS_HELP_STRING([--enable-optimized-host-limit@<:@=auto|0|N@:>@],
+                             [set the maximal size of a single C host procedure to use the normal C compilation optimization level (auto derives max(1, optimized-module-limit / 8) when optimized-module-limit > 0 else 0; 0 deactivates per-host lowering; default is auto)]),
+              ENABLE_OPTIMIZED_HOST_LIMIT=$enableval,
+              ENABLE_OPTIMIZED_HOST_LIMIT=auto)
+
+case "$ENABLE_OPTIMIZED_HOST_LIMIT" in
+  auto|yes)
+    if test "$ENABLE_OPTIMIZED_MODULE_LIMIT" = "0" || test "$ENABLE_OPTIMIZED_MODULE_LIMIT" = "no"; then
+      CONF_OPTIMIZED_HOST_LIMIT="0"
+    else
+      CONF_OPTIMIZED_HOST_LIMIT=`expr "$ENABLE_OPTIMIZED_MODULE_LIMIT" / 8`
+      if test "$CONF_OPTIMIZED_HOST_LIMIT" -lt 1 2>/dev/null; then
+        CONF_OPTIMIZED_HOST_LIMIT="1"
+      fi
+    fi
+    ;;
+  off|no)
+    CONF_OPTIMIZED_HOST_LIMIT="0"
+    ;;
+  *)
+    CONF_OPTIMIZED_HOST_LIMIT="$ENABLE_OPTIMIZED_HOST_LIMIT"
+    ;;
+esac
+
 AC_SUBST(CONF_OPTIMIZED_MODULE_LIMIT)
+AC_SUBST(CONF_OPTIMIZED_HOST_LIMIT)
 AC_SUBST(CONF_GNUC_HOST_FUNCTION_ATTRIBUTES_UNOPTIMIZED_MODULE)
 AC_SUBST(CONF_GNUC_HOST_FUNCTION_ATTRIBUTES_OPTIMIZED_MODULE)
+
+###############################################################################
+#
+# Configure STW drained-fromspace OS page reclamation policy:
+#   auto (default): adapt section threshold to machine RAM, cache/min_heap, and max_heap
+#   off / no      : disable page reclamation (zero syscalls)
+#   N (N >= 1)    : explicit minimum msection threshold
+
+AC_ARG_ENABLE(gc-fromspace-reclaim,
+              AS_HELP_STRING([--enable-gc-fromspace-reclaim@<:@=auto|off|N@:>@],
+                             [STW drained-fromspace OS page reclamation policy: auto adapts to machine RAM, cache, and max_heap; off disables; N>=1 sets explicit minimum section threshold (default is auto)]),
+              ENABLE_GC_FROMSPACE_RECLAIM=$enableval,
+              ENABLE_GC_FROMSPACE_RECLAIM=auto)
+
+case "$ENABLE_GC_FROMSPACE_RECLAIM" in
+  auto|yes)
+    CONF_GC_FROM_RECLAIM_MIN_SECTIONS="0"
+    ;;
+  off|no)
+    CONF_GC_FROM_RECLAIM_MIN_SECTIONS="-1"
+    ;;
+  *)
+    CONF_GC_FROM_RECLAIM_MIN_SECTIONS="$ENABLE_GC_FROMSPACE_RECLAIM"
+    ;;
+esac
+
+AC_SUBST(CONF_GC_FROM_RECLAIM_MIN_SECTIONS)
 
 ###############################################################################
 #
@@ -1478,6 +1531,10 @@ AC_CHECK_C_COMPILER_DEF(_MSC_VER,C_COMP_VISUALC)
 #AC_CHECK_C_COMPILER_DEF(__BORLANDC__,C_COMP_BORLANDC)
 AC_CHECK_C_COMPILER_DEF(_WIN32,OS_WIN32)
 
+# Persist completed observations when the caller selected a standard cache.
+# A later interrupted configure still has no completed configuration receipt.
+AC_CACHE_SAVE
+
 ALL_BUILD_FEATURES="unix windows gcc clang visualc cc"
 
 if test "$C_COMP_CLANG" = yes; then
@@ -2116,6 +2173,8 @@ fi
 #
 # Determine which thread system to use.
 
+AC_CACHE_SAVE
+
 # Check for threading system early, in case this has an impact on
 # other functionality.
 
@@ -2428,11 +2487,6 @@ if test "$C_COMP_GNUC" = yes; then
 
   fi
 
-  if test "$DASH_fexpensive_optimizations" != ""; then
-    # turn off expensive optimizations when module is beyond normal limit
-    CONF_GNUC_HOST_FUNCTION_ATTRIBUTES_UNOPTIMIZED_MODULE="__attribute__ ((optimize (\"no-expensive-optimizations\")))"
-  fi
-
   # preprocessor options:
   AC_CHECK_C_COMPILER_OPT(-no-cpp-precomp,DASH_no_cpp_precomp)
 
@@ -2533,6 +2587,22 @@ if test "$C_COMP_GNUC" = yes; then
     AC_CHECK_C_COMPILER_OPT(-fmodulo-sched,DASH_fmodulo_sched)
     AC_CHECK_C_COMPILER_OPT(-freschedule-modulo-scheduled-loops,DASH_freschedule_modulo_scheduled_loops)
 
+  fi
+
+  if test "$DASH_fexpensive_optimizations" != ""; then
+    # turn off expensive and quadratic scheduling/invariant passes when module
+    # exceeds --enable-optimized-module-limit (preserving -O1 codegen and all flags)
+    unopt_host_opts="\"no-expensive-optimizations\""
+    if test "$DASH_fschedule_insns2" != ""; then
+      unopt_host_opts="$unopt_host_opts, \"no-schedule-insns2\""
+    fi
+    if test "$DASH_fno_move_loop_invariants" != ""; then
+      unopt_host_opts="$unopt_host_opts, \"no-move-loop-invariants\""
+    fi
+    if test "$DASH_fmodulo_sched" != ""; then
+      unopt_host_opts="$unopt_host_opts, \"no-modulo-sched\""
+    fi
+    CONF_GNUC_HOST_FUNCTION_ATTRIBUTES_UNOPTIMIZED_MODULE="__attribute__ ((optimize ($unopt_host_opts)))"
   fi
 
   # code generation options:
@@ -2975,6 +3045,50 @@ else
 fi
 fi
 
+# Modern C baseline: keep the existing configure/Make interface.
+if test "$ENABLE_CPLUSPLUS" = yes; then
+  AC_MSG_ERROR([the modern C runtime requires a C23 compiler])
+fi
+gambit_saved_cflags=$CFLAGS
+if test "$C_COMP_VISUALC" = yes; then
+  gambit_c23_flag="/std:clatest"
+else
+  gambit_c23_flag="-std=c23"
+fi
+CFLAGS="$CFLAGS $gambit_c23_flag"
+AC_MSG_CHECKING([for the modern C23 language contract])
+AC_COMPILE_IFELSE([AC_LANG_SOURCE([[
+#if defined(_MSC_VER)
+#if !defined(__STDC_VERSION__) || __STDC_VERSION__ < 201710L
+#error A modern C compiler is required
+#endif
+#elif !defined(__STDC_VERSION__) || __STDC_VERSION__ < 202311L
+#error A C23 compiler is required
+#endif
+int main(void) { return 0; }
+]])], [AC_MSG_RESULT([yes])],
+       [AC_MSG_ERROR([C23 is required])])
+CFLAGS=$gambit_saved_cflags
+FLAGS_OBJ_DYN="$FLAGS_OBJ_DYN $gambit_c23_flag"
+
+# Under strict -std=c23 on Linux/glibc, expose POSIX.1-2008 declarations
+# (such as sigset_t in <signal.h>) even when user/test C files include
+# standard headers before gambit.h without defining HAVE_CONFIG_H.
+case "$target_os" in
+  *linux*)
+    FLAGS_OBJ_DYN="$FLAGS_OBJ_DYN -D_POSIX_C_SOURCE=200809L" ;;
+esac
+
+# Compact diagnostic provenance does not remove semantic macro expansion.
+case "$target_os" in
+  darwin*)
+    if test "$C_COMP_GNUC" = yes -a "$C_COMP_CLANG" != yes -a "$C_COMP_LLVM" != yes; then
+      AC_CHECK_C_COMPILER_OPT([-ftrack-macro-expansion=0], [GAMBIT_MACRO_COMPACT_ACCEPTED], [ -Werror])
+      if test "$GAMBIT_MACRO_COMPACT_ACCEPTED" != ""; then
+        FLAGS_OBJ_DYN="$FLAGS_OBJ_DYN -ftrack-macro-expansion=0"
+      fi
+    fi ;;
+esac
 FLAGS_OBJ="$FLAGS_OBJ $FLAGS_OBJ_DYN $FLAGS_OBJ_DYN_LIB_EXE"
 FLAGS_DYN="$FLAGS_DYN $FLAGS_OBJ_DYN $FLAGS_OBJ_DYN_LIB_EXE $FLAGS_DYN_LIB"
 FLAGS_LIB="$FLAGS_LIB $FLAGS_OBJ_DYN_LIB_EXE $FLAGS_DYN_LIB"
@@ -2985,6 +3099,8 @@ DEFS_OBJ="$DEFS_OBJ_DYN_LIB_EXE $DEFS_OBJ"
 DEFS_DYN="$DEFS_OBJ_DYN_LIB_EXE $DEFS_DYN"
 DEFS_LIB="$DEFS_OBJ_DYN_LIB_EXE $DEFS_LIB"
 DEFS_EXE="$DEFS_OBJ_DYN_LIB_EXE $DEFS_EXE"
+
+AC_CACHE_SAVE
 
 ###############################################################################
 #
@@ -3234,7 +3350,7 @@ else
 
     LIB_PREFIX="lib"
     LIB_EXTENSION=".a"
-    MAKE_LIBRARY='$(AR) rc $(LIBRARY)$(LIB_VERSION_SUFFIX) $(LIBRARY_OBJECTS) && $(RANLIB) $(LIBRARY)$(LIB_VERSION_SUFFIX)'
+    MAKE_LIBRARY='$(WITNESS_ARCHIVE) $(AR) rc $(LIBRARY)$(LIB_VERSION_SUFFIX) $(LIBRARY_OBJECTS) && $(WITNESS_INDEX) $(RANLIB) $(LIBRARY)$(LIB_VERSION_SUFFIX)'
     MAKE_LIBRARY_FOR_INSTALL=':'
     FIXLIB='$(RANLIB)'
     LINK_FOR_INSTALL=':'
@@ -3356,7 +3472,12 @@ case "$target_os" in
 #define ___SCRIPT_LINE 0
 #define ___MAX_CHR 0x10ffff
 #define ___VOIDSTAR_WIDTH ___LONG_WIDTH
-#include "gambit.h.in"
+_ACEOF
+
+           sed -n 's/^#include "\(.*\)"$/\1/p' "$srcdir/include/gambit.h.in" |
+             while IFS= read -r header; do cat "$srcdir/include/$header"; done >>conftest.$ac_ext
+
+           cat >>conftest.$ac_ext <<_ACEOF
 
 ___BEGIN_MOD1
 ___END_MOD1
@@ -3846,15 +3967,23 @@ AC_SUBST(ENABLE_VERSIONED_SHARED_LIBS)
 AC_SUBST(emacsdir)
 AC_SUBST(HELP_BROWSER)
 AC_SUBST(COMPILATION_OPTIONS)
+dnl Bind Scheme generation to configuration through the existing feature header.
+dnl AC_CONFIG_HEADERS preserves its timestamp when the effective contents match.
+AC_DEFINE_UNQUOTED([___RTLIB_COND_EXPAND_FEATURES],
+                  ["$RTLIB_COND_EXPAND_FEATURES"],
+                  [Configured target Scheme cond-expand prelude])
+AC_DEFINE_UNQUOTED([___GSC_COMPILATION_OPTIONS],
+                  ["$COMPILATION_OPTIONS"],
+                  [Configured Scheme compiler generation options])
 AC_SUBST(RTLIB_COND_EXPAND_FEATURES)
 AC_SUBST(BUILD_TARGETS)
 
 AC_PROG_MAKE_SET
+AC_PROG_AWK
 
 AC_CONFIG_FILES( \
 makefile \
 include/makefile \
-include/gambit.h \
 lib/makefile \
 lib/module-common.mk \
 $RTLIBMAKEFILES \
@@ -3912,6 +4041,10 @@ prebuilt/windows/makefile \
 prebuilt/windows/build-phase2 \
 githooks/makefile \
 )
+dnl Keep one header publication owner; the Make target derives every input
+dnl from include/gambit.h.in and compares output before replacing it.
+AC_CONFIG_COMMANDS([include/gambit.h],
+  [(cd include && ${MAKE-make} gambit.h) || exit $?])
 AC_OUTPUT
 
 if test "$ENABLE_MARCH" = "no_enable_march"; then

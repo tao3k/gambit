@@ -191,6 +191,16 @@
   (lambda (program)
     program))
 
+(define (front-trace-phase name)
+  (if (with-exception-catcher
+        (lambda (e) #f)
+        (lambda () (getenv "GAMBIT_GSC_TRACE_PHASES" #f)))
+      (begin
+        (display "phase ")
+        (display name)
+        (newline)
+        (force-output))))
+
 (define (compile-frontend-aux
          input
          opts
@@ -213,12 +223,17 @@
               output-filename
               (string-append root (caar target.file-extensions))))
          (v1
-          (if (source? input)
-              (vector #f (sourcify-deep input input))
-              (read-source input #f #t)))
+          (begin
+            (front-trace-phase "read-source")
+            (if (source? input)
+                (vector #f (sourcify-deep input input))
+                (read-source input #f #t))))
          (script-line (vector-ref v1 0))
          (expr (vector-ref v1 1))
-         (program (expand-source (wrap-program expr)))
+         (program
+          (begin
+            (front-trace-phase "expand")
+            (expand-source (wrap-program expr))))
          (module-ref
           (cond ((assq 'module-ref opts) => cadr)
                 (else
@@ -232,11 +247,13 @@
           (if script-line
               (**compilation-meta-info-add! 'script-line script-line))
           (**compilation-module-ref-set! module-ref)
-          (parse-program
-           program
-           (make-global-environment)
-           module-ref
-           vector))))
+          (begin
+            (front-trace-phase "parse")
+            (parse-program
+             program
+             (make-global-environment)
+             module-ref
+             vector)))))
      (lambda (v2 comp-ctx)
 
        (if (null? (**macro-compilation-ctx-supply-modules comp-ctx))
@@ -247,7 +264,10 @@
        (let* ((lst (vector-ref v2 0))
               (env (vector-ref v2 1))
               (c-intf (vector-ref v2 2))
-              (parsed-program (normalize-program lst)))
+              (parsed-program
+               (begin
+                 (front-trace-phase "normalize")
+                 (normalize-program lst))))
 
          (let* ((externals (env-externals-ref env))
                 (name->ref-alist (map (lambda (var) (cons
@@ -574,7 +594,10 @@
 
         (for-each
           (lambda (x)
-            (display x port)
+            (display (if (and (pair? x) (eq? (car x) 'c-procedure-host-decl))
+                         (cdr x)
+                         x)
+                     port)
             (newline port))
           decls)
 

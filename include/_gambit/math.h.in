@@ -1,0 +1,93 @@
+/*---------------------------------------------------------------------------*/
+
+/* C math library properties. */
+
+#ifndef ___DONT_HAVE_MATH_H
+#include <math.h>
+#endif
+
+
+#ifdef ___OS_WIN32
+
+/*
+ * Older versions of the Microsoft Visual C compilers did not
+ * implement some important math functions.  So we need to define them
+ * in the Gambit runtime system.  We do this even if using another
+ * C compiler, such as gcc, in order to allow dynamically compiled
+ * Scheme files to be compiled with a C compiler different from the
+ * C compiler used for compiling the Gambit runtime system.  If this
+ * wasn't done, the offsets of the fields in ___global_state_struct
+ * would be different, causing calls to the wrong conversion functions.
+ */
+
+#define ___DEFINE_SCALBN
+#define ___DEFINE_ILOGB
+#define ___DEFINE_EXPM1
+#define ___DEFINE_LOG1P
+#define ___DEFINE_ASINH
+#define ___DEFINE_ACOSH
+#define ___DEFINE_ATANH
+#define ___DEFINE_ATAN2
+#define ___DEFINE_POW
+#define ___DEFINE_HYPOT
+
+#endif
+
+#ifdef _MSC_VER
+
+#if _MSC_VER >= 1800
+
+/*
+ * Starting with version 18 (released in 2013), the following
+ * functions are supported by the C math library.
+ */
+
+#define ___HAVE_GOOD_SCALBN
+#define ___HAVE_GOOD_ILOGB
+#define ___HAVE_GOOD_EXPM1
+#define ___HAVE_GOOD_LOG1P
+#define ___HAVE_GOOD_ASINH
+#define ___HAVE_GOOD_ACOSH
+#define ___HAVE_GOOD_ATANH
+
+#if _MSC_VER >= 1900
+#define ___HAVE_GOOD_HYPOT
+#endif
+
+#endif
+
+/*
+ * The following functions seem to be implemented in old versions.
+ */
+
+#define ___HAVE_GOOD_SINH
+#define ___HAVE_GOOD_COSH
+#define ___HAVE_GOOD_TANH
+
+#else
+
+/*
+ * On other C compilers, we assume that the following math functions
+ * are implemented.
+ */
+
+#define ___HAVE_GOOD_SCALBN
+#define ___HAVE_GOOD_ILOGB
+#define ___HAVE_GOOD_EXPM1
+#define ___HAVE_GOOD_LOG1P
+#define ___HAVE_GOOD_ASINH
+#define ___HAVE_GOOD_ACOSH
+#define ___HAVE_GOOD_ATANH
+#define ___HAVE_GOOD_SINH
+#define ___HAVE_GOOD_COSH
+#define ___HAVE_GOOD_TANH
+#define ___HAVE_GOOD_POW
+#define ___HAVE_GOOD_ATAN2
+
+#ifndef __MINGW32__
+#define ___HAVE_GOOD_HYPOT
+#endif
+
+#endif
+
+

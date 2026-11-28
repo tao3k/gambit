@@ -223,3 +223,7 @@ lib/_gambit.rb
 # Library build products, for example:
 # lib/_define-library/_define-library@gambit409003@C/
 *@gambit*@*
+
+# Header publication state; the manifest and fragments remain sources.
+/include/stamp-gambit
+/include/gambit.h.tmp.*

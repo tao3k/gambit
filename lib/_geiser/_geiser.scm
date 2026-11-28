@@ -127,20 +127,12 @@
          (procedure? (##global-var-ref (##make-global-var sym)))))
 
   (define (environment-symbols)
-    (let ((symtab (##symbol-table)))
-      (let loop1 ((i (- (vector-length symtab) 1))
-                  (result '()))
-        (if (> i 0)
-            (let loop2 ((sym (vector-ref symtab i))
-                        (result result))
-              (if (symbol? sym)
-                  (loop2 (##vector-ref sym 2)
-                         (if (interesting? sym)
-                             (cons (symbol->string sym) result)
-                             result))
-                  (loop1 (- i 1)
-                         result)))
-            result))))
+    (##symbol-table-foldl
+     (lambda (result sym)
+       (if (interesting? sym)
+           (cons (symbol->string sym) result)
+           result))
+     '()))
 
   (sort-list (environment-symbols) string-ci<?))
 

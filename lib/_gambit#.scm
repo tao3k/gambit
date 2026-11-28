@@ -685,6 +685,7 @@
 (##define-macro (macro-gc-hash-table-flag-mem-alloc-keys) 16)
 (##define-macro (macro-gc-hash-table-flag-need-rehash)    32)
 (##define-macro (macro-gc-hash-table-flag-union-find)     64)
+(##define-macro (macro-gc-hash-table-flag-scheme-index)  128)
 
 ;;- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -849,6 +850,8 @@
          (name-folded-result 'folded-result)
          (param-name-map
           (list (cons name-param1 'param1) (cons name-param2 'param2)))
+         (binary-case (and (eq? (car two) 'binary-case) (cadr two)))
+         (two (if binary-case (caddr two) two))
          (two-wrap
           (if (pair? (cadr two)) (car two) #f))
          (two-call
@@ -947,8 +950,8 @@
 
     (define (exactly-2-args)
       (add-post-checks
-       two-wrap
-       (rewrite two-call)
+       (and (not binary-case) two-wrap)
+       (rewrite (or binary-case two-call))
        #f
        #f))
 

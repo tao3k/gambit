@@ -747,24 +747,24 @@
 #ifdef HAVE_MSGWAITFORMULTIPLEOBJECTS
 #define USE_MsgWaitForMultipleObjects
 #else
-#ifdef HAVE_POLL
+#if !defined(USE_POLL_FOR_SELECT) && !defined(USE_LEGACY_SELECT) && \
+    (defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__) || \
+     defined(__NetBSD__) || defined(__DragonFly__))
+#define USE_kqueue
+#elif !defined(USE_POLL_FOR_SELECT) && !defined(USE_LEGACY_SELECT) && defined(__linux__)
+#define USE_epoll
+#elif defined(HAVE_POLL)
 #define USE_poll
 #ifdef HAVE_PPOLL
 #define USE_ppoll
 #endif
-#else
-#ifdef HAVE_SELECT
+#elif defined(HAVE_SELECT)
 #define USE_select
 #endif
 #endif
-#endif
 
-#ifdef USE_select
+#if defined(USE_select) || defined(USE_poll) || defined(USE_kqueue) || defined(USE_epoll)
 #define USE_select_or_poll
-#else
-#ifdef USE_poll
-#define USE_select_or_poll
-#endif
 #endif
 
 #ifdef ___OS_WIN32
@@ -802,6 +802,20 @@
 
 
 #ifdef USE_poll
+#undef USE_timeval
+#define USE_timeval
+#endif
+
+
+#ifdef USE_kqueue
+#undef USE_timeval
+#define USE_timeval
+#undef USE_timespec
+#define USE_timespec
+#endif
+
+
+#ifdef USE_epoll
 #undef USE_timeval
 #define USE_timeval
 #endif
@@ -1942,6 +1956,16 @@ typedef unsigned int fpu_control_t __attribute__ ((__mode__ (__HI__)));
 #ifdef HAVE_POLL_H
 #include <poll.h>
 #endif
+#endif
+
+#ifdef USE_kqueue
+#include <sys/event.h>
+#include <sys/stat.h>
+#endif
+
+#ifdef USE_epoll
+#include <sys/epoll.h>
+#include <sys/eventfd.h>
 #endif
 
 #ifdef INCLUDE_openssl_ssl_h

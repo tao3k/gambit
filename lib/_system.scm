@@ -8,7 +8,7 @@
 
 ;;; System procedures
 
-(##include "~~lib/gambit/char/char#.scm") ;; for char-set equality and hashing
+(##include "~~lib/gambit/char/char-set#.scm") ;; for char-set equality and hashing
 
 (macro-case-target
 
@@ -1396,7 +1396,11 @@ else
     else
       {
         ___BOOL overflow = 0;
+#ifdef ___GAMBIT_DEV_RESTORE_PROBE
+        ___hp += ___dev_restore_census_provisional(___ps,___hp,(___SIZE_TS)words,"system-gchash-provisional");
+#else
         ___hp += words;
+#endif
         if (___hp > ___ps->heap_limit)
           {
             ___FRAME_STORE_RA(___R0)
@@ -1406,14 +1410,26 @@ else
             ___SET_R0(___FRAME_FETCH_RA)
           }
         else
-          ___hp -= words;
+          {
+            ___hp -= words;
+#ifdef ___GAMBIT_DEV_RESTORE_PROBE
+            ___dev_restore_note_cursor(___ps,___hp);
+#endif
+          }
         if (overflow)
           result = ___FIX(___HEAP_OVERFLOW_ERR);
         else
           {
             result = ___SUBTYPED_FROM_START(___hp);
+#ifdef ___GAMBIT_DEV_RESTORE_PROBE
+            ___dev_restore_census_other(___ps,___hp,"system-gchash-header");
+#endif
             ___SUBTYPED_HEADER_SET(result, ___MAKE_HD_WORDS(n, ___sWEAK));
+#ifdef ___GAMBIT_DEV_RESTORE_PROBE
+            ___hp += ___dev_restore_census_direct(___ps,___hp,(___SIZE_TS)words,"system-gchash-commit");
+#else
             ___hp += words;
+#endif
           }
       }
   }
@@ -1476,32 +1492,56 @@ end-of-code
 
 (define-prim (##explode-gc-hash-table gcht)
   (##declare (not interrupts-enabled))
-  (let ((len (##gc-hash-table-length gcht)))
-    (let loop ((i (macro-gc-hash-table-key0))
-               (key-vals '()))
-      (if (##fx< i len)
-          (let ((key (##gc-hash-table-field-ref gcht i)))
-            (if (and (##not (##eq? key (macro-unused-obj)))
-                     (##not (##eq? key (macro-deleted-obj))))
-                (let ((val (##gc-hash-table-field-ref gcht (##fx+ i 1))))
-                  (let ((new-key-vals (##cons (##cons key val) key-vals)))
-                    (##declare (interrupts-enabled))
-                    (loop (##fx+ i 2) new-key-vals)))
-                (let ()
-                  (##declare (interrupts-enabled))
-                  (loop (##fx+ i 2) key-vals))))
-          (let ((size
-                 (macro-gc-hash-table-size gcht))
-                (flags
-                 (macro-gc-hash-table-flags gcht))
-                (count
-                 (macro-gc-hash-table-count gcht))
-                (min-count
-                 (macro-gc-hash-table-min-count gcht))
-                (free
-                 (macro-gc-hash-table-free gcht)))
-            (##declare (interrupts-enabled))
-            (##vector size flags count min-count free key-vals))))))
+  (##dynamic-wind
+   (lambda () (##gc-hash-table-cursor-pin! gcht))
+   (lambda ()
+     (##declare (not interrupts-enabled))
+     (let ((len (##gc-hash-table-length gcht)))
+       (let loop ((i (macro-gc-hash-table-key0))
+                  (key-vals '()))
+         (if (##fx< i len)
+             (let ((key (##gc-hash-table-field-ref gcht i)))
+               (if (and (##not (##eq? key (macro-unused-obj)))
+                        (##not (##eq? key (macro-deleted-obj))))
+                   (let ((val (##gc-hash-table-field-ref gcht (##fx+ i 1))))
+                     (let ((new-key-vals (##cons (##cons key val) key-vals)))
+                       (##declare (interrupts-enabled))
+                       (loop (##fx+ i 2) new-key-vals)))
+                   (let ()
+                     (##declare (interrupts-enabled))
+                     (loop (##fx+ i 2) key-vals))))
+             (let ((size
+                    (macro-gc-hash-table-size gcht))
+                   (flags
+                    (##fxand (macro-gc-hash-table-flags gcht) 255))
+                   (count
+                    (macro-gc-hash-table-count gcht))
+                   (min-count
+                    (macro-gc-hash-table-min-count gcht))
+                   (free
+                    (macro-gc-hash-table-free gcht)))
+               (##declare (interrupts-enabled))
+               (##vector size flags count min-count free key-vals))))))
+   (lambda () (##gc-hash-table-cursor-unpin! gcht))))
+
+(define-prim (##gc-hash-table-reconstruction-begin count min-count free size)
+  ;; Both decoders may reach a safepoint between field stores. Until commit,
+  ;; the construction owns strong references to every installed key/value,
+  ;; independently of the final table's weak flags and index algorithm.
+  (##gc-hash-table-make
+   (macro-gc-hash-table-flag-mem-alloc-keys)
+   count min-count free size))
+
+(define-prim (##gc-hash-table-reconstruction-commit! gcht flags)
+  (##declare (not interrupts-enabled))
+  ;; Publish the final reference policy only after payload construction.
+  ;; Decoded slot order still owes reconstruction to the semantic index owner.
+  (macro-gc-hash-table-flags-set!
+   gcht
+   (##fxior flags
+            (##fx+ (macro-gc-hash-table-flag-key-moved)
+                   (macro-gc-hash-table-flag-need-rehash))))
+  gcht)
 
 (define-prim (##implode-gc-hash-table re fields)
   (let ((size (##vector-ref fields 0))
@@ -1510,7 +1550,7 @@ end-of-code
         (min-count (##vector-ref fields 3))
         (free (##vector-ref fields 4))
         (key-vals (##vector-ref fields 5)))
-    (let ((gcht (##gc-hash-table-make 0 count min-count free size)))
+    (let ((gcht (##gc-hash-table-reconstruction-begin count min-count free size)))
       (let loop ((i (macro-gc-hash-table-key0))
                  (key-vals key-vals))
         (if (##pair? key-vals)
@@ -1520,14 +1560,7 @@ end-of-code
                 (##gc-hash-table-field-set! gcht i key)
                 (##gc-hash-table-field-set! gcht (##fx+ i 1) val)
                 (loop (##fx+ i 2) (##cdr key-vals))))
-            (begin
-              (macro-gc-hash-table-flags-set!
-               gcht
-               (fxior ;; force rehash at next access!
-                flags
-                (##fx+ (macro-gc-hash-table-flag-key-moved)
-                       (macro-gc-hash-table-flag-need-rehash))))
-              gcht))))))
+            (##gc-hash-table-reconstruction-commit! gcht flags))))))
 
 (define-prim (##smallest-prime-no-less-than n) ;; n >= 3
   (let loop1 ((n (if (##fxeven? n) (##fx+ n 1) n)))
@@ -1604,12 +1637,14 @@ end-of-code
      n
      (##fxand
       (macro-gc-hash-table-flags gcht)
-      (##fxnot ;; remove the following flags
-       (##fxior
-        (macro-gc-hash-table-flag-key-moved)
+      (##fxand
+       255 ;; never propagate transient Bit-8+ cursor-pin counts
+       (##fxnot ;; remove the following flags
         (##fxior
-         (macro-gc-hash-table-flag-entry-deleted)
-         (macro-gc-hash-table-flag-need-rehash)))))
+         (macro-gc-hash-table-flag-key-moved)
+         (##fxior
+          (macro-gc-hash-table-flag-entry-deleted)
+          (macro-gc-hash-table-flag-need-rehash))))))
      loads)))
 
 (define-prim (##gc-hash-table-allocate n flags loads)
@@ -1660,53 +1695,120 @@ end-of-code
        flags
        0)))
 
+;; Bit 8 (256) of the gc-hash-table flags fixnum is the exclusive in-situ
+;; rehash lock; bits 9+ (unit 512) count active physical cursors/readers.
+;; A lookup may claim Bit 8 and rehash in situ only while bits 9+ are zero.
+;; Updates use atomic CAS on slot 1 (___GCHASHTABLE_FLAGS) paired with
+;; ##dynamic-wind so exceptions, one-shot/multi-shot call/cc escapes, and
+;; concurrent SMP readers can neither leak, underflow, nor race with rehash.
+
+(define-prim (##gc-hash-table-cursor-pin! gcht)
+  (##declare (not interrupts-enabled))
+  (##c-code #<<end-of-code
+___SCMOBJ ht = ___ARG1;
+___VOLATILE ___WORD *flags_ptr =
+  ___CAST(___VOLATILE ___WORD*, &___GCHASHTABLE_FLAGS_FIELD(ht));
+for (;;)
+  {
+    ___WORD flags = ___WORD_LOAD_ACQUIRE(flags_ptr);
+    if (!___FIXZEROP(___FIXAND(flags, ___FIX(___GCHASHTABLE_FLAG_REHASHING))))
+      {
+        ___CPU_RELAX();
+        continue;
+      }
+    if (___WORD_CAS_ACQUIRE(flags_ptr,
+                            flags,
+                            ___FIXADD(flags, ___FIX(___GCHASHTABLE_CURSOR_UNIT))))
+      break;
+  }
+___RESULT = ___VOID;
+end-of-code
+   gcht))
+
+(define-prim (##gc-hash-table-cursor-unpin! gcht)
+  (##declare (not interrupts-enabled))
+  (##c-code #<<end-of-code
+___SCMOBJ ht = ___ARG1;
+___VOLATILE ___WORD *flags_ptr =
+  ___CAST(___VOLATILE ___WORD*, &___GCHASHTABLE_FLAGS_FIELD(ht));
+___WORD flags = ___WORD_LOAD_ACQUIRE(flags_ptr);
+if (!___FIXLT(flags, ___FIX(___GCHASHTABLE_CURSOR_UNIT)))
+  (void)___WORD_FETCH_ADD_RELEASE(flags_ptr,
+                                  -___FIX(___GCHASHTABLE_CURSOR_UNIT));
+___RESULT = ___VOID;
+end-of-code
+   gcht))
+
 (define-prim (##gc-hash-table-for-each proc gcht)
   (##declare (not interrupts-enabled))
   (if (##gc-hash-table? gcht)
-    (let loop ((i (macro-gc-hash-table-key0)))
-      (if (##fx< i (##gc-hash-table-length gcht))
-        (let ((key (##gc-hash-table-field-ref gcht i)))
-          (if (and (##not (##eq? key (macro-unused-obj)))
-                   (##not (##eq? key (macro-deleted-obj))))
-            (proc key (##gc-hash-table-field-ref gcht (##fx+ i 1))))
-          (let ()
-            (##declare (interrupts-enabled))
-            (loop (##fx+ i 2))))
-        (##void)))
-    (##void)))
+      (##dynamic-wind
+       (lambda () (##gc-hash-table-cursor-pin! gcht))
+       (lambda ()
+         (##declare (not interrupts-enabled))
+         (let loop ((i (macro-gc-hash-table-key0)))
+           (if (##fx< i (##gc-hash-table-length gcht))
+               (let ((key (##gc-hash-table-field-ref gcht i)))
+                 (if (and (##not (##eq? key (macro-unused-obj)))
+                          (##not (##eq? key (macro-deleted-obj))))
+                     (proc key
+                           (##gc-hash-table-field-ref gcht (##fx+ i 1))))
+                 (let ()
+                   (##declare (interrupts-enabled))
+                   (loop (##fx+ i 2))))
+               (##void))))
+       (lambda () (##gc-hash-table-cursor-unpin! gcht)))
+      (##void)))
 
 (define-prim (##gc-hash-table-search proc gcht)
   (##declare (not interrupts-enabled))
   (if (##gc-hash-table? gcht)
-    (let loop ((i (macro-gc-hash-table-key0)))
-      (if (##fx< i (##gc-hash-table-length gcht))
-        (let ((key (##gc-hash-table-field-ref gcht i)))
-          (or (and (##not (##eq? key (macro-unused-obj)))
-                   (##not (##eq? key (macro-deleted-obj)))
-                   (proc key (##gc-hash-table-field-ref gcht (##fx+ i 1))))
-              (let ()
-                (##declare (interrupts-enabled))
-                (loop (##fx+ i 2)))))
-        #f))
-    #f))
+      (##dynamic-wind
+       (lambda () (##gc-hash-table-cursor-pin! gcht))
+       (lambda ()
+         (##declare (not interrupts-enabled))
+         (let loop ((i (macro-gc-hash-table-key0)))
+           (if (##fx< i (##gc-hash-table-length gcht))
+               (let ((key (##gc-hash-table-field-ref gcht i)))
+                 (or (and (##not (##eq? key (macro-unused-obj)))
+                          (##not (##eq? key (macro-deleted-obj)))
+                          (proc key
+                                (##gc-hash-table-field-ref
+                                 gcht
+                                 (##fx+ i 1))))
+                     (let ()
+                       (##declare (interrupts-enabled))
+                       (loop (##fx+ i 2)))))
+               #f)))
+       (lambda () (##gc-hash-table-cursor-unpin! gcht)))
+      #f))
 
 (define-prim (##gc-hash-table-foldl f base proc gcht)
   (##declare (not interrupts-enabled))
   (if (##gc-hash-table? gcht)
-    (let loop ((i (macro-gc-hash-table-key0)) (base base))
-      (if (##fx< i (##gc-hash-table-length gcht))
-        (let ((key (##gc-hash-table-field-ref gcht i)))
-          (if (and (##not (##eq? key (macro-unused-obj)))
-                   (##not (##eq? key (macro-deleted-obj))))
-            (let ((new-base
-                   (f base (proc key (##gc-hash-table-field-ref gcht (##fx+ i 1))))))
-              (##declare (interrupts-enabled))
-              (loop (##fx+ i 2) new-base))
-            (let ()
-              (##declare (interrupts-enabled))
-              (loop (##fx+ i 2) base))))
-        base))
-    base))
+      (##dynamic-wind
+       (lambda () (##gc-hash-table-cursor-pin! gcht))
+       (lambda ()
+         (##declare (not interrupts-enabled))
+         (let loop ((i (macro-gc-hash-table-key0)) (base base))
+           (if (##fx< i (##gc-hash-table-length gcht))
+               (let ((key (##gc-hash-table-field-ref gcht i)))
+                 (if (and (##not (##eq? key (macro-unused-obj)))
+                          (##not (##eq? key (macro-deleted-obj))))
+                     (let ((new-base
+                            (f base
+                               (proc key
+                                     (##gc-hash-table-field-ref
+                                      gcht
+                                      (##fx+ i 1))))))
+                       (##declare (interrupts-enabled))
+                       (loop (##fx+ i 2) new-base))
+                     (let ()
+                       (##declare (interrupts-enabled))
+                       (loop (##fx+ i 2) base))))
+               base)))
+       (lambda () (##gc-hash-table-cursor-unpin! gcht)))
+      base))
 
 (define-prim (##make-table-aux
               #!optional
@@ -1959,12 +2061,9 @@ end-of-code
                  arg-num))
 
   (define (checks-done siz flags test-fn hash-fn loads arg-num)
-    (macro-make-table (if (and #f ;; don't make a special case for eq? tables
-                               (##not test-fn)
-                               (##eq? weak-keys (macro-absent-obj)))
-                          (##fxior
-                           flags
-                           (macro-gc-hash-table-flag-weak-keys))
+    ;; A true test-fn selects Scheme table-access, not C address hashing.
+    (macro-make-table (if test-fn
+                          (##fxior flags (macro-gc-hash-table-flag-scheme-index))
                           flags)
                       test-fn
                       hash-fn
@@ -3429,7 +3528,12 @@ end-of-code
 
   (define (serialize! obj)
     (let* ((transform (vector-ref state 4))
-           (obj (transform obj)))
+           (obj (if (or (eq? obj (macro-absent-obj))
+                        (and (macro-case-target ((c C) #t) (else #f))
+                             (or (eq? obj (macro-unused-obj))
+                                 (eq? obj (macro-deleted-obj)))))
+                    obj
+                    (transform obj))))
       (cond ((fixnum? obj)
              (cond ((and (fx>= obj #x00)
                          (fx< obj #x0b))
@@ -3749,35 +3853,38 @@ end-of-code
                         (begin
                           (alloc! obj)
                           (write-u8 (gchashtable-tag))
-                          (let ()
-                            (##declare (not interrupts-enabled))
-                            (let ((size
-                                   (macro-gc-hash-table-size obj))
-                                  (flags
-                                   (macro-gc-hash-table-flags obj))
-                                  (count
-                                   (macro-gc-hash-table-count obj))
-                                  (min-count
-                                   (macro-gc-hash-table-min-count obj))
-                                  (free
-                                   (macro-gc-hash-table-free obj)))
-                              (serialize-nonneg-fixnum! size)
-                              (serialize-nonneg-fixnum! flags)
-                              (serialize-nonneg-fixnum! count)
-                              (serialize-nonneg-fixnum! min-count)
-                              (serialize-nonneg-fixnum! free))
-                            (let loop ((i (macro-gc-hash-table-key0)))
-                              (if (fx< i (##gc-hash-table-length obj))
-                                  (let ((key (##gc-hash-table-field-ref obj i)))
-                                    (if (and (not (eq? key (macro-unused-obj)))
-                                             (not (eq? key (macro-deleted-obj))))
-                                        (let ((val (##gc-hash-table-field-ref obj (fx+ i 1))))
-                                          (serialize! key)
-                                          (serialize! val)))
-                                    (let ()
-                                      (##declare (interrupts-enabled))
-                                      (loop (fx+ i 2))))
-                                  (serialize! (macro-unused-obj))))))))
+                          (##dynamic-wind
+                           (lambda () (##gc-hash-table-cursor-pin! obj))
+                           (lambda ()
+                             (##declare (not interrupts-enabled))
+                             (let ((size
+                                    (macro-gc-hash-table-size obj))
+                                   (flags
+                                    (##fxand (macro-gc-hash-table-flags obj) 255))
+                                   (count
+                                    (macro-gc-hash-table-count obj))
+                                   (min-count
+                                    (macro-gc-hash-table-min-count obj))
+                                   (free
+                                    (macro-gc-hash-table-free obj)))
+                               (serialize-nonneg-fixnum! size)
+                               (serialize-nonneg-fixnum! flags)
+                               (serialize-nonneg-fixnum! count)
+                               (serialize-nonneg-fixnum! min-count)
+                               (serialize-nonneg-fixnum! free))
+                             (let loop ((i (macro-gc-hash-table-key0)))
+                               (if (fx< i (##gc-hash-table-length obj))
+                                   (let ((key (##gc-hash-table-field-ref obj i)))
+                                     (if (and (not (eq? key (macro-unused-obj)))
+                                              (not (eq? key (macro-deleted-obj))))
+                                         (let ((val (##gc-hash-table-field-ref obj (fx+ i 1))))
+                                           (serialize! key)
+                                           (serialize! val)))
+                                     (let ()
+                                       (##declare (interrupts-enabled))
+                                       (loop (fx+ i 2))))
+                                   (write-u8 (unused-tag)))))
+                           (lambda () (##gc-hash-table-cursor-unpin! obj))))))
 
                    (else
                     (cannot-serialize obj))))
@@ -4037,63 +4144,68 @@ end-of-code
 
   (define (deserialize!)
     (let ((x (read-u8)))
-      (if (fx>= x (shared-tag))
+      (cond ((fx>= x (shared-tag))
 
-          (shared-ref
-           (deserialize-nonneg-fixnum! (fxand x #x7f) 7))
+             (shared-ref
+              (deserialize-nonneg-fixnum! (fxand x #x7f) 7)))
 
-          ((vector-ref state 4) ;; transform
-           (cond ((fx>= x (false-tag))
-                  (cond ((fx= x (false-tag))
-                         #f)
+            ((fx= x (absent-tag))
+             (macro-absent-obj))
 
-                        ((fx= x (true-tag))
-                         #t)
+            ((and (macro-case-target ((c C) #t) (else #f))
+                  (fx= x (unused-tag)))
+             (macro-unused-obj))
 
-                        ((fx= x (nil-tag))
-                         '())
+            ((and (macro-case-target ((c C) #t) (else #f))
+                  (fx= x (deleted-tag)))
+             (macro-deleted-obj))
 
-                        ((fx= x (eof-tag))
-                         #!eof)
+            (else
 
-                        ((fx= x (void-tag))
-                         #!void)
+             ((vector-ref state 4) ;; transform
+              (cond ((fx>= x (false-tag))
+                     (cond ((fx= x (false-tag))
+                            #f)
 
-                        ((fx= x (absent-tag))
-                         (macro-absent-obj))
+                           ((fx= x (true-tag))
+                            #t)
 
-                        ((fx= x (unbound-tag))
-                         #!unbound)
+                           ((fx= x (nil-tag))
+                            '())
 
-                        ((fx= x (unbound2-tag))
-                         #!unbound2)
+                           ((fx= x (eof-tag))
+                            #!eof)
 
-                        ((fx= x (optional-tag))
-                         #!optional)
+                           ((fx= x (void-tag))
+                            #!void)
 
-                        ((fx= x (key-tag))
-                         #!key)
+                           ((fx= x (absent-tag))
+                            (macro-absent-obj))
 
-                        ((fx= x (rest-tag))
-                         #!rest)
+                           ((fx= x (unbound-tag))
+                            #!unbound)
 
-                        ((fx= x (promise-tag))
-                         (let ((obj (make-delay-promise #f)))
-                           (alloc! obj)
-                           (let ((state (deserialize!)))
-                             (promise-state-set! obj state)
-                             obj)))
+                           ((fx= x (unbound2-tag))
+                            #!unbound2)
 
-                        ((macro-case-target ((c C) #t) (else #f))
-                         (cond ((fx= x (unused-tag))
-                                (macro-unused-obj))
-                               ((fx= x (deleted-tag))
-                                (macro-deleted-obj))
-                               (else
-                                (err))))
+                           ((fx= x (optional-tag))
+                            #!optional)
 
-                        (else
-                         (err))))
+                           ((fx= x (key-tag))
+                            #!key)
+
+                           ((fx= x (rest-tag))
+                            #!rest)
+
+                           ((fx= x (promise-tag))
+                            (let ((obj (make-delay-promise #f)))
+                              (alloc! obj)
+                              (let ((state (deserialize!)))
+                                (promise-state-set! obj state)
+                                obj)))
+
+                           (else
+                            (err))))
 
                  ((fx>= x (character-tag))
                   (cond ((fx= x (character-tag))
@@ -4237,7 +4349,7 @@ end-of-code
                            (if #f ;;;;;;;;parameters OK?
                                (err)
                                ;;TODO: update to new gcht primitives
-                               (let ((obj (##gc-hash-table-make 0 count min-count free size)))
+                               (let ((obj (##gc-hash-table-reconstruction-begin count min-count free size)))
                                  (alloc! obj)
                                  (let loop ((i (macro-gc-hash-table-key0)))
                                    (if (fx< i (##gc-hash-table-length obj))
@@ -4253,14 +4365,7 @@ end-of-code
                                                 (fx+ i 1)
                                                 val)
                                                (loop (fx+ i 2)))
-                                             (begin
-                                               (macro-gc-hash-table-flags-set!
-                                                obj
-                                                (fxior ;; force rehash at next access!
-                                                 flags
-                                                 (fx+ (macro-gc-hash-table-flag-key-moved)
-                                                      (macro-gc-hash-table-flag-need-rehash))))
-                                               obj)))
+                                             (##gc-hash-table-reconstruction-commit! obj flags)))
                                        (err)))))))
 
                         ((fx= x (homvector-tag))
@@ -4396,7 +4501,7 @@ end-of-code
                          (obj (string->symbol name)))
                     (create-global-var-if-needed obj)
                     (alloc! obj)
-                    obj)))))))
+                    obj))))))))
 
   (let ((obj (deserialize!)))
     (if (eof?)

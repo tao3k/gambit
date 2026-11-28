@@ -40,6 +40,58 @@
 #define ___STAMP_HMS ___STAMP_RELEASE_HMS
 #endif
 
+#ifdef ___GAMBIT_DEV_RESTORE_PROBE
+#define ___ALLOC_SCMOBJ_INLINE(type, elem_type, nb_elems, align64) \
+do { \
+  if ((nb_elems) > ___CAST(___WORD, (___LMASK>>___LF) / sizeof (elem_type))) \
+    result = ___FIX(___HEAP_OVERFLOW_ERR); \
+  else \
+    { \
+      ___SIZE_TS bytes = (nb_elems) * sizeof (elem_type); \
+      ___SIZE_TS words = ((bytes + (___WS - 1)) >> ___LWS) + ___SUBTYPED_BODY; \
+      if (___WS == 4 && (align64)) words++; \
+      if (words > ___MSECTION_BIGGEST) \
+        { \
+          ___FRAME_STORE_RA(___R0) \
+          ___W_ALL \
+          result = ___EXT(___alloc_scmobj) (___ps, ___s ## type, bytes); \
+          ___R_ALL \
+          ___SET_R0(___FRAME_FETCH_RA) \
+          if (!___FIXNUMP(result)) \
+            ___still_obj_refcount_dec (result); \
+        } \
+      else \
+        { \
+          ___BOOL overflow = 0; \
+          if (___hp > ___ps->heap_limit) \
+            { \
+              ___FRAME_STORE_RA(___R0) \
+              ___W_ALL \
+              overflow = ___heap_limit (___PSPNC) && ___garbage_collect (___PSP 0); \
+              ___R_ALL \
+              ___SET_R0(___FRAME_FETCH_RA) \
+            } \
+          if (overflow) \
+            result = ___FIX(___HEAP_OVERFLOW_ERR); \
+          else \
+            { \
+              if (___WS == 4 && (align64)) \
+                { \
+                  ___dev_restore_census_other(___ps,___hp,"kernel-inline-align32"); \
+                  ___hp = ___CAST(___WORD*, \
+                                  ___CAST(___WORD,___hp+(___SUBTYPED_BODY+1))&~7) \
+                          - ___SUBTYPED_BODY; \
+                  words--; \
+                } \
+              ___dev_restore_census_other(___ps,___hp,"kernel-inline-header"); \
+              ___hp[___SUBTYPED_BODY-1] = ___MAKE_HD_BYTES(bytes, ___s ## type); \
+              result = ___TAG(&___hp[___SUBTYPED_BODY-1], ___t ## type); \
+              ___hp += ___dev_restore_census_direct(___ps,___hp,(___SIZE_TS)words,"kernel-inline-bump"); \
+            } \
+        } \
+    } \
+  } while (0)
+#else
 #define ___ALLOC_SCMOBJ_INLINE(type, elem_type, nb_elems, align64) \
 do { \
   if ((nb_elems) > ___CAST(___WORD, (___LMASK>>___LF) / sizeof (elem_type))) \
@@ -88,6 +140,60 @@ do { \
         } \
     } \
   } while (0)
+#endif
+
+#if defined(__aarch64__) && defined(__ARM_NEON)
+#include <arm_neon.h>
+#endif
+
+static inline void ___init_f64_fill(___F64 *body, ___SIZE_TS limit, ___F64 f)
+{
+  ___SIZE_TS i = 0;
+#if defined(__aarch64__) && defined(__ARM_NEON)
+  float64x2_t vf = vdupq_n_f64(f);
+  for (; limit - i >= 8; i += 8)
+    {
+      vst1q_f64(body + i,     vf);
+      vst1q_f64(body + i + 2, vf);
+      vst1q_f64(body + i + 4, vf);
+      vst1q_f64(body + i + 6, vf);
+    }
+#else
+  for (; limit - i >= 8; i += 8)
+    {
+      body[i]   = f; body[i+1] = f; body[i+2] = f; body[i+3] = f;
+      body[i+4] = f; body[i+5] = f; body[i+6] = f; body[i+7] = f;
+    }
+#endif
+  for (; i < limit; i++)
+    body[i] = f;
+}
+
+static inline void ___init_f32_fill(___F32 *body, ___SIZE_TS limit, ___F32 f)
+{
+  ___SIZE_TS i = 0;
+#if defined(__aarch64__) && defined(__ARM_NEON)
+  float32x4_t vf = vdupq_n_f32(f);
+  for (; limit - i >= 16; i += 16)
+    {
+      vst1q_f32(body + i,      vf);
+      vst1q_f32(body + i + 4,  vf);
+      vst1q_f32(body + i + 8,  vf);
+      vst1q_f32(body + i + 12, vf);
+    }
+#else
+  for (; limit - i >= 8; i += 8)
+    {
+      body[i]   = f; body[i+1] = f; body[i+2] = f; body[i+3] = f;
+      body[i+4] = f; body[i+5] = f; body[i+6] = f; body[i+7] = f;
+    }
+#endif
+  for (; i < limit; i++)
+    body[i] = f;
+}
+
+#define ___INIT_SCMOBJ_FLOAT_FILL_F32VECTOR ___init_f32_fill
+#define ___INIT_SCMOBJ_FLOAT_FILL_F64VECTOR ___init_f64_fill
 
 #define ___INIT_SCMOBJ_INLINE(type, elem_type, unsigned_elem_type, nb_elems, fill) \
 do { \
@@ -95,17 +201,23 @@ do { \
     { \
       elem_type *body = ___CAST(elem_type*, ___BODY_AS(result,___t ## type)); \
       elem_type f = fill; \
+      ___SIZE_TS limit = (nb_elems); \
       if (sizeof (elem_type) == 1 || \
           ___CAST_U8(f) * (~___CAST(unsigned_elem_type,0)/0xff) == \
           ___CAST(unsigned_elem_type,f)) /* repetition of identical bytes? */ \
         { \
           /* it is usually faster to initialize an array with memset */ \
-          memset(body, ___CAST_U8(f), (nb_elems) * sizeof (elem_type)); \
+          memset(body, ___CAST_U8(f), limit * sizeof (elem_type)); \
         } \
       else \
         { \
-          ___SIZE_TS i; \
-          for (i=0; i<n; i++) \
+          ___SIZE_TS i = 0; \
+          for (; limit - i >= 8; i += 8) \
+            { \
+              body[i]   = f; body[i+1] = f; body[i+2] = f; body[i+3] = f; \
+              body[i+4] = f; body[i+5] = f; body[i+6] = f; body[i+7] = f; \
+            } \
+          for (; i < limit; i++) \
             body[i] = f; \
         } \
     } \
@@ -117,16 +229,15 @@ do { \
     { \
       elem_type *body = ___CAST(elem_type*, ___BODY_AS(result,___t ## type)); \
       elem_type f = fill; \
+      ___SIZE_TS limit = (nb_elems); \
       if (f == 0.0 && 1.0/f > 0.0) /* detect positive 0 */ \
         { \
           /* it is usually faster to initialize an array with memset */ \
-          memset(body, 0, (nb_elems) * sizeof (elem_type)); \
+          memset(body, 0, limit * sizeof (elem_type)); \
         } \
       else \
         { \
-          ___SIZE_TS i; \
-          for (i=0; i<n; i++) \
-            body[i] = f; \
+          ___INIT_SCMOBJ_FLOAT_FILL_ ## type(body, limit, f); \
         } \
     } \
   } while (0)
@@ -147,9 +258,10 @@ c-declare-end
   (##declare (not interrupts-enabled))
 
   (##c-code #<<end-of-code
+/* gambit:kernel-entry handler_sfun_conv_error */
 
    /*
-    * ___LBL(0)
+    * Runtime entry: handler_sfun_conv_error
     *
     * This is the 'Scheme function' conversion error handler.  It is
     * invoked when a data representation conversion error is detected
@@ -176,9 +288,10 @@ end-of-code
 )
 
   (##c-code #<<end-of-code
+/* gambit:kernel-entry handler_cfun_conv_error */
 
    /*
-    * ___LBL(1)
+    * Runtime entry: handler_cfun_conv_error
     *
     * This is the 'C function' conversion error handler.  It is invoked
     * when a data representation conversion error is detected by the
@@ -221,9 +334,10 @@ end-of-code
    (let () (##declare (not warnings)) (0))) ; create a return point
 
   (##c-code #<<end-of-code
+/* gambit:kernel-entry handler_stack_limit */
 
    /*
-    * ___LBL(2)
+    * Runtime entry: handler_stack_limit
     *
     * This is the stack-limit handler.  It is invoked by the ___POLL(n)
     * macro when the stack limit is reached and when an interrupt is received.
@@ -236,6 +350,7 @@ end-of-code
     */
 
    int fs;
+   int pending_demand;
    ___SCMOBJ ra;
 
 #ifdef ___HEARTBEAT_USING_POLL_COUNTDOWN
@@ -248,9 +363,15 @@ end-of-code
 
 #endif
 
-   /* setup internal return continuation frame */
+   /* Prove the internal return frame before its first store. */
 
    ra = ___ps->temp1;
+
+   if (!___handler_spill_backed (___ps, ___fp))
+     ___group_demand_fail (___ps);
+
+   /* Read the demand while the cursor is still the caller's cursor. */
+   pending_demand = ___group_demand_before (___ps, ___fp);
 
    ___RETI_GET_CFS(ra,fs)
 
@@ -261,32 +382,85 @@ end-of-code
 
    ___ADJFP(-___RETI_RA)
 
+   /* GVM registers are now saved in the internal-return frame whose GC map
+    * excludes any raw unboxed spill slots; clear live regs before ___W_ALL so
+    * mark_registers never scans raw F64 spill bits as Scheme pointers. */
+#if ___NB_GVM_REGS > 1
+   ___SET_R1(___FIX(0L))
+#endif
+#if ___NB_GVM_REGS > 2
+   ___SET_R2(___FIX(0L))
+#endif
+#if ___NB_GVM_REGS > 3
+   ___SET_R3(___FIX(0L))
+#endif
+#if ___NB_GVM_REGS > 4
+   ___SET_R4(___FIX(0L))
+#endif
+
    ___SET_R0(___ps->internal_return)
 
    /* check why the handler was called */
 
-   if (___FP_AFTER(___fp,___ps->stack_limit)
+   if (___FP_AFTER(___fp,___ps->context->stack_limit)
+       || pending_demand==1
+       || ___ps->group_demand_active
+       || (___ps->heap_limit && ___ps->context->hp>___ps->heap_limit)
 #ifdef ___CALL_GC_FREQUENTLY
        || --___ps->mem.gc_calls_to_punt_ < 0
 #endif
       )
      {
        ___BOOL overflow;
+       int limit_kind = 0;
 
        ___COVER_STACK_LIMIT_HANDLER_STACK_LIMIT;
 
        ___FRAME_STORE_RA(___R0)
        ___W_ALL
-       overflow = ___stack_limit (___PSPNC) && ___garbage_collect (___PSP 0);
+       /* The soft stack limit is only a poll. The section still holds
+        * frames down to its hard edge, so do not census for that gap. */
+       if (___FP_AFTER(___fp,___ps->context->stack_limit) &&
+           ___ps->mem.alloc_stack_limit_ &&
+           !___FP_AFTER(___fp,___ps->mem.alloc_stack_limit_+___MSECTION_FUDGE))
+         ___ps->context->stack_limit=___ps->mem.alloc_stack_limit_+___MSECTION_FUDGE;
+       if (pending_demand!=1
+           && !___ps->group_demand_active
+           && !___FP_AFTER(___fp,___ps->context->stack_limit)
+           && (!(___ps->heap_limit && ___ps->context->hp>___ps->heap_limit)
+               || ___heap_continue_on_free_section(___ps)))
+         overflow = 0;
+       else
+         {
+           limit_kind = ___stack_limit (___PSPNC);
+           overflow = limit_kind && ___garbage_collect (___PSP 0);
+         }
+       ___group_demand_after(___ps, overflow);
        ___R_ALL
        ___SET_R0(___FRAME_FETCH_RA)
 
-       if (overflow)
+       if (overflow || ___group_demand_blocked(___ps))
          {
+           ___group_demand_retire(___ps);
            ___COVER_STACK_LIMIT_HANDLER_HEAP_OVERFLOW;
-           ___JUMPPRM(___SET_NARGS(0),
-                      ___PRMCELL(___G__23__23_raise_2d_stack_2d_overflow_2d_exception.prm))
+           if (limit_kind == 2)
+             ___JUMPPRM(___SET_NARGS(0),
+                        ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
+           else
+             ___JUMPPRM(___SET_NARGS(0),
+                        ___PRMCELL(___G__23__23_raise_2d_stack_2d_overflow_2d_exception.prm))
          }
+     }
+
+   /* A write-group demand is a backing service, not an interrupt poll.
+    * Likewise, while a processor holds any primitive spinlock (primlock_depth > 0),
+    * dispatching ##interrupt-handler -> ##thread-heartbeat! would self-deadlock on
+    * CURRENTPROCESSOR. Returning directly to internal_return preserves critical
+    * sections and leaves pending interrupts armed for the next genuine poll. */
+   if (pending_demand == 1 || ___ps->group_demand_active || ___ps->primlock_depth > 0)
+     {
+       ___refresh_interrupts_pstate (___ps);
+       ___JUMPEXTPRM(___NOTHING, ___R0)
      }
 
    /* handle interrupts */
@@ -299,9 +473,10 @@ end-of-code
    (let () (##declare (not warnings)) (0))) ; create a return point
 
   (##c-code #<<end-of-code
+/* gambit:kernel-entry handler_heap_limit */
 
    /*
-    * ___LBL(3)
+    * Runtime entry: handler_heap_limit
     *
     * This is the heap-limit handler.  It is invoked by the ___CHECK_HEAP(n,m)
     * macro when the heap pointer reaches the end of the current msection.
@@ -312,9 +487,12 @@ end-of-code
    int fs;
    ___SCMOBJ ra;
 
-   /* setup internal return continuation frame */
+   /* Prove the internal return frame before its first store. */
 
    ra = ___ps->temp1;
+
+   if (!___handler_spill_backed (___ps, ___fp))
+     ___group_demand_fail (___ps);
 
    ___RETI_GET_CFS(ra,fs)
 
@@ -324,6 +502,19 @@ end-of-code
    ___PUSH(ra)  /* push return address */
 
    ___ADJFP(-___RETI_RA)
+
+#if ___NB_GVM_REGS > 1
+   ___SET_R1(___FIX(0L))
+#endif
+#if ___NB_GVM_REGS > 2
+   ___SET_R2(___FIX(0L))
+#endif
+#if ___NB_GVM_REGS > 3
+   ___SET_R3(___FIX(0L))
+#endif
+#if ___NB_GVM_REGS > 4
+   ___SET_R4(___FIX(0L))
+#endif
 
    ___SET_R0(___ps->internal_return)
 
@@ -339,9 +530,10 @@ end-of-code
    (let () (##declare (not warnings)) (0))) ; create a return point
 
   (##c-code #<<end-of-code
+/* gambit:kernel-entry handler_not_proc */
 
    /*
-    * ___LBL(4)
+    * Runtime entry: handler_not_proc
     *
     * This is the call to nonprocedure handler.  It is invoked when
     * there is an attempt to call an object that is not a procedure.
@@ -377,9 +569,10 @@ end-of-code
    (let () (##declare (not warnings)) (0))) ; create a return point
 
   (##c-code #<<end-of-code
+/* gambit:kernel-entry handler_not_proc_glo */
 
    /*
-    * ___LBL(5)
+    * Runtime entry: handler_not_proc_glo
     *
     * This is the call to global nonprocedure handler.  It is invoked
     * when there is an attempt to call an object that is not a procedure
@@ -409,7 +602,7 @@ end-of-code
    for (i=0; i<na; i++)
      ___SET_STK(-i,___STK(-(i+1))) /* shift arguments up by one */
 
-   result = ___GLOCELL(___CAST(___glo_struct*,___ps->temp4)->val);
+   result = ___WORD_LOAD_ACQUIRE(&___GLOCELL(___CAST(___glo_struct*,___ps->temp4)->val));
    handler = ___PRMCELL(___G__23__23_apply_2d_with_2d_procedure_2d_check_2d_nary.prm);
 
 #if 0
@@ -450,9 +643,10 @@ end-of-code
    (let () (##declare (not warnings)) (0))) ; create a return point
 
   (##c-code #<<end-of-code
+/* gambit:kernel-entry handler_wrong_nargs */
 
    /*
-    * ___LBL(6)
+    * Runtime entry: handler_wrong_nargs
     *
     * This is the wrong number of arguments handler.  It is invoked when
     * a procedure is called with a number of arguments that it does not
@@ -499,9 +693,10 @@ end-of-code
    (let () (##declare (not warnings)) (0))) ; create a return point
 
   (##c-code #<<end-of-code
+/* gambit:kernel-entry handler_get_rest */
 
    /*
-    * ___LBL(7)
+    * Runtime entry: handler_get_rest
     *
     * This is the rest parameter handler.  It is invoked when a
     * rest parameter must be constructed.
@@ -538,55 +733,310 @@ end-of-code
 
    i = na - np + 1;
 
-   while (i > 0)
+   /* Admission is the complete demand, including np and one vector word.
+    * False writes nothing and may recover; the pair loop still emits only i
+    * pairs after a true result. */
+   ___activation_record *held = 0;
+   ___WORD held_epoch = 0;
+
+   /* Publish live cursors only when hooks/observation are active or on slow path. */
+   ___BOOL rest_fast = ___rest_hooks_gate_closed();
+#ifdef ___GAMBIT_REST_OBSERVATION
+   ___W_HEAP
+   ___W_FP
+   ___rest_observation_form(1);
+#endif
+   if (__builtin_expect(!rest_fast, 0))
      {
-       rest_param_list = ___CONS(___POP,rest_param_list);
-       i--;
-
-       if (___hp > ___ps->heap_limit)
-         {
-            ___BOOL need_to_gc;
-
-            ___COVER_REST_PARAM_HANDLER_HEAP_LIMIT;
-
-            ___W_ALL
-            need_to_gc = ___heap_limit (___PSPNC);
-            ___R_ALL
-
-            if (need_to_gc)
-              {
-                /*
-                 * We need to garbage collect, but before we do we have
-                 * to remove all arguments from the stack so that the GC
-                 * only sees complete continuation frames on the stack.
-                 * The arguments are stored in a heap allocated vector.
-                 */
-
-                ___COVER_REST_PARAM_HANDLER_NEED_TO_GC;
-
-                while (i > 0)
-                  {
-                    rest_param_list = ___CONS(___POP,rest_param_list);
-                    i--;
-                  }
-
-                ___BEGIN_ALLOC_VECTOR(np)
-                i = np - 1;
-                ___ADD_VECTOR_ELEM(i,rest_param_list)
-                while (i > 0)
-                  {
-                    i--;
-                    ___ADD_VECTOR_ELEM(i,___POP)
-                  }
-                ___END_ALLOC_VECTOR(np)
-
-                ___PUSH_ARGS2(___ps->temp1,___GET_VECTOR(np))
-
-                ___JUMPPRM(___SET_NARGS(2),
-                           ___PRMCELL(___G__23__23_rest_2d_param_2d_check_2d_heap.prm))
-              }
-          }
+       ___W_HEAP
+       ___W_FP
+       ___rest_note_attempt_entry(___ps, ___hp, ___fp);
      }
+   if (!___rest_fast_grant_fits_gated(___ps, ___hp, ___fp, i, np, 1, rest_fast))
+     {
+       ___BOOL overflow;
+       ___SCMOBJ repaired=___ps->temp1;
+       ___WORD *caller;
+       int frame_fs, frame_link;
+       rest_fast = 0;
+       ___W_HEAP
+       ___W_FP
+
+       ___COVER_REST_PARAM_HANDLER_NEED_TO_GC;
+       /* Nine words against a ten-word demand, and the hard tail is no
+        * larger. Refuse before a root window, collection, extension, or
+        * pair store. */
+       if (___rest_planted_short() &&
+           ___rest_one_word_short(___ps, ___hp, ___fp, i, np, 1) &&
+           ___rest_physical_tail_short(___ps, i, np))
+         {
+           ___rest_mark_attempt_cut(___ps, ___hp, ___fp, 9, i);
+           ___rest_disarm_attempt();
+           ___JUMPPRM(___SET_NARGS(0),
+                      ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
+         }
+       /* The soft cursor was clipped below this section's owned hard tail,
+        * which already holds the complete demand. Publish that edge and admit
+        * before any root window, section refill, or pair store. */
+       if (!___rest_attempt_blocked() &&
+           ___ps->heap_limit &&
+           ___ps->mem.alloc_heap_limit_ &&
+           (___SIZE_TS)(___ps->mem.alloc_heap_limit_ - ___ps->mem.alloc_heap_start_) > ___MSECTION_FUDGE &&
+           ___ps->heap_limit < ___ps->mem.alloc_heap_limit_ - ___MSECTION_FUDGE &&
+           !___rest_physical_tail_short(___ps, i, np) &&
+           ___rest_publish_owned_soft_edge(___ps, i, np))
+         {
+           ___R_HEAP
+           if (___rest_fast_grant_fits(___ps, ___hp, ___fp, i, np, 1))
+             goto rest_ordinary_admitted;
+         }
+       if (___rest_attempt_blocked())
+         {
+           ___rest_mark_attempt_cut(___ps, ___hp, ___fp, 1, i);
+           ___ADJFP(-na)
+           ___FP_SET_STK(___fp,-___FRAME_STACK_RA,___R0)
+           ___W_FP
+           ___rest_disarm_attempt();
+           ___JUMPPRM(___SET_NARGS(0),
+                      ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
+         }
+       /* Current heap msection is physically short. First try a zero-growth
+        * TLAB refill from already-budgeted free nursery msections (matching
+        * ___heap_limit) so rest calls do not force a whole-heap GC per 512 KiB
+        * section. Once free nursery sections are exhausted, enter root-window
+        * custody and genuine collection. */
+       if (!___rest_planted_short() &&
+           ___rest_physical_tail_short(___ps, i, np) &&
+           ___rest_take_free_section(___ps, i, np, 1))
+         {
+           ___R_HEAP
+           if (___rest_fast_grant_fits(___ps, ___hp, ___fp, i, np, 1))
+             goto rest_ordinary_admitted;
+         }
+       /* Before runtime GC admission is open, grow/extend directly; once
+        * admitted, enter root-window custody and collection. */
+       if (!___lifecycle_gc_admitted(___ps) &&
+           !___rest_planted_short() &&
+           ___rest_physical_tail_short(___ps, i, np) &&
+           ___rest_extend_interval(___ps, i, np))
+         {
+           ___R_HEAP
+           if (___rest_fast_grant_fits(___ps, ___hp, ___fp, i, np, 1))
+             goto rest_ordinary_admitted;
+         }
+       if (np<1 ||
+           !___rest_root_window(___ps, ___fp, ___ps->temp1, na, 0, 0,
+                                np-1, 0, i, np, 0, &held, &held_epoch))
+         {
+           ___rest_mark_attempt_cut(___ps, ___hp, ___fp, 3, i);
+           ___ADJFP(-na)
+           ___FP_SET_STK(___fp,-___FRAME_STACK_RA,___R0)
+           ___W_FP
+           ___rest_disarm_attempt();
+           ___JUMPPRM(___SET_NARGS(0),
+                      ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
+         }
+       if (!___rest_caller_chain(___fp, na, ___R0,
+                                 ___ps->context->stack_limit,
+                                 ___ps->context->stack_break,
+                                 ___ps->internal_return))
+         {
+           /* False is invalid source evidence or an incomplete logical
+            * walk. It does not authorize a destination extension. */
+           ___rest_mark_attempt_cut(___ps, ___hp, ___fp, 5, i);
+           ___ADJFP(-na)
+           ___FP_SET_STK(___fp,-___FRAME_STACK_RA,___R0)
+           ___W_FP
+           ___rest_activation_cleanup(___ps, held, ___FIX(1), held_epoch);
+           ___rest_disarm_attempt();
+           ___JUMPPRM(___SET_NARGS(0),
+                      ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
+         }
+       {
+           ___WORD *saved_fp=___fp;
+           ___WORD *parent=___fp+na;
+           ___rest_observation_note_saved_fp(___ps, held, held_epoch, saved_fp, parent);
+           ___FP_SET_STK(parent,-___FRAME_STACK_RA,___R0)
+           ___fp=parent;
+           ___W_ALL
+           {
+             /* Collection may recover space already assigned. A new
+              * section is a later grant, not a reason to skip GC. */
+             ___rest_note_before_collect();
+             overflow=___garbage_collect(___PSP 0);
+           }
+           ___R_ALL
+           ___SET_R0(___FRAME_FETCH_RA)
+           if (!overflow)
+             {
+               ___W_ALL
+               if (___heap_limit(___PSPNC))
+                 {
+                   ___rest_note_before_collect();
+                   overflow=___garbage_collect(___PSP 0);
+                 }
+               ___R_ALL
+               ___SET_R0(___FRAME_FETCH_RA)
+             }
+           if (overflow ||
+               ___fp<___ps->context->stack_limit+na)
+             {
+               ___rest_mark_attempt_cut(___ps, ___hp, ___fp, 4, i);
+               ___FP_SET_STK(___fp,-___FRAME_STACK_RA,___R0)
+               ___W_FP
+               ___rest_activation_cleanup(___ps, held, ___FIX(1), held_epoch);
+               ___rest_disarm_attempt();
+               ___JUMPPRM(___SET_NARGS(0),
+                          ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
+             }
+           ___ADJFP(na)
+           ___rest_observation_note_saved_fp(___ps, held, held_epoch, ___fp, ___fp);
+           ___rest_observation_note_return_fp(___ps, held, held_epoch, ___fp);
+           ___R_HEAP
+           ___W_FP
+         }
+       ___rest_note_attempt_acquired(___ps, ___hp, ___fp);
+       if (!___rest_reload_window(___ps, ___fp, held, held_epoch, na, 0, 0,
+                                  &repaired))
+         {
+           /* Root reload failed. This is not a destination shortage. */
+           ___rest_note_attempt_view(___ps, held, held_epoch, ___fp);
+           ___rest_mark_attempt_cut(___ps, ___hp, ___fp, 6, i);
+           ___ADJFP(-na)
+           ___FP_SET_STK(___fp,-___FRAME_STACK_RA,___R0)
+           ___W_FP
+           ___rest_activation_cleanup(___ps, held, ___FIX(1), held_epoch);
+           ___rest_disarm_attempt();
+           ___JUMPPRM(___SET_NARGS(0),
+                      ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
+         }
+       if (!___rest_stack_slots_fit(___ps, ___fp, 1))
+         {
+           /* Stack slots are short. Do not extend the heap. */
+           ___rest_note_attempt_view(___ps, held, held_epoch, ___fp);
+           ___rest_mark_attempt_cut(___ps, ___hp, ___fp, 7, i);
+           ___ADJFP(-na)
+           ___FP_SET_STK(___fp,-___FRAME_STACK_RA,___R0)
+           ___W_FP
+           ___rest_activation_cleanup(___ps, held, ___FIX(1), held_epoch);
+           ___rest_disarm_attempt();
+           ___JUMPPRM(___SET_NARGS(0),
+                      ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
+         }
+       if (!___rest_grant_fits(___ps, ___hp, ___fp, i, np, 1))
+         {
+           /* The returned heap view is still short. Soft quota alone is
+            * not a section contest. Only a short physical tail may claim;
+            * the same attempt then rechecks the complete grant.
+            * One word short of the complete demand is a refusal, not a
+            * new section. */
+           if (___rest_planted_short() &&
+               ___rest_one_word_short(___ps, ___hp, ___fp, i, np, 1) &&
+               ___rest_physical_tail_short(___ps, i, np))
+             {
+               ___rest_note_attempt_view(___ps, held, held_epoch, ___fp);
+               ___rest_mark_attempt_cut(___ps, ___hp, ___fp, 9, i);
+               ___rest_activation_cleanup(___ps, held, ___FIX(1), held_epoch);
+               ___rest_disarm_attempt();
+               ___JUMPPRM(___SET_NARGS(0),
+                          ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
+             }
+           if (___rest_physical_tail_short(___ps, i, np))
+             {
+           if (!___rest_extend_interval(___ps, i, np))
+             {
+               ___rest_note_attempt_view(___ps, held, held_epoch, ___fp);
+               ___rest_mark_attempt_cut(___ps, ___hp, ___fp, 2, i);
+               ___ADJFP(-na)
+               ___FP_SET_STK(___fp,-___FRAME_STACK_RA,___R0)
+               ___W_FP
+               ___rest_activation_cleanup(___ps, held, ___FIX(1), held_epoch);
+               ___rest_disarm_attempt();
+               ___JUMPPRM(___SET_NARGS(0),
+                          ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
+             }
+             }
+           else if (!___rest_publish_owned_soft_edge(___ps, i, np))
+             {
+               ___rest_note_attempt_view(___ps, held, held_epoch, ___fp);
+               ___rest_mark_attempt_cut(___ps, ___hp, ___fp, 8, i);
+               ___ADJFP(-na)
+               ___FP_SET_STK(___fp,-___FRAME_STACK_RA,___R0)
+               ___W_FP
+               ___rest_activation_cleanup(___ps, held, ___FIX(1), held_epoch);
+               ___rest_disarm_attempt();
+               ___JUMPPRM(___SET_NARGS(0),
+                          ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
+             }
+           ___R_HEAP
+           if (!___rest_reload_window(___ps, ___fp, held, held_epoch, na, 0, 0,
+                                      &repaired) ||
+               !___rest_grant_fits(___ps, ___hp, ___fp, i, np, 1))
+             {
+               ___rest_note_attempt_view(___ps, held, held_epoch, ___fp);
+               ___rest_mark_attempt_cut(___ps, ___hp, ___fp, 1, i);
+               ___ADJFP(-na)
+               ___FP_SET_STK(___fp,-___FRAME_STACK_RA,___R0)
+               ___W_FP
+               ___rest_activation_cleanup(___ps, held, ___FIX(1), held_epoch);
+               ___rest_disarm_attempt();
+               ___JUMPPRM(___SET_NARGS(0),
+                          ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
+             }
+         }
+       ___ps->temp1=repaired;
+     }
+
+   rest_ordinary_admitted:
+
+   if (held) {
+     enum ___rest_status preflight=
+       ___rest_ready_preflight(___ps, held, ___FIX(1), held_epoch);
+     if (preflight!=___REST_OK && preflight!=___REST_DUPLICATE) {
+       ___rest_activation_cleanup(___ps, held, ___FIX(1), held_epoch);
+       ___rest_disarm_attempt();
+       ___JUMPPRM(___SET_NARGS(0),
+                  ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
+     }
+   }
+
+   if (__builtin_expect(!rest_fast && (held != 0 || ___rest_attempt_words != 0), 0))
+     {
+       ___WORD_FETCH_ADD_RELAXED(&___rest_fallback_pops, (___WORD)i);
+       ___WORD_FETCH_ADD_RELAXED(&___rest_fallback_pair_writes, (___WORD)i);
+     }
+   {
+     ___WORD *fp_cur = ___fp;
+     while (i > 0)
+       {
+         rest_param_list = ___CONS(___FP_POP(fp_cur),rest_param_list);
+         i--;
+       }
+     ___fp = fp_cur;
+   }
+
+   if (held)
+     {
+       ___WORD *old_hp = ___hp;
+       ___SCMOBJ entered = ___rest_finish_refusal(___ps, held, held_epoch,
+                                                  rest_param_list, &old_hp);
+       if (entered==0)
+         {
+           ___rest_disarm_attempt();
+           ___JUMPPRM(___SET_NARGS(0),
+                      ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
+         }
+       rest_param_list = entered;
+     }
+
+#ifdef ___GAMBIT_REST_OBSERVATION
+   {
+     extern void ___rest_observation_exact_granted(___processor_state, ___WORD *, ___WORD *);
+     ___W_HEAP
+     ___W_FP
+     ___rest_observation_exact_granted(___ps, ___hp, ___fp);
+   }
+#endif
 
    ___COVER_REST_PARAM_HANDLER_NO_NEED_TO_GC;
 
@@ -594,6 +1044,11 @@ end-of-code
 
    ___POP_ARGS_IN_REGS(np) /* load register arguments */
 
+   if (__builtin_expect(!rest_fast, 0))
+     {
+       ___rest_disarm_attempt();
+       ___rest_observation_note_body(___ps);
+     }
    ___JUMPEXTPRM(___SET_NARGS(-1),___ps->temp1)
 
 end-of-code
@@ -601,9 +1056,10 @@ end-of-code
    (let () (##declare (not warnings)) (0))) ; create a return point
 
   (##c-code #<<end-of-code
+/* gambit:kernel-entry handler_get_key */
 
    /*
-    * ___LBL(8)
+    * Runtime entry: handler_get_key
     *
     * This is the keyword parameter handler.  It is invoked when keyword
     * parameters must be processed.
@@ -618,7 +1074,8 @@ end-of-code
    ___WORD k;
    ___WORD fnk;
    ___SCMOBJ key_descr;
-   ___SCMOBJ key_vals[___MAX_NB_PARMS];
+   ___SCMOBJ key_vals_small[___REST_KEY_SMALL_CAP];
+   ___SCMOBJ *key_vals;
 
    np = ___PRD_NBPARMS(___SUBTYPED_HEADER(___ps->temp1));
    na = ___ps->na;
@@ -650,49 +1107,69 @@ end-of-code
                   ___PRMCELL(___G__23__23_raise_2d_wrong_2d_number_2d_of_2d_arguments_2d_exception_2d_nary.prm))
      }
 
-   /* find first non-keyword pair in remaining arguments */
-
-   for (fnk=k-1; fnk>0; fnk-=2)
-     if (!___KEYWORDP(___STK(-fnk)))
-       break;
-
-   fnk++;
-
-   /* assign values to keyword parameters from last to first */
-
-   for (j=nb_key-1; j>=0; j--)
-     key_vals[j] = ___VECTORELEM(key_descr, j*2+1);
-
-   for (i=fnk+1; i<=k; i+=2)
+   if (__builtin_expect(nb_key <= ___REST_KEY_SMALL_CAP, 1))
+     key_vals = key_vals_small;
+   else
      {
-       ___SCMOBJ key = ___STK(-i);
-
-       for (j=nb_key-1; j>=0; j--)
-         if (key == ___VECTORELEM(key_descr, j*2))
-           {
-             ___COVER_KEYWORD_PARAM_HANDLER_FOUND;
-             key_vals[j] = ___STK(-i+1);
-             goto continue1;
-           }
-
-       /* the keyword was not found in the keyword parameter descriptor */
-
-       ___COVER_KEYWORD_PARAM_HANDLER_NOT_FOUND;
-
-       ___PUSH(___FIX(0)) /* make space for operator */
-
-       for (i=0; i<na; i++)
-         ___SET_STK(-i,___STK(-(i+1))) /* shift arguments up by one */
-
-       ___SET_STK(-na,___ps->temp1) /* set operator argument */
-
-       ___POP_ARGS_IN_REGS(na+1) /* load register arguments */
-
-       ___JUMPPRM(___SET_NARGS(na+1),
-                  ___PRMCELL(___G__23__23_raise_2d_unknown_2d_keyword_2d_argument_2d_exception_2d_nary.prm))
-
-       continue1:;
+       key_vals = ___rest_key_scratch(___ps, nb_key);
+       if (__builtin_expect(key_vals == 0, 0))
+         {
+           ___ADJFP(-na)
+           ___FP_SET_STK(___fp,-___FRAME_STACK_RA,___R0)
+           ___W_FP
+           ___JUMPPRM(___SET_NARGS(0),
+                      ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
+         }
      }
+
+   {
+     ___WORD *fp_cur = ___fp;
+     ___WORD *kdp = ___BODY_AS(key_descr, ___tVECTOR);
+
+     /* find first non-keyword pair in remaining arguments */
+
+     for (fnk=k-1; fnk>0; fnk-=2)
+       if (!___KEYWORDP(___FP_STK(fp_cur,-fnk)))
+         break;
+
+     fnk++;
+
+     /* assign values to keyword parameters from last to first */
+
+     for (j=nb_key-1; j>=0; j--)
+       key_vals[j] = kdp[j*2+1];
+
+     for (i=fnk+1; i<=k; i+=2)
+       {
+         ___SCMOBJ key = ___FP_STK(fp_cur,-i);
+
+         for (j=nb_key-1; j>=0; j--)
+           if (key == kdp[j*2])
+             {
+               ___COVER_KEYWORD_PARAM_HANDLER_FOUND;
+               key_vals[j] = ___FP_STK(fp_cur,-i+1);
+               goto continue1;
+             }
+
+         /* the keyword was not found in the keyword parameter descriptor */
+
+         ___COVER_KEYWORD_PARAM_HANDLER_NOT_FOUND;
+
+         ___PUSH(___FIX(0)) /* make space for operator */
+
+         for (i=0; i<na; i++)
+           ___SET_STK(-i,___STK(-(i+1))) /* shift arguments up by one */
+
+         ___SET_STK(-na,___ps->temp1) /* set operator argument */
+
+         ___POP_ARGS_IN_REGS(na+1) /* load register arguments */
+
+         ___JUMPPRM(___SET_NARGS(na+1),
+                    ___PRMCELL(___G__23__23_raise_2d_unknown_2d_keyword_2d_argument_2d_exception_2d_nary.prm))
+
+         continue1:;
+       }
+   }
 
    if (k & 1) /* keyword arguments must come in pairs */
      {
@@ -720,8 +1197,12 @@ end-of-code
 
    ___ADJFP(-k) /* remove keyword arguments */
 
-   for (i=0; i<nb_key; i++) /* push value of all keyword params */
-     ___PUSH(key_vals[i])
+   {
+     ___WORD *fp_cur = ___fp;
+     for (i=0; i<nb_key; i++) /* push value of all keyword params */
+       ___FP_PUSH(fp_cur, key_vals[i])
+     ___fp = fp_cur;
+   }
 
    ___POP_ARGS_IN_REGS(np) /* load register arguments */
 
@@ -734,9 +1215,10 @@ end-of-code
    (let () (##declare (not warnings)) (0))) ; create a return point
 
   (##c-code #<<end-of-code
+/* gambit:kernel-entry handler_get_key_rest */
 
    /*
-    * ___LBL(9)
+    * Runtime entry: handler_get_key_rest
     *
     * This is the keyword and rest parameter handler.  It is invoked when
     * keyword parameters must be processed and a rest parameter must be
@@ -760,13 +1242,11 @@ end-of-code
     * processing.  If the argument processing does not encounter an
     * exceptional situation, the arguments will be overwritten with
     * the formal parameters and the body of the procedure will be
-    * jumped to.  If a heap overflow is detected during the
-    * construction of the rest parameter, then the construction of the
-    * rest parameter is completed and all the parameters including the
-    * keyword parameters are copied to a vector and the procedure
-    * ##rest-param-check-heap will be called to trigger a garbage
-    * collection.  Then the procedure will be returned to with the
-    * processed arguments.
+    * jumped to.  If the owned interval cannot hold the remaining pairs,
+    * the parameter vector and the keyword stack staging, no fallback
+    * store or pop is performed.  The stacked window is rooted,
+    * collected, and either retried against a fresh interval or
+    * reported as overflow.
     */
 
    ___WORD np;          /* number of formal parameters */
@@ -778,7 +1258,8 @@ end-of-code
    ___WORD k;
    ___WORD fnk;
    ___SCMOBJ key_descr;
-   ___SCMOBJ key_vals[___MAX_NB_PARMS];
+   ___SCMOBJ key_vals_small[___REST_KEY_SMALL_CAP];
+   ___SCMOBJ *key_vals;
    ___SCMOBJ rest_param_list;
 
    np = ___PRD_NBPARMS(___SUBTYPED_HEADER(___ps->temp1));
@@ -811,52 +1292,72 @@ end-of-code
                   ___PRMCELL(___G__23__23_raise_2d_wrong_2d_number_2d_of_2d_arguments_2d_exception_2d_nary.prm))
      }
 
-   /* find first non-keyword pair in remaining arguments */
-
-   for (fnk=k-1; fnk>0; fnk-=2)
-     if (!___KEYWORDP(___STK(-fnk)))
-       break;
-
-   fnk++;
-
-   /* assign values to keyword parameters from last to first */
-
-   for (j=nb_key-1; j>=0; j--)
-     key_vals[j] = ___VECTORELEM(key_descr, j*2+1);
-
-   for (i=fnk+1; i<=k; i+=2)
+   if (__builtin_expect(nb_key <= ___REST_KEY_SMALL_CAP, 1))
+     key_vals = key_vals_small;
+   else
      {
-       ___SCMOBJ key = ___STK(-i);
+       key_vals = ___rest_key_scratch(___ps, nb_key);
+       if (__builtin_expect(key_vals == 0, 0))
+         {
+           ___ADJFP(-na)
+           ___FP_SET_STK(___fp,-___FRAME_STACK_RA,___R0)
+           ___W_FP
+           ___JUMPPRM(___SET_NARGS(0),
+                      ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
+         }
+     }
 
-       for (j=nb_key-1; j>=0; j--)
-         if (key == ___VECTORELEM(key_descr, j*2))
+   {
+     ___WORD *fp_cur = ___fp;
+     ___WORD *kdp = ___BODY_AS(key_descr, ___tVECTOR);
+
+     /* find first non-keyword pair in remaining arguments */
+
+     for (fnk=k-1; fnk>0; fnk-=2)
+       if (!___KEYWORDP(___FP_STK(fp_cur,-fnk)))
+         break;
+
+     fnk++;
+
+     /* assign values to keyword parameters from last to first */
+
+     for (j=nb_key-1; j>=0; j--)
+       key_vals[j] = kdp[j*2+1];
+
+     for (i=fnk+1; i<=k; i+=2)
+       {
+         ___SCMOBJ key = ___FP_STK(fp_cur,-i);
+
+         for (j=nb_key-1; j>=0; j--)
+           if (key == kdp[j*2])
+             {
+               ___COVER_KEYWORD_REST_PARAM_HANDLER_FOUND;
+               key_vals[j] = ___FP_STK(fp_cur,-i+1);
+               goto continue2;
+             }
+
+         /* the keyword was not found in the keyword parameter descriptor */
+
+         if (!___ps->temp4) /* not DSSSL style rest parameter? */
            {
-             ___COVER_KEYWORD_REST_PARAM_HANDLER_FOUND;
-             key_vals[j] = ___STK(-i+1);
-             goto continue2;
+             ___COVER_KEYWORD_REST_PARAM_HANDLER_NOT_FOUND;
+
+             ___PUSH(___FIX(0)) /* make space for operator */
+
+             for (i=0; i<na; i++)
+               ___SET_STK(-i,___STK(-(i+1))) /* shift arguments up by one */
+
+             ___SET_STK(-na,___ps->temp1) /* set operator argument */
+
+             ___POP_ARGS_IN_REGS(na+1) /* load register arguments */
+
+             ___JUMPPRM(___SET_NARGS(na+1),
+                        ___PRMCELL(___G__23__23_raise_2d_unknown_2d_keyword_2d_argument_2d_exception_2d_nary.prm))
            }
 
-       /* the keyword was not found in the keyword parameter descriptor */
-
-       if (!___ps->temp4) /* not DSSSL style rest parameter? */
-         {
-           ___COVER_KEYWORD_REST_PARAM_HANDLER_NOT_FOUND;
-
-           ___PUSH(___FIX(0)) /* make space for operator */
-
-           for (i=0; i<na; i++)
-             ___SET_STK(-i,___STK(-(i+1))) /* shift arguments up by one */
-
-           ___SET_STK(-na,___ps->temp1) /* set operator argument */
-
-           ___POP_ARGS_IN_REGS(na+1) /* load register arguments */
-
-           ___JUMPPRM(___SET_NARGS(na+1),
-                      ___PRMCELL(___G__23__23_raise_2d_unknown_2d_keyword_2d_argument_2d_exception_2d_nary.prm))
-         }
-
-       continue2:;
-     }
+         continue2:;
+       }
+   }
 
    if (!___ps->temp4) /* not DSSSL style rest parameter? */
      i = fnk;
@@ -904,74 +1405,331 @@ end-of-code
 
    rest_param_list = ___NUL;
 
-   while (i > 0)
-     {
-       rest_param_list = ___CONS(___POP,rest_param_list);
-       i--;
+   ___activation_record *held = 0;
+   ___WORD held_epoch = 0;
+#ifdef ___GAMBIT_REST_OBSERVATION
+   unsigned rest_observation_form = ___ps->temp4 ? 2 : 3;
+#endif
 
-       if (___hp > ___ps->heap_limit)
+   ___BOOL rest_fast = ___rest_hooks_gate_closed();
+
+   {
+     ___WORD staged = 0;
+     ___WORD stack_slots = 0;
+
+     /* Publish live cursors only when hooks/observation are active or on slow path. */
+#ifdef ___GAMBIT_REST_OBSERVATION
+     ___W_HEAP
+     ___W_FP
+     ___rest_observation_form(rest_observation_form);
+#endif
+     if (__builtin_expect(!rest_fast, 0))
+       {
+         ___W_HEAP
+         ___W_FP
+         ___rest_note_attempt_entry(___ps, ___hp, ___fp);
+       }
+     if (!___rest_signed_sum(j, nb_key, &staged) ||
+         !___rest_signed_sum(staged, 1, &stack_slots))
+       {
+         ___W_HEAP
+         ___W_FP
+         ___rest_disarm_attempt();
+         ___JUMPPRM(___SET_NARGS(0),
+                    ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
+       }
+     if (!___rest_fast_grant_fits_gated(___ps, ___hp, ___fp, i, np, stack_slots, rest_fast))
+       {
+         ___BOOL overflow;
+         ___SCMOBJ repaired=___ps->temp1;
+         ___WORD *caller;
+         int frame_fs, frame_link;
+         rest_fast = 0;
+         ___W_HEAP
+         ___W_FP
+
+         ___COVER_KEYWORD_REST_PARAM_HANDLER_NEED_TO_GC;
+         if (___rest_planted_short() &&
+             ___rest_one_word_short(___ps, ___hp, ___fp, i, np, stack_slots) &&
+             ___rest_physical_tail_short(___ps, i, np))
+           {
+             ___rest_mark_attempt_cut(___ps, ___hp, ___fp, 9, i);
+             ___rest_disarm_attempt();
+             ___JUMPPRM(___SET_NARGS(0),
+                        ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
+           }
+         if (!___rest_attempt_blocked() &&
+             ___ps->heap_limit &&
+             ___ps->mem.alloc_heap_limit_ &&
+             (___SIZE_TS)(___ps->mem.alloc_heap_limit_ - ___ps->mem.alloc_heap_start_) > ___MSECTION_FUDGE &&
+             ___ps->heap_limit < ___ps->mem.alloc_heap_limit_ - ___MSECTION_FUDGE &&
+             !___rest_physical_tail_short(___ps, i, np) &&
+             ___rest_publish_owned_soft_edge(___ps, i, np))
+           {
+             ___R_HEAP
+             if (___rest_fast_grant_fits(___ps, ___hp, ___fp, i, np, stack_slots))
+               goto rest_keyword_admitted;
+           }
+         if (___rest_attempt_blocked())
+           {
+             ___rest_mark_attempt_cut(___ps, ___hp, ___fp, 1, i);
+             ___ADJFP(-na)
+             ___FP_SET_STK(___fp,-___FRAME_STACK_RA,___R0)
+             ___W_FP
+             ___rest_disarm_attempt();
+             ___JUMPPRM(___SET_NARGS(0),
+                        ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
+           }
+         if (!___rest_planted_short() &&
+             ___rest_physical_tail_short(___ps, i, np) &&
+             ___rest_take_free_section(___ps, i, np, stack_slots))
+           {
+             ___R_HEAP
+             if (___rest_fast_grant_fits(___ps, ___hp, ___fp, i, np, stack_slots))
+               goto rest_keyword_admitted;
+           }
+         if (!___lifecycle_gc_admitted(___ps) &&
+             !___rest_planted_short() &&
+             ___rest_physical_tail_short(___ps, i, np) &&
+             ___rest_extend_interval(___ps, i, np))
+           {
+             ___R_HEAP
+             if (___rest_fast_grant_fits(___ps, ___hp, ___fp, i, np, stack_slots))
+               goto rest_keyword_admitted;
+           }
+         if (!___rest_root_window(___ps, ___fp, ___ps->temp1, na, nb_key,
+                                  key_vals, nb_req_opt, j, i, np, 1,
+                                  &held, &held_epoch))
+           {
+             ___rest_mark_attempt_cut(___ps, ___hp, ___fp, 3, i);
+             ___ADJFP(-na)
+             ___FP_SET_STK(___fp,-___FRAME_STACK_RA,___R0)
+             ___W_FP
+             ___rest_disarm_attempt();
+             ___JUMPPRM(___SET_NARGS(0),
+                        ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
+           }
+         if (!___rest_caller_chain(___fp, na, ___R0,
+                                   ___ps->context->stack_limit,
+                                   ___ps->context->stack_break,
+                                   ___ps->internal_return))
+           {
+             /* False is invalid source evidence or an incomplete logical
+              * walk. It does not authorize a destination extension. */
+             ___rest_mark_attempt_cut(___ps, ___hp, ___fp, 5, i);
+             ___ADJFP(-na)
+             ___FP_SET_STK(___fp,-___FRAME_STACK_RA,___R0)
+             ___W_FP
+             ___rest_activation_cleanup(___ps, held, ___FIX(1), held_epoch);
+             ___rest_disarm_attempt();
+             ___JUMPPRM(___SET_NARGS(0),
+                        ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
+           }
          {
-            ___BOOL need_to_gc;
+             ___WORD *saved_fp=___fp;
+             ___WORD *parent=___fp+na;
+             ___rest_observation_note_saved_fp(___ps, held, held_epoch, saved_fp, parent);
+             ___FP_SET_STK(parent,-___FRAME_STACK_RA,___R0)
+             ___fp=parent;
+             ___W_ALL
+             {
+               ___rest_note_before_collect();
+               overflow=___garbage_collect(___PSP 0);
+             }
+             ___R_ALL
+             ___SET_R0(___FRAME_FETCH_RA)
+             if (!overflow)
+               {
+                 ___W_ALL
+                 if (___heap_limit(___PSPNC))
+                   {
+                     ___rest_note_before_collect();
+                     overflow=___garbage_collect(___PSP 0);
+                   }
+                 ___R_ALL
+                 ___SET_R0(___FRAME_FETCH_RA)
+               }
+             if (overflow ||
+                 ___fp<___ps->context->stack_limit+na)
+               {
+                 ___rest_mark_attempt_cut(___ps, ___hp, ___fp, 4, i);
+                 ___FP_SET_STK(___fp,-___FRAME_STACK_RA,___R0)
+                 ___W_FP
+                 ___rest_activation_cleanup(___ps, held, ___FIX(1), held_epoch);
+                 ___rest_disarm_attempt();
+                 ___JUMPPRM(___SET_NARGS(0),
+                            ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
+               }
+             ___ADJFP(na)
+             ___rest_observation_note_saved_fp(___ps, held, held_epoch, ___fp, ___fp);
+             ___rest_observation_note_return_fp(___ps, held, held_epoch, ___fp);
+             ___R_HEAP
+             ___W_FP
+           }
+         ___rest_note_attempt_acquired(___ps, ___hp, ___fp);
+         if (!___rest_reload_window(___ps, ___fp, held, held_epoch, na,
+                                    nb_key, key_vals, &repaired))
+           {
+             /* Root reload failed. This is not a destination shortage. */
+             ___rest_note_attempt_view(___ps, held, held_epoch, ___fp);
+             ___rest_mark_attempt_cut(___ps, ___hp, ___fp, 6, i);
+             ___ADJFP(-na)
+             ___FP_SET_STK(___fp,-___FRAME_STACK_RA,___R0)
+             ___W_FP
+             ___rest_activation_cleanup(___ps, held, ___FIX(1), held_epoch);
+             ___rest_disarm_attempt();
+             ___JUMPPRM(___SET_NARGS(0),
+                        ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
+           }
+         if (!___rest_stack_slots_fit(___ps, ___fp, stack_slots))
+           {
+             /* Stack slots are short. Do not extend the heap. */
+             ___rest_note_attempt_view(___ps, held, held_epoch, ___fp);
+             ___rest_mark_attempt_cut(___ps, ___hp, ___fp, 7, i);
+             ___ADJFP(-na)
+             ___FP_SET_STK(___fp,-___FRAME_STACK_RA,___R0)
+             ___W_FP
+             ___rest_activation_cleanup(___ps, held, ___FIX(1), held_epoch);
+             ___rest_disarm_attempt();
+             ___JUMPPRM(___SET_NARGS(0),
+                        ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
+           }
+         if (!___rest_grant_fits(___ps, ___hp, ___fp, i, np, stack_slots))
+           {
+             /* The returned heap view is still short. Soft quota alone is
+              * not a section contest. Only a short physical tail may claim;
+              * the same attempt then rechecks the complete grant.
+              * One word short of the complete demand is a refusal, not a
+              * new section. */
+             if (___rest_planted_short() &&
+                 ___rest_one_word_short(___ps, ___hp, ___fp, i, np, stack_slots) &&
+                 ___rest_physical_tail_short(___ps, i, np))
+               {
+                 ___rest_note_attempt_view(___ps, held, held_epoch, ___fp);
+                 ___rest_mark_attempt_cut(___ps, ___hp, ___fp, 9, i);
+                 ___rest_activation_cleanup(___ps, held, ___FIX(1), held_epoch);
+                 ___rest_disarm_attempt();
+                 ___JUMPPRM(___SET_NARGS(0),
+                            ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
+               }
+             if (___rest_physical_tail_short(___ps, i, np))
+               {
+             if (!___rest_extend_interval(___ps, i, np))
+               {
+                 ___rest_note_attempt_view(___ps, held, held_epoch, ___fp);
+                 ___rest_mark_attempt_cut(___ps, ___hp, ___fp, 2, i);
+                 ___ADJFP(-na)
+                 ___FP_SET_STK(___fp,-___FRAME_STACK_RA,___R0)
+                 ___W_FP
+                 ___rest_activation_cleanup(___ps, held, ___FIX(1), held_epoch);
+                 ___rest_disarm_attempt();
+                 ___JUMPPRM(___SET_NARGS(0),
+                            ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
+               }
+               }
+             else if (!___rest_publish_owned_soft_edge(___ps, i, np))
+               {
+                 ___rest_note_attempt_view(___ps, held, held_epoch, ___fp);
+                 ___rest_mark_attempt_cut(___ps, ___hp, ___fp, 8, i);
+                 ___ADJFP(-na)
+                 ___FP_SET_STK(___fp,-___FRAME_STACK_RA,___R0)
+                 ___W_FP
+                 ___rest_activation_cleanup(___ps, held, ___FIX(1), held_epoch);
+                 ___rest_disarm_attempt();
+                 ___JUMPPRM(___SET_NARGS(0),
+                            ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
+               }
+             ___R_HEAP
+             if (!___rest_reload_window(___ps, ___fp, held, held_epoch, na,
+                                        nb_key, key_vals, &repaired) ||
+                 !___rest_grant_fits(___ps, ___hp, ___fp, i, np, stack_slots))
+               {
+                 ___rest_note_attempt_view(___ps, held, held_epoch, ___fp);
+                 ___rest_mark_attempt_cut(___ps, ___hp, ___fp, 1, i);
+                 ___ADJFP(-na)
+                 ___FP_SET_STK(___fp,-___FRAME_STACK_RA,___R0)
+                 ___W_FP
+                 ___rest_activation_cleanup(___ps, held, ___FIX(1), held_epoch);
+                 ___rest_disarm_attempt();
+                 ___JUMPPRM(___SET_NARGS(0),
+                            ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
+               }
+           }
+         ___ps->temp1=repaired;
+       }
+   }
 
-            ___COVER_KEYWORD_REST_PARAM_HANDLER_HEAP_LIMIT;
+   rest_keyword_admitted:
 
-            ___W_ALL
-            need_to_gc = ___heap_limit (___PSPNC);
-            ___R_ALL
-
-            if (need_to_gc)
-              {
-                /*
-                 * We need to garbage collect, but before we do we have
-                 * to remove all arguments from the stack so that the GC
-                 * only sees complete continuation frames on the stack.
-                 * The arguments are stored in a heap allocated vector.
-                 */
-
-                ___COVER_KEYWORD_REST_PARAM_HANDLER_NEED_TO_GC;
-
-                /* Finish creating the rest parameter. */
-
-                while (i > 0)
-                  {
-                    rest_param_list = ___CONS(___POP,rest_param_list);
-                    i--;
-                  }
-
-                ___ADJFP(-j)
-
-                for (i=0; i<nb_key; i++) /*push value of all keyword params*/
-                  ___PUSH(key_vals[i])
-
-                ___BEGIN_ALLOC_VECTOR(np)
-                i = np - 1;
-                ___ADD_VECTOR_ELEM(i,rest_param_list)
-                while (i > 0)
-                  {
-                    i--;
-                    ___ADD_VECTOR_ELEM(i,___POP)
-                  }
-                ___END_ALLOC_VECTOR(np)
-
-                ___PUSH_ARGS2(___ps->temp1,___GET_VECTOR(np))
-
-                ___JUMPPRM(___SET_NARGS(2),
-                           ___PRMCELL(___G__23__23_rest_2d_param_2d_check_2d_heap.prm))
-              }
-          }
+   if (held) {
+     enum ___rest_status preflight=
+       ___rest_ready_preflight(___ps, held, ___FIX(1), held_epoch);
+     if (preflight!=___REST_OK && preflight!=___REST_DUPLICATE) {
+       ___rest_activation_cleanup(___ps, held, ___FIX(1), held_epoch);
+       ___rest_disarm_attempt();
+       ___JUMPPRM(___SET_NARGS(0),
+                  ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
      }
+   }
+
+   if (__builtin_expect(!rest_fast && (held != 0 || ___rest_attempt_words != 0), 0))
+     {
+       ___WORD_FETCH_ADD_RELAXED(&___rest_fallback_pops, (___WORD)i);
+       ___WORD_FETCH_ADD_RELAXED(&___rest_fallback_pair_writes, (___WORD)i);
+     }
+   {
+     ___WORD *fp_cur = ___fp;
+     while (i > 0)
+       {
+         rest_param_list = ___CONS(___FP_POP(fp_cur),rest_param_list);
+         i--;
+       }
+     ___fp = fp_cur;
+   }
+
+   if (held)
+     {
+       ___WORD *old_hp = ___hp;
+       ___SCMOBJ entered = ___rest_finish_refusal(___ps, held, held_epoch,
+                                                  rest_param_list, &old_hp);
+       if (entered==0)
+         {
+           ___rest_disarm_attempt();
+           ___JUMPPRM(___SET_NARGS(0),
+                      ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
+         }
+       rest_param_list = entered;
+     }
+
+#ifdef ___GAMBIT_REST_OBSERVATION
+   {
+     extern void ___rest_observation_exact_granted(___processor_state, ___WORD *, ___WORD *);
+     ___W_HEAP
+     ___W_FP
+     ___rest_observation_exact_granted(___ps, ___hp, ___fp);
+   }
+#endif
 
    ___ADJFP(-j)
 
    ___COVER_KEYWORD_REST_PARAM_HANDLER_NO_NEED_TO_GC;
 
-   for (i=0; i<nb_key; i++) /* push value of all keyword params */
-     ___PUSH(key_vals[i])
+   {
+     ___WORD *fp_cur = ___fp;
+     for (i=0; i<nb_key; i++) /* push value of all keyword params */
+       ___FP_PUSH(fp_cur, key_vals[i])
 
-   ___PUSH(rest_param_list) /* rest parameter is last */
+     ___FP_PUSH(fp_cur, rest_param_list) /* rest parameter is last */
+     ___fp = fp_cur;
+   }
 
    ___POP_ARGS_IN_REGS(np) /* load register arguments */
 
+   if (__builtin_expect(!rest_fast, 0))
+     {
+       ___rest_disarm_attempt();
+       ___rest_observation_note_body(___ps);
+     }
    ___JUMPEXTPRM(___SET_NARGS(-1),___ps->temp1)
 
 end-of-code
@@ -979,9 +1737,10 @@ end-of-code
    (let () (##declare (not warnings)) (0))) ; create a return point
 
   (##c-code #<<end-of-code
+/* gambit:kernel-entry handler_force */
 
    /*
-    * ___LBL(10)
+    * Runtime entry: handler_force
     *
     * This is the force handler.  It is invoked when a promise is forced.
     */
@@ -1004,6 +1763,16 @@ end-of-code
 
    ___ADJFP(-___RETI_RA)
 
+#if ___NB_GVM_REGS > 2
+   ___SET_R2(___FIX(0L))
+#endif
+#if ___NB_GVM_REGS > 3
+   ___SET_R3(___FIX(0L))
+#endif
+#if ___NB_GVM_REGS > 4
+   ___SET_R4(___FIX(0L))
+#endif
+
    ___SET_R0(___ps->internal_return)
 
    /* tail call to ##force-out-of-line */
@@ -1019,9 +1788,10 @@ end-of-code
 
   (let ((stack-marker (##first-argument 0)))
     (##c-code #<<end-of-code
+/* gambit:kernel-entry handler_return_to_c */
 
      /*
-      * ___LBL(11)
+      * Runtime entry: handler_return_to_c
       *
       * This is the return to C handler.  It is invoked when control
       * must return to C (i.e. back from the call to ___call).
@@ -1037,11 +1807,13 @@ end-of-code
      if (!___FIXEQ(___VECTORELEM(unwind_destination, 1),
                    ___FIX(___PROCESSOR_ID(___ps,___VMSTATE_FROM_PSTATE(___ps)))))
        {
-         /* not the same processor that created frame */
+         /* not the same processor that created frame; preserve return value in R1 */
+         ___SCMOBJ ret_val = ___R1;
+         ___SCMOBJ target_id = ___VECTORELEM(unwind_destination, 1);
          ___COVER_RETURN_TO_C_HANDLER_WRONG_PROCESSOR;
          ___SET_R0(___ps->handler_return_to_c)
-         ___SET_R1(___VECTORELEM(unwind_destination, 1))
-         ___JUMPPRM(___SET_NARGS(1),
+         ___PUSH_ARGS2(ret_val, target_id)
+         ___JUMPPRM(___SET_NARGS(2),
                     ___PRMCELL(___G__23__23_c_2d_return_2d_on_2d_other_2d_processor.prm))
        }
      else
@@ -1072,9 +1844,10 @@ end-of-code
     (##first-argument stack-marker))
 
   (##c-code #<<end-of-code
+/* gambit:kernel-entry handler_break */
 
    /*
-    * ___LBL(12)
+    * Runtime entry: handler_break
     *
     * This is the break handler.  It is invoked when a procedure
     * attempts to return to its caller and the caller's stack frame
@@ -1193,72 +1966,41 @@ end-of-code
 
        if (ra1 == ___FAL)
          {
-           /*
-            * The caller's frame must be copied to the top of stack.
-            */
-
-           ra1 = ___FP_STK(fp,-___FRAME_STACK_RA);
-
-           if (ra1 == ___ps->internal_return)
-             {
-               ___SCMOBJ actual_ra = ___FP_STK(fp,___RETI_RA);
-               ___RETI_GET_FS_LINK(actual_ra,fs,link)
-               ___COVER_BREAK_HANDLER_STACK_RETI;
-             }
-           else
-             {
-               ___RETN_GET_FS_LINK(ra1,fs,link)
-               ___COVER_BREAK_HANDLER_STACK_RETN;
-             }
-
-           ___FP_ADJFP(fp,-___FRAME_SPACE(fs)); /* get base of frame */
-
-           for (i=fs; i>0; i--)
-             ___SET_STK(i,___FP_STK(fp,i))
-
-           ra2 = ___STK(link+1);
-
-           if (ra2 == ___ps->handler_break)
-             {
-               /* first frame of that section */
-
-               ___COVER_BREAK_HANDLER_STACK_FIRST_FRAME;
-               ___SET_STK(-___BREAK_FRAME_NEXT,
-                          ___FP_STK(fp,-___BREAK_FRAME_NEXT))
-             }
-           else
-             {
-               /* not the first frame of that section */
-
-               ___COVER_BREAK_HANDLER_STACK_NOT_FIRST_FRAME;
-
-               ___FP_SET_STK(fp,-___FRAME_STACK_RA,ra2)
-               ___SET_STK(-___BREAK_FRAME_NEXT,___CAST(___SCMOBJ,fp))
-               ___SET_STK(link+1,___ps->handler_break)
-             }
-
-           ___ADJFP(___FRAME_SPACE(fs))
+           ra1 = ___restore_stack_break_frame (___ps, fp, &___fp);
          }
      }
    else
      {
        /* caller's frame is in the heap */
 
-       fp = ___BODY_AS(cf,___tFRAME); /* get pointer to frame's body */
+       ___frame_descriptor fd;
 
-       ra1 = fp[___FRAME_RA];
+       {
+         fp = ___BODY_AS(cf,___tFRAME); /* get pointer to frame's body */
+         ra1 = fp[___FRAME_RA];
+         if (!___decode_heap_frame_descriptor(fp, ___ps->internal_return, &fd))
+           ___group_demand_fail(___ps);
+         fs = fd.fs;
+         link = fd.link;
+         if (ra1 == ___ps->internal_return)
+           {
+             ___COVER_BREAK_HANDLER_HEAP_RETI;
+           }
+         else
+           {
+             ___COVER_BREAK_HANDLER_HEAP_RETN;
+           }
+       }
 
-       if (ra1 == ___ps->internal_return)
-         {
-           ___SCMOBJ actual_ra = fp[___FRAME_RETI_RA];
-           ___RETI_GET_FS_LINK(actual_ra,fs,link)
-           ___COVER_BREAK_HANDLER_HEAP_RETI;
-         }
-       else
-         {
-           ___RETN_GET_FS_LINK(ra1,fs,link)
-           ___COVER_BREAK_HANDLER_HEAP_RETN;
-         }
+       {
+         extern int ___stack_adjust_fits(___processor_state, ___WORD *, ___SIZE_TS);
+         /* Copying the heap frame moves fp by the whole aligned frame.
+          * Refuse before the first store when that distance is outside
+          * the owned stack span. */
+         if (!___stack_adjust_fits(___ps, ___fp,
+                                   ___CAST(___SIZE_TS,___FRAME_SPACE(fs))))
+           ___group_demand_fail(___ps);
+       }
 
        fp += fs+1; /* get base of frame */
 
@@ -1267,6 +2009,17 @@ end-of-code
 
        ___SET_STK(-___BREAK_FRAME_NEXT,___STK(link+1))
        ___SET_STK(link+1,___ps->handler_break)
+
+       if (___EXPECT_FALSE(___ps->mem.satb_active_ != 0))
+         {
+           ___frame_root_cursor cursor = ___frame_ordinary_root_begin (&fd);
+           int first, past;
+           while (___frame_root_next_run (&cursor, &first, &past))
+             ___EXT(___gc_satb_barrier_range)(___ps, &___STK(past - 1),
+                                              ___CAST(___SIZE_TS, past - first));
+           ___WORD_STORE_RELAXED(&___ps->mem.stack_watermark_shaded_frames_,
+                                 ___ps->mem.stack_watermark_shaded_frames_ + 1);
+         }
 
        ___ADJFP(___FRAME_SPACE(fs))
      }
@@ -1278,9 +2031,10 @@ end-of-code
    (let () (##declare (not warnings)) (0))) ; create a return point
 
   (##c-code #<<end-of-code
+/* gambit:kernel-entry internal_return */
 
    /*
-    * ___LBL(13)
+    * Runtime entry: internal_return
     *
     * This is the internal return handler.  It is invoked when an
     * internal return point is returned to.
@@ -1315,6 +2069,9 @@ end-of-code
 
    int fs;
    ___SCMOBJ ira;
+#ifdef ___GAMBIT_REST_OBSERVATION
+   ___WORD *gate2_handler_fp = ___fp;
+#endif
 
    /* save result in case we are returning from ##force-out-of-line */
 
@@ -1336,6 +2093,20 @@ end-of-code
    /* adjust ___fp so that slot fs is on top of stack */
 
    ___ADJFP(fs-___ROUND_TO_MULT(fs,___FRAME_ALIGN))
+
+#ifdef ___GAMBIT_REST_OBSERVATION
+   {
+     extern void ___gate2_unwound(___processor_state, ___WORD *, ___WORD *, int);
+     ___gate2_unwound(___ps, gate2_handler_fp, ___fp, fs);
+   }
+#endif
+
+   /* The handler published its frame cursor before this pop. Keep the
+    * restored caller cursor beside that saved value. */
+   {
+     extern void ___group_demand_note_return_fp(___processor_state, ___WORD *);
+     ___group_demand_note_return_fp(___ps, ___fp);
+   }
 
    /* jump to internal return point */
 
@@ -1366,7 +2137,11 @@ end-of-code
       (let* ((results ; may get bound to a multiple-values object
               (thunk))
              (current-thread
-              (macro-current-thread)))
+              (begin
+                (macro-case-target
+                 ((C) (##c-code "/* gambit:kernel-entry dynamic_env_bind_return */"))
+                 (else))
+                (macro-current-thread))))
         (macro-thread-denv-set! current-thread old-denv)
         (let ((x (macro-env-param-val (macro-denv-local old-denv))))
           (macro-thread-denv-cache1-set! current-thread x)
@@ -1840,11 +2615,13 @@ end-of-code
 (define-prim (##c-return-on-other-processor-hook-set! x)
   (set! ##c-return-on-other-processor-hook x))
 
-(define-prim (##c-return-on-other-processor id)
+(define-prim (##c-return-on-other-processor val id)
   (##declare (not interrupts-enabled))
   (let ((proc ##c-return-on-other-processor-hook))
     (if (##procedure? proc)
-        (proc id)
+        (begin
+          (proc id)
+          val)
         (##raise-wrong-processor-c-return-exception))))
 
 (implement-library-type-number-of-arguments-limit-exception)
@@ -1966,16 +2743,24 @@ end-of-code
   (let ((result
          (##c-code #<<end-of-code
 
-          if (___hp > ___ps->heap_limit)
+          if (___hp > ___ps->heap_limit || ___group_demand_before(___ps,___fp)==1
+              || ___group_demand_blocked(___ps))
             {
               ___BOOL overflow;
               ___FRAME_STORE_RA(___R0)
               ___W_ALL
-              overflow = ___heap_limit (___PSPNC) && ___garbage_collect (___PSP 0);
+              if (___group_demand_blocked(___ps))
+                overflow = 1;
+              else
+                overflow = ___heap_limit (___PSPNC) && ___garbage_collect (___PSP 0);
+              ___group_demand_after(___ps, overflow);
               ___R_ALL
               ___SET_R0(___FRAME_FETCH_RA)
-              if (overflow)
-                ___RESULT = ___TRU;
+              if (overflow || ___group_demand_blocked(___ps))
+                {
+                  ___group_demand_retire(___ps);
+                  ___RESULT = ___TRU;
+                }
               else
                 ___RESULT = ___FAL;
             }
@@ -1985,9 +2770,7 @@ end-of-code
 end-of-code
 )))
     (if result
-      (begin
-        (##raise-heap-overflow-exception)
-        (##check-heap)))))
+      (##raise-heap-overflow-exception))))
 
 (define-prim (##rest-param-check-heap proc args)
   (##declare (not interrupts-enabled))
@@ -2037,6 +2820,7 @@ end-of-code
 
    ___FRAME_STORE_RA(___R0)
    ___W_ALL
+   ___WORD_STORE_RELEASE(&___VMSTATE_FROM_PSTATE(___ps)->mem.force_major_gc_, 1);
    overflow = ___garbage_collect (___PSP 0);
    ___R_ALL
    ___SET_R0(___FRAME_FETCH_RA)
@@ -2055,6 +2839,8 @@ end-of-code
           ___BOOL overflow;
           ___FRAME_STORE_RA(___R0)
           ___W_ALL
+          ___gc_request_contraction ();
+          ___WORD_STORE_RELEASE(&___VMSTATE_FROM_PSTATE(___ps)->mem.force_major_gc_, 1);
           overflow = ___garbage_collect (___PSP 0);
           ___R_ALL
           ___SET_R0(___FRAME_FETCH_RA)
@@ -2079,29 +2865,114 @@ end-of-code
 (define-prim (##clear-gc-interrupt-jobs!)
   (##clear-jobs! ##gc-interrupt-jobs))
 
-(define-prim (##gc-finalize!)
+(define ##gc-finalizing-threads (##vector '()))
+
+(define-prim (##gc-finalizing-member? self lst)
+  (let loop ((x lst))
+    (and (##pair? x)
+         (or (##eq? (##car x) self)
+             (loop (##cdr x))))))
+
+(define-prim (##gc-finalizing-remq self lst)
+  (cond ((##null? lst) '())
+        ((##eq? (##car lst) self) (##cdr lst))
+        (else (##cons (##car lst) (##gc-finalizing-remq self (##cdr lst))))))
+
+(define-prim (##gc-finalizing-enter! self)
   (##declare (not interrupts-enabled))
-  (let ((will
-         (##c-code #<<end-of-code
+  (if (##not self)
+      #t
+      (let loop ()
+        (let ((cur (##vector-ref ##gc-finalizing-threads 0)))
+          (if (##gc-finalizing-member? self cur)
+              #f
+              (if (##eq? (##vector-cas! ##gc-finalizing-threads 0 (##cons self cur) cur) cur)
+                  #t
+                  (loop)))))))
 
-          ___WORD exec_wills = ___ps->mem.executable_wills_;
+(define-prim (##gc-finalizing-leave! self)
+  (##declare (not interrupts-enabled))
+  (if self
+      (let loop ()
+        (let ((cur (##vector-ref ##gc-finalizing-threads 0)))
+          (if (##gc-finalizing-member? self cur)
+              (if (##not (##eq? (##vector-cas! ##gc-finalizing-threads 0
+                                               (##gc-finalizing-remq self cur)
+                                               cur)
+                                cur))
+                  (loop)))))))
 
-          if (___UNTAG(exec_wills) == 0) /* end of list? */
-            ___RESULT = ___FAL;
-          else
-            {
-              ___WORD will = ___SUBTYPED_FROM_START(___UNTAG(exec_wills));
-              ___ps->mem.executable_wills_ = ___WILL_NEXT_FIELD(will);
-              ___RESULT = will;
-            }
+(define-prim (##gc-pop-executable-will!)
+  (##declare (not interrupts-enabled))
+  (##c-code #<<end-of-code
+
+#ifndef ___SINGLE_THREADED_VMS
+   static ___TICKETLOCK exec_will_lock = ___TICKETLOCK_INIT_STATIC;
+   ___virtual_machine_state vm = ___VMSTATE_FROM_PSTATE(___ps);
+   int self_id = ___PROCESSOR_ID(___ps, vm);
+   int count = vm->processor_count;
+   ___WORD will_res = ___FAL;
+   int k;
+
+   ___TICKETLOCK_LOCK(exec_will_lock);
+   for (k = 0; k < count; k++)
+     {
+       ___processor_state p = ___PSTATE_FROM_PROCESSOR_ID((self_id + k) % count, vm);
+       ___WORD exec_wills = p->mem.executable_wills_;
+       if (___UNTAG(exec_wills) != 0)
+         {
+           ___WORD will = ___SUBTYPED_FROM_START(___UNTAG(exec_wills));
+           p->mem.executable_wills_ = ___WILL_NEXT_FIELD(will);
+           ___WILL_NEXT_FIELD(will) = ___TAG(0, ___EXECUTABLE_WILL);
+           will_res = will;
+           break;
+         }
+     }
+   ___TICKETLOCK_UNLOCK(exec_will_lock);
+   ___RESULT = will_res;
+#else
+   ___WORD exec_wills = ___ps->mem.executable_wills_;
+
+   if (___UNTAG(exec_wills) == 0) /* end of list? */
+     ___RESULT = ___FAL;
+   else
+     {
+       ___WORD will = ___SUBTYPED_FROM_START(___UNTAG(exec_wills));
+       ___ps->mem.executable_wills_ = ___WILL_NEXT_FIELD(will);
+       ___WILL_NEXT_FIELD(will) = ___TAG(0, ___EXECUTABLE_WILL);
+       ___RESULT = will;
+     }
+#endif
 
 end-of-code
-)))
-    (if will
-      (begin
-        (##will-execute! will)
-        (##gc-finalize!))
-      (##gc-final-will-registry!))))
+))
+
+(define-prim (##gc-finalize!)
+  (##declare (not interrupts-enabled))
+  (let ((self (macro-current-thread)))
+    ;; Non-reentrant per-thread finalization: if a second ___INTR_GC arrives
+    ;; while `self` is already executing a will action (potentially holding a
+    ;; non-reentrant SRFI-18 mutex), skip nested finalization; the outer loop
+    ;; below will drain all newly executable wills once the current action ends.
+    (if (##not (and self
+                    (##gc-finalizing-member? self (##vector-ref ##gc-finalizing-threads 0))))
+        (let ((first-will (##gc-pop-executable-will!)))
+          (if first-will
+              (if (##gc-finalizing-enter! self)
+                  (let ()
+                    (##with-exception-catcher
+                     (lambda (exc)
+                       (##gc-finalizing-leave! self)
+                       (##raise exc))
+                     (lambda ()
+                       (let drain ((will first-will))
+                         (if will
+                             (begin
+                               (##will-execute! will)
+                               (drain (##gc-pop-executable-will!)))
+                             (##gc-final-will-registry!)))))
+                    (##gc-finalizing-leave! self)))
+              (##gc-final-will-registry!))))))
 
 (define-prim (##will-execute! will)
   (##declare (not interrupts-enabled))
@@ -2115,39 +2986,47 @@ end-of-code
           (action testator))
       (##void))))
 
-(define ##final-will-registry (macro-make-fifo))
+;; Lock-free SMP-safe final-will registry (1-slot vector updated via ##vector-cas!)
+(define ##final-will-registry (##vector '()))
+
+(define-prim (##final-will-registry-push! will)
+  (##declare (not interrupts-enabled))
+  (let loop ()
+    (let ((cur (##vector-ref ##final-will-registry 0)))
+      (if (##not (##eq? (##vector-cas! ##final-will-registry 0 (##cons will cur) cur) cur))
+          (loop)))))
+
+(define-prim (##final-will-registry-take-all!)
+  (##declare (not interrupts-enabled))
+  (let loop ()
+    (let ((cur (##vector-ref ##final-will-registry 0)))
+      (if (##null? cur)
+          '()
+          (if (##eq? (##vector-cas! ##final-will-registry 0 '() cur) cur)
+              cur
+              (loop))))))
 
 (define-prim (##execute-final-wills!)
   (##declare (not interrupts-enabled))
-  (let ((registry ##final-will-registry))
-    (let ((lst (macro-fifo-remove-all! registry)))
-      (let loop ((x lst))
-        (if (##not (##null? x))
-          (begin
-            (##will-execute! (##car x))
-            (loop (##cdr x))))))))
+  (let loop ((x (##final-will-registry-take-all!)))
+    (if (##not (##null? x))
+      (begin
+        (##will-execute! (##car x))
+        (loop (##cdr x))))))
 
 (define-prim (##gc-final-will-registry!)
   (##declare (not interrupts-enabled))
-  (let ((registry ##final-will-registry))
-    (let loop ((curr registry)
-               (next (macro-fifo-next registry)))
-      (if (##null? next)
-        (macro-fifo-tail-set! registry curr)
-        (let* ((will (macro-fifo-elem next))
-               (action (##will-action will)))
-          (if action
-            (begin
-              (macro-fifo-next-set! curr next)
-              (loop next
-                    (macro-fifo-next next)))
-            (loop curr
-                  (macro-fifo-next next))))))))
+  (let ((lst (##final-will-registry-take-all!)))
+    (let loop ((x lst))
+      (if (##not (##null? x))
+        (let ((will (##car x)))
+          (if (##will-action will)
+            (##final-will-registry-push! will))
+          (loop (##cdr x)))))))
 
 (define-prim (##make-final-will testator action)
-  (let* ((registry ##final-will-registry)
-         (will (##make-will testator action)))
-    (macro-fifo-insert-at-head! registry will)
+  (let ((will (##make-will testator action)))
+    (##final-will-registry-push! will)
     will))
 
 (define-prim (##handle-gc-interrupt!)
@@ -2359,6 +3238,33 @@ end-of-code
 
 end-of-code
 ))
+
+(define ##current-vm-resize-ticket
+  (c-lambda (scheme-object int)
+            scheme-object
+    "___return(___current_vm_resize_ticket(___PSP ___arg1, ___arg2));"))
+
+(define ##startup-ready-status
+  (c-lambda (scheme-object)
+            scheme-object
+    "___return(___startup_ready_status(___PSP ___arg1));"))
+
+(define-prim (##startup-ready!)
+  (##declare (not interrupts-enabled))
+  (##c-code "___RESULT = ___startup_ready(___PSPNC);"))
+
+(define (##current-vm-resize-ready thunk target)
+  (let ((ticket (##current-vm-resize-ticket thunk target)))
+    (if (##fx< ticket 0)
+        ticket
+        (let wait ()
+          ;; Only the exact ticket can settle the request. Yield outside the
+          ;; native gate so collective GC and other interrupts can proceed.
+          (##declare (interrupts-enabled))
+          (let ((status (##startup-ready-status ticket)))
+            (if (##not status)
+                (begin (##thread-yield!) (wait))
+                status))))))
 
 (define ##current-vm-processor-count
   (c-lambda ()
@@ -3165,12 +4071,9 @@ end-of-code
   (##declare (not interrupts-enabled))
   (##c-code #<<end-of-code
 
-   ___SCMOBJ ra = ___FIELD(FRAME,___ARG1,0);
-
-   if (ra == ___ps->internal_return)
-     ra = ___FIELD(FRAME,___ARG1,___FRAME_RETI_RA);
-
-   ___RESULT = ra;
+   ___RESULT = ___frame_heap_return_label(___BODY_AS(___ARG1,___tFRAME),
+                                          ___ps->internal_return,
+                                          0);
 
 end-of-code
 
@@ -3181,30 +4084,17 @@ end-of-code
   (##c-code #<<end-of-code
 
    ___SCMOBJ frame = ___CONTINUATION_FRAME_FIELD(___ARG1);
-   ___SCMOBJ ra;
 
    if (___TESTTYPE(frame, ___tFRAME))
      {
        /* continuation frame is in the heap */
 
-       ra = ___FIELD(FRAME,frame,0);
-
-       if (ra == ___ps->internal_return)
-         ra = ___FIELD(FRAME,frame,___FRAME_RETI_RA);
+       ___RESULT = ___frame_heap_return_label(___BODY_AS(frame,___tFRAME),
+                                              ___ps->internal_return,
+                                              0);
      }
    else
-     {
-       /* continuation frame is in the stack */
-
-       ___SCMOBJ *fp = ___CAST(___SCMOBJ*,frame);
-
-       ra = fp[___FRAME_STACK_RA];
-
-       if (ra == ___ps->internal_return)
-         ra = fp[-___RETI_RA];
-     }
-
-   ___RESULT = ra;
+     ___RESULT = ___access_raw_continuation_frame(___ps,frame,___RAW_FRAME_RET,___FAL,___FAL);
 
 end-of-code
 
@@ -3229,15 +4119,14 @@ end-of-code
   (##declare (not interrupts-enabled))
   (##c-code #<<end-of-code
 
-   ___SCMOBJ ra = ___FIELD(FRAME,___ARG1,0);
-   int fs;
+   ___frame_descriptor descriptor;
 
-   if (ra == ___ps->internal_return)
-     ___RETI_GET_FS(___FIELD(FRAME,___ARG1,___FRAME_RETI_RA),fs)
-   else
-     ___RETN_GET_FS(ra,fs)
+   if (!___decode_heap_frame_descriptor(___BODY_AS(___ARG1,___tFRAME),
+                                        ___ps->internal_return,
+                                        &descriptor))
+     descriptor.fs = 0;
 
-   ___RESULT = ___FIX(fs);
+   ___RESULT = ___FIX(descriptor.fs);
 
 end-of-code
 
@@ -3248,35 +4137,20 @@ end-of-code
   (##c-code #<<end-of-code
 
    ___SCMOBJ frame = ___CONTINUATION_FRAME_FIELD(___ARG1);
-   ___SCMOBJ ra;
-   int fs;
 
    if (___TESTTYPE(frame, ___tFRAME))
      {
        /* continuation frame is in the heap */
 
-       ra = ___FIELD(FRAME,frame,0);
-
-       if (ra == ___ps->internal_return)
-         ___RETI_GET_FS(___FIELD(FRAME,frame,___FRAME_RETI_RA),fs)
-       else
-         ___RETN_GET_FS(ra,fs)
+       ___frame_descriptor descriptor;
+       if (!___decode_heap_frame_descriptor(___BODY_AS(frame,___tFRAME),
+                                            ___ps->internal_return,
+                                            &descriptor))
+         descriptor.fs = 0;
+       ___RESULT = ___FIX(descriptor.fs);
      }
    else
-     {
-       /* continuation frame is in the stack */
-
-       ___SCMOBJ *fp = ___CAST(___SCMOBJ*,frame);
-
-       ra = fp[___FRAME_STACK_RA];
-
-       if (ra == ___ps->internal_return)
-         ___RETI_GET_FS(fp[-___RETI_RA],fs)
-       else
-         ___RETN_GET_FS(ra,fs)
-     }
-
-   ___RESULT = ___FIX(fs);
+     ___RESULT = ___access_raw_continuation_frame(___ps,frame,___RAW_FRAME_FS,___FAL,___FAL);
 
 end-of-code
 
@@ -3286,16 +4160,14 @@ end-of-code
   (##declare (not interrupts-enabled))
   (##c-code #<<end-of-code
 
-   ___SCMOBJ ra = ___FIELD(FRAME,___ARG1,0);
-   int fs;
-   int link;
+   ___frame_descriptor descriptor;
 
-   if (ra == ___ps->internal_return)
-     ___RETI_GET_FS_LINK(___BODY_AS(___ARG1,___tFRAME)[___FRAME_RETI_RA],fs,link)
-   else
-     ___RETN_GET_FS_LINK(ra,fs,link)
+   if (!___decode_heap_frame_descriptor(___BODY_AS(___ARG1,___tFRAME),
+                                        ___ps->internal_return,
+                                        &descriptor))
+     descriptor.link = -1;
 
-   ___RESULT = ___FIX(link+1);
+   ___RESULT = ___FIX(descriptor.link+1);
 
 end-of-code
 
@@ -3306,34 +4178,20 @@ end-of-code
   (##c-code #<<end-of-code
 
    ___SCMOBJ frame = ___CONTINUATION_FRAME_FIELD(___ARG1);
-   ___SCMOBJ ra;
-   int fs;
-   int link;
 
    if (___TESTTYPE(frame, ___tFRAME))
      {
        /* continuation frame is in the heap */
 
-       ra = ___FIELD(FRAME,frame,0);
-
-       if (ra == ___ps->internal_return)
-         ___RETI_GET_FS_LINK(___BODY_AS(frame,___tFRAME)[___FRAME_RETI_RA],fs,link)
-       else
-         ___RETN_GET_FS_LINK(ra,fs,link)
+       ___frame_descriptor descriptor;
+       if (!___decode_heap_frame_descriptor(___BODY_AS(frame,___tFRAME),
+                                            ___ps->internal_return,
+                                            &descriptor))
+         descriptor.link = -1;
+       ___RESULT = ___FIX(descriptor.link+1);
      }
    else
-     {
-       /* continuation frame is in the stack */
-
-       ra = ___CAST(___SCMOBJ*,frame)[___FRAME_STACK_RA];
-
-       if (ra == ___ps->internal_return)
-         ___RETI_GET_FS_LINK(___CAST(___SCMOBJ*,frame)[-___RETI_RA],fs,link)
-       else
-         ___RETN_GET_FS_LINK(ra,fs,link)
-     }
-
-   ___RESULT = ___FIX(link+1);
+     ___RESULT = ___access_raw_continuation_frame(___ps,frame,___RAW_FRAME_LINK,___FAL,___FAL);
 
 end-of-code
 
@@ -3344,21 +4202,14 @@ end-of-code
   (##c-code #<<end-of-code
 
    int i = ___INT(___ARG2);
-   ___SCMOBJ ra = ___FIELD(FRAME,___ARG1,0);
-   int fs;
-   int link;
-   ___WORD gcmap;
-   ___WORD *nextgcmap = 0;
+   ___frame_descriptor descriptor;
 
-   if (ra == ___ps->internal_return)
-     ___RETI_GET_FS_LINK_GCMAP(___BODY_AS(___ARG1,___tFRAME)[___FRAME_RETI_RA],fs,link,gcmap,nextgcmap)
+   if (___decode_heap_frame_descriptor(___BODY_AS(___ARG1,___tFRAME),
+                                       ___ps->internal_return,
+                                       &descriptor))
+     ___RESULT = ___BOOLEAN(___frame_slot_live (&descriptor, i));
    else
-     ___RETN_GET_FS_LINK_GCMAP(ra,fs,link,gcmap,nextgcmap)
-
-   if (i > ___WORD_WIDTH)
-     gcmap = nextgcmap[(i-1) >> ___LOG_WORD_WIDTH];
-
-   ___RESULT = ___BOOLEAN(gcmap & (1 << ((i-1) & (___WORD_WIDTH-1))));
+     ___RESULT = ___FAL;
 
 end-of-code
 
@@ -3371,41 +4222,21 @@ end-of-code
 
    ___SCMOBJ frame = ___CONTINUATION_FRAME_FIELD(___ARG1);
    int i = ___INT(___ARG2);
-   ___SCMOBJ ra;
-   int fs;
-   int link;
-   ___WORD gcmap;
-   ___WORD *nextgcmap = 0;
 
    if (___TESTTYPE(frame, ___tFRAME))
      {
        /* continuation frame is in the heap */
 
-       ra = ___FIELD(FRAME,frame,0);
-
-       if (ra == ___ps->internal_return)
-         ___RETI_GET_FS_LINK_GCMAP(___FIELD(FRAME,frame,___FRAME_RETI_RA),fs,link,gcmap,nextgcmap)
+       ___frame_descriptor descriptor;
+       if (___decode_heap_frame_descriptor(___BODY_AS(frame,___tFRAME),
+                                           ___ps->internal_return,
+                                           &descriptor))
+         ___RESULT = ___BOOLEAN(___frame_slot_live (&descriptor, i));
        else
-         ___RETN_GET_FS_LINK_GCMAP(ra,fs,link,gcmap,nextgcmap)
+         ___RESULT = ___FAL;
      }
    else
-     {
-       /* continuation frame is in the stack */
-
-       ___SCMOBJ *fp = ___CAST(___SCMOBJ*,frame);
-
-       ra = fp[___FRAME_STACK_RA];
-
-       if (ra == ___ps->internal_return)
-         ___RETI_GET_FS_LINK_GCMAP(fp[-___RETI_RA],fs,link,gcmap,nextgcmap)
-       else
-         ___RETN_GET_FS_LINK_GCMAP(ra,fs,link,gcmap,nextgcmap)
-     }
-
-   if (i > ___WORD_WIDTH)
-     gcmap = nextgcmap[(i-1) >> ___LOG_WORD_WIDTH];
-
-   ___RESULT = ___BOOLEAN(gcmap & (1 << ((i-1) & (___WORD_WIDTH-1))));
+     ___RESULT = ___access_raw_continuation_frame(___ps,frame,___RAW_FRAME_LIVE,___ARG2,___FAL);
 
 end-of-code
 
@@ -3417,19 +4248,13 @@ end-of-code
   (##c-code #<<end-of-code
 
    int i = ___INT(___ARG2);
-   ___SCMOBJ ra = ___FIELD(FRAME,___ARG1,0);
-   int fs;
-   int link;
+   ___WORD *body = ___BODY_AS(___ARG1,___tFRAME);
+   ___frame_descriptor descriptor;
 
-   if (ra == ___ps->internal_return)
-     ___RETI_GET_FS_LINK(___BODY_AS(___ARG1,___tFRAME)[___FRAME_RETI_RA],fs,link)
+   if (___decode_heap_frame_descriptor(body, ___ps->internal_return, &descriptor))
+     ___RESULT = *___frame_heap_slot_ptr(body, &descriptor, i);
    else
-     ___RETN_GET_FS_LINK(ra,fs,link)
-
-   ___RESULT = ___BODY_AS(___ARG1,___tFRAME)[fs-i+1];  /* what if i==link and frame is first in section???? */
-#if 0
-   if (i == link) ___RESULT = ___FIX(999999);/***********/
-#endif
+     ___RESULT = ___FAL;
 
 end-of-code
 
@@ -3441,16 +4266,15 @@ end-of-code
   (##c-code #<<end-of-code
 
    int i = ___INT(___ARG2);
-   ___SCMOBJ ra = ___FIELD(FRAME,___ARG1,0);
-   int fs;
-   int link;
+   ___WORD *body = ___BODY_AS(___ARG1,___tFRAME);
+   ___frame_descriptor descriptor;
 
-   if (ra == ___ps->internal_return)
-     ___RETI_GET_FS_LINK(___BODY_AS(___ARG1,___tFRAME)[___FRAME_RETI_RA],fs,link)
-   else
-     ___RETN_GET_FS_LINK(ra,fs,link)
-
-   ___BODY_AS(___ARG1,___tFRAME)[fs-i+1] = ___ARG3;  /* what if i==link and frame is first in section???? */
+   if (___decode_heap_frame_descriptor(body, ___ps->internal_return, &descriptor))
+     {
+       ___WORD *___fslot = ___frame_heap_slot_ptr(body, &descriptor, i);
+       ___GC_WRITE_BARRIER(___ps, ___ARG1, ___fslot, ___ARG3);
+       ___WORD_STORE_RELAXED(___fslot, ___ARG3);
+     }
 
    ___RESULT = ___VOID;
 
@@ -3467,42 +4291,20 @@ end-of-code
    ___SCMOBJ cont = ___ARG1;
    int i = ___INT(___ARG2);
    ___SCMOBJ frame = ___CONTINUATION_FRAME_FIELD(cont);
-   ___SCMOBJ ra;
-   int fs;
-   int link;
 
    if (___TESTTYPE(frame, ___tFRAME))
      {
        /* continuation frame is in the heap */
 
-       ra = ___FIELD(FRAME,frame,0);
-
-       if (ra == ___ps->internal_return)
-         ___RETI_GET_FS_LINK(___BODY_AS(frame,___tFRAME)[___FRAME_RETI_RA],fs,link)
+       ___WORD *body = ___BODY_AS(frame,___tFRAME);
+       ___frame_descriptor descriptor;
+       if (___decode_heap_frame_descriptor(body, ___ps->internal_return, &descriptor))
+         ___RESULT = *___frame_heap_slot_ptr(body, &descriptor, i);
        else
-         ___RETN_GET_FS_LINK(ra,fs,link)
-
-       ___RESULT = ___BODY_AS(frame,___tFRAME)[fs-i+1];  /* what if i==link and frame is first in section???? */
-#if 0
-      if (i == link) ___RESULT = ___FIX(999999);/***********/
-#endif
+         ___RESULT = ___FAL;
      }
    else
-     {
-       /* continuation frame is in the stack */
-
-       ra = ___CAST(___SCMOBJ*,frame)[___FRAME_STACK_RA];
-
-       if (ra == ___ps->internal_return)
-         ___RETI_GET_FS_LINK(___CAST(___SCMOBJ*,frame)[-___RETI_RA],fs,link)
-       else
-         ___RETN_GET_FS_LINK(ra,fs,link)
-
-       ___RESULT = ___CAST(___SCMOBJ*,frame)[___FRAME_SPACE(fs)-i];  /* what if i==link and frame is first in section???? */
-#if 0
-      if (i == link) ___RESULT = ___FIX(999999);/***********/
-#endif
-     }
+     ___RESULT = ___access_raw_continuation_frame(___ps,frame,___RAW_FRAME_REF,___ARG2,___FAL);
 
 end-of-code
 
@@ -3517,39 +4319,22 @@ end-of-code
    int i = ___INT(___ARG2);
    ___SCMOBJ val = ___ARG3;
    ___SCMOBJ frame = ___CONTINUATION_FRAME_FIELD(cont);
-   ___SCMOBJ ra;
-   int fs;
-   int link;
 
    if (___TESTTYPE(frame, ___tFRAME))
      {
        /* continuation frame is in the heap */
 
-       ra = ___FIELD(FRAME,frame,0);
-
-       if (ra == ___ps->internal_return)
-         ___RETI_GET_FS_LINK(___BODY_AS(frame,___tFRAME)[___FRAME_RETI_RA],fs,link)
-       else
-         ___RETN_GET_FS_LINK(ra,fs,link)
-
-       ___BODY_AS(frame,___tFRAME)[fs-i+1] = val;  /* what if i==link and frame is first in section???? */
+       ___WORD *body = ___BODY_AS(frame,___tFRAME);
+       ___frame_descriptor descriptor;
+       if (___decode_heap_frame_descriptor(body, ___ps->internal_return, &descriptor))
+         {
+           ___WORD *___fslot = ___frame_heap_slot_ptr(body, &descriptor, i);
+           ___GC_WRITE_BARRIER(___ps, frame, ___fslot, val);
+           ___WORD_STORE_RELAXED(___fslot, val);
+         }
      }
    else
-     {
-       /* continuation frame is in the stack */
-
-       ra = ___CAST(___SCMOBJ*,frame)[___FRAME_STACK_RA];
-
-       if (ra == ___ps->internal_return)
-         ___RETI_GET_FS_LINK(___CAST(___SCMOBJ*,frame)[-___RETI_RA],fs,link)
-       else
-         ___RETN_GET_FS_LINK(ra,fs,link)
-
-       ___CAST(___SCMOBJ*,frame)[___FRAME_SPACE(fs)-i] = val;  /* what if i==link and frame is first in section???? */
-#if 0
-      if (i == link) ___RESULT = ___FIX(999999);/***********/
-#endif
-     }
+     ___access_raw_continuation_frame(___ps,frame,___RAW_FRAME_SET,___ARG2,val);
 
    ___RESULT = cont;
 
@@ -3600,10 +4385,17 @@ end-of-code
           ___SCMOBJ frame = ___ARG1;
           ___SCMOBJ denv  = ___ARG2;
 
+#ifdef ___GAMBIT_DEV_RESTORE_PROBE
+          ___dev_restore_census_other(___ps,___hp,"kernel-continuation-header");
+#endif
           ___hp[0]=___MAKE_HD_WORDS(___CONTINUATION_SIZE,___sCONTINUATION);
           ___ADD_SUBTYPED_ELEM(0,frame);
           ___ADD_SUBTYPED_ELEM(1,denv);
+#ifdef ___GAMBIT_DEV_RESTORE_PROBE
+          ___hp+=___dev_restore_census_direct(___ps,___hp,(___SIZE_TS)(___CONTINUATION_SIZE+1),"kernel-continuation-bump");
+#else
           ___hp+=___CONTINUATION_SIZE+1;
+#endif
           ___RESULT = ___GET_SUBTYPED(___CONTINUATION_SIZE);
 
 end-of-code
@@ -3622,10 +4414,17 @@ end-of-code
           ___SCMOBJ frame = ___CONTINUATION_FRAME_FIELD(cont);
           ___SCMOBJ denv  = ___CONTINUATION_DENV_FIELD(cont);
 
+#ifdef ___GAMBIT_DEV_RESTORE_PROBE
+          ___dev_restore_census_other(___ps,___hp,"kernel-continuation-header");
+#endif
           ___hp[0]=___MAKE_HD_WORDS(___CONTINUATION_SIZE,___sCONTINUATION);
           ___ADD_SUBTYPED_ELEM(0,frame);
           ___ADD_SUBTYPED_ELEM(1,denv);
+#ifdef ___GAMBIT_DEV_RESTORE_PROBE
+          ___hp+=___dev_restore_census_direct(___ps,___hp,(___SIZE_TS)(___CONTINUATION_SIZE+1),"kernel-continuation-bump");
+#else
           ___hp+=___CONTINUATION_SIZE+1;
+#endif
           ___RESULT = ___GET_SUBTYPED(___CONTINUATION_SIZE);
 
 end-of-code
@@ -3644,7 +4443,7 @@ end-of-code
    ___SCMOBJ frame = ___CONTINUATION_FRAME_FIELD(cont);
    ___SCMOBJ denv  = ___CONTINUATION_DENV_FIELD(cont);
    ___SCMOBJ ra;
-   ___SCMOBJ *fp, frame_ra, next_frame;
+   ___SCMOBJ *fp, next_frame;
    int fs;
    int link;
 
@@ -3652,71 +4451,37 @@ end-of-code
      {
        /* continuation frame is in the heap */
 
+       ___frame_descriptor descriptor;
+
        ra = ___FIELD(FRAME,frame,0);
 
        fp = ___BODY_AS(frame,___tFRAME);
 
-       if (ra == ___ps->internal_return)
-         ___RETI_GET_FS_LINK(fp[___FRAME_RETI_RA],fs,link)
-       else
-         ___RETN_GET_FS_LINK(ra,fs,link)
-
-       fp += fs+1;
-
-       if (ra == ___ps->dynamic_env_bind_return)
-         denv = fp[-DYNAMIC_ENV_BIND_DENV];
-
-       next_frame = fp[-link-1];
-
-       if (next_frame == ___END_OF_CONT_MARKER)
-         ___RESULT = ___FAL;
+       if (!___decode_heap_frame_descriptor(fp, ___ps->internal_return, &descriptor))
+         {
+           ___RESULT = ___FAL;
+         }
        else
          {
-           ___CONTINUATION_FRAME_FIELD(cont) = next_frame;
-           ___CONTINUATION_DENV_FIELD(cont) = denv;
-           ___RESULT = cont;
+           if (ra == ___ps->dynamic_env_bind_return)
+             denv = *___frame_heap_slot_ptr(fp, &descriptor, DYNAMIC_ENV_BIND_DENV);
+
+           next_frame = *___frame_heap_link_ptr(fp, &descriptor);
+
+           if (next_frame == ___END_OF_CONT_MARKER)
+             ___RESULT = ___FAL;
+           else
+             {
+               ___GC_WRITE_BARRIER_ALWAYS(___ps, cont, &___CONTINUATION_FRAME_FIELD(cont));
+               ___WORD_STORE_RELAXED(&___CONTINUATION_FRAME_FIELD(cont), next_frame);
+               ___GC_WRITE_BARRIER(___ps, cont, &___CONTINUATION_DENV_FIELD(cont), denv);
+               ___WORD_STORE_RELAXED(&___CONTINUATION_DENV_FIELD(cont), denv);
+               ___RESULT = cont;
+             }
          }
      }
    else
-     {
-       /* continuation frame is in the stack */
-
-       ra = ___CAST(___SCMOBJ*,frame)[___FRAME_STACK_RA];
-
-       if (ra == ___ps->internal_return)
-         ___RETI_GET_FS_LINK(___CAST(___SCMOBJ*,frame)[-___RETI_RA],fs,link)
-       else
-         ___RETN_GET_FS_LINK(ra,fs,link)
-
-       fp = ___CAST(___SCMOBJ*,frame)+___FRAME_SPACE(fs);
-       frame_ra = fp[-link-1];
-
-       if (ra == ___ps->dynamic_env_bind_return)
-         denv = fp[-DYNAMIC_ENV_BIND_DENV];
-
-       if (frame_ra == ___ps->handler_break)
-         {
-           /* first frame of that section */
-
-           next_frame = fp[___BREAK_FRAME_NEXT];
-         }
-       else
-         {
-           /* not the first frame of that section */
-
-           *fp = frame_ra;
-           next_frame = ___CAST(___SCMOBJ,fp);
-         }
-
-       if (next_frame == ___END_OF_CONT_MARKER)
-         ___RESULT = ___FAL;
-       else
-         {
-           ___CONTINUATION_FRAME_FIELD(cont) = next_frame;
-           ___CONTINUATION_DENV_FIELD(cont) = denv;
-           ___RESULT = cont;
-         }
-     }
+     ___RESULT = ___continuation_next_stack(___ps,cont);
 
 end-of-code
 
@@ -3733,17 +4498,128 @@ end-of-code
           (loop next)
           cont))))
 
+(define-prim (##gc-stack-watermark-shaded-frames)
+  (##declare (not interrupts-enabled))
+  (##c-code #<<end-of-code
+   ___virtual_machine_state vm = ___VMSTATE_FROM_PSTATE(___ps);
+   ___WORD total = 0;
+   int p;
+   for (p = 0; p < vm->processor_count; p++)
+     {
+       ___processor_state pps = ___PSTATE_FROM_PROCESSOR_ID(p, vm);
+       total += ___WORD_LOAD_ACQUIRE(&pps->mem.stack_watermark_shaded_frames_);
+     }
+   ___RESULT = ___FIX(total);
+end-of-code
+  ))
+
+(define-prim (##gc-oneshot-continuation-rewinds)
+  (##declare (not interrupts-enabled))
+  (##c-code #<<end-of-code
+   ___virtual_machine_state vm = ___VMSTATE_FROM_PSTATE(___ps);
+   ___WORD total = 0;
+   int p;
+   for (p = 0; p < vm->processor_count; p++)
+     {
+       ___processor_state pps = ___PSTATE_FROM_PROCESSOR_ID(p, vm);
+       total += ___WORD_LOAD_ACQUIRE(&pps->mem.oneshot_rewinds_local_);
+     }
+   ___RESULT = ___FIX(total);
+end-of-code
+  ))
+
+(define-prim (##continuation-try-rewind-oneshot! sub-k val fallback)
+  (##declare (not interrupts-enabled))
+  (if (##c-code #<<end-of-code
+   extern int ___try_rewind_oneshot_span(___processor_state, ___SCMOBJ, ___SCMOBJ, ___WORD*, ___WORD, ___WORD*, ___WORD**);
+   ___SCMOBJ sub_k = ___ARG1;
+   ___SCMOBJ val = ___ARG2;
+   ___SCMOBJ tc = ___THREAD_CONTROL_STATE_FIELD(___CURRENTTHREAD);
+   ___SCMOBJ escape_k = (tc != ___FAL && ___TESTTYPE(tc, ___tSTRUCTURE))
+                        ? ___FIELD(STRUCTURE, tc, 5) : ___FAL;
+   ___WORD ra;
+   ___WORD *new_fp;
+   if (escape_k != ___FAL)
+     {
+       ___GC_WRITE_BARRIER_ALWAYS(___ps, tc, &___FIELD(STRUCTURE, tc, 5));
+       ___WORD_STORE_RELAXED(&___FIELD(STRUCTURE, tc, 5), ___FAL);
+     }
+   if (___try_rewind_oneshot_span(___ps, sub_k, escape_k, ___fp, ___R0, &ra, &new_fp))
+     {
+       ___SET_FP(new_fp)
+       ___SET_R1(val)
+       /* Scrub dead GVM argument registers so reclaimed stack-allocated
+        * sub_k cannot survive into a subsequent ___POLL -> ___PUSH_REGS frame. */
+#if ___NB_GVM_REGS > 2
+       ___SET_R2(___FIX(0L))
+#endif
+#if ___NB_GVM_REGS > 3
+       ___SET_R3(___FIX(0L))
+#endif
+#if ___NB_GVM_REGS > 4
+       ___SET_R4(___FIX(0L))
+#endif
+       ___JUMPEXTPRM(___NOTHING, ra)
+     }
+   ___RESULT = ___FAL;
+end-of-code
+       sub-k val)
+      (##void)
+      (fallback sub-k val)))
+
+(define-prim (##continuation-try-rewind-prompt! pframe escape-k val)
+  (##declare (not interrupts-enabled))
+  (if (##c-code #<<end-of-code
+   extern int ___try_rewind_prompt_span(___processor_state, ___SCMOBJ, ___WORD*, ___WORD**);
+   ___SCMOBJ pframe = ___ARG1;
+   ___SCMOBJ escape_k = ___ARG2;
+   ___SCMOBJ val = ___ARG3;
+   ___WORD ra;
+   ___WORD *new_fp;
+   if (___try_rewind_prompt_span(___ps, escape_k, &ra, &new_fp))
+     {
+       /* satb_active_ == 0 is already proven by ___try_rewind_prompt_span, so
+        * severing pframe->escape_k cannot enqueue escape_k into SATB and ensures
+        * zero heap references remain to the rewound stack-allocated continuation. */
+       if (pframe != ___FAL && ___TESTTYPE(pframe, ___tSTRUCTURE))
+         ___WORD_STORE_RELAXED(&___FIELD(STRUCTURE, pframe, 4), ___FAL);
+       ___SET_FP(new_fp)
+       ___SET_R1(val)
+       /* Scrub dead GVM argument registers (notably ___R2 = escape_k) so the
+        * reclaimed stack-allocated continuation cannot be spilled as a live GC
+        * root by a subsequent ___POLL -> handler_stack_limit -> ___PUSH_REGS! */
+#if ___NB_GVM_REGS > 2
+       ___SET_R2(___FIX(0L))
+#endif
+#if ___NB_GVM_REGS > 3
+       ___SET_R3(___FIX(0L))
+#endif
+#if ___NB_GVM_REGS > 4
+       ___SET_R4(___FIX(0L))
+#endif
+       ___JUMPEXTPRM(___NOTHING, ra)
+     }
+   ___RESULT = ___FAL;
+end-of-code
+       pframe escape-k val)
+      (##void)
+      (##continuation-return escape-k val)))
+
+(define-prim (##tail-call-with-r0 proc a1 a2)
+  (##declare (not interrupts-enabled))
+  (proc (##c-code "___RESULT = ___R0;") a1 a2))
+
 ;;;----------------------------------------------------------------------------
 
 ;;; Symbols and keywords.
 
+;; These private getters return owned identity vectors, never registry buckets.
+;; Allocation and GC are permitted before the nonallocating capture operation.
 (define-prim (##symbol-table)
-  (##declare (not interrupts-enabled))
-  (##c-code "___RESULT = ___GSTATE->symbol_table;"))
+  (##symkey-table-view #t))
 
 (define-prim (##keyword-table)
-  (##declare (not interrupts-enabled))
-  (##c-code "___RESULT = ___GSTATE->keyword_table;"))
+  (##symkey-table-view #f))
 
 (define-prim (##make-interned-symbol name)
   (##make-interned-symkey name #t))
@@ -3791,18 +4667,36 @@ end-of-code
    name
    symbol?))
 
-(define-prim (##symkey-table-foldl f base symkey-table)
-  (let loop1 ((i (##fx- (##vector-length symkey-table) 1)) ;; skip element 0 = count
-              (result base))
-    (if (##fx> i 0)
-        (let loop2 ((symkey (##vector-ref symkey-table i))
-                    (result result))
-          (if (##mem-allocated? symkey)
-              (loop2 (##c-code "___RESULT = ___SYMKEY_NEXT_FIELD(___ARG1);" symkey) ;; next in bucket
-                     (f result symkey))
-              (loop1 (##fx- i 1)
-                     result)))
-        result)))
+(define-prim (##symkey-table-view symbol?)
+  ;; Allocate/root the destination in Scheme. Registry growth between query
+  ;; and copy only retries; no native buffer or lock survives a collecting call.
+  (let loop ((length
+              (##c-code
+               "___RESULT = ___symkey_table_view (___FAL, ___FALSEP(___ARG1) ? ___sKEYWORD : ___sSYMBOL);"
+               symbol?)))
+    (if (##fx< length 0)
+        (begin
+          (##raise-heap-overflow-exception)
+          (##symkey-table-view symbol?))
+        (let* ((view (##make-vector length #f))
+               (actual
+                (##c-code
+                 "___RESULT = ___symkey_table_view (___ARG1, ___FALSEP(___ARG2) ? ___sKEYWORD : ___sSYMBOL);"
+                 view symbol?)))
+          (cond ((##fx< actual 0)
+                 (##raise-heap-overflow-exception)
+                 (##symkey-table-view symbol?))
+                ((##fx= actual length) view)
+                (else (loop actual)))))))
+
+(define-prim (##symkey-table-foldl f base view)
+  ;; VIEW is a private flat identity snapshot, not a live bucket/NEXT alias.
+  ;; Scheme frames own it across GC, callback escape and multi-shot resumption.
+  (let ((length (##vector-length view)))
+    (let loop ((i 0) (result base))
+      (if (##fx< i length)
+          (loop (##fx+ i 1) (f result (##vector-ref view i)))
+          result))))
 
 (define-prim (##symbol-table-foldl f base)
   (##symkey-table-foldl f base (##symbol-table)))
@@ -5136,15 +6030,43 @@ end-of-code
   (define-prim (##init-mod module-descr)
     #f)))
 
-(define ##registered-modules '()) ;; collection of modules registered in the system
+(define ##registered-modules '()) ;; legacy inspection binding (see ##registered-modules-box)
+(define ##registered-modules-box (##vector '()))
+
+(macro-case-target
+
+ ((C)
+
+  (define-prim (##registered-modules-box-load)
+    (##c-code
+     "___RESULT = ___WORD_LOAD_ACQUIRE(___CAST(___VOLATILE ___WORD*, ___FXINDX_WORD(___BODY_AS(___ARG1, ___tVECTOR), ___FIX(0))));"
+     ##registered-modules-box)))
+
+ (else
+
+  (define-prim (##registered-modules-box-load)
+    (##vector-ref ##registered-modules-box 0))))
 
 (define-prim (##lookup-registered-module module-ref)
-  (let ((x (##lookup-module module-ref ##registered-modules)))
+  (let ((x (##lookup-module module-ref (##registered-modules-box-load))))
     (and x (##car x))))
 
+(define-prim (##remove-module-pair target lst)
+  (if (##eq? lst target)
+      (##cdr lst)
+      (##cons (##car lst) (##remove-module-pair target (##cdr lst)))))
+
 (define-prim (##remove-registered-module module-ref)
-  (let ((x (##lookup-module module-ref ##registered-modules)))
-    (and x (##set-car! x #f))))
+  (##declare (not interrupts-enabled))
+  (let loop ()
+    (let* ((cur (##registered-modules-box-load))
+           (x (##lookup-module module-ref cur)))
+      (if x
+          (let ((next (##remove-module-pair x cur)))
+            (if (##eq? (##vector-cas! ##registered-modules-box 0 next cur) cur)
+                (##void)
+                (loop)))
+          #f))))
 
 (define-prim (##lookup-module module-ref modules)
   (let loop ((lst modules))
@@ -5156,17 +6078,21 @@ end-of-code
         #f)))
 
 (define-prim (##register-module-descr! module-ref module-descr)
-  ;; TODO: make manipulation of ##registered-modules atomic
-  (let* ((module
-          (macro-make-module module-ref module-descr))
-         (x
-          (##lookup-module module-ref ##registered-modules)))
-    (if x
-        (##set-car! x module)
-        (set! ##registered-modules
-              (##cons module
-                      ##registered-modules)))
-    module))
+  ;; Lock-free persistent list update via ##vector-cas! paired with acquire
+  ;; loads so concurrent module registration/removal cannot drop entries or
+  ;; race with readers under weak memory models.
+  (##declare (not interrupts-enabled))
+  (let ((module (macro-make-module module-ref module-descr)))
+    (let loop ()
+      (let* ((cur (##registered-modules-box-load))
+             (x (##lookup-module module-ref cur))
+             (next (##cons module
+                           (if x
+                               (##remove-module-pair x cur)
+                               cur))))
+        (if (##eq? (##vector-cas! ##registered-modules-box 0 next cur) cur)
+            module
+            (loop))))))
 
 (define-prim (##register-module-descrs module-descrs)
   (let loop1 ((i 0)

@@ -120,6 +120,8 @@ extern void *___c_closure_self ___PVOID;
 
 extern ___SCMOBJ ___setup_dyn_module ___PVOID;
 
+extern void ___dyn_process_prepare_exit ___PVOID;
+extern void ___retain_dyn_modules_until_process_exit ___PVOID;
 extern void ___cleanup_dyn_module ___PVOID;
 
 

@@ -1,0 +1,975 @@
+/*---------------------------------------------------------------------------*/
+
+/*
+ * This section determines the following characteristics of the target
+ * platform:
+ *
+ *  - C compiler version
+ *  - target operating system (WIN32, POSIX, etc)
+ *  - target processor type (x86, PowerPC, etc)
+ *  - byte order endianness (big-endian or little-endian)
+ *  - width of the integer and floating-point types (char, short, int, etc)
+ */
+
+#ifdef __GNUC__
+#define ___GNUC_VERSION (__GNUC__*100000+__GNUC_MINOR__*1000+__GNUC_PATCHLEVEL__)
+#endif
+
+/*
+ * Determine the target operating system type.  This is used mainly in
+ * the implementation of operating system dependent runtime library
+ * functions (i.e. lib/os*.c), but also to handle some OS quirks in
+ * this include file.
+ */
+
+#ifdef _WIN32
+#define ___OS_WIN32
+#endif
+
+
+/*
+ * Determine the target processor type.  This is used for dynamic code
+ * generation (to convert Scheme procedures into C functions) and to
+ * determine byte order endianness.
+ */
+
+#ifndef ___CPU_x86_32
+
+#ifdef I386
+#define ___CPU_x86_32
+#else
+#ifdef _I386
+#define ___CPU_x86_32
+#else
+#ifdef i386
+#define ___CPU_x86_32
+#else
+#ifdef _i386
+#define ___CPU_x86_32
+#else
+#ifdef __i386
+#define ___CPU_x86_32
+#else
+#ifdef __i386__
+#define ___CPU_x86_32
+#else
+#ifdef __i486
+#define ___CPU_x86_32
+#else
+#ifdef __i486__
+#define ___CPU_x86_32
+#else
+#ifdef __i586
+#define ___CPU_x86_32
+#else
+#ifdef __i586__
+#define ___CPU_x86_32
+#else
+#ifdef __i686
+#define ___CPU_x86_32
+#else
+#ifdef __i686__
+#define ___CPU_x86_32
+#else
+#ifdef __ix86
+#define ___CPU_x86_32
+#else
+#ifdef M_I386
+#define ___CPU_x86_32
+#else
+#ifdef _M_I386
+#define ___CPU_x86_32
+#else
+#ifdef M_I86
+#define ___CPU_x86_32
+#else
+#ifdef _M_I86
+#define ___CPU_x86_32
+#else
+#ifdef _M_IX86
+#define ___CPU_x86_32
+#else
+#ifdef _X86_
+#define ___CPU_x86_32
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+
+#ifdef ___CPU_x86_32
+#define ___CPU_x86
+#endif
+
+#endif
+
+#ifndef ___CPU_x86_64
+
+#ifdef __x86_64__
+#define ___CPU_x86_64
+#else
+#ifdef _M_AMD64
+#define ___CPU_x86_64
+#endif
+#endif
+
+#ifdef ___CPU_x86_64
+#define ___CPU_x86
+#endif
+
+#endif
+
+#ifndef ___CPU_ppc_32
+
+#ifdef PPC
+#define ___CPU_ppc_32
+#else
+#ifdef ppc
+#define ___CPU_ppc_32
+#else
+#ifdef __ppc
+#define ___CPU_ppc_32
+#else
+#ifdef __ppc__
+#define ___CPU_ppc_32
+#else
+#ifdef _ARCH_PPC
+#define ___CPU_ppc_32
+#else
+#ifdef __POWERPC__
+#define ___CPU_ppc_32
+#else
+#ifdef powerpc
+#define ___CPU_ppc_32
+#else
+#ifdef _POWER
+#define ___CPU_ppc_32
+#else
+#ifdef _ARCH_PWR
+#define ___CPU_ppc_32
+#else
+#ifdef _ARCH_PWR2
+#define ___CPU_ppc_32
+#else
+#ifdef _M_PPC
+#define ___CPU_ppc_32
+#else
+#ifdef _M_MPPC
+#define ___CPU_ppc_32
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+
+#ifdef ___CPU_ppc_32
+#define ___CPU_ppc
+#endif
+
+#endif
+
+#ifndef ___CPU_ppc_64
+
+#ifdef __ppc_64__
+#define ___CPU_ppc_64
+#endif
+
+#ifdef ___CPU_ppc_64
+#define ___CPU_ppc
+#endif
+
+#endif
+
+#ifndef ___CPU_m68k
+
+#ifdef __m68k__
+#define ___CPU_m68k
+#else
+#ifdef __mc68000__
+#define ___CPU_m68k
+#else
+#ifdef __mc68010__
+#define ___CPU_m68k
+#else
+#ifdef __mc68020__
+#define ___CPU_m68k
+#else
+#ifdef __mc68030__
+#define ___CPU_m68k
+#else
+#ifdef __mc68040__
+#define ___CPU_m68k
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+
+#endif
+
+#ifndef ___CPU_sparc
+
+#ifdef SPARC
+#define ___CPU_sparc
+#else
+#ifdef __sparc
+#define ___CPU_sparc
+#else
+#ifdef __sparc__
+#define ___CPU_sparc
+#else
+#ifdef sparc
+#define ___CPU_sparc
+#else
+#ifdef sparc64
+#define ___CPU_sparc
+#else
+#ifdef sparclite
+#define ___CPU_sparc
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+
+#endif
+
+#ifndef ___CPU_alpha
+
+#ifdef alpha
+#define ___CPU_alpha
+#else
+#ifdef __alpha
+#define ___CPU_alpha
+#else
+#ifdef __alpha__
+#define ___CPU_alpha
+#else
+#ifdef ALPHA
+#define ___CPU_alpha
+#else
+#ifdef _ALPHA_
+#define ___CPU_alpha
+#else
+#ifdef __ALPHA
+#define ___CPU_alpha
+#else
+#ifdef _M_ALPHA
+#define ___CPU_alpha
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+
+#endif
+
+#ifndef ___CPU_mips
+
+#ifdef mips
+#define ___CPU_mips
+#else
+#ifdef _mips
+#define ___CPU_mips
+#else
+#ifdef __mips
+#define ___CPU_mips
+#else
+#ifdef __mips__
+#define ___CPU_mips
+#else
+#ifdef MIPSEB
+#define ___CPU_mips
+#else
+#ifdef _MIPSEB
+#define ___CPU_mips
+#else
+#ifdef __MIPSEB
+#define ___CPU_mips
+#else
+#ifdef __MIPSEB__
+#define ___CPU_mips
+#else
+#ifdef MIPSEL
+#define ___CPU_mips
+#else
+#ifdef _MIPSEL
+#define ___CPU_mips
+#else
+#ifdef __MIPSEL
+#define ___CPU_mips
+#else
+#ifdef __MIPSEL__
+#define ___CPU_mips
+#else
+#ifdef _M_MRX000
+#define ___CPU_mips
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+
+#endif
+
+#ifndef ___CPU_arm
+
+#ifdef arm
+#define ___CPU_arm
+#else
+#ifdef __arm
+#define ___CPU_arm
+#else
+#ifdef __arm__
+#define ___CPU_arm
+#else
+#endif
+#endif
+#endif
+
+#endif
+
+#ifndef ___CPU_vax
+
+#ifdef vax
+#define ___CPU_vax
+#else
+#ifdef __vax
+#define ___CPU_vax
+#else
+#ifdef __vax__
+#define ___CPU_vax
+#endif
+#endif
+#endif
+
+#endif
+
+#ifndef ___CPU_riscv
+
+#ifdef riscv
+#define ___CPU_riscv
+#else
+#ifdef __riscv
+#define ___CPU_riscv
+#else
+#ifdef __riscv__
+#define ___CPU_riscv
+#endif
+#endif
+#endif
+
+#endif
+
+#ifndef ___CPU_loongarch
+
+#ifdef loongarch
+#define ___CPU_loongarch
+#else
+#ifdef __loongarch
+#define ___CPU_loongarch
+#else
+#ifdef __loongarch__
+#define ___CPU_loongarch
+#else
+#endif
+#endif
+#endif
+
+#endif
+
+#ifndef ___CPU_ia64
+
+#ifdef __ia64
+#define ___CPU_ia64
+#else
+#ifdef __ia64__
+#define ___CPU_ia64
+#else
+#ifdef __itanium__
+#define ___CPU_ia64
+#else
+#ifdef _M_IA64
+#define ___CPU_ia64
+#endif
+#endif
+#endif
+#endif
+
+#endif
+
+#ifdef __aarch64__
+#define ___CPU_aarch64
+#else
+#ifdef __arm64__
+#define ___CPU_aarch64
+#endif
+#endif
+
+#ifndef ___CPU_s390
+
+#ifdef __s390__
+#define ___CPU_s390
+#else
+#ifdef __s390x__
+#define ___CPU_s390
+#else
+#ifdef __zarch__
+#define ___CPU_s390
+#endif
+#endif
+#endif
+
+#endif
+
+/*
+ * Determine the byte order endianness based on the processor type.
+ * We assume that all processors are little-endian, except the sparc,
+ * m68k, and s390.  The PowerPC, MIPS, ARM and Itanium can be either
+ * big-endian or little-endian so extra tests are needed.
+ */
+
+#ifndef ___BIG_ENDIAN
+#ifndef ___LITTLE_ENDIAN
+
+#ifdef ___CPU_x86
+#define ___LITTLE_ENDIAN
+#endif
+
+#ifdef ___CPU_ppc
+#ifdef _LITTLE_ENDIAN
+#define ___LITTLE_ENDIAN
+#endif
+#ifdef __LITTLE_ENDIAN__
+#define ___LITTLE_ENDIAN
+#endif
+#ifdef __LITTLE_ENDIAN_DATA__
+#define ___LITTLE_ENDIAN
+#endif
+#ifndef ___LITTLE_ENDIAN
+#define ___BIG_ENDIAN
+#endif
+#endif
+
+#ifdef ___CPU_alpha
+#define ___LITTLE_ENDIAN
+#endif
+
+#ifdef ___CPU_m68k
+#define ___BIG_ENDIAN
+#endif
+
+#ifdef ___CPU_sparc
+#define ___BIG_ENDIAN
+#endif
+
+#ifdef ___CPU_s390
+#define ___BIG_ENDIAN
+#endif
+
+#ifdef ___CPU_mips
+#ifdef _MIPSEL
+#define ___LITTLE_ENDIAN
+#endif
+#ifndef ___LITTLE_ENDIAN
+#define ___BIG_ENDIAN
+#endif
+#endif
+
+#ifdef ___CPU_arm
+#ifdef _LITTLE_ENDIAN
+#define ___LITTLE_ENDIAN
+#endif
+#ifdef __LITTLE_ENDIAN__
+#define ___LITTLE_ENDIAN
+#endif
+#ifdef __LITTLE_ENDIAN_DATA__
+#define ___LITTLE_ENDIAN
+#endif
+#ifdef __ARMEL__
+#define ___LITTLE_ENDIAN
+#endif
+#ifndef ___LITTLE_ENDIAN
+#define ___BIG_ENDIAN
+#endif
+#endif
+
+#ifdef ___CPU_vax
+#define ___LITTLE_ENDIAN
+#endif
+
+#ifdef ___CPU_riscv
+#define ___LITTLE_ENDIAN
+#endif
+
+#ifdef ___CPU_loongarch
+#define ___LITTLE_ENDIAN
+#endif
+
+#ifdef ___CPU_ia64
+#ifdef __BIG_ENDIAN__
+#define ___BIG_ENDIAN
+#else
+#define ___LITTLE_ENDIAN
+#endif
+#endif
+
+#ifdef __EMSCRIPTEN__
+#define ___LITTLE_ENDIAN
+#endif
+
+/* AArch64 can be little or big endian*/
+#ifdef __AARCH64EL__
+#define ___LITTLE_ENDIAN
+#endif
+
+#ifndef ___LITTLE_ENDIAN
+#ifndef ___BIG_ENDIAN
+#define ___LITTLE_ENDIAN
+#endif
+#endif
+
+#endif
+#endif
+
+/*
+ * Determine the number of bits in various integer and floating point
+ * types and define appropriate macros accordingly.  The macro for a
+ * given type is not defined if the type is not supported by the C
+ * compiler or if it is not 8, 16, 32 or 64 bits wide.
+ */
+
+#ifndef ___CHAR_WIDTH
+#ifdef ___DONT_HAVE_LIMITS_H
+
+/*
+ * If the header file "limits.h" is not available then the symbol
+ * ___DONT_HAVE_LIMITS_H must be defined (for example on the compiler's
+ * command line) and the following definitions will be used:
+ */
+
+#define ___CHAR_WIDTH     8   /* if needed, edit to suit your platform */
+#define ___SHORT_WIDTH    16
+#define ___INT_WIDTH      32
+#define ___LONG_WIDTH     32
+
+#ifdef __GNUC__
+#define ___LONGLONG_WIDTH 64
+#endif
+
+#else
+
+/*
+ * If the header file "limits.h" is available then it contains macros
+ * defining the range of the integer types.  The following
+ * preprocessor conditional definitions are written so that they will
+ * work regardless of the number of bits in the integer types
+ * supported by the compiler (many compilers for 32 bit machines give
+ * an error for C preprocessor expressions like ULONG_MAX >> 32 or
+ * ULLONG_MAX == 18446744073709551615UL).  Some parentheses seem
+ * redundant, but they are required for MS Visual C/C++ whose
+ * preprocessor signals an error on: x >> 8 >> 8.
+ */
+
+#include <limits.h>
+
+#ifdef UCHAR_MAX
+#if (UCHAR_MAX & 255) == 255
+#if (UCHAR_MAX >> 8) == 0
+#define ___CHAR_WIDTH 8
+#else
+#if ((UCHAR_MAX >> 8) & 255) == 255
+#if ((UCHAR_MAX >> 8) >> 8) == 0
+#define ___CHAR_WIDTH 16
+#else
+#if (((UCHAR_MAX >> 8) >> 8) & 255) == 255
+#if (((UCHAR_MAX >> 8) >> 8) >> 8) != 0
+#if ((((UCHAR_MAX >> 8) >> 8) >> 8) & 255) == 255
+#if ((((UCHAR_MAX >> 8) >> 8) >> 8) >> 8) == 0
+#define ___CHAR_WIDTH 32
+#else
+#if (((((UCHAR_MAX >> 8) >> 8) >> 8) >> 8) & 255) == 255
+#if (((((UCHAR_MAX >> 8) >> 8) >> 8) >> 8) >> 8) != 0
+#if ((((((UCHAR_MAX >> 8) >> 8) >> 8) >> 8) >> 8) & 255) == 255
+#if ((((((UCHAR_MAX >> 8) >> 8) >> 8) >> 8) >> 8) >> 8) != 0
+#if (((((((UCHAR_MAX >> 8) >> 8) >> 8) >> 8) >> 8) >> 8) & 255) == 255
+#if (((((((UCHAR_MAX >> 8) >> 8) >> 8) >> 8) >> 8) >> 8) >> 8) != 0
+#if ((((((((UCHAR_MAX >> 8) >> 8) >> 8) >> 8) >> 8) >> 8) >> 8) & 255) == 255
+#if ((((((((UCHAR_MAX >> 8) >> 8) >> 8) >> 8) >> 8) >> 8) >> 8) >> 8) == 0
+#define ___CHAR_WIDTH 64
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+
+#ifdef USHRT_MAX
+#if (USHRT_MAX & 255) == 255
+#if (USHRT_MAX >> 8) == 0
+#define ___SHORT_WIDTH 8
+#else
+#if ((USHRT_MAX >> 8) & 255) == 255
+#if ((USHRT_MAX >> 8) >> 8) == 0
+#define ___SHORT_WIDTH 16
+#else
+#if (((USHRT_MAX >> 8) >> 8) & 255) == 255
+#if (((USHRT_MAX >> 8) >> 8) >> 8) != 0
+#if ((((USHRT_MAX >> 8) >> 8) >> 8) & 255) == 255
+#if ((((USHRT_MAX >> 8) >> 8) >> 8) >> 8) == 0
+#define ___SHORT_WIDTH 32
+#else
+#if (((((USHRT_MAX >> 8) >> 8) >> 8) >> 8) & 255) == 255
+#if (((((USHRT_MAX >> 8) >> 8) >> 8) >> 8) >> 8) != 0
+#if ((((((USHRT_MAX >> 8) >> 8) >> 8) >> 8) >> 8) & 255) == 255
+#if ((((((USHRT_MAX >> 8) >> 8) >> 8) >> 8) >> 8) >> 8) != 0
+#if (((((((USHRT_MAX >> 8) >> 8) >> 8) >> 8) >> 8) >> 8) & 255) == 255
+#if (((((((USHRT_MAX >> 8) >> 8) >> 8) >> 8) >> 8) >> 8) >> 8) != 0
+#if ((((((((USHRT_MAX >> 8) >> 8) >> 8) >> 8) >> 8) >> 8) >> 8) & 255) == 255
+#if ((((((((USHRT_MAX >> 8) >> 8) >> 8) >> 8) >> 8) >> 8) >> 8) >> 8) == 0
+#define ___SHORT_WIDTH 64
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+
+#ifdef UINT_MAX
+#if (UINT_MAX & 255) == 255
+#if (UINT_MAX >> 8) == 0
+#define ___INT_WIDTH 8
+#else
+#if ((UINT_MAX >> 8) & 255) == 255
+#if ((UINT_MAX >> 8) >> 8) == 0
+#define ___INT_WIDTH 16
+#else
+#if (((UINT_MAX >> 8) >> 8) & 255) == 255
+#if (((UINT_MAX >> 8) >> 8) >> 8) != 0
+#if ((((UINT_MAX >> 8) >> 8) >> 8) & 255) == 255
+#if ((((UINT_MAX >> 8) >> 8) >> 8) >> 8) == 0
+#define ___INT_WIDTH 32
+#else
+#if (((((UINT_MAX >> 8) >> 8) >> 8) >> 8) & 255) == 255
+#if (((((UINT_MAX >> 8) >> 8) >> 8) >> 8) >> 8) != 0
+#if ((((((UINT_MAX >> 8) >> 8) >> 8) >> 8) >> 8) & 255) == 255
+#if ((((((UINT_MAX >> 8) >> 8) >> 8) >> 8) >> 8) >> 8) != 0
+#if (((((((UINT_MAX >> 8) >> 8) >> 8) >> 8) >> 8) >> 8) & 255) == 255
+#if (((((((UINT_MAX >> 8) >> 8) >> 8) >> 8) >> 8) >> 8) >> 8) != 0
+#if ((((((((UINT_MAX >> 8) >> 8) >> 8) >> 8) >> 8) >> 8) >> 8) & 255) == 255
+#if ((((((((UINT_MAX >> 8) >> 8) >> 8) >> 8) >> 8) >> 8) >> 8) >> 8) == 0
+#define ___INT_WIDTH 64
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+
+#ifdef ULONG_MAX
+#if (ULONG_MAX & 255) == 255
+#if (ULONG_MAX >> 8) == 0
+#define ___LONG_WIDTH 8
+#else
+#if ((ULONG_MAX >> 8) & 255) == 255
+#if ((ULONG_MAX >> 8) >> 8) == 0
+#define ___LONG_WIDTH 16
+#else
+#if (((ULONG_MAX >> 8) >> 8) & 255) == 255
+#if (((ULONG_MAX >> 8) >> 8) >> 8) != 0
+#if ((((ULONG_MAX >> 8) >> 8) >> 8) & 255) == 255
+#if ((((ULONG_MAX >> 8) >> 8) >> 8) >> 8) == 0
+#define ___LONG_WIDTH 32
+#else
+#if (((((ULONG_MAX >> 8) >> 8) >> 8) >> 8) & 255) == 255
+#if (((((ULONG_MAX >> 8) >> 8) >> 8) >> 8) >> 8) != 0
+#if ((((((ULONG_MAX >> 8) >> 8) >> 8) >> 8) >> 8) & 255) == 255
+#if ((((((ULONG_MAX >> 8) >> 8) >> 8) >> 8) >> 8) >> 8) != 0
+#if (((((((ULONG_MAX >> 8) >> 8) >> 8) >> 8) >> 8) >> 8) & 255) == 255
+#if (((((((ULONG_MAX >> 8) >> 8) >> 8) >> 8) >> 8) >> 8) >> 8) != 0
+#if ((((((((ULONG_MAX >> 8) >> 8) >> 8) >> 8) >> 8) >> 8) >> 8) & 255) == 255
+#if ((((((((ULONG_MAX >> 8) >> 8) >> 8) >> 8) >> 8) >> 8) >> 8) >> 8) == 0
+#define ___LONG_WIDTH 64
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+
+#ifdef __GNUC__
+
+#define ___LONGLONG_WIDTH 64
+
+#else
+
+/* Handle some non ISO C99 compilers that nevertheless support "long long". */
+
+#ifndef ULLONG_MAX
+#ifdef ULONGLONG_MAX
+#define ULLONG_MAX ULONGLONG_MAX
+#else
+#ifdef ULONG_LONG_MAX
+#define ULLONG_MAX ULONG_LONG_MAX
+#endif
+#endif
+#endif
+
+#ifdef ULLONG_MAX
+#if (ULLONG_MAX & 255) == 255
+#if (ULLONG_MAX >> 8) == 0
+#define ___LONGLONG_WIDTH 8
+#else
+#if ((ULLONG_MAX >> 8) & 255) == 255
+#if ((ULLONG_MAX >> 8) >> 8) == 0
+#define ___LONGLONG_WIDTH 16
+#else
+#if (((ULLONG_MAX >> 8) >> 8) & 255) == 255
+#if (((ULLONG_MAX >> 8) >> 8) >> 8) != 0
+#if ((((ULLONG_MAX >> 8) >> 8) >> 8) & 255) == 255
+#if ((((ULLONG_MAX >> 8) >> 8) >> 8) >> 8) == 0
+#define ___LONGLONG_WIDTH 32
+#else
+#if (((((ULLONG_MAX >> 8) >> 8) >> 8) >> 8) & 255) == 255
+#if (((((ULLONG_MAX >> 8) >> 8) >> 8) >> 8) >> 8) != 0
+#if ((((((ULLONG_MAX >> 8) >> 8) >> 8) >> 8) >> 8) & 255) == 255
+#if ((((((ULLONG_MAX >> 8) >> 8) >> 8) >> 8) >> 8) >> 8) != 0
+#if (((((((ULLONG_MAX >> 8) >> 8) >> 8) >> 8) >> 8) >> 8) & 255) == 255
+#if (((((((ULLONG_MAX >> 8) >> 8) >> 8) >> 8) >> 8) >> 8) >> 8) != 0
+#if ((((((((ULLONG_MAX >> 8) >> 8) >> 8) >> 8) >> 8) >> 8) >> 8) & 255) == 255
+#if ((((((((ULLONG_MAX >> 8) >> 8) >> 8) >> 8) >> 8) >> 8) >> 8) >> 8) == 0
+#define ___LONGLONG_WIDTH 64
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+
+#endif
+
+#endif
+
+/*
+ * If the "long long" type is not supported, then substitute the type
+ * "long".
+ */
+
+#ifndef ___LONGLONG_WIDTH
+#define ___LONGLONG_WIDTH ___LONG_WIDTH
+#define ___LONGLONG long
+#define ___ULONGLONG unsigned long
+#else
+#define ___LONGLONG long long
+#define ___ULONGLONG unsigned long long
+#endif
+
+/*
+ * Some old C compilers do not support the "signed char" and "wchar_t"
+ * types.  The following preprocessor directives allow these types to
+ * be redefined (such as on the C compiler's command line, in
+ * "config.h", ...).
+ */
+
+#ifndef ___SCHAR
+#define ___SCHAR signed char
+#endif
+
+#ifndef ___WCHAR
+#ifdef ___DONT_HAVE_WCHAR_H
+
+/*
+ * If the header file "wchar.h" is not available then the symbol
+ * ___DONT_HAVE_WCHAR_H must be defined (for example on the compiler's
+ * command line) and the following definitions will be used:
+ */
+
+#define ___WCHAR unsigned char
+#define ___WCHAR_MIN 0
+#define ___WCHAR_MAX ((1<<___CHAR_WIDTH)-1)
+
+#else
+
+/*
+ * If the header file "wchar.h" is available then it should contain macros
+ * defining the range of the wchar_t type.
+ */
+
+#include <wchar.h>
+
+#define ___WCHAR wchar_t
+
+#ifdef WCHAR_MIN
+#define ___WCHAR_MIN WCHAR_MIN
+#else
+#define ___WCHAR_MIN 0
+#endif
+
+#ifdef WCHAR_MAX
+#define ___WCHAR_MAX WCHAR_MAX
+#else
+#ifdef UINT_MAX
+#define ___WCHAR_MAX UINT_MAX
+#else
+#define ___WCHAR_MAX ((1<<___CHAR_WIDTH)-1)
+#endif
+#endif
+
+#endif
+#endif
+
+#ifdef ___DONT_HAVE_FLOAT_H
+
+/*
+ * If the header file "float.h" is not available then the symbol
+ * ___DONT_HAVE_FLOAT_H must be defined (for example on the compiler's
+ * command line) and the following definitions will be used:
+ */
+
+#define ___FLOAT_WIDTH  32   /* if needed, edit to suit your platform */
+#define ___DOUBLE_WIDTH 64
+
+#else
+
+/*
+ * If the header file "float.h" is available then it contains macros defining
+ * the range of the floating point types.  The following preprocessor
+ * conditional definitions are not completely correct (and may not
+ * even compile properly because it is possible that FLT_MAX_EXP and
+ * DBL_MAX_EXP are not constant expressions).  However, it appears to
+ * work on a wide range of platforms.
+ */
+
+#include <float.h>
+
+#ifdef FLT_MAX_EXP
+#if FLT_MAX_EXP == 128
+#define ___FLOAT_WIDTH 32
+#else
+#if FLT_MAX_EXP == 1024
+#define ___FLOAT_WIDTH 64
+#endif
+#endif
+#endif
+
+#ifdef DBL_MAX_EXP
+#if DBL_MAX_EXP == 128
+#define ___DOUBLE_WIDTH 32
+#else
+#if DBL_MAX_EXP == 1024
+#define ___DOUBLE_WIDTH 64
+#endif
+#endif
+#endif
+
+#endif
+#endif
+
+/*
+ * Size of pointers.
+ *
+ * ___VOIDSTAR_WIDTH must be equal to sizeof(void*) * ___CHAR_WIDTH.
+ * This value can't be computed with the "sizeof" operator because it
+ * must be known at macro expansion time.  If in doubt just do
+ *
+ *  #define ___VOIDSTAR_WIDTH ___LONG_WIDTH
+ *
+ */
+
+#ifndef ___VOIDSTAR_WIDTH
+#define ___VOIDSTAR_WIDTH @CONF_VOIDSTAR_WIDTH@
+#endif
+
+#if ___VOIDSTAR_WIDTH == 32
+#undef ___USE_32_BIT_ADDR
+#define ___USE_32_BIT_ADDR
+#endif
+

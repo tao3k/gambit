@@ -1,0 +1,26 @@
+/*---------------------------------------------------------------------------*/
+
+/* signal.h library properties. */
+
+#ifndef ___DONT_HAVE_SIGNAL_H
+
+#ifndef ___USE_SIGSET_T
+#ifndef ___USE_NO_SIGSET_T
+#define @CONF_USE_SIGSET_T@
+#endif
+#endif
+
+#ifdef ___USE_SIGSET_T
+#include <signal.h>
+#endif
+
+#endif
+
+
+#ifdef ___USE_SIGSET_T
+#define ___sigset_type sigset_t
+#else
+#define ___sigset_type int
+#endif
+
+

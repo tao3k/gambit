@@ -1,0 +1,29 @@
+/* File: "gambit.h" */
+
+/*
+ * Copyright (c) 1994-2026 by Marc Feeley, All Rights Reserved.
+ */
+
+#ifndef ___GAMBIT_H
+#define ___GAMBIT_H
+
+#ifndef ___VERSION
+#define ___VERSION 409008
+#endif
+
+#if ___VERSION != 409008
+#include "gambit-not409008.h"
+#else
+
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
+#if !defined(_WIN32) && !defined(__APPLE__) && \
+    !defined(_POSIX_C_SOURCE) && !defined(_GNU_SOURCE) && \
+    !defined(_DEFAULT_SOURCE) && !defined(_XOPEN_SOURCE)
+/* Under strict -std=c23 on glibc/POSIX hosts without config.h, expose POSIX
+ * declarations such as sigset_t before any standard C header is included. */
+#define _POSIX_C_SOURCE 200809L
+#endif
+

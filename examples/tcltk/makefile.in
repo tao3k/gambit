@@ -70,7 +70,7 @@ mandir = @mandir@
 
 .SUFFIXES: .scm .c @obj@ .o1
 
-RCFILES = makefile.in README tcltk.scm "tcltk\#.scm" test.scm \
+RCFILES = makefile.in README command.h tcltk.scm "tcltk\#.scm" test.scm \
 fig16-1.scm fig16-2.scm fig16-3.scm fig16-6.scm fig16-7.scm \
 fig16-8.scm fig16-9.scm fig16-10.scm fig16-11.scm fig16-12.scm \
 fig16-13.scm fig16-14.scm fig16-15.scm fig16-16.scm fig16-17.scm fig17-9.scm
@@ -89,9 +89,11 @@ core-post:
 
 examples: test.o1 run
 
+tcltk.o1: $(srcdirpfx)command.h
+
 .scm.o1:
 	rm -f $*.o*
-	@SETDLPATH@ $(rootfromhere)/gsc/gsc@exe@ -:~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -warnings -cc-options "@X_CFLAGS@" -ld-options "@X_PRE_LIBS@ @X_LIBS@ @X_EXTRA_LIBS@ -ltcl -ltk -lX11" $(srcdirpfx)$*.scm
+	@SETDLPATH@ $(rootfromhere)/gsc/gsc@exe@ -:~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -warnings -cc-options "@X_CFLAGS@ -I$(srcdirpfx)." -ld-options "@X_PRE_LIBS@ @X_LIBS@ @X_EXTRA_LIBS@ -ltcl -ltk -lX11" $(srcdirpfx)$*.scm
 
 run: tcltk.o1
 	@SETDLPATH@ $(rootfromhere)/gsi/gsi@exe@ -:~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include tcltk -e '(load "test") (main)'

@@ -47,16 +47,22 @@
            (macro-fifo-next-set! head '())))
        head)))
 
+(##define-macro (macro-fifo-link-tail-cell! fifo cell)
+  `(let ((fifo ,fifo) (x ,cell))
+
+     (##declare (not interrupts-enabled))
+
+     ;; The caller owns the queue mutation permit and a detached, rooted cell.
+     ;; No allocation or safe point may split these two publication stores.
+     (let ((tail (macro-fifo-tail fifo)))
+       (macro-fifo-next-set! tail x)
+       (macro-fifo-tail-set! fifo x)
+       (##void))))
+
 (##define-macro (macro-fifo-insert-at-tail! fifo elem)
   `(let ((fifo ,fifo) (elem ,elem))
      (let ((x (##cons elem '())))
-
-       (##declare (not interrupts-enabled))
-
-       (let ((tail (macro-fifo-tail fifo)))
-         (macro-fifo-next-set! tail x)
-         (macro-fifo-tail-set! fifo x)
-         (##void)))))
+       (macro-fifo-link-tail-cell! fifo x))))
 
 (##define-macro (macro-fifo-insert-at-head! fifo elem)
   `(let ((fifo ,fifo) (elem ,elem))

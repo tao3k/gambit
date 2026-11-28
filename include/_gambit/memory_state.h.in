@@ -1,0 +1,815 @@
+/*---------------------------------------------------------------------------*/
+
+/* TODO: where to put this? */
+
+/* Memory management */
+
+/*
+ * Movable Scheme objects are allocated in an area of memory
+ * distributed in multiple noncontiguous sections (collectively
+ * called the "msections").  All sections are of the same size and are
+ * allocated through the '___alloc_mem' function.  The number of
+ * sections can expand and contract to accommodate the needs of the
+ * program.
+ */
+
+/* Region age classification for generational write-barrier seam. */
+#define ___GC_REGION_YOUNG     0u
+#define ___GC_REGION_MATURE    1u
+#define ___GC_REGION_PINNED    2u
+#define ___GC_REGION_PROMOTING 3u
+
+/* Preallocated per-region dirty-card geometry: 64 words/card (512B on 64-bit,
+ * 256B on 32-bit). Prepared with region publication, never allocated in barrier. */
+#define ___GC_CARD_SHIFT_WORDS 6
+#define ___GC_CARD_WORDS       (1 << ___GC_CARD_SHIFT_WORDS)
+#define ___msection_card_count(n) (((n) + ___GC_CARD_WORDS - 1) >> ___GC_CARD_SHIFT_WORDS)
+#define ___msection_card_words(n) ((___msection_card_count(n) + ___WORD_WIDTH - 1) / ___WORD_WIDTH)
+
+typedef struct ___msect
+  {
+    int index;             /* index in list of sections */
+    int pos;               /* position in msections's 'sections' array */
+    struct ___msect *prev; /* previous section in list of sections */
+    struct ___msect *next; /* next section in list of sections */
+    ___VOLATILE ___WORD copy_gate; /* source-section forwarding ownership */
+    ___WORD region_generation;     /* monotonic generation for (VM, region, gen, card) key */
+    unsigned int region_age;       /* ___GC_REGION_YOUNG / MATURE / PINNED */
+    ___VOLATILE ___WORD card_dirty_any; /* summary bit: 0=clean, 1=dirty card(s) present */
+    ___SIZE_TS active_offset;      /* active half (0 or M/2) for MATURE section */
+    ___SIZE_TS mature_words;       /* populated word count in active half for MATURE */
+    ___SIZE_TS scan_end_words;     /* frozen mature_words boundary for Minor GC card scan */
+    ___SIZE_TS gc_src_offset;      /* round-local frozen source half */
+    ___SIZE_TS gc_dest_offset;     /* round-local copy destination half */
+    ___SIZE_TS gc_dest_words;      /* round-local populated destination words */
+    unsigned char gc_is_dest;      /* 0=none, 1=new mature dest, 2=packed promo_tail */
+    unsigned char gc_role;         /* 0=copy/free, 1=stack_dest, 2=young_heap_dest */
+    /* Slice 2: Non-moving Immix Mark-Region & Concurrent SATB Major GC metadata */
+    ___UWORD major_mark_epoch;         /* major cycle epoch owning section mark bitmap */
+    ___SIZE_TS major_snapshot_words;   /* words < this are snapshot; >= are BLACK */
+    ___VOLATILE ___WORD major_live_words; /* marked live words in current Major cycle */
+    ___UWORD major_line_live[8];       /* 512 bits: 1 bit per 128-word Immix line */
+    unsigned char major_evacuate;      /* 1 = fragmented (<50% live), 2 = 100%-dead unlink */
+    unsigned char gc_evacuating;       /* 1 = sparse mature section selected for STW selective evacuation */
+    unsigned char major_static_gen;    /* 1 = immortal/static mature cohort skipped by concurrent Major GC */
+    unsigned char major_survive_count; /* consecutive dense Major cycles survived before static promotion */
+    ___VOLATILE ___WORD static_major_dirty; /* 1 = static section may hold outgoing edges to non-static objects */
+    ___SIZE_TS major_hole_start;       /* 64-word card-aligned start of largest dead Immix hole */
+    ___SIZE_TS major_hole_end;         /* 64-word card-aligned end of largest dead Immix hole */
+    ___WORD base[1];       /* content of section */
+  } ___msection;
+
+/* Concurrent SATB Major GC phases & bounded per-processor SATB / local mark buffers */
+#define ___GC_MAJOR_IDLE           0
+#define ___GC_MAJOR_MARKING        1
+#define ___GC_MAJOR_SWEEPING       2
+#define ___GC_SATB_BUF_CAP         256
+#define ___GC_MAJOR_LOCAL_MARK_CAP 128
+
+/* Destination scan ownership is outside Scheme payload/header coordinates. */
+#define ___msection_scan_words(n) (((n)/2+(___WORD_WIDTH/2)-1)/(___WORD_WIDTH/2))
+#define ___sizeof_msection(n) (sizeof (___msection)+((n)-1+___msection_scan_words(n))*___WS)
+
+/* Bounded per-processor dirty-card hint buffer with sticky epoch overflow.
+ * Authoritative coverage lives in per-region atomic card_bits; hints accelerate
+ * enumeration when overflow == 0 and fall back to O(C) card_bits walk otherwise. */
+#define ___GC_CARD_HINT_CAPACITY 64
+
+typedef struct ___gc_card_hint_struct
+  {
+    ___msection *section;
+    ___WORD region_generation;
+    unsigned int card_index;
+  } ___gc_card_hint;
+
+typedef struct ___gc_card_hint_log_struct
+  {
+    ___UWORD epoch;
+    unsigned int count;
+    unsigned int overflow; /* sticky for this epoch once hint capacity is exceeded */
+    ___gc_card_hint entries[___GC_CARD_HINT_CAPACITY];
+  } ___gc_card_hint_log;
+
+/* Bounded per-processor dirty mature still-object hint buffer.
+ * Records clean-to-dirty transitions once per epoch for O(dirty) Minor GC
+ * root discovery and cleanup, falling back to full list walk on overflow. */
+#define ___GC_STILL_HINT_CAPACITY 32
+
+typedef struct ___gc_still_hint_log_struct
+  {
+    unsigned int count;
+    unsigned int overflow;
+    ___WORD *entries[___GC_STILL_HINT_CAPACITY];
+  } ___gc_still_hint_log;
+
+/* Non-allocating, non-collecting atomic card premark seam.
+ * Returns 1 if this call transitioned the card from clean to dirty, 0 if elided
+ * (young region) or already dirty. Safe under concurrent SMP mutators. */
+___ORDERED_WORD_INLINE int ___gc_card_mark_in_section
+   (___msection *sec,
+    ___VOLATILE ___WORD *card_bits,
+    ___SIZE_TS word_offset,
+    ___SIZE_TS section_words,
+    ___gc_card_hint_log *hints)
+{
+  unsigned int card_index, w;
+  ___UWORD bit, prev;
+  if (sec == 0 || card_bits == 0 || sec->region_age == ___GC_REGION_YOUNG)
+    return 0;
+  if (word_offset < 0 || word_offset >= section_words)
+    return 0;
+  card_index = ___CAST(unsigned int, word_offset >> ___GC_CARD_SHIFT_WORDS);
+  w = card_index / ___WORD_WIDTH;
+  bit = ___CAST(___UWORD, 1) << (card_index & (___WORD_WIDTH - 1));
+  if ((___CAST(___UWORD, ___WORD_LOAD_RELAXED(&card_bits[w])) & bit) != 0)
+    return 0;
+  prev = ___CAST(___UWORD, ___WORD_FETCH_OR_RELEASE(&card_bits[w], ___CAST(___WORD, bit)));
+  if ((prev & bit) == 0)
+    {
+      ___WORD_STORE_RELEASE(&sec->card_dirty_any, 1);
+      if (hints != 0)
+        {
+          if (hints->count < ___GC_CARD_HINT_CAPACITY)
+            {
+              ___gc_card_hint *e = &hints->entries[hints->count++];
+              e->section = sec;
+              e->region_generation = sec->region_generation;
+              e->card_index = card_index;
+            }
+          else
+            hints->overflow = 1;
+        }
+      return 1;
+    }
+  return 0;
+}
+
+/* Query whether a specific card bit is dirty (acquire order for STW cut). */
+___ORDERED_WORD_INLINE int ___gc_card_is_dirty
+   (const ___VOLATILE ___WORD *card_bits,
+    unsigned int card_index)
+{
+  unsigned int w = card_index / ___WORD_WIDTH;
+  ___UWORD bit = ___CAST(___UWORD, 1) << (card_index & (___WORD_WIDTH - 1));
+  return (___CAST(___UWORD, ___WORD_LOAD_ACQUIRE(___CAST(___VOLATILE ___WORD*, &card_bits[w]))) & bit) != 0;
+}
+
+/* Reset all dirty cards in a stopped region (only touches bitmap if dirty). */
+___ORDERED_WORD_INLINE void ___gc_card_clear_section
+   (___msection *sec,
+    ___VOLATILE ___WORD *card_bits,
+    ___SIZE_TS section_words)
+{
+  ___SIZE_TS nwords, i;
+  if (sec == 0 || card_bits == 0)
+    return;
+  if (___WORD_LOAD_ACQUIRE(&sec->card_dirty_any) == 0)
+    return;
+  nwords = ___msection_card_words(section_words);
+  for (i = 0; i < nwords; i++)
+    ___WORD_STORE_RELEASE(&card_bits[i], 0);
+  ___WORD_STORE_RELEASE(&sec->card_dirty_any, 0);
+}
+
+/* Reset a processor hint log for next_epoch and publish any surviving residual
+ * old-to-young dirty cards as next-epoch seed hints (or sticky overflow if
+ * residual_count exceeds capacity, ensuring zero orphaned dirty cards). */
+___ORDERED_WORD_INLINE void ___gc_card_reset_epoch
+   (___gc_card_hint_log *hints,
+    ___UWORD next_epoch,
+    ___msection *const *residual_secs,
+    const unsigned int *residual_cards,
+    unsigned int residual_count)
+{
+  unsigned int i;
+  if (hints == 0)
+    return;
+  hints->epoch = next_epoch;
+  hints->count = 0;
+  hints->overflow = 0;
+  for (i = 0; i < residual_count; i++)
+    {
+      if (hints->count < ___GC_CARD_HINT_CAPACITY)
+        {
+          ___gc_card_hint *e = &hints->entries[hints->count++];
+          e->section = residual_secs[i];
+          e->region_generation = residual_secs[i] ? residual_secs[i]->region_generation : 0;
+          e->card_index = residual_cards[i];
+        }
+      else
+        {
+          hints->overflow = 1;
+          break;
+        }
+    }
+}
+
+/* Non-allocating, non-collecting generational write-barrier macros.
+ * Fast path elides immediate values (1 tag test) and stores into the processor's
+ * current young heap_msection (1 unsigned range test) with zero VM reads or calls.
+ * Cold path invokes ___gc_write_barrier_slow on mature/still/older-young targets. */
+#ifdef ___DISABLE_GENERATIONAL_GC
+#define ___GC_WRITE_BARRIER(ps,obj,slot_ptr,val) \
+  do { (void)(ps); (void)(obj); (void)(slot_ptr); (void)(val); } while (0)
+#define ___GC_WRITE_BARRIER_ALWAYS(ps,obj,slot_ptr) \
+  do { (void)(ps); (void)(obj); (void)(slot_ptr); } while (0)
+#define ___GC_WRITE_BARRIER_RANGE(ps,obj,start_ptr,words) \
+  do { (void)(ps); (void)(obj); (void)(start_ptr); (void)(words); } while (0)
+#define ___GC_SHRINK_HEADER(ps,obj,hdr_ptr,new_head) \
+  do { \
+    ___WORD *___gsh_h = (hdr_ptr); \
+    ___WORD ___gsh_nh = (new_head); \
+    (void)(ps); (void)(obj); \
+    ___WORD_STORE_RELAXED(___gsh_h, ___gsh_nh); \
+  } while (0)
+#else
+#define ___GC_WRITE_BARRIER(ps,obj,slot_ptr,val) \
+  do { \
+    ___SCMOBJ ___gwb_v = (val); \
+    ___WORD *___gwb_s = (slot_ptr); \
+    ___processor_state ___gwb_p = (ps); \
+    if (___EXPECT_FALSE(___gwb_p->mem.satb_active_ != 0)) \
+      ___EXT(___gc_satb_barrier_slot)(___gwb_p, ___gwb_s); \
+    if (___MEM_ALLOCATED(___gwb_v)) \
+      { \
+        ___UWORD ___gwb_a = ___CAST(___UWORD, ___gwb_s); \
+        ___UWORD ___gwb_lo = ___CAST(___UWORD, ___gwb_p->mem.alloc_heap_start_); \
+        ___UWORD ___gwb_hi = ___CAST(___UWORD, ___gwb_p->mem.alloc_heap_limit_); \
+        if (___EXPECT_FALSE(___gwb_a - ___gwb_lo >= ___gwb_hi - ___gwb_lo && \
+                            ___gwb_a - ___gwb_p->mem.wb_last_card_lo_ >= (___CAST(___UWORD, ___GC_CARD_WORDS) * ___WS))) \
+          ___EXT(___gc_write_barrier_slow_val)(___gwb_p, (obj), ___gwb_s, ___gwb_v); \
+      } \
+  } while (0)
+#define ___GC_WRITE_BARRIER_ALWAYS(ps,obj,slot_ptr) \
+  do { \
+    ___WORD *___gwb_s = (slot_ptr); \
+    ___processor_state ___gwb_p = (ps); \
+    if (___EXPECT_FALSE(___gwb_p->mem.satb_active_ != 0)) \
+      ___EXT(___gc_satb_barrier_slot)(___gwb_p, ___gwb_s); \
+    { \
+      ___UWORD ___gwb_a = ___CAST(___UWORD, ___gwb_s); \
+      ___UWORD ___gwb_lo = ___CAST(___UWORD, ___gwb_p->mem.alloc_heap_start_); \
+      ___UWORD ___gwb_hi = ___CAST(___UWORD, ___gwb_p->mem.alloc_heap_limit_); \
+      if (___EXPECT_FALSE(___gwb_a - ___gwb_lo >= ___gwb_hi - ___gwb_lo && \
+                          ___gwb_a - ___gwb_p->mem.wb_last_card_lo_ >= (___CAST(___UWORD, ___GC_CARD_WORDS) * ___WS))) \
+        ___EXT(___gc_write_barrier_slow)(___gwb_p, (obj), ___gwb_s); \
+    } \
+  } while (0)
+#define ___GC_WRITE_BARRIER_RANGE(ps,obj,start_ptr,words) \
+  do { \
+    ___SIZE_TS ___gwb_n = (words); \
+    if (___gwb_n > 0) \
+      { \
+        ___WORD *___gwb_s = (start_ptr); \
+        ___processor_state ___gwb_p = (ps); \
+        if (___EXPECT_FALSE(___gwb_p->mem.satb_active_ != 0)) \
+          ___EXT(___gc_satb_barrier_range)(___gwb_p, ___gwb_s, ___gwb_n); \
+        { \
+          ___UWORD ___gwb_lo = ___CAST(___UWORD, ___gwb_p->mem.alloc_heap_start_); \
+          ___UWORD ___gwb_hi = ___CAST(___UWORD, ___gwb_p->mem.alloc_heap_limit_); \
+          if (___EXPECT_FALSE(___CAST(___UWORD, ___gwb_s) - ___gwb_lo >= ___gwb_hi - ___gwb_lo)) \
+            ___EXT(___gc_write_barrier_range)(___gwb_p, (obj), ___gwb_s, ___gwb_n); \
+        } \
+      } \
+  } while (0)
+#define ___GC_SHRINK_HEADER(ps,obj,hdr_ptr,new_head) \
+  do { \
+    ___SCMOBJ ___gsh_o = (obj); \
+    ___WORD *___gsh_h = (hdr_ptr); \
+    ___WORD ___gsh_nh = (new_head); \
+    ___processor_state ___gsh_p = (ps); \
+    ___WORD ___gsh_oh = ___WORD_LOAD_RELAXED(___gsh_h); \
+    ___UWORD ___gsh_a = ___CAST(___UWORD, ___gsh_h); \
+    ___UWORD ___gsh_lo = ___CAST(___UWORD, ___gsh_p->mem.alloc_heap_start_); \
+    ___UWORD ___gsh_hi = ___CAST(___UWORD, ___gsh_p->mem.alloc_heap_limit_); \
+    if (___EXPECT_FALSE(___HD_WORDS(___gsh_nh) < ___HD_WORDS(___gsh_oh) && \
+                        ___gsh_a - ___gsh_lo >= ___gsh_hi - ___gsh_lo)) \
+      ___EXT(___gc_shrink_object_slow)(___gsh_p, ___gsh_o, ___gsh_nh); \
+    else \
+      ___WORD_STORE_RELAXED(___gsh_h, ___gsh_nh); \
+  } while (0)
+#endif
+#define ___GC_WRITE_BARRIER_SEAM(ps,obj,slot_ptr,val) ___GC_WRITE_BARRIER(ps,obj,slot_ptr,val)
+
+typedef struct
+  {
+    int max_nb_sections;      /* actual size of 'sections' array */
+    int nb_sections;          /* number of sections */
+    ___msection *head;        /* head of doubly-linked list of sections */
+    ___msection *tail;        /* tail of doubly-linked list of sections */
+    ___msection *sections[1]; /* each section ordered by address */
+                              /* (increasing order if ___ALLOC_MEM_UP */
+                              /* is defined otherwise decreasing order) */
+  } ___msections;
+
+#define ___sizeof_msections(n) (sizeof (___msections) + ((n)-1) * sizeof (___msection*))
+
+/*
+ * Header structure of reference counted blocks of memory.
+ */
+
+typedef struct ___rc_domain_struct ___rc_domain;
+
+typedef struct ___rc_header_struct
+  {
+    struct ___rc_header_struct *prev;
+    struct ___rc_header_struct *next;
+    ___WORD refcount; /* integer but declared ___WORD for alignment */
+    ___SCMOBJ data; /* needed for C closures */
+    ___rc_domain *domain; /* source gate/lifetime, independent of native carrier */
+    ___WORD root_borrows; /* stable-cell owners, separate from public references */
+    ___SIZE_T root_count; /* immutable Scheme slots in payload; zero for byte RC */
+  } ___rc_header;
+
+/*
+ * Off-heap reference-counted binary header (Erlang ProcBin / Rust Arc model).
+ * Cross-core zero-copy sharing strictly requires ___REFC_BIN_FLAG_IMMUTABLE.
+ */
+#define ___REFC_BIN_FLAG_IMMUTABLE 1u
+
+struct ___virtual_machine_state_struct;
+
+typedef struct ___refc_bin_struct
+  {
+    ___VOLATILE ___WORD refcount; /* atomic strong reference count */
+    unsigned int flags;           /* immutability and ownership flags */
+    unsigned int reserved;
+    ___SIZE_T byte_len;           /* payload length in bytes */
+    struct ___virtual_machine_state_struct *owner_vm; /* VM charged for external phantom bytes */
+    unsigned char data[1];        /* off-heap payload bytes */
+  } ___refc_bin;
+
+/* fdset state */
+#ifndef ___OS_WIN32
+typedef struct ___fdset_struct {
+  int size;
+  void *readfds;
+  void *writefds;
+  void *exceptfds;
+} ___fdset;
+#endif
+
+typedef struct ___pstate_os_struct {
+
+  /*
+   * for implementation of asynchronous interrupting the following
+   * structures are needed to force ___device_select to abort wait
+   */
+#ifdef ___OS_WIN32
+  HANDLE select_abort; /* WIN32 event */
+#else
+  ___half_duplex_pipe select_abort; /* POSIX self-pipe */
+  ___fdset fdset; /* Dynamic fdsets for unlimited file descriptors */
+  ___WORD reactor; /* Per-processor persistent kqueue/epoll & dynamic select state */
+#endif
+
+} ___pstate_os;
+
+typedef struct ___pstate_mem_struct {
+
+/* location of tospace in each msection */
+___SIZE_TS tospace_offset_;
+
+/* msection free list */
+___msection *msection_free_list_;
+
+/* processor-private list of parked stack sections eligible for local reuse */
+___msection *parked_stack_list_;
+
+/* msection where continuation frames are currently being allocated */
+___msection *stack_msection_;
+
+/* start of allocation of continuation frames in stack_msection */
+___WORD *alloc_stack_start_;
+
+/* allocation pointer for continuation frames in stack_msection */
+___WORD *alloc_stack_ptr_;
+
+/* allocation limit for continuation frames in stack_msection */
+___WORD *alloc_stack_limit_;
+
+/* msection where movable objects are currently being allocated */
+___msection *heap_msection_;
+
+/* start of allocation of movable objects in heap_msection */
+___WORD *alloc_heap_start_;
+
+/* allocation pointer for movable objects in heap_msection */
+___WORD *alloc_heap_ptr_;
+
+/* allocation limit for movable objects in heap_msection */
+___WORD *alloc_heap_limit_;
+
+/* Slice 2: hot SATB active flag co-located on the heap_limit cache line */
+___VOLATILE ___WORD satb_active_;
+
+/* start of current group of movable objects being copied by mark_array */
+___WORD *alloc_heap_chunk_start_;
+
+/* allocation limit for movable objects in current chunk */
+___WORD *alloc_heap_chunk_limit_;
+
+#ifndef ___SINGLE_THREADED_VMS
+
+/* spinlock for accessing the movable object chunks remaining to scan */
+___SPINLOCK_DECL(heap_chunks_to_scan_lock_)
+
+#endif
+
+/* list of complete movable object chunks to scan */
+___VOLATILE ___WORD heap_chunks_to_scan_;
+
+/* fifo of complete movable object chunks remaining to scan */
+___VOLATILE ___WORD * ___VOLATILE heap_chunks_to_scan_head_;
+___VOLATILE ___WORD * ___VOLATILE heap_chunks_to_scan_tail_;
+
+/* scan pointer in currently scanned (possibly incomplete) chunk */
+___WORD *scan_ptr_;
+
+/* still objects remaining to scan */
+___WORD still_objs_to_scan_;
+
+/* list of mature still objects */
+___WORD still_objs_;
+
+/* list of young still objects allocated since last GC */
+___WORD young_still_objs_;
+
+/* words occupied by still objects (mature + deferred foreign cleanup) */
+___SIZE_TS words_still_objs_;
+
+/* words occupied by live mature still objects */
+___SIZE_TS words_still_objs_mature_;
+
+/* words allocated to young still objects since last GC */
+___SIZE_TS words_still_objs_young_;
+
+/* words occupied by still objects not yet accounted for at the VM level */
+___SIZE_TS words_still_objs_deferred_;
+
+/* pre-reserved still-object word budget owned by this processor */
+___SIZE_TS still_words_budget_;
+
+/* bytes allocated minus occupied */
+___F64 bytes_allocated_minus_occupied_;
+
+/* head of list of reference counted blocks of memory */
+___rc_domain *rc_domain_;
+
+/* indicates if weak references must be traversed */
+___BOOL traverse_weak_refs_;
+
+/* list of nonexecutable wills */
+___WORD nonexecutable_wills_;
+
+/* list of executable wills */
+___WORD executable_wills_;
+
+/* GC hash tables reached by GC */
+___WORD reached_gc_hash_tables_;
+
+/* words occupied in msections of this processor excluding current msections */
+___SIZE_TS words_prev_msections_;
+
+/* space used in msection stack fudge */
+___SIZE_TS stack_fudge_used_;
+
+/* space used in msection heap fudge */
+___SIZE_TS heap_fudge_used_;
+
+/* processor-private epoch-validated cache for lock_source_stack_frame */
+___msection *src_stack_cache_sec_[4];
+___UWORD src_stack_cache_base_[4];
+___UWORD src_stack_cache_epoch_;
+___SIZE_TS src_stack_cache_offset_;
+int src_stack_cache_next_;
+
+/* bounded dirty-card and dirty-still hint buffers and 1-entry fast caches */
+___gc_card_hint_log card_hints_;
+___gc_still_hint_log still_hints_;
+___msection *wb_last_sec_;
+___UWORD wb_last_epoch_;
+___UWORD wb_last_card_lo_;
+
+/* Slice 2: per-processor out-of-line SATB & local mark buffers (keeps pstate within 1 page) */
+unsigned int satb_count_;
+unsigned int satb_overflow_;
+___SCMOBJ *satb_buf_;
+unsigned int major_mark_local_count_;
+___SCMOBJ *major_mark_local_buf_;
+/* Per-processor overflow scratch for keyword procedures with > 32 keyword parameters */
+___SCMOBJ *rest_key_scratch_;
+___WORD rest_key_scratch_cap_;
+
+/* Phase A.2.1: per-processor lock-free still_slab slot cache (classes 0..3: 2.5K..8K) */
+void *still_local_free_[4];
+unsigned int still_local_count_[4];
+/* Phase A.2.2: processor-local young escape tracking */
+___VOLATILE ___WORD local_young_escaped_;
+/* Amp-1 Cut 1A: processor-private recycled still-word credit (already counted
+ * inside occupied_words_still_; zero ALLOC_MEM_LOCK on local still GC). */
+___SIZE_TS local_still_credit_;
+/* Amp-2 Cut 2A/2B: owner-written lock-free major marking telemetry
+ * (eliminates global major_mark_lock_ acquisition on every mark/idle/spin slice). */
+___VOLATILE ___WORD major_mark_slices_local_;
+___VOLATILE ___WORD major_marked_words_local_;
+___VOLATILE ___WORD major_satb_logged_local_;
+___VOLATILE ___WORD major_idle_slices_local_;
+___VOLATILE ___WORD major_spin_slices_local_;
+/* Per-processor stack watermark state for concurrent SATB frame shading */
+___UWORD stack_watermark_epoch_;
+___VOLATILE ___WORD stack_watermark_shaded_frames_;
+___VOLATILE ___WORD oneshot_rewinds_local_;
+
+#ifdef ___DEBUG_GARBAGE_COLLECT
+
+/* GC state used for debugging */
+int reference_location_; /* where is offending reference located */
+___WORD *container_body_; /* body of object containing offending reference */
+int mark_array_call_line_; /* where was mark_array called */
+
+#endif
+
+#ifdef ___CALL_GC_FREQUENTLY
+int gc_calls_to_punt_;
+#endif
+} ___pstate_mem;
+
+#ifndef ___OS_WIN32
+typedef struct ___vmstate_fdset_struct {
+  int size;
+  ___VOLATILE int overflow;
+} ___vmstate_fdset;
+#endif
+
+typedef struct ___vmstate_os_struct {
+#ifdef ___OS_WIN32
+  int dummy; /* avoid empty struct error raised by MSVC */
+#else
+  ___vmstate_fdset fdset;
+#endif
+} ___vmstate_os;
+
+typedef struct ___vmstate_mem_struct {
+
+struct ___global_root_snapshot_struct *globals_snapshot_;
+
+/* size of heap in words (number of words that can be occupied) */
+___SIZE_TS heap_size_;
+
+/*
+ * 'normal_overflow_reserve' is the number of words reserved in the
+ * heap in normal circumstances for handling heap overflows.
+ */
+___SIZE_TS normal_overflow_reserve_;
+
+/*
+ * 'overflow_reserve' is the number of words currently reserved in the
+ * heap for handling heap overflows.  Initially 'overflow_reserve' is
+ * set to 'normal_overflow_reserve'.  When a heap overflow occurs,
+ * some fraction of the 'overflow_reserve' is made available to the
+ * heap overflow handler.  When a GC makes at least
+ * 'normal_overflow_reserve' free, then 'overflow_reserve' is reset to
+ * 'normal_overflow_reserve'.
+ */
+___SIZE_TS overflow_reserve_;
+
+/* words occupied by movable objects (only updated at end of GC) */
+___SIZE_TS occupied_words_movable_;
+
+/* words occupied by still objects (excluding deferred ones) */
+___SIZE_TS occupied_words_still_;
+
+/* words pre-reserved in per-processor still-object budgets (deferred + unused) */
+___SIZE_TS reserved_words_still_;
+
+/* Amp-1 Cut 1A: lock-free atomic accumulator of excess locally reclaimed still
+ * words flushed by try_local_young_still_gc/try_local_movable_nursery_gc without
+ * acquiring alloc_mem_lock_; drained under alloc_mem_lock_ on slow paths & STW. */
+___VOLATILE ___SIZE_TS still_words_reclaimed_pending_;
+
+/* the msections */
+___msections *the_msections_;
+
+/* last msection allocated */
+___msection *alloc_msection_;
+
+/* number of msections assigned to processors */
+int nb_msections_assigned_;
+
+/* number of msections assigned to stacks (otherwise assigned to heap) */
+int nb_msections_stacks_;
+
+/* history of target heap space */
+#ifndef ___TARGET_HEAP_SPACE_HIST_LENGTH
+#define ___TARGET_HEAP_SPACE_HIST_LENGTH 16
+#endif
+#if ___TARGET_HEAP_SPACE_HIST_LENGTH > 0
+___SIZE_TS target_heap_space_hist_[___TARGET_HEAP_SPACE_HIST_LENGTH];
+int target_heap_space_hist_last_;
+#endif
+
+/* Used for resizing VM (number of processors after the resize operation) */
+___VOLATILE int target_processor_count_;
+
+#ifndef ___SINGLE_THREADED_VMS
+
+/* spinlock for miscellaneous memory operations at the VM level */
+___SPINLOCK_DECL(misc_mem_lock_)
+
+/* spinlock for allocation of memory at the VM level */
+___SPINLOCK_DECL(alloc_mem_lock_)
+/* Cache-line-isolated 3-state adaptive-spin + OS-futex allocation mutex
+ * (0=unlocked, 1=locked-uncontended, 2=locked-contended). */
+char alloc_mem_futex_pad0_[128];
+___VOLATILE ___U32 alloc_mem_futex_state_;
+char alloc_mem_futex_pad1_[128];
+
+/* mutex and condition variable to determine termination of GC scan */
+___MUTEX_DECL(scan_termination_mutex_)
+___CONDVAR_DECL(scan_termination_condvar_)
+
+/* number of processors currently doing GC scan work (for each phase) */
+___VOLATILE ___WORD scan_workers_count_[2];
+
+#endif
+
+/*
+ * Garbage collection statistics.
+ */
+
+___F64 nb_gcs_;
+___F64 gc_user_time_;
+___F64 gc_sys_time_;
+___F64 gc_real_time_;
+
+___F64 latest_gc_user_time_;
+___F64 latest_gc_sys_time_;
+___F64 latest_gc_real_time_;
+___F64 latest_gc_heap_size_;
+___F64 latest_gc_alloc_;
+___F64 latest_gc_live_;
+___F64 latest_gc_movable_;
+___F64 latest_gc_still_;
+
+/*
+ * Custom msection allocator (when not NULL).
+ */
+
+___msection *(*custom_msection_alloc_) ___PVOID;
+
+/*
+ * Generational Minor GC state (mutated exclusively during STW GC).
+ * mature_sections_ is sorted in strictly ascending address order and
+ * strictly read-only during mutator epochs for lock-free write barriers.
+ */
+int nb_msections_mature_;
+___msection *mature_tail_;
+___msection **mature_sections_;
+int mature_sections_cap_;
+___UWORD mature_addr_lo_;
+___UWORD mature_addr_span_;
+___UWORD mature_snapshot_epoch_;
+/* Amp-1 Cut 1C: O(1) 2-level mature msection radix directory (rebuilt exclusively
+ * in STW rebuild_mature_snapshot; strictly read-only during mutator & major epochs). */
+void *mature_radix_l1_;
+void *mature_radix_pool_;
+___SIZE_TS occupied_words_mature_;
+int major_trigger_sections_;
+int minor_gcs_since_major_;
+___SIZE_TS mature_still_words_;
+___SIZE_TS major_trigger_still_words_;
+int promo_cand_count_;
+int promo_cand_cap_;
+___msection **promo_cands_;
+___VOLATILE ___WORD still_dirty_any_;
+___VOLATILE ___WORD still_hints_overflow_any_;
+___WORD **dirty_stills_buf_;
+int dirty_stills_cap_;
+void *remset_still_tasks_;
+int remset_still_tasks_cap_;
+void *remset_card_runs_;
+int remset_card_runs_cap_;
+___VOLATILE ___WORD card_overflow_any_;
+___VOLATILE ___WORD force_major_gc_;
+int gen_gc_enabled_;
+
+/* Generational GC telemetry */
+___F64 nb_minor_gcs_;
+___F64 nb_major_gcs_;
+___F64 minor_gc_real_time_;
+___F64 major_gc_real_time_;
+___SIZE_TS minor_promoted_words_;
+___SIZE_TS minor_dirty_cards_scanned_;
+___SIZE_TS minor_overflow_fallbacks_;
+
+/* Slice 2: Concurrent SATB Major GC & Non-Moving Mark-Region state */
+___VOLATILE ___WORD major_phase_;
+___UWORD major_epoch_;
+___VOLATILE ___WORD satb_overflow_;
+___VOLATILE ___WORD major_mark_lock_;
+___VOLATILE ___WORD major_request_start_;
+___VOLATILE ___WORD major_remark_working_;
+___SCMOBJ *major_mark_stack_;
+___VOLATILE ___WORD major_mark_stack_count_;
+___SIZE_TS major_mark_stack_cap_;
+___SCMOBJ *major_weak_tables_;
+___SIZE_TS major_weak_tables_count_;
+___SIZE_TS major_weak_tables_cap_;
+___WORD **major_still_bases_;
+___SIZE_TS major_still_bases_count_;
+___SIZE_TS major_still_bases_cap_;
+___UWORD major_still_lo_;
+___UWORD major_still_span_;
+int major_evacuate_count_;
+___SIZE_TS major_last_reclaimed_sections_;
+int concurrent_major_enabled_;
+___F64 nb_concurrent_major_cycles_;
+___F64 concurrent_major_mark_slices_;
+___F64 concurrent_major_marked_words_;
+___F64 concurrent_major_reclaimed_sections_;
+___F64 concurrent_major_reclaimed_still_words_;
+___F64 concurrent_major_remark_real_time_;
+___F64 concurrent_major_satb_logged_;
+___F64 concurrent_major_holes_recycled_;
+___F64 concurrent_major_idle_slices_;
+___F64 concurrent_major_spin_slices_;
+/* Immix multi-hole/overflow recycling and LXR deferred-RC line telemetry */
+___F64 immix_multihole_refills_;
+___F64 immix_overflow_preserved_;
+___F64 lxr_lines_reclaimed_;
+___F64 lxr_lines_deferred_satb_;
+___F64 lxr_stuck_resets_;
+
+/* MemBalancer adaptive pacing, global major work pacing, and phantom bytes.
+ * Separate read-mostly trigger/flag fields from mutator-written atomic
+ * counters by cache-line padding to eliminate SMP false sharing. */
+___F64 pacing_ema_alloc_words_;
+___F64 pacing_ema_alloc_sec_;
+___F64 pacing_ema_gc_words_;
+___F64 pacing_ema_gc_sec_;
+___F64 pacing_last_real_time_;
+___F64 pacing_last_alloc_bytes_;
+___F64 pacing_major_start_real_;
+___SIZE_TS pacing_headroom_words_;
+___SIZE_TS pacing_work_target_words_;
+___F64 pacing_completed_in_time_;
+___F64 pacing_emergency_remarks_;
+___VOLATILE ___WORD major_trigger_phantom_bytes_;
+___VOLATILE ___WORD phantom_gc_needed_;
+char pacing_pad_alloc_[64];
+___VOLATILE ___WORD major_alloc_words_;
+char pacing_pad_work_[64];
+___VOLATILE ___WORD major_work_done_words_;
+char pacing_pad_phantom_[64];
+___VOLATILE ___WORD phantom_bytes_live_;
+___VOLATILE ___WORD phantom_bytes_peak_;
+___VOLATILE ___WORD refc_bins_created_;
+___VOLATILE ___WORD refc_bins_shared_;
+___VOLATILE ___WORD refc_bins_freed_;
+
+/* Per-VM bounded spare msection pool (eliminates steady-state Minor GC mmap/munmap churn)
+ * and immortal/static mature generation counters. */
+___msection *msection_spare_head_;
+int msection_spare_count_;
+int nb_msections_static_;
+___F64 major_static_skipped_sections_;
+
+} ___vmstate_mem;
+
+typedef struct ___gstate_mem_struct {
+
+  /*
+   * Permanent objects are allocated in sections called "psections".
+   * Each section contains multiple objects.  The sections are kept in a
+   * list so that the storage they occupy can be reclaimed when the
+   * program terminates.
+   */
+
+  void *psections;       /* list of psections */
+  ___WORD *palloc_ptr;   /* allocation pointer in current psection */
+  ___WORD *palloc_limit; /* allocation limit in current psection */
+
+  /*
+   * Global variable list.
+   */
+
+  ___glo_list_struct glo_list;
+  ___MUTEX_DECL(global_gate)
+  ___MUTEX_DECL(permanent_gate)
+  ___thread global_bootstrap_owner;
+  int global_bootstrap;
+  ___SIZE_T global_snapshots;
+
+} ___gstate_mem;
+
+/*
+ * Header structure of procedural interrupts.
+ */
+
+typedef struct ___procedural_interrupt_header_struct
+  {
+    struct ___procedural_interrupt_header_struct * ___VOLATILE next;
+    ___SCMOBJ (*execute_fn) ___P((void *self, ___SCMOBJ op),());
+  } ___procedural_interrupt_header;
+

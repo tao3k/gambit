@@ -1,0 +1,2347 @@
+
+#if ___LBLCOUNT > 0
+___LOCAL ___WORD ___lp; /* Module's label table pointer */
+#endif
+
+___GLODECL
+___SYMDECL
+___KEYDECL
+
+#ifdef ___MODULE_NAME
+___LOCAL ___module_struct ___module_descr;
+static ___virtual_machine_state const ___binding_vm = 0;
+#endif
+
+#define ___CHAR_ENCODING(x)                       ((x)&(31<<0))
+#define ___CHAR_ENCODING_MASK(x)                  ((x)&~(31<<0))
+#define ___CHAR_ENCODING_ASCII                    (1<<0)
+#define ___CHAR_ENCODING_ISO_8859_1               (2<<0)
+#define ___CHAR_ENCODING_UTF_8                    (3<<0)
+#define ___CHAR_ENCODING_UTF_16                   (4<<0)
+#define ___CHAR_ENCODING_UTF_16BE                 (5<<0)
+#define ___CHAR_ENCODING_UTF_16LE                 (6<<0)
+#define ___CHAR_ENCODING_UTF_FALLBACK_ASCII       (7<<0)
+#define ___CHAR_ENCODING_UTF_FALLBACK_ISO_8859_1  (8<<0)
+#define ___CHAR_ENCODING_UTF_FALLBACK_UTF_8       (9<<0)
+#define ___CHAR_ENCODING_UTF_FALLBACK_UTF_16      (10<<0)
+#define ___CHAR_ENCODING_UTF_FALLBACK_UTF_16BE    (11<<0)
+#define ___CHAR_ENCODING_UTF_FALLBACK_UTF_16LE    (12<<0)
+#define ___CHAR_ENCODING_UCS_2                    (13<<0)
+#define ___CHAR_ENCODING_UCS_2BE                  (14<<0)
+#define ___CHAR_ENCODING_UCS_2LE                  (15<<0)
+#define ___CHAR_ENCODING_UCS_4                    (16<<0)
+#define ___CHAR_ENCODING_UCS_4BE                  (17<<0)
+#define ___CHAR_ENCODING_UCS_4LE                  (18<<0)
+#define ___CHAR_ENCODING_WCHAR                    (19<<0)
+#define ___CHAR_ENCODING_NATIVE                   (20<<0)
+
+#define ___CHAR_ENCODING_UTF ___CHAR_ENCODING_UTF_FALLBACK_UTF_8
+
+#define ___CHAR_ENCODING_SUPPORTS_BMP(x) \
+((x) >= ___CHAR_ENCODING_UTF_8 && \
+ (x) <= ___CHAR_ENCODING_UCS_4LE)
+
+#ifdef ___BIG_ENDIAN
+#define ___CHAR_ENCODING_U8  ___CHAR_ENCODING_ISO_8859_1
+#define ___CHAR_ENCODING_U16 ___CHAR_ENCODING_UCS_2BE
+#define ___CHAR_ENCODING_U32 ___CHAR_ENCODING_UCS_4BE
+#else
+#define ___CHAR_ENCODING_U8  ___CHAR_ENCODING_ISO_8859_1
+#define ___CHAR_ENCODING_U16 ___CHAR_ENCODING_UCS_2LE
+#define ___CHAR_ENCODING_U32 ___CHAR_ENCODING_UCS_4LE
+#endif
+
+#define ___CHAR_ENCODING_ERRORS(x)      ((x)&(3<<5))
+#define ___CHAR_ENCODING_ERRORS_MASK(x) ((x)&~(3<<5))
+#define ___CHAR_ENCODING_ERRORS_ON      (1<<5)
+#define ___CHAR_ENCODING_ERRORS_OFF     (2<<5)
+
+#define ___EOL_ENCODING(x)      ((x)&(3<<7))
+#define ___EOL_ENCODING_MASK(x) ((x)&~(3<<7))
+#define ___EOL_ENCODING_LF      (1<<7)
+#define ___EOL_ENCODING_CR      (2<<7)
+#define ___EOL_ENCODING_CRLF    (3<<7)
+
+#define ___BUFFERING(x)      ((x)&(3<<9))
+#define ___BUFFERING_MASK(x) ((x)&~(3<<9))
+#define ___NO_BUFFERING      (1<<9)
+#define ___LINE_BUFFERING    (2<<9)
+#define ___FULL_BUFFERING    (3<<9)
+#define ___FULLY_BUFFERED(x)  (___BUFFERING(x)>=___FULL_BUFFERING)
+
+#define ___DECODE_STATE(x)      ((x)&(3<<11))
+#define ___DECODE_STATE_MASK(x) ((x)&~(3<<11))
+#define ___DECODE_STATE_NONE    (0<<11)
+#define ___DECODE_STATE_LF      (1<<11)
+#define ___DECODE_STATE_CR      (2<<11)
+
+#define ___TERMINAL_LINE_EDITING(x)      ((x)&(3<<16))
+#define ___TERMINAL_LINE_EDITING_MASK(x) ((x)&~(3<<16))
+#define ___TERMINAL_LINE_EDITING_ON      (1<<16)
+#define ___TERMINAL_LINE_EDITING_OFF     (2<<16)
+
+#ifndef ___INCLUDED_FROM_C_INTF
+___IMP_FUNC(___S64,___S64_from_SM32_fn)
+   ___P((___SM32 val),
+        ());
+___IMP_FUNC(___S64,___S64_from_SM32_UM32_fn)
+   ___P((___SM32 hi32,
+         ___UM32 lo32),
+        ());
+___IMP_FUNC(___S64,___S64_from_LONGLONG_fn)
+   ___P((___LONGLONG val),
+        ());
+___IMP_FUNC(___LONGLONG,___S64_to_LONGLONG_fn)
+   ___P((___S64 val),
+        ());
+___IMP_FUNC(___BOOL,___S64_fits_in_width_fn)
+   ___P((___S64 val,
+         int width),
+        ());
+___IMP_FUNC(___U64,___U64_from_UM32_fn)
+   ___P((___UM32 val),
+        ());
+___IMP_FUNC(___U64,___U64_from_UM32_UM32_fn)
+   ___P((___UM32 hi32,
+         ___UM32 lo32),
+        ());
+___IMP_FUNC(___U64,___U64_from_ULONGLONG_fn)
+   ___P((___ULONGLONG val),
+        ());
+___IMP_FUNC(___ULONGLONG,___U64_to_ULONGLONG_fn)
+   ___P((___U64 val),
+        ());
+___IMP_FUNC(___BOOL,___U64_fits_in_width_fn)
+   ___P((___U64 val,
+         int width),
+        ());
+___IMP_FUNC(___U64,___U64_mul_UM32_UM32_fn)
+   ___P((___UM32 x,
+         ___UM32 y),
+        ());
+___IMP_FUNC(___U64,___U64_add_U64_U64_fn)
+   ___P((___U64 x,
+         ___U64 y),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_S8)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___S8 *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_U8)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___U8 *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_S16)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___S16 *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_U16)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___U16 *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_S32)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___S32 *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_U32)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___U32 *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_S64)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___S64 *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_U64)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___U64 *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_F32)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___F32 *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_F64)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___F64 *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_CHAR)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         char *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_SCHAR)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___SCHAR *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_UCHAR)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         unsigned char *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_ISO_8859_1)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___ISO_8859_1 *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_UCS_2)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___UCS_2 *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_UCS_4)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___UCS_4 *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_WCHAR)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___WCHAR *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_SIZE_T)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___SIZE_T *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_SSIZE_T)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___SSIZE_T *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_PTRDIFF_T)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___PTRDIFF_T *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_SHORT)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         short *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_USHORT)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         unsigned short *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_INT)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         int *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_UINT)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         unsigned int *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_LONG)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         long *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_ULONG)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         unsigned long *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_LONGLONG)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___LONGLONG *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_ULONGLONG)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___ULONGLONG *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_FLOAT)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         float *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_DOUBLE)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         double *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_STRUCT)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         void **x,
+         ___SCMOBJ tags,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_UNION)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         void **x,
+         ___SCMOBJ tags,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_TYPE)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         void **x,
+         ___SCMOBJ tags,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_POINTER)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         void **x,
+         ___SCMOBJ tags,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_NONNULLPOINTER)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         void **x,
+         ___SCMOBJ tags,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_FUNCTION)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         void *converter,
+         void **x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_NONNULLFUNCTION)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         void *converter,
+         void **x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_BOOL)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___BOOL *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_STRING)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         void **x,
+         int arg_num,
+         int char_encoding,
+         int fudge),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_NONNULLSTRING)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         void **x,
+         int arg_num,
+         int char_encoding,
+         int fudge),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_NONNULLSTRINGLIST)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         void **x,
+         int arg_num,
+         int char_encoding),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_CHARSTRING)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         char **x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_NONNULLCHARSTRING)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         char **x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_NONNULLCHARSTRINGLIST)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         char ***x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_ISO_8859_1STRING)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___ISO_8859_1STRING *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_NONNULLISO_8859_1STRING)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___ISO_8859_1STRING *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_NONNULLISO_8859_1STRINGLIST)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___ISO_8859_1STRING **x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_UTF_8STRING)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___UTF_8STRING *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_NONNULLUTF_8STRING)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___UTF_8STRING *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_NONNULLUTF_8STRINGLIST)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___UTF_8STRING **x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_UTF_16STRING)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___UTF_16STRING *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_NONNULLUTF_16STRING)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___UTF_16STRING *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_NONNULLUTF_16STRINGLIST)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___UTF_16STRING **x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_UCS_2STRING)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___UCS_2STRING *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_NONNULLUCS_2STRING)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___UCS_2STRING *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_NONNULLUCS_2STRINGLIST)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___UCS_2STRING **x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_UCS_4STRING)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___UCS_4STRING *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_NONNULLUCS_4STRING)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___UCS_4STRING *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_NONNULLUCS_4STRINGLIST)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___UCS_4STRING **x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_WCHARSTRING)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___WCHARSTRING *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_NONNULLWCHARSTRING)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___WCHARSTRING *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_NONNULLWCHARSTRINGLIST)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___WCHARSTRING **x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCMOBJ_to_VARIANT)
+   ___P((___PSD
+         ___SCMOBJ obj,
+         ___VARIANT *x,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___release_foreign)
+   ___P((___SCMOBJ obj),
+        ());
+___IMP_FUNC(___SCMOBJ,___release_pointer)
+   ___P((void *x),
+        ());
+___IMP_FUNC(___SCMOBJ,___release_function)
+   ___P((void *x),
+        ());
+___IMP_FUNC(void,___addref_function)
+   ___P((void *x),
+        ());
+___IMP_FUNC(void,___release_string)
+   ___P((void *x),
+        ());
+___IMP_FUNC(void,___addref_string)
+   ___P((void *x),
+        ());
+___IMP_FUNC(void,___release_string_list)
+   ___P((void *x),
+        ());
+___IMP_FUNC(void,___addref_string_list)
+   ___P((void *x),
+        ());
+___IMP_FUNC(void,___release_variant)
+   ___P((___VARIANT x),
+        ());
+___IMP_FUNC(void,___addref_variant)
+   ___P((___VARIANT x),
+        ());
+___IMP_FUNC(___SCMOBJ,___S8_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___S8 x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___U8_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___U8 x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___S16_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___S16 x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___U16_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___U16 x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___S32_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___S32 x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___U32_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___U32 x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___S64_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___S64 x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___U64_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___U64 x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___F32_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___F32 x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___F64_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___F64 x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___CHAR_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         char x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SCHAR_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___SCHAR x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___UCHAR_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         unsigned char x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___ISO_8859_1_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___ISO_8859_1 x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___UCS_2_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___UCS_2 x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___UCS_4_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___UCS_4 x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___WCHAR_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___WCHAR x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SIZE_T_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___SIZE_T x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SSIZE_T_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___SSIZE_T x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___PTRDIFF_T_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___PTRDIFF_T x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___SHORT_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         short x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___USHORT_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         unsigned short x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___INT_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         int x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___UINT_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         unsigned int x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___LONG_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         long x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___ULONG_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         unsigned long x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___LONGLONG_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___LONGLONG x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___ULONGLONG_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___ULONGLONG x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___FLOAT_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         float x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___DOUBLE_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         double x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___STRUCT_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         void *x,
+         ___SCMOBJ tags,
+         ___SCMOBJ (*release_fn) ___P((void *ptr),()),
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___UNION_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         void *x,
+         ___SCMOBJ tags,
+         ___SCMOBJ (*release_fn) ___P((void *ptr),()),
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___TYPE_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         void *x,
+         ___SCMOBJ tags,
+         ___SCMOBJ (*release_fn) ___P((void *ptr),()),
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___POINTER_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         void *x,
+         ___SCMOBJ tags,
+         ___SCMOBJ (*release_fn) ___P((void *ptr),()),
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___NONNULLPOINTER_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         void *x,
+         ___SCMOBJ tags,
+         ___SCMOBJ (*release_fn) ___P((void *ptr),()),
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___FUNCTION_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         void *x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___NONNULLFUNCTION_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         void *x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___BOOL_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___BOOL x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___STRING_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         void *x,
+         ___SCMOBJ *obj,
+         int arg_num,
+         int char_encoding),
+        ());
+___IMP_FUNC(___SCMOBJ,___NONNULLSTRING_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         void *x,
+         ___SCMOBJ *obj,
+         int arg_num,
+         int char_encoding),
+        ());
+___IMP_FUNC(___SCMOBJ,___NONNULLSTRINGLIST_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         void *x,
+         ___SCMOBJ *obj,
+         int arg_num,
+         int char_encoding),
+        ());
+___IMP_FUNC(___SCMOBJ,___CHARSTRING_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         char *x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___NONNULLCHARSTRING_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         char *x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___NONNULLCHARSTRINGLIST_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         char **x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___ISO_8859_1STRING_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___ISO_8859_1STRING x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___NONNULLISO_8859_1STRING_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___ISO_8859_1STRING x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___NONNULLISO_8859_1STRINGLIST_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___ISO_8859_1STRING *x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___UTF_8STRING_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___UTF_8STRING x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___NONNULLUTF_8STRING_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___UTF_8STRING x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___NONNULLUTF_8STRINGLIST_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___UTF_8STRING *x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___UTF_16STRING_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___UTF_16STRING x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___NONNULLUTF_16STRING_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___UTF_16STRING x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___NONNULLUTF_16STRINGLIST_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___UTF_16STRING *x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___UCS_2STRING_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___UCS_2STRING x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___NONNULLUCS_2STRING_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___UCS_2STRING x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___NONNULLUCS_2STRINGLIST_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___UCS_2STRING *x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___UCS_4STRING_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___UCS_4STRING x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___NONNULLUCS_4STRING_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___UCS_4STRING x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___NONNULLUCS_4STRINGLIST_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___UCS_4STRING *x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___WCHARSTRING_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___WCHARSTRING x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___NONNULLWCHARSTRING_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___WCHARSTRING x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___NONNULLWCHARSTRINGLIST_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___WCHARSTRING *x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___VARIANT_to_SCMOBJ)
+   ___P((___processor_state ___ps,
+         ___VARIANT x,
+         ___SCMOBJ *obj,
+         int arg_num),
+        ());
+___IMP_FUNC(___SCMOBJ,___STRING_to_UCS_2STRING)
+   ___P((char *str_char,
+         ___UCS_2STRING *str_UCS_2,
+         int char_encoding),
+        ());
+___IMP_FUNC(void,___free_UCS_2STRING)
+   ___P((___UCS_2STRING str_UCS_2),
+        ());
+___IMP_FUNC(___SCMOBJ,___NONNULLSTRINGLIST_to_NONNULLUCS_2STRINGLIST)
+   ___P((char **str_list_char,
+         ___UCS_2STRING **str_list_UCS_2,
+         int char_encoding),
+        ());
+___IMP_FUNC(void,___free_NONNULLUCS_2STRINGLIST)
+   ___P((___UCS_2STRING *str_list_UCS_2),
+        ());
+___IMP_FUNC(___SCMOBJ,___begin_sfun)
+   ___P((___processor_state ps, ___WORD nargs, ___SCMOBJ proc, void **scope), ());
+___IMP_FUNC(___SCMOBJ,___sfun_arg)
+   ___P((___processor_state ps, void *scope, ___WORD index,
+         ___SCMOBJ value), ());
+___IMP_FUNC(___SCMOBJ,___sfun_marker)
+   ___P((___processor_state ps, void *scope, ___SCMOBJ *marker), ());
+___IMP_FUNC(___SCMOBJ,___call_sfun)
+   ___P((___processor_state ps, void *scope), ());
+___IMP_FUNC(void,___end_sfun)
+   ___P((___processor_state ps, void *scope), ());
+___IMP_FUNC(___SCMOBJ,___make_sfun_stack_marker)
+   ___P((___processor_state ___ps,
+         ___SCMOBJ *marker,
+         ___SCMOBJ proc_or_false),
+        ());
+___IMP_FUNC(void,___kill_sfun_stack_marker)
+   ___P((___SCMOBJ marker),
+        ());
+___IMP_FUNC(void,___store_global)
+   ___P((___processor_state ps,
+         ___glo_struct *global,
+         ___SCMOBJ val),
+        ());
+___IMP_FUNC(___SCMOBJ*,___global_cell)
+   ___P((___virtual_machine_state vm, int identity), ());
+___IMP_FUNC(___SCMOBJ,___primitive_ref)
+   ___P((___processor_state ps, ___glo_struct *global), ());
+___IMP_FUNC(void,___store_primitive)
+   ___P((___processor_state ps, ___glo_struct *global, ___SCMOBJ val), ());
+___IMP_FUNC(void,___bind_primitive)
+   ___P((___processor_state ps, ___glo_struct *global, ___SCMOBJ code), ());
+#endif
+
+#ifndef ___INCLUDED_FROM_MEM
+___IMP_FUNC(void*,___alloc_rc_no_register)
+   ___P((___SIZE_T bytes),
+        ());
+___IMP_FUNC(void*,___register_rc)
+   ___P((___PSD
+         void *ptr),
+        ());
+___IMP_FUNC(void*,___alloc_rc)
+   ___P((___PSD
+         ___SIZE_T bytes),
+        ());
+___IMP_FUNC(void,___release_rc)
+   ___P((void *ptr),
+        ());
+___IMP_FUNC(void,___addref_rc)
+   ___P((void *ptr),
+        ());
+___IMP_FUNC(___WORD,___refcount_rc)
+   ___P((void *ptr),
+        ());
+___IMP_FUNC(___SCMOBJ,___data_rc)
+   ___P((void *ptr),
+        ());
+___IMP_FUNC(void,___set_data_rc)
+   ___P((void *ptr,
+         ___SCMOBJ val),
+        ());
+___IMP_FUNC(___SCMOBJ,___alloc_scmobj)
+   ___P((___processor_state ___ps,
+         int subtype,
+         ___SIZE_TS bytes),
+        ());
+___IMP_FUNC(___SCMOBJ,___release_scmobj)
+   ___P((___SCMOBJ obj),
+        ());
+___IMP_FUNC(___SCMOBJ,___make_pair)
+   ___P((___processor_state ___ps,
+         ___SCMOBJ car,
+         ___SCMOBJ cdr),
+        ());
+___IMP_FUNC(___SCMOBJ,___make_vector)
+   ___P((___processor_state ___ps,
+         ___SIZE_TS length,
+         ___SCMOBJ init),
+        ());
+___IMP_FUNC(void,___still_obj_refcount_inc)
+   ___P((___SCMOBJ obj),
+        ());
+___IMP_FUNC(void,___still_obj_refcount_dec)
+   ___P((___SCMOBJ obj),
+        ());
+___IMP_FUNC(___WORD,___still_obj_refcount)
+   ___P((___SCMOBJ obj),
+        ());
+___IMP_FUNC(___SCMOBJ,___gc_hash_table_ref)
+   ___P((___SCMOBJ ht,
+         ___SCMOBJ key),
+        ());
+___IMP_FUNC(___SCMOBJ,___gc_hash_table_set)
+   ___P((___SCMOBJ ht,
+         ___SCMOBJ key,
+         ___SCMOBJ val),
+        ());
+___IMP_FUNC(___SCMOBJ,___gc_hash_table_union_find)
+   ___P((___SCMOBJ ht,
+         ___SCMOBJ key1,
+         ___SCMOBJ key2,
+         ___BOOL find),
+        ());
+___IMP_FUNC(___SCMOBJ,___gc_hash_table_rehash)
+   ___P((___SCMOBJ ht_src,
+         ___SCMOBJ ht_dst),
+        ());
+___IMP_FUNC(void,___gc_write_barrier_slow)
+   ___P((___processor_state ___ps,
+         ___SCMOBJ obj,
+         ___WORD *slot_ptr),
+        ());
+___IMP_FUNC(void,___gc_write_barrier_slow_val)
+   ___P((___processor_state ___ps,
+         ___SCMOBJ obj,
+         ___WORD *slot_ptr,
+         ___SCMOBJ val),
+        ());
+___IMP_FUNC(void,___gc_write_barrier_range)
+   ___P((___processor_state ___ps,
+         ___SCMOBJ obj,
+         ___WORD *start_ptr,
+         ___SIZE_TS words),
+        ());
+___IMP_FUNC(void,___gc_shrink_object_slow)
+   ___P((___processor_state ___ps,
+         ___SCMOBJ obj,
+         ___WORD new_head),
+        ());
+___IMP_FUNC(void,___gc_generational_stats)
+   ___P((___processor_state ___ps,
+         double *out_stats),
+        ());
+___IMP_FUNC(int,___gc_set_generational_enabled)
+   ___P((___processor_state ___ps,
+         int enabled),
+        ());
+___IMP_FUNC(void,___gc_satb_barrier_slot)
+   ___P((___processor_state ___ps,
+         ___WORD *slot_ptr),
+        ());
+___IMP_FUNC(void,___gc_satb_barrier_val)
+   ___P((___processor_state ___ps,
+         ___SCMOBJ old_val),
+        ());
+___IMP_FUNC(void,___gc_satb_barrier_range)
+   ___P((___processor_state ___ps,
+         ___WORD *start_ptr,
+         ___SIZE_TS words),
+        ());
+___IMP_FUNC(void,___gc_concurrent_major_stats)
+   ___P((___processor_state ___ps,
+         double *out_stats),
+        ());
+___IMP_FUNC(int,___gc_set_concurrent_major_enabled)
+   ___P((___processor_state ___ps,
+         int enabled),
+        ());
+___IMP_FUNC(int,___gc_start_concurrent_major)
+   ___P((___processor_state ___ps,
+         int finish_now),
+        ());
+___IMP_FUNC(___SIZE_TS,___gc_major_mark_slice)
+   ___P((___processor_state ___ps,
+         ___SIZE_TS budget_words),
+        ());
+___IMP_FUNC(int,___gc_major_mark_idle_slice)
+   ___P((___processor_state ___ps),
+        ());
+___IMP_FUNC(___SIZE_TS,___gc_register_phantom_bytes)
+   ___P((___processor_state ___ps,
+         ___SIZE_TS delta_bytes),
+        ());
+___IMP_FUNC(void,___gc_pacing_stats)
+   ___P((___processor_state ___ps,
+         double *out_stats),
+        ());
+___IMP_FUNC(___refc_bin*,___gc_refc_bin_create)
+   ___P((___processor_state ___ps,
+         const void *src,
+         ___SIZE_T byte_len,
+         int immutable),
+        ());
+___IMP_FUNC(___refc_bin*,___gc_refc_bin_share)
+   ___P((___refc_bin *bin),
+        ());
+___IMP_FUNC(int,___gc_refc_bin_freeze)
+   ___P((___refc_bin *bin),
+        ());
+___IMP_FUNC(int,___gc_refc_bin_release)
+   ___P((___refc_bin *bin),
+        ());
+___IMP_FUNC(___SCMOBJ,___gc_refc_bin_wrap)
+   ___P((___processor_state ___ps,
+         ___refc_bin *bin,
+         int take_ref),
+        ());
+___IMP_FUNC(___refc_bin*,___gc_refc_bin_unwrap)
+   ___P((___SCMOBJ obj),
+        ());
+___IMP_FUNC(void*,___gc_refc_bin_data)
+   ___P((___refc_bin *bin),
+        ());
+___IMP_FUNC(___SIZE_T,___gc_refc_bin_length)
+   ___P((___refc_bin *bin),
+        ());
+___IMP_FUNC(int,___gc_refc_bin_is_immutable)
+   ___P((___refc_bin *bin),
+        ());
+___IMP_FUNC(___WORD,___gc_refc_bin_refcount)
+   ___P((___refc_bin *bin),
+        ());
+#else
+extern void ___gc_write_barrier_slow
+   ___P((___processor_state ___ps,
+         ___SCMOBJ obj,
+         ___WORD *slot_ptr),
+        ());
+extern void ___gc_write_barrier_slow_val
+   ___P((___processor_state ___ps,
+         ___SCMOBJ obj,
+         ___WORD *slot_ptr,
+         ___SCMOBJ val),
+        ());
+extern void ___gc_write_barrier_range
+   ___P((___processor_state ___ps,
+         ___SCMOBJ obj,
+         ___WORD *start_ptr,
+         ___SIZE_TS words),
+        ());
+extern void ___gc_shrink_object_slow
+   ___P((___processor_state ___ps,
+         ___SCMOBJ obj,
+         ___WORD new_head),
+        ());
+extern void ___gc_satb_barrier_slot
+   ___P((___processor_state ___ps,
+         ___WORD *slot_ptr),
+        ());
+extern void ___gc_satb_barrier_val
+   ___P((___processor_state ___ps,
+         ___SCMOBJ old_val),
+        ());
+extern void ___gc_satb_barrier_range
+   ___P((___processor_state ___ps,
+         ___WORD *start_ptr,
+         ___SIZE_TS words),
+        ());
+extern int ___gc_major_mark_idle_slice
+   ___P((___processor_state ___ps),
+        ());
+extern ___SIZE_TS ___gc_register_phantom_bytes
+   ___P((___processor_state ___ps,
+         ___SIZE_TS delta_bytes),
+        ());
+extern void ___gc_pacing_stats
+   ___P((___processor_state ___ps,
+         double *out_stats),
+        ());
+extern ___refc_bin *___gc_refc_bin_create
+   ___P((___processor_state ___ps,
+         const void *src,
+         ___SIZE_T byte_len,
+         int immutable),
+        ());
+extern ___refc_bin *___gc_refc_bin_share
+   ___P((___refc_bin *bin),
+        ());
+extern int ___gc_refc_bin_freeze
+   ___P((___refc_bin *bin),
+        ());
+extern int ___gc_refc_bin_release
+   ___P((___refc_bin *bin),
+        ());
+extern ___SCMOBJ ___gc_refc_bin_wrap
+   ___P((___processor_state ___ps,
+         ___refc_bin *bin,
+         int take_ref),
+        ());
+extern ___refc_bin *___gc_refc_bin_unwrap
+   ___P((___SCMOBJ obj),
+        ());
+extern void *___gc_refc_bin_data
+   ___P((___refc_bin *bin),
+        ());
+extern ___SIZE_T ___gc_refc_bin_length
+   ___P((___refc_bin *bin),
+        ());
+extern int ___gc_refc_bin_is_immutable
+   ___P((___refc_bin *bin),
+        ());
+extern ___WORD ___gc_refc_bin_refcount
+   ___P((___refc_bin *bin),
+        ());
+#endif
+
+___ORDERED_WORD_INLINE ___SCMOBJ ___gc_satb_read_barrier
+   (___processor_state ___ps,
+    ___SCMOBJ val,
+    void (*satb_val) ___P((___processor_state, ___SCMOBJ), ()))
+{
+#ifndef ___DISABLE_GENERATIONAL_GC
+  if (___EXPECT_FALSE(___ps->mem.satb_active_ != 0 && ___MEM_ALLOCATED(val)))
+    satb_val(___ps, val);
+#else
+  (void)___ps; (void)satb_val;
+#endif
+  return val;
+}
+
+___ORDERED_WORD_INLINE ___WORD ___gc_vector_cas_barrier
+   (___processor_state ___ps,
+    ___SCMOBJ v,
+    ___SCMOBJ i,
+    ___SCMOBJ val,
+    ___SCMOBJ oldval,
+    void (*wb_slow) ___P((___processor_state, ___SCMOBJ, ___WORD*), ()),
+    void (*satb_val) ___P((___processor_state, ___SCMOBJ), ()))
+{
+  ___WORD *slot = ___FXINDX_WORD(___BODY_AS(v, ___tVECTOR), i);
+  ___WORD cur = ___WORD_LOAD_ACQUIRE(___CAST(___VOLATILE ___WORD*, slot));
+  if (cur != ___CAST(___WORD, oldval))
+    return cur;
+#ifndef ___DISABLE_GENERATIONAL_GC
+  if (___EXPECT_FALSE(___ps->mem.satb_active_ != 0 && ___MEM_ALLOCATED(oldval)))
+    satb_val(___ps, oldval);
+  if (___MEM_ALLOCATED(val))
+    {
+      ___UWORD a = ___CAST(___UWORD, slot);
+      ___UWORD lo = ___CAST(___UWORD, ___ps->mem.alloc_heap_start_);
+      ___UWORD hi = ___CAST(___UWORD, ___ps->mem.alloc_heap_limit_);
+      if (___EXPECT_FALSE(a - lo >= hi - lo &&
+                          a - ___ps->mem.wb_last_card_lo_ >= (___CAST(___UWORD, ___GC_CARD_WORDS) * ___WS)))
+        wb_slow(___ps, v, slot);
+    }
+#else
+  (void)___ps; (void)wb_slow; (void)satb_val;
+#endif
+  return ___COMPARE_AND_SWAP_WORD(___CAST(___VOLATILE ___WORD*, slot), oldval, val);
+}
+
+___ORDERED_WORD_INLINE ___WORD ___gc_structure_cas_barrier
+   (___processor_state ___ps,
+    ___SCMOBJ x,
+    ___SCMOBJ val,
+    ___SCMOBJ oldval,
+    ___SCMOBJ i,
+    void (*wb_slow) ___P((___processor_state, ___SCMOBJ, ___WORD*), ()),
+    void (*satb_val) ___P((___processor_state, ___SCMOBJ), ()))
+{
+  ___WORD *slot = ___FXINDX_WORD(___BODY_AS(x, ___tSTRUCTURE), i);
+  ___WORD cur = ___WORD_LOAD_ACQUIRE(___CAST(___VOLATILE ___WORD*, slot));
+  if (cur != ___CAST(___WORD, oldval))
+    return cur;
+#ifndef ___DISABLE_GENERATIONAL_GC
+  if (___EXPECT_FALSE(___ps->mem.satb_active_ != 0 && ___MEM_ALLOCATED(oldval)))
+    satb_val(___ps, oldval);
+  if (___MEM_ALLOCATED(val))
+    {
+      ___UWORD a = ___CAST(___UWORD, slot);
+      ___UWORD lo = ___CAST(___UWORD, ___ps->mem.alloc_heap_start_);
+      ___UWORD hi = ___CAST(___UWORD, ___ps->mem.alloc_heap_limit_);
+      if (___EXPECT_FALSE(a - lo >= hi - lo &&
+                          a - ___ps->mem.wb_last_card_lo_ >= (___CAST(___UWORD, ___GC_CARD_WORDS) * ___WS)))
+        wb_slow(___ps, x, slot);
+    }
+#else
+  (void)___ps; (void)wb_slow; (void)satb_val;
+#endif
+  return ___COMPARE_AND_SWAP_WORD(___CAST(___VOLATILE ___WORD*, slot), oldval, val);
+}
+
+/*
+ * Unified SRFI-230 C23 atomic publication and GC write-barrier helpers.
+ * Integrates SRFI-230 memory-order semantics with Gambit's SATB and
+ * generational write barriers.
+ */
+#define ___SRFI230_ORDER_RELAXED 0
+#define ___SRFI230_ORDER_ACQUIRE 1
+#define ___SRFI230_ORDER_RELEASE 2
+#define ___SRFI230_ORDER_ACQ_REL 3
+#define ___SRFI230_ORDER_SEQ_CST 4
+
+___ORDERED_WORD_INLINE int ___srfi230_to_gcc_memorder (int order)
+{
+#if defined(__ATOMIC_RELAXED) && defined(__ATOMIC_SEQ_CST)
+  switch (order)
+    {
+    case ___SRFI230_ORDER_RELAXED: return __ATOMIC_RELAXED;
+    case ___SRFI230_ORDER_ACQUIRE: return __ATOMIC_ACQUIRE;
+    case ___SRFI230_ORDER_RELEASE: return __ATOMIC_RELEASE;
+    case ___SRFI230_ORDER_ACQ_REL: return __ATOMIC_ACQ_REL;
+    default:                       return __ATOMIC_SEQ_CST;
+    }
+#else
+  (void)order;
+  return 0;
+#endif
+}
+
+___ORDERED_WORD_INLINE void ___gc_srfi230_fence (int order)
+{
+#if defined(__ATOMIC_RELAXED) && defined(__ATOMIC_SEQ_CST)
+  __atomic_thread_fence(___srfi230_to_gcc_memorder(order));
+#else
+  (void)order;
+  ___SYNC_MEMORY();
+#endif
+}
+
+___ORDERED_WORD_INLINE ___SCMOBJ ___gc_srfi230_box_load
+   (___SCMOBJ box,
+    int order)
+{
+  ___WORD *slot = &___BODY_AS(box, ___tBOXVALUES)[0];
+#if defined(__ATOMIC_RELAXED) && defined(__ATOMIC_SEQ_CST)
+  int mo = (order == ___SRFI230_ORDER_RELAXED) ? __ATOMIC_RELAXED :
+           (order == ___SRFI230_ORDER_ACQUIRE) ? __ATOMIC_ACQUIRE :
+                                                 __ATOMIC_SEQ_CST;
+  return ___CAST(___SCMOBJ, __atomic_load_n(slot, mo));
+#else
+  (void)order;
+  return ___CAST(___SCMOBJ, ___WORD_LOAD_ACQUIRE(slot));
+#endif
+}
+
+___ORDERED_WORD_INLINE void ___gc_srfi230_box_store
+   (___processor_state ___ps,
+    ___SCMOBJ box,
+    ___SCMOBJ val,
+    int order,
+    void (*wb_slow) ___P((___processor_state, ___SCMOBJ, ___WORD*), ()),
+    void (*satb_val) ___P((___processor_state, ___SCMOBJ), ()))
+{
+  ___WORD *slot = &___BODY_AS(box, ___tBOXVALUES)[0];
+#ifndef ___DISABLE_GENERATIONAL_GC
+  if (___EXPECT_FALSE(___ps->mem.satb_active_ != 0))
+    {
+      ___SCMOBJ prev = ___CAST(___SCMOBJ, ___WORD_LOAD_RELAXED(slot));
+      if (___MEM_ALLOCATED(prev))
+        satb_val(___ps, prev);
+    }
+  if (___MEM_ALLOCATED(val))
+    {
+      ___UWORD a = ___CAST(___UWORD, slot);
+      ___UWORD lo = ___CAST(___UWORD, ___ps->mem.alloc_heap_start_);
+      ___UWORD hi = ___CAST(___UWORD, ___ps->mem.alloc_heap_limit_);
+      if (___EXPECT_FALSE(a - lo >= hi - lo &&
+                          a - ___ps->mem.wb_last_card_lo_ >= (___CAST(___UWORD, ___GC_CARD_WORDS) * ___WS)))
+        wb_slow(___ps, box, slot);
+    }
+#else
+  (void)___ps; (void)wb_slow; (void)satb_val;
+#endif
+#if defined(__ATOMIC_RELAXED) && defined(__ATOMIC_SEQ_CST)
+  int mo = (order == ___SRFI230_ORDER_RELAXED) ? __ATOMIC_RELAXED :
+           (order == ___SRFI230_ORDER_RELEASE) ? __ATOMIC_RELEASE :
+                                                 __ATOMIC_SEQ_CST;
+  __atomic_store_n(slot, ___CAST(___WORD, val), mo);
+#else
+  (void)order;
+  ___WORD_STORE_RELEASE(slot, ___CAST(___WORD, val));
+#endif
+}
+
+___ORDERED_WORD_INLINE ___SCMOBJ ___gc_srfi230_box_swap
+   (___processor_state ___ps,
+    ___SCMOBJ box,
+    ___SCMOBJ val,
+    int order,
+    void (*wb_slow) ___P((___processor_state, ___SCMOBJ, ___WORD*), ()),
+    void (*satb_val) ___P((___processor_state, ___SCMOBJ), ()))
+{
+  ___WORD *slot = &___BODY_AS(box, ___tBOXVALUES)[0];
+  ___SCMOBJ prev;
+#ifndef ___DISABLE_GENERATIONAL_GC
+  if (___MEM_ALLOCATED(val))
+    {
+      ___UWORD a = ___CAST(___UWORD, slot);
+      ___UWORD lo = ___CAST(___UWORD, ___ps->mem.alloc_heap_start_);
+      ___UWORD hi = ___CAST(___UWORD, ___ps->mem.alloc_heap_limit_);
+      if (___EXPECT_FALSE(a - lo >= hi - lo &&
+                          a - ___ps->mem.wb_last_card_lo_ >= (___CAST(___UWORD, ___GC_CARD_WORDS) * ___WS)))
+        wb_slow(___ps, box, slot);
+    }
+#endif
+#if defined(__ATOMIC_RELAXED) && defined(__ATOMIC_SEQ_CST)
+  prev = ___CAST(___SCMOBJ,
+                 __atomic_exchange_n(slot, ___CAST(___WORD, val),
+                                     ___srfi230_to_gcc_memorder(order)));
+#else
+  (void)order;
+  for (;;)
+    {
+      ___WORD cur = ___WORD_LOAD_ACQUIRE(slot);
+      if (___COMPARE_AND_SWAP_WORD(___CAST(___VOLATILE ___WORD*, slot), cur, ___CAST(___WORD, val)) == cur)
+        {
+          prev = ___CAST(___SCMOBJ, cur);
+          break;
+        }
+    }
+#endif
+#ifndef ___DISABLE_GENERATIONAL_GC
+  if (___EXPECT_FALSE(___ps->mem.satb_active_ != 0 && ___MEM_ALLOCATED(prev)))
+    satb_val(___ps, prev);
+#else
+  (void)___ps; (void)wb_slow; (void)satb_val;
+#endif
+  return prev;
+}
+
+___ORDERED_WORD_INLINE ___SCMOBJ ___gc_srfi230_box_cas
+   (___processor_state ___ps,
+    ___SCMOBJ box,
+    ___SCMOBJ expected,
+    ___SCMOBJ desired,
+    int order,
+    void (*wb_slow) ___P((___processor_state, ___SCMOBJ, ___WORD*), ()),
+    void (*satb_val) ___P((___processor_state, ___SCMOBJ), ()))
+{
+  ___WORD *slot = &___BODY_AS(box, ___tBOXVALUES)[0];
+#ifndef ___DISABLE_GENERATIONAL_GC
+  if (___EXPECT_FALSE(___ps->mem.satb_active_ != 0 && ___MEM_ALLOCATED(expected)))
+    satb_val(___ps, expected);
+  if (___MEM_ALLOCATED(desired))
+    {
+      ___UWORD a = ___CAST(___UWORD, slot);
+      ___UWORD lo = ___CAST(___UWORD, ___ps->mem.alloc_heap_start_);
+      ___UWORD hi = ___CAST(___UWORD, ___ps->mem.alloc_heap_limit_);
+      if (___EXPECT_FALSE(a - lo >= hi - lo &&
+                          a - ___ps->mem.wb_last_card_lo_ >= (___CAST(___UWORD, ___GC_CARD_WORDS) * ___WS)))
+        wb_slow(___ps, box, slot);
+    }
+#else
+  (void)___ps; (void)wb_slow; (void)satb_val;
+#endif
+#if defined(__ATOMIC_RELAXED) && defined(__ATOMIC_SEQ_CST)
+  ___WORD exp_w = ___CAST(___WORD, expected);
+  int succ_mo = ___srfi230_to_gcc_memorder(order);
+  int fail_mo = (succ_mo == __ATOMIC_RELEASE) ? __ATOMIC_RELAXED :
+                (succ_mo == __ATOMIC_ACQ_REL) ? __ATOMIC_ACQUIRE : succ_mo;
+  (void)__atomic_compare_exchange_n(slot, &exp_w, ___CAST(___WORD, desired),
+                                    0, succ_mo, fail_mo);
+  return ___CAST(___SCMOBJ, exp_w);
+#else
+  (void)order;
+  return ___CAST(___SCMOBJ,
+                 ___COMPARE_AND_SWAP_WORD(___CAST(___VOLATILE ___WORD*, slot),
+                                          ___CAST(___WORD, expected),
+                                          ___CAST(___WORD, desired)));
+#endif
+}
+
+___ORDERED_WORD_INLINE ___SCMOBJ ___gc_srfi230_fxbox_add
+   (___SCMOBJ box,
+    ___SCMOBJ delta_fx,
+    int order)
+{
+  ___WORD *slot = &___BODY_AS(box, ___tBOXVALUES)[0];
+  /* Fixnums are shifted immediate words (low tag bits 0), so adding delta_fx
+   * directly preserves the fixnum tag with zero GC write barrier overhead. */
+#if defined(__ATOMIC_RELAXED) && defined(__ATOMIC_SEQ_CST)
+  return ___CAST(___SCMOBJ,
+                 __atomic_fetch_add(slot, ___CAST(___WORD, delta_fx),
+                                    ___srfi230_to_gcc_memorder(order)));
+#else
+  (void)order;
+  for (;;)
+    {
+      ___WORD cur = ___WORD_LOAD_ACQUIRE(slot);
+      if (___COMPARE_AND_SWAP_WORD(___CAST(___VOLATILE ___WORD*, slot),
+                                   cur, cur + ___CAST(___WORD, delta_fx)) == cur)
+        return ___CAST(___SCMOBJ, cur);
+    }
+#endif
+}
+
+___ORDERED_WORD_INLINE ___SCMOBJ ___gc_srfi230_fxbox_sub
+   (___SCMOBJ box,
+    ___SCMOBJ delta_fx,
+    int order)
+{
+  ___WORD *slot = &___BODY_AS(box, ___tBOXVALUES)[0];
+#if defined(__ATOMIC_RELAXED) && defined(__ATOMIC_SEQ_CST)
+  return ___CAST(___SCMOBJ,
+                 __atomic_fetch_sub(slot, ___CAST(___WORD, delta_fx),
+                                    ___srfi230_to_gcc_memorder(order)));
+#else
+  (void)order;
+  for (;;)
+    {
+      ___WORD cur = ___WORD_LOAD_ACQUIRE(slot);
+      if (___COMPARE_AND_SWAP_WORD(___CAST(___VOLATILE ___WORD*, slot),
+                                   cur, cur - ___CAST(___WORD, delta_fx)) == cur)
+        return ___CAST(___SCMOBJ, cur);
+    }
+#endif
+}
+
+___ORDERED_WORD_INLINE ___SCMOBJ ___gc_srfi230_fxbox_and
+   (___SCMOBJ box,
+    ___SCMOBJ mask_fx,
+    int order)
+{
+  ___WORD *slot = &___BODY_AS(box, ___tBOXVALUES)[0];
+#if defined(__ATOMIC_RELAXED) && defined(__ATOMIC_SEQ_CST)
+  return ___CAST(___SCMOBJ,
+                 __atomic_fetch_and(slot, ___CAST(___WORD, mask_fx),
+                                    ___srfi230_to_gcc_memorder(order)));
+#else
+  (void)order;
+  for (;;)
+    {
+      ___WORD cur = ___WORD_LOAD_ACQUIRE(slot);
+      if (___COMPARE_AND_SWAP_WORD(___CAST(___VOLATILE ___WORD*, slot),
+                                   cur, cur & ___CAST(___WORD, mask_fx)) == cur)
+        return ___CAST(___SCMOBJ, cur);
+    }
+#endif
+}
+
+___ORDERED_WORD_INLINE ___SCMOBJ ___gc_srfi230_fxbox_ior
+   (___SCMOBJ box,
+    ___SCMOBJ mask_fx,
+    int order)
+{
+  ___WORD *slot = &___BODY_AS(box, ___tBOXVALUES)[0];
+#if defined(__ATOMIC_RELAXED) && defined(__ATOMIC_SEQ_CST)
+  return ___CAST(___SCMOBJ,
+                 __atomic_fetch_or(slot, ___CAST(___WORD, mask_fx),
+                                   ___srfi230_to_gcc_memorder(order)));
+#else
+  (void)order;
+  for (;;)
+    {
+      ___WORD cur = ___WORD_LOAD_ACQUIRE(slot);
+      if (___COMPARE_AND_SWAP_WORD(___CAST(___VOLATILE ___WORD*, slot),
+                                   cur, cur | ___CAST(___WORD, mask_fx)) == cur)
+        return ___CAST(___SCMOBJ, cur);
+    }
+#endif
+}
+
+___ORDERED_WORD_INLINE ___SCMOBJ ___gc_srfi230_fxbox_xor
+   (___SCMOBJ box,
+    ___SCMOBJ mask_fx,
+    int order)
+{
+  ___WORD *slot = &___BODY_AS(box, ___tBOXVALUES)[0];
+#if defined(__ATOMIC_RELAXED) && defined(__ATOMIC_SEQ_CST)
+  return ___CAST(___SCMOBJ,
+                 __atomic_fetch_xor(slot, ___CAST(___WORD, mask_fx),
+                                    ___srfi230_to_gcc_memorder(order)));
+#else
+  (void)order;
+  for (;;)
+    {
+      ___WORD cur = ___WORD_LOAD_ACQUIRE(slot);
+      if (___COMPARE_AND_SWAP_WORD(___CAST(___VOLATILE ___WORD*, slot),
+                                   cur, cur ^ ___CAST(___WORD, mask_fx)) == cur)
+        return ___CAST(___SCMOBJ, cur);
+    }
+#endif
+}
+
+#define ___SRFI230_FENCE(order) ___gc_srfi230_fence(order)
+#define ___SRFI230_BOX_LOAD(box, order) ___gc_srfi230_box_load((box), (order))
+#define ___SRFI230_BOX_STORE(ps, box, val, order) \
+  ___gc_srfi230_box_store((ps), (box), (val), (order), ___EXT(___gc_write_barrier_slow), ___EXT(___gc_satb_barrier_val))
+#define ___SRFI230_BOX_SWAP(ps, box, val, order) \
+  ___gc_srfi230_box_swap((ps), (box), (val), (order), ___EXT(___gc_write_barrier_slow), ___EXT(___gc_satb_barrier_val))
+#define ___SRFI230_BOX_CAS(ps, box, exp, des, order) \
+  ___gc_srfi230_box_cas((ps), (box), (exp), (des), (order), ___EXT(___gc_write_barrier_slow), ___EXT(___gc_satb_barrier_val))
+#define ___SRFI230_FXBOX_ADD(box, delta_fx, order) \
+  ___gc_srfi230_fxbox_add((box), (delta_fx), (order))
+#define ___SRFI230_FXBOX_SUB(box, delta_fx, order) \
+  ___gc_srfi230_fxbox_sub((box), (delta_fx), (order))
+#define ___SRFI230_FXBOX_AND(box, mask_fx, order) \
+  ___gc_srfi230_fxbox_and((box), (mask_fx), (order))
+#define ___SRFI230_FXBOX_IOR(box, mask_fx, order) \
+  ___gc_srfi230_fxbox_ior((box), (mask_fx), (order))
+#define ___SRFI230_FXBOX_XOR(box, mask_fx, order) \
+  ___gc_srfi230_fxbox_xor((box), (mask_fx), (order))
+
+/* GC-barriered pointer atomic slot operations for SRFI-230 and work-stealing.
+ * Uses atomic_exchange so concurrent writers SATB-shade the exact overwritten
+ * value without a load-then-store race, and marks the generational card before
+ * publishing any heap-allocated referent. */
+___ORDERED_WORD_INLINE ___SCMOBJ ___gc_atomic_slot_load
+   (___WORD *slot,
+    int order)
+{
+  return ___CAST(___SCMOBJ,
+                 ___atomic_word_load(___CAST(___VOLATILE ___WORD*, slot), order));
+}
+
+/* GC-barriered atomic release store for a slot mutated exclusively under a
+ * lock while concurrent lock-free readers observe it via acquire loads. */
+___ORDERED_WORD_INLINE void ___gc_atomic_slot_store_release
+   (___processor_state ___ps,
+    ___SCMOBJ container,
+    ___WORD *slot,
+    ___SCMOBJ newval,
+    void (*wb_slow) ___P((___processor_state, ___SCMOBJ, ___WORD*), ()),
+    void (*satb_val) ___P((___processor_state, ___SCMOBJ), ()))
+{
+#ifndef ___DISABLE_GENERATIONAL_GC
+  if (___MEM_ALLOCATED(newval))
+    {
+      ___UWORD a = ___CAST(___UWORD, slot);
+      ___UWORD lo = ___CAST(___UWORD, ___ps->mem.alloc_heap_start_);
+      ___UWORD hi = ___CAST(___UWORD, ___ps->mem.alloc_heap_limit_);
+      if (___EXPECT_FALSE(a - lo >= hi - lo &&
+                          a - ___ps->mem.wb_last_card_lo_ >= (___CAST(___UWORD, ___GC_CARD_WORDS) * ___WS)))
+        wb_slow(___ps, container, slot);
+    }
+  if (___EXPECT_FALSE(___ps->mem.satb_active_ != 0))
+    {
+      ___SCMOBJ oldval = ___CAST(___SCMOBJ,
+                                 ___WORD_LOAD_RELAXED(___CAST(___VOLATILE ___WORD*, slot)));
+      if (___MEM_ALLOCATED(oldval))
+        satb_val(___ps, oldval);
+    }
+#else
+  (void)___ps; (void)container; (void)wb_slow; (void)satb_val;
+#endif
+  ___WORD_STORE_RELEASE(___CAST(___VOLATILE ___WORD*, slot), ___CAST(___WORD, newval));
+}
+
+___ORDERED_WORD_INLINE ___SCMOBJ ___gc_atomic_slot_exchange
+   (___processor_state ___ps,
+    ___SCMOBJ container,
+    ___WORD *slot,
+    ___SCMOBJ newval,
+    int order,
+    void (*wb_slow) ___P((___processor_state, ___SCMOBJ, ___WORD*), ()),
+    void (*satb_val) ___P((___processor_state, ___SCMOBJ), ()))
+{
+  ___SCMOBJ oldval;
+#ifndef ___DISABLE_GENERATIONAL_GC
+  if (___MEM_ALLOCATED(newval))
+    {
+      ___UWORD a = ___CAST(___UWORD, slot);
+      ___UWORD lo = ___CAST(___UWORD, ___ps->mem.alloc_heap_start_);
+      ___UWORD hi = ___CAST(___UWORD, ___ps->mem.alloc_heap_limit_);
+      if (___EXPECT_FALSE(a - lo >= hi - lo &&
+                          a - ___ps->mem.wb_last_card_lo_ >= (___CAST(___UWORD, ___GC_CARD_WORDS) * ___WS)))
+        wb_slow(___ps, container, slot);
+    }
+#else
+  (void)container; (void)wb_slow;
+#endif
+  oldval = ___CAST(___SCMOBJ,
+                   ___atomic_word_exchange(___CAST(___VOLATILE ___WORD*, slot),
+                                           ___CAST(___WORD, newval),
+                                           order));
+#ifndef ___DISABLE_GENERATIONAL_GC
+  if (___EXPECT_FALSE(___ps->mem.satb_active_ != 0 && ___MEM_ALLOCATED(oldval)))
+    satb_val(___ps, oldval);
+#else
+  (void)___ps; (void)satb_val;
+#endif
+  return oldval;
+}
+
+___ORDERED_WORD_INLINE ___SCMOBJ ___gc_atomic_slot_cas
+   (___processor_state ___ps,
+    ___SCMOBJ container,
+    ___WORD *slot,
+    ___SCMOBJ expected,
+    ___SCMOBJ desired,
+    int order,
+    void (*wb_slow) ___P((___processor_state, ___SCMOBJ, ___WORD*), ()),
+    void (*satb_val) ___P((___processor_state, ___SCMOBJ), ()))
+{
+  ___SCMOBJ prev;
+#ifndef ___DISABLE_GENERATIONAL_GC
+  if (___MEM_ALLOCATED(desired))
+    {
+      ___UWORD a = ___CAST(___UWORD, slot);
+      ___UWORD lo = ___CAST(___UWORD, ___ps->mem.alloc_heap_start_);
+      ___UWORD hi = ___CAST(___UWORD, ___ps->mem.alloc_heap_limit_);
+      if (___EXPECT_FALSE(a - lo >= hi - lo &&
+                          a - ___ps->mem.wb_last_card_lo_ >= (___CAST(___UWORD, ___GC_CARD_WORDS) * ___WS)))
+        wb_slow(___ps, container, slot);
+    }
+#else
+  (void)container; (void)wb_slow;
+#endif
+  prev = ___CAST(___SCMOBJ,
+                 ___atomic_word_cas(___CAST(___VOLATILE ___WORD*, slot),
+                                    ___CAST(___WORD, expected),
+                                    ___CAST(___WORD, desired),
+                                    order));
+#ifndef ___DISABLE_GENERATIONAL_GC
+  if (prev == expected &&
+      ___EXPECT_FALSE(___ps->mem.satb_active_ != 0 && ___MEM_ALLOCATED(expected)))
+    satb_val(___ps, expected);
+#else
+  (void)___ps; (void)satb_val;
+#endif
+  return prev;
+}
+#ifndef ___INCLUDED_FROM_SETUP
+___GSTATEDECL
+#ifdef ___USE_C_RTS_CHAR_OPERATIONS
+___IMP_FUNC(___BOOL,___iswalpha)
+   ___P((___UCS_4 x),
+        ());
+___IMP_FUNC(___BOOL,___iswdigit)
+   ___P((___UCS_4 x),
+        ());
+___IMP_FUNC(___BOOL,___iswspace)
+   ___P((___UCS_4 x),
+        ());
+___IMP_FUNC(___BOOL,___iswupper)
+   ___P((___UCS_4 x),
+        ());
+___IMP_FUNC(___BOOL,___iswlower)
+   ___P((___UCS_4 x),
+        ());
+___IMP_FUNC(___UCS_4,___towupper)
+   ___P((___UCS_4 x),
+        ());
+___IMP_FUNC(___UCS_4,___towlower)
+   ___P((___UCS_4 x),
+        ());
+___IMP_FUNC(___SCMOBJ,___string_collate)
+   ___P((___SCMOBJ s1,
+         ___SCMOBJ s2),
+        ());
+___IMP_FUNC(___SCMOBJ,___string_collate_ci)
+   ___P((___SCMOBJ s1,
+         ___SCMOBJ s2),
+        ());
+#endif
+___IMP_FUNC(double,___copysign)
+   ___P((double x,
+         double y),
+        ());
+___IMP_FUNC(___BOOL,___isfinite)
+   ___P((double x),
+        ());
+___IMP_FUNC(___BOOL,___isinf)
+   ___P((double x),
+        ());
+___IMP_FUNC(___BOOL,___isnan)
+   ___P((double x),
+        ());
+___IMP_FUNC(double,___trunc)
+   ___P((double x),
+        ());
+___IMP_FUNC(double,___round)
+   ___P((double x),
+        ());
+#ifdef ___DEFINE_SCALBN
+___IMP_FUNC(double,___scalbn)
+   ___P((double x,
+         int n),
+        ());
+#endif
+#ifdef ___DEFINE_ILOGB
+___IMP_FUNC(int,___ilogb)
+   ___P((double x),
+        ());
+#endif
+#ifdef ___DEFINE_EXPM1
+___IMP_FUNC(double,___expm1)
+   ___P((double x),
+        ());
+#endif
+#ifdef ___DEFINE_LOG1P
+___IMP_FUNC(double,___log1p)
+   ___P((double x),
+        ());
+#endif
+#ifdef ___DEFINE_SINH
+___IMP_FUNC(double,___sinh)
+   ___P((double x),
+        ());
+#endif
+#ifdef ___DEFINE_COSH
+___IMP_FUNC(double,___cosh)
+   ___P((double x),
+        ());
+#endif
+#ifdef ___DEFINE_TANH
+___IMP_FUNC(double,___tanh)
+   ___P((double x),
+        ());
+#endif
+#ifdef ___DEFINE_ASINH
+___IMP_FUNC(double,___asinh)
+   ___P((double x),
+        ());
+#endif
+#ifdef ___DEFINE_ACOSH
+___IMP_FUNC(double,___acosh)
+   ___P((double x),
+        ());
+#endif
+#ifdef ___DEFINE_ATANH
+___IMP_FUNC(double,___atanh)
+   ___P((double x),
+        ());
+#endif
+#ifdef ___DEFINE_ATAN2
+___IMP_FUNC(double,___atan2)
+   ___P((double y,
+         double x),
+        ());
+#endif
+#ifdef ___DEFINE_POW
+___IMP_FUNC(double,___pow)
+   ___P((double x,
+         double y),
+        ());
+#endif
+#ifdef ___DEFINE_HYPOT
+___IMP_FUNC(double,___hypot)
+   ___P((double x,
+         double y),
+        ());
+#endif
+___IMP_FUNC(___SCMOBJ,___F64_to_STRING)
+   ___P((___PSD
+         double x),
+        ());
+___IMP_FUNC(void,___setup_params_reset)
+   ___P((___setup_params_struct *setup_params),
+        ());
+___IMP_FUNC(___SCMOBJ,___setup)
+   ___P((___setup_params_struct *setup_params),
+        ());
+___IMP_FUNC(void,___dyn_process_set_owner) ___PVOID;
+___IMP_FUNC(void,___dyn_cohort_pin) ___PVOID;
+___IMP_FUNC(void,___dyn_cohort_unpin) ___PVOID;
+___IMP_FUNC(___WORD,___dyn_cohort_pinned_count) ___PVOID;
+___IMP_FUNC(___BOOL,___cleanup) ___PVOID;
+___IMP_FUNC(void,___cleanup_and_exit_process)
+   ___P((int status),
+        ());
+___IMP_FUNC(___SCMOBJ,___current_vm_resize)
+   ___P((___PSD
+         ___SCMOBJ thunk,
+         int target_processor_count),
+        ());
+___IMP_FUNC(___BOOL,___garbage_collect)
+   ___P((___PSD
+         ___SIZE_TS requested_words_still),
+        ());
+___IMP_FUNC(void,___enter_blocking_ffi)
+   ___P((___processor_state ___ps),
+        ());
+___IMP_FUNC(void,___leave_blocking_ffi)
+   ___P((___processor_state ___ps),
+        ());
+/* Generated write groups share one admission and mapped-retry protocol. */
+___IMP_FUNC(int,___handler_spill_backed)
+   ___P((___processor_state ps, ___WORD *fp), ());
+___IMP_FUNC(int,___group_demand_resume_view)
+   ___P((___processor_state ps, ___WORD group_point,
+         ___WORD **hp, ___WORD **fp), ());
+___IMP_FUNC(int,___group_demand_arm)
+   ___P((___processor_state ps, ___WORD *hp, ___WORD *fp,
+         ___SIZE_TS stack_words, ___SIZE_TS heap_words,
+         ___WORD group_point, ___WORD *attempt_out), ());
+/* One out-of-line entry keeps generated groups from duplicating the protocol. */
+___IMP_FUNC(int,___group_demand_enter)
+   ___P((___processor_state ps, ___WORD **hp, ___WORD **fp,
+         ___SIZE_TS stack_words, ___SIZE_TS heap_words,
+         ___WORD group_point, ___WORD *attempt_out), ());
+#if defined(___BIND_LATE) && !defined(___CAN_IMPORT_DYNAMICALLY)
+#define ___GROUP_DEMAND_ENTER_CALL(ps,hp,fp,sw,hw,pt,att) \
+  ___EXT(___group_demand_enter)((ps),(hp),(fp),(sw),(hw),(pt),(att))
+#else
+#define ___GROUP_DEMAND_ENTER_CALL(ps,hp,fp,sw,hw,pt,att) \
+  (___group_demand_enter)((ps),(hp),(fp),(sw),(hw),(pt),(att))
+#endif
+#if !defined(___INCLUDED_FROM_MEM) && \
+    (!defined(___LBLCOUNT) || (___LBLCOUNT < 4000) || \
+     (defined(___LIBRARY) && defined(__OPTIMIZE__))) && \
+    defined(__GNUC__)
+/* Value-based processor-owned byte-range fast-span admission (proved equivalent
+ * to allocation-limits.inc:1179-1197 in CompiledHostRefinementV2.lean & CBMC).
+ * Dereferencing (*hp_ptr, *fp_ptr, *att_ptr) lets GCC fold *(&___hp) back to
+ * register-allocated ___hp, ___fp, ___demand_attempt on the fast path, keeping
+ * address-taken temporaries confined to the cold slow-path branch. */
+#define ___group_demand_enter(ps,hp_ptr,fp_ptr,sw,hw,pt,att_ptr) \
+  ({ \
+    ___processor_state const ___gd_ps = (ps); \
+    ___WORD *___gd_h = *(hp_ptr); \
+    ___WORD *___gd_f = *(fp_ptr); \
+    ___SIZE_TS const ___gd_sw = (sw); \
+    ___SIZE_TS const ___gd_hw = (hw); \
+    int ___gd_ok = 0; \
+    if (__builtin_expect(___gd_ps != 0 && ___gd_ps->context != 0 && \
+                         ___gd_f != 0 && ___gd_h != 0 && \
+                         ___gd_sw >= 0 && ___gd_hw >= 0, 1)) { \
+      ___UWORD const ___gd_sd = ___CAST(___UWORD, ___gd_f) - ___gd_ps->stack_fast_floor_b; \
+      ___UWORD const ___gd_hd = ___CAST(___UWORD, ___gd_h) - ___gd_ps->heap_fast_lo_b; \
+      if (__builtin_expect( \
+            ___gd_sd < ___gd_ps->stack_fast_limit_b && \
+            ___gd_sd >= ((___UWORD)___gd_sw * sizeof(___WORD)) && \
+            (___gd_hw == 0 || \
+             (___gd_hd < ___gd_ps->heap_fast_bytes && \
+              (___gd_ps->heap_fast_bytes - ___gd_hd) >= ((___UWORD)___gd_hw * sizeof(___WORD)))), \
+            1)) { \
+        ___gd_ps->context->hp = ___gd_h; \
+        ___gd_ps->context->fp = ___gd_f; \
+        *(att_ptr) = 0; \
+        ___gd_ok = 1; \
+      } \
+    } \
+    if (__builtin_expect(!___gd_ok, 0)) { \
+      ___WORD ___gd_att = *(att_ptr); \
+      ___gd_ok = ___GROUP_DEMAND_ENTER_CALL(___gd_ps, &___gd_h, &___gd_f, ___gd_sw, ___gd_hw, (pt), &___gd_att); \
+      *(hp_ptr) = ___gd_h; \
+      *(fp_ptr) = ___gd_f; \
+      *(att_ptr) = ___gd_att; \
+    } \
+    ___gd_ok; \
+  })
+#elif defined(___BIND_LATE) && !defined(___CAN_IMPORT_DYNAMICALLY)
+#define ___group_demand_enter(ps,hp,fp,sw,hw,pt,att) \
+  ___GROUP_DEMAND_ENTER_CALL((ps),(hp),(fp),(sw),(hw),(pt),(att))
+#endif
+___IMP_FUNC(int,___group_demand_granted)
+   ___P((___processor_state ps, ___WORD group_point, ___WORD attempt,
+         ___WORD *hp, ___WORD *fp), ());
+___IMP_FUNC(void,___group_demand_commit)
+   ___P((___processor_state ps, ___WORD group_point, ___WORD attempt), ());
+#if defined(___BIND_LATE) && !defined(___CAN_IMPORT_DYNAMICALLY)
+#define ___GROUP_DEMAND_COMMIT_CALL(ps,point,attempt) \
+  ___EXT(___group_demand_commit)((ps),(point),(attempt))
+#else
+#define ___GROUP_DEMAND_COMMIT_CALL(ps,point,attempt) \
+  (___group_demand_commit)((ps),(point),(attempt))
+#endif
+#if !defined(___INCLUDED_FROM_MEM) && defined(__GNUC__)
+#ifdef ___GAMBIT_REST_OBSERVATION
+#define ___group_demand_commit(ps,point,attempt) \
+  do { if (__builtin_expect((attempt) != 0 || ___REST_OBS_ACTIVE, 0)) ___GROUP_DEMAND_COMMIT_CALL((ps),(point),(attempt)); } while (0)
+#else
+#define ___group_demand_commit(ps,point,attempt) \
+  do { if (__builtin_expect((attempt) != 0, 0)) ___GROUP_DEMAND_COMMIT_CALL((ps),(point),(attempt)); } while (0)
+#endif
+#elif defined(___BIND_LATE) && !defined(___CAN_IMPORT_DYNAMICALLY)
+#define ___group_demand_commit(ps,point,attempt) \
+  ___GROUP_DEMAND_COMMIT_CALL((ps),(point),(attempt))
+#endif
+int ___stack_adjust_fits(___processor_state ps, ___WORD *fp, ___SIZE_TS delta);
+___IMP_FUNC(___WORD,___rest_observation_room)
+   ___P((___processor_state ps), ());
+___IMP_FUNC(___WORD,___rest_observation_settled)
+   ___P((___processor_state ps), ());
+___IMP_FUNC(___WORD,___rest_observation_last_demand)
+   ___P((___WORD *pending, ___WORD *parameters), ());
+___IMP_FUNC(___WORD,___rest_observation_last_entry_room) ___PVOID;
+___IMP_FUNC(void,___rest_observation_reset_admission) ___PVOID;
+#ifdef ___GAMBIT_REST_OBSERVATION
+___IMP_FUNC(void,___gate2_group_site)
+  ___P((___processor_state ps, const char *procedure, int label,
+        ___WORD point, ___WORD *fp, int opening), ());
+___IMP_FUNC(void,___gate2_fast_done)
+  ___P((___processor_state ps, ___WORD point), ());
+#if !defined(___LBLCOUNT) || (___LBLCOUNT < 4000)
+#define ___GATE2_OPEN(ps,proc,label,point,fp) \
+  do { if (__builtin_expect(___REST_OBS_ACTIVE, 0)) ___EXT(___gate2_group_site)(ps,proc,label,point,fp,1); } while (0)
+#define ___GATE2_ENTER(ps,proc,label,point,fp) \
+  do { if (__builtin_expect(___REST_OBS_ACTIVE, 0)) ___EXT(___gate2_group_site)(ps,proc,label,point,fp,0); } while (0)
+#else
+#define ___GATE2_OPEN(ps,proc,label,point,fp) \
+  ___EXT(___gate2_group_site)(ps,proc,label,point,fp,1)
+#define ___GATE2_ENTER(ps,proc,label,point,fp) \
+  ___EXT(___gate2_group_site)(ps,proc,label,point,fp,0)
+#endif
+#else
+#define ___GATE2_OPEN(ps,proc,label,point,fp) ((void)0)
+#define ___GATE2_ENTER(ps,proc,label,point,fp) ((void)0)
+#endif
+___IMP_FUNC(int,___group_demand_before)
+   ___P((___processor_state ps, ___WORD *fp), ());
+___IMP_FUNC(void,___group_demand_after)
+   ___P((___processor_state ps, int overflow), ());
+___IMP_FUNC(int,___group_demand_blocked)
+   ___P((___processor_state ps), ());
+___IMP_FUNC(int,___group_demand_will_retry)
+   ___P((___processor_state ps), ());
+___IMP_FUNC(int,___group_demand_stalled)
+   ___P((___processor_state ps), ());
+___IMP_FUNC(void,___group_demand_retire)
+   ___P((___processor_state ps), ());
+___IMP_FUNC(void,___group_demand_fail)
+   ___P((___processor_state ps), ());
+___IMP_FUNC(___SCMOBJ,___setup_vmstate)
+   ___P((___virtual_machine_state ___vms),
+        ());
+___IMP_FUNC(___BOOL,___cleanup_vmstate)
+   ___P((___virtual_machine_state ___vms),
+        ());
+___IMP_FUNC(___SCMOBJ,___setup_pstate)
+   ___P((___processor_state ___ps,
+         ___virtual_machine_state ___vms),
+        ());
+___IMP_FUNC(___BOOL,___cleanup_pstate)
+   ___P((___processor_state ___ps),
+        ());
+___IMP_FUNC(___SIZE_T,___get_min_heap) ___PVOID;
+___IMP_FUNC(void,___set_min_heap)
+   ___P((___SIZE_T bytes),
+        ());
+___IMP_FUNC(___SIZE_T,___get_max_heap) ___PVOID;
+___IMP_FUNC(void,___set_max_heap)
+   ___P((___SIZE_T bytes),
+        ());
+___IMP_FUNC(int,___get_live_percent) ___PVOID;
+___IMP_FUNC(void,___set_live_percent)
+   ___P((int percent),
+        ());
+___IMP_FUNC(int,___get_parallelism_level) ___PVOID;
+___IMP_FUNC(void,___set_parallelism_level)
+   ___P((int level),
+        ());
+___IMP_FUNC(int,___get_standard_level) ___PVOID;
+___IMP_FUNC(void,___set_standard_level)
+   ___P((int level),
+        ());
+___IMP_FUNC(int,___get_debug_settings) ___PVOID;
+___IMP_FUNC(int,___set_debug_settings)
+   ___P((int mask,
+         int new_settings),
+        ());
+___IMP_FUNC(int,___get_io_settings)
+   ___P((int index),
+        ());
+___IMP_FUNC(void,___set_io_settings)
+   ___P((int index,
+         int settings),
+        ());
+___IMP_FUNC(___UCS_2STRING,___get_gambitdir) ___PVOID;
+___IMP_FUNC(void,___set_gambitdir)
+   ___P((___UCS_2STRING gambitdir),
+        ());
+___IMP_FUNC(___UCS_2STRING*,___get_gambitdir_map) ___PVOID;
+___IMP_FUNC(void,___set_gambitdir_map)
+   ___P((___UCS_2STRING *gambitdir_map),
+        ());
+___IMP_FUNC(___UCS_2STRING*,___get_module_search_order) ___PVOID;
+___IMP_FUNC(void,___set_module_search_order)
+   ___P((___UCS_2STRING *module_search_order),
+        ());
+___IMP_FUNC(___UCS_2STRING*,___get_module_whitelist) ___PVOID;
+___IMP_FUNC(void,___set_module_whitelist)
+   ___P((___UCS_2STRING *module_whitelist),
+        ());
+___IMP_FUNC(int,___get_module_install_mode) ___PVOID;
+___IMP_FUNC(void,___set_module_install_mode)
+   ___P((int module_install_mode),
+        ());
+___IMP_FUNC(___UCS_2STRING,___get_repl_client_addr) ___PVOID;
+___IMP_FUNC(void,___set_repl_client_addr)
+   ___P((___UCS_2STRING repl_client_addr),
+        ());
+___IMP_FUNC(___UCS_2STRING,___get_repl_server_addr) ___PVOID;
+___IMP_FUNC(void,___set_repl_server_addr)
+   ___P((___UCS_2STRING repl_server_addr),
+        ());
+
+___IMP_FUNC(___program_startup_info_struct*,___get_program_startup_info)
+   ___PVOID;
+___IMP_FUNC(___SCMOBJ,___call)
+   ___P((___PSD
+         ___WORD nargs,
+         ___SCMOBJ proc,
+         ___SCMOBJ marker),
+        ());
+___IMP_FUNC(___SCMOBJ,___run)
+   ___P((___PSD
+         ___SCMOBJ thunk),
+        ());
+#ifdef ___USE_UNWIND_C_STACK_TO_TRAMPOLINE
+___IMP_FUNC(void,___unwind_c_stack_to_trampoline)
+   ___P((___PSDNC),
+        ());
+#endif
+#ifdef ___SUPPORT_LOWLEVEL_EXEC
+___IMP_FUNC(void,___lowlevel_exec)
+   ___P((___processor_state ___ps),
+        ());
+#endif
+___IMP_FUNC(___SCMOBJ,___machine_code_block_fixup)
+   ___P((___processor_state ___ps,
+         void *mcb,
+         ___SCMOBJ fixup_locs,
+         ___SCMOBJ fixup_objs),
+        ());
+___IMP_FUNC(void,___throw_error)
+   ___P((___PSD
+         ___SCMOBJ err),
+        ());
+___IMP_FUNC(void,___propagate_error)
+   ___P((___PSD
+         ___SCMOBJ err),
+        ());
+#ifdef ___DEBUG_HOST_CHANGES
+___IMP_FUNC(void,___register_host_entry)
+   ___P((___PSD
+         ___WORD start,
+         char *module_name,
+         char *file,
+         int line),
+        ());
+#endif
+#ifdef ___ACTIVITY_LOG
+___IMP_FUNC(void,___actlog_add_pstate)
+   ___P((___processor_state ___ps,
+         ___U16 *type,
+         char *name,
+         ___U32 color),
+        ());
+___IMP_FUNC(void,___actlog_begin_pstate)
+   ___P((___processor_state ___ps,
+         ___U16 *type,
+         char *name,
+         ___U32 color),
+        ());
+___IMP_FUNC(void,___actlog_end_pstate)
+   ___P((___processor_state ___ps),
+        ());
+___IMP_FUNC(void,___actlog_start)
+   ___P((___processor_state ___ps),
+        ());
+___IMP_FUNC(void,___actlog_stop)
+   ___P((___processor_state ___ps),
+        ());
+___IMP_FUNC(void,___actlog_dump)
+   ___P((___virtual_machine_state ___vms,
+         char *filename),
+        ());
+#endif
+___IMP_FUNC(void,___raise_high_level_interrupt_pstate)
+   ___P((___processor_state ___ps,
+         ___SCMOBJ intr),
+        ());
+___IMP_FUNC(___SCMOBJ,___get_next_high_level_interrupt_pstate)
+   ___P((___processor_state ___ps),
+        ());
+___IMP_FUNC(void,___init_procedural_interrupt)
+   ___P((void *intr,
+         ___SCMOBJ (*execute_fn) ___P((void *self, ___SCMOBJ op),())),
+        ());
+___IMP_FUNC(void,___raise_procedural_interrupt_pstate)
+   ___P((___processor_state ___ps,
+         void *intr),
+        ());
+___IMP_FUNC(void,___raise_interrupt_pstate)
+   ___P((___processor_state ___ps,
+         int code),
+        ());
+___IMP_FUNC(void,___raise_interrupt_vmstate)
+   ___P((___virtual_machine_state ___vms,
+         int code),
+        ());
+___IMP_FUNC(void,___raise_interrupt)
+   ___P((int code),
+        ());
+___IMP_FUNC(___SCMOBJ,___service_interrupts_pstate)
+   ___P((___processor_state ___ps),
+        ());
+___IMP_FUNC(void,___refresh_interrupts_pstate)
+   ___P((___processor_state ___ps),
+        ());
+___IMP_FUNC(void,___disable_interrupts_pstate)
+   ___P((___processor_state ___ps),
+        ());
+___IMP_FUNC(void,___enable_interrupts_pstate)
+   ___P((___processor_state ___ps),
+        ());
+#endif
+
+#ifndef ___INCLUDED_FROM_OS_SETUP
+___IMP_FUNC(void,___mask_all_interrupts_begin)
+   ___P((___mask_all_interrupts_state *state),
+        ());
+___IMP_FUNC(void,___mask_all_interrupts_end)
+   ___P((___mask_all_interrupts_state *state),
+        ());
+#endif
+
+#ifndef ___INCLUDED_FROM_OS_TTY
+___IMP_FUNC(void,___mask_user_interrupts_begin)
+   ___P((___mask_user_interrupts_state *state),
+        ());
+___IMP_FUNC(void,___mask_user_interrupts_end)
+   ___P((___mask_user_interrupts_state *state),
+        ());
+#endif
+
+#ifndef ___INCLUDED_FROM_OS_TIME
+___IMP_FUNC(void,___mask_heartbeat_interrupts_begin)
+   ___P((___mask_heartbeat_interrupts_state *state),
+        ());
+___IMP_FUNC(void,___mask_heartbeat_interrupts_end)
+   ___P((___mask_heartbeat_interrupts_state *state),
+        ());
+#endif
+
+#ifndef ___INCLUDED_FROM_OS_IO
+___IMP_FUNC(void,___mask_child_interrupts_begin)
+   ___P((___mask_child_interrupts_state *state),
+        ());
+___IMP_FUNC(void,___mask_child_interrupts_end)
+   ___P((___mask_child_interrupts_state *state),
+        ());
+#endif
+
+#ifndef ___DEBUG_ALLOC_MEM
+#define ___ALLOC_MEM(bytes)___EXT(___alloc_mem) (bytes)
+#define ___FREE_MEM(ptr)___EXT(___free_mem) (ptr)
+#define ___ALLOC_MEM_HEAP(bytes)___EXT(___alloc_mem_heap) (bytes)
+#define ___FREE_MEM_HEAP(ptr)___EXT(___free_mem_heap) (ptr)
+#else
+#define ___ALLOC_MEM(bytes)___EXT(___alloc_mem) (bytes,__LINE__,__FILE__)
+#define ___FREE_MEM(ptr)___EXT(___free_mem) (ptr,__LINE__,__FILE__)
+#define ___ALLOC_MEM_HEAP(bytes)___EXT(___alloc_mem_heap) (bytes,__LINE__,__FILE__)
+#define ___FREE_MEM_HEAP(ptr)___EXT(___free_mem_heap) (ptr,__LINE__,__FILE__)
+#endif
+
+#ifndef ___INCLUDED_FROM_OS_BASE
+#ifndef ___DEBUG_ALLOC_MEM
+___IMP_FUNC(void *,___alloc_mem)
+   ___P((___SIZE_T bytes),
+        ());
+___IMP_FUNC(void,___free_mem)
+   ___P((void *ptr),
+        ());
+___IMP_FUNC(void *,___alloc_mem_heap)
+   ___P((___SIZE_T bytes),
+        ());
+___IMP_FUNC(void,___free_mem_heap)
+   ___P((void *ptr),
+        ());
+#else
+___IMP_FUNC(void *,___alloc_mem)
+   ___P((___SIZE_T bytes,
+         int lineno,
+         char *file),
+        ());
+___IMP_FUNC(void,___free_mem)
+   ___P((void *ptr,
+         int lineno,
+         char *file),
+        ());
+___IMP_FUNC(void *,___alloc_mem_heap)
+   ___P((___SIZE_T bytes,
+         int lineno,
+         char *file),
+        ());
+___IMP_FUNC(void,___free_mem_heap)
+   ___P((void *ptr,
+         int lineno,
+         char *file),
+        ());
+#endif
+___IMP_FUNC(void *,___alloc_mem_code)
+   ___P((___SIZE_T bytes),
+        ());
+___IMP_FUNC(void,___free_mem_code)
+   ___P((void *ptr),
+        ());
+___IMP_FUNC(void,___make_executable_mem_code)
+   ___P((void *ptr),
+        ());
+#endif
+
+#ifndef ___INCLUDED_FROM_OS_THREAD
+___IMP_FUNC(___SCMOBJ,___thread_init_from_self)
+   ___P((___thread *thread),
+        ());
+___IMP_FUNC(___SCMOBJ,___thread_create)
+   ___P((___thread *thread),
+        ());
+___IMP_FUNC(___SCMOBJ,___thread_join)
+   ___P((___thread *thread),
+        ());
+___IMP_FUNC(void,___thread_exit) ___PVOID;
+#ifdef ___DEFINE_THREAD_LOCAL_STORAGE_GETTER_SETTER
+___IMP_FUNC(void *,___get_tls_ptr) ___PVOID;
+___IMP_FUNC(void,___set_tls_ptr)
+   ___P((void *ptr),
+        ());
+#endif
+#endif

@@ -295,7 +295,7 @@ int level;)
       mib[0] = CTL_HW;
       mib[1] = sysctl_info[i].name;
 
-      if (sysctl (mib, 2, &size, &sizeof_size, NULL, 0) == 0) {
+      if (sysctl (mib, 2, &size, &sizeof_size, NULL, 0) == 0 && size > 0) {
 
         if (level != 0) {
           cache_size = size;
@@ -379,13 +379,16 @@ int level;)
 
       int size = sysconf (sysconf_info[i].name);
 
-      if (level != 0) {
-        cache_size = size;
-        break;
-      }
+      if (size > 0) {
 
-      if (size > cache_size) {
-        cache_size = size;
+        if (level != 0) {
+          cache_size = size;
+          break;
+        }
+
+        if (size > cache_size) {
+          cache_size = size;
+        }
       }
     }
 
@@ -495,19 +498,42 @@ ___SCMOBJ ___thread_create
         (thread)
 ___thread *thread;)
 {
+  ___SCMOBJ initialized=thread_init_common(thread);
+  if (initialized!=___FIX(___NO_ERR)) return initialized;
+
 #ifdef ___USE_POSIX_THREAD_SYSTEM
 
   pthread_t thread_id;
+  pthread_attr_t attr;
+  int attr_ok = (pthread_attr_init (&attr) == 0);
+  int error;
 
-  if (pthread_create (&thread_id,
-                      NULL,
-                      start_pthread_thread,
-                      ___CAST(void*,thread)) != 0)
-    return err_code_from_errno ();
+  /* macOS defaults secondary pthreads to 512 KiB (vs 8 MiB on main thread and
+   * Linux), which can overflow under nested c-define callbacks or single-host
+   * frames. Ensure worker processors receive at least a 4 MiB C stack. */
+  if (attr_ok)
+    {
+      size_t stack_size = 0;
+      const size_t min_stack = (size_t)4 * 1024 * 1024;
+      if (pthread_attr_getstacksize (&attr, &stack_size) == 0 &&
+          stack_size < min_stack)
+        pthread_attr_setstacksize (&attr, min_stack);
+    }
+
+  error = pthread_create (&thread_id,
+                          attr_ok ? &attr : NULL,
+                          start_pthread_thread,
+                          ___CAST(void*,thread));
+
+  if (attr_ok)
+    pthread_attr_destroy (&attr);
+
+  if (error != 0)
+    return ___FIX(___ERRNO_ERR(error));
 
   thread->thread_id = thread_id;
 
-  return thread_init_common (thread);
+  return ___FIX(___NO_ERR);
 
 #endif
 
@@ -529,7 +555,7 @@ ___thread *thread;)
   thread->thread_handle = thread_handle;
   thread->thread_id = thread_id;
 
-  return thread_init_common (thread);
+  return ___FIX(___NO_ERR);
 
 #endif
 
@@ -550,8 +576,8 @@ ___thread *thread;)
 {
 #ifdef ___USE_POSIX_THREAD_SYSTEM
 
-  if (pthread_join (thread->thread_id, NULL) != 0)
-    return err_code_from_errno ();
+  int error=pthread_join(thread->thread_id,NULL);
+  if (error!=0) return ___FIX(___ERRNO_ERR(error));
 
   return ___FIX(___NO_ERR);
 
@@ -597,9 +623,14 @@ void ___thread_affinity_set
         (___ps)
 ___processor_state ___ps;)
 {
-  int id = ___PROCESSOR_ID(___ps, ___VMSTATE_FROM_PSTATE(___ps));
-  int cpu_count = ___cpu_count (-1);
-  int cpu_id = (id + ___thread_mod.processor0_cpu_id) % cpu_count;
+  int id, cpu_count, cpu_id;
+
+  if (___ps == NULL)
+    return;
+
+  id = ___PROCESSOR_ID(___ps, ___VMSTATE_FROM_PSTATE(___ps));
+  cpu_count = ___cpu_count (-1);
+  cpu_id = (id + ___thread_mod.processor0_cpu_id) % cpu_count;
 
 #ifdef ___USE_POSIX_THREAD_SYSTEM
 
@@ -700,101 +731,15 @@ void ___thread_set_pstate
 ___processor_state ___ps;)
 {
 #ifdef ___SUPPORT_PSTATE_BIND
-  ___ps->pstate_binding = ___ps;
+  if (___ps != NULL)
+    ___ps->pstate_binding = ___ps;
 #endif
 
   ___SET_REAL_PSTATE(___ps);
 
-  ___thread_affinity_set (___ps);
+  if (___ps != NULL)
+    ___thread_affinity_set (___ps);
 }
-
-
-#ifdef ___USE_emulated_sync
-
-
-___WORD ___emulated_compare_and_swap_word
-   ___P((___VOLATILE ___WORD *ptr,
-         ___WORD oldval,
-         ___WORD newval),
-        (ptr,
-         oldval,
-         newval)
-___VOLATILE ___WORD *ptr;
-___WORD oldval;
-___WORD newval;)
-{
-  ___WORD temp;
-  ___MUTEX *mut_ptr =
-    &___thread_mod.hash_mutex[___CAST(___SIZE_T,ptr) % HASH_MUTEX_SIZE];
-
-  ___MUTEX_LOCK(*mut_ptr);
-
-  temp = *ptr;
-
-  if (temp == oldval)
-    *ptr = newval;
-
-  ___MUTEX_UNLOCK(*mut_ptr);
-
-  return temp;
-}
-
-
-___WORD ___emulated_fetch_and_add_word
-   ___P((___VOLATILE ___WORD *ptr,
-         ___WORD val),
-        (ptr,
-         val)
-___VOLATILE ___WORD *ptr;
-___WORD val;)
-{
-  ___WORD temp;
-  ___MUTEX *mut_ptr =
-    &___thread_mod.hash_mutex[___CAST(___SIZE_T,ptr) % HASH_MUTEX_SIZE];
-
-  ___MUTEX_LOCK(*mut_ptr);
-
-  temp = *ptr;
-
-  *ptr += val;
-
-  ___MUTEX_UNLOCK(*mut_ptr);
-
-  return temp;
-}
-
-
-___WORD ___emulated_fetch_and_clear_word
-   ___P((___VOLATILE ___WORD *ptr),
-        (ptr)
-___VOLATILE ___WORD *ptr;)
-{
-  ___WORD temp;
-  ___MUTEX *mut_ptr =
-    &___thread_mod.hash_mutex[___CAST(___SIZE_T,ptr) % HASH_MUTEX_SIZE];
-
-  ___MUTEX_LOCK(*mut_ptr);
-
-  temp = *ptr;
-
-  *ptr = 0;
-
-  ___MUTEX_UNLOCK(*mut_ptr);
-
-  return temp;
-}
-
-
-void ___emulated_shared_memory_barrier ___PVOID
-{
-  /*
-   * It is impossible to emulate a memory barrier portably, so just
-   * hope for the best...
-   */
-}
-
-
-#endif
 
 
 #ifdef ___THREAD_LOCAL_STORAGE_CLASS
@@ -920,50 +865,6 @@ ___sigset_type *oldset;)
 /*---------------------------------------------------------------------------*/
 
 
-#ifdef ___USE_emulated_sync
-
-
-___HIDDEN void hash_mutex_destroy
-   ___P((___MUTEX *hash_mutex,
-         int size),
-        (hash_mutex,
-         size)
-___MUTEX *hash_mutex;
-int size;)
-{
-  while (size-- > 0)
-    ___MUTEX_DESTROY(hash_mutex[size]); /* ignore error */
-}
-
-
-___HIDDEN ___SCMOBJ hash_mutex_init
-   ___P((___MUTEX *hash_mutex,
-         int size),
-        (hash_mutex,
-         size)
-___MUTEX *hash_mutex;
-int size;)
-{
-  int n = 0;
-
-  while (n < size)
-    {
-      if (!___MUTEX_INIT(hash_mutex[n]))
-        {
-          hash_mutex_destroy (hash_mutex, n);
-          return ___FIX(___UNKNOWN_ERR);
-        }
-
-      n++;
-    }
-
-  return ___FIX(___NO_ERR);
-}
-
-
-#endif
-
-
 ___SCMOBJ ___setup_thread_module ___PVOID
 {
   ___SCMOBJ err = ___FIX(___NO_ERR);
@@ -972,37 +873,19 @@ ___SCMOBJ ___setup_thread_module ___PVOID
     {
       ___get_cpu_info ();
 
-#ifdef ___USE_emulated_sync
-
-      err = hash_mutex_init (___thread_mod.hash_mutex,
-                             HASH_MUTEX_SIZE);
-
-      if (err != ___FIX(___NO_ERR))
-        return err;
-
-#endif
-
 #ifndef ___THREAD_LOCAL_STORAGE_CLASS
 
 #ifdef ___USE_POSIX_THREAD_SYSTEM
 
       if (pthread_key_create (&___thread_mod.tls_ptr_key, NULL) != 0)
-        {
-          err = err_code_from_errno ();
-          hash_mutex_destroy (___thread_mod.hash_mutex,
-                              HASH_MUTEX_SIZE);
-        }
+        err = err_code_from_errno ();
 
 #endif
 
 #ifdef ___USE_WIN32_THREAD_SYSTEM
 
       if ((___thread_mod.tls_ptr_index = TlsAlloc ()) == TLS_OUT_OF_INDEXES)
-        {
-          err = err_code_from_GetLastError ();
-          hash_mutex_destroy (___thread_mod.hash_mutex,
-                              HASH_MUTEX_SIZE);
-        }
+        err = err_code_from_GetLastError ();
 
 #endif
 
@@ -1019,13 +902,6 @@ void ___cleanup_thread_module ___PVOID
 {
   if (--___thread_mod.refcount == 0)
     {
-#ifdef ___USE_emulated_sync
-
-      hash_mutex_destroy (___thread_mod.hash_mutex,
-                          HASH_MUTEX_SIZE);
-
-#endif
-
 #ifndef ___THREAD_LOCAL_STORAGE_CLASS
 
 #ifdef ___USE_POSIX_THREAD_SYSTEM

@@ -1,0 +1,606 @@
+/*---------------------------------------------------------------------------*/
+
+/* OBJECT REPRESENTATION */
+
+/*
+ * For a complete description of the object representation, read the
+ * file "lib/mem.c".  These definitions must agree with those in the
+ * files "lib/_gambit#.scm" and "gsc/_t-c-3.scm".
+ */
+
+/*
+ * Type tag assignment.
+ *
+ * Type tags are located in the lower 2 or 3 bits of a ___SCMOBJ.
+ *
+ * ___TB = number of tag bits
+ * ___tFIXNUM   = tag for fixnums (small integers), must be 0
+ * ___tSPECIAL  = tag for other immediates (#f, #t, (), #!eof, chars, ...)
+ * ___tMEM1     = tag #1 for memory allocated objects
+ * ___tMEM2     = tag #2 for memory allocated objects or undefined
+ * ___tMEM3     = tag #3 for memory allocated objects or undefined
+ * ___tMEM4     = tag #4 for memory allocated objects or undefined
+ * ___tSUBTYPED = ___tMEM1
+ * ___tPAIR     = ___tMEM2 (or ___tMEM1)
+ * ___tVECTOR   = ___tMEM3 (or ___tMEM1)
+ * ___tFLONUM   = ___tMEM4 (or ___tMEM1)
+ *
+ * When ___TB == 2, the 4 tags ___tFIXNUM, ___tSPECIAL, ___tSUBTYPED, and
+ * ___tPAIR use all 4 combinations of the 2 tag bits:
+ *
+ *  00   01   10   11
+ *  FIX  SUBT SPEC PAIR
+ *
+ * When ___TB == 3, there are 4 additional tag combinations which are
+ * available. This is activated by defining ___FLONUM_SELF_TAGGING_TAGS.
+ * When ___FLONUM_SELF_TAGGING_TAGS is 1, 2, 3, or 4, flonums are
+ * represented using the self-tagging approach with the indicated number
+ * of tags. Here are the tag assignments:
+ *
+ *  000  001  010  011  100  101  110  111
+ *  FIX  SUBT ---- VECT SPEC PAIR ---- haf  ___FLONUM_SELF_TAGGING_TAGS == 0
+ *  FIX  SUBT ---- VECT SPEC PAIR stf  haf  ___FLONUM_SELF_TAGGING_TAGS == 1
+ *  FIX  SUBT stf1 haf  SPEC PAIR stf2 ---- ___FLONUM_SELF_TAGGING_TAGS == 2
+ *  FIX  SUBT haf  stf1 SPEC PAIR stf2 stf3 ___FLONUM_SELF_TAGGING_TAGS == 3
+ *  FIX  SUBT stf1 stf2 SPEC PAIR stf3 stf4 ___FLONUM_SELF_TAGGING_TAGS == 4
+ *
+ *  stf = Self-tagged flonum
+ *  haf = Heap allocated flonum
+ *
+ * When ___FLONUM_SELF_TAGGING_TAGS <= 1 and ___USE_2_TAG_BITS_FOR_FIXNUMS
+ * is defined, the tag 100 is used for a second fixnum tag to implement the
+ * same fixnum range as with ___TB == 2, and SPEC is assigned the tag 010.
+ *
+ * An alternative object representation is NaN-boxing, activated by
+ * defining ___NAN_BOXING. This approach exploits the unused range of
+ * 64 bit values encoding NaNs.
+ *
+ * A quiet NaN with negative sign has the following IEEE754 encoding:
+ *
+ * (neg quiet NaN) 4                 3                 1
+ *                 8                 2                 6                 0
+ * 11111111_11111000_00000000_00000000_00000000_00000000_00000000_00000000
+ *
+ * Current hardware does not use the range of values above this value:
+ *
+ *                 4                 3                 1
+ *                 8                 2                 6                 0
+ * 11111111_11111110_11111111_11111111_11111111_11111111_11111111_11111111
+ *
+ * Consequently, if a floating point value has encoding X then X+(1<<47) will
+ * be in the range:
+ *
+ *                 4                 3                 1
+ *                 8                 2                 6                 0
+ * 00000000_00000000_10000000_00000000_00000000_00000000_00000000_00000000
+ * ..
+ * 11111111_11111111_01111111_11111111_11111111_11111111_11111111_11111111
+ *
+ * This is convenient because it means the following ranges are available to
+ * encode Scheme objects, and they correspond to 48 bit addresses with
+ * positive or negative sign:
+ *
+ * (positive)      4                 3                 1
+ *                 8                 2                 6                 0
+ * 00000000_00000000_00000000_00000000_00000000_00000000_00000000_00000000
+ * ..
+ * 00000000_00000000_01111111_11111111_11111111_11111111_11111111_11111111
+ *
+ * and
+ *
+ * (negative)      4                 3                 1
+ *                 8                 2                 6                 0
+ * 11111111_11111111_10000000_00000000_00000000_00000000_00000000_00000000
+ * ..
+ * 11111111_11111111_11111111_11111111_11111111_11111111_11111111_11111111
+ *
+ * Within these ranges the low bits are used for storing the tag. Fixnums
+ * are limited to 30 bits of precision, with the low 2 bits being 0 (this uses
+ * 2 of the 8 available 3 bit tags). The fixnum is nevertheless sign extended
+ * to 64 bits so that arithmetic on fixnums typically can avoid having to mask
+ * the lower 32 bits.
+ *
+ * This biased variant of NaN-boxing is sometimes called NuN-boxing.
+ */
+
+#ifdef ___USE_2_TAG_BITS
+#ifdef ___USE_3_TAG_BITS
+#error "Define either ___USE_2_TAG_BITS or ___USE_3_TAG_BITS"
+#endif
+#endif
+
+#ifndef ___USE_2_TAG_BITS
+#ifndef ___USE_3_TAG_BITS
+#if ___SCMOBJ_WIDTH == 64
+#define ___USE_3_TAG_BITS
+#else
+#define ___USE_2_TAG_BITS
+#endif
+#endif
+#endif
+
+#if ___SCMOBJ_WIDTH == 32
+#ifdef ___USE_3_TAG_BITS
+#error "The combination ___SCMOBJ_WIDTH == 32 and ___USE_3_TAG_BITS is not supported"
+#endif
+#endif
+
+#if defined(___NAN_BOXING) && defined(___FLONUM_SELF_TAGGING_TAGS)
+#error "Define either ___NAN_BOXING or ___FLONUM_SELF_TAGGING_TAGS"
+#endif
+
+#if ___SCMOBJ_WIDTH == 32 && defined(___NAN_BOXING)
+#error "The combination ___SCMOBJ_WIDTH == 32 and ___NAN_BOXING is not supported"
+#endif
+
+#if !defined(___NAN_BOXING) && !defined(___FLONUM_SELF_TAGGING_TAGS)
+#if ___SCMOBJ_WIDTH == 32
+#define ___FLONUM_SELF_TAGGING_TAGS 0
+#else
+#define ___FLONUM_SELF_TAGGING_TAGS 0
+#endif
+#endif
+
+#if defined(___FLONUM_SELF_TAGGING_TAGS) && !(__clang__ || ___GNUC_VERSION)
+/* can't use float self-tagging because ({...}) syntax is not supported */
+#undef ___FLONUM_SELF_TAGGING_TAGS
+#define ___FLONUM_SELF_TAGGING_TAGS 0
+#endif
+
+#define ___tFIXNUM   0
+#define ___tMEM1     1
+
+#ifdef ___NAN_BOXING
+
+#define ___NAN_BOXING_BIAS (___CAST(___UWORD,1)<<47)
+
+#define ___DOUBLE_BIAS_ADD(x) \
+___CAST(___WORD, ___CAST(___U64,x) + ___NAN_BOXING_BIAS)
+
+#define ___DOUBLE_BIAS_SUB(x) \
+(___CAST(___U64,x) - ___NAN_BOXING_BIAS)
+
+#define ___IS_DOUBLE(obj) (((___CAST(___UWORD,obj)+___NAN_BOXING_BIAS)&~___MASK(___UWORD,48))!=0)
+
+#define ___HAS_TAG_AND_IS_NOT_DOUBLE(obj, tag, tb) \
+(((___CAST(___UWORD,obj) + (___NAN_BOXING_BIAS + (1<<tb) - (tag))) & \
+ ~(___MASK(___UWORD,48)-___MASK(___UWORD,tb))) == 0)
+
+#define ___IS_DOUBLE_OR(obj, x) (___IS_DOUBLE(obj) || (x))
+#define ___IS_NOT_DOUBLE_AND(obj, x) (!___IS_DOUBLE(obj) && (x))
+
+#define ___FIXWORD_WIDTH 32
+#define ___FIXWORD ___S32
+#define ___UFIXWORD ___U32
+#define ___FIXTEMP ___s32_temp
+
+#else
+
+#define ___IS_DOUBLE_OR(obj, x) (x)
+#define ___IS_NOT_DOUBLE_AND(obj, x) (x)
+
+#define ___HAS_TAG_AND_IS_NOT_DOUBLE(obj, tag, tb) \
+___TESTMASK(obj,___MASK(___WORD,tb),tag)
+
+#define ___FIXWORD_WIDTH ___WORD_WIDTH
+#define ___FIXWORD ___WORD
+#define ___UFIXWORD ___UWORD
+#define ___FIXTEMP ___temp
+
+#endif
+
+#define ___W(x)___CAST(___WORD,x)
+#define ___FW(x)___CAST(___FIXWORD,x)
+#define ___UFW(x)___CAST(___UFIXWORD,x)
+
+#ifdef ___USE_2_TAG_BITS
+
+#define ___TB 2
+
+#define ___tSPECIAL  2
+#define ___tMEM2     3
+
+#else
+
+#define ___TB 3
+
+#ifdef ___NAN_BOXING
+
+#define ___TB_FIXNUM 2
+#define ___tSPECIAL  2
+
+#define ___tMEM2     5
+#define ___tMEM3     3
+#define ___tMEM4     7
+
+#else
+
+#if ___FLONUM_SELF_TAGGING_TAGS <= 1 && defined(___USE_2_TAG_BITS_FOR_FIXNUMS)
+#define ___TB_FIXNUM 2
+#define ___tSPECIAL  2
+#else
+#define ___tSPECIAL  4
+#endif
+
+#define ___tMEM2     5
+
+#if ___FLONUM_SELF_TAGGING_TAGS == 3
+#define ___tMEM3     2
+#else
+#if ___FLONUM_SELF_TAGGING_TAGS <= 2
+#define ___tMEM3     3
+#if ___FLONUM_SELF_TAGGING_TAGS <= 1
+#define ___tMEM4     7
+#endif
+#endif
+#endif
+
+#if ___FLONUM_SELF_TAGGING_TAGS <= 2
+
+#define ___MEM_ALLOCATED(obj) ((obj)&1)
+#define ___MEM_ALLOCATED_CLEAR(obj) ((obj)&~___CAST(___WORD,1))
+#define ___MEM_ALLOCATED_SET(obj) ((obj)|1)
+
+#elif ___FLONUM_SELF_TAGGING_TAGS == 3
+
+#define ___HAS_TAG_IN_SET(x,set) (((___CAST(___U32,1) << (x)) & (~___CAST(___U32,0)/0xff * (set))) != 0)
+
+#ifdef ___USE_HAS_TAG_IN_SET
+#define ___MEM_ALLOCATED(obj) ___HAS_TAG_IN_SET(obj, ((1<<___tMEM1)|(1<<___tMEM2)|(1<<___tMEM3)))
+#else
+#define ___MEM_ALLOCATED(obj) (___TESTMASK(obj,3,1) || ___TESTMASK(obj,7,2))
+#endif
+#define ___MEM_ALLOCATED_CLEAR(obj) ((((obj)+1)&2) ? (obj)+2 : (obj))
+#define ___MEM_ALLOCATED_SET(obj) ((((obj)+1)&2) ? (obj) : (obj)-2)
+
+#else
+
+#define ___MEM_ALLOCATED(obj) ___TESTMASK(obj,3,1)
+#define ___MEM_ALLOCATED_CLEAR(obj) ((obj)&~___CAST(___WORD,1))
+#define ___MEM_ALLOCATED_SET(obj) ((obj)|1)
+
+#endif
+
+#endif
+
+#endif
+
+#ifndef ___TB_FIXNUM
+#define ___TB_FIXNUM ___TB
+#endif
+
+#ifndef ___MEM_ALLOCATED
+#define ___MEM_ALLOCATED(obj) ___HAS_TAG_AND_IS_NOT_DOUBLE(obj, 1, 1)
+#define ___MEM_ALLOCATED_CLEAR(obj) ((obj)&~___CAST(___WORD,1))
+#define ___MEM_ALLOCATED_SET(obj) ((obj)|1)
+#endif
+
+#define ___tSUBTYPED ___tMEM1
+
+#ifdef ___USE_SAME_TAG_FOR_PAIRS_AND_SUBTYPED
+#define ___tPAIR ___tMEM1
+#else
+#define ___tPAIR ___tMEM2
+#endif
+
+#ifdef ___NAN_BOXING
+
+#ifdef ___USE_3_TAG_BITS
+#define ___tVECTOR ___tMEM3
+#endif
+
+#else
+
+#ifdef ___USE_3_TAG_BITS
+#if ___FLONUM_SELF_TAGGING_TAGS <= 1
+#define ___tVECTOR ___tMEM3
+#define ___tFLONUM ___tMEM4
+#else
+#if ___FLONUM_SELF_TAGGING_TAGS <= 3
+#define ___tFLONUM ___tMEM3
+#endif
+#endif
+#endif
+
+#endif
+
+/* Default tag is ___tSUBTYPED */
+
+#ifndef ___tVECTOR
+#define ___tVECTOR ___tSUBTYPED
+#endif
+
+#ifndef ___tPAIR
+#define ___tPAIR ___tSUBTYPED
+#endif
+
+#ifndef ___tRATNUM
+#define ___tRATNUM ___tSUBTYPED
+#endif
+
+#ifndef ___tCPXNUM
+#define ___tCPXNUM ___tSUBTYPED
+#endif
+
+#ifndef ___tSTRUCTURE
+#define ___tSTRUCTURE ___tSUBTYPED
+#endif
+
+#ifndef ___tBOXVALUES
+#define ___tBOXVALUES ___tSUBTYPED
+#endif
+
+#ifndef ___tMEROON
+#define ___tMEROON ___tSUBTYPED
+#endif
+
+#ifndef ___tJAZZ
+#define ___tJAZZ ___tSUBTYPED
+#endif
+
+#ifndef ___tSYMBOL
+#define ___tSYMBOL ___tSUBTYPED
+#endif
+
+#ifndef ___tKEYWORD
+#define ___tKEYWORD ___tSUBTYPED
+#endif
+
+#ifndef ___tFRAME
+#define ___tFRAME ___tSUBTYPED
+#endif
+
+#ifndef ___tCONTINUATION
+#define ___tCONTINUATION ___tSUBTYPED
+#endif
+
+#ifndef ___tPROMISE
+#define ___tPROMISE ___tSUBTYPED
+#endif
+
+#ifndef ___tWEAK
+#define ___tWEAK ___tSUBTYPED
+#endif
+
+#ifndef ___tPROCEDURE
+#define ___tPROCEDURE ___tSUBTYPED
+#endif
+
+#ifndef ___tRETURN
+#define ___tRETURN ___tSUBTYPED
+#endif
+
+#ifndef ___tFOREIGN
+#define ___tFOREIGN ___tSUBTYPED
+#endif
+
+#ifndef ___tSTRING
+#define ___tSTRING ___tSUBTYPED
+#endif
+
+#ifndef ___tS8VECTOR
+#define ___tS8VECTOR ___tSUBTYPED
+#endif
+
+#ifndef ___tU8VECTOR
+#define ___tU8VECTOR ___tSUBTYPED
+#endif
+
+#ifndef ___tS16VECTOR
+#define ___tS16VECTOR ___tSUBTYPED
+#endif
+
+#ifndef ___tU16VECTOR
+#define ___tU16VECTOR ___tSUBTYPED
+#endif
+
+#ifndef ___tS32VECTOR
+#define ___tS32VECTOR ___tSUBTYPED
+#endif
+
+#ifndef ___tU32VECTOR
+#define ___tU32VECTOR ___tSUBTYPED
+#endif
+
+#ifndef ___tF32VECTOR
+#define ___tF32VECTOR ___tSUBTYPED
+#endif
+
+#ifndef ___tS64VECTOR
+#define ___tS64VECTOR ___tSUBTYPED
+#endif
+
+#ifndef ___tU64VECTOR
+#define ___tU64VECTOR ___tSUBTYPED
+#endif
+
+#ifndef ___tF64VECTOR
+#define ___tF64VECTOR ___tSUBTYPED
+#endif
+
+#ifndef ___NAN_BOXING
+#ifndef ___tFLONUM
+#define ___tFLONUM ___tSUBTYPED
+#endif
+#endif
+
+#ifndef ___tBIGNUM
+#define ___tBIGNUM ___tSUBTYPED
+#endif
+
+/*
+ * Subtype tag assignment.
+ *
+ * These tags are stored in the head of memory allocated objects
+ * (including pairs).
+ *
+ * ___SB = number of subtype tag bits
+ * ___sVECTOR       = tag for vectors
+ * ___sPAIR         = tag for pairs
+ * ___sRATNUM       = tag for ratnums
+ * ___sCPXNUM       = tag for cpxnums
+ * ___sSTRUCTURE    = tag for structures
+ * ___sBOXVALUES    = tag for box and multiple-values objects
+ * ___sMEROON       = tag for Meroon objects
+ * ___sJAZZ         = tag for Jazz objects
+ * ___sSYMBOL       = tag for symbols
+ * ___sKEYWORD      = tag for keywords
+ * ___sFRAME        = tag for continuation frames
+ * ___sCONTINUATION = tag for continuations
+ * ___sPROMISE      = tag for promises
+ * ___sWEAK         = tag for weak objects (wills and GC hash tables)
+ * ___sPROCEDURE    = tag for procedures
+ * ___sRETURN       = tag for returns
+ * ___sFOREIGN      = tag for foreign data
+ * ___sSTRING       = tag for strings
+ * ___sS8VECTOR     = tag for 8-bit signed integer vectors
+ * ___sU8VECTOR     = tag for 8-bit unsigned integer vectors
+ * ___sS16VECTOR    = tag for 16-bit signed integer vectors
+ * ___sU16VECTOR    = tag for 16-bit unsigned integer vectors
+ * ___sS32VECTOR    = tag for 32-bit signed integer vectors
+ * ___sU32VECTOR    = tag for 32-bit unsigned integer vectors
+ * ___sF32VECTOR    = tag for 32-bit floating point number vectors
+ * ___sS64VECTOR    = tag for 64-bit signed integer vectors
+ * ___sU64VECTOR    = tag for 64-bit unsigned integer vectors
+ * ___sF64VECTOR    = tag for 64-bit floating point number vectors
+ * ___sFLONUM       = tag for flonums
+ * ___sBIGNUM       = tag for bignums
+ *
+ * The five subtype tags ___sS64VECTOR, ___sU64VECTOR, ___sF64VECTOR,
+ * ___sFLONUM, ___sBIGNUM must come last.  These object types (and
+ * ___sFOREIGN which is always allocated as a ___STILL object) must
+ * be aligned on a multiple of 8.
+ */
+
+#define ___SB 5
+#define ___sVECTOR       0
+#define ___sPAIR         1
+#define ___sRATNUM       2
+#define ___sCPXNUM       3
+#define ___sSTRUCTURE    4
+#define ___sBOXVALUES    5
+#define ___sMEROON       6
+#define ___sJAZZ         7
+#define ___sSYMBOL       8
+#define ___sKEYWORD      9
+#define ___sFRAME        10
+#define ___sCONTINUATION 11
+#define ___sPROMISE      12
+#define ___sWEAK         13
+#define ___sPROCEDURE    14
+#define ___sRETURN       15
+#define ___sFOREIGN      18
+#define ___sSTRING       19
+#define ___sS8VECTOR     20
+#define ___sU8VECTOR     21
+#define ___sS16VECTOR    22
+#define ___sU16VECTOR    23
+#define ___sS32VECTOR    24
+#define ___sU32VECTOR    25
+#define ___sF32VECTOR    26
+#define ___sS64VECTOR    27
+#define ___sU64VECTOR    28
+#define ___sF64VECTOR    29
+#define ___sFLONUM       30
+#define ___sBIGNUM       31
+
+/*
+ * Head type tag assignment.
+ *
+ * Head type tags are stored in the lower 3 bits of the head of memory
+ * allocated objects.
+ *
+ * ___HTB = number of head tag bits
+ * ___MOVABLE0 = tag for movable objects in generation 0
+ * ___MOVABLE1 = tag for movable objects in generation 1
+ * ___MOVABLE2 = tag for movable objects in generation 2
+ * ___FORW     = tag for movable objects that have been forwarded
+ * ___STILL    = tag for still objects
+ * ___PERM     = tag for permanent objects
+ *
+ * note: the tag ___FORW+(1<<___TB) is also used for forwarding pointers
+ */
+
+#define ___HTB 3
+#define ___MOVABLE0 0
+#define ___MOVABLE1 1
+#define ___MOVABLE2 2
+#define ___FORW     3
+#define ___STILL    5
+#define ___PERM     6
+
+/*
+ * Miscellaneous masks.
+ */
+
+#define ___LF (___HTB+___SB)
+
+#define ___MASK(type,bits)((___CAST(type,1)<<bits)-1)
+#define ___TMASK ___MASK(___WORD,___TB)
+#define ___FMASK ___MASK(___WORD,___TB_FIXNUM)
+#define ___HTMASK ___MASK(___WORD,___HTB)
+#define ___SMASK (___MASK(___WORD,___SB)<<___HTB)
+#define ___LMASK (~___MASK(___UWORD,___LF))
+#define ___LSMASK (~___MASK(___UWORD,___HTB))
+
+/*
+ * Value constructors for object references inside executable code.
+ */
+
+#define ___FAL      ___SPECIAL(-1)
+#define ___TRU      ___SPECIAL(-2)
+#define ___NUL      ___SPECIAL(-3)
+#define ___EOF      ___SPECIAL(-4)
+#define ___VOID     ___SPECIAL(-5)
+#define ___ABSENT   ___SPECIAL(-6)
+#define ___UNB1     ___SPECIAL(-7)
+#define ___UNB2     ___SPECIAL(-8)
+#define ___OPTIONAL ___SPECIAL(-9)
+#define ___KEYOBJ   ___SPECIAL(-10)
+#define ___REST     ___SPECIAL(-11)
+#define ___UNUSED   ___SPECIAL(-14)
+#define ___DELETED  ___SPECIAL(-15)
+#define ___SPECIAL(x)___CAST(___WORD,(___CAST(___UWORD,x)<<___TB)+___tSPECIAL)
+#define ___FIX(x)___CAST(___WORD,___CAST(___UWORD,x)<<___TB_FIXNUM)
+#define ___CHR(x)___SPECIAL(___CS_SELECT(___CAST_U8(x),___CAST_U16(x),___CAST_U32(x)))
+
+#define ___SYM(i,id)___CAST_FAKEWORD_TO_WORD(___symtbl[i])
+#define ___KEY(i,id)___CAST_FAKEWORD_TO_WORD(___keytbl[i])
+#define ___CNS(i)___PAIR_FROM_START(___ALIGNUP(___cnstbl,___WS)+i*(___PAIR_BODY+___PAIR_SIZE))
+#define ___SUB(i)___CAST_FAKEWORD_TO_WORD(___subtbl[i])
+
+/*
+ * Value constructors for object references inside constant
+ * memory allocated objects.
+ */
+
+#define ___REF_FAL      ___FAL
+#define ___REF_TRU      ___TRU
+#define ___REF_NUL      ___NUL
+#define ___REF_EOF      ___EOF
+#define ___REF_VOID     ___VOID
+#define ___REF_ABSENT   ___ABSENT
+#define ___REF_UNB1     ___UNB1
+#define ___REF_UNB2     ___UNB2
+#define ___REF_OPTIONAL ___OPTIONAL
+#define ___REF_KEYOBJ   ___KEYOBJ
+#define ___REF_REST     ___REST
+#define ___REF_UNUSED   ___UNUSED
+#define ___REF_DELETED  ___DELETED
+#define ___REF_FIX(x)___FIX(x)
+#if ___FIX_WIDTH == 30
+#define ___REF_BIGFIX(i,x)___REF_SUB(i)
+#else
+#define ___REF_BIGFIX(i,x) ((x)>=___MIN_FIX&&(x)<=___MAX_FIX) ? ___REF_FIX(x) : ___REF_SUB(i)
+#endif
+#define ___REF_CHR(x)___CHR(x)
+
+#define ___REF_MEM(x,tag)___CAST(___WORD,(___CAST(___UWORD,x)<<___TB)+tag)
+
+#define ___REF_SYM(i,id)___REF_MEM(-1-i,___tMEM2)
+#define ___REF_KEY(i,id)___REF_MEM(-1-i,___tMEM1)
+#define ___REF_CNS(i)___REF_MEM(i,___tMEM2)
+#define ___REF_SUB(i)___REF_MEM(i,___tMEM1)
+
+#define ___REF_PRC(i)___REF_MEM(___SUBCOUNT+i,___tMEM1)
+

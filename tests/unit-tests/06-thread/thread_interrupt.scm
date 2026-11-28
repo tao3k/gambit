@@ -22,6 +22,9 @@
                      (lambda () (set! var (+ var 1)))))
        (set! var 0)
        (waste-time 200)
+       ;; Computation ratios do not guarantee that this thread remains active.
+       ;; The driver releases it after observing the requested interrupt.
+       (test-eq 'finish (thread-receive))
        (set! var (+ var 10))))))
 
 (test-error-tail inactive-thread-exception? (thread-interrupt! t1))
@@ -43,6 +46,9 @@
 (waste-time 200)
 
 (let loop () (if (<= var save) (loop)))
+
+(thread-send t2 'finish)
+(thread-join! t2)
 
 (test-equal 11 var)
 

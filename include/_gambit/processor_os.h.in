@@ -1,0 +1,115 @@
+/*---------------------------------------------------------------------------*/
+
+/*
+ * Activity log structures.
+ */
+
+#ifdef ___ACTIVITY_LOG
+
+typedef struct ___actlog_activity
+  {
+    ___U8 group;  /* group this activity belongs to */
+    ___U32 color; /* RGB color of this activity when shown visually */
+    char *name;   /* name of this activity */
+  } ___actlog_activity;
+
+typedef struct ___actlog_transition
+  {
+    ___U16 type;  /* activity type */
+    ___U64 stamp; /* time stamp when activity started */
+  } ___actlog_transition;
+
+typedef struct ___vmstate_actlog
+  {
+    ___MUTEX_DECL(mut)
+    ___actlog_activity *activities;
+    int nb_activities;
+    ___BOOL auto_dump;
+    int max_processor_count;
+  } ___vmstate_actlog;
+
+typedef struct ___pstate_actlog
+  {
+    ___actlog_transition *transitions; /* array of transitions */
+    ___actlog_transition *last;        /* pointer to last transition */
+    ___U16 *stack;
+    int sp;
+  } ___pstate_actlog;
+
+#define ___ACTLOG_COLOR_black     0x000000
+#define ___ACTLOG_COLOR_white     0xFFFFFF
+#define ___ACTLOG_COLOR_red       0xFF0000
+#define ___ACTLOG_COLOR_green     0x00FF00
+#define ___ACTLOG_COLOR_blue      0x0000FF
+#define ___ACTLOG_COLOR_yellow    0xFFFF00
+#define ___ACTLOG_COLOR_magenta   0xFF00FF
+#define ___ACTLOG_COLOR_pink      0xFF8080
+#define ___ACTLOG_COLOR_gray      0x808080
+#define ___ACTLOG_COLOR_lightgray 0xb0b0b0
+#define ___ACTLOG_COLOR_darkgray  0x505050
+#define ___ACTLOG_COLOR_brown     0x800000
+#define ___ACTLOG_COLOR_orange    0xFF8000
+#define ___ACTLOG_COLOR_purple    0x803E75
+#define ___ACTLOG_COLOR_lightblue 0xA6BDD7
+#define ___ACTLOG_COLOR_violet    0x53377A
+
+#define ___ACTLOG_COLOR__         0x1000000
+
+#define ___ACTLOG_COLOR_rgb(r,g,b) (((___U32)(r)<<16)+((g)<<8)+(b))
+
+#define ___ACTLOG_COLOR(color)___ACTLOG_COLOR_##color
+
+#define ___ACTIVITY_START_STOP 0xffff
+
+#define ___ACTLOG(name,color) \
+do { \
+  ___processor_state ___ps = ___PSTATE; \
+  ___ACTLOG_PS(name,color); \
+} while (0)
+
+#define ___ACTLOG_PS(name,color) \
+do { \
+  static ___U16 ___actlog_activity_##name = ___ACTIVITY_START_STOP; \
+  ___EXT(___actlog_add_pstate)(___ps,&___actlog_activity_##name,#name,___ACTLOG_COLOR(color)); \
+} while (0)
+
+#define ___ACTLOG_BEGIN(name,color) \
+do { \
+  ___processor_state ___ps = ___PSTATE; \
+  ___ACTLOG_BEGIN_PS(name,color); \
+} while (0)
+
+#define ___ACTLOG_BEGIN_PS(name,color) \
+do { \
+  static ___U16 ___actlog_activity_##name = ___ACTIVITY_START_STOP; \
+  ___EXT(___actlog_begin_pstate)(___ps,&___actlog_activity_##name,#name,___ACTLOG_COLOR(color)); \
+} while (0)
+
+#define ___ACTLOG_END() \
+do { \
+  ___processor_state ___ps = ___PSTATE; \
+  ___ACTLOG_END_PS(); \
+} while (0)
+
+#define ___ACTLOG_END_PS() \
+do { \
+  ___EXT(___actlog_end_pstate)(___ps); \
+} while (0)
+
+#else
+
+#define ___ACTLOG(name,color)
+
+#define ___ACTLOG_PS(name,color)
+
+#define ___ACTLOG_BEGIN(name,color)
+
+#define ___ACTLOG_BEGIN_PS(name,color)
+
+#define ___ACTLOG_END()
+
+#define ___ACTLOG_END_PS()
+
+#endif
+
+

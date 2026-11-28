@@ -1,0 +1,263 @@
+/*---------------------------------------------------------------------------*/
+
+/*
+ * IMPORTANT NOTE
+ *
+ * As a general principle, the macros are written in such a way that all
+ * macros which expand into C expressions yield PRIMARY C expressions.
+ * Also, macros assume that arguments are PRIMARY expressions.  A PRIMARY
+ * expression is either:
+ *
+ *   an identifier, or
+ *   a non-negative constant, or
+ *   a parenthesized expression.
+ *
+ * This convention avoids many operator priority problems and helps keep
+ * the number of parentheses down.  On the other hand, it is easy to
+ * introduce errors when modifying these macros so be careful.
+ */
+
+/*---------------------------------------------------------------------------*/
+
+/*
+ * The "___CAST" macro is useful to easily locate type casts in the
+ * source code.  Unfortunately there are still places in the sources
+ * that don't use this macro.
+ */
+
+#define ___CAST(type,val)((type)(val))
+
+#define ___FETCH_WORD(base,i)*(___CAST(___WORD*,base)+(i))
+#define ___STORE_WORD(base,i,val)*(___CAST(___WORD*,base)+(i)) = (val)
+
+/*
+ * Macros to access ___S64 and ___U64 data types.  Note that ___S64
+ * and ___U64 are either defined as a macro or as a typedef.
+ */
+
+#define ___FETCH_S64(base,i)*(___CAST(___S64*,base)+(i))
+#define ___STORE_S64(base,i,val)*(___CAST(___S64*,base)+(i)) = (val)
+#define ___FETCH_U64(base,i)*(___CAST(___U64*,base)+(i))
+#define ___STORE_U64(base,i,val)*(___CAST(___U64*,base)+(i)) = (val)
+#define ___CAST_S64(x)___CAST(___S64,x)
+#define ___CAST_U64(x)___CAST(___U64,x)
+
+/*
+ * Macros to access ___S32 and ___U32 data types.
+ */
+
+#ifdef ___S32
+
+#define ___FETCH_S32(base,i)*(___CAST(___S32*,base)+(i))
+#define ___STORE_S32(base,i,val)*(___CAST(___S32*,base)+(i)) = (val)
+#define ___FETCH_U32(base,i)*(___CAST(___U32*,base)+(i))
+#define ___STORE_U32(base,i,val)*(___CAST(___U32*,base)+(i)) = (val)
+#define ___CAST_S32(x)___CAST(___S32,x)
+#define ___CAST_U32(x)___CAST(___U32,x)
+
+#else
+
+#define ___FETCH_S32(base,i)___CAST_S32(___FETCH_U32(base,i))
+#define ___STORE_S32(base,i,val)___STORE_U32(base,i,___CAST_U32(val))
+
+#ifdef ___BIG_ENDIAN
+#define ___FETCH_U32(base,i)(((i)&1) \
+? (*(___CAST(___U64*,base)+((i)>>1))&0xffffffff) \
+: ((*(___CAST(___U64*,base)+((i)>>1)))>>32))
+#define ___STORE_U32(base,i,val)*(___CAST(___U64*,base)+((i)>>1)) = ((i)&1) \
+? (*(___CAST(___U64*,base)+((i)>>1))&___CAST_U64(0xffffffff<<32))|(val) \
+: (*(___CAST(___U64*,base)+((i)>>1))&0xffffffff)|___CAST_U64((val)<<32)
+#else
+#define ___FETCH_U32(base,i)(((i)&1) \
+? ((*(___CAST(___U64*,base)+((i)>>1)))>>32) \
+: (*(___CAST(___U64*,base)+((i)>>1))&0xffffffff))
+#define ___STORE_U32(base,i,val)*(___CAST(___U64*,base)+((i)>>1)) = ((i)&1) \
+? (*(___CAST(___U64*,base)+((i)>>1))&0xffffffff)|___CAST_U64((val)<<32) \
+: (*(___CAST(___U64*,base)+((i)>>1))&___CAST_U64(0xffffffff<<32))|(val)
+#endif
+
+#define ___CAST_S32(x)(___CAST_S64((x)<<32)>>32)
+#define ___CAST_U32(x)___CAST_U64((x)&0xffffffff)
+
+#endif
+
+/*
+ * Macros to access ___S16 and ___U16 data types.
+ */
+
+#ifdef ___S16
+
+#define ___FETCH_S16(base,i)*(___CAST(___S16*,base)+(i))
+#define ___STORE_S16(base,i,val)*(___CAST(___S16*,base)+(i)) = (val)
+#define ___FETCH_U16(base,i)*(___CAST(___U16*,base)+(i))
+#define ___STORE_U16(base,i,val)*(___CAST(___U16*,base)+(i)) = (val)
+#define ___CAST_S16(x)___CAST(___S16,x)
+#define ___CAST_U16(x)___CAST(___U16,x)
+
+#else
+
+#define ___FETCH_S16(base,i)___CAST_S16(___FETCH_U16(base,i))
+#define ___STORE_S16(base,i,val)___STORE_U16(base,i,___CAST_U16(val))
+
+#ifdef ___S32
+
+#ifdef ___BIG_ENDIAN
+#define ___FETCH_U16(base,i)(((i)&1) \
+? (*(___CAST(___U32*,base)+((i)>>1))&0xffff) \
+: ((*(___CAST(___U32*,base)+((i)>>1)))>>16))
+#define ___STORE_U16(base,i,val)*(___CAST(___U32*,base)+((i)>>1)) = ((i)&1) \
+? (*(___CAST(___U32*,base)+((i)>>1))&___CAST_U32(0xffff<<16))|(val) \
+: (*(___CAST(___U32*,base)+((i)>>1))&0xffff)|___CAST_U32((val)<<16)
+#else
+#define ___FETCH_U16(base,i)(((i)&1) \
+? ((*(___CAST(___U32*,base)+((i)>>1)))>>16) \
+: (*(___CAST(___U32*,base)+((i)>>1))&0xffff))
+#define ___STORE_U16(base,i,val)*(___CAST(___U32*,base)+((i)>>1)) = ((i)&1) \
+? (*(___CAST(___U32*,base)+((i)>>1))&0xffff)|___CAST_U32((val)<<16) \
+: (*(___CAST(___U32*,base)+((i)>>1))&(0xffff<<16))|(___U32)(val)
+#endif
+
+#define ___CAST_S16(x)(___CAST_S32((x)<<16)>>16)
+#define ___CAST_U16(x)___CAST_U32((x)&0xffff)
+
+#else
+
+#ifdef ___BIG_ENDIAN
+#define ___FETCH_S16(base,i)(((i)&1) \
+? ((*(___CAST(___S64*,base)+((i)>>1)))>>16) \
+: ((*(___CAST(___S64*,base)+((i)>>1))<<16)>>16))
+#define ___FETCH_U16(base,i) \
+((*(___CAST(___U64*,base)+((i)>>2))>>((~(i)&3)<<4))&0xffff)
+#define ___STORE_U16(base,i,val)*(___CAST(___U64*,base)+((i)>>2)) = \
+(*(___CAST(___U64*,base)+((i)>>2))&~___CAST_U64(0xffff<<((~(i)&3)<<4))) | \
+___CAST_U64((val)<<((~(i)&3)<<4))
+#else
+#define ___FETCH_U16(base,i) \
+((*(___CAST(___U64*,base)+((i)>>2))>>(((i)&3)<<4))&0xffff)
+#define ___STORE_U16(base,i,val)*(___CAST(___U64*,base)+((i)>>2)) = \
+(*(___CAST(___U64*,base)+((i)>>2))&~___CAST_U64(0xffff<<(((i)&3)<<4))) | \
+___CAST_U64((val)<<(((i)&3)<<4))
+#endif
+
+#define ___CAST_S16(x)(___CAST_S64((x)<<48)>>48)
+#define ___CAST_U16(x)___CAST_U64((x)&0xffff)
+
+#endif
+
+#endif
+
+/*
+ * Macros to access ___S8 and ___U8 data types.
+ */
+
+#ifdef ___S8
+
+#define ___FETCH_S8(base,i)*(___CAST(___S8*,base)+(i))
+#define ___FETCH_U8(base,i)*(___CAST(___U8*,base)+(i))
+#define ___STORE_S8(base,i,val)*(___CAST(___S8*,base)+(i)) = (val)
+#define ___STORE_U8(base,i,val)*(___CAST(___U8*,base)+(i)) = (val)
+#define ___CAST_S8(x)(___S8)(x)
+#define ___CAST_U8(x)(___U8)(x)
+
+#else
+
+#define ___FETCH_S8(base,i)___CAST_S8(___FETCH_U8(base,i))
+#define ___STORE_S8(base,i,val)___STORE_U8(base,i,___CAST_U8(val))
+
+#ifdef ___S32
+
+#ifdef ___BIG_ENDIAN
+#define ___FETCH_U8(base,i) \
+((*(___CAST(___U32*,base)+((i)>>2))>>((~(i)&3)<<3))&0xff)
+#define ___STORE_U8(base,i,val)*(___CAST(___U32*,base)+((i)>>2)) = \
+(*(___CAST(___U32*,base)+((i)>>2))&~___CAST_U32(0xff<<((~(i)&3)<<3))) | \
+___CAST_U32((val)<<((~(i)&3)<<3))
+#else
+#define ___FETCH_U8(base,i) \
+((*(___CAST(___U32*,base)+((i)>>2))>>(((i)&3)<<3))&0xff)
+#define ___STORE_U8(base,i,val)*(___CAST(___U32*,base)+((i)>>2)) = \
+(*(___CAST(___U32*,base)+((i)>>2))&~___CAST_U32(0xff<<(((i)&3)<<3))) | \
+___CAST_U32((val)<<(((i)&3)<<3))
+#endif
+
+#define ___CAST_S8(x)(___CAST_S32((x)<<24)>>24)
+#define ___CAST_U8(x)___CAST_U32((x)&0xff)
+
+#else
+
+#ifdef ___BIG_ENDIAN
+#define ___FETCH_U8(base,i) \
+((*(___CAST(___U64*,base)+((i)>>3))>>((~(i)&7)<<3))&0xff)
+#define ___STORE_U8(base,i,val)*(___CAST(___U64*,base)+((i)>>3)) = \
+(*(___CAST(___U64*,base)+((i)>>3))&~___CAST_U64(0xff<<((~(i)&7)<<3))) | \
+___CAST_U64((val)<<((~(i)&7)<<3))
+#else
+#define ___FETCH_U8(base,i) \
+((*(___CAST(___U64*,base)+((i)>>3))>>(((i)&7)<<3))&0xff)
+#define ___STORE_U8(base,i,val)*(___CAST(___U64*,base)+((i)>>3)) = \
+(*(___CAST(___U64*,base)+((i)>>3))&~___CAST_U64(0xff<<(((i)&7)<<3))) | \
+___CAST_U64((val)<<(((i)&7)<<3))
+#endif
+
+#define ___CAST_S8(x)(___CAST_S64((x)<<56)>>56)
+#define ___CAST_U8(x)___CAST_U64((x)&0xff)
+
+#endif
+
+#endif
+
+/*
+ * Macros to access ___F32 and ___F64 data types.
+ */
+
+#ifdef ___F32
+#define ___FETCH_F32(base,i)*(___CAST(___F32*,base)+(i))
+#define ___STORE_F32(base,i,val)*(___CAST(___F32*,base)+(i)) = (val)
+#define ___CAST_F32(x)___CAST(___F32,x)
+#endif
+
+#define ___FETCH_F64(base,i)*(___CAST(___F64*,base)+(i))
+#define ___STORE_F64(base,i,val)*(___CAST(___F64*,base)+(i)) = (val)
+#define ___CAST_F64(x)___CAST(___F64,x)
+
+#define ___ROTL32(n,shift) ((shift)==0 ? (n) : ((___CAST(___U32,n)<<(shift)) | (___CAST(___U32,n)>>(32-(shift)))))
+#define ___ROTR32(n,shift) ((shift)==0 ? (n) : ((___CAST(___U32,n)>>(shift)) | (___CAST(___U32,n)<<(32-(shift)))))
+#define ___ROTL64(n,shift) ((shift)==0 ? (n) : ((___CAST(___U64,n)<<(shift)) | (___CAST(___U64,n)>>(64-(shift)))))
+#define ___ROTR64(n,shift) ((shift)==0 ? (n) : ((___CAST(___U64,n)>>(shift)) | (___CAST(___U64,n)<<(64-(shift)))))
+
+typedef union ___F32_U32_union { ___F32 f32; ___U32 u32; } ___F32_U32;
+typedef union ___U32_F32_union { ___U32 u32; ___F32 f32; } ___U32_F32;
+typedef union ___F64_U64_union { ___F64 f64; ___U64 u64; } ___F64_U64;
+typedef union ___U64_F64_union { ___U64 u64; ___F64 f64; } ___U64_F64;
+
+#ifdef __cplusplus
+
+#define ___F32_TO_U32(x)___F32_U32{x}.u32
+#define ___F32_FROM_U32(x)___U32_F32{x}.f32
+#define ___F64_TO_U64(x)___F64_U64{x}.u64
+#define ___F64_FROM_U64(x)___U64_F64{x}.f64
+
+#else
+
+#ifdef _MSC_VER
+
+static inline ___U32 ___F32_TO_U32_fn(___F32 x) { return *___CAST(___U32*,&x); }
+static inline ___F32 ___F32_FROM_U32_fn(___U32 x) { return *___CAST(___F32*,&x); }
+static inline ___U64 ___F64_TO_U64_fn(___F64 x) { return *___CAST(___U64*,&x); }
+static inline ___F64 ___F64_FROM_U64_fn(___U64 x) { return *___CAST(___F64*,&x); }
+
+#define ___F32_TO_U32(x)___F32_TO_U32_fn(x)
+#define ___F32_FROM_U32(x)___F32_FROM_U32_fn(x)
+#define ___F64_TO_U64(x)___F64_TO_U64_fn(x)
+#define ___F64_FROM_U64(x)___F64_FROM_U64_fn(x)
+
+#else
+
+#define ___F32_TO_U32(x)___CAST(___F32_U32,x).u32
+#define ___F32_FROM_U32(x)___CAST(___U32_F32,x).f32
+#define ___F64_TO_U64(x)___CAST(___F64_U64,x).u64
+#define ___F64_FROM_U64(x)___CAST(___U64_F64,x).f64
+
+#endif
+#endif
+

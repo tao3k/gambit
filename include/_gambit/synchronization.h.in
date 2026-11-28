@@ -1,0 +1,8 @@
+/* For implementation of on_all_processors */
+
+typedef struct ___sync_op_struct
+  {
+    unsigned char op; /* sender-private until release publication */
+    ___WORD arg[2]; /* receiver owns a private copy before acknowledgement */
+  } ___sync_op_struct;
+

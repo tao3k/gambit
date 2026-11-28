@@ -2256,15 +2256,24 @@
               (source-code (cadddr (cddr code)))))))
 
 (define (**c-declare-expr? source env)
-  (and (match **c-declare-sym 2 source env)
+  (and (match **c-declare-sym -2 source env)
        (let ((code (source-code source)))
-         (or (string? (source-code (cadr code)))
-             (pt-syntax-error
-               source
-               "Argument to 'c-declare' must be a string")))))
+         (cond ((not (string? (source-code (cadr code))))
+                (pt-syntax-error
+                 source
+                 "Argument to 'c-declare' must be a string"))
+               ((or (null? (cddr code))
+                    (and (null? (cdddr code))
+                         (eq? (source-code (caddr code)) 'procedure-host)))
+                #t)
+               (else (ill-formed-special-form source))))))
 
 (define (c-declaration-body source)
-  (cadr (source-code source)))
+  (let* ((code (source-code source))
+         (body (source-code (cadr code))))
+    (if (null? (cddr code))
+        body
+        (cons 'c-procedure-host-decl body))))
 
 (define (**c-initialize-expr? source env)
   (and (match **c-initialize-sym 2 source env)
@@ -2923,6 +2932,19 @@
               (car numbered-typs)
               (convert (cdr numbered-typs)))))))
 
+    ;; Before the first collecting conversion or marker allocation, every raw
+    ;; Scheme argument is registered in the owning root domain. Converted
+    ;; non-Scheme arguments retain the existing still-object conversion holds.
+    (define (root-arguments)
+      (apply string-append
+        (map (lambda (numbered-typ)
+               (if (scmobj-type? (car numbered-typ))
+                   (string-append c-id-prefix "SFUN_ROOT_ARG("
+                                  (number->string (cdr numbered-typ)) ","
+                                  (c-argument #f numbered-typ) ")")
+                   ""))
+             (number-from-1 param-typs))))
+
     (c-preproc-define
 
       (string-append c-id-prefix "NARGS")
@@ -2938,7 +2960,7 @@
           (if sfun?
             (string-append
              "BEGIN_SFUN_VOID("
-             sfun?
+             sfun? "," (root-arguments)
              ")")
             (string-append
              "BEGIN_CFUN_VOID("
@@ -2970,7 +2992,7 @@
                     (if sfun?
                       (string-append
                        "BEGIN_SFUN_SCMOBJ("
-                       sfun?
+                       sfun? "," (root-arguments)
                        ")")
                       (string-append
                        "BEGIN_CFUN_SCMOBJ("
@@ -2980,7 +3002,7 @@
                       (if sfun?
                         (string-append
                           "BEGIN_SFUN("
-                          sfun?
+                          sfun? "," (root-arguments)
                           ",")
                         (string-append
                           "BEGIN_CFUN("

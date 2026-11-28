@@ -6832,7 +6832,8 @@ extensible_string *completion;)
   dat.next = ___FAL;
   dat.common_length = 0;
 
-  ___for_each_symkey (___sSYMBOL, visit_symbol, ___CAST(void*,&dat));
+  if (!___for_each_symkey (___sSYMBOL, visit_symbol, ___CAST(void*,&dat)))
+    return CANNOT_COMPLETE;
 
   if (dat.next != ___FAL)
     {

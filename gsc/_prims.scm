@@ -1709,6 +1709,7 @@
 
 ("##thread-save!"                     1     #t ()    1113 (#f)    extended)
 ("##thread-restore!"                  2     #t ()    2203 #f      extended)
+("##thread-park!"                     2     #t ()    2213 #f      extended)
 
 ("##primitive-lock!"                  (3)   #t ()    0    #f      extended)
 ("##primitive-trylock!"               (3)   #t ()    0    #f      extended)
@@ -5588,9 +5589,28 @@
                   (and type-check?
                        (gen-index-check source env arg1 arg2)))
                  (value-check
-                  (and value-checker
-                       (not (eq? kind 'ref))
-                       (value-checker source env (caddr vars))))
+                  (if (and type-check? (eq? kind 'inc!))
+                      ;; A general vector accepts arbitrary stored values,
+                      ;; but increment requires both the delta and old element
+                      ;; to be fixnums. Evaluate the element check only after
+                      ;; the vector/mutability/index conjunction has succeeded.
+                      (let ((element-check
+                             (gen-call-prim-notsafe source env
+                               **fixnum?-sym
+                               (list
+                                (gen-call-prim-vars-notsafe source env
+                                  **vect-ref-sym
+                                  (list arg1 arg2))))))
+                        (if (pair? (cddr vars))
+                            (new-conj source env
+                              (gen-call-prim-vars-notsafe source env
+                                **fixnum?-sym
+                                (list (caddr vars)))
+                              element-check)
+                            element-check))
+                      (and value-checker
+                           (not (eq? kind 'ref))
+                           (value-checker source env (caddr vars)))))
                  (index-value-check
                   (if (and index-check value-check)
                       (new-conj source env
@@ -6204,6 +6224,161 @@
 
   (define **symbol->string?-sym (string->canonical-symbol "##symbol->string?"))
   (define **symbol?-sym (string->canonical-symbol "##symbol?"))
+  (define **procedure?-sym (string->canonical-symbol "##procedure?"))
+  (define **values?-sym (string->canonical-symbol "##values?"))
+  (define **values-length-sym (string->canonical-symbol "##values-length"))
+  (define **values-ref-sym (string->canonical-symbol "##values-ref"))
+  (define **call-with-values-sym (string->canonical-symbol "##call-with-values"))
+  (define **fx=-sym (string->canonical-symbol "##fx="))
+
+  (define (make-call-with-values-expander unsafe?)
+    (lambda (ptree oper args generate-call check-run-time-binding)
+      (if (not (= (length args) 2))
+          #f
+          (let* ((p-arg (car args))
+                 (c-arg (cadr args))
+                 (p-zero?
+                  (and (prc? p-arg)
+                       (prc-req-and-opt-parms-only? p-arg)
+                       (null? (prc-opts p-arg))
+                       (null? (prc-parms p-arg))))
+                 (fixed-k
+                  (and (prc? c-arg)
+                       (prc-req-and-opt-parms-only? c-arg)
+                       (null? (prc-opts c-arg))
+                       (let ((n (length (prc-parms c-arg))))
+                         (and (<= n 3) n)))))
+            (if (not fixed-k)
+                #f
+                (let* ((source (node-source ptree))
+                       (env (node-env ptree))
+                       (vars (gen-temp-vars source args))
+                       (p-var (car vars))
+                       (c-var (cadr vars))
+                       (r-var (new-temp-variable source 'results))
+                       (known-proc?
+                        (lambda (arg)
+                          (or (prc? arg)
+                              (and (cst? arg) (proc-obj? (cst-val arg)))))))
+
+                  ;; Wrap c-var in a cold eta-closure so c-var itself only ever
+                  ;; appears in direct-call operator position (allowing Gambit's
+                  ;; lambda-lifter to eliminate consumer closure allocation on
+                  ;; the hot path with zero code duplication).
+                  (define (gen-c-eta)
+                    (let ((cvars (let loop ((i 0) (acc '()))
+                                   (if (= i fixed-k)
+                                       (reverse acc)
+                                       (loop (+ i 1)
+                                             (cons (new-temp-variable source 'v) acc))))))
+                      (gen-prc source env
+                        cvars
+                        (new-call source env
+                          (new-ref source env c-var)
+                          (map (lambda (v) (new-ref source env v)) cvars)))))
+
+                  (define (gen-p-eta)
+                    (if p-zero?
+                        (gen-prc source env
+                          '()
+                          (new-call source env (new-ref source env p-var) '()))
+                        (new-ref source env p-var)))
+
+                  (define (gen-fallback)
+                    ;; Bind eta-wrapper to a temp ref so epc sees ref? (not prc?)
+                    ;; and stops expanding while keeping c-var strictly in call position.
+                    (let ((f-var (new-temp-variable source 'cwv-f)))
+                      (new-call source env
+                        (gen-prc source env
+                          (list f-var)
+                          (gen-call-prim-notsafe source env **call-with-values-sym
+                            (list (gen-prc source env '() (new-ref source env r-var))
+                                  (new-ref source env f-var))))
+                        (list (gen-c-eta)))))
+
+                  (define (gen-rtb-fallback)
+                    (new-call source env
+                      (new-ref (node-source oper)
+                               (remove-std-ext-rt-bindings (node-env oper))
+                               (ref-var oper))
+                      (list (gen-p-eta) (gen-c-eta))))
+
+                  (define (gen-vref i)
+                    (gen-call-prim-notsafe source env **values-ref-sym
+                      (list (new-ref source env r-var)
+                            (new-cst source env i))))
+
+                  (define (gen-dispatch)
+                    (new-call source env
+                      (gen-prc source env
+                        (list r-var)
+                        (cond
+                          ((= fixed-k 1)
+                           (new-tst source env
+                             (gen-call-prim-vars-notsafe source env **values?-sym (list r-var))
+                             (gen-fallback)
+                             (new-call source env
+                               (new-ref source env c-var)
+                               (list (new-ref source env r-var)))))
+                          ((= fixed-k 2)
+                           (new-tst source env
+                             (new-conj source env
+                               (gen-call-prim-vars-notsafe source env **values?-sym (list r-var))
+                               (gen-call-prim-notsafe source env **fx=-sym
+                                 (list (gen-call-prim-vars-notsafe source env **values-length-sym (list r-var))
+                                       (new-cst source env 2))))
+                             (new-call source env
+                               (new-ref source env c-var)
+                               (list (gen-vref 0) (gen-vref 1)))
+                             (gen-fallback)))
+                          ((= fixed-k 3)
+                           (new-tst source env
+                             (new-conj source env
+                               (gen-call-prim-vars-notsafe source env **values?-sym (list r-var))
+                               (gen-call-prim-notsafe source env **fx=-sym
+                                 (list (gen-call-prim-vars-notsafe source env **values-length-sym (list r-var))
+                                       (new-cst source env 3))))
+                             (new-call source env
+                               (new-ref source env c-var)
+                               (list (gen-vref 0) (gen-vref 1) (gen-vref 2)))
+                             (gen-fallback)))
+                          (else ;; fixed-k == 0
+                           (new-tst source env
+                             (new-conj source env
+                               (gen-call-prim-vars-notsafe source env **values?-sym (list r-var))
+                               (gen-call-prim-notsafe source env **fx=-sym
+                                 (list (gen-call-prim-vars-notsafe source env **values-length-sym (list r-var))
+                                       (new-cst source env 0))))
+                             (new-call source env (new-ref source env c-var) '())
+                             (gen-fallback)))))
+                      (list (new-call source env (new-ref source env p-var) '()))))
+
+                  (let* ((need-check? (and (not unsafe?) (safe? env)))
+                         (check-p (and need-check?
+                                       (not (known-proc? p-arg))
+                                       (gen-call-prim-vars-notsafe source env **procedure?-sym (list p-var))))
+                         (check-c (and need-check?
+                                       (not (known-proc? c-arg))
+                                       (gen-call-prim-vars-notsafe source env **procedure?-sym (list c-var))))
+                         (check-proc (cond ((and check-p check-c) (new-conj source env check-p check-c))
+                                           (check-p check-p)
+                                           (else check-c))))
+                    (gen-prc source env
+                      vars
+                      (if (or check-run-time-binding check-proc)
+                          (new-tst source env
+                            (cond ((and check-run-time-binding check-proc)
+                                   (new-conj source env (check-run-time-binding) check-proc))
+                                  (check-run-time-binding (check-run-time-binding))
+                                  (else check-proc))
+                            (gen-dispatch)
+                            (if (and check-run-time-binding (ref? oper))
+                                (gen-rtb-fallback)
+                                (generate-call vars (not check-run-time-binding))))
+                          (gen-dispatch))))))))))
+
+  (def-exp "##call-with-values" (make-call-with-values-expander #t))
+  (def-exp "call-with-values"   (make-call-with-values-expander #f))
 
   (def-exp "##symbol->string"
            (make-simple-expander

@@ -1,0 +1,259 @@
+/*---------------------------------------------------------------------------*/
+
+/*
+ * ___ERR_CODE is a type which represents the union of error codes
+ * from various subsystems.  Currently 6 types of error codes are
+ * supported: Windows HRESULT, MACOS errors, ANSI-C errno, netdb
+ * h_errno, getaddrinfo error codes, and system specific error codes.
+ * A Windows HRESULT error code is a 32 bit signed integer value
+ * composed of (starting with the low bits) a 16 bit status code, a 11
+ * bit facility code, a 4 bit reserved facility code and a 1 bit
+ * severity code (negative means error).  It seems that only the 4
+ * lower bits of the facility code are really used, the remaining 7
+ * bits are zero.  This allows us to compact this 32 bit integer value
+ * to a 30 bit integer value (which fits in a fixnum) by dropping the
+ * top 2 bits of the facility code.  Of the 512 possible facility
+ * codes, the codes 448 to 511 are assigned to Gambit specific error
+ * codes, the codes 384 to 447 are assigned to MACOS errors, the codes
+ * 320 to 382 are assigned to ANSI-C errno error codes, the code 319
+ * is assigned to netdb h_errno error codes, and the code 318 is
+ * assigned to getaddrinfo error codes.  The ``no error'' error code
+ * of each subsystem is always mapped to ___NO_ERR which is equal to
+ * 0, all other error codes are thus negative values.
+ */
+
+#define ___ERR_CODE int
+
+#define ___ERR_CODE_FACILITY_SYSTEM   448
+#define ___ERR_CODE_FACILITY_MACOS    384
+#define ___ERR_CODE_FACILITY_ERRNO    320
+#define ___ERR_CODE_FACILITY_H_ERRNO  319
+#define ___ERR_CODE_FACILITY_GAI_CODE 318
+#define ___ERR_CODE_FACILITY_TLS      317
+
+#define ___ERR_CODE_BUILD(facility,code) \
+(~___MASK(___ERR_CODE,29)+(___CAST(___ERR_CODE,facility)<<16)+(code))
+
+#define ___ERR_CODE_FACILITY(err)(((err)>>16)&___MASK(___ERR_CODE,9))
+
+#define ___HRESULT_ERR(hresult) \
+(((hresult)&___MASK(___ERR_CODE,25)) | \
+(((hresult)&~___MASK(___ERR_CODE,27))>>2))
+
+#define ___HRESULT_FROM_ERR_CODE(err) \
+(((err)&___MASK(___ERR_CODE,25)) | \
+(((err)&~___MASK(unsigned ___ERR_CODE,25))<<2))
+
+#define ___WIN32_ERR(win32err) \
+___HRESULT_ERR(HRESULT_FROM_WIN32(win32err))
+
+#define ___WIN32_FROM_ERR_CODE(err) \
+HRESULT_CODE(___HRESULT_FROM_ERR_CODE(err))
+
+#define ___MACOS_ERR(oserr) \
+((oserr)==0?___NO_ERR:___ERR_CODE_BUILD(___ERR_CODE_FACILITY_MACOS,oserr))
+
+#define ___MACOS_FROM_ERR_CODE(err) \
+((err)==___NO_ERR?0:((err)-___ERR_CODE_BUILD(___ERR_CODE_FACILITY_MACOS,0)))
+
+#define ___ERRNO_ERR(errno) \
+((errno)==0?___NO_ERR:___ERR_CODE_BUILD(___ERR_CODE_FACILITY_ERRNO,errno))
+
+#define ___ERRNO_FROM_ERR_CODE(err) \
+((err)==___NO_ERR?0:((err)-___ERR_CODE_BUILD(___ERR_CODE_FACILITY_ERRNO,0)))
+
+#define ___H_ERRNO_ERR(h_errno) \
+((h_errno)==0?___NO_ERR:___ERR_CODE_BUILD(___ERR_CODE_FACILITY_H_ERRNO,(h_errno)))
+
+#define ___H_ERRNO_FROM_ERR_CODE(err) \
+((err)==___NO_ERR?0:((err)-___ERR_CODE_BUILD(___ERR_CODE_FACILITY_H_ERRNO,0)))
+
+#define ___GAI_CODE_ERR(gai_code) \
+((gai_code)==0?___NO_ERR:___ERR_CODE_BUILD(___ERR_CODE_FACILITY_GAI_CODE,(gai_code)))
+
+#define ___GAI_CODE_FROM_ERR_CODE(err) \
+((err)==___NO_ERR?0:((err)-___ERR_CODE_BUILD(___ERR_CODE_FACILITY_GAI_CODE,0)))
+
+#define ___ERR_BASE ___ERR_CODE_BUILD(___ERR_CODE_FACILITY_SYSTEM,0)
+
+#define ___NO_ERR                               0
+#define ___UNWIND_C_STACK                       (___ERR_BASE+0)
+#define ___SFUN_HEAP_OVERFLOW_ERR               (___ERR_BASE+1)
+#define ___IMPL_LIMIT_ERR                       (___ERR_BASE+2)
+#define ___UNKNOWN_ERR                          (___ERR_BASE+3)
+#define ___UNIMPL_ERR                           (___ERR_BASE+4)
+#define ___HEAP_OVERFLOW_ERR                    (___ERR_BASE+5)
+#define ___CLOSED_DEVICE_ERR                    (___ERR_BASE+6)
+#define ___INVALID_OP_ERR                       (___ERR_BASE+7)
+#define ___MODULE_VERSION_TOO_OLD_ERR           (___ERR_BASE+8)
+#define ___MODULE_VERSION_TOO_NEW_ERR           (___ERR_BASE+9)
+#define ___MODULE_INCOMPATIBILITY_ERR           (___ERR_BASE+10)
+#define ___MODULE_ALREADY_LOADED_ERR            (___ERR_BASE+11)
+#define ___DYNAMIC_LOADING_NOT_AVAILABLE_ERR    (___ERR_BASE+12)
+#define ___DYNAMIC_LOADING_LOOKUP_ERR           (___ERR_BASE+13)
+#define ___KILL_PUMP                            (___ERR_BASE+14)
+#define ___SELECT_SETUP_DONE                    (___ERR_BASE+15)
+#define ___STOC_BASE ___STOC_S8_ERR
+#define ___STOC_S8_ERR                          (___ERR_BASE+(1<<7))
+#define ___STOC_U8_ERR                          (___ERR_BASE+(2<<7))
+#define ___STOC_S16_ERR                         (___ERR_BASE+(3<<7))
+#define ___STOC_U16_ERR                         (___ERR_BASE+(4<<7))
+#define ___STOC_S32_ERR                         (___ERR_BASE+(5<<7))
+#define ___STOC_U32_ERR                         (___ERR_BASE+(6<<7))
+#define ___STOC_S64_ERR                         (___ERR_BASE+(7<<7))
+#define ___STOC_U64_ERR                         (___ERR_BASE+(8<<7))
+#define ___STOC_F32_ERR                         (___ERR_BASE+(9<<7))
+#define ___STOC_F64_ERR                         (___ERR_BASE+(10<<7))
+#define ___STOC_CHAR_ERR                        (___ERR_BASE+(11<<7))
+#define ___STOC_SCHAR_ERR                       (___ERR_BASE+(12<<7))
+#define ___STOC_UCHAR_ERR                       (___ERR_BASE+(13<<7))
+#define ___STOC_ISO_8859_1_ERR                  (___ERR_BASE+(14<<7))
+#define ___STOC_UCS_2_ERR                       (___ERR_BASE+(15<<7))
+#define ___STOC_UCS_4_ERR                       (___ERR_BASE+(16<<7))
+#define ___STOC_WCHAR_ERR                       (___ERR_BASE+(17<<7))
+#define ___STOC_SIZE_T_ERR                      (___ERR_BASE+(18<<7))
+#define ___STOC_SSIZE_T_ERR                     (___ERR_BASE+(19<<7))
+#define ___STOC_PTRDIFF_T_ERR                   (___ERR_BASE+(20<<7))
+#define ___STOC_SHORT_ERR                       (___ERR_BASE+(21<<7))
+#define ___STOC_USHORT_ERR                      (___ERR_BASE+(22<<7))
+#define ___STOC_INT_ERR                         (___ERR_BASE+(23<<7))
+#define ___STOC_UINT_ERR                        (___ERR_BASE+(24<<7))
+#define ___STOC_LONG_ERR                        (___ERR_BASE+(25<<7))
+#define ___STOC_ULONG_ERR                       (___ERR_BASE+(26<<7))
+#define ___STOC_LONGLONG_ERR                    (___ERR_BASE+(27<<7))
+#define ___STOC_ULONGLONG_ERR                   (___ERR_BASE+(28<<7))
+#define ___STOC_FLOAT_ERR                       (___ERR_BASE+(29<<7))
+#define ___STOC_DOUBLE_ERR                      (___ERR_BASE+(30<<7))
+#define ___STOC_STRUCT_ERR                      (___ERR_BASE+(31<<7))
+#define ___STOC_UNION_ERR                       (___ERR_BASE+(32<<7))
+#define ___STOC_TYPE_ERR                        (___ERR_BASE+(33<<7))
+#define ___STOC_POINTER_ERR                     (___ERR_BASE+(34<<7))
+#define ___STOC_NONNULLPOINTER_ERR              (___ERR_BASE+(35<<7))
+#define ___STOC_FUNCTION_ERR                    (___ERR_BASE+(36<<7))
+#define ___STOC_NONNULLFUNCTION_ERR             (___ERR_BASE+(37<<7))
+#define ___STOC_BOOL_ERR                        (___ERR_BASE+(38<<7))
+#define ___STOC_CHARSTRING_ERR                  (___ERR_BASE+(39<<7))
+#define ___STOC_NONNULLCHARSTRING_ERR           (___ERR_BASE+(40<<7))
+#define ___STOC_NONNULLCHARSTRINGLIST_ERR       (___ERR_BASE+(41<<7))
+#define ___STOC_ISO_8859_1STRING_ERR            (___ERR_BASE+(42<<7))
+#define ___STOC_NONNULLISO_8859_1STRING_ERR     (___ERR_BASE+(43<<7))
+#define ___STOC_NONNULLISO_8859_1STRINGLIST_ERR (___ERR_BASE+(44<<7))
+#define ___STOC_UTF_8STRING_ERR                 (___ERR_BASE+(45<<7))
+#define ___STOC_NONNULLUTF_8STRING_ERR          (___ERR_BASE+(46<<7))
+#define ___STOC_NONNULLUTF_8STRINGLIST_ERR      (___ERR_BASE+(47<<7))
+#define ___STOC_UTF_16STRING_ERR                (___ERR_BASE+(48<<7))
+#define ___STOC_NONNULLUTF_16STRING_ERR         (___ERR_BASE+(49<<7))
+#define ___STOC_NONNULLUTF_16STRINGLIST_ERR     (___ERR_BASE+(50<<7))
+#define ___STOC_UCS_2STRING_ERR                 (___ERR_BASE+(51<<7))
+#define ___STOC_NONNULLUCS_2STRING_ERR          (___ERR_BASE+(52<<7))
+#define ___STOC_NONNULLUCS_2STRINGLIST_ERR      (___ERR_BASE+(53<<7))
+#define ___STOC_UCS_4STRING_ERR                 (___ERR_BASE+(54<<7))
+#define ___STOC_NONNULLUCS_4STRING_ERR          (___ERR_BASE+(55<<7))
+#define ___STOC_NONNULLUCS_4STRINGLIST_ERR      (___ERR_BASE+(56<<7))
+#define ___STOC_WCHARSTRING_ERR                 (___ERR_BASE+(57<<7))
+#define ___STOC_NONNULLWCHARSTRING_ERR          (___ERR_BASE+(58<<7))
+#define ___STOC_NONNULLWCHARSTRINGLIST_ERR      (___ERR_BASE+(59<<7))
+#define ___STOC_VARIANT_ERR                     (___ERR_BASE+(60<<7))
+#define ___STOC_HEAP_OVERFLOW_ERR               (___ERR_BASE+(61<<7))
+#define ___STOC_MAX                             (___ERR_BASE+(62<<7)-1)
+#define ___CTOS_BASE ___CTOS_S8_ERR
+#define ___CTOS_S8_ERR                          (___ERR_BASE+(65<<7))
+#define ___CTOS_U8_ERR                          (___ERR_BASE+(66<<7))
+#define ___CTOS_S16_ERR                         (___ERR_BASE+(67<<7))
+#define ___CTOS_U16_ERR                         (___ERR_BASE+(68<<7))
+#define ___CTOS_S32_ERR                         (___ERR_BASE+(69<<7))
+#define ___CTOS_U32_ERR                         (___ERR_BASE+(70<<7))
+#define ___CTOS_S64_ERR                         (___ERR_BASE+(71<<7))
+#define ___CTOS_U64_ERR                         (___ERR_BASE+(72<<7))
+#define ___CTOS_F32_ERR                         (___ERR_BASE+(73<<7))
+#define ___CTOS_F64_ERR                         (___ERR_BASE+(74<<7))
+#define ___CTOS_CHAR_ERR                        (___ERR_BASE+(75<<7))
+#define ___CTOS_SCHAR_ERR                       (___ERR_BASE+(76<<7))
+#define ___CTOS_UCHAR_ERR                       (___ERR_BASE+(77<<7))
+#define ___CTOS_ISO_8859_1_ERR                  (___ERR_BASE+(78<<7))
+#define ___CTOS_UCS_2_ERR                       (___ERR_BASE+(79<<7))
+#define ___CTOS_UCS_4_ERR                       (___ERR_BASE+(80<<7))
+#define ___CTOS_WCHAR_ERR                       (___ERR_BASE+(81<<7))
+#define ___CTOS_SIZE_T_ERR                      (___ERR_BASE+(82<<7))
+#define ___CTOS_SSIZE_T_ERR                     (___ERR_BASE+(83<<7))
+#define ___CTOS_PTRDIFF_T_ERR                   (___ERR_BASE+(84<<7))
+#define ___CTOS_SHORT_ERR                       (___ERR_BASE+(85<<7))
+#define ___CTOS_USHORT_ERR                      (___ERR_BASE+(86<<7))
+#define ___CTOS_INT_ERR                         (___ERR_BASE+(87<<7))
+#define ___CTOS_UINT_ERR                        (___ERR_BASE+(88<<7))
+#define ___CTOS_LONG_ERR                        (___ERR_BASE+(89<<7))
+#define ___CTOS_ULONG_ERR                       (___ERR_BASE+(90<<7))
+#define ___CTOS_LONGLONG_ERR                    (___ERR_BASE+(91<<7))
+#define ___CTOS_ULONGLONG_ERR                   (___ERR_BASE+(92<<7))
+#define ___CTOS_FLOAT_ERR                       (___ERR_BASE+(93<<7))
+#define ___CTOS_DOUBLE_ERR                      (___ERR_BASE+(94<<7))
+#define ___CTOS_STRUCT_ERR                      (___ERR_BASE+(95<<7))
+#define ___CTOS_UNION_ERR                       (___ERR_BASE+(96<<7))
+#define ___CTOS_TYPE_ERR                        (___ERR_BASE+(97<<7))
+#define ___CTOS_POINTER_ERR                     (___ERR_BASE+(98<<7))
+#define ___CTOS_NONNULLPOINTER_ERR              (___ERR_BASE+(99<<7))
+#define ___CTOS_FUNCTION_ERR                    (___ERR_BASE+(100<<7))
+#define ___CTOS_NONNULLFUNCTION_ERR             (___ERR_BASE+(101<<7))
+#define ___CTOS_BOOL_ERR                        (___ERR_BASE+(102<<7))
+#define ___CTOS_CHARSTRING_ERR                  (___ERR_BASE+(103<<7))
+#define ___CTOS_NONNULLCHARSTRING_ERR           (___ERR_BASE+(104<<7))
+#define ___CTOS_NONNULLCHARSTRINGLIST_ERR       (___ERR_BASE+(105<<7))
+#define ___CTOS_ISO_8859_1STRING_ERR            (___ERR_BASE+(106<<7))
+#define ___CTOS_NONNULLISO_8859_1STRING_ERR     (___ERR_BASE+(107<<7))
+#define ___CTOS_NONNULLISO_8859_1STRINGLIST_ERR (___ERR_BASE+(108<<7))
+#define ___CTOS_UTF_8STRING_ERR                 (___ERR_BASE+(109<<7))
+#define ___CTOS_NONNULLUTF_8STRING_ERR          (___ERR_BASE+(110<<7))
+#define ___CTOS_NONNULLUTF_8STRINGLIST_ERR      (___ERR_BASE+(111<<7))
+#define ___CTOS_UTF_16STRING_ERR                (___ERR_BASE+(112<<7))
+#define ___CTOS_NONNULLUTF_16STRING_ERR         (___ERR_BASE+(113<<7))
+#define ___CTOS_NONNULLUTF_16STRINGLIST_ERR     (___ERR_BASE+(114<<7))
+#define ___CTOS_UCS_2STRING_ERR                 (___ERR_BASE+(115<<7))
+#define ___CTOS_NONNULLUCS_2STRING_ERR          (___ERR_BASE+(116<<7))
+#define ___CTOS_NONNULLUCS_2STRINGLIST_ERR      (___ERR_BASE+(117<<7))
+#define ___CTOS_UCS_4STRING_ERR                 (___ERR_BASE+(118<<7))
+#define ___CTOS_NONNULLUCS_4STRING_ERR          (___ERR_BASE+(119<<7))
+#define ___CTOS_NONNULLUCS_4STRINGLIST_ERR      (___ERR_BASE+(120<<7))
+#define ___CTOS_WCHARSTRING_ERR                 (___ERR_BASE+(121<<7))
+#define ___CTOS_NONNULLWCHARSTRING_ERR          (___ERR_BASE+(122<<7))
+#define ___CTOS_NONNULLWCHARSTRINGLIST_ERR      (___ERR_BASE+(123<<7))
+#define ___CTOS_VARIANT_ERR                     (___ERR_BASE+(124<<7))
+#define ___CTOS_HEAP_OVERFLOW_ERR               (___ERR_BASE+(125<<7))
+#ifdef ___USE_UNWIND_C_STACK_TO_TRAMPOLINE
+#define ___UNWIND_C_STACK_TO_TRAMPOLINE         (___ERR_BASE+(126<<7))
+#define ___CTOS_MAX                             (___ERR_BASE+(127<<7)-1)
+#else
+#define ___CTOS_MAX                             (___ERR_BASE+(126<<7)-1)
+#endif
+
+#define ___RETURN_POS 127
+
+
+#define ___TLS_ERR(tls_err) \
+((tls_err)==SSL_ERROR_NONE?___NO_ERR:___ERR_CODE_BUILD(___ERR_CODE_FACILITY_TLS,tls_err))
+
+#define ___TLS_ERR_FROM_ERR_CODE(err) \
+((err)==___NO_ERR?0:((err)-___ERR_CODE_BUILD(___ERR_CODE_FACILITY_TLS,0)))
+
+#define ___TLS_ERR_BASE ___ERR_CODE_BUILD(___ERR_CODE_FACILITY_TLS,0)
+
+/* Custom high-level TLS error codes are encoded above 65000 */
+#define ___TLS_LIBRARY_VERSION_ERR              (___TLS_ERR_BASE+65000)
+#define ___TLS_LIBRARY_INIT_ERR                 (___TLS_ERR_BASE+65001)
+#define ___TLS_WRONG_TLS_VERSION_ERR            (___TLS_ERR_BASE+65002)
+#define ___TLS_ALERT_ERR                        (___TLS_ERR_BASE+65003)
+#define ___TLS_NOT_ENOUGH_ENTROPY_ERR           (___TLS_ERR_BASE+65004)
+#define ___TLS_SERVER_CONTEXT_EXPECTED_ERR      (___TLS_ERR_BASE+65005)
+#define ___TLS_UNSUPPORTED_EMPTY_FRAGS_ERR      (___TLS_ERR_BASE+65006)
+#define ___TLS_UNSUPPORTED_DH_ERR               (___TLS_ERR_BASE+65007)
+#define ___TLS_UNSUPPORTED_ELLIPTIC_CURVES_ERR  (___TLS_ERR_BASE+65008)
+#define ___TLS_DH_PARAMS_ERR                    (___TLS_ERR_BASE+65009)
+#define ___TLS_READ_DH_PARAMS_ERR               (___TLS_ERR_BASE+65010)
+#define ___TLS_ELLIPTIC_CURVE_ERR               (___TLS_ERR_BASE+65011)
+#define ___TLS_UNKNOWN_ELLIPTIC_CURVE_ERR       (___TLS_ERR_BASE+65012)
+#define ___TLS_READ_CA_FILE_ERR                 (___TLS_ERR_BASE+65013)
+#define ___TLS_CERTIFICATE_FILE_ERR             (___TLS_ERR_BASE+65014)
+#define ___TLS_PRIVATE_KEY_FILE_ERR             (___TLS_ERR_BASE+65015)
+#define ___TLS_PRIVATE_KEY_CERT_MISMATCH_ERR    (___TLS_ERR_BASE+65016)
+
+
+

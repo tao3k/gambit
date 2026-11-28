@@ -1,0 +1,50 @@
+name: Run Gambit True-Multicore PBT Suite
+description: Modular Chez/OCaml-inspired multicore PBT & scaling runner across configurable processor topologies
+inputs:
+  runtime-dir:
+    description: Path to built Gambit SMP runtime directory
+    required: false
+    default: '.'
+  topologies:
+    description: Comma-separated processor topologies (e.g. p1, p2, p4, or p2,p4)
+    required: true
+  repeats:
+    description: Repetitions per PBT module
+    required: false
+    default: '1'
+  include-scaling:
+    description: Run parallel compute/allocation scaling checks alongside PBT suite
+    required: false
+    default: 'true'
+  json-out:
+    description: Output JSON report path
+    required: false
+    default: 'multicore-report.json'
+runs:
+  using: composite
+  steps:
+    - name: Execute modular true-multicore PBT suite
+      shell: bash
+      env:
+        RUNTIME_DIR: ${{ inputs.runtime-dir }}
+        TOPOLOGIES: ${{ inputs.topologies }}
+        REPEATS: ${{ inputs.repeats }}
+        INCLUDE_SCALING: ${{ inputs.include-scaling }}
+        JSON_OUT: ${{ inputs.json-out }}
+      run: |
+        set -euo pipefail
+        if [ "${RUNNER_OS}" = "macOS" ]; then
+          export PATH="/usr/bin:/bin:/opt/homebrew/bin:${PATH}"
+        fi
+        SCALING_FLAG=""
+        if [ "${INCLUDE_SCALING}" = "true" ]; then
+          SCALING_FLAG="--include-scaling"
+        fi
+        python3 tests/smp/multicore/run-multicore-suite.py \
+          --runtime "${RUNTIME_DIR}" \
+          --repo "." \
+          --topologies "${TOPOLOGIES}" \
+          --repeats "${REPEATS}" \
+          ${SCALING_FLAG} \
+          --json-out "${JSON_OUT}" \
+          --summary-md "${GITHUB_STEP_SUMMARY}"

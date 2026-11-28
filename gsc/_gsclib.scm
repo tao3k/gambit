@@ -15,11 +15,19 @@
       (if (##cte-top? cte)
         (env-frame #f '())
         (let ((parent-cte (##cte-parent-cte cte)))
-          (if (##cte-macro? cte)
-            (env-macro (extract-macros parent-cte)
-                       (##cte-macro-name cte)
-                       (##cte-macro-descr cte))
-            (extract-macros parent-cte)))))
+          (cond ((##cte-macro? cte)
+                 (env-macro (extract-macros parent-cte)
+                            (##cte-macro-name cte)
+                            (##cte-macro-descr cte)))
+                ((##cte-macro-table? cte)
+                 (let ((env (extract-macros parent-cte)))
+                   (##cte-macro-table-for-each
+                    (lambda (name descr)
+                      (set! env (env-macro env name descr)))
+                    (##cte-macro-table-table cte))
+                   env))
+                (else
+                 (extract-macros parent-cte))))))
 
     (extract-macros (##cte-top-cte ##interaction-cte))))
 
@@ -361,9 +369,13 @@
                 options
                 (##cons (##list 'linker-name link-name) options))))
       (and (or input-is-target-file?
-               (c#cf filename-or-source
-                     options
-                     (lambda () target-filename)))
+               (and (c#cf filename-or-source
+                          options
+                          (lambda () target-filename))
+                    ;; Contract dead Scheme->C codegen heap before spawning
+                    ;; the C compiler subprocess (cc1) to eliminate gsc+cc1
+                    ;; dual-peak coexistence across parallel build workers.
+                    (begin (##gc) #t)))
            (let* ((target-filename-relative-to-output-dir
                    (##path-relative-to-dir target-filename output-dir))
                   (exit-status

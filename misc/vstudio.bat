@@ -104,7 +104,7 @@ echo #ifndef ___OPTIMIZED_MODULE_LIMIT        >> include\gambit.h
 echo #define ___OPTIMIZED_MODULE_LIMIT 20000  >> include\gambit.h
 echo #endif                                   >> include\gambit.h
 
-type include\gambit.h.in                      >> include\gambit.h
+for /f "tokens=2" %%f in (include\gambit.h.in) do type include\%%~f >> include\gambit.h
 
 rem The include/stamp.h file is normally created using information
 rem obtained with git and we can't rely on git being available.

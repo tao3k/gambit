@@ -1,0 +1,413 @@
+/* Private process registry. Readers pin list/control storage; no user effect
+ * runs under its writer gate. Failed admission never waits for another owner. */
+#define VM_REGISTRY_CLOSED 0
+#define VM_REGISTRY_OPEN 1
+#define VM_REGISTRY_WRITER 2
+#define VM_REGISTRY_READER 4
+static ___VOLATILE ___WORD vm_registry_gate;
+static ___VOLATILE ___WORD vm_pending_interrupts;
+static ___WORD vm_incarnation;
+static ___VOLATILE ___WORD vm_shutdown;
+static void vm_registry_flush(void);
+extern void ___raise_interrupt_vmstate(___virtual_machine_state,int);
+static int vm_registry_try_write(void)
+{return ___lifecycle_cas(&vm_registry_gate,VM_REGISTRY_OPEN,VM_REGISTRY_WRITER)==VM_REGISTRY_OPEN;}
+static int vm_registry_begin_setup(void)
+{if(___GSTATE->setup_state==1 || ___GSTATE->setup_state==3)return 0;
+ vm_shutdown=0;return ___lifecycle_cas(&vm_registry_gate,VM_REGISTRY_CLOSED,VM_REGISTRY_WRITER)==VM_REGISTRY_CLOSED;}
+___BOOL ___lifecycle_registry_begin(void)
+{
+  ___WORD old=___WORD_LOAD_ACQUIRE(&vm_registry_gate),found;
+  while((old & 3)==VM_REGISTRY_OPEN && old<=___MAX_FIX-VM_REGISTRY_READER) {
+    found=___lifecycle_cas(&vm_registry_gate,old,old+VM_REGISTRY_READER);
+    if(found==old)return 1;old=found;
+  }
+  return 0;
+}
+void ___lifecycle_registry_end(void)
+{
+  ___WORD old=___WORD_LOAD_ACQUIRE(&vm_registry_gate);
+  while(___lifecycle_cas(&vm_registry_gate,old,old-VM_REGISTRY_READER)!=old)
+    old=___WORD_LOAD_ACQUIRE(&vm_registry_gate);
+}
+static void vm_registry_open(void)
+{___WORD_STORE_RELEASE(&vm_registry_gate,VM_REGISTRY_OPEN);vm_registry_flush();}
+static int vm_registry_contains(___virtual_machine_state vm)
+{
+  ___virtual_machine_state head=&___GSTATE->vmstate0,cursor=head;
+  do {
+    if(cursor==vm)return cursor->lifecycle!=0;
+#ifndef ___SINGLE_VM
+    cursor=cursor->next;
+#else
+    break;
+#endif
+  }while(cursor && cursor!=head);
+  return 0;
+}
+static void vm_registry_publish(___virtual_machine_state vm)
+{
+#ifndef ___SINGLE_VM
+  ___virtual_machine_state head=&___GSTATE->vmstate0;
+  if(vm!=head) {vm->prev=head->prev;vm->next=head;head->prev->next=vm;head->prev=vm;}
+#endif
+}
+static void vm_registry_remove(___virtual_machine_state vm)
+{
+#ifndef ___SINGLE_VM
+  vm->next->prev=vm->prev;vm->prev->next=vm->next;vm->next=vm->prev=vm;
+#endif
+}
+static void vm_registry_flush(void)
+{
+  ___WORD bits,old;int code;
+  ___virtual_machine_state vm=&___GSTATE->vmstate0,cursor=vm;
+  if(!___lifecycle_registry_begin())return;
+  old=___WORD_LOAD_ACQUIRE(&vm_pending_interrupts);
+  while(___lifecycle_cas(&vm_pending_interrupts,old,0)!=old)old=___WORD_LOAD_ACQUIRE(&vm_pending_interrupts);
+  bits=old;
+  for(code=0;code<___NB_INTRS;++code)if(bits & (___CAST(___WORD,1)<<code)) {
+    cursor=vm;
+    do {
+      if(cursor->lifecycle && ___WORD_LOAD_ACQUIRE(&cursor->lifecycle->phase)==___VM_LIVE)
+        ___raise_interrupt_vmstate(cursor,code);
+#ifndef ___SINGLE_VM
+      cursor=cursor->next;
+#else
+      break;
+#endif
+    }while(cursor && cursor!=vm);
+  }
+  ___lifecycle_registry_end();
+}
+static void vm_registry_interrupt(int code)
+{
+  ___WORD old,next;
+  if(code<0 || code>=___NB_INTRS)return;
+  old=___WORD_LOAD_ACQUIRE(&vm_pending_interrupts);
+  do {next=old|(___CAST(___WORD,1)<<code);
+    if(___lifecycle_cas(&vm_pending_interrupts,old,next)==old)break;
+    old=___WORD_LOAD_ACQUIRE(&vm_pending_interrupts);
+  }while(1);
+  vm_registry_flush();
+}
+static ___BOOL vm_lifecycle_alloc_slots(___vm_lifecycle *life, int cap)
+{
+  ___SIZE_T total = 0, off = 0;
+  ___SIZE_T ucap;
+  unsigned char *buf;
+  if (!life || cap < 1) return 0;
+  ucap = ___CAST(___SIZE_T, cap);
+  if (!___vm_slot_add_slice(&total, ucap, sizeof(*life->requests))) return 0;
+  if (!___vm_slot_add_slice(&total, ucap, sizeof(*life->entries))) return 0;
+  if (!___vm_slot_add_slice(&total, ucap, sizeof(*life->cleanup))) return 0;
+  if (!___vm_slot_add_slice(&total, ucap, sizeof(*life->activations))) return 0;
+  if (!___vm_slot_add_slice(&total, ucap, sizeof(*life->owners))) return 0;
+#ifndef ___SINGLE_THREADED_VMS
+  if (!___vm_slot_add_slice(&total, ucap, sizeof(*life->sync_constructed))) return 0;
+  if (!___vm_slot_add_slice(&total, ucap, sizeof(*life->sync_parked))) return 0;
+  if (!___vm_slot_add_slice(&total, ucap, sizeof(*life->sync_active))) return 0;
+  if (!___vm_slot_add_slice(&total, ucap, sizeof(*life->sync_targets))) return 0;
+  if (!___vm_slot_add_slice(&total, ucap, sizeof(*life->slots))) return 0;
+  if (!___vm_slot_add_slice(&total, ucap, sizeof(*life->launches))) return 0;
+#endif
+  if (!___vm_slot_add_slice(&total, ucap, sizeof(*life->group_demand))) return 0;
+  if (total == 0) return 0;
+  buf = ___CAST(unsigned char*, ___ALLOC_MEM(total));
+  if (!buf) return 0;
+  memset(buf, 0, total);
+  life->slot_capacity = cap;
+  life->slot_storage = buf;
+  life->requests = ___CAST(___VOLATILE ___WORD*, ___vm_slot_carve_slice(buf, &off, ucap, sizeof(*life->requests)));
+  life->entries = ___CAST(___VOLATILE ___WORD*, ___vm_slot_carve_slice(buf, &off, ucap, sizeof(*life->entries)));
+  life->cleanup = ___CAST(___owner_cleanup*, ___vm_slot_carve_slice(buf, &off, ucap, sizeof(*life->cleanup)));
+  life->activations = ___CAST(___activation_record**, ___vm_slot_carve_slice(buf, &off, ucap, sizeof(*life->activations)));
+  life->owners = ___CAST(___thread*, ___vm_slot_carve_slice(buf, &off, ucap, sizeof(*life->owners)));
+#ifndef ___SINGLE_THREADED_VMS
+  life->sync_constructed = ___CAST(unsigned char*, ___vm_slot_carve_slice(buf, &off, ucap, sizeof(*life->sync_constructed)));
+  life->sync_parked = ___CAST(unsigned char*, ___vm_slot_carve_slice(buf, &off, ucap, sizeof(*life->sync_parked)));
+  life->sync_active = ___CAST(unsigned char*, ___vm_slot_carve_slice(buf, &off, ucap, sizeof(*life->sync_active)));
+  life->sync_targets = ___CAST(unsigned char*, ___vm_slot_carve_slice(buf, &off, ucap, sizeof(*life->sync_targets)));
+  life->slots = ___CAST(___resize_slot*, ___vm_slot_carve_slice(buf, &off, ucap, sizeof(*life->slots)));
+  life->launches = ___CAST(___resize_launch*, ___vm_slot_carve_slice(buf, &off, ucap, sizeof(*life->launches)));
+#endif
+  life->group_demand = ___CAST(___group_demand*, ___vm_slot_carve_slice(buf, &off, ucap, sizeof(*life->group_demand)));
+  return 1;
+}
+
+#ifndef ___SINGLE_THREADED_VMS
+/* Slice 3A-2 dynamic per-VM processor capacity (OCaml-5 / Erlang-OTP-28 model,
+ * verified in Slice3ADynamicDomainsRefinement.lean and slice3a_dynamic_domains_pso.c):
+ * eliminates the compile-time 64-core ceiling by sizing from hardware cores,
+ * explicit -:p<N>, and optional GAMBIT_MAX_PROCESSORS while keeping >= ___MAX_PROCESSORS. */
+static int vm_compute_processor_capacity(void)
+{
+  int hard_max = 65536;
+  int cap = ___MAX_PROCESSORS;
+  int hw = ___cpu_count(-1);
+  int req = ___GSTATE->setup_params.parallelism_level;
+  const char *env_str = getenv("GAMBIT_MAX_PROCESSORS");
+  if (cap < 1) cap = 1;
+  if (hw > 0) {
+    int hw2 = (hw > hard_max / 2) ? hard_max : (hw * 2);
+    if (hw2 > cap) cap = hw2;
+  }
+  if (req > cap) cap = req;
+  if (env_str != 0 && env_str[0] != '\0') {
+    long parsed = strtol(env_str, 0, 10);
+    if (parsed > cap)
+      cap = (parsed > hard_max) ? hard_max : ___CAST(int, parsed);
+  }
+  if (cap > hard_max) cap = hard_max;
+  return cap;
+}
+
+static ___BOOL vm_alloc_processor_storage(___virtual_machine_state vm, int cap)
+{
+  ___SIZE_T pstate_bytes, ctx_bytes, off, total;
+  ___SIZE_T ucap;
+  unsigned char *raw, *aligned;
+  if (!vm || cap < 1) return 0;
+  if (vm->processor_storage != 0) return 1;
+  ucap = ___CAST(___SIZE_T, cap);
+  if (ucap > (~___CAST(___SIZE_T, 0) - 128) / sizeof(___aligned_processor_state_struct))
+    return 0;
+  pstate_bytes = ucap * sizeof(___aligned_processor_state_struct);
+  if (pstate_bytes > ~___CAST(___SIZE_T, 0) - 128) return 0;
+  off = (pstate_bytes + 63) & ~___CAST(___SIZE_T, 63);
+  if (ucap > (~___CAST(___SIZE_T, 0) - 64 - off) / sizeof(___execution_context))
+    return 0;
+  ctx_bytes = ucap * sizeof(___execution_context);
+  total = 64 + off + ctx_bytes;
+  raw = ___CAST(unsigned char*, calloc(1, total));
+  if (!raw) return 0;
+  aligned = ___CAST(unsigned char*,
+                    (___CAST(___UWORD, raw) + 63) & ~___CAST(___UWORD, 63));
+  vm->processor_storage = raw;
+  vm->aligned_pstate = ___CAST(___aligned_processor_state_struct*, aligned);
+  vm->execution_contexts = ___CAST(___execution_context*, aligned + off);
+  vm->processor_capacity = cap;
+  return 1;
+}
+
+static void vm_free_processor_storage(___virtual_machine_state vm)
+{
+  if (!vm) return;
+  if (vm->processor_storage != 0) {
+    free(vm->processor_storage);
+    vm->processor_storage = 0;
+  }
+  vm->aligned_pstate = 0;
+  vm->execution_contexts = 0;
+  vm->processor_capacity = 0;
+#ifndef ___SINGLE_VM
+  vm->aligned_pstate0.pstate.vmstate = vm;
+#endif
+}
+#else
+static void vm_free_processor_storage(___virtual_machine_state vm)
+{
+  (void)vm;
+}
+#endif
+
+static ___vm_lifecycle *vm_lifecycle_create(___virtual_machine_state vm)
+{
+  ___vm_lifecycle *life;
+  int cap = ___VM_PROCESSOR_CAPACITY(vm);
+  if(vm_incarnation==___MAX_FIX)return 0;
+  life=___CAST(___vm_lifecycle*,___ALLOC_MEM(sizeof(*life)));
+  if(!life)return 0;
+  memset(life,0,sizeof(*life));
+  if(!vm_lifecycle_alloc_slots(life, cap)) {
+    ___FREE_MEM(life);return 0;
+  }
+  life->incarnation=++vm_incarnation;
+  life->group_demand_attempt_next=1;
+#ifndef ___SINGLE_THREADED_VMS
+#ifdef ___USE_POSIX_THREAD_SYSTEM
+  if(!___MUTEX_INIT(life->gate)){___FREE_MEM(life->slot_storage);___FREE_MEM(life);return 0;}
+  if(!___CONDVAR_INIT(life->changed)){___MUTEX_DESTROY(life->gate);___FREE_MEM(life->slot_storage);___FREE_MEM(life);return 0;}
+  if(!___MUTEX_INIT(life->sync_part_mut)){___CONDVAR_DESTROY(life->changed);___MUTEX_DESTROY(life->gate);___FREE_MEM(life->slot_storage);___FREE_MEM(life);return 0;}
+  if(!___CONDVAR_INIT(life->sync_part_cv)){___MUTEX_DESTROY(life->sync_part_mut);___CONDVAR_DESTROY(life->changed);___MUTEX_DESTROY(life->gate);___FREE_MEM(life->slot_storage);___FREE_MEM(life);return 0;}
+#else
+  ___MUTEX_INIT(life->gate);___CONDVAR_INIT(life->changed);
+  ___MUTEX_INIT(life->sync_part_mut);___CONDVAR_INIT(life->sync_part_cv);
+#endif
+  life->resize_phase=___RESIZE_IDLE;
+#endif
+  ___thread_init_from_self(&life->owners[0]);
+  vm->lifecycle=life;return life;
+}
+static int lifecycle_owner(___vm_lifecycle *life,int id)
+{
+#ifdef ___USE_POSIX_THREAD_SYSTEM
+  return pthread_equal(life->owners[id].thread_id,pthread_self());
+#elif defined(___USE_WIN32_THREAD_SYSTEM)
+  return life->owners[id].thread_id==GetCurrentThreadId();
+#else
+  return 1;
+#endif
+}
+___BOOL ___lifecycle_enter(___processor_state ps)
+{
+  ___virtual_machine_state vm;
+  ___vm_lifecycle *life;
+  ___WORD old,found;int id,ok=0;
+  if(ps==0 || ps!=___PSTATE || !___lifecycle_registry_begin())return 0;
+  vm=___VMSTATE_FROM_PSTATE(ps);
+  if(!vm_registry_contains(vm))goto done;
+  life=vm->lifecycle;id=___PROCESSOR_ID(ps,vm);
+  if(___WORD_LOAD_ACQUIRE(&life->phase)!=___VM_LIVE || id<0 || id>=vm->processor_count ||
+     !lifecycle_owner(life,id) || life->cleanup[id].draining || life->cleanup[id].uncertain)goto done;
+  old=___WORD_LOAD_ACQUIRE(&life->entries[id]);
+  while(!(old&1) && old<=___MAX_FIX-2) {
+    found=___lifecycle_cas(&life->entries[id],old,old+2);
+    if(found==old){
+      if(___binding_context_admit(ps))ok=1;
+      else ___lifecycle_cas(&life->entries[id],old+2,old);
+      break;
+    }old=found;
+  }
+done:___lifecycle_registry_end();return ok;
+}
+void ___lifecycle_leave(___processor_state ps)
+{
+  ___vm_lifecycle *life=___VMSTATE_FROM_PSTATE(ps)->lifecycle;
+  int id=___PROCESSOR_ID(ps,___VMSTATE_FROM_PSTATE(ps));
+  ___WORD old=___WORD_LOAD_ACQUIRE(&life->entries[id]);
+  while(old>=2) {
+    /* The last entry retains the context while its permit is revoked.
+     * Publishing zero first would allow cleanup to reclaim that context
+     * before this owner finishes its final metadata write. */
+    if(old<4)___binding_context_close(ps);
+    if(___lifecycle_cas(&life->entries[id],old,old-2)==old){
+      if(old<4)___group_demand_retire(ps);
+      return;
+    }
+    old=___WORD_LOAD_ACQUIRE(&life->entries[id]);
+  }
+}
+___BOOL ___lifecycle_gc_admitted(___processor_state ps)
+{
+  ___virtual_machine_state vm=___VMSTATE_FROM_PSTATE(ps);
+  int id=___PROCESSOR_ID(ps,vm);
+#ifndef ___SINGLE_THREADED_VMS
+  if(resize_retained(vm))return 0;
+#endif
+  return vm->lifecycle && ___WORD_LOAD_ACQUIRE(&vm->lifecycle->phase)==___VM_LIVE &&
+    id>=0 && id<vm->processor_count && !(___WORD_LOAD_ACQUIRE(&vm->lifecycle->entries[id])&1) &&
+    !vm->lifecycle->cleanup[id].draining && !vm->lifecycle->cleanup[id].uncertain;
+}
+
+___activation_record *___lifecycle_marker_prepare(___processor_state ps)
+{
+  ___vm_lifecycle *life;___activation_record *record;int id,fresh=0;
+  if(!___lifecycle_enter(ps))return 0;
+  /* The same admitted cooperative owner owns both its active list and one
+   * next-acquisition slot in its RC domain. GC workers never read/write it.
+   * No safepoint/callback intervenes; lifecycle entry excludes teardown. */
+  record=ps->mem.rc_domain_->idle_activation;
+  if(record) {
+    if(record->kind!=___ACTIVATION_IDLE || record->owner || record->roots ||
+       record->marker!=___FAL || record->next ||
+       !___rest_control_clear(record)) {___lifecycle_leave(ps);return 0;}
+    ps->mem.rc_domain_->idle_activation=0;
+  } else {
+    record=___CAST(___activation_record*,___ALLOC_MEM(sizeof(*record)));
+    fresh=1;
+  }
+  if(!record){___lifecycle_leave(ps);return 0;}
+  life=___VMSTATE_FROM_PSTATE(ps)->lifecycle;id=___PROCESSOR_ID(ps,___VMSTATE_FROM_PSTATE(ps));
+  if(fresh)record->rest_retired_epoch=0;
+  ___rest_control_reset(record);
+  record->saved_ffi_park_depth=0;
+  record->owner=ps;record->marker=___FAL;record->roots=0;record->kind=___ACTIVATION_LEGACY;
+  record->next=life->activations[id];life->activations[id]=record;return record;
+}
+void ___lifecycle_marker_abort(___activation_record *record)
+{
+  ___processor_state ps=record->owner;___virtual_machine_state vm=___VMSTATE_FROM_PSTATE(ps);
+  ___activation_record **link=&vm->lifecycle->activations[___PROCESSOR_ID(ps,vm)];
+  while(*link && *link!=record)link=&(*link)->next;
+  if(*link==record){
+    *link=record->next;
+    if(record->roots){___return_rc_root(record->roots);___release_rc(record->roots);}
+    /* Unlink and return every root before offering native storage again.
+     * An unknown/live/revoked activation is never put in this slot. Publish
+     * the clean slot before dropping the last lifecycle entry. */
+    record->next=0;record->owner=0;record->marker=___FAL;
+    record->roots=0;record->saved_ffi_park_depth=0;
+    ___rest_control_reset(record);
+    record->kind=___ACTIVATION_IDLE;
+    if(ps->mem.rc_domain_->idle_activation==0)
+      ps->mem.rc_domain_->idle_activation=record;
+    else ___FREE_MEM(record);
+    ___lifecycle_leave(ps);
+  }
+}
+void ___lifecycle_marker_kill(___processor_state ps,___SCMOBJ marker)
+{
+  ___virtual_machine_state vm=___VMSTATE_FROM_PSTATE(ps);int id=___PROCESSOR_ID(ps,vm);
+  ___activation_record *record;
+  if(!vm->lifecycle || !lifecycle_owner(vm->lifecycle,id))return;
+  record=vm->lifecycle->activations[id];
+  while(record && (record->marker!=marker || !___activation_marker_live(record)))record=record->next;
+  if(!record)return; /* never discharge an unowned or already retired marker */
+  ___VECTORELEM(marker,0)=___FAL;___still_obj_refcount_dec(marker);
+  record->marker=___FAL;
+  /* Revoking a return destination does not prove the generated C extent has
+   * stopped. Its explicit end owns the bank, borrow and entry until last use.
+   * Legacy marker-only records still retire at their existing kill boundary. */
+  if(record->kind==___ACTIVATION_SFUN_ACTIVE)record->kind=___ACTIVATION_SFUN_REVOKED;
+  else ___lifecycle_marker_abort(record);
+}
+
+int ___lifecycle_members_begin(___virtual_machine_state vm)
+{
+  ___WORD old,found;___vm_lifecycle *life=vm->lifecycle;
+  if(!life)return 0;
+  old=___WORD_LOAD_ACQUIRE(&life->member_gate);
+  while(!(old&1) && old<=___MAX_FIX-2) {
+    found=___lifecycle_cas(&life->member_gate,old,old+2);
+    if(found==old)return 1;old=found;
+  }
+  return 0;
+}
+void ___lifecycle_members_end(___virtual_machine_state vm)
+{
+  ___WORD old=___WORD_LOAD_ACQUIRE(&vm->lifecycle->member_gate);
+  while(___lifecycle_cas(&vm->lifecycle->member_gate,old,old-2)!=old)
+    old=___WORD_LOAD_ACQUIRE(&vm->lifecycle->member_gate);
+}
+int ___lifecycle_members_close(___virtual_machine_state vm)
+{return ___lifecycle_cas(&vm->lifecycle->member_gate,0,1)==0;}
+static void lifecycle_members_flush(___virtual_machine_state vm)
+{
+  ___WORD bits,old;int code;
+  if(!___lifecycle_members_begin(vm))return;
+  old=___WORD_LOAD_ACQUIRE(&vm->lifecycle->pending_interrupts);
+  while(___lifecycle_cas(&vm->lifecycle->pending_interrupts,old,0)!=old)
+    old=___WORD_LOAD_ACQUIRE(&vm->lifecycle->pending_interrupts);
+  bits=old;
+  for(code=0;code<___NB_INTRS;code++)if(bits & (___CAST(___WORD,1)<<code))
+    ___raise_interrupt_vmstate(vm,code);
+  ___lifecycle_members_end(vm);
+}
+void ___lifecycle_interrupt_pending(___virtual_machine_state vm,int code)
+{
+  ___WORD old=___WORD_LOAD_ACQUIRE(&vm->lifecycle->pending_interrupts),next;
+  do {
+    next=old|(___CAST(___WORD,1)<<code);
+    if(___lifecycle_cas(&vm->lifecycle->pending_interrupts,old,next)==old)break;
+    old=___WORD_LOAD_ACQUIRE(&vm->lifecycle->pending_interrupts);
+  }while(1);
+  /* The producer also tries delivery: opening between the producer's failed
+   * borrow and this bit publication cannot strand the notification. */
+  lifecycle_members_flush(vm);
+}
+void ___lifecycle_members_open(___virtual_machine_state vm)
+{
+  ___WORD_STORE_RELEASE(&vm->lifecycle->member_gate,0);
+  lifecycle_members_flush(vm);
+}

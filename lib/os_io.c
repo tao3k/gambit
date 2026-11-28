@@ -21,6 +21,11 @@
 #include "setup.h"
 #include "c_intf.h"
 
+#if defined(USE_execvp) && defined(__APPLE__) && defined(__MACH__)
+#include <spawn.h>
+#endif
+
+
 /*---------------------------------------------------------------------------*/
 
 
@@ -44,7 +49,7 @@ ___HIDDEN int ___fdset_realloc
          int newsize),
         (___ps,
          newsize)
-____processor_state ___ps;
+___processor_state ___ps;
 int newsize;)
 {
   void *readfds = NULL;
@@ -114,6 +119,14 @@ ___processor_state ___ps;)
   return ___fdset_realloc (___ps, size);
 }
 
+___HIDDEN void ___fdset_cleanup
+   ___P((___processor_state ___ps),
+        (___ps)
+___processor_state ___ps;)
+{
+  ___fdset_realloc (___ps, 0);
+}
+
 #endif
 
 #ifdef USE_FDSET_RESIZING
@@ -128,6 +141,8 @@ int maxfd;)
 {
   ___virtual_machine_state ___vms = ___VMSTATE_FROM_PSTATE(___ps);
   int newsize;
+  int coord_id = ___sync_coordinator_id(___vms);
+  int is_coord = (___PROCESSOR_ID(___ps, ___vms) == coord_id);
 
   newsize = ___vms->os.fdset.size;
   while (maxfd >= newsize)
@@ -135,7 +150,7 @@ int maxfd;)
   /* align newsize to ___fdbits word boundaries */
   newsize = (newsize + ___FDBITS - 1) & ~(___FDBITS - 1);
 
-  if (___PROCESSOR_ID(___ps, ___vms) == 0)
+  if (is_coord)
     ___vms->os.fdset.overflow = 0;
 
   BARRIER();
@@ -143,9 +158,21 @@ int maxfd;)
   if (newsize > ___ps->os.fdset.size && !___fdset_realloc (___ps, newsize))
     ___vms->os.fdset.overflow = 1;
 
+  if (is_coord)
+    {
+      int k;
+      for (k = 0; k < ___vms->processor_count; k++)
+        if (!___sync_processor_active(___vms, k))
+          {
+            ___processor_state pps = ___PSTATE_FROM_PROCESSOR_ID(k, ___vms);
+            if (newsize > pps->os.fdset.size && !___fdset_realloc (pps, newsize))
+              ___vms->os.fdset.overflow = 1;
+          }
+    }
+
   BARRIER();
 
-  if (!___vms->os.fdset.overflow && ___PROCESSOR_ID(___ps, ___vms) == 0)
+  if (!___vms->os.fdset.overflow && is_coord)
     ___vms->os.fdset.size = newsize;
 
 }
@@ -156,6 +183,699 @@ int maxfd;)
 /*---------------------------------------------------------------------------*/
 
 /* Device groups. */
+
+___HIDDEN ___MUTEX device_group_mutex;
+___HIDDEN ___BOOL device_group_mutex_ready = 0;
+
+#ifndef ___CONDVAR_BROADCAST
+#define ___CONDVAR_BROADCAST(cv) ___CONDVAR_SIGNAL(cv)
+#endif
+
+typedef struct ___device_select_entry_struct
+  {
+    ___processor_state ps;
+    ___device **devs;
+    int count;
+    struct ___device_select_entry_struct *prev;
+    struct ___device_select_entry_struct *next;
+  } ___device_select_entry;
+
+___HIDDEN ___MUTEX device_select_mutex;
+___HIDDEN ___CONDVAR device_select_cond;
+___HIDDEN ___BOOL device_select_mutex_ready = 0;
+___HIDDEN ___device_select_entry *active_select_list = NULL;
+___HIDDEN ___U64 global_device_gen = 0;
+
+___HIDDEN ___U64 next_device_gen ___PVOID
+{
+  ___U64 g;
+  if (device_select_mutex_ready)
+    ___MUTEX_LOCK (device_select_mutex);
+  g = ++global_device_gen;
+  if (device_select_mutex_ready)
+    ___MUTEX_UNLOCK (device_select_mutex);
+  return g;
+}
+
+#ifdef USE_POSIX
+
+/* -------------------------------------------------------------------------
+ * Slice 3B-1: Persistent Per-Processor Evented SMP I/O Reactor (kqueue /
+ * epoll) + Dynamic Unlimited Condvar/FD Scratch Buffers + O(ready) Bitmap
+ * Clearing + Monotonic FD-Generation Custody (zero FD_SETSIZE / MAX_CONDVARS
+ * cap, zero 232 KiB C stack frame, fork()-safe).
+ * ------------------------------------------------------------------------- */
+
+#if defined(USE_kqueue) || defined(USE_epoll)
+typedef struct ___reactor_fd_slot_struct
+  {
+    unsigned char reg_mask;     /* 1=RD, 2=WR currently registered in kernel */
+    unsigned char want_mask;    /* 1=RD, 2=WR requested in current round */
+    unsigned char always_ready; /* 1=regular file / EPERM / non-pollable */
+    unsigned char in_reg;       /* 1=fd is currently listed in r->reg_fds[] */
+    ___U64 reg_gen;             /* device generation registered in kernel */
+    ___U64 want_gen;            /* device generation requested in current round */
+  } ___reactor_fd_slot;
+#endif
+
+typedef struct ___select_reactor_struct
+  {
+    ___WORD abort_fd; /* atomic: kq_fd (EVFILT_USER), wake_fd (epoll), or pipe writing_fd */
+#ifdef USE_kqueue
+    int kq_fd;
+    pid_t owner_pid;
+    ___BOOL use_evfilt_user;
+    struct kevent *changes;
+    int changes_cap;
+    struct kevent *events;
+    int events_cap;
+#elif defined(USE_epoll)
+    int ep_fd;
+    int wake_fd;
+    pid_t owner_pid;
+    struct epoll_event *events;
+    int events_cap;
+#elif defined(USE_poll)
+    struct pollfd *pollfds;
+    int pollfd_cap;
+#endif
+#if defined(USE_kqueue) || defined(USE_epoll)
+    ___reactor_fd_slot *fd_slots;
+    int fd_slots_cap;
+    int *reg_fds;
+    int reg_count;
+    int reg_cap;
+    int *want_fds;
+    int want_count;
+    int want_cap;
+    int *dirty_fds;
+    int dirty_count;
+    int dirty_cap;
+    ___fdbits *read_bits;
+    ___fdbits *write_bits;
+    int bits_cap; /* in FD bits, multiple of ___FDBITS */
+#endif
+    /* Dynamic unlimited condvar / device buffers (replaces MAX_CONDVARS stack arrays). */
+    int dev_cap;
+    ___device **devs;
+    ___device **orig_devs;
+    unsigned char *dev_dirs;
+    int *devs_next;
+    unsigned char *dev_borrow;
+    ___device **saved_devs;
+    ___device **ready_devs;
+    unsigned char *ready_dirs;
+    ___device **hash_devs;
+    unsigned char *hash_dirs;
+    int hash_cap;
+  } ___select_reactor;
+
+___HIDDEN int reactor_grow_cap (int cur, int need)
+{
+  int cap = (cur < 64) ? 64 : cur;
+  if (need <= cap)
+    return cap;
+  if (need > (INT_MAX >> 1))
+    return 0;
+  while (cap < need)
+    {
+      if (cap > (INT_MAX >> 1))
+        return need;
+      cap <<= 1;
+    }
+  return cap;
+}
+
+___HIDDEN ___BOOL reactor_ensure_dev_cap (___select_reactor *r, int need)
+{
+  int ncap;
+  ___device **n_devs = NULL;
+  ___device **n_orig = NULL;
+  unsigned char *n_dirs = NULL;
+  int *n_next = NULL;
+  unsigned char *n_borrow = NULL;
+  ___device **n_saved = NULL;
+  ___device **n_rdevs = NULL;
+  unsigned char *n_rdirs = NULL;
+
+  if (need <= r->dev_cap)
+    return 1;
+  ncap = reactor_grow_cap (r->dev_cap, need);
+  if (ncap == 0)
+    return 0;
+
+  n_devs   = ___CAST(___device**, ___ALLOC_MEM ((___SIZE_T)ncap * sizeof (___device*)));
+  n_orig   = ___CAST(___device**, ___ALLOC_MEM ((___SIZE_T)ncap * sizeof (___device*)));
+  n_dirs   = ___CAST(unsigned char*, ___ALLOC_MEM ((___SIZE_T)ncap * sizeof (unsigned char)));
+  n_next   = ___CAST(int*, ___ALLOC_MEM ((___SIZE_T)ncap * sizeof (int)));
+  n_borrow = ___CAST(unsigned char*, ___ALLOC_MEM ((___SIZE_T)ncap * sizeof (unsigned char)));
+  n_saved  = ___CAST(___device**, ___ALLOC_MEM ((___SIZE_T)ncap * sizeof (___device*)));
+  n_rdevs  = ___CAST(___device**, ___ALLOC_MEM ((___SIZE_T)ncap * sizeof (___device*)));
+  n_rdirs  = ___CAST(unsigned char*, ___ALLOC_MEM ((___SIZE_T)ncap * sizeof (unsigned char)));
+
+  if (!n_devs || !n_orig || !n_dirs || !n_next || !n_borrow || !n_saved || !n_rdevs || !n_rdirs)
+    {
+      if (n_devs) ___FREE_MEM (n_devs);
+      if (n_orig) ___FREE_MEM (n_orig);
+      if (n_dirs) ___FREE_MEM (n_dirs);
+      if (n_next) ___FREE_MEM (n_next);
+      if (n_borrow) ___FREE_MEM (n_borrow);
+      if (n_saved) ___FREE_MEM (n_saved);
+      if (n_rdevs) ___FREE_MEM (n_rdevs);
+      if (n_rdirs) ___FREE_MEM (n_rdirs);
+      return 0;
+    }
+
+  if (r->dev_cap > 0)
+    {
+      memcpy (n_devs,   r->devs,      (___SIZE_T)r->dev_cap * sizeof (___device*));
+      memcpy (n_orig,   r->orig_devs, (___SIZE_T)r->dev_cap * sizeof (___device*));
+      memcpy (n_dirs,   r->dev_dirs,  (___SIZE_T)r->dev_cap * sizeof (unsigned char));
+      memcpy (n_next,   r->devs_next, (___SIZE_T)r->dev_cap * sizeof (int));
+      memcpy (n_borrow, r->dev_borrow,(___SIZE_T)r->dev_cap * sizeof (unsigned char));
+      memcpy (n_saved,  r->saved_devs,(___SIZE_T)r->dev_cap * sizeof (___device*));
+      memcpy (n_rdevs,  r->ready_devs,(___SIZE_T)r->dev_cap * sizeof (___device*));
+      memcpy (n_rdirs,  r->ready_dirs,(___SIZE_T)r->dev_cap * sizeof (unsigned char));
+      ___FREE_MEM (r->devs);
+      ___FREE_MEM (r->orig_devs);
+      ___FREE_MEM (r->dev_dirs);
+      ___FREE_MEM (r->devs_next);
+      ___FREE_MEM (r->dev_borrow);
+      ___FREE_MEM (r->saved_devs);
+      ___FREE_MEM (r->ready_devs);
+      ___FREE_MEM (r->ready_dirs);
+    }
+
+  r->devs = n_devs;
+  r->orig_devs = n_orig;
+  r->dev_dirs = n_dirs;
+  r->devs_next = n_next;
+  r->dev_borrow = n_borrow;
+  r->saved_devs = n_saved;
+  r->ready_devs = n_rdevs;
+  r->ready_dirs = n_rdirs;
+  r->dev_cap = ncap;
+  return 1;
+}
+
+___HIDDEN ___BOOL reactor_ensure_hash_cap (___select_reactor *r, int ready_count)
+{
+  int need = ready_count * 2 + 1;
+  int ncap = 32;
+  ___device **hd;
+  unsigned char *hdir;
+
+  if (need <= r->hash_cap)
+    return 1;
+  if (need > (INT_MAX >> 1))
+    return 0;
+  while (ncap < need)
+    ncap <<= 1;
+
+  hd = ___CAST(___device**, ___ALLOC_MEM ((___SIZE_T)ncap * sizeof (___device*)));
+  hdir = ___CAST(unsigned char*, ___ALLOC_MEM ((___SIZE_T)ncap * sizeof (unsigned char)));
+  if (!hd || !hdir)
+    {
+      if (hd) ___FREE_MEM (hd);
+      if (hdir) ___FREE_MEM (hdir);
+      return 0;
+    }
+  if (r->hash_devs) ___FREE_MEM (r->hash_devs);
+  if (r->hash_dirs) ___FREE_MEM (r->hash_dirs);
+  r->hash_devs = hd;
+  r->hash_dirs = hdir;
+  r->hash_cap = ncap;
+  return 1;
+}
+
+#if defined(USE_kqueue) || defined(USE_epoll)
+
+___HIDDEN ___BOOL reactor_ensure_fd (___select_reactor *r, int fd)
+{
+  int need = fd + 1;
+
+  if (need > r->fd_slots_cap)
+    {
+      int ncap = reactor_grow_cap (r->fd_slots_cap, need);
+      ___reactor_fd_slot *ns;
+      if (ncap == 0)
+        return 0;
+      ns = ___CAST(___reactor_fd_slot*,
+                   ___ALLOC_MEM ((___SIZE_T)ncap * sizeof (___reactor_fd_slot)));
+      if (ns == NULL)
+        return 0;
+      if (r->fd_slots_cap > 0)
+        {
+          memcpy (ns, r->fd_slots,
+                  (___SIZE_T)r->fd_slots_cap * sizeof (___reactor_fd_slot));
+          ___FREE_MEM (r->fd_slots);
+        }
+      memset (ns + r->fd_slots_cap, 0,
+              (___SIZE_T)(ncap - r->fd_slots_cap) * sizeof (___reactor_fd_slot));
+      r->fd_slots = ns;
+      r->fd_slots_cap = ncap;
+    }
+
+  if (need > r->bits_cap)
+    {
+      int ncap = reactor_grow_cap (r->bits_cap, need);
+      int nbytes;
+      int obytes;
+      ___fdbits *rb;
+      ___fdbits *wb;
+      if (ncap == 0)
+        return 0;
+      ncap = (ncap + ___FDBITS - 1) & ~(___FDBITS - 1);
+      nbytes = ncap >> 3;
+      obytes = r->bits_cap >> 3;
+      rb = ___CAST(___fdbits*, ___ALLOC_MEM ((___SIZE_T)nbytes));
+      wb = ___CAST(___fdbits*, ___ALLOC_MEM ((___SIZE_T)nbytes));
+      if (!rb || !wb)
+        {
+          if (rb) ___FREE_MEM (rb);
+          if (wb) ___FREE_MEM (wb);
+          return 0;
+        }
+      if (obytes > 0)
+        {
+          memcpy (rb, r->read_bits, (___SIZE_T)obytes);
+          memcpy (wb, r->write_bits, (___SIZE_T)obytes);
+          ___FREE_MEM (r->read_bits);
+          ___FREE_MEM (r->write_bits);
+        }
+      memset (___CAST(unsigned char*, rb) + obytes, 0, (___SIZE_T)(nbytes - obytes));
+      memset (___CAST(unsigned char*, wb) + obytes, 0, (___SIZE_T)(nbytes - obytes));
+      r->read_bits = rb;
+      r->write_bits = wb;
+      r->bits_cap = ncap;
+    }
+
+  return 1;
+}
+
+___HIDDEN ___BOOL reactor_ensure_int_vec (int **vec, int *cap, int need)
+{
+  int ncap;
+  int *nv;
+  if (need <= *cap)
+    return 1;
+  ncap = reactor_grow_cap (*cap, need);
+  if (ncap == 0)
+    return 0;
+  nv = ___CAST(int*, ___ALLOC_MEM ((___SIZE_T)ncap * sizeof (int)));
+  if (nv == NULL)
+    return 0;
+  if (*cap > 0)
+    {
+      memcpy (nv, *vec, (___SIZE_T)(*cap) * sizeof (int));
+      ___FREE_MEM (*vec);
+    }
+  *vec = nv;
+  *cap = ncap;
+  return 1;
+}
+
+___HIDDEN void reactor_mark_ready (___select_reactor *r, int fd, int rd, int wr)
+{
+  if (fd < 0 || fd >= r->bits_cap)
+    return;
+  if (!___FD_ISSET (fd, r->read_bits) && !___FD_ISSET (fd, r->write_bits))
+    {
+      if (reactor_ensure_int_vec (&r->dirty_fds, &r->dirty_cap, r->dirty_count + 1))
+        r->dirty_fds[r->dirty_count++] = fd;
+    }
+  if (rd)
+    ___FD_SET (fd, r->read_bits);
+  if (wr)
+    ___FD_SET (fd, r->write_bits);
+}
+
+___HIDDEN void reactor_clear_dirty (___select_reactor *r)
+{
+  int k;
+  for (k = 0; k < r->dirty_count; k++)
+    {
+      int fd = r->dirty_fds[k];
+      if (fd >= 0 && fd < r->bits_cap)
+        {
+          ___FD_CLR (fd, r->read_bits);
+          ___FD_CLR (fd, r->write_bits);
+        }
+    }
+  r->dirty_count = 0;
+}
+
+#ifdef USE_kqueue
+
+___HIDDEN ___BOOL reactor_ensure_kevents (struct kevent **arr, int *cap, int need)
+{
+  int ncap;
+  struct kevent *na;
+  if (need <= *cap)
+    return 1;
+  ncap = reactor_grow_cap (*cap, need);
+  if (ncap == 0)
+    return 0;
+  na = ___CAST(struct kevent*, ___ALLOC_MEM ((___SIZE_T)ncap * sizeof (struct kevent)));
+  if (na == NULL)
+    return 0;
+  if (*cap > 0)
+    {
+      memcpy (na, *arr, (___SIZE_T)(*cap) * sizeof (struct kevent));
+      ___FREE_MEM (*arr);
+    }
+  *arr = na;
+  *cap = ncap;
+  return 1;
+}
+
+___HIDDEN ___SCMOBJ reactor_open_kernel (___processor_state ___ps, ___select_reactor *r)
+{
+  int kq;
+  int flags;
+
+  kq = kqueue ();
+  if (kq < 0)
+    return err_code_from_errno ();
+
+  flags = fcntl (kq, F_GETFD, 0);
+  if (flags >= 0)
+    fcntl (kq, F_SETFD, flags | FD_CLOEXEC);
+
+  r->kq_fd = kq;
+  r->owner_pid = getpid ();
+  r->use_evfilt_user = 0;
+
+#ifdef USE_ASYNC_DEVICE_SELECT_ABORT
+#ifdef EVFILT_USER
+  {
+    struct kevent ev;
+    EV_SET (&ev, 1, EVFILT_USER, EV_ADD | EV_ENABLE | EV_CLEAR, 0, 0, NULL);
+    if (kevent (kq, &ev, 1, NULL, 0, NULL) == 0)
+      {
+        r->use_evfilt_user = 1;
+        ___WORD_STORE_RELEASE (&r->abort_fd, ___CAST(___WORD, kq));
+      }
+  }
+#endif
+  if (!r->use_evfilt_user)
+    {
+      struct kevent ev;
+      if (___ps->os.select_abort.reading_fd < 0)
+        {
+          ___SCMOBJ e = ___open_half_duplex_pipe (&___ps->os.select_abort, 1);
+          if (e != ___FIX(___NO_ERR))
+            {
+              close (kq);
+              r->kq_fd = -1;
+              return e;
+            }
+          if (___set_fd_blocking_mode (___ps->os.select_abort.writing_fd, 0) < 0 ||
+              ___set_fd_blocking_mode (___ps->os.select_abort.reading_fd, 0) < 0)
+            {
+              ___SCMOBJ e2 = err_code_from_errno ();
+              ___close_half_duplex_pipe (&___ps->os.select_abort, 2);
+              ___ps->os.select_abort.reading_fd = -1;
+              ___ps->os.select_abort.writing_fd = -1;
+              close (kq);
+              r->kq_fd = -1;
+              return e2;
+            }
+        }
+      EV_SET (&ev, ___CAST(uintptr_t, ___ps->os.select_abort.reading_fd),
+              EVFILT_READ, EV_ADD | EV_ENABLE, 0, 0, NULL);
+      if (kevent (kq, &ev, 1, NULL, 0, NULL) < 0)
+        {
+          ___SCMOBJ e2 = err_code_from_errno ();
+          close (kq);
+          r->kq_fd = -1;
+          return e2;
+        }
+      ___WORD_STORE_RELEASE (&r->abort_fd, ___CAST(___WORD, ___ps->os.select_abort.writing_fd));
+    }
+#endif
+
+  return ___FIX(___NO_ERR);
+}
+
+___HIDDEN ___SCMOBJ reactor_ensure_open (___processor_state ___ps, ___select_reactor *r)
+{
+  pid_t cur = getpid ();
+  if (r->kq_fd >= 0 && r->owner_pid == cur)
+    return ___FIX(___NO_ERR);
+
+  ___WORD_STORE_RELEASE (&r->abort_fd, ___CAST(___WORD, -1));
+  if (r->kq_fd >= 0 && r->owner_pid == cur)
+    close (r->kq_fd);
+  r->kq_fd = -1;
+  if (r->fd_slots_cap > 0)
+    memset (r->fd_slots, 0, (___SIZE_T)r->fd_slots_cap * sizeof (___reactor_fd_slot));
+  r->reg_count = 0;
+  r->want_count = 0;
+  reactor_clear_dirty (r);
+  return reactor_open_kernel (___ps, r);
+}
+
+#elif defined(USE_epoll)
+
+___HIDDEN ___BOOL reactor_ensure_epoll_events (___select_reactor *r, int need)
+{
+  int ncap;
+  struct epoll_event *na;
+  if (need <= r->events_cap)
+    return 1;
+  ncap = reactor_grow_cap (r->events_cap, need);
+  if (ncap == 0)
+    return 0;
+  na = ___CAST(struct epoll_event*,
+               ___ALLOC_MEM ((___SIZE_T)ncap * sizeof (struct epoll_event)));
+  if (na == NULL)
+    return 0;
+  if (r->events_cap > 0)
+    ___FREE_MEM (r->events);
+  r->events = na;
+  r->events_cap = ncap;
+  return 1;
+}
+
+___HIDDEN ___SCMOBJ reactor_open_kernel (___processor_state ___ps, ___select_reactor *r)
+{
+  int ep;
+  int wfd = -1;
+
+  (void)___ps;
+  ep = epoll_create1 (EPOLL_CLOEXEC);
+  if (ep < 0)
+    return err_code_from_errno ();
+
+#ifdef USE_ASYNC_DEVICE_SELECT_ABORT
+  wfd = eventfd (0, EFD_NONBLOCK | EFD_CLOEXEC);
+  if (wfd < 0)
+    {
+      ___SCMOBJ e = err_code_from_errno ();
+      close (ep);
+      return e;
+    }
+  {
+    struct epoll_event ev;
+    memset (&ev, 0, sizeof (ev));
+    ev.events = EPOLLIN;
+    ev.data.fd = wfd;
+    if (epoll_ctl (ep, EPOLL_CTL_ADD, wfd, &ev) < 0)
+      {
+        ___SCMOBJ e = err_code_from_errno ();
+        close (wfd);
+        close (ep);
+        return e;
+      }
+  }
+#endif
+
+  r->ep_fd = ep;
+  r->wake_fd = wfd;
+  r->owner_pid = getpid ();
+  ___WORD_STORE_RELEASE (&r->abort_fd, ___CAST(___WORD, wfd));
+  return ___FIX(___NO_ERR);
+}
+
+___HIDDEN ___SCMOBJ reactor_ensure_open (___processor_state ___ps, ___select_reactor *r)
+{
+  pid_t cur = getpid ();
+  if (r->ep_fd >= 0 && r->owner_pid == cur)
+    return ___FIX(___NO_ERR);
+
+  ___WORD_STORE_RELEASE (&r->abort_fd, ___CAST(___WORD, -1));
+  if (r->wake_fd >= 0)
+    {
+      close (r->wake_fd);
+      r->wake_fd = -1;
+    }
+  if (r->ep_fd >= 0)
+    {
+      close (r->ep_fd);
+      r->ep_fd = -1;
+    }
+  if (r->fd_slots_cap > 0)
+    memset (r->fd_slots, 0, (___SIZE_T)r->fd_slots_cap * sizeof (___reactor_fd_slot));
+  r->reg_count = 0;
+  r->want_count = 0;
+  reactor_clear_dirty (r);
+  return reactor_open_kernel (___ps, r);
+}
+
+#endif /* USE_kqueue / USE_epoll */
+#endif /* defined(USE_kqueue) || defined(USE_epoll) */
+
+___HIDDEN ___select_reactor *reactor_create (___processor_state ___ps)
+{
+  ___select_reactor *r =
+    ___CAST(___select_reactor*, ___ALLOC_MEM (sizeof (___select_reactor)));
+  if (r == NULL)
+    return NULL;
+  memset (r, 0, sizeof (___select_reactor));
+  r->abort_fd = ___CAST(___WORD, -1);
+#ifdef USE_kqueue
+  r->kq_fd = -1;
+#elif defined(USE_epoll)
+  r->ep_fd = -1;
+  r->wake_fd = -1;
+#endif
+  if (!reactor_ensure_dev_cap (r, 64))
+    {
+      ___FREE_MEM (r);
+      return NULL;
+    }
+#if defined(USE_kqueue) || defined(USE_epoll)
+  if (!reactor_ensure_fd (r, 63) ||
+      !reactor_ensure_int_vec (&r->reg_fds, &r->reg_cap, 64) ||
+      !reactor_ensure_int_vec (&r->want_fds, &r->want_cap, 64) ||
+      !reactor_ensure_int_vec (&r->dirty_fds, &r->dirty_cap, 64))
+    {
+      goto fail;
+    }
+#ifdef USE_kqueue
+  if (!reactor_ensure_kevents (&r->changes, &r->changes_cap, 64) ||
+      !reactor_ensure_kevents (&r->events, &r->events_cap, 64))
+    goto fail;
+#elif defined(USE_epoll)
+  if (!reactor_ensure_epoll_events (r, 64))
+    goto fail;
+#endif
+  if (reactor_open_kernel (___ps, r) != ___FIX(___NO_ERR))
+    goto fail;
+#else
+  (void)___ps;
+#endif
+  return r;
+
+#if defined(USE_kqueue) || defined(USE_epoll)
+ fail:
+  if (r->fd_slots) ___FREE_MEM (r->fd_slots);
+  if (r->reg_fds) ___FREE_MEM (r->reg_fds);
+  if (r->want_fds) ___FREE_MEM (r->want_fds);
+  if (r->dirty_fds) ___FREE_MEM (r->dirty_fds);
+  if (r->read_bits) ___FREE_MEM (r->read_bits);
+  if (r->write_bits) ___FREE_MEM (r->write_bits);
+#ifdef USE_kqueue
+  if (r->changes) ___FREE_MEM (r->changes);
+  if (r->events) ___FREE_MEM (r->events);
+#elif defined(USE_epoll)
+  if (r->events) ___FREE_MEM (r->events);
+#endif
+  if (r->devs) ___FREE_MEM (r->devs);
+  if (r->orig_devs) ___FREE_MEM (r->orig_devs);
+  if (r->dev_dirs) ___FREE_MEM (r->dev_dirs);
+  if (r->devs_next) ___FREE_MEM (r->devs_next);
+  if (r->dev_borrow) ___FREE_MEM (r->dev_borrow);
+  if (r->saved_devs) ___FREE_MEM (r->saved_devs);
+  if (r->ready_devs) ___FREE_MEM (r->ready_devs);
+  if (r->ready_dirs) ___FREE_MEM (r->ready_dirs);
+  if (r->hash_devs) ___FREE_MEM (r->hash_devs);
+  if (r->hash_dirs) ___FREE_MEM (r->hash_dirs);
+  ___FREE_MEM (r);
+  return NULL;
+#endif
+}
+
+___HIDDEN void reactor_destroy (___select_reactor *r)
+{
+  if (r == NULL)
+    return;
+  ___WORD_STORE_RELEASE (&r->abort_fd, ___CAST(___WORD, -1));
+#ifdef USE_kqueue
+  if (r->kq_fd >= 0 && r->owner_pid == getpid ())
+    close (r->kq_fd);
+  if (r->changes) ___FREE_MEM (r->changes);
+  if (r->events) ___FREE_MEM (r->events);
+#elif defined(USE_epoll)
+  if (r->wake_fd >= 0) close (r->wake_fd);
+  if (r->ep_fd >= 0) close (r->ep_fd);
+  if (r->events) ___FREE_MEM (r->events);
+#elif defined(USE_poll)
+  if (r->pollfds) ___FREE_MEM (r->pollfds);
+#endif
+#if defined(USE_kqueue) || defined(USE_epoll)
+  if (r->fd_slots) ___FREE_MEM (r->fd_slots);
+  if (r->reg_fds) ___FREE_MEM (r->reg_fds);
+  if (r->want_fds) ___FREE_MEM (r->want_fds);
+  if (r->dirty_fds) ___FREE_MEM (r->dirty_fds);
+  if (r->read_bits) ___FREE_MEM (r->read_bits);
+  if (r->write_bits) ___FREE_MEM (r->write_bits);
+#endif
+  if (r->devs) ___FREE_MEM (r->devs);
+  if (r->orig_devs) ___FREE_MEM (r->orig_devs);
+  if (r->dev_dirs) ___FREE_MEM (r->dev_dirs);
+  if (r->devs_next) ___FREE_MEM (r->devs_next);
+  if (r->dev_borrow) ___FREE_MEM (r->dev_borrow);
+  if (r->saved_devs) ___FREE_MEM (r->saved_devs);
+  if (r->ready_devs) ___FREE_MEM (r->ready_devs);
+  if (r->ready_dirs) ___FREE_MEM (r->ready_dirs);
+  if (r->hash_devs) ___FREE_MEM (r->hash_devs);
+  if (r->hash_dirs) ___FREE_MEM (r->hash_dirs);
+  ___FREE_MEM (r);
+}
+
+#endif /* USE_POSIX */
+
+___HIDDEN void device_add_ref ___P((___device *self),());
+___SCMOBJ ___device_release ___P((___device *self),());
+
+#ifdef USE_POSIX
+___HIDDEN ___MUTEX process_reap_mutex;
+___HIDDEN ___BOOL process_reap_mutex_ready = 0;
+___HIDDEN ___MUTEX process_fork_mutex;
+___HIDDEN ___BOOL process_fork_mutex_ready = 0;
+___HIDDEN ___VOLATILE ___WORD sigchld_pending = 0;
+
+typedef struct ___orphan_pid_node_struct
+  {
+    pid_t pid;
+    struct ___orphan_pid_node_struct *next;
+  } ___orphan_pid_node;
+
+___HIDDEN ___orphan_pid_node *orphan_pid_list = NULL;
+
+___HIDDEN void drain_orphan_pids_locked ___PVOID
+{
+  ___orphan_pid_node **pp = &orphan_pid_list;
+
+  while (*pp != NULL)
+    {
+      ___orphan_pid_node *node = *pp;
+      int status;
+      pid_t r = ___waitpid_no_EINTR (node->pid, &status, WNOHANG);
+
+      if ((r == node->pid && (WIFEXITED(status) || WIFSIGNALED(status))) ||
+          (r < 0 && errno == ECHILD))
+        {
+          *pp = node->next;
+          ___FREE_MEM(node);
+        }
+      else
+        pp = &node->next;
+    }
+}
+#endif
 
 
 ___SCMOBJ ___device_group_setup
@@ -185,9 +905,21 @@ void ___device_group_cleanup
         (dgroup)
 ___device_group *dgroup;)
 {
-  while (dgroup->list != NULL)
-    if (___device_cleanup (dgroup->list) != ___FIX(___NO_ERR))
-      break;
+  for (;;)
+    {
+      ___device *head;
+
+      if (device_group_mutex_ready)
+        ___MUTEX_LOCK (device_group_mutex);
+      head = dgroup->list;
+      if (device_group_mutex_ready)
+        ___MUTEX_UNLOCK (device_group_mutex);
+
+      if (head == NULL)
+        break;
+      if (___device_cleanup (head) != ___FIX(___NO_ERR))
+        break;
+    }
 
   ___FREE_MEM(dgroup);
 }
@@ -201,7 +933,19 @@ void ___device_add_to_group
 ___device_group *dgroup;
 ___device *dev;)
 {
-  ___device *head = dgroup->list;
+  ___device *head;
+  ___U64 gen = next_device_gen ();
+
+  if (device_group_mutex_ready)
+    ___MUTEX_LOCK (device_group_mutex);
+
+  dev->close_pending_mask = 0;
+  dev->select_active = 0;
+  dev->close_in_progress = 0;
+  dev->close_waiters = 0;
+  dev->dev_gen = gen;
+
+  head = dgroup->list;
 
   dev->group = dgroup;
 
@@ -219,6 +963,47 @@ ___device *dev;)
       tail->next = dev;
       head->prev = dev;
     }
+
+  if (device_group_mutex_ready)
+    ___MUTEX_UNLOCK (device_group_mutex);
+}
+
+___HIDDEN ___BOOL device_remove_from_group_if_member
+   ___P((___device *dev),
+        (dev)
+___device *dev;)
+{
+  ___BOOL removed = 0;
+
+  if (device_group_mutex_ready)
+    ___MUTEX_LOCK (device_group_mutex);
+
+  if (dev->group != NULL)
+    {
+      ___device_group *dgroup = dev->group;
+      ___device *prev = dev->prev;
+      ___device *next = dev->next;
+
+      if (prev == dev)
+        dgroup->list = NULL;
+      else
+        {
+          if (dgroup->list == dev)
+            dgroup->list = next;
+          prev->next = next;
+          next->prev = prev;
+          dev->next = dev;
+          dev->prev = dev;
+        }
+
+      dev->group = NULL;
+      removed = 1;
+    }
+
+  if (device_group_mutex_ready)
+    ___MUTEX_UNLOCK (device_group_mutex);
+
+  return removed;
 }
 
 void ___device_remove_from_group
@@ -226,23 +1011,7 @@ void ___device_remove_from_group
         (dev)
 ___device *dev;)
 {
-  ___device_group *dgroup = dev->group;
-  ___device *prev = dev->prev;
-  ___device *next = dev->next;
-
-  if (prev == dev)
-    dgroup->list = NULL;
-  else
-    {
-      if (dgroup->list == dev)
-        dgroup->list = next;
-      prev->next = next;
-      next->prev = prev;
-      dev->next = dev;
-      dev->prev = dev;
-    }
-
-  dev->group = NULL;
+  (void)device_remove_from_group_if_member (dev);
 }
 
 ___device_group *___global_device_group ___PVOID
@@ -864,6 +1633,9 @@ ___device_select_state *state;
 int fd;
 int for_op;)
 {
+  if (fd < 0 || fd >= ___PSTATE->os.fdset.size)
+    return;
+
   if (for_op == FOR_READING)
     ___FD_SET(fd, state->readfds);
   else
@@ -888,6 +1660,40 @@ ___device_select_state *state;
 int fd;
 int for_op;)
 {
+  if (fd < 0)
+    return;
+
+  if (state->pollfd_count >= state->pollfd_cap)
+    {
+      ___select_reactor *r =
+        ___CAST(___select_reactor*, ___WORD_LOAD_ACQUIRE (&___PSTATE->os.reactor));
+      if (r != NULL)
+        {
+          int ncap = reactor_grow_cap (r->pollfd_cap, state->pollfd_count + 1);
+          if (ncap > 0)
+            {
+              struct pollfd *np =
+                ___CAST(struct pollfd*,
+                        ___ALLOC_MEM ((___SIZE_T)ncap * sizeof (struct pollfd)));
+              if (np != NULL)
+                {
+                  if (r->pollfd_cap > 0)
+                    {
+                      memcpy (np, r->pollfds,
+                              (___SIZE_T)r->pollfd_cap * sizeof (struct pollfd));
+                      ___FREE_MEM (r->pollfds);
+                    }
+                  r->pollfds = np;
+                  r->pollfd_cap = ncap;
+                  state->pollfds = np;
+                  state->pollfd_cap = ncap;
+                }
+            }
+        }
+      if (state->pollfd_count >= state->pollfd_cap)
+        return;
+    }
+
   state->pollfds[state->pollfd_count].fd = fd;
 
   if (for_op == FOR_READING)
@@ -896,6 +1702,50 @@ int for_op;)
     state->pollfds[state->pollfd_count].events = POLLOUT;
 
   ++state->pollfd_count;
+}
+
+#endif
+
+#if defined(USE_kqueue) || defined(USE_epoll)
+
+void ___device_select_add_fd
+   ___P((___device_select_state *state,
+         int fd,
+         int for_op),
+        (state,
+         fd,
+         for_op)
+___device_select_state *state;
+int fd;
+int for_op;)
+{
+  ___select_reactor *r = ___CAST(___select_reactor*, state->reactor);
+  ___reactor_fd_slot *slot;
+  unsigned char bit;
+
+  if (fd < 0 || r == NULL)
+    return;
+
+  if (!reactor_ensure_fd (r, fd))
+    return;
+
+  state->readfds = r->read_bits;
+  state->writefds = r->write_bits;
+
+  slot = &r->fd_slots[fd];
+  bit = (for_op == FOR_READING) ? 1 : 2;
+  if (slot->want_mask == 0)
+    {
+      if (!reactor_ensure_int_vec (&r->want_fds, &r->want_cap, r->want_count + 1))
+        return;
+      r->want_fds[r->want_count++] = fd;
+      slot->want_gen = state->current_dev_gen;
+    }
+  else if (state->current_dev_gen > slot->want_gen)
+    {
+      slot->want_gen = state->current_dev_gen;
+    }
+  slot->want_mask |= bit;
 }
 
 #endif
@@ -927,23 +1777,27 @@ HANDLE wait_obj;)
 #endif
 
 
-___SCMOBJ ___device_select
+___HIDDEN ___SCMOBJ device_select_impl
    ___P((___device **devs,
          int nb_read_devs,
          int nb_write_devs,
          int nb_event_devs,
-         ___time timeout),
+         ___time timeout,
+         ___BOOL allow_park),
         (devs,
          nb_read_devs,
          nb_write_devs,
          nb_event_devs,
-         timeout)
+         timeout,
+         allow_park)
 ___device **devs;
 int nb_read_devs;
 int nb_write_devs;
 int nb_event_devs;
-___time timeout;)
+___time timeout;
+___BOOL allow_park;)
 {
+  ___processor_state ___ps = ___PSTATE;
   ___SCMOBJ e;
   int event_pos = nb_event_devs;
   int write_pos = event_pos + nb_write_devs;
@@ -954,6 +1808,19 @@ ___time timeout;)
   int i;
   int prev;
   ___time delta;
+  int devs_next_inline[64];
+  unsigned char dev_borrow_inline[64];
+  ___device *saved_inline[64];
+  unsigned char *dev_borrow = dev_borrow_inline;
+  ___BOOL dev_borrow_heap = 0;
+  ___BOOL devs_next_heap = 0;
+  ___device_select_entry select_entry;
+  ___BOOL used_select_fence = (read_pos > 0 && device_select_mutex_ready);
+  ___BOOL any_select_closing = 0;
+#ifdef USE_POSIX
+  ___select_reactor *r =
+    ___CAST(___select_reactor*, ___WORD_LOAD_ACQUIRE (&___ps->os.reactor));
+#endif
 
 #ifdef USE_ASYNC_DEVICE_SELECT_ABORT
 
@@ -962,16 +1829,39 @@ ___time timeout;)
 #endif
 
   state.devs = devs;
-
+  state.devs_next = devs_next_inline;
   state.timeout = timeout;
   state.relative_timeout = POS_INFINITY;
+  state.timeout_reached = 0;
+
+  if (read_pos > 64)
+    {
+#ifdef USE_POSIX
+      if (r != NULL && reactor_ensure_dev_cap (r, read_pos))
+        {
+          state.devs_next = r->devs_next;
+          dev_borrow = r->dev_borrow;
+        }
+      else
+#endif
+        {
+          state.devs_next = ___CAST(int*, ___ALLOC_MEM ((___SIZE_T)read_pos * sizeof (int)));
+          dev_borrow = ___CAST(unsigned char*, ___ALLOC_MEM ((___SIZE_T)read_pos * sizeof (unsigned char)));
+          if (state.devs_next == NULL || dev_borrow == NULL)
+            {
+              if (state.devs_next != NULL) ___FREE_MEM (state.devs_next);
+              if (dev_borrow != NULL) ___FREE_MEM (dev_borrow);
+              return ___FIX(___HEAP_OVERFLOW_ERR);
+            }
+          devs_next_heap = 1;
+          dev_borrow_heap = 1;
+        }
+    }
 
 #ifdef USE_select_or_poll
 
 #ifdef USE_select
   {
-    ___processor_state ___ps = ___PSTATE;
-
     state.highest_fd_plus_1 = 0;
     state.readfds = ___CAST(___fdbits*, ___ps->os.fdset.readfds);
     state.writefds = ___CAST(___fdbits*, ___ps->os.fdset.writefds);
@@ -985,8 +1875,24 @@ ___time timeout;)
 
 #ifdef USE_poll
   {
-    ___processor_state ___ps = ___PSTATE;
-
+    if (r == NULL)
+      {
+        e = ___FIX(___HEAP_OVERFLOW_ERR);
+        goto select_free_scratch;
+      }
+    if (r->pollfd_cap < 64)
+      {
+        struct pollfd *np = ___CAST(struct pollfd*, ___ALLOC_MEM (64 * sizeof (struct pollfd)));
+        if (np == NULL)
+          {
+            e = ___FIX(___HEAP_OVERFLOW_ERR);
+            goto select_free_scratch;
+          }
+        r->pollfds = np;
+        r->pollfd_cap = 64;
+      }
+    state.pollfds = r->pollfds;
+    state.pollfd_cap = r->pollfd_cap;
     state.pollfd_count = 0;
     state.readfds = ___CAST(___fdbits*, ___ps->os.fdset.readfds);
     state.writefds = ___CAST(___fdbits*, ___ps->os.fdset.writefds);
@@ -995,13 +1901,43 @@ ___time timeout;)
   }
 #endif
 
+#if defined(USE_kqueue) || defined(USE_epoll)
+  {
+    if (r == NULL)
+      {
+        e = ___FIX(___HEAP_OVERFLOW_ERR);
+        goto select_free_scratch;
+      }
+    if ((e = reactor_ensure_open (___ps, r)) != ___FIX(___NO_ERR))
+      goto select_free_scratch;
+    reactor_clear_dirty (r);
+    {
+      int wi;
+      for (wi = 0; wi < r->want_count; wi++)
+        {
+          int wfd = r->want_fds[wi];
+          if (wfd >= 0 && wfd < r->fd_slots_cap)
+            r->fd_slots[wfd].want_mask = 0;
+        }
+      r->want_count = 0;
+    }
+    state.reactor = r;
+    state.current_dev_gen = 0;
+    state.immediate_ready = 0;
+    state.readfds = r->read_bits;
+    state.writefds = r->write_bits;
+  }
+#endif
+
 #ifdef USE_ASYNC_DEVICE_SELECT_ABORT
 
+#if defined(USE_select) || defined(USE_poll)
   /* monitor self-pipe for available data to read */
 
   ___device_select_add_fd (&state,
-                           ___PSTATE->os.select_abort.reading_fd,
+                           ___ps->os.select_abort.reading_fd,
                            FOR_READING);
+#endif
 
 #endif
 
@@ -1018,11 +1954,64 @@ ___time timeout;)
 
 #ifdef USE_ASYNC_DEVICE_SELECT_ABORT
 
-  state.wait_objs_buffer[state.nb_wait_objs++] = ___PSTATE->os.select_abort;
+  state.wait_objs_buffer[state.nb_wait_objs++] = ___ps->os.select_abort;
 
 #endif
 
 #endif
+
+  if (used_select_fence)
+    {
+      ___MUTEX_LOCK (device_select_mutex);
+      select_entry.ps = ___ps;
+      select_entry.devs = devs;
+      select_entry.count = read_pos;
+      select_entry.prev = NULL;
+      select_entry.next = active_select_list;
+      if (active_select_list != NULL)
+        active_select_list->prev = &select_entry;
+      active_select_list = &select_entry;
+
+      for (i = 0; i < read_pos; i++)
+        {
+          ___device *d = devs[i];
+          /* FOR_EVENT (0 <= i < event_pos) polls process exit status via
+           * waitpid(WNOHANG) and never touches read_fd/write_fd; do not treat
+           * half-closed stdin/stdout as a closing event (avoids 0s busy-spin),
+           * while still fencing active close_in_progress > 0 below. */
+          int dir = (i >= write_pos
+                     ? ___DIRECTION_RD
+                     : (i >= event_pos
+                        ? ___DIRECTION_WR
+                        : 0));
+          if (d == NULL)
+            {
+              dev_borrow[i] = 0;
+            }
+          else if ((d->close_pending_mask & dir) != 0 ||
+                   ((dir & ___DIRECTION_RD) != 0 && d->read_stage != ___STAGE_OPEN) ||
+                   ((dir & ___DIRECTION_WR) != 0 && d->write_stage != ___STAGE_OPEN))
+            {
+              dev_borrow[i] = 2;
+              any_select_closing = 1;
+            }
+          else if (d->close_in_progress > 0)
+            {
+              dev_borrow[i] = 4;
+              any_select_closing = 1;
+            }
+          else
+            {
+              dev_borrow[i] = 1;
+              d->select_active++;
+              device_add_ref (d);
+            }
+        }
+      ___MUTEX_UNLOCK (device_select_mutex);
+
+      if (any_select_closing)
+        state.timeout = ___time_mod.time_neg_infinity;
+    }
 
   if (read_pos > 0)
     {
@@ -1046,6 +2035,22 @@ ___time timeout;)
       while (i != -1)
         {
           ___device *d = devs[i];
+          if (used_select_fence && dev_borrow[i] != 1)
+            {
+              int j = state.devs_next[i];
+              if (prev == -1)
+                dev_list = j;
+              else
+                state.devs_next[prev] = j;
+#ifdef USE_MsgWaitForMultipleObjects
+              state.devs_next[i] = -1;
+#endif
+              i = j;
+              continue;
+            }
+#if defined(USE_kqueue) || defined(USE_epoll)
+          state.current_dev_gen = (d != NULL) ? d->dev_gen : 0;
+#endif
           if ((e = ___device_select_virt
                      (d,
                       i>=write_pos ? FOR_READING
@@ -1063,7 +2068,7 @@ ___time timeout;)
             {
               int j;
               if (e != ___FIX(___SELECT_SETUP_DONE))
-                return e;
+                goto select_unborrow_cleanup;
               j = state.devs_next[i];
               if (prev == -1)
                 dev_list = j;
@@ -1095,6 +2100,539 @@ ___time timeout;)
 
 #ifdef USE_select_or_poll
 
+#ifdef USE_kqueue
+  {
+    ___mask_heartbeat_interrupts_state heartbeat_interrupts;
+    struct timeval delta_tv_struct;
+    struct timeval *delta_tv = &delta_tv_struct;
+    struct timespec delta_ts_struct;
+    struct timespec *delta_ts;
+    int nchanges = 0;
+    int result = 0;
+    int idx;
+    ___BOOL should_park = 0;
+
+    ___absolute_time_to_nonnegative_timeval_maybe_NULL (delta, &delta_tv);
+
+    /* 1. Sync persistent kqueue interest set: delete idle FDs (want_mask == 0). */
+    idx = 0;
+    while (idx < r->reg_count)
+      {
+        int fd = r->reg_fds[idx];
+        ___reactor_fd_slot *slot = &r->fd_slots[fd];
+        if (slot->want_mask == 0)
+          {
+            if (slot->reg_mask & 1)
+              {
+                if (reactor_ensure_kevents (&r->changes, &r->changes_cap, nchanges + 1))
+                  EV_SET (&r->changes[nchanges++], ___CAST(uintptr_t, fd),
+                          EVFILT_READ, EV_DELETE, 0, 0, NULL);
+              }
+            if (slot->reg_mask & 2)
+              {
+                if (reactor_ensure_kevents (&r->changes, &r->changes_cap, nchanges + 1))
+                  EV_SET (&r->changes[nchanges++], ___CAST(uintptr_t, fd),
+                          EVFILT_WRITE, EV_DELETE, 0, 0, NULL);
+              }
+            slot->reg_mask = 0;
+            slot->reg_gen = 0;
+            slot->always_ready = 0;
+            slot->in_reg = 0;
+            r->reg_fds[idx] = r->reg_fds[--r->reg_count];
+          }
+        else
+          {
+            idx++;
+          }
+      }
+
+    /* 2. Add/update requested FDs; reuse persistent registration O(1) when
+     *    reg_mask == want_mask && reg_gen == want_gen > 0. */
+    for (idx = 0; idx < r->want_count; idx++)
+      {
+        int fd = r->want_fds[idx];
+        ___reactor_fd_slot *slot = &r->fd_slots[fd];
+        unsigned char wm = slot->want_mask;
+        unsigned char rm = slot->reg_mask;
+        ___U64 wg = slot->want_gen;
+        ___BOOL same_gen = (slot->reg_gen != 0 && slot->reg_gen == wg);
+
+        if (same_gen && slot->always_ready)
+          {
+            reactor_mark_ready (r, fd, (wm & 1) != 0, (wm & 2) != 0);
+            state.immediate_ready = 1;
+            continue;
+          }
+
+        if (!same_gen)
+          {
+            struct stat st;
+            slot->always_ready = 0;
+            if (fstat (fd, &st) == 0 && S_ISREG (st.st_mode))
+              {
+                /* Regular files are always immediately ready under POSIX select/poll
+                 * (including at EOF, where BSD kqueue EVFILT_READ would block). */
+                if (rm & 1)
+                  {
+                    if (reactor_ensure_kevents (&r->changes, &r->changes_cap, nchanges + 1))
+                      EV_SET (&r->changes[nchanges++], ___CAST(uintptr_t, fd),
+                              EVFILT_READ, EV_DELETE, 0, 0, NULL);
+                  }
+                if (rm & 2)
+                  {
+                    if (reactor_ensure_kevents (&r->changes, &r->changes_cap, nchanges + 1))
+                      EV_SET (&r->changes[nchanges++], ___CAST(uintptr_t, fd),
+                              EVFILT_WRITE, EV_DELETE, 0, 0, NULL);
+                  }
+                slot->reg_mask = 0;
+                slot->reg_gen = wg;
+                slot->always_ready = 1;
+                reactor_mark_ready (r, fd, (wm & 1) != 0, (wm & 2) != 0);
+                state.immediate_ready = 1;
+                continue;
+              }
+          }
+
+        if (same_gen && rm == wm)
+          continue; /* O(1) persistent hit: zero kernel syscalls! */
+
+        if (wm & 1)
+          {
+            if (!same_gen || !(rm & 1))
+              {
+                if (reactor_ensure_kevents (&r->changes, &r->changes_cap, nchanges + 1))
+                  EV_SET (&r->changes[nchanges++], ___CAST(uintptr_t, fd),
+                          EVFILT_READ, EV_ADD | EV_ENABLE, 0, 0, ___CAST(void*, (___WORD)1));
+              }
+          }
+        else if (rm & 1)
+          {
+            if (reactor_ensure_kevents (&r->changes, &r->changes_cap, nchanges + 1))
+              EV_SET (&r->changes[nchanges++], ___CAST(uintptr_t, fd),
+                      EVFILT_READ, EV_DELETE, 0, 0, NULL);
+          }
+
+        if (wm & 2)
+          {
+            if (!same_gen || !(rm & 2))
+              {
+                if (reactor_ensure_kevents (&r->changes, &r->changes_cap, nchanges + 1))
+                  EV_SET (&r->changes[nchanges++], ___CAST(uintptr_t, fd),
+                          EVFILT_WRITE, EV_ADD | EV_ENABLE, 0, 0, ___CAST(void*, (___WORD)1));
+              }
+          }
+        else if (rm & 2)
+          {
+            if (reactor_ensure_kevents (&r->changes, &r->changes_cap, nchanges + 1))
+              EV_SET (&r->changes[nchanges++], ___CAST(uintptr_t, fd),
+                      EVFILT_WRITE, EV_DELETE, 0, 0, NULL);
+          }
+
+        if (!slot->in_reg)
+          {
+            if (reactor_ensure_int_vec (&r->reg_fds, &r->reg_cap, r->reg_count + 1))
+              {
+                r->reg_fds[r->reg_count++] = fd;
+                slot->in_reg = 1;
+              }
+          }
+        slot->reg_mask = wm;
+        slot->reg_gen = wg;
+      }
+
+    /* Fast path: non-blocking timeout with no FDs and no pending changelist. */
+    if (nchanges == 0 && r->want_count == 0 && !state.immediate_ready &&
+        delta_tv != NULL &&
+        (delta_tv->tv_sec < 0 || (delta_tv->tv_sec == 0 && delta_tv->tv_usec == 0)))
+      {
+        result = 0;
+        goto kqueue_done;
+      }
+
+    {
+      int want_ev = r->want_count + 16;
+      if (want_ev > 1024) want_ev = 1024;
+      if (want_ev < 64) want_ev = 64;
+      reactor_ensure_kevents (&r->events, &r->events_cap, want_ev);
+    }
+
+    /* 3. If there are changelist updates, flush non-blocking first so benign
+     *    EV_DELETE ENOENT/EBADF errors never cut a real blocking sleep short. */
+    if (nchanges > 0)
+      {
+        struct timespec zero_ts;
+        int nret;
+        zero_ts.tv_sec = 0;
+        zero_ts.tv_nsec = 0;
+        nret = kevent (r->kq_fd, r->changes, nchanges, r->events, r->events_cap, &zero_ts);
+        if (nret < 0)
+          {
+            if (errno != EINTR)
+              e = err_code_from_errno ();
+            result = nret;
+            goto kqueue_done;
+          }
+        for (idx = 0; idx < nret; idx++)
+          {
+            struct kevent *ev = &r->events[idx];
+            if (ev->flags & EV_ERROR)
+              {
+                if (ev->udata != NULL)
+                  {
+                    /* EV_ADD failed (e.g. /dev/null EINVAL/ENODEV/EPERM or EBADF):
+                     * clear registration and mark immediately ready (POSIX select parity). */
+                    int efd = ___CAST(int, ev->ident);
+                    if (efd >= 0 && efd < r->fd_slots_cap)
+                      {
+                        unsigned char bit = (ev->filter == EVFILT_READ) ? 1 : 2;
+                        r->fd_slots[efd].reg_mask &= ~bit;
+                        if (ev->data == EINVAL || ev->data == ENODEV || ev->data == EPERM)
+                          r->fd_slots[efd].always_ready = 1;
+                        reactor_mark_ready (r, efd, ev->filter == EVFILT_READ, ev->filter == EVFILT_WRITE);
+                        state.immediate_ready = 1;
+                      }
+                  }
+              }
+#ifdef USE_ASYNC_DEVICE_SELECT_ABORT
+#ifdef EVFILT_USER
+            else if (r->use_evfilt_user && ev->filter == EVFILT_USER)
+              {
+                aborted = 1;
+                state.immediate_ready = 1;
+              }
+#endif
+            else if (!r->use_evfilt_user &&
+                     ev->filter == EVFILT_READ &&
+                     ___CAST(int, ev->ident) == ___ps->os.select_abort.reading_fd)
+              {
+                aborted = 1;
+                state.immediate_ready = 1;
+              }
+#endif
+            else
+              {
+                int rfd = ___CAST(int, ev->ident);
+                reactor_mark_ready (r, rfd, ev->filter == EVFILT_READ, ev->filter == EVFILT_WRITE);
+                result++;
+                state.immediate_ready = 1;
+              }
+          }
+      }
+
+    if (state.immediate_ready)
+      {
+        delta_ts_struct.tv_sec = 0;
+        delta_ts_struct.tv_nsec = 0;
+        delta_ts = &delta_ts_struct;
+      }
+    else if (delta_tv != NULL)
+      {
+        if (delta_tv->tv_sec < 0)
+          {
+            delta_ts_struct.tv_sec = 0;
+            delta_ts_struct.tv_nsec = 0;
+          }
+        else
+          {
+            delta_ts_struct.tv_sec = delta_tv->tv_sec;
+            delta_ts_struct.tv_nsec = delta_tv->tv_usec * 1000;
+          }
+        delta_ts = &delta_ts_struct;
+      }
+    else
+      {
+        delta_ts = NULL;
+      }
+
+    /* 4. Wait for ready events, parking cleanly via Tier 3.3 blocking-FFI
+     *    when blocking so idle/IO-waiting cores never stall STW GC! */
+    should_park = (allow_park &&
+                   ___ps->primlock_depth == 0 &&
+                   !state.immediate_ready &&
+                   (delta_ts == NULL || delta_ts->tv_sec > 0 || delta_ts->tv_nsec > 0));
+
+    if (!state.immediate_ready || result == 0)
+      {
+        int nret;
+        if (should_park)
+          ___enter_blocking_ffi (___ps);
+
+        ___mask_heartbeat_interrupts_begin (&heartbeat_interrupts);
+
+        nret = kevent (r->kq_fd, NULL, 0, r->events, r->events_cap, delta_ts);
+        if (nret < 0)
+          e = err_code_from_errno ();
+
+        ___mask_heartbeat_interrupts_end (&heartbeat_interrupts);
+
+        if (should_park)
+          ___leave_blocking_ffi (___ps);
+
+        if (nret > 0)
+          {
+            for (idx = 0; idx < nret; idx++)
+              {
+                struct kevent *ev = &r->events[idx];
+#ifdef USE_ASYNC_DEVICE_SELECT_ABORT
+#ifdef EVFILT_USER
+                if (r->use_evfilt_user && ev->filter == EVFILT_USER)
+                  {
+                    aborted = 1;
+                    continue;
+                  }
+#endif
+                if (!r->use_evfilt_user &&
+                    ev->filter == EVFILT_READ &&
+                    ___CAST(int, ev->ident) == ___ps->os.select_abort.reading_fd)
+                  {
+                    aborted = 1;
+                    continue;
+                  }
+#endif
+                if (ev->filter == EVFILT_READ || ev->filter == EVFILT_WRITE)
+                  {
+                    int rfd = ___CAST(int, ev->ident);
+                    reactor_mark_ready (r, rfd, ev->filter == EVFILT_READ, ev->filter == EVFILT_WRITE);
+                    result++;
+                  }
+              }
+          }
+      }
+
+#ifdef USE_ASYNC_DEVICE_SELECT_ABORT
+    if (aborted && !r->use_evfilt_user && ___ps->os.select_abort.reading_fd >= 0)
+      {
+        for (;;)
+          {
+            char buf[256];
+            ssize_t n = read (___ps->os.select_abort.reading_fd, buf, sizeof (buf));
+            if (n < 0)
+              {
+                if (errno == EAGAIN)
+                  break;
+                if (errno != EINTR)
+                  {
+                    e = err_code_from_errno ();
+                    break;
+                  }
+              }
+            else if (___CAST(size_t, n) < sizeof (buf))
+              break;
+          }
+      }
+#endif
+
+  kqueue_done:
+    state.timeout_reached = (result == 0 && !state.immediate_ready && !aborted);
+  }
+#endif /* USE_kqueue */
+
+#ifdef USE_epoll
+  {
+    ___mask_heartbeat_interrupts_state heartbeat_interrupts;
+    struct timeval delta_tv_struct;
+    struct timeval *delta_tv = &delta_tv_struct;
+    int delta_msecs;
+    int result = 0;
+    int idx;
+    ___BOOL should_park = 0;
+
+    ___absolute_time_to_nonnegative_timeval_maybe_NULL (delta, &delta_tv);
+
+    /* 1. Delete idle FDs from persistent epoll set (want_mask == 0). */
+    idx = 0;
+    while (idx < r->reg_count)
+      {
+        int fd = r->reg_fds[idx];
+        ___reactor_fd_slot *slot = &r->fd_slots[fd];
+        if (slot->want_mask == 0)
+          {
+            if (slot->reg_mask != 0)
+              (void)epoll_ctl (r->ep_fd, EPOLL_CTL_DEL, fd, NULL);
+            slot->reg_mask = 0;
+            slot->reg_gen = 0;
+            slot->always_ready = 0;
+            slot->in_reg = 0;
+            r->reg_fds[idx] = r->reg_fds[--r->reg_count];
+          }
+        else
+          {
+            idx++;
+          }
+      }
+
+    /* 2. Add/modify requested FDs with FD-generation custody check. */
+    for (idx = 0; idx < r->want_count; idx++)
+      {
+        int fd = r->want_fds[idx];
+        ___reactor_fd_slot *slot = &r->fd_slots[fd];
+        unsigned char wm = slot->want_mask;
+        unsigned char rm = slot->reg_mask;
+        ___U64 wg = slot->want_gen;
+        ___BOOL same_gen = (slot->reg_gen != 0 && slot->reg_gen == wg);
+        struct epoll_event ev;
+        int rc;
+
+        if (same_gen && slot->always_ready)
+          {
+            reactor_mark_ready (r, fd, (wm & 1) != 0, (wm & 2) != 0);
+            state.immediate_ready = 1;
+            continue;
+          }
+
+        if (same_gen && rm == wm)
+          continue; /* O(1) persistent hit: zero epoll_ctl syscalls! */
+
+        if (!same_gen)
+          {
+            slot->always_ready = 0;
+            if (rm != 0)
+              {
+                (void)epoll_ctl (r->ep_fd, EPOLL_CTL_DEL, fd, NULL);
+                rm = 0;
+                slot->reg_mask = 0;
+              }
+          }
+
+        memset (&ev, 0, sizeof (ev));
+        ev.data.fd = fd;
+        ev.events = ((wm & 1) ? EPOLLIN : 0) | ((wm & 2) ? EPOLLOUT : 0);
+
+        rc = epoll_ctl (r->ep_fd, (rm == 0) ? EPOLL_CTL_ADD : EPOLL_CTL_MOD, fd, &ev);
+        if (rc < 0 && rm != 0 && errno == ENOENT)
+          rc = epoll_ctl (r->ep_fd, EPOLL_CTL_ADD, fd, &ev);
+        else if (rc < 0 && rm == 0 && errno == EEXIST)
+          rc = epoll_ctl (r->ep_fd, EPOLL_CTL_MOD, fd, &ev);
+
+        if (rc < 0)
+          {
+            if (errno == EPERM)
+              {
+                /* Regular file or /dev/null: always ready under POSIX select/poll. */
+                slot->always_ready = 1;
+                slot->reg_mask = 0;
+                slot->reg_gen = wg;
+                reactor_mark_ready (r, fd, (wm & 1) != 0, (wm & 2) != 0);
+                state.immediate_ready = 1;
+              }
+            else if (errno == EBADF)
+              {
+                slot->reg_mask = 0;
+                slot->reg_gen = 0;
+                reactor_mark_ready (r, fd, (wm & 1) != 0, (wm & 2) != 0);
+                state.immediate_ready = 1;
+              }
+            else
+              {
+                e = err_code_from_errno ();
+                goto epoll_done;
+              }
+          }
+        else
+          {
+            if (!slot->in_reg)
+              {
+                if (reactor_ensure_int_vec (&r->reg_fds, &r->reg_cap, r->reg_count + 1))
+                  {
+                    r->reg_fds[r->reg_count++] = fd;
+                    slot->in_reg = 1;
+                  }
+              }
+            slot->reg_mask = wm;
+            slot->reg_gen = wg;
+          }
+      }
+
+    if (r->want_count == 0 && !state.immediate_ready &&
+        delta_tv != NULL &&
+        (delta_tv->tv_sec < 0 || (delta_tv->tv_sec == 0 && delta_tv->tv_usec == 0)))
+      {
+        result = 0;
+        goto epoll_done;
+      }
+
+    if (state.immediate_ready)
+      delta_msecs = 0;
+    else if (delta_tv != NULL)
+      {
+        if (delta_tv->tv_sec < 0)
+          delta_msecs = 0;
+        else if (delta_tv->tv_sec < (INT_MAX / 1000))
+          {
+            delta_msecs = ___CAST(int, delta_tv->tv_sec * 1000 + delta_tv->tv_usec / 1000);
+            if (delta_msecs == 0 && (delta_tv->tv_sec > 0 || delta_tv->tv_usec > 0))
+              delta_msecs = 1;
+          }
+        else
+          delta_msecs = INT_MAX;
+      }
+    else
+      delta_msecs = -1;
+
+    {
+      int want_ev = r->want_count + 16;
+      if (want_ev > 1024) want_ev = 1024;
+      if (want_ev < 64) want_ev = 64;
+      reactor_ensure_epoll_events (r, want_ev);
+    }
+
+    should_park = (allow_park &&
+                   ___ps->primlock_depth == 0 &&
+                   !state.immediate_ready &&
+                   delta_msecs != 0);
+
+    if (should_park)
+      ___enter_blocking_ffi (___ps);
+
+    ___mask_heartbeat_interrupts_begin (&heartbeat_interrupts);
+
+    result = epoll_wait (r->ep_fd, r->events, r->events_cap, delta_msecs);
+    if (result < 0)
+      e = err_code_from_errno ();
+
+    ___mask_heartbeat_interrupts_end (&heartbeat_interrupts);
+
+    if (should_park)
+      ___leave_blocking_ffi (___ps);
+
+    if (result > 0)
+      {
+        unsigned int errmask = (EPOLLERR | EPOLLHUP);
+        int ready_fds = 0;
+        for (idx = 0; idx < result; idx++)
+          {
+            int rfd = r->events[idx].data.fd;
+            unsigned int evs = r->events[idx].events;
+#ifdef USE_ASYNC_DEVICE_SELECT_ABORT
+            if (rfd == r->wake_fd)
+              {
+                ___U64 val;
+                ssize_t ign = read (r->wake_fd, &val, sizeof (val));
+                (void)ign;
+                aborted = 1;
+                continue;
+              }
+#endif
+            if (rfd >= 0 && rfd < r->fd_slots_cap)
+              {
+                unsigned char wm = r->fd_slots[rfd].want_mask;
+                int rd = ((wm & 1) != 0) && ((evs & (EPOLLIN | errmask)) != 0);
+                int wr = ((wm & 2) != 0) && ((evs & (EPOLLOUT | errmask)) != 0);
+                if (rd || wr)
+                  {
+                    reactor_mark_ready (r, rfd, rd, wr);
+                    ready_fds++;
+                  }
+              }
+          }
+        result = ready_fds;
+      }
+
+  epoll_done:
+    state.timeout_reached = (result == 0 && !state.immediate_ready && !aborted);
+  }
+#endif /* USE_epoll */
+
 #ifdef USE_select
 
   /*
@@ -1116,6 +2654,7 @@ ___time timeout;)
     struct timeval delta_tv_struct;
     struct timeval *delta_tv = &delta_tv_struct;
     int result;
+    ___BOOL should_park = 0;
 
     ___absolute_time_to_nonnegative_timeval_maybe_NULL (delta, &delta_tv);
 
@@ -1132,13 +2671,6 @@ ___time timeout;)
             (delta_tv->tv_sec == 0 &&
              delta_tv->tv_usec == 0))
           {
-            /*
-             * The timeout has already passed, so we don't need to
-             * sleep.  This simple optimization avoids doing a system
-             * call to the select or nanosleep functions (which can be
-             * expensive on some operating systems).
-             */
-
             result = 0;
 
             goto select_done;
@@ -1147,18 +2679,6 @@ ___time timeout;)
 #ifdef USE_nanosleep
         else
           {
-            /*
-             * For better timeout resolution, the nanosleep function
-             * is used instead of the select function.  On some
-             * operating systems (e.g. OpenBSD 4.5) the nanosleep
-             * function can be more expensive than a call to select,
-             * but the better timeout resolution outweighs the run
-             * time cost.
-             *
-             * This optimization is not used when it is necessary to
-             * abort ___device_select asynchronously.
-             */
-
             struct timespec delta_ts_struct;
             delta_ts_struct.tv_sec = delta_tv->tv_sec;
             delta_ts_struct.tv_nsec = delta_tv->tv_usec * 1000;
@@ -1178,6 +2698,13 @@ ___time timeout;)
 #endif
       }
 
+    should_park = (allow_park &&
+                   ___ps->primlock_depth == 0 &&
+                   (delta_tv == NULL || delta_tv->tv_sec > 0 || delta_tv->tv_usec > 0));
+
+    if (should_park)
+      ___enter_blocking_ffi (___ps);
+
     ___mask_heartbeat_interrupts_begin (&heartbeat_interrupts);
 
     result =
@@ -1191,6 +2718,9 @@ ___time timeout;)
       e = err_code_from_errno ();
 
     ___mask_heartbeat_interrupts_end (&heartbeat_interrupts);
+
+    if (should_park)
+      ___leave_blocking_ffi (___ps);
 
   select_done:
 
@@ -1212,6 +2742,7 @@ ___time timeout;)
     int delta_msecs;
 #endif
     int result;
+    ___BOOL should_park = 0;
 
     ___absolute_time_to_nonnegative_timeval_maybe_NULL (delta, &delta_tv);
 
@@ -1271,6 +2802,10 @@ ___time timeout;)
     else
       delta_ts = NULL;
 
+    should_park = (allow_park &&
+                   ___ps->primlock_depth == 0 &&
+                   (delta_ts == NULL || delta_ts->tv_sec > 0 || delta_ts->tv_nsec > 0));
+
 #else
 
     if (delta_tv != NULL)
@@ -1285,7 +2820,14 @@ ___time timeout;)
     else
       delta_msecs = -1;
 
+    should_park = (allow_park &&
+                   ___ps->primlock_depth == 0 &&
+                   delta_msecs != 0);
+
 #endif
+
+    if (should_park)
+      ___enter_blocking_ffi (___ps);
 
     /* see comments on select above regarding heartbeat interrupts */
     ___mask_heartbeat_interrupts_begin (&heartbeat_interrupts);
@@ -1301,27 +2843,35 @@ ___time timeout;)
 
     ___mask_heartbeat_interrupts_end (&heartbeat_interrupts);
 
+    if (should_park)
+      ___leave_blocking_ffi (___ps);
+
     /* Set the active bitmaps */
     if (result > 0)
       {
         int errmask = (POLLERR | POLLHUP | POLLNVAL);
         int active = result;
+        int fdset_size = ___ps->os.fdset.size;
         int x;
 
-        for (x = 0; active > 0; ++x)
+        for (x = 0; x < state.pollfd_count && active > 0; ++x)
           {
             if (state.pollfds[x].revents)
               {
-                if (state.pollfds[x].events & POLLIN)
+                int fd = state.pollfds[x].fd;
+                if (fd >= 0 && fd < fdset_size)
                   {
-                    if (state.pollfds[x].revents & (POLLIN | errmask))
-                      ___FD_SET(state.pollfds[x].fd, state.readfds);
-                  }
+                    if (state.pollfds[x].events & POLLIN)
+                      {
+                        if (state.pollfds[x].revents & (POLLIN | errmask))
+                          ___FD_SET(fd, state.readfds);
+                      }
 
-                if (state.pollfds[x].events & POLLOUT)
-                  {
-                    if (state.pollfds[x].revents & (POLLOUT | errmask))
-                      ___FD_SET(state.pollfds[x].fd, state.writefds);
+                    if (state.pollfds[x].events & POLLOUT)
+                      {
+                        if (state.pollfds[x].revents & (POLLOUT | errmask))
+                          ___FD_SET(fd, state.writefds);
+                      }
                   }
 
                 --active;
@@ -1467,9 +3017,9 @@ ___time timeout;)
 
 #ifdef USE_ASYNC_DEVICE_SELECT_ABORT
 
-#ifdef USE_select_or_poll
+#if defined(USE_select) || defined(USE_poll)
 
-  if (___FD_ISSET(___PSTATE->os.select_abort.reading_fd, state.readfds))
+  if (___FD_ISSET(___ps->os.select_abort.reading_fd, state.readfds))
     {
       /* self-pipe has available data to read, discard all of it */
 
@@ -1478,7 +3028,7 @@ ___time timeout;)
       for (;;)
         {
           char buf[256];
-          int n = read (___PSTATE->os.select_abort.reading_fd, buf, sizeof(buf));
+          int n = read (___ps->os.select_abort.reading_fd, buf, sizeof(buf));
 
           if (n < 0)
             {
@@ -1499,24 +3049,117 @@ ___time timeout;)
 
 #endif
 
-  if (e == ___FIX(___NO_ERR))
-    {
-      for (i=read_pos-1; i>=0; i--)
-        {
-          ___device *d = devs[i];
-          if (d != NULL)
-            if ((e = ___device_select_virt
-                       (d,
-                        i>=write_pos ? FOR_READING
-                                     : i>=event_pos ? FOR_WRITING
-                                                    : FOR_EVENT,
-                        i,
-                        ___SELECT_PASS_CHECK,
-                        &state))
-                != ___FIX(___NO_ERR))
-              break;
-        }
-    }
+  {
+    ___device **saved_devs = NULL;
+    ___BOOL saved_devs_heap = 0;
+    ___BOOL check_active = (e == ___FIX(___NO_ERR));
+
+    if (used_select_fence)
+      {
+        if (read_pos <= 64)
+          saved_devs = saved_inline;
+#ifdef USE_POSIX
+        else if (r != NULL && r->dev_cap >= read_pos)
+          saved_devs = r->saved_devs;
+#endif
+        else
+          {
+            saved_devs = ___CAST(___device**, ___ALLOC_MEM((___SIZE_T)read_pos * sizeof(___device*)));
+            saved_devs_heap = (saved_devs != NULL);
+          }
+        if (saved_devs == NULL)
+          {
+            e = ___FIX(___HEAP_OVERFLOW_ERR);
+            goto select_unborrow_cleanup;
+          }
+
+        ___MUTEX_LOCK (device_select_mutex);
+        if (select_entry.prev != NULL)
+          select_entry.prev->next = select_entry.next;
+        else
+          active_select_list = select_entry.next;
+        if (select_entry.next != NULL)
+          select_entry.next->prev = select_entry.prev;
+
+        /* Snapshot close_pending_mask / close_in_progress BEFORE running
+         * ___SELECT_PASS_CHECK while KEEPING d->select_active > 0 so no
+         * concurrent ___device_close can mutate fd/stages/TLS/process state
+         * during ___SELECT_PASS_CHECK. */
+        for (i = 0; i < read_pos; i++)
+          {
+            saved_devs[i] = devs[i];
+            if (dev_borrow[i] == 1)
+              {
+                ___device *d = devs[i];
+                int dir = (i >= write_pos
+                           ? ___DIRECTION_RD
+                           : (i >= event_pos
+                              ? ___DIRECTION_WR
+                              : 0));
+                if ((d->close_pending_mask & dir) != 0 || d->close_in_progress > 0)
+                  dev_borrow[i] = 3;
+              }
+          }
+        ___MUTEX_UNLOCK (device_select_mutex);
+      }
+
+    for (i = read_pos - 1; i >= 0; i--)
+      {
+        ___device *d = devs[i];
+        if (used_select_fence && (dev_borrow[i] == 2 || dev_borrow[i] == 3))
+          {
+            devs[i] = NULL;
+          }
+        else if (check_active && d != NULL && (!used_select_fence || dev_borrow[i] == 1))
+          {
+            ___SCMOBJ ce = ___device_select_virt
+                             (d,
+                              i>=write_pos ? FOR_READING
+                                           : i>=event_pos ? FOR_WRITING
+                                                          : FOR_EVENT,
+                              i,
+                              ___SELECT_PASS_CHECK,
+                              &state);
+            if (ce != ___FIX(___NO_ERR))
+              {
+                e = ce;
+                check_active = 0;
+              }
+          }
+      }
+
+    if (used_select_fence)
+      {
+        ___BOOL need_broadcast = 0;
+
+        ___MUTEX_LOCK (device_select_mutex);
+        for (i = 0; i < read_pos; i++)
+          {
+            if (dev_borrow[i] == 1 || dev_borrow[i] == 3)
+              {
+                ___device *d = (saved_devs != NULL) ? saved_devs[i] : devs[i];
+                if (d != NULL && --d->select_active == 0 && d->close_waiters > 0)
+                  need_broadcast = 1;
+              }
+          }
+        if (need_broadcast)
+          ___CONDVAR_BROADCAST (device_select_cond);
+        ___MUTEX_UNLOCK (device_select_mutex);
+
+        for (i = read_pos - 1; i >= 0; i--)
+          {
+            if (dev_borrow[i] == 1 || dev_borrow[i] == 3)
+              {
+                ___device *d = (saved_devs != NULL) ? saved_devs[i] : devs[i];
+                if (d != NULL)
+                  ___device_release (d);
+              }
+          }
+
+        if (saved_devs_heap)
+          ___FREE_MEM (saved_devs);
+      }
+  }
 
 #ifdef USE_ASYNC_DEVICE_SELECT_ABORT
 
@@ -1525,7 +3168,68 @@ ___time timeout;)
 
 #endif
 
+ select_free_scratch:
+  if (devs_next_heap)
+    ___FREE_MEM (state.devs_next);
+  if (dev_borrow_heap)
+    ___FREE_MEM (dev_borrow);
   return e;
+
+select_unborrow_cleanup:
+  if (used_select_fence)
+    {
+      ___BOOL need_broadcast = 0;
+
+      ___MUTEX_LOCK (device_select_mutex);
+      if (select_entry.prev != NULL)
+        select_entry.prev->next = select_entry.next;
+      else
+        active_select_list = select_entry.next;
+      if (select_entry.next != NULL)
+        select_entry.next->prev = select_entry.prev;
+
+      for (i = 0; i < read_pos; i++)
+        {
+          if (dev_borrow[i] == 1)
+            {
+              ___device *d = devs[i];
+              if (--d->select_active == 0 && d->close_waiters > 0)
+                need_broadcast = 1;
+            }
+        }
+      if (need_broadcast)
+        ___CONDVAR_BROADCAST (device_select_cond);
+      ___MUTEX_UNLOCK (device_select_mutex);
+
+      for (i = 0; i < read_pos; i++)
+        {
+          if (dev_borrow[i] == 1)
+            ___device_release (devs[i]);
+        }
+    }
+
+  goto select_free_scratch;
+}
+
+
+___SCMOBJ ___device_select
+   ___P((___device **devs,
+         int nb_read_devs,
+         int nb_write_devs,
+         int nb_event_devs,
+         ___time timeout),
+        (devs,
+         nb_read_devs,
+         nb_write_devs,
+         nb_event_devs,
+         timeout)
+___device **devs;
+int nb_read_devs;
+int nb_write_devs;
+int nb_event_devs;
+___time timeout;)
+{
+  return device_select_impl (devs, nb_read_devs, nb_write_devs, nb_event_devs, timeout, 0);
 }
 
 
@@ -1537,10 +3241,59 @@ ___processor_state ___ps;)
 #ifdef USE_ASYNC_DEVICE_SELECT_ABORT
 
 #ifdef USE_POSIX
+  int saved_errno = errno;
 
-  static char buf[] = { 0 };
+#if defined(USE_kqueue)
+  {
+    ___select_reactor *r =
+      ___CAST(___select_reactor*, ___WORD_LOAD_ACQUIRE (&___ps->os.reactor));
+    if (r != NULL)
+      {
+        int afd = ___CAST(int, ___WORD_LOAD_ACQUIRE (&r->abort_fd));
+        if (afd >= 0)
+          {
+#ifdef EVFILT_USER
+            if (r->use_evfilt_user)
+              {
+                struct kevent ev;
+                EV_SET (&ev, 1, EVFILT_USER, 0, NOTE_TRIGGER, 0, NULL);
+                (void)kevent (afd, &ev, 1, NULL, 0, NULL);
+                errno = saved_errno;
+                return;
+              }
+#endif
+            {
+              static const char buf[1] = { 0 };
+              ssize_t ign = write (afd, buf, 1);
+              (void)ign;
+            }
+          }
+      }
+  }
+#elif defined(USE_epoll)
+  {
+    ___select_reactor *r =
+      ___CAST(___select_reactor*, ___WORD_LOAD_ACQUIRE (&___ps->os.reactor));
+    if (r != NULL)
+      {
+        int wfd = ___CAST(int, ___WORD_LOAD_ACQUIRE (&r->abort_fd));
+        if (wfd >= 0)
+          {
+            ___U64 one = 1;
+            ssize_t ign = write (wfd, &one, sizeof (one));
+            (void)ign;
+          }
+      }
+  }
+#else
+  {
+    static char buf[] = { 0 };
+    ssize_t ign = write (___ps->os.select_abort.writing_fd, buf, 1);
+    (void)ign;
+  }
+#endif
 
-  write (___ps->os.select_abort.writing_fd, buf, 1); /* ignore error */
+  errno = saved_errno;
 
 #endif
 
@@ -1573,7 +3326,55 @@ ___SCMOBJ ___device_close
 ___device *self;
 int direction;)
 {
-  return ___device_close_virt (self, direction);
+  ___SCMOBJ e;
+  int newly_masked = 0;
+
+  if (device_select_mutex_ready)
+    {
+      ___MUTEX_LOCK (device_select_mutex);
+      self->close_waiters++;
+      while (self->close_in_progress > 0)
+        ___CONDVAR_WAIT (device_select_cond, device_select_mutex);
+      self->close_in_progress = 1;
+      newly_masked = direction & ~self->close_pending_mask;
+      self->close_pending_mask |= direction;
+      while (self->select_active > 0)
+        {
+          ___device_select_entry *ent;
+          for (ent = active_select_list; ent != NULL; ent = ent->next)
+            {
+              int k;
+              for (k = 0; k < ent->count; k++)
+                {
+                  if (ent->devs[k] == self)
+                    {
+                      ___device_select_abort (ent->ps);
+                      break;
+                    }
+                }
+            }
+          ___CONDVAR_WAIT (device_select_cond, device_select_mutex);
+        }
+      self->close_waiters--;
+      ___MUTEX_UNLOCK (device_select_mutex);
+    }
+
+  e = ___device_close_virt (self, direction);
+
+  if (device_select_mutex_ready)
+    {
+      ___MUTEX_LOCK (device_select_mutex);
+      if (e == ___ERR_CODE_EAGAIN)
+        self->close_pending_mask &= ~newly_masked;
+      else
+        self->dev_gen = ++global_device_gen; /* invalidate persistent kqueue/epoll slots */
+      self->close_in_progress = 0;
+      if (self->close_waiters > 0)
+        ___CONDVAR_BROADCAST (device_select_cond);
+      ___MUTEX_UNLOCK (device_select_mutex);
+    }
+
+  return e;
 }
 
 ___HIDDEN void device_transfer_close_responsibility
@@ -1595,6 +3396,8 @@ ___device *self;)
 {
 #ifdef USE_PUMPS
   InterlockedIncrement (&self->refcount);
+#elif defined(__GNUC__) || defined(__clang__)
+  __atomic_fetch_add (&self->refcount, 1, __ATOMIC_RELAXED);
 #else
   self->refcount++;
 #endif
@@ -1610,6 +3413,8 @@ ___device *self;)
   if (
 #ifdef USE_PUMPS
       InterlockedDecrement (&self->refcount) == 0
+#elif defined(__GNUC__) || defined(__clang__)
+      __atomic_sub_fetch (&self->refcount, 1, __ATOMIC_ACQ_REL) == 0
 #else
       --self->refcount == 0
 #endif
@@ -1630,10 +3435,8 @@ ___device *self;)
   ___SCMOBJ e;
   ___device *devs[1];
 
-  if (self->group == NULL)
+  if (!device_remove_from_group_if_member (self))
     return ___FIX(___UNKNOWN_ERR);
-
-  ___device_remove_from_group (self);
 
   for (;;)
     {
@@ -3566,19 +5369,43 @@ ___SCMOBJ ___device_process_status_poll
         (dev)
 ___device_process *dev;)
 {
-  if (!dev->got_status)
-    {
 #ifdef USE_POSIX
 
-      /*
-       * The process status is updated asynchronously by
-       * sigchld_signal_handler.
-       */
+  /*
+   * Poll this specific child PID under process_reap_mutex rather than calling
+   * waitpid(-1) in sigchld_signal_handler.  Under SMP (P > 1), pthread_sigmask
+   * only blocks SIGCHLD on the spawning thread; a wildcard waitpid(-1) on a
+   * sibling thread could steal and discard a child's status before its device
+   * is registered in dgroup->list, hanging process-status forever.
+   */
+
+  if (process_reap_mutex_ready)
+    ___MUTEX_LOCK (process_reap_mutex);
+
+  if (!dev->got_status && dev->pid > 0)
+    {
+      int status;
+      pid_t r = ___waitpid_no_EINTR (dev->pid, &status, WNOHANG);
+
+      if (r == dev->pid && (WIFEXITED(status) || WIFSIGNALED(status)))
+        ___device_process_status_set (dev, status); /* ignore error */
+    }
+
+  if (___WORD_LOAD_ACQUIRE (&sigchld_pending) != 0 && orphan_pid_list != NULL)
+    {
+      ___WORD_STORE_RELAXED (&sigchld_pending, 0);
+      drain_orphan_pids_locked ();
+    }
+
+  if (process_reap_mutex_ready)
+    ___MUTEX_UNLOCK (process_reap_mutex);
 
 #endif
 
 #ifdef USE_WIN32
 
+  if (!dev->got_status)
+    {
       DWORD status;
 
       if (!GetExitCodeProcess (dev->pi.hProcess, &status))
@@ -3586,11 +5413,29 @@ ___device_process *dev;)
 
       if (status != STILL_ACTIVE)
         ___device_process_status_set (dev, status << 8); /* ignore error */
-
-#endif
     }
 
+#endif
+
   return ___FIX(___NO_ERR);
+}
+
+___HIDDEN ___BOOL device_process_has_status
+   ___P((___device_process *dev),
+        (dev)
+___device_process *dev;)
+{
+  ___BOOL got;
+#ifdef USE_POSIX
+  if (process_reap_mutex_ready)
+    ___MUTEX_LOCK (process_reap_mutex);
+  got = dev->got_status;
+  if (process_reap_mutex_ready)
+    ___MUTEX_UNLOCK (process_reap_mutex);
+#else
+  got = dev->got_status;
+#endif
+  return got;
 }
 
 ___HIDDEN ___SCMOBJ ___device_process_close_raw_virt
@@ -3636,17 +5481,19 @@ ___device_select_state *state;)
   if (for_op != FOR_EVENT)
     return ___device_pipe_select_raw_virt (self, for_op, i, pass, state);
 
+  ___device_process_status_poll (d); /* ignore error */
+
   if (pass == ___SELECT_PASS_1)
     {
-      if (d->got_status)
+      if (device_process_has_status (d))
         state->timeout = ___time_mod.time_neg_infinity;
       else
         {
           int interval = d->event_check_interval_nsecs * 6 / 5;
           if (interval < 1000000)
             interval = 1000000; /* min interval = 0.001 secs */
-          else if (interval > 200000000)
-            interval = 200000000; /* max interval = 0.2 sec */
+          else if (interval > 50000000)
+            interval = 50000000; /* max interval = 0.05 sec */
           d->event_check_interval_nsecs = interval;
           ___device_select_add_relative_timeout (state, i, interval * 1e-9);
         }
@@ -3655,7 +5502,7 @@ ___device_select_state *state;)
 
   /* pass == ___SELECT_PASS_CHECK */
 
-  if (d->got_status)
+  if (device_process_has_status (d))
     state->devs[i] = NULL;
 
   return ___FIX(___NO_ERR);
@@ -3668,7 +5515,26 @@ ___device_stream *self;)
 {
   ___device_process *d = ___CAST(___device_process*,self);
   ___SCMOBJ e1 = ___device_pipe_release_raw_virt (self);
-  ___SCMOBJ e2 = ___device_process_cleanup (d);
+  ___SCMOBJ e2;
+#ifdef USE_POSIX
+  ___device_process_status_poll (d); /* ignore error */
+  if (process_reap_mutex_ready)
+    ___MUTEX_LOCK (process_reap_mutex);
+  if (!d->got_status && d->pid > 0)
+    {
+      ___orphan_pid_node *node =
+        ___CAST(___orphan_pid_node*,___ALLOC_MEM(sizeof (___orphan_pid_node)));
+      if (node != NULL)
+        {
+          node->pid = d->pid;
+          node->next = orphan_pid_list;
+          orphan_pid_list = node;
+        }
+    }
+  if (process_reap_mutex_ready)
+    ___MUTEX_UNLOCK (process_reap_mutex);
+#endif
+  e2 = ___device_process_cleanup (d);
   if (e1 == ___FIX(___NO_ERR))
     e1 = e2;
   return e1;
@@ -8512,52 +10378,12 @@ int sig;)
 #endif
 
   /*
-   * A SIGCHLD signal indicates that at least one child has changed
-   * status.  There may be more than one because signals are not
-   * queued.  For example during a period when the SIGCHLD signal is
-   * blocked several child processes can terminate and only one call
-   * to the SIGCHLD handler will occur when the SIGCHLD signal is
-   * unblocked.  For this reason we must call waitpid in a loop, until
-   * the last call indicates that no other child process is available.
+   * Keep the SIGCHLD handler strictly async-signal-safe: only record the
+   * notification (and interrupt select/poll with EINTR).  Reaping is performed
+   * per-PID in ___device_process_status_poll under process_reap_mutex.
    */
 
-  for (;;)
-    {
-      int status;
-      ___device *head;
-      pid_t pid = ___waitpid_no_EINTR (-1, &status, WNOHANG);
-
-      if (pid <= 0 ||
-          !(WIFEXITED(status) || WIFSIGNALED(status)))
-        break;
-
-      /*
-       * Find the process device structure for the process which
-       * terminated, and save the exit status with the process device.
-       */
-
-      head = ___global_device_group ()->list;
-
-      if (head != NULL)
-        {
-          ___device *d = head->prev;
-
-          do
-            {
-              if (___device_kind (d) == ___PROCESS_DEVICE_KIND)
-                {
-                  ___device_process *dev = ___CAST(___device_process*,d);
-
-                  if (dev->pid == pid)
-                    {
-                      ___device_process_status_set (dev, status); /* ignore error */
-                      break;
-                    }
-                }
-              d = d->prev;
-            } while  (d != head);
-        }
-    }
+  ___WORD_STORE_RELEASE (&sigchld_pending, 1);
   errno = save_errno;
 #endif
 }
@@ -9098,6 +10924,27 @@ ___STRING_TYPE(___ENVIRON_CE_SELECT) *env;)
 #endif
 
 
+#ifdef USE_execvp
+
+static void close_process_child_descriptors (int errno_fd)
+{
+  int fd = errno_fd;
+  if (fd < STDERR_FILENO) fd = STDERR_FILENO;
+  if (fd < STDOUT_FILENO) fd = STDOUT_FILENO;
+  if (fd < STDIN_FILENO) fd = STDIN_FILENO;
+  ___closefrom (fd+1);
+  while (fd > 0)
+    {
+      fd--;
+      if (fd != STDIN_FILENO && fd != STDOUT_FILENO &&
+          fd != STDERR_FILENO && fd != errno_fd)
+        ___close_no_EINTR (fd); /* ignore error */
+    }
+}
+
+#endif
+
+
 ___SCMOBJ ___device_stream_setup_from_process
    ___P((___device_stream **dev,
          ___device_group *dgroup,
@@ -9135,6 +10982,364 @@ int options;)
   int has_redir = options & (STDIN_REDIR | STDOUT_REDIR | STDERR_REDIR);
   int execvp_errno;
   int n;
+#if defined(__APPLE__) && defined(__MACH__) && defined(POSIX_SPAWN_CLOEXEC_DEFAULT)
+  /*
+   * On Darwin, calling fork() from a multithreaded SMP process triggers
+   * libSystem_atfork_child -> _notify_fork_child -> _os_once_gate_corruption_abort
+   * (SIGKILL) whenever another processor is initializing a libSystem os_once_t
+   * (e.g. concurrent TCP/DNS/notify calls).  Spawn non-PTY children directly via
+   * posix_spawn/posix_spawnp with POSIX_SPAWN_CLOEXEC_DEFAULT | SETSIGHANDLERS,
+   * bypassing fork() completely.
+   */
+  if (!(options & PSEUDO_TERM) &&
+      (dir == NULL || strlen (dir) < PATH_MAX))
+    {
+      if (dir != NULL)
+        {
+          struct stat dir_st;
+          if (stat (dir, &dir_st) != 0 || !S_ISDIR (dir_st.st_mode))
+            return ___FIX(1); /* indicate current directory couldn't be set */
+        }
+
+      ___mask_all_interrupts_state all_interrupts;
+      ___mask_all_interrupts_begin (&all_interrupts);
+
+      fdp.input.reading_fd = -1;
+      fdp.input.writing_fd = -1;
+      fdp.output.reading_fd = -1;
+      fdp.output.writing_fd = -1;
+
+      if (!has_redir ||
+          (e = open_full_duplex_pipe1 (&fdp, 0, 1)) == ___FIX(___NO_ERR))
+        {
+          posix_spawnattr_t direct_attr;
+          posix_spawn_file_actions_t direct_actions;
+          int attr_init = 0;
+          int actions_init = 0;
+          int status = 0;
+
+          if ((status = posix_spawnattr_init (&direct_attr)) == 0)
+            attr_init = 1;
+          if (status == 0 && (status = posix_spawn_file_actions_init (&direct_actions)) == 0)
+            actions_init = 1;
+
+          if (status == 0)
+            {
+              sigset_t sigmask;
+              sigset_t sigdef;
+              sigemptyset (&sigmask);
+              sigemptyset (&sigdef);
+              sigaddset (&sigdef, SIGINT);
+              sigaddset (&sigdef, SIGTERM);
+              sigaddset (&sigdef, SIGPIPE);
+              sigaddset (&sigdef, SIGCHLD);
+#ifdef SIGWINCH
+              sigaddset (&sigdef, SIGWINCH);
+#endif
+#ifdef SIGCONT
+              sigaddset (&sigdef, SIGCONT);
+#endif
+#ifdef SIGTTOU
+              sigaddset (&sigdef, SIGTTOU);
+#endif
+#ifdef SIGTTIN
+              sigaddset (&sigdef, SIGTTIN);
+#endif
+#ifdef SIGALRM
+              sigaddset (&sigdef, SIGALRM);
+#endif
+#ifdef SIGVTALRM
+              sigaddset (&sigdef, SIGVTALRM);
+#endif
+#ifdef SIGPROF
+              sigaddset (&sigdef, SIGPROF);
+#endif
+              status = posix_spawnattr_setflags
+                (&direct_attr,
+                 POSIX_SPAWN_CLOEXEC_DEFAULT |
+                 POSIX_SPAWN_SETSIGMASK |
+                 POSIX_SPAWN_SETSIGDEF);
+              if (status == 0)
+                status = posix_spawnattr_setsigmask (&direct_attr, &sigmask);
+              if (status == 0)
+                status = posix_spawnattr_setsigdefault (&direct_attr, &sigdef);
+            }
+
+          if (status == 0)
+            {
+              if (options & STDIN_REDIR)
+                status = posix_spawn_file_actions_adddup2
+                  (&direct_actions, fdp.input.reading_fd, STDIN_FILENO);
+              else
+                {
+                  int fl = fcntl (STDIN_FILENO, F_GETFD);
+                  if (fl >= 0 && !(fl & FD_CLOEXEC))
+                    status = posix_spawn_file_actions_adddup2
+                      (&direct_actions, STDIN_FILENO, STDIN_FILENO);
+                }
+            }
+
+          if (status == 0)
+            {
+              if (options & STDOUT_REDIR)
+                status = posix_spawn_file_actions_adddup2
+                  (&direct_actions, fdp.output.writing_fd, STDOUT_FILENO);
+              else
+                {
+                  int fl = fcntl (STDOUT_FILENO, F_GETFD);
+                  if (fl >= 0 && !(fl & FD_CLOEXEC))
+                    status = posix_spawn_file_actions_adddup2
+                      (&direct_actions, STDOUT_FILENO, STDOUT_FILENO);
+                }
+            }
+
+          if (status == 0)
+            {
+              if (options & STDERR_REDIR)
+                status = posix_spawn_file_actions_adddup2
+                  (&direct_actions, fdp.output.writing_fd, STDERR_FILENO);
+              else
+                {
+                  int fl = fcntl (STDERR_FILENO, F_GETFD);
+                  if (fl >= 0 && !(fl & FD_CLOEXEC))
+                    status = posix_spawn_file_actions_adddup2
+                      (&direct_actions, STDERR_FILENO, STDERR_FILENO);
+                }
+            }
+
+          if (status == 0 && dir != NULL)
+            {
+#if defined(__MAC_OS_X_VERSION_MIN_REQUIRED) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 260000
+              status = posix_spawn_file_actions_addchdir (&direct_actions, dir);
+#else
+              status = posix_spawn_file_actions_addchdir_np (&direct_actions, dir);
+#endif
+            }
+
+          if (status == 0)
+            {
+              char **spawn_env = env;
+#ifdef USE_environ
+              if (spawn_env == NULL)
+                spawn_env = environ;
+#endif
+              if (strchr (argv[0], '/') != NULL)
+                status = posix_spawn (&pid, argv[0], &direct_actions,
+                                      &direct_attr, argv, spawn_env);
+              else if (env == NULL)
+                status = posix_spawnp (&pid, argv[0], &direct_actions,
+                                       &direct_attr, argv, spawn_env);
+              else
+                {
+                  /*
+                   * posix_spawnp() searches the parent process's PATH, not
+                   * spawn_env's PATH.  When a custom child environment is
+                   * supplied for a bare executable name, resolve along the
+                   * child's PATH= (or default "/usr/bin:/bin") matching POSIX
+                   * execvp semantics while staying 100% fork()-free.
+                   */
+                  const char *child_path = NULL;
+                  char **ep;
+                  size_t prog_len = strlen (argv[0]);
+                  size_t dir_len = (dir != NULL) ? strlen (dir) : 0;
+                  int saved_eacces = 0;
+
+                  for (ep = spawn_env; ep != NULL && *ep != NULL; ep++)
+                    {
+                      if (strncmp (*ep, "PATH=", 5) == 0)
+                        {
+                          child_path = *ep + 5;
+                          break;
+                        }
+                    }
+                  if (child_path == NULL)
+                    child_path = "/usr/bin:/bin";
+
+                  status = ENOENT;
+                  if (prog_len > 0)
+                    {
+                      const char *p = child_path;
+                      for (;;)
+                        {
+                          const char *colon = strchr (p, ':');
+                          size_t seg_len = (colon != NULL) ? (size_t)(colon - p) : strlen (p);
+                          char cand[PATH_MAX];
+                          size_t pos = 0;
+                          int too_long = 0;
+
+                          if (seg_len == 0)
+                            {
+                              if (dir != NULL && dir_len > 0)
+                                {
+                                  if (dir_len >= sizeof (cand))
+                                    too_long = 1;
+                                  else
+                                    {
+                                      memcpy (cand, dir, dir_len);
+                                      pos = dir_len;
+                                    }
+                                }
+                              else
+                                {
+                                  cand[0] = '.';
+                                  pos = 1;
+                                }
+                            }
+                          else if (p[0] != '/' && dir != NULL && dir_len > 0)
+                            {
+                              if (dir_len + 1 + seg_len >= sizeof (cand))
+                                too_long = 1;
+                              else
+                                {
+                                  memcpy (cand, dir, dir_len);
+                                  pos = dir_len;
+                                  if (cand[pos - 1] != '/')
+                                    cand[pos++] = '/';
+                                  memcpy (cand + pos, p, seg_len);
+                                  pos += seg_len;
+                                }
+                            }
+                          else
+                            {
+                              if (seg_len >= sizeof (cand))
+                                too_long = 1;
+                              else
+                                {
+                                  memcpy (cand, p, seg_len);
+                                  pos = seg_len;
+                                }
+                            }
+
+                          if (!too_long)
+                            {
+                              if (pos > 0 && cand[pos - 1] != '/')
+                                {
+                                  if (pos + 1 >= sizeof (cand))
+                                    too_long = 1;
+                                  else
+                                    cand[pos++] = '/';
+                                }
+                              if (!too_long && pos + prog_len + 1 <= sizeof (cand))
+                                {
+                                  memcpy (cand + pos, argv[0], prog_len + 1);
+                                  status = posix_spawn (&pid, cand, &direct_actions,
+                                                        &direct_attr, argv, spawn_env);
+                                  if (status == 0)
+                                    break;
+                                  if (status == EACCES)
+                                    saved_eacces = EACCES;
+                                  else if (status != ENOENT && status != ENOTDIR && status != EISDIR)
+                                    break;
+                                }
+                              else
+                                {
+                                  status = ENAMETOOLONG;
+                                }
+                            }
+                          else
+                            {
+                              status = ENAMETOOLONG;
+                            }
+
+                          if (colon == NULL)
+                            {
+                              if (saved_eacces != 0)
+                                status = saved_eacces;
+                              break;
+                            }
+                          p = colon + 1;
+                        }
+                    }
+                }
+            }
+
+          if (actions_init)
+            posix_spawn_file_actions_destroy (&direct_actions);
+          if (attr_init)
+            posix_spawnattr_destroy (&direct_attr);
+
+          if (status != 0)
+            {
+              if (has_redir)
+                {
+                  ___close_half_duplex_pipe (&fdp.input, 2);
+                  ___close_half_duplex_pipe (&fdp.output, 2);
+                }
+              errno = status;
+              e = err_code_from_errno ();
+            }
+          else
+            {
+              if (has_redir)
+                {
+                  ___close_half_duplex_pipe (&fdp.input, 0);
+                  ___close_half_duplex_pipe (&fdp.output, 1);
+                }
+
+              direction = ___DIRECTION_RD|___DIRECTION_WR;
+
+              e = ___device_process_setup_from_pid
+                    (&d,
+                     dgroup,
+                     pid,
+                     fdp.input.writing_fd,
+                     fdp.output.reading_fd,
+                     direction);
+
+              *dev = ___CAST(___device_stream*,d);
+
+              if (e == ___FIX(___NO_ERR))
+                device_transfer_close_responsibility (___CAST(___device*,d));
+              else
+                {
+                  if (has_redir)
+                    {
+                      ___close_half_duplex_pipe (&fdp.input, 1);
+                      ___close_half_duplex_pipe (&fdp.output, 0);
+                    }
+                  if (pid > 0)
+                    {
+                      int fail_status;
+                      ___waitpid_no_EINTR (pid, &fail_status, 0);
+                    }
+                }
+            }
+        }
+
+      ___mask_all_interrupts_end (&all_interrupts);
+
+      return e;
+    }
+#endif
+
+#if defined(POSIX_SPAWN_SETEXEC) && defined(POSIX_SPAWN_CLOEXEC_DEFAULT)
+  posix_spawnattr_t spawn_attributes;
+  posix_spawn_file_actions_t spawn_actions;
+  int spawn_ready = 0;
+
+  /* Prepare before fork: the child must not allocate a file-action list.
+   * SETEXEC preserves the existing forked PID, interrupt cleanup, affinity,
+   * error pipe and parent publication protocol.  Explicit paths with the
+   * existing child cwd/environment handling remain unchanged. */
+  if (!(options & PSEUDO_TERM) && strchr (argv[0], '/') != NULL &&
+      posix_spawnattr_init (&spawn_attributes) == 0)
+    {
+      if (posix_spawn_file_actions_init (&spawn_actions) == 0)
+        {
+          int status = posix_spawnattr_setflags
+            (&spawn_attributes,
+             POSIX_SPAWN_SETEXEC | POSIX_SPAWN_CLOEXEC_DEFAULT);
+          int fd;
+          for (fd=STDIN_FILENO; status==0 && fd<=STDERR_FILENO; fd++)
+            status = posix_spawn_file_actions_adddup2 (&spawn_actions, fd, fd);
+          spawn_ready = status == 0;
+          if (!spawn_ready)
+            posix_spawn_file_actions_destroy (&spawn_actions);
+        }
+      if (!spawn_ready)
+        posix_spawnattr_destroy (&spawn_attributes);
+    }
+#endif
 
   /*
    * Block SIGCHLD so that if the process is created the
@@ -9153,7 +11358,12 @@ int options;)
       if (!has_redir ||
           (e = open_full_duplex_pipe1 (&fdp, options & PSEUDO_TERM, 0)) == ___FIX(___NO_ERR))
         {
-          if ((pid = fork ()) < 0)
+          if (process_fork_mutex_ready)
+            ___MUTEX_LOCK (process_fork_mutex);
+          pid = fork ();
+          if (pid != 0 && process_fork_mutex_ready)
+            ___MUTEX_UNLOCK (process_fork_mutex);
+          if (pid < 0)
             {
               e = err_code_from_errno ();
               if (has_redir)
@@ -9173,6 +11383,7 @@ int options;)
       if (pid == 0)
         {
           /* child process */
+          int defer_close = 0;
 
           ___cleanup_all_interrupt_handling ();
 
@@ -9225,28 +11436,24 @@ int options;)
           ___close_half_duplex_pipe (&fdp.output, 0);
           ___close_half_duplex_pipe (&hdp_errno, 0);
 
-          {
-            /* Close all file descriptors that aren't used. */
+#if defined(POSIX_SPAWN_SETEXEC) && defined(POSIX_SPAWN_CLOEXEC_DEFAULT)
+          if (spawn_ready)
+            {
+              int fd;
+              /* This is the single-threaded child, after fd relocation and
+               * redirection. Closed or close-on-exec standard descriptors use
+               * the original path, preserving their exact semantics. */
+              for (fd=STDIN_FILENO; fd<=STDERR_FILENO; fd++)
+                {
+                  int flags = fcntl (fd, F_GETFD);
+                  if (flags < 0 || (flags & FD_CLOEXEC)) break;
+                }
+              defer_close = fd > STDERR_FILENO;
+            }
+#endif
 
-            int fd = hdp_errno.writing_fd;
-
-            if (fd < STDERR_FILENO) fd = STDERR_FILENO;
-            if (fd < STDOUT_FILENO) fd = STDOUT_FILENO;
-            if (fd < STDIN_FILENO) fd = STDIN_FILENO;
-
-            ___closefrom (fd+1);
-
-            while (fd > 0)
-              {
-                fd--;
-                if (fd != STDIN_FILENO &&
-                    fd != STDOUT_FILENO &&
-                    fd != STDERR_FILENO &&
-                    fd != hdp_errno.writing_fd)
-                  ___close_no_EINTR (fd); /* ignore error */
-              }
-
-          }
+          if (!defer_close)
+            close_process_child_descriptors (hdp_errno.writing_fd);
 
           if (dir == NULL || chdir_long_path (dir) == 0)
             {
@@ -9254,11 +11461,25 @@ int options;)
               if (env != NULL)
                 environ = env;
 #endif
+#if defined(POSIX_SPAWN_SETEXEC) && defined(POSIX_SPAWN_CLOEXEC_DEFAULT)
+              if (defer_close)
+                {
+                  /* Successful SETEXEC never returns and keeps this PID.
+                   * Failed self-dup actions/exec retain the original error path. */
+                  posix_spawn (NULL, argv[0], &spawn_actions,
+                               &spawn_attributes, argv, environ);
+                  close_process_child_descriptors (hdp_errno.writing_fd);
+                }
+#endif
               execvp (argv[0], argv);
               /* the exec failed, errno will be returned to parent */
             }
           else
-            errno = 0; /* special code indicating chdir failed */
+            {
+              if (defer_close)
+                close_process_child_descriptors (hdp_errno.writing_fd);
+              errno = 0; /* special code indicating chdir failed */
+            }
 
         return_errno:
 
@@ -9331,16 +11552,31 @@ int options;)
         }
 
       if (e != ___FIX(___NO_ERR))
-        if (has_redir)
-          {
-            ___close_half_duplex_pipe (&fdp.input, 1);
-            ___close_half_duplex_pipe (&fdp.output, 0);
-          }
+        {
+          if (has_redir)
+            {
+              ___close_half_duplex_pipe (&fdp.input, 1);
+              ___close_half_duplex_pipe (&fdp.output, 0);
+            }
+          if (pid > 0)
+            {
+              int fail_status;
+              ___waitpid_no_EINTR (pid, &fail_status, 0);
+            }
+        }
 
       ___close_half_duplex_pipe (&hdp_errno, 0);
     }
 
   ___mask_all_interrupts_end (&all_interrupts);
+
+#if defined(POSIX_SPAWN_SETEXEC) && defined(POSIX_SPAWN_CLOEXEC_DEFAULT)
+  if (spawn_ready)
+    {
+      posix_spawn_file_actions_destroy (&spawn_actions);
+      posix_spawnattr_destroy (&spawn_attributes);
+    }
+#endif
 
   return e;
 
@@ -9552,14 +11788,28 @@ ___SCMOBJ dev;)
   ___device_process *d =
     ___CAST(___device_process*,___FOREIGN_PTR_FIELD(dev));
   ___SCMOBJ e;
+  ___BOOL got;
+  int st;
 
   if ((e = ___device_process_status_poll (d)) != ___FIX(___NO_ERR))
     return e;
 
-  if (!d->got_status)
+#ifdef USE_POSIX
+  if (process_reap_mutex_ready)
+    ___MUTEX_LOCK (process_reap_mutex);
+  got = d->got_status;
+  st = d->status;
+  if (process_reap_mutex_ready)
+    ___MUTEX_UNLOCK (process_reap_mutex);
+#else
+  got = d->got_status;
+  st = d->status;
+#endif
+
+  if (!got)
     return ___FAL;
 
-  return ___FIX(d->status);
+  return ___FIX(st);
 }
 
 
@@ -11498,6 +13748,7 @@ ___SCMOBJ ___os_condvar_select
 ___SCMOBJ devices;
 ___SCMOBJ timeout;)
 {
+  ___processor_state ___ps = ___PSTATE;
   ___SCMOBJ e;
   ___time to;
 
@@ -11510,18 +13761,194 @@ ___SCMOBJ timeout;)
 
   if (___FALSEP(devices))
     {
-      e = ___device_select (NULL, 0, 0, 0, to);
+      e = device_select_impl (NULL, 0, 0, 0, to, 1);
     }
   else
     {
+#ifdef USE_POSIX
+      ___select_reactor *r =
+        ___CAST(___select_reactor*, ___WORD_LOAD_ACQUIRE (&___ps->os.reactor));
+      ___SCMOBJ condvar;
+      int event_pos = 0;
+      int write_pos = 0;
+      int read_pos = 0;
+      int i;
+      int ready_count = 0;
+      ___BOOL allow_park =
+        (___MEM_ALLOCATED (devices) &&
+         ___HD_TYP (___SUBTYPED_HEADER (devices)) == ___PERM);
+
+      if (r == NULL)
+        return ___FIX(___HEAP_OVERFLOW_ERR);
+
+      condvar = ___BTQ_DEQ_NEXT_FIELD(devices);
+
+      while (condvar != devices)
+        {
+          ___SCMOBJ owner = ___BTQ_OWNER_FIELD(condvar);
+          ___device *dev =
+            ___CAST(___device*,
+                    ___FOREIGN_PTR_FIELD(___CONDVAR_NAME_FIELD(condvar)));
+          int dir = ___CAST(int, ___INT(owner) >> 1);
+
+          if (!reactor_ensure_dev_cap (r, read_pos + 1))
+            {
+              ___BTQ_OWNER_FIELD(condvar) = owner | ___FIX(1);
+              to = ___time_mod.time_neg_infinity;
+              condvar = ___BTQ_DEQ_NEXT_FIELD(condvar);
+              continue;
+            }
+
+          ___BTQ_OWNER_FIELD(condvar) = owner & ~___FIX(1);
+          switch (dir)
+            {
+            case FOR_READING:
+              r->devs[read_pos] = dev;
+              r->dev_dirs[read_pos] = FOR_READING;
+              read_pos++;
+              break;
+            case FOR_WRITING:
+              r->devs[read_pos] = r->devs[write_pos];
+              r->dev_dirs[read_pos] = r->dev_dirs[write_pos];
+              r->devs[write_pos] = dev;
+              r->dev_dirs[write_pos] = FOR_WRITING;
+              read_pos++;
+              write_pos++;
+              break;
+            case FOR_EVENT:
+              r->devs[read_pos] = r->devs[write_pos];
+              r->dev_dirs[read_pos] = r->dev_dirs[write_pos];
+              r->devs[write_pos] = r->devs[event_pos];
+              r->dev_dirs[write_pos] = r->dev_dirs[event_pos];
+              r->devs[event_pos] = dev;
+              r->dev_dirs[event_pos] = FOR_EVENT;
+              read_pos++;
+              write_pos++;
+              event_pos++;
+              break;
+            }
+          condvar = ___BTQ_DEQ_NEXT_FIELD(condvar);
+        }
+
+      if (read_pos > 0)
+        {
+          memcpy (r->orig_devs, r->devs, (___SIZE_T)read_pos * sizeof (___device*));
+          /* Borrow a refcount on every snapshotted device BEFORE releasing
+           * devices' lock so concurrent close + GC finalization cannot free a
+           * ___device before device_select_impl acquires device_select_mutex. */
+          for (i = 0; i < read_pos; i++)
+            {
+              if (r->orig_devs[i] != NULL)
+                device_add_ref (r->orig_devs[i]);
+            }
+        }
+
+      /* Hold ZERO moving ___SCMOBJ pointers across device_select_impl so
+       * Tier 3.3 blocking-FFI parking is 100% GC-moving safe. */
+      ___PRIMITIVEUNLOCK(devices,___FIX(___OBJ_LOCK1),___FIX(___OBJ_LOCK2))
+
+      e = device_select_impl (r->devs,
+                              read_pos - write_pos,
+                              write_pos - event_pos,
+                              event_pos,
+                              to,
+                              allow_park);
+
+      for (i = 0; i < read_pos; i++)
+        {
+          if (r->devs[i] == NULL && r->orig_devs[i] != NULL)
+            {
+              r->ready_devs[ready_count] = r->orig_devs[i];
+              r->ready_dirs[ready_count] = r->dev_dirs[i];
+              ready_count++;
+            }
+        }
+
+      for (i = 0; i < read_pos; i++)
+        {
+          if (r->orig_devs[i] != NULL)
+            ___device_release (r->orig_devs[i]);
+        }
+
+      ___PRIMITIVELOCK(devices,___FIX(___OBJ_LOCK1),___FIX(___OBJ_LOCK2))
+
+      if (ready_count > 0)
+        {
+          ___BOOL use_hash = 0;
+          int mask = 0;
+
+          if (ready_count > 8 && reactor_ensure_hash_cap (r, ready_count))
+            {
+              int h;
+              mask = r->hash_cap - 1;
+              memset (r->hash_devs, 0, (___SIZE_T)r->hash_cap * sizeof (___device*));
+              for (i = 0; i < ready_count; i++)
+                {
+                  ___UWORD k = (___CAST(___UWORD, r->ready_devs[i]) >> 4) ^
+                               (___CAST(___UWORD, r->ready_dirs[i]) * 2654435761u);
+                  h = ___CAST(int, k) & mask;
+                  while (r->hash_devs[h] != NULL &&
+                         !(r->hash_devs[h] == r->ready_devs[i] &&
+                           r->hash_dirs[h] == r->ready_dirs[i]))
+                    h = (h + 1) & mask;
+                  r->hash_devs[h] = r->ready_devs[i];
+                  r->hash_dirs[h] = r->ready_dirs[i];
+                }
+              use_hash = 1;
+            }
+
+          condvar = ___BTQ_DEQ_NEXT_FIELD(devices);
+          while (condvar != devices)
+            {
+              ___SCMOBJ owner = ___BTQ_OWNER_FIELD(condvar);
+              ___device *dev =
+                ___CAST(___device*,
+                        ___FOREIGN_PTR_FIELD(___CONDVAR_NAME_FIELD(condvar)));
+              unsigned char dir = ___CAST(unsigned char, ___INT(owner) >> 1);
+              ___BOOL hit = 0;
+
+              if (use_hash)
+                {
+                  ___UWORD k = (___CAST(___UWORD, dev) >> 4) ^
+                               (___CAST(___UWORD, dir) * 2654435761u);
+                  int h = ___CAST(int, k) & mask;
+                  while (r->hash_devs[h] != NULL)
+                    {
+                      if (r->hash_devs[h] == dev && r->hash_dirs[h] == dir)
+                        {
+                          hit = 1;
+                          break;
+                        }
+                      h = (h + 1) & mask;
+                    }
+                }
+              else
+                {
+                  for (i = 0; i < ready_count; i++)
+                    {
+                      if (r->ready_devs[i] == dev && r->ready_dirs[i] == dir)
+                        {
+                          hit = 1;
+                          break;
+                        }
+                    }
+                }
+
+              if (hit)
+                ___BTQ_OWNER_FIELD(condvar) = owner | ___FIX(1);
+
+              condvar = ___BTQ_DEQ_NEXT_FIELD(condvar);
+            }
+        }
+#else
       ___device *devs[MAX_CONDVARS];
+      ___device *orig_devs[MAX_CONDVARS];
       ___SCMOBJ condvars[MAX_CONDVARS];
       ___SCMOBJ condvar;
       int event_pos = 0;
       int write_pos = 0;
       int read_pos = 0;
       int i;
-      int j;
 
       condvar = ___BTQ_DEQ_NEXT_FIELD(devices);
 
@@ -11559,15 +13986,25 @@ ___SCMOBJ timeout;)
         {
           devs[i] = ___CAST(___device*,
                             ___FOREIGN_PTR_FIELD(___CONDVAR_NAME_FIELD(condvars[i])));
+          orig_devs[i] = devs[i];
+          if (orig_devs[i] != NULL)
+            device_add_ref (orig_devs[i]);
         }
 
       ___PRIMITIVEUNLOCK(devices,___FIX(___OBJ_LOCK1),___FIX(___OBJ_LOCK2))
 
-      e = ___device_select (devs,
-                            read_pos - write_pos,
-                            write_pos - event_pos,
-                            event_pos,
-                            to);
+      e = device_select_impl (devs,
+                              read_pos - write_pos,
+                              write_pos - event_pos,
+                              event_pos,
+                              to,
+                              0);
+
+      for (i=0; i<read_pos; i++)
+        {
+          if (orig_devs[i] != NULL)
+            ___device_release (orig_devs[i]);
+        }
 
       ___PRIMITIVELOCK(devices,___FIX(___OBJ_LOCK1),___FIX(___OBJ_LOCK2))
 
@@ -11579,6 +14016,7 @@ ___SCMOBJ timeout;)
               ___BTQ_OWNER_FIELD(condvar) |= ___FIX(1);
             }
         }
+#endif
     }
 
   return e;
@@ -11767,26 +14205,62 @@ ___processor_state ___ps;)
   ___SCMOBJ e = ___FIX(___NO_ERR);
 
 #ifdef USE_POSIX
+  ___ps->os.select_abort.reading_fd = -1;
+  ___ps->os.select_abort.writing_fd = -1;
+  ___WORD_STORE_RELEASE (&___ps->os.reactor, 0);
 
   if (!___fdset_init (___ps))
     return ___FIX(___HEAP_OVERFLOW_ERR);
 
-#endif
+#if defined(USE_kqueue) || defined(USE_epoll)
+  {
+    ___select_reactor *r = reactor_create (___ps);
+    if (r == NULL)
+      {
+        ___fdset_cleanup (___ps);
+        return ___FIX(___HEAP_OVERFLOW_ERR);
+      }
+    ___WORD_STORE_RELEASE (&___ps->os.reactor, ___CAST(___WORD, r));
+  }
+#else
+  {
+    ___select_reactor *r = reactor_create (___ps);
+    if (r == NULL)
+      {
+        ___fdset_cleanup (___ps);
+        return ___FIX(___HEAP_OVERFLOW_ERR);
+      }
+    ___WORD_STORE_RELEASE (&___ps->os.reactor, ___CAST(___WORD, r));
+  }
 
 #ifdef USE_ASYNC_DEVICE_SELECT_ABORT
-
-#ifdef USE_POSIX
-
   if ((e = ___open_half_duplex_pipe (&___ps->os.select_abort, 1)) == ___FIX(___NO_ERR))
     {
       if (___set_fd_blocking_mode (___ps->os.select_abort.writing_fd, 0) < 0 ||
           ___set_fd_blocking_mode (___ps->os.select_abort.reading_fd, 0) < 0)
-        e = err_code_from_errno ();
+        {
+          e = err_code_from_errno ();
+          ___close_half_duplex_pipe (&___ps->os.select_abort, 2);
+          ___ps->os.select_abort.reading_fd = -1;
+          ___ps->os.select_abort.writing_fd = -1;
+        }
+    }
+#endif
+#endif
+
+  if (e != ___FIX(___NO_ERR))
+    {
+      ___select_reactor *r =
+        ___CAST(___select_reactor*, ___WORD_LOAD_ACQUIRE (&___ps->os.reactor));
+      ___WORD_STORE_RELEASE (&___ps->os.reactor, 0);
+      reactor_destroy (r);
+      ___fdset_cleanup (___ps);
     }
 
 #endif
 
 #ifdef USE_WIN32
+#ifdef USE_ASYNC_DEVICE_SELECT_ABORT
 
   ___ps->os.select_abort =
     CreateEvent (NULL,  /* can't inherit */
@@ -11798,7 +14272,6 @@ ___processor_state ___ps;)
     e = err_code_from_GetLastError ();
 
 #endif
-
 #endif
 
   return e;
@@ -11810,20 +14283,33 @@ void ___cleanup_io_pstate
         (___ps)
 ___processor_state ___ps;)
 {
-#ifdef USE_ASYNC_DEVICE_SELECT_ABORT
-
 #ifdef USE_POSIX
+  {
+    ___select_reactor *r =
+      ___CAST(___select_reactor*, ___WORD_LOAD_ACQUIRE (&___ps->os.reactor));
+    ___WORD_STORE_RELEASE (&___ps->os.reactor, 0);
+    reactor_destroy (r);
+  }
 
-  ___close_half_duplex_pipe (&___ps->os.select_abort, 2);
+#ifdef USE_ASYNC_DEVICE_SELECT_ABORT
+  if (___ps->os.select_abort.reading_fd >= 0 || ___ps->os.select_abort.writing_fd >= 0)
+    {
+      ___close_half_duplex_pipe (&___ps->os.select_abort, 2);
+      ___ps->os.select_abort.reading_fd = -1;
+      ___ps->os.select_abort.writing_fd = -1;
+    }
+#endif
+
+  ___fdset_cleanup (___ps);
 
 #endif
 
 #ifdef USE_WIN32
+#ifdef USE_ASYNC_DEVICE_SELECT_ABORT
 
   CloseHandle (___ps->os.select_abort); /* ignore error */
 
 #endif
-
 #endif
 }
 
@@ -11859,6 +14345,21 @@ ___virtual_machine_state ___vms;)
 ___HIDDEN ___SCMOBJ io_module_setup ___PVOID
 {
   ___SCMOBJ e;
+
+  ___MUTEX_INIT (device_group_mutex);
+  device_group_mutex_ready = 1;
+  ___MUTEX_INIT (device_select_mutex);
+  ___CONDVAR_INIT (device_select_cond);
+  active_select_list = NULL;
+  device_select_mutex_ready = 1;
+#ifdef USE_POSIX
+  ___MUTEX_INIT (process_reap_mutex);
+  process_reap_mutex_ready = 1;
+  ___MUTEX_INIT (process_fork_mutex);
+  process_fork_mutex_ready = 1;
+  sigchld_pending = 0;
+  orphan_pid_list = NULL;
+#endif
 
   if ((e = ___device_group_setup (&___io_mod.dgroup)) == ___FIX(___NO_ERR))
     {
@@ -11903,6 +14404,40 @@ ___HIDDEN void io_module_cleanup ___PVOID
 #endif
 
   ___device_group_cleanup (___io_mod.dgroup);
+
+#ifdef USE_POSIX
+  if (process_reap_mutex_ready)
+    {
+      ___MUTEX_LOCK (process_reap_mutex);
+      drain_orphan_pids_locked ();
+      while (orphan_pid_list != NULL)
+        {
+          ___orphan_pid_node *node = orphan_pid_list;
+          orphan_pid_list = node->next;
+          ___FREE_MEM(node);
+        }
+      ___MUTEX_UNLOCK (process_reap_mutex);
+      ___MUTEX_DESTROY (process_reap_mutex);
+      process_reap_mutex_ready = 0;
+    }
+  if (process_fork_mutex_ready)
+    {
+      ___MUTEX_DESTROY (process_fork_mutex);
+      process_fork_mutex_ready = 0;
+    }
+#endif
+  if (device_select_mutex_ready)
+    {
+      ___CONDVAR_DESTROY (device_select_cond);
+      ___MUTEX_DESTROY (device_select_mutex);
+      active_select_list = NULL;
+      device_select_mutex_ready = 0;
+    }
+  if (device_group_mutex_ready)
+    {
+      ___MUTEX_DESTROY (device_group_mutex);
+      device_group_mutex_ready = 0;
+    }
 }
 
 

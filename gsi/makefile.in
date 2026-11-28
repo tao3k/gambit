@@ -4,6 +4,14 @@
 
 herefromroot = gsi
 rootfromhere = ..
+
+# Optional witness supplied by the managed native build.
+GAMBIT_WITNESS_PASS ?= 1
+WITNESS_EMIT = $(if $(GAMBIT_BUILD_WITNESS),$(GAMBIT_BUILD_WITNESS) $(GAMBIT_WITNESS_PASS) emit "$@" $^ --)
+WITNESS_OBJECT = $(if $(GAMBIT_BUILD_WITNESS),$(GAMBIT_BUILD_WITNESS) $(GAMBIT_WITNESS_PASS) object "$@" $(BUILD_OBJ_INPUT_FILENAMES_PARAM) $^ --)
+WITNESS_LINK = $(if $(GAMBIT_BUILD_WITNESS),$(GAMBIT_BUILD_WITNESS) $(GAMBIT_WITNESS_PASS) link "$@" $^ --)
+WITNESS_ARCHIVE = $(if $(GAMBIT_BUILD_WITNESS),$(GAMBIT_BUILD_WITNESS) $(GAMBIT_WITNESS_PASS) archive "$@" $(LIBRARY_OBJECTS) --)
+WITNESS_INDEX = $(if $(GAMBIT_BUILD_WITNESS),$(GAMBIT_BUILD_WITNESS) $(GAMBIT_WITNESS_PASS) index "$@" --)
 SUBDIRS =
 
 PACKAGE_SHORTNAME = @PACKAGE_SHORTNAME@
@@ -168,6 +176,8 @@ BUILD_EXE_LD_OPTIONS_PRELUDE_PARAM =
 BUILD_EXE_INPUT_FILENAMES_PARAM = $(EXECUTABLE_OBJECTS)
 BUILD_EXE_LD_OPTIONS_PARAM = $(LIBRARY)
 
+# Make owns generation parallelism; each gsc-boot action uses one processor.
+# This does not change the configured target Scheme features.
 PRELUDE_OPT = -prelude "@RTLIB_COND_EXPAND_FEATURES@(\#\#include\"$(srcdirpfx)../lib/header.scm\")"
 
 all: core
@@ -201,27 +211,29 @@ $(LIBRARY): $(LIBRARY_OBJECTS_IN_COMPILE_ORDER)
 	fi
 
 $(GAMBIT_GSI_LIB_C): $(LIBRARY_MODULES_C_IN_COMPILE_ORDER) $(rootfromhere)/lib/_$(GAMBITLIB).c
-	@SETDLPATHBOOT@ $(rootfromhere)/gsc-boot -:~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f @COMPILATION_OPTIONS@ $(PRELUDE_OPT) -warnings -link -l $(srcdirpfx)$(rootfromhere)/lib/_$(GAMBITLIB) -o $@ -preload $(LIBRARY_MODULES_C)
+	@SETDLPATHBOOT@ $(WITNESS_EMIT) $(rootfromhere)/gsc-boot -:p1,~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f @COMPILATION_OPTIONS@ $(PRELUDE_OPT) -warnings -link -l $(srcdirpfx)$(rootfromhere)/lib/_$(GAMBITLIB) -o $@ -preload $(LIBRARY_MODULES_C)
 
 $(EXECUTABLE): $(EXECUTABLE_OBJECTS_IN_COMPILE_ORDER) $(LINK_LIBS)
-	@BUILD_EXE@
+	$(WITNESS_LINK) @BUILD_EXE@
 
 $(LINKFILE_C): $(EXECUTABLE_MODULES_C) $(GAMBIT_GSI_LIB_C)
-	@SETDLPATHBOOT@ $(rootfromhere)/gsc-boot -:~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f @COMPILATION_OPTIONS@ $(PRELUDE_OPT) -warnings -link -l _$(GAMBITGSILIB) -o $@ -preload $(EXECUTABLE_MODULES_C)
+	@SETDLPATHBOOT@ $(WITNESS_EMIT) $(rootfromhere)/gsc-boot -:p1,~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f @COMPILATION_OPTIONS@ $(PRELUDE_OPT) -warnings -link -l _$(GAMBITGSILIB) -o $@ -preload $(EXECUTABLE_MODULES_C)
 
 _gsi@obj@: _gsi.c
-	@BUILD_OBJ@
+	$(WITNESS_OBJECT) @BUILD_OBJ@
 
 $(LINKFILE_O): $(LINKFILE_C)
-	@BUILD_OBJ@
+	$(WITNESS_OBJECT) @BUILD_OBJ@
 
 .c@obj@:
-	@BUILD_OBJ@ -D___LIBRARY
+	$(WITNESS_OBJECT) @BUILD_OBJ@ -D___LIBRARY
 
 .scm.c:
-	@SETDLPATHBOOT@ $(rootfromhere)/gsc-boot -:~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f @COMPILATION_OPTIONS@ $(PRELUDE_OPT) -warnings -c $(srcdirpfx)$*.scm
+	@SETDLPATHBOOT@ $(WITNESS_EMIT) $(rootfromhere)/gsc-boot -:p1,~~bin=$(srcdirpfx)$(rootfromhere)/bin,~~lib=$(srcdirpfx)$(rootfromhere)/lib,~~include=$(srcdirpfx)$(rootfromhere)/include -f @COMPILATION_OPTIONS@ $(PRELUDE_OPT) -warnings -c $(srcdirpfx)$*.scm
 
 _gsi.c: $(srcdirpfx)$(rootfromhere)/gsi/main.scm
+
+$(MODULES_C): $(srcdirpfx)$(rootfromhere)/include/config.h
 
 $(MODULES_C): \
 $(srcdirpfx)$(rootfromhere)/lib/header.scm \

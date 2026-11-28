@@ -2806,8 +2806,10 @@
   (define (assign-ids i lst)
     (if (null? lst)
       '()
-      (cons (list->vect (cons (get-id i) (car lst)))
-            (assign-ids (+ i 1) (cdr lst)))))
+      (if (car lst)
+        (cons (list->vect (cons (get-id i) (car lst)))
+              (assign-ids (+ i 1) (cdr lst)))
+        (assign-ids (+ i 1) (cdr lst)))))
 
   (debug-info-compact-using-sharing
    sharing-table
@@ -3016,6 +3018,10 @@
     (queue-put! first-class-label-queue label-descr)
 
     label-descr))
+
+(define (debug-info-skip! debug-info-state)
+  (queue-put! (vector-ref debug-info-state 1) #f)
+  #f)
 
 ;;; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 

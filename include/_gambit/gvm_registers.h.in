@@ -1,0 +1,1064 @@
+/*---------------------------------------------------------------------------*/
+
+/* GVM registers */
+
+#ifndef ___MAX_LOCAL_GVM_REGS
+#define ___MAX_LOCAL_GVM_REGS 25
+#endif
+
+#if ___NB_ARG_REGS == 0
+#define ___PUSH_ARGS1(a)___PUSH(a)
+#define ___POP_ARGS1(a)a = ___POP;
+#define ___PUSH_ARGS2(a,b)___PUSH(a)___PUSH(b)
+#define ___POP_ARGS2(a,b)b = ___POP; a = ___POP;
+#define ___PUSH_ARGS3(a,b,c)___PUSH(a)___PUSH(b)___PUSH(c)
+#define ___POP_ARGS3(a,b,c)c = ___POP; b = ___POP; a = ___POP;
+#define ___PUSH_ARGS4(a,b,c,d)___PUSH(a)___PUSH(b)___PUSH(c)___PUSH(d)
+#define ___POP_ARGS4(a,b,c,d)d = ___POP; c = ___POP; b = ___POP; a = ___POP;
+#define ___PUSH_ARGS5(a,b,c,d,e)___PUSH(a)___PUSH(b)___PUSH(c)___PUSH(d)___PUSH(e)
+#define ___POP_ARGS5(a,b,c,d,e)e = ___POP; d = ___POP; c = ___POP; b = ___POP; a = ___POP;
+#else
+#define ___PUSH_ARGS1(a)___SET_R1(a)
+#define ___POP_ARGS1(a)a = ___R1;
+#if ___NB_ARG_REGS == 1
+#define ___PUSH_ARGS2(a,b)___PUSH(a)___SET_R1(b)
+#define ___POP_ARGS2(a,b)b = ___R1; a = ___POP;
+#define ___PUSH_ARGS3(a,b,c)___PUSH(a)___PUSH(b)___SET_R1(c)
+#define ___POP_ARGS3(a,b,c)c = ___R1; b = ___POP; a = ___POP;
+#define ___PUSH_ARGS4(a,b,c,d)___PUSH(a)___PUSH(b)___PUSH(c)___SET_R1(d)
+#define ___POP_ARGS4(a,b,c,d)d = ___R1; c = ___POP; b = ___POP; a = ___POP;
+#define ___PUSH_ARGS5(a,b,c,d,e)___PUSH(a)___PUSH(b)___PUSH(c)___PUSH(d)___SET_R1(e)
+#define ___POP_ARGS5(a,b,c,d,e)e = ___R1; d = ___POP; c = ___POP; b = ___POP; a = ___POP;
+#else
+#define ___PUSH_ARGS2(a,b)___SET_R1(a)___SET_R2(b)
+#define ___POP_ARGS2(a,b)b = ___R2; a = ___R1;
+#if ___NB_ARG_REGS == 2
+#define ___PUSH_ARGS3(a,b,c)___PUSH(a)___SET_R1(b)___SET_R2(c)
+#define ___POP_ARGS3(a,b,c)c = ___R2; b = ___R1; a = ___POP;
+#define ___PUSH_ARGS4(a,b,c,d)___PUSH(a)___PUSH(b)___SET_R1(c)___SET_R2(d)
+#define ___POP_ARGS4(a,b,c,d)d = ___R2; c = ___R1; b = ___POP; a = ___POP;
+#define ___PUSH_ARGS5(a,b,c,d,e)___PUSH(a)___PUSH(b)___PUSH(c)___SET_R1(d)___SET_R2(e)
+#define ___POP_ARGS5(a,b,c,d,e)e = ___R2; d = ___R1; c = ___POP; b = ___POP; a = ___POP;
+#else
+#define ___PUSH_ARGS3(a,b,c)___SET_R1(a)___SET_R2(b)___SET_R3(c)
+#define ___POP_ARGS3(a,b,c)c = ___R3; b = ___R2; a = ___R1;
+#if ___NB_ARG_REGS == 3
+#define ___PUSH_ARGS4(a,b,c,d)___PUSH(a)___SET_R1(b)___SET_R2(c)___SET_R3(d)
+#define ___POP_ARGS4(a,b,c,d)d = ___R3; c = ___R2; b = ___R1; a = ___POP;
+#define ___PUSH_ARGS5(a,b,c,d,e)___PUSH(a)___PUSH(b)___SET_R1(c)___SET_R2(d)___SET_R3(e)
+#define ___POP_ARGS5(a,b,c,d,e)e = ___R3; d = ___R2; c = ___R1; b = ___POP; a = ___POP;
+#else
+#define ___PUSH_ARGS4(a,b,c,d)___SET_R1(a)___SET_R2(b)___SET_R3(c)___SET_R4(d)
+#define ___POP_ARGS4(a,b,c,d)d = ___R4; c = ___R3; b = ___R2; a = ___R1;
+#if ___NB_ARG_REGS == 4
+#define ___PUSH_ARGS5(a,b,c,d,e)___PUSH(a)___SET_R1(b)___SET_R2(c)___SET_R3(d)___SET_R4(e)
+#define ___POP_ARGS5(a,b,c,d,e)e = ___R4; d = ___R3; c = ___R2; b = ___R1; a = ___POP;
+#else
+#define ___PUSH_ARGS5(a,b,c,d,e)___SET_R1(a)___SET_R2(b)___SET_R3(c)___SET_R4(d)___SET_R5(e)
+#define ___POP_ARGS5(a,b,c,d,e)e = ___R5; d = ___R4; c = ___R3; b = ___R2; a = ___R1;
+#endif
+#endif
+#endif
+#endif
+#endif
+
+#define ___PSR0 ___ps->context->r[0]
+#if ___MAX_LOCAL_GVM_REGS > 0
+#define ___D_R0 ___REGISTER ___WORD ___r0;
+#define ___R_R0 ___r0=___PSR0;
+#define ___W_R0 ___PSR0=___r0;
+#define ___R0 ___r0
+#else
+#define ___D_R0
+#define ___R_R0
+#define ___W_R0
+#define ___R0 ___PSR0
+#endif
+#define ___SET_R0(val)___R0=val;
+#define ___PUSH_R0 ___PUSH(___R0)
+#define ___POP_R0 ___SET_R0(___POP)
+
+#if ___NB_ARG_REGS == 0
+#define ___PUSH_ARGS_IN_REGS(na)
+#define ___POP_ARGS_IN_REGS(na)
+#define ___PSSELF ___PSR1
+#define ___SELF ___R1
+#define ___LD_ARG_REGS
+#define ___ST_ARG_REGS
+#endif
+
+#define ___PSR1 ___ps->context->r[1]
+#if ___MAX_LOCAL_GVM_REGS > 1
+#define ___D_R1 ___REGISTER ___WORD ___r1;
+#define ___R_R1 ___r1=___PSR1;
+#define ___W_R1 ___PSR1=___r1;
+#define ___R1 ___r1
+#else
+#define ___D_R1
+#define ___R_R1
+#define ___W_R1
+#define ___R1 ___PSR1
+#endif
+#define ___SET_R1(val)___R1=(val);
+#define ___PUSH_R1_TO_R1 ___PUSH(___R1)
+#define ___POP_R1_TO_R1 ___SET_R1(___POP)
+#define ___LD_R1_TO_R1 ___D_R1 ___R_R1
+#define ___ST_R1_TO_R1 ___W_R1
+
+#if ___NB_ARG_REGS == 1
+#define ___PUSH_ARGS_IN_REGS(na) \
+if ((na)>0) ___PUSH_R1_TO_R1
+#define ___POP_ARGS_IN_REGS(na) \
+if ((na)>0) ___POP_R1_TO_R1
+#define ___PSSELF ___PSR2
+#define ___SELF ___R2
+#define ___LD_ARG_REGS ___LD_R1_TO_R1
+#define ___ST_ARG_REGS ___ST_R1_TO_R1
+#endif
+
+#if ___NB_GVM_REGS == 2
+
+#define ___PUSH_REGS ___PUSH_R0 ___PUSH_R1_TO_R1
+#define ___POP_REGS ___POP_R1_TO_R1 ___POP_R0
+
+#else
+
+#define ___PSR2 ___ps->context->r[2]
+#if ___MAX_LOCAL_GVM_REGS > 2
+#define ___D_R2 ___REGISTER ___WORD ___r2;
+#define ___R_R2 ___r2=___PSR2;
+#define ___W_R2 ___PSR2=___r2;
+#define ___R2 ___r2
+#else
+#define ___D_R2
+#define ___R_R2
+#define ___W_R2
+#define ___R2 ___PSR2
+#endif
+#define ___SET_R2(val)___R2=(val);
+#define ___PUSH_R1_TO_R2 ___PUSH_R1_TO_R1 ___PUSH(___R2)
+#define ___POP_R2_TO_R1 ___SET_R2(___POP)___POP_R1_TO_R1
+#define ___LD_R1_TO_R2 ___D_R2 ___LD_R1_TO_R1 ___R_R2
+#define ___ST_R1_TO_R2 ___ST_R1_TO_R1 ___W_R2
+
+#if ___NB_ARG_REGS == 2
+#define ___PUSH_ARGS_IN_REGS(na) \
+switch (na) \
+  { \
+  case 0:  break; \
+  case 1:  ___PUSH_R1_TO_R1 break; \
+  default: ___PUSH_R1_TO_R2 \
+  }
+#define ___POP_ARGS_IN_REGS(na) \
+switch (na) \
+  { \
+  case 0:  break; \
+  case 1:  ___POP_R1_TO_R1 break; \
+  default: ___POP_R2_TO_R1 \
+  }
+#define ___PSSELF ___PSR3
+#define ___SELF ___R3
+#define ___LD_ARG_REGS ___LD_R1_TO_R2
+#define ___ST_ARG_REGS ___ST_R1_TO_R2
+#endif
+
+#if ___NB_GVM_REGS == 3
+
+#define ___PUSH_REGS ___PUSH_R0 ___PUSH_R1_TO_R2
+#define ___POP_REGS ___POP_R2_TO_R1 ___POP_R0
+
+#else
+
+#define ___PSR3 ___ps->context->r[3]
+#if ___MAX_LOCAL_GVM_REGS > 3
+#define ___D_R3 ___REGISTER ___WORD ___r3;
+#define ___R_R3 ___r3=___PSR3;
+#define ___W_R3 ___PSR3=___r3;
+#define ___R3 ___r3
+#else
+#define ___D_R3
+#define ___R_R3
+#define ___W_R3
+#define ___R3 ___PSR3
+#endif
+#define ___SET_R3(val)___R3=(val);
+#define ___PUSH_R1_TO_R3 ___PUSH_R1_TO_R2 ___PUSH(___R3)
+#define ___POP_R3_TO_R1 ___SET_R3(___POP)___POP_R2_TO_R1
+#define ___LD_R1_TO_R3 ___D_R3 ___LD_R1_TO_R2 ___R_R3
+#define ___ST_R1_TO_R3 ___ST_R1_TO_R2 ___W_R3
+
+#if ___NB_ARG_REGS == 3
+#define ___PUSH_ARGS_IN_REGS(na) \
+switch (na) \
+  { \
+  case 0:  break; \
+  case 1:  ___PUSH_R1_TO_R1 break; \
+  case 2:  ___PUSH_R1_TO_R2 break; \
+  default: ___PUSH_R1_TO_R3 \
+  }
+#define ___POP_ARGS_IN_REGS(na) \
+switch (na) \
+  { \
+  case 0:  break; \
+  case 1:  ___POP_R1_TO_R1 break; \
+  case 2:  ___POP_R2_TO_R1 break; \
+  default: ___POP_R3_TO_R1 \
+  }
+#define ___PSSELF ___PSR4
+#define ___SELF ___R4
+#define ___LD_ARG_REGS ___LD_R1_TO_R3
+#define ___ST_ARG_REGS ___ST_R1_TO_R3
+#endif
+
+#if ___NB_GVM_REGS == 4
+
+#define ___PUSH_REGS ___PUSH_R0 ___PUSH_R1_TO_R3
+#define ___POP_REGS ___POP_R3_TO_R1 ___POP_R0
+
+#else
+
+#define ___PSR4 ___ps->context->r[4]
+#if ___MAX_LOCAL_GVM_REGS > 4
+#define ___D_R4 ___REGISTER ___WORD ___r4;
+#define ___R_R4 ___r4=___PSR4;
+#define ___W_R4 ___PSR4=___r4;
+#define ___R4 ___r4
+#else
+#define ___D_R4
+#define ___R_R4
+#define ___W_R4
+#define ___R4 ___PSR4
+#endif
+#define ___SET_R4(val)___R4=(val);
+#define ___PUSH_R1_TO_R4 ___PUSH_R1_TO_R3 ___PUSH(___R4)
+#define ___POP_R4_TO_R1 ___SET_R4(___POP)___POP_R3_TO_R1
+#define ___LD_R1_TO_R4 ___D_R4 ___LD_R1_TO_R3 ___R_R4
+#define ___ST_R1_TO_R4 ___ST_R1_TO_R3 ___W_R4
+
+#if ___NB_ARG_REGS == 4
+#define ___PUSH_ARGS_IN_REGS(na) \
+switch (na) \
+  { \
+  case 0:  break; \
+  case 1:  ___PUSH_R1_TO_R1 break; \
+  case 2:  ___PUSH_R1_TO_R2 break; \
+  case 3:  ___PUSH_R1_TO_R3 break; \
+  default: ___PUSH_R1_TO_R4 \
+  }
+#define ___POP_ARGS_IN_REGS(na) \
+switch (na) \
+  { \
+  case 0:  break; \
+  case 1:  ___POP_R1_TO_R1 break; \
+  case 2:  ___POP_R2_TO_R1 break; \
+  case 3:  ___POP_R3_TO_R1 break; \
+  default: ___POP_R4_TO_R1 \
+  }
+#define ___PSSELF ___PSR5
+#define ___SELF ___R5
+#define ___LD_ARG_REGS ___LD_R1_TO_R4
+#define ___ST_ARG_REGS ___ST_R1_TO_R4
+#endif
+
+#if ___NB_GVM_REGS == 5
+
+#define ___PUSH_REGS ___PUSH_R0 ___PUSH_R1_TO_R4
+#define ___POP_REGS ___POP_R4_TO_R1 ___POP_R0
+
+#else
+
+#define ___PSR5 ___ps->context->r[5]
+#if ___MAX_LOCAL_GVM_REGS > 5
+#define ___D_R5 ___REGISTER ___WORD ___r5;
+#define ___R_R5 ___r5=___PSR5;
+#define ___W_R5 ___PSR5=___r5;
+#define ___R5 ___r5
+#else
+#define ___D_R5
+#define ___R_R5
+#define ___W_R5
+#define ___R5 ___PSR5
+#endif
+#define ___SET_R5(val)___R5=(val);
+#define ___PUSH_R1_TO_R5 ___PUSH_R1_TO_R4 ___PUSH(___R5)
+#define ___POP_R5_TO_R1 ___SET_R5(___POP)___POP_R4_TO_R1
+#define ___LD_R1_TO_R5 ___D_R5 ___LD_R1_TO_R4 ___R_R5
+#define ___ST_R1_TO_R5 ___ST_R1_TO_R4 ___W_R5
+
+#if ___NB_ARG_REGS == 5
+#define ___PUSH_ARGS_IN_REGS(na) \
+switch (na) \
+  { \
+  case 0:  break; \
+  case 1:  ___PUSH_R1_TO_R1 break; \
+  case 2:  ___PUSH_R1_TO_R2 break; \
+  case 3:  ___PUSH_R1_TO_R3 break; \
+  case 4:  ___PUSH_R1_TO_R4 break; \
+  default: ___PUSH_R1_TO_R5 \
+  }
+#define ___POP_ARGS_IN_REGS(na) \
+switch (na) \
+  { \
+  case 0:  break; \
+  case 1:  ___POP_R1_TO_R1 break; \
+  case 2:  ___POP_R2_TO_R1 break; \
+  case 3:  ___POP_R3_TO_R1 break; \
+  case 4:  ___POP_R4_TO_R1 break; \
+  default: ___POP_R5_TO_R1 \
+  }
+#define ___PSSELF ___PSR6
+#define ___SELF ___R6
+#define ___LD_ARG_REGS ___LD_R1_TO_R5
+#define ___ST_ARG_REGS ___ST_R1_TO_R5
+#endif
+
+#if ___NB_GVM_REGS == 6
+
+#define ___PUSH_REGS ___PUSH_R0 ___PUSH_R1_TO_R5
+#define ___POP_REGS ___POP_R5_TO_R1 ___POP_R0
+
+#else
+
+#define ___PSR6 ___ps->context->r[6]
+#if ___MAX_LOCAL_GVM_REGS > 6
+#define ___D_R6 ___REGISTER ___WORD ___r6;
+#define ___R_R6 ___r6=___PSR6;
+#define ___W_R6 ___PSR6=___r6;
+#define ___R6 ___r6
+#else
+#define ___D_R6
+#define ___R_R6
+#define ___W_R6
+#define ___R6 ___PSR6
+#endif
+#define ___SET_R6(val)___R6=(val);
+#define ___PUSH_R1_TO_R6 ___PUSH_R1_TO_R5 ___PUSH(___R6)
+#define ___POP_R6_TO_R1 ___SET_R6(___POP)___POP_R5_TO_R1
+#define ___LD_R1_TO_R6 ___D_R6 ___LD_R1_TO_R5 ___R_R6
+#define ___ST_R1_TO_R6 ___ST_R1_TO_R5 ___W_R6
+
+#if ___NB_ARG_REGS == 6
+#define ___PUSH_ARGS_IN_REGS(na) \
+switch (na) \
+  { \
+  case 0:  break; \
+  case 1:  ___PUSH_R1_TO_R1 break; \
+  case 2:  ___PUSH_R1_TO_R2 break; \
+  case 3:  ___PUSH_R1_TO_R3 break; \
+  case 4:  ___PUSH_R1_TO_R4 break; \
+  case 5:  ___PUSH_R1_TO_R5 break; \
+  default: ___PUSH_R1_TO_R6 \
+  }
+#define ___POP_ARGS_IN_REGS(na) \
+switch (na) \
+  { \
+  case 0:  break; \
+  case 1:  ___POP_R1_TO_R1 break; \
+  case 2:  ___POP_R2_TO_R1 break; \
+  case 3:  ___POP_R3_TO_R1 break; \
+  case 4:  ___POP_R4_TO_R1 break; \
+  case 5:  ___POP_R5_TO_R1 break; \
+  default: ___POP_R6_TO_R1 \
+  }
+#define ___PSSELF ___PSR7
+#define ___SELF ___R7
+#define ___LD_ARG_REGS ___LD_R1_TO_R6
+#define ___ST_ARG_REGS ___ST_R1_TO_R6
+#endif
+
+#if ___NB_GVM_REGS == 7
+
+#define ___PUSH_REGS ___PUSH_R0 ___PUSH_R1_TO_R6
+#define ___POP_REGS ___POP_R6_TO_R1 ___POP_R0
+
+#else
+
+#define ___PSR7 ___ps->context->r[7]
+#if ___MAX_LOCAL_GVM_REGS > 7
+#define ___D_R7 ___REGISTER ___WORD ___r7;
+#define ___R_R7 ___r7=___PSR7;
+#define ___W_R7 ___PSR7=___r7;
+#define ___R7 ___r7
+#else
+#define ___D_R7
+#define ___R_R7
+#define ___W_R7
+#define ___R7 ___PSR7
+#endif
+#define ___SET_R7(val)___R7=(val);
+#define ___PUSH_R1_TO_R7 ___PUSH_R1_TO_R6 ___PUSH(___R7)
+#define ___POP_R7_TO_R1 ___SET_R7(___POP)___POP_R6_TO_R1
+#define ___LD_R1_TO_R7 ___D_R7 ___LD_R1_TO_R6 ___R_R7
+#define ___ST_R1_TO_R7 ___ST_R1_TO_R6 ___W_R7
+
+#if ___NB_ARG_REGS == 7
+#define ___PUSH_ARGS_IN_REGS(na) \
+switch (na) \
+  { \
+  case 0:  break; \
+  case 1:  ___PUSH_R1_TO_R1 break; \
+  case 2:  ___PUSH_R1_TO_R2 break; \
+  case 3:  ___PUSH_R1_TO_R3 break; \
+  case 4:  ___PUSH_R1_TO_R4 break; \
+  case 5:  ___PUSH_R1_TO_R5 break; \
+  case 6:  ___PUSH_R1_TO_R6 break; \
+  default: ___PUSH_R1_TO_R7 \
+  }
+#define ___POP_ARGS_IN_REGS(na) \
+switch (na) \
+  { \
+  case 0:  break; \
+  case 1:  ___POP_R1_TO_R1 break; \
+  case 2:  ___POP_R2_TO_R1 break; \
+  case 3:  ___POP_R3_TO_R1 break; \
+  case 4:  ___POP_R4_TO_R1 break; \
+  case 5:  ___POP_R5_TO_R1 break; \
+  case 6:  ___POP_R6_TO_R1 break; \
+  default: ___POP_R7_TO_R1 \
+  }
+#define ___PSSELF ___PSR8
+#define ___SELF ___R8
+#define ___LD_ARG_REGS ___LD_R1_TO_R7
+#define ___ST_ARG_REGS ___ST_R1_TO_R7
+#endif
+
+#if ___NB_GVM_REGS == 8
+
+#define ___PUSH_REGS ___PUSH_R0 ___PUSH_R1_TO_R7
+#define ___POP_REGS ___POP_R7_TO_R1 ___POP_R0
+
+#else
+
+#define ___PSR8 ___ps->context->r[8]
+#if ___MAX_LOCAL_GVM_REGS > 8
+#define ___D_R8 ___REGISTER ___WORD ___r8;
+#define ___R_R8 ___r8=___PSR8;
+#define ___W_R8 ___PSR8=___r8;
+#define ___R8 ___r8
+#else
+#define ___D_R8
+#define ___R_R8
+#define ___W_R8
+#define ___R8 ___PSR8
+#endif
+#define ___SET_R8(val)___R8=(val);
+#define ___PUSH_R1_TO_R8 ___PUSH_R1_TO_R7 ___PUSH(___R8)
+#define ___POP_R8_TO_R1 ___SET_R8(___POP)___POP_R7_TO_R1
+#define ___LD_R1_TO_R8 ___D_R8 ___LD_R1_TO_R7 ___R_R8
+#define ___ST_R1_TO_R8 ___ST_R1_TO_R7 ___W_R8
+
+#if ___NB_ARG_REGS == 8
+#define ___PUSH_ARGS_IN_REGS(na) \
+switch (na) \
+  { \
+  case 0:  break; \
+  case 1:  ___PUSH_R1_TO_R1 break; \
+  case 2:  ___PUSH_R1_TO_R2 break; \
+  case 3:  ___PUSH_R1_TO_R3 break; \
+  case 4:  ___PUSH_R1_TO_R4 break; \
+  case 5:  ___PUSH_R1_TO_R5 break; \
+  case 6:  ___PUSH_R1_TO_R6 break; \
+  case 7:  ___PUSH_R1_TO_R7 break; \
+  default: ___PUSH_R1_TO_R8 \
+  }
+#define ___POP_ARGS_IN_REGS(na) \
+switch (na) \
+  { \
+  case 0:  break; \
+  case 1:  ___POP_R1_TO_R1 break; \
+  case 2:  ___POP_R2_TO_R1 break; \
+  case 3:  ___POP_R3_TO_R1 break; \
+  case 4:  ___POP_R4_TO_R1 break; \
+  case 5:  ___POP_R5_TO_R1 break; \
+  case 6:  ___POP_R6_TO_R1 break; \
+  case 7:  ___POP_R7_TO_R1 break; \
+  default: ___POP_R8_TO_R1 \
+  }
+#define ___PSSELF ___PSR9
+#define ___SELF ___R9
+#define ___LD_ARG_REGS ___LD_R1_TO_R8
+#define ___ST_ARG_REGS ___ST_R1_TO_R8
+#endif
+
+#if ___NB_GVM_REGS == 9
+
+#define ___PUSH_REGS ___PUSH_R0 ___PUSH_R1_TO_R8
+#define ___POP_REGS ___POP_R8_TO_R1 ___POP_R0
+
+#else
+
+#define ___PSR9 ___ps->context->r[9]
+#if ___MAX_LOCAL_GVM_REGS > 9
+#define ___D_R9 ___REGISTER ___WORD ___r9;
+#define ___R_R9 ___r9=___PSR9;
+#define ___W_R9 ___PSR9=___r9;
+#define ___R9 ___r9
+#else
+#define ___D_R9
+#define ___R_R9
+#define ___W_R9
+#define ___R9 ___PSR9
+#endif
+#define ___SET_R9(val)___R9=(val);
+#define ___PUSH_R1_TO_R9 ___PUSH_R1_TO_R8 ___PUSH(___R9)
+#define ___POP_R9_TO_R1 ___SET_R9(___POP)___POP_R8_TO_R1
+#define ___LD_R1_TO_R9 ___D_R9 ___LD_R1_TO_R8 ___R_R9
+#define ___ST_R1_TO_R9 ___ST_R1_TO_R8 ___W_R9
+
+#if ___NB_ARG_REGS == 9
+#define ___PUSH_ARGS_IN_REGS(na) \
+switch (na) \
+  { \
+  case 0:  break; \
+  case 1:  ___PUSH_R1_TO_R1 break; \
+  case 2:  ___PUSH_R1_TO_R2 break; \
+  case 3:  ___PUSH_R1_TO_R3 break; \
+  case 4:  ___PUSH_R1_TO_R4 break; \
+  case 5:  ___PUSH_R1_TO_R5 break; \
+  case 6:  ___PUSH_R1_TO_R6 break; \
+  case 7:  ___PUSH_R1_TO_R7 break; \
+  case 8:  ___PUSH_R1_TO_R8 break; \
+  default: ___PUSH_R1_TO_R9 \
+  }
+#define ___POP_ARGS_IN_REGS(na) \
+switch (na) \
+  { \
+  case 0:  break; \
+  case 1:  ___POP_R1_TO_R1 break; \
+  case 2:  ___POP_R2_TO_R1 break; \
+  case 3:  ___POP_R3_TO_R1 break; \
+  case 4:  ___POP_R4_TO_R1 break; \
+  case 5:  ___POP_R5_TO_R1 break; \
+  case 6:  ___POP_R6_TO_R1 break; \
+  case 7:  ___POP_R7_TO_R1 break; \
+  case 8:  ___POP_R8_TO_R1 break; \
+  default: ___POP_R9_TO_R1 \
+  }
+#define ___PSSELF ___PSR10
+#define ___SELF ___R10
+#define ___LD_ARG_REGS ___LD_R1_TO_R9
+#define ___ST_ARG_REGS ___ST_R1_TO_R9
+#endif
+
+#if ___NB_GVM_REGS == 10
+
+#define ___PUSH_REGS ___PUSH_R0 ___PUSH_R1_TO_R9
+#define ___POP_REGS ___POP_R9_TO_R1 ___POP_R0
+
+#else
+
+#define ___PSR10 ___ps->context->r[10]
+#if ___MAX_LOCAL_GVM_REGS > 10
+#define ___D_R10 ___REGISTER ___WORD ___r10;
+#define ___R_R10 ___r10=___PSR10;
+#define ___W_R10 ___PSR10=___r10;
+#define ___R10 ___r10
+#else
+#define ___D_R10
+#define ___R_R10
+#define ___W_R10
+#define ___R10 ___PSR10
+#endif
+#define ___SET_R10(val)___R10=(val);
+#define ___PUSH_R1_TO_R10 ___PUSH_R1_TO_R9 ___PUSH(___R10)
+#define ___POP_R10_TO_R1 ___SET_R10(___POP)___POP_R9_TO_R1
+#define ___LD_R1_TO_R10 ___D_R10 ___LD_R1_TO_R9 ___R_R10
+#define ___ST_R1_TO_R10 ___ST_R1_TO_R9 ___W_R10
+
+#if ___NB_ARG_REGS == 10
+#define ___PUSH_ARGS_IN_REGS(na) \
+switch (na) \
+  { \
+  case 0:  break; \
+  case 1:  ___PUSH_R1_TO_R1 break; \
+  case 2:  ___PUSH_R1_TO_R2 break; \
+  case 3:  ___PUSH_R1_TO_R3 break; \
+  case 4:  ___PUSH_R1_TO_R4 break; \
+  case 5:  ___PUSH_R1_TO_R5 break; \
+  case 6:  ___PUSH_R1_TO_R6 break; \
+  case 7:  ___PUSH_R1_TO_R7 break; \
+  case 8:  ___PUSH_R1_TO_R8 break; \
+  case 9:  ___PUSH_R1_TO_R9 break; \
+  default: ___PUSH_R1_TO_R10 \
+  }
+#define ___POP_ARGS_IN_REGS(na) \
+switch (na) \
+  { \
+  case 0:  break; \
+  case 1:  ___POP_R1_TO_R1 break; \
+  case 2:  ___POP_R2_TO_R1 break; \
+  case 3:  ___POP_R3_TO_R1 break; \
+  case 4:  ___POP_R4_TO_R1 break; \
+  case 5:  ___POP_R5_TO_R1 break; \
+  case 6:  ___POP_R6_TO_R1 break; \
+  case 7:  ___POP_R7_TO_R1 break; \
+  case 8:  ___POP_R8_TO_R1 break; \
+  case 9:  ___POP_R9_TO_R1 break; \
+  default: ___POP_R10_TO_R1 \
+  }
+#define ___PSSELF ___PSR11
+#define ___SELF ___R11
+#define ___LD_ARG_REGS ___LD_R1_TO_R10
+#define ___ST_ARG_REGS ___ST_R1_TO_R10
+#endif
+
+#if ___NB_GVM_REGS == 11
+
+#define ___PUSH_REGS ___PUSH_R0 ___PUSH_R1_TO_R10
+#define ___POP_REGS ___POP_R10_TO_R1 ___POP_R0
+
+#else
+
+#define ___PSR11 ___ps->context->r[11]
+#if ___MAX_LOCAL_GVM_REGS > 11
+#define ___D_R11 ___REGISTER ___WORD ___r11;
+#define ___R_R11 ___r11=___PSR11;
+#define ___W_R11 ___PSR11=___r11;
+#define ___R11 ___r11
+#else
+#define ___D_R11
+#define ___R_R11
+#define ___W_R11
+#define ___R11 ___PSR11
+#endif
+#define ___SET_R11(val)___R11=(val);
+#define ___PUSH_R1_TO_R11 ___PUSH_R1_TO_R10 ___PUSH(___R11)
+#define ___POP_R11_TO_R1 ___SET_R11(___POP)___POP_R10_TO_R1
+#define ___LD_R1_TO_R11 ___D_R11 ___LD_R1_TO_R10 ___R_R11
+#define ___ST_R1_TO_R11 ___ST_R1_TO_R10 ___W_R11
+
+#if ___NB_ARG_REGS == 11
+#define ___PUSH_ARGS_IN_REGS(na) \
+switch (na) \
+  { \
+  case 0:  break; \
+  case 1:  ___PUSH_R1_TO_R1 break; \
+  case 2:  ___PUSH_R1_TO_R2 break; \
+  case 3:  ___PUSH_R1_TO_R3 break; \
+  case 4:  ___PUSH_R1_TO_R4 break; \
+  case 5:  ___PUSH_R1_TO_R5 break; \
+  case 6:  ___PUSH_R1_TO_R6 break; \
+  case 7:  ___PUSH_R1_TO_R7 break; \
+  case 8:  ___PUSH_R1_TO_R8 break; \
+  case 9:  ___PUSH_R1_TO_R9 break; \
+  case 10:  ___PUSH_R1_TO_R10 break; \
+  default: ___PUSH_R1_TO_R11 \
+  }
+#define ___POP_ARGS_IN_REGS(na) \
+switch (na) \
+  { \
+  case 0:  break; \
+  case 1:  ___POP_R1_TO_R1 break; \
+  case 2:  ___POP_R2_TO_R1 break; \
+  case 3:  ___POP_R3_TO_R1 break; \
+  case 4:  ___POP_R4_TO_R1 break; \
+  case 5:  ___POP_R5_TO_R1 break; \
+  case 6:  ___POP_R6_TO_R1 break; \
+  case 7:  ___POP_R7_TO_R1 break; \
+  case 8:  ___POP_R8_TO_R1 break; \
+  case 9:  ___POP_R9_TO_R1 break; \
+  case 10:  ___POP_R10_TO_R1 break; \
+  default: ___POP_R11_TO_R1 \
+  }
+#define ___PSSELF ___PSR12
+#define ___SELF ___R12
+#define ___LD_ARG_REGS ___LD_R1_TO_R11
+#define ___ST_ARG_REGS ___ST_R1_TO_R11
+#endif
+
+#if ___NB_GVM_REGS == 12
+
+#define ___PUSH_REGS ___PUSH_R0 ___PUSH_R1_TO_R11
+#define ___POP_REGS ___POP_R11_TO_R1 ___POP_R0
+
+#else
+
+#define ___PSR12 ___ps->context->r[12]
+#if ___MAX_LOCAL_GVM_REGS > 12
+#define ___D_R12 ___REGISTER ___WORD ___r12;
+#define ___R_R12 ___r12=___PSR12;
+#define ___W_R12 ___PSR12=___r12;
+#define ___R12 ___r12
+#else
+#define ___D_R12
+#define ___R_R12
+#define ___W_R12
+#define ___R12 ___PSR12
+#endif
+#define ___SET_R12(val)___R12=(val);
+#define ___PUSH_R1_TO_R12 ___PUSH_R1_TO_R11 ___PUSH(___R12)
+#define ___POP_R12_TO_R1 ___SET_R12(___POP)___POP_R11_TO_R1
+#define ___LD_R1_TO_R12 ___D_R12 ___LD_R1_TO_R11 ___R_R12
+#define ___ST_R1_TO_R12 ___ST_R1_TO_R11 ___W_R12
+
+#if ___NB_ARG_REGS == 12
+#define ___PUSH_ARGS_IN_REGS(na) \
+switch (na) \
+  { \
+  case 0:  break; \
+  case 1:  ___PUSH_R1_TO_R1 break; \
+  case 2:  ___PUSH_R1_TO_R2 break; \
+  case 3:  ___PUSH_R1_TO_R3 break; \
+  case 4:  ___PUSH_R1_TO_R4 break; \
+  case 5:  ___PUSH_R1_TO_R5 break; \
+  case 6:  ___PUSH_R1_TO_R6 break; \
+  case 7:  ___PUSH_R1_TO_R7 break; \
+  case 8:  ___PUSH_R1_TO_R8 break; \
+  case 9:  ___PUSH_R1_TO_R9 break; \
+  case 10:  ___PUSH_R1_TO_R10 break; \
+  case 11:  ___PUSH_R1_TO_R11 break; \
+  default: ___PUSH_R1_TO_R12 \
+  }
+#define ___POP_ARGS_IN_REGS(na) \
+switch (na) \
+  { \
+  case 0:  break; \
+  case 1:  ___POP_R1_TO_R1 break; \
+  case 2:  ___POP_R2_TO_R1 break; \
+  case 3:  ___POP_R3_TO_R1 break; \
+  case 4:  ___POP_R4_TO_R1 break; \
+  case 5:  ___POP_R5_TO_R1 break; \
+  case 6:  ___POP_R6_TO_R1 break; \
+  case 7:  ___POP_R7_TO_R1 break; \
+  case 8:  ___POP_R8_TO_R1 break; \
+  case 9:  ___POP_R9_TO_R1 break; \
+  case 10:  ___POP_R10_TO_R1 break; \
+  case 11:  ___POP_R11_TO_R1 break; \
+  default: ___POP_R12_TO_R1 \
+  }
+#define ___PSSELF ___PSR13
+#define ___SELF ___R13
+#define ___LD_ARG_REGS ___LD_R1_TO_R12
+#define ___ST_ARG_REGS ___ST_R1_TO_R12
+#endif
+
+#if ___NB_GVM_REGS == 13
+
+#define ___PUSH_REGS ___PUSH_R0 ___PUSH_R1_TO_R12
+#define ___POP_REGS ___POP_R12_TO_R1 ___POP_R0
+
+#else
+
+#define ___PSR13 ___ps->context->r[13]
+#if ___MAX_LOCAL_GVM_REGS > 13
+#define ___D_R13 ___REGISTER ___WORD ___r13;
+#define ___R_R13 ___r13=___PSR13;
+#define ___W_R13 ___PSR13=___r13;
+#define ___R13 ___r13
+#else
+#define ___D_R13
+#define ___R_R13
+#define ___W_R13
+#define ___R13 ___PSR13
+#endif
+#define ___SET_R13(val)___R13=(val);
+#define ___PUSH_R1_TO_R13 ___PUSH_R1_TO_R12 ___PUSH(___R13)
+#define ___POP_R13_TO_R1 ___SET_R13(___POP)___POP_R12_TO_R1
+#define ___LD_R1_TO_R13 ___D_R13 ___LD_R1_TO_R12 ___R_R13
+#define ___ST_R1_TO_R13 ___ST_R1_TO_R12 ___W_R13
+
+#if ___NB_GVM_REGS == 14
+
+#define ___PUSH_REGS ___PUSH_R0 ___PUSH_R1_TO_R13
+#define ___POP_REGS ___POP_R13_TO_R1 ___POP_R0
+
+#else
+
+#define ___PSR14 ___ps->context->r[14]
+#if ___MAX_LOCAL_GVM_REGS > 14
+#define ___D_R14 ___REGISTER ___WORD ___r14;
+#define ___R_R14 ___r14=___PSR14;
+#define ___W_R14 ___PSR14=___r14;
+#define ___R14 ___r14
+#else
+#define ___D_R14
+#define ___R_R14
+#define ___W_R14
+#define ___R14 ___PSR14
+#endif
+#define ___SET_R14(val)___R14=(val);
+#define ___PUSH_R1_TO_R14 ___PUSH_R1_TO_R13 ___PUSH(___R14)
+#define ___POP_R14_TO_R1 ___SET_R14(___POP)___POP_R13_TO_R1
+#define ___LD_R1_TO_R14 ___D_R14 ___LD_R1_TO_R13 ___R_R14
+#define ___ST_R1_TO_R14 ___ST_R1_TO_R13 ___W_R14
+
+#if ___NB_GVM_REGS == 15
+
+#define ___PUSH_REGS ___PUSH_R0 ___PUSH_R1_TO_R14
+#define ___POP_REGS ___POP_R14_TO_R1 ___POP_R0
+
+#else
+
+#define ___PSR15 ___ps->context->r[15]
+#if ___MAX_LOCAL_GVM_REGS > 15
+#define ___D_R15 ___REGISTER ___WORD ___r15;
+#define ___R_R15 ___r15=___PSR15;
+#define ___W_R15 ___PSR15=___r15;
+#define ___R15 ___r15
+#else
+#define ___D_R15
+#define ___R_R15
+#define ___W_R15
+#define ___R15 ___PSR15
+#endif
+#define ___SET_R15(val)___R15=(val);
+#define ___PUSH_R1_TO_R15 ___PUSH_R1_TO_R14 ___PUSH(___R15)
+#define ___POP_R15_TO_R1 ___SET_R15(___POP)___POP_R14_TO_R1
+#define ___LD_R1_TO_R15 ___D_R15 ___LD_R1_TO_R14 ___R_R15
+#define ___ST_R1_TO_R15 ___ST_R1_TO_R14 ___W_R15
+
+#if ___NB_GVM_REGS == 16
+
+#define ___PUSH_REGS ___PUSH_R0 ___PUSH_R1_TO_R15
+#define ___POP_REGS ___POP_R15_TO_R1 ___POP_R0
+
+#else
+
+#define ___PSR16 ___ps->context->r[16]
+#if ___MAX_LOCAL_GVM_REGS > 16
+#define ___D_R16 ___REGISTER ___WORD ___r16;
+#define ___R_R16 ___r16=___PSR16;
+#define ___W_R16 ___PSR16=___r16;
+#define ___R16 ___r16
+#else
+#define ___D_R16
+#define ___R_R16
+#define ___W_R16
+#define ___R16 ___PSR16
+#endif
+#define ___SET_R16(val)___R16=(val);
+#define ___PUSH_R1_TO_R16 ___PUSH_R1_TO_R15 ___PUSH(___R16)
+#define ___POP_R16_TO_R1 ___SET_R16(___POP)___POP_R15_TO_R1
+#define ___LD_R1_TO_R16 ___D_R16 ___LD_R1_TO_R15 ___R_R16
+#define ___ST_R1_TO_R16 ___ST_R1_TO_R15 ___W_R16
+
+#if ___NB_GVM_REGS == 17
+
+#define ___PUSH_REGS ___PUSH_R0 ___PUSH_R1_TO_R16
+#define ___POP_REGS ___POP_R16_TO_R1 ___POP_R0
+
+#else
+
+#define ___PSR17 ___ps->context->r[17]
+#if ___MAX_LOCAL_GVM_REGS > 17
+#define ___D_R17 ___REGISTER ___WORD ___r17;
+#define ___R_R17 ___r17=___PSR17;
+#define ___W_R17 ___PSR17=___r17;
+#define ___R17 ___r17
+#else
+#define ___D_R17
+#define ___R_R17
+#define ___W_R17
+#define ___R17 ___PSR17
+#endif
+#define ___SET_R17(val)___R17=(val);
+#define ___PUSH_R1_TO_R17 ___PUSH_R1_TO_R16 ___PUSH(___R17)
+#define ___POP_R17_TO_R1 ___SET_R17(___POP)___POP_R16_TO_R1
+#define ___LD_R1_TO_R17 ___D_R17 ___LD_R1_TO_R16 ___R_R17
+#define ___ST_R1_TO_R17 ___ST_R1_TO_R16 ___W_R17
+
+#if ___NB_GVM_REGS == 18
+
+#define ___PUSH_REGS ___PUSH_R0 ___PUSH_R1_TO_R17
+#define ___POP_REGS ___POP_R17_TO_R1 ___POP_R0
+
+#else
+
+#define ___PSR18 ___ps->context->r[18]
+#if ___MAX_LOCAL_GVM_REGS > 18
+#define ___D_R18 ___REGISTER ___WORD ___r18;
+#define ___R_R18 ___r18=___PSR18;
+#define ___W_R18 ___PSR18=___r18;
+#define ___R18 ___r18
+#else
+#define ___D_R18
+#define ___R_R18
+#define ___W_R18
+#define ___R18 ___PSR18
+#endif
+#define ___SET_R18(val)___R18=(val);
+#define ___PUSH_R1_TO_R18 ___PUSH_R1_TO_R17 ___PUSH(___R18)
+#define ___POP_R18_TO_R1 ___SET_R18(___POP)___POP_R17_TO_R1
+#define ___LD_R1_TO_R18 ___D_R18 ___LD_R1_TO_R17 ___R_R18
+#define ___ST_R1_TO_R18 ___ST_R1_TO_R17 ___W_R18
+
+#if ___NB_GVM_REGS == 19
+
+#define ___PUSH_REGS ___PUSH_R0 ___PUSH_R1_TO_R18
+#define ___POP_REGS ___POP_R18_TO_R1 ___POP_R0
+
+#else
+
+#define ___PSR19 ___ps->context->r[19]
+#if ___MAX_LOCAL_GVM_REGS > 19
+#define ___D_R19 ___REGISTER ___WORD ___r19;
+#define ___R_R19 ___r19=___PSR19;
+#define ___W_R19 ___PSR19=___r19;
+#define ___R19 ___r19
+#else
+#define ___D_R19
+#define ___R_R19
+#define ___W_R19
+#define ___R19 ___PSR19
+#endif
+#define ___SET_R19(val)___R19=(val);
+#define ___PUSH_R1_TO_R19 ___PUSH_R1_TO_R18 ___PUSH(___R19)
+#define ___POP_R19_TO_R1 ___SET_R19(___POP)___POP_R18_TO_R1
+#define ___LD_R1_TO_R19 ___D_R19 ___LD_R1_TO_R18 ___R_R19
+#define ___ST_R1_TO_R19 ___ST_R1_TO_R18 ___W_R19
+
+#if ___NB_GVM_REGS == 20
+
+#define ___PUSH_REGS ___PUSH_R0 ___PUSH_R1_TO_R19
+#define ___POP_REGS ___POP_R19_TO_R1 ___POP_R0
+
+#else
+
+#define ___PSR20 ___ps->context->r[20]
+#if ___MAX_LOCAL_GVM_REGS > 20
+#define ___D_R20 ___REGISTER ___WORD ___r20;
+#define ___R_R20 ___r20=___PSR20;
+#define ___W_R20 ___PSR20=___r20;
+#define ___R20 ___r20
+#else
+#define ___D_R20
+#define ___R_R20
+#define ___W_R20
+#define ___R20 ___PSR20
+#endif
+#define ___SET_R20(val)___R20=(val);
+#define ___PUSH_R1_TO_R20 ___PUSH_R1_TO_R19 ___PUSH(___R20)
+#define ___POP_R20_TO_R1 ___SET_R20(___POP)___POP_R19_TO_R1
+#define ___LD_R1_TO_R20 ___D_R20 ___LD_R1_TO_R19 ___R_R20
+#define ___ST_R1_TO_R20 ___ST_R1_TO_R19 ___W_R20
+
+#if ___NB_GVM_REGS == 21
+
+#define ___PUSH_REGS ___PUSH_R0 ___PUSH_R1_TO_R20
+#define ___POP_REGS ___POP_R20_TO_R1 ___POP_R0
+
+#else
+
+#define ___PSR21 ___ps->context->r[21]
+#if ___MAX_LOCAL_GVM_REGS > 21
+#define ___D_R21 ___REGISTER ___WORD ___r21;
+#define ___R_R21 ___r21=___PSR21;
+#define ___W_R21 ___PSR21=___r21;
+#define ___R21 ___r21
+#else
+#define ___D_R21
+#define ___R_R21
+#define ___W_R21
+#define ___R21 ___PSR21
+#endif
+#define ___SET_R21(val)___R21=(val);
+#define ___PUSH_R1_TO_R21 ___PUSH_R1_TO_R20 ___PUSH(___R21)
+#define ___POP_R21_TO_R1 ___SET_R21(___POP)___POP_R20_TO_R1
+#define ___LD_R1_TO_R21 ___D_R21 ___LD_R1_TO_R20 ___R_R21
+#define ___ST_R1_TO_R21 ___ST_R1_TO_R20 ___W_R21
+
+#if ___NB_GVM_REGS == 22
+
+#define ___PUSH_REGS ___PUSH_R0 ___PUSH_R1_TO_R21
+#define ___POP_REGS ___POP_R21_TO_R1 ___POP_R0
+
+#else
+
+#define ___PSR22 ___ps->context->r[22]
+#if ___MAX_LOCAL_GVM_REGS > 22
+#define ___D_R22 ___REGISTER ___WORD ___r22;
+#define ___R_R22 ___r22=___PSR22;
+#define ___W_R22 ___PSR22=___r22;
+#define ___R22 ___r22
+#else
+#define ___D_R22
+#define ___R_R22
+#define ___W_R22
+#define ___R22 ___PSR22
+#endif
+#define ___SET_R22(val)___R22=(val);
+#define ___PUSH_R1_TO_R22 ___PUSH_R1_TO_R21 ___PUSH(___R22)
+#define ___POP_R22_TO_R1 ___SET_R22(___POP)___POP_R21_TO_R1
+#define ___LD_R1_TO_R22 ___D_R22 ___LD_R1_TO_R21 ___R_R22
+#define ___ST_R1_TO_R22 ___ST_R1_TO_R21 ___W_R22
+
+#if ___NB_GVM_REGS == 23
+
+#define ___PUSH_REGS ___PUSH_R0 ___PUSH_R1_TO_R22
+#define ___POP_REGS ___POP_R22_TO_R1 ___POP_R0
+
+#else
+
+#define ___PSR23 ___ps->context->r[23]
+#if ___MAX_LOCAL_GVM_REGS > 23
+#define ___D_R23 ___REGISTER ___WORD ___r23;
+#define ___R_R23 ___r23=___PSR23;
+#define ___W_R23 ___PSR23=___r23;
+#define ___R23 ___r23
+#else
+#define ___D_R23
+#define ___R_R23
+#define ___W_R23
+#define ___R23 ___PSR23
+#endif
+#define ___SET_R23(val)___R23=(val);
+#define ___PUSH_R1_TO_R23 ___PUSH_R1_TO_R22 ___PUSH(___R23)
+#define ___POP_R23_TO_R1 ___SET_R23(___POP)___POP_R22_TO_R1
+#define ___LD_R1_TO_R23 ___D_R23 ___LD_R1_TO_R22 ___R_R23
+#define ___ST_R1_TO_R23 ___ST_R1_TO_R22 ___W_R23
+
+#if ___NB_GVM_REGS == 24
+
+#define ___PUSH_REGS ___PUSH_R0 ___PUSH_R1_TO_R23
+#define ___POP_REGS ___POP_R23_TO_R1 ___POP_R0
+
+#else
+
+#define ___PSR24 ___ps->context->r[24]
+#if ___MAX_LOCAL_GVM_REGS > 24
+#define ___D_R24 ___REGISTER ___WORD ___r24;
+#define ___R_R24 ___r24=___PSR24;
+#define ___W_R24 ___PSR24=___r24;
+#define ___R24 ___r24
+#else
+#define ___D_R24
+#define ___R_R24
+#define ___W_R24
+#define ___R24 ___PSR24
+#endif
+#define ___SET_R24(val)___R24=(val);
+#define ___PUSH_R1_TO_R24 ___PUSH_R1_TO_R23 ___PUSH(___R24)
+#define ___POP_R24_TO_R1 ___SET_R24(___POP)___POP_R23_TO_R1
+#define ___LD_R1_TO_R24 ___D_R24 ___LD_R1_TO_R23 ___R_R24
+#define ___ST_R1_TO_R24 ___ST_R1_TO_R23 ___W_R24
+
+#if ___NB_GVM_REGS == 25
+
+#define ___PUSH_REGS ___PUSH_R0 ___PUSH_R1_TO_R24
+#define ___POP_REGS ___POP_R24_TO_R1 ___POP_R0
+
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+

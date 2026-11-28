@@ -23,9 +23,24 @@
 ;; Back end for C language (part 2)
 ;; -----------------------
 
+(define *targ-trace-emit* 'uninitialized)
+
+(define (targ-trace-emit-enabled?)
+  (if (eq? *targ-trace-emit* 'uninitialized)
+      (let ((v (##getenv "GAMBIT_GSC_TRACE_EMIT" #f)))
+        (set! *targ-trace-emit* (and (string? v) (> (string-length v) 0) (not (string=? v "0"))))))
+  *targ-trace-emit*)
+
 (define (targ-scan-procedure obj c-decls-queue)
   (let* ((proc (car obj))
          (p (cdr obj)))
+
+    (if (targ-trace-emit-enabled?)
+      (begin
+        (display ";; emit-proc ")
+        (write (string->canonical-symbol (proc-obj-name proc)))
+        (newline)
+        (force-output)))
 
     (if targ-info-port
       (begin
@@ -37,13 +52,27 @@
         (display ">" targ-info-port)))
 
     (set! targ-proc-unique-name        (targ-unique-name proc))
+    (let ((name (proc-obj-name proc)))
+      (set! targ-proc-gate2-name
+            (cond ((string? name) name)
+                  ((symbol? name) (symbol->string name))
+                  (else ""))))
     (set! targ-proc-code               (make-stretchable-vector #f))
     (set! targ-proc-code-length        0)
     (set! targ-proc-rd-res             (make-stretchable-vector #f))
     (set! targ-proc-wr-res             (make-stretchable-vector #f))
     (set! targ-proc-lbl-tbl            (queue-empty))
     (set! targ-proc-lbl-tbl-ord        (queue-empty))
+    (set! targ-proc-kernel-role-label #f)
+    (set! targ-proc-kernel-roles      '())
     (set! targ-debug-info-state        (make-debug-info-state))
+    (set! targ-proc-entry-frame        #f)
+    (set! targ-proc-exit-frame         #f)
+    (set! targ-proc-demand-lbl         #f)
+    (set! targ-proc-demand-stack-end   #f)
+    (set! targ-proc-demand-plan        #f)
+    (set! targ-proc-heap-committed     0)
+    (set! targ-proc-instr              #f)
 
     (if (proc-obj-primitive? proc)
         (targ-use-obj (string->symbol (proc-obj-name proc))))
@@ -81,7 +110,8 @@
                       (reverse val-lbls)
                       targ-proc-rd-res
                       targ-proc-wr-res
-                      info))
+                      info
+                      (reverse targ-proc-kernel-roles)))
             (let loop3 ((l ord-lbls) (i i))
               (if (pair? l)
                 (let ((x (car l)))
@@ -95,10 +125,53 @@
     (if targ-info-port
       (newline targ-info-port))
 
+    (if (targ-trace-emit-enabled?)
+      (begin
+        (display ";; emit-proc-done ")
+        (write (string->canonical-symbol (proc-obj-name proc)))
+        (newline)
+        (force-output)))
+
     ))
+
+(define (targ-scan-procedure-end!)
+  (set! targ-proc-unique-name        #f)
+  (set! targ-proc-code               #f)
+  (set! targ-proc-code-length        #f)
+  (set! targ-proc-entry-lbl          #f)
+  (set! targ-proc-lbl-counter        #f)
+  (set! targ-proc-rd-res             #f)
+  (set! targ-proc-wr-res             #f)
+  (set! targ-proc-lbl-tbl            #f)
+  (set! targ-proc-lbl-tbl-ord        #f)
+  (set! targ-proc-fp                 #f)
+  (set! targ-proc-heap-reserved      #f)
+  (set! targ-proc-flo-reserved       #f)
+  (set! targ-proc-ssb-reserved       #f)
+  (set! targ-debug-info-state        #f)
+  (set! targ-proc-instr              #f)
+  (set! targ-proc-instr-node         #f)
+  (set! targ-proc-entry-frame        #f)
+  (set! targ-proc-fused-entry        #f)
+  (set! targ-proc-exit-frame         #f)
+  (set! targ-proc-kernel-role-label  #f)
+  (set! targ-proc-kernel-roles       #f)
+  (set! targ-proc-demand-lbl         #f)
+  (set! targ-proc-demand-stack-end   #f)
+  (set! targ-proc-demand-plan        #f)
+  (set! targ-proc-heap-committed     0)
+  (set! targ-proc-gate2-name         #f)
+  (set! targ-proc-line-sn            #f)
+  (set! targ-proc-line-live          #f)
+  (set! targ-proc-line-write         #f)
+  #f)
 
 (define (targ-scan-scheme-procedure bbs c-decls-queue)
 
+  (set! targ-proc-fused-entry #f)
+  (set! targ-proc-line-sn #f)
+  (set! targ-proc-line-live #f)
+  (set! targ-proc-line-write #f)
   (set! targ-proc-entry-lbl   (bbs-entry-lbl-num bbs))
   (set! targ-proc-lbl-counter (make-counter (bbs-next-lbl-num bbs)))
 
@@ -113,6 +186,15 @@
                               #f
                               (code-gvm-instr (cadr l)))))
 
+        ;; One straight-line group, from this label through the
+        ;; instruction before the next label. Live demand and the write
+        ;; footprint are computed once here; later instructions keep them.
+        (if (eq? (gvm-instr-type pres-gvm-instr) 'label)
+            (let ((accounts (targ-straight-line-accounts l)))
+              (set! targ-proc-line-live (car accounts))
+              (set! targ-proc-line-write (cdr accounts))
+              (set! targ-proc-line-sn
+                    (max (car accounts) (cdr accounts)))))
         (targ-gen-gvm-instr prev-gvm-instr
                             pres-gvm-instr
                             next-gvm-instr
@@ -137,12 +219,52 @@
          (fs (+ arity 1))
          (lbl 2))
 
+    (set! targ-proc-line-sn #f)
+    (set! targ-proc-line-live #f)
+    (set! targ-proc-line-write #f)
     (set! targ-proc-entry-lbl 1)
+    ;; Labels 1 and 2 are the C entry and its return. Demand retries must
+    ;; not reuse them.
+    (set! targ-proc-lbl-counter (make-counter 3))
 
     (targ-start-bb pc-fs)
 
-    (set! targ-proc-entry-frame targ-proc-exit-frame);********** for targ-update-fr but probably not needed since it can't be called from here!
-    (targ-begin-fr) ; ************* not needed either
+    (let* ((make-empty-vars
+            (letrec ((mk (lambda (n)
+                           (if (> n 0)
+                               (cons empty-var (mk (- n 1)))
+                               '()))))
+              mk))
+           (nth-cell
+            (letrec ((nc (lambda (lst idx)
+                           (if (= idx 0) lst (nc (cdr lst) (- idx 1))))))
+              nc))
+           (nb-regs (targ-nb-gvm-regs))
+           (slots-list (make-empty-vars pc-fs))
+           (regs-list (make-empty-vars nb-regs))
+           (live-vars '()))
+      (for-each
+       (lambda (couple)
+         (let* ((name (car couple))
+                (loc (cdr couple))
+                (var (cond ((eq? name 'return) ret-var)
+                           ((eq? name 'closure-env) closure-env-var)
+                           (else (make-temp-var 'c-parm)))))
+           (set! live-vars (cons var live-vars))
+           (cond ((reg? loc)
+                  (set-car! (nth-cell regs-list (reg-num loc)) var))
+                 ((stk? loc)
+                  (set-car! (nth-cell slots-list (- pc-fs (stk-num loc))) var))
+                 (else
+                  (compiler-internal-error
+                    "targ-scan-c-procedure, invalid pcontext location")))))
+       pc-map)
+      (let ((c-entry-frame
+             (make-frame pc-fs slots-list regs-list '() (list->varset live-vars))))
+        (set! targ-proc-entry-frame c-entry-frame)
+        (set! targ-proc-exit-frame c-entry-frame)))
+    (targ-begin-fr)
+    (targ-pop-pcontext pc)
 
     (targ-emit-label-entry targ-proc-entry-lbl arity #f)
     (targ-ref-lbl-goto targ-proc-entry-lbl)
@@ -157,6 +279,10 @@
                      #\newline))
 
 ;;    (targ-repr-begin-block! 'entry targ-proc-entry-lbl)
+
+    ; Admit the whole C frame before the first store or positive adjustment.
+    (targ-admit-write-group
+      (targ-align-frame (+ fs targ-frame-reserve)))
 
     ; move arguments from registers to stack frame
 
@@ -184,8 +310,9 @@
 
     (targ-emit
       (targ-adjust-stack (targ-align-frame (+ fs targ-frame-reserve))))
+    (targ-finish-write-group)
 
-    (let ((code (list 'append (c-proc-body c-proc))))
+    (let ((code (list 'opaque-c (c-proc-body c-proc))))
       (if targ-inline-c-proc? ;; should C code be inlined?
 
           ;; put C code inline with compiled Scheme code
@@ -204,7 +331,7 @@
           ;; setjmp interfering with C TCO)
           (let ((c-name (c-proc-c-name c-proc)))
             (queue-put! c-decls-queue
-                        (list 'append
+                        (list 'c-function-decl
                               "#define " c-id-prefix "CFUN_SELECT(inl,ool)ool"
                               #\newline
                               code
@@ -260,7 +387,102 @@
 
 (define targ-proc-instr-node      #f)
 (define targ-proc-entry-frame     #f)
+(define targ-proc-fused-entry     #f)
 (define targ-proc-exit-frame      #f)
+;; This label comes from the GVM block, before emission inserts retry labels.
+(define targ-proc-kernel-role-label #f)
+(define targ-proc-kernel-roles      #f)
+
+(define targ-proc-demand-lbl      #f)
+(define targ-proc-demand-stack-end #f)
+(define targ-proc-demand-plan #f)
+(define targ-proc-heap-committed 0)
+(define targ-proc-gate2-name #f)
+(define targ-proc-line-sn #f)
+(define targ-proc-line-live #f)
+(define targ-proc-line-write #f)
+
+(define (targ-loc-slot loc)
+  (if (and loc (stk? loc)) (stk-num loc) 0))
+
+(define (targ-instr-frame-slot instr)
+  (let ((frame (gvm-instr-frame instr)))
+    (if frame (frame-size frame) 0)))
+
+(define (targ-instr-write-slot instr)
+  (max (targ-instr-frame-slot instr)
+       (case (gvm-instr-type instr)
+         ((copy) (targ-loc-slot (copy-loc instr)))
+         ((apply) (targ-loc-slot (apply-loc instr)))
+         ((close)
+          (let loop ((parms (close-parms instr)) (slot 0))
+            (if (null? parms)
+                slot
+                (loop (cdr parms)
+                      (max slot
+                           (targ-loc-slot (closure-parms-loc (car parms))))))))
+         (else 0))))
+
+(define (targ-straight-line-accounts code)
+  ;; code-slots-needed is the live demand after an instruction. Assigning
+  ;; a destination stack slot lowers it, so it is not the high-water of
+  ;; the writes still ahead in this straight line.
+  (let loop ((l code) (live 0) (write 0) (start? #t))
+    (if (or (null? l)
+            (and (not start?)
+                 (eq? (gvm-instr-type (code-gvm-instr (car l))) 'label)))
+        (cons live write)
+        (loop (cdr l)
+              (max live (or (code-slots-needed (car l)) 0))
+              (max write (targ-instr-write-slot (code-gvm-instr (car l))))
+              #f))))
+
+(define (targ-entry-roots-fit? frame)
+  (or (not frame)
+      (not targ-proc-demand-stack-end)
+      (let loop ((i 1) (slots (reverse (frame-slots frame))))
+        (cond ((not (pair? slots)) #t)
+              ((and (frame-live? (car slots) frame)
+                    (> i targ-proc-demand-stack-end))
+               #f)
+              (else (loop (+ i 1) (cdr slots)))))))
+
+(define (make-write-group-plan instr frame fp code-idx stack-cell heap-cell stack heap reserved-end)
+  (vector 'write-group-plan instr frame fp code-idx stack-cell heap-cell stack heap reserved-end 'open))
+(define (wgp-fp plan)           (vector-ref plan 3))
+(define (wgp-stack-cell plan)   (vector-ref plan 5))
+(define (wgp-heap-cell plan)    (vector-ref plan 6))
+(define (wgp-stack plan)        (vector-ref plan 7))
+(define (wgp-heap plan)         (vector-ref plan 8))
+(define (wgp-reserved-end plan) (vector-ref plan 9))
+(define (wgp-phase plan)        (vector-ref plan 10))
+(define (wgp-set-reserved-end! plan reserved-end)
+  (if (and plan (eq? (wgp-phase plan) 'open))
+      (vector-set! plan 9 (max (wgp-reserved-end plan) (or reserved-end 0)))))
+(define (wgp-expand! plan stack heap reserved-end)
+  (let ((next-stack (max stack (wgp-stack plan)))
+        (next-heap (max heap (wgp-heap plan))))
+    (set-car! (cdr (wgp-stack-cell plan)) (number->string next-stack))
+    (set-car! (cdr (wgp-heap-cell plan)) (number->string next-heap))
+    (vector-set! plan 7 next-stack)
+    (vector-set! plan 8 next-heap)
+    (wgp-set-reserved-end! plan reserved-end)))
+(define (wgp-commit! plan)
+  (vector-set! plan 10 'committed)
+  (set-car! (cdr (wgp-stack-cell plan)) (number->string (wgp-stack plan)))
+  (set-car! (cdr (wgp-heap-cell plan)) (number->string (wgp-heap plan))))
+
+(define (targ-demand-covers? sn heap)
+  (and targ-proc-demand-plan
+       (eq? (wgp-phase targ-proc-demand-plan) 'open)
+       targ-proc-demand-lbl
+       targ-proc-demand-stack-end
+       (targ-entry-roots-fit? targ-proc-entry-frame)
+       (<= sn targ-proc-demand-stack-end)
+       (<= heap (wgp-heap targ-proc-demand-plan))))
+(define targ-proc-instr #f)
+(define targ-label-reset-fr?      #t)
+(define targ-demand-raw-spills?   #f)
 
 ;; Emit a piece of code
 
@@ -280,13 +502,13 @@
   (targ-emit-label lbl 'proc (vector nb-parms nb-closed)))
 
 (define (targ-emit-label-return lbl fs link gc-map label-descr)
-  (targ-emit-label lbl 'return (vector 'normal fs link gc-map)))
+  (targ-emit-label lbl 'return (targ-make-frame-spec 'normal fs link gc-map)))
 
 (define (targ-emit-label-return-task lbl fs link gc-map label-descr)
-  (targ-emit-label lbl 'return (vector 'task fs link gc-map)))
+  (targ-emit-label lbl 'return (targ-make-frame-spec 'task fs link gc-map)))
 
 (define (targ-emit-label-return-internal lbl fs link gc-map label-descr)
-  (targ-emit-label lbl 'return (vector 'internal fs link gc-map)))
+  (targ-emit-label lbl 'return (targ-make-frame-spec 'internal fs link gc-map)))
 
 ;; Add a label to the code stream
 
@@ -351,11 +573,13 @@
 (define (targ-heap-reserve-and-check space flo? sn)
   (targ-heap-reserve space flo?)
   (if (> (+ targ-proc-heap-reserved
-            (* (targ-fp-cache-size) targ-flonum-space))
+            (* (targ-fp-cache-dirty-count) targ-flonum-space))
          targ-msection-fudge)
-    (targ-update-fr-and-check-heap space sn)))
+      (targ-update-fr-and-check-heap space sn)
+      (targ-admit-write-group sn)))
 
 (define (targ-update-fr-and-check-heap space sn)
+  (targ-admit-write-group sn)
   (targ-update-fr targ-proc-entry-frame)
   (let ((flo-space
          (and (> targ-proc-flo-reserved 0)
@@ -385,6 +609,7 @@
         (if poll (targ-rd-fp))
 
         (targ-emit (targ-adjust-stack sn))
+        (targ-finish-write-group)
 
 ;;        (targ-repr-exit-block! lbl)
 
@@ -409,11 +634,277 @@
         (if heap
             (begin
               (set! targ-proc-heap-reserved 0)
+              (set! targ-proc-heap-committed 0)
               (set! targ-proc-flo-reserved 0)))
         (if ssb (set! targ-proc-ssb-reserved 0)))))
 
+;; The label operand stays a cell. targ-code resolves it after numbers
+;; are assigned. number->string on that cell is a type error.
+(define (targ-demand-label-operand lbl)
+  (list "LBL" (targ-ref-lbl-val lbl)))
+
+(define (targ-note-group-site operation lbl)
+  (targ-emit
+   (list 'append operation "(___ps,"
+         (targ-c-string targ-proc-gate2-name) ","
+         (targ-ref-lbl-val lbl) ","
+         (targ-demand-label-operand lbl) ",___fp);"
+         #\newline)))
+
+(define (targ-group-heap-words)
+  (+ (max 0 (- (or targ-proc-heap-reserved 0)
+               (or targ-proc-heap-committed 0)))
+     (* (targ-fp-cache-dirty-count) targ-flonum-space)))
+
+(define (targ-group-stack-words sn)
+  (max 0 (- (if targ-proc-line-sn
+                (max sn targ-proc-line-sn)
+                sn)
+            targ-proc-fp)))
+
+(define (targ-commit-write-group lbl)
+  (targ-emit
+   (list 'append
+         "___group_demand_commit(___ps,"
+         (targ-demand-label-operand lbl)
+         ",___demand_attempt);"
+         #\newline)))
+
+(define (targ-frame-slot-index var frame)
+  (let loop ((i 1) (l (reverse (frame-slots frame))))
+    (cond ((not (pair? l)) #f)
+          ((eq? (car l) var) i)
+          (else (loop (+ i 1) (cdr l))))))
+
+(define (targ-frame-reg-index var frame)
+  (let loop ((i 0) (l (frame-regs frame)))
+    (cond ((not (pair? l)) #f)
+          ((eq? (car l) var) i)
+          (else (loop (+ i 1) (cdr l))))))
+
+(define (targ-fp-cache-dirty? opnd)
+  (and targ-fp-cache-enabled?
+       (vector? targ-fp-cache)
+       (let ((v (vector-ref targ-fp-cache 1)))
+         (let loop ((i 0))
+           (and (< i (vector-length v))
+                (let ((x (vector-ref v i)))
+                  (if (and x (vector-ref x 1) (eqv? (vector-ref x 0) opnd))
+                      #t
+                      (loop (+ i 1)))))))))
+
+(define (targ-each-dirty-unboxed proc)
+  (if (and targ-fp-cache-enabled? (vector? targ-fp-cache))
+      (let ((v (vector-ref targ-fp-cache 1)))
+        (let loop ((i 0))
+          (if (< i (vector-length v))
+              (let ((x (vector-ref v i)))
+                (if (and x (vector-ref x 1))
+                    (proc (vector-ref x 0) (vector-ref x 2)))
+                (loop (+ i 1))))))))
+
+(define (targ-unboxed-bits-expr loc stamp)
+  (list 'append
+        "___CAST(___WORD,___F64_TO_U64("
+        (targ-unboxed-loc->code loc stamp)
+        "))"))
+
+(define (targ-spill-dirty-unboxed)
+  (targ-each-dirty-unboxed
+   (lambda (loc stamp)
+     (cond ((reg? loc)
+            (targ-emit
+             (targ-loc-no-invalidate loc (targ-unboxed-bits-expr loc stamp))))
+           ((stk? loc)
+            (targ-rd-fp)
+            (targ-emit
+             (list "SET_STK"
+                   (- (stk-num loc) targ-proc-fp)
+                   (targ-unboxed-bits-expr loc stamp))))))))
+
+(define (targ-reload-dirty-unboxed)
+  (targ-each-dirty-unboxed
+   (lambda (loc stamp)
+     (let ((source
+            (cond ((reg? loc)
+                   (let ((n (reg-num loc)))
+                     (targ-rd-reg n)
+                     (cons 'r n)))
+                  ((stk? loc)
+                   (begin
+                     (targ-rd-fp)
+                     (list "STK" (- (stk-num loc) targ-proc-fp))))
+                  (else #f))))
+       (if source
+           (targ-emit
+            (list "SET_F64"
+                  (targ-unboxed-loc->code loc stamp)
+                  (list 'append "___F64_FROM_U64(___CAST(___U64," source "))"))))))))
+
+(define (targ-scrub-dirty-unboxed)
+  ;; Overwrite raw IEEE-754 bit spills with ___FAL immediately after
+  ;; ___group_demand_enter succeeds so dead spilled registers/slots cannot
+  ;; leak unboxed doubles into subsequent ___RETI GC root maps.
+  (targ-each-dirty-unboxed
+   (lambda (loc stamp)
+     (cond ((reg? loc)
+            (targ-emit
+             (targ-loc-no-invalidate loc (targ-opnd (make-obj false-object)))))
+           ((stk? loc)
+            (targ-rd-fp)
+            (targ-emit
+             (list "SET_STK"
+                   (- (stk-num loc) targ-proc-fp)
+                   (targ-opnd (make-obj false-object)))))))))
+
+(define (targ-finish-write-group)
+  (if targ-proc-demand-lbl
+      (let ((plan targ-proc-demand-plan))
+        (if plan
+            (begin
+              (wgp-commit! plan)
+              (set! targ-proc-heap-committed (wgp-reserved-end plan))))
+        (targ-commit-write-group targ-proc-demand-lbl)
+        (set! targ-proc-demand-lbl #f)
+        (set! targ-proc-demand-stack-end #f)
+        (set! targ-proc-demand-plan #f))))
+
+(define (targ-entry-frame-live-depth frame)
+  (let loop ((vars (reverse (frame-slots frame))) (slot 1) (depth 0))
+    (if (pair? vars)
+        (loop (cdr vars) (+ slot 1)
+              (if (or (eq? (car vars) ret-var)
+                      (frame-live? (car vars) frame))
+                  slot
+                  depth))
+        depth)))
+
+(define (targ-publish-backed-entry-frame)
+  (if (and targ-proc-entry-frame targ-proc-demand-stack-end)
+      (let ((fs (targ-entry-frame-live-depth targ-proc-entry-frame)))
+        (if (> fs targ-proc-fp)
+            (if (and targ-proc-demand-lbl
+                     (<= fs targ-proc-demand-stack-end))
+                ;; The preceding write group already owns these slots.
+                ;; Publish the live prefix, including a stacked RA, before
+                ;; retiring that grant. Dead logical tail slots need no read.
+                (targ-emit (targ-adjust-stack fs))
+                (compiler-internal-error
+                  "targ-publish-backed-entry-frame, unbacked entry frame"
+                  targ-proc-fp fs (frame-size targ-proc-entry-frame)
+                  targ-proc-demand-stack-end
+                  targ-proc-unique-name
+                  (map (lambda (var)
+                         (list (eq? var ret-var)
+                               (and (frame-live? var targ-proc-entry-frame)
+                                    #t)))
+                       (reverse (frame-slots targ-proc-entry-frame)))))))))
+
+(define (targ-return-slot frame)
+  (let loop ((vars (reverse (frame-slots frame))) (slot 1))
+    (cond ((not (pair? vars)) #f)
+          ((eq? (car vars) ret-var) slot)
+          (else (loop (cdr vars) (+ slot 1))))))
+
+(define (targ-return-is-active? frame)
+  (and frame
+       (or (memq ret-var (frame-regs frame))
+           (let ((slot (targ-return-slot frame)))
+             (and slot (<= slot targ-proc-fp))))))
+
+(define (targ-entry-live-words)
+  (if targ-proc-entry-frame
+      (max 0 (- (targ-entry-frame-live-depth targ-proc-entry-frame)
+                targ-proc-fp))
+      0))
+
+(define targ-admitting? #f)
+
+(define (targ-expand-pending-write-group stack heap)
+  (let ((plan targ-proc-demand-plan))
+    ;; The enter line keeps mutable stack and heap cells and is printed
+    ;; after the whole group. Later allocations in the same uncommitted
+    ;; group must grow those cells. The generator replaces entry-frame on
+    ;; every instruction, so the grant stays the fp and live-root coverage
+    ;; captured when the group opened.
+    (and plan targ-proc-demand-lbl
+         (eq? (wgp-phase plan) 'open)
+         (= targ-proc-fp (wgp-fp plan))
+         (targ-entry-roots-fit? targ-proc-entry-frame)
+         (begin
+           (wgp-expand! plan stack heap (or targ-proc-heap-reserved 0))
+           (set! targ-proc-demand-stack-end (+ targ-proc-fp (wgp-stack plan)))
+           #t))))
+
+(define (targ-admit-write-group sn)
+  (if targ-admitting?
+      #f
+      (begin
+        (targ-publish-backed-entry-frame)
+        (let ((stack (max (targ-group-stack-words sn)
+                          (targ-entry-live-words)))
+              (heap (targ-group-heap-words))
+              (saved-raw-spills? targ-demand-raw-spills?)
+              (saved-reset-fr? targ-label-reset-fr?))
+          (if (targ-demand-covers? (+ targ-proc-fp stack) heap)
+              (begin
+                (wgp-set-reserved-end! targ-proc-demand-plan (or targ-proc-heap-reserved 0))
+                #f)
+              (if (targ-expand-pending-write-group stack heap)
+                  #f
+                  (begin
+                    (targ-finish-write-group)
+                    (let ((fresh-heap (targ-group-heap-words)))
+                      (if (and targ-proc-entry-frame
+                               (or (> stack 0) (> fresh-heap 0)))
+                          (dynamic-wind
+                            (lambda () (set! targ-admitting? #t))
+                            (lambda ()
+                              (let ((pre (targ-new-lbl)))
+                                ;; Admission reads both cursors and may reload them after GC,
+                                ;; including groups that only need additional stack slots.
+                                (targ-need-heap)
+                                (targ-wr-fp)
+                                (targ-note-group-site "___GATE2_OPEN" pre)
+                                (targ-spill-dirty-unboxed)
+                                (set! targ-demand-raw-spills? #t)
+                                (set! targ-label-reset-fr? #f)
+                                (targ-gen-label-return* pre 'return-demand)
+                                (set! targ-demand-raw-spills? #f)
+                                (set! targ-label-reset-fr? #t)
+                                (targ-reload-dirty-unboxed)
+                                (targ-note-group-site "___GATE2_ENTER" pre)
+                                (let ((stack-cell (list 'append (number->string stack)))
+                                      (heap-cell (list 'append (number->string fresh-heap))))
+                                  (targ-emit
+                                   (list 'append
+                                         "if(!___group_demand_enter(___ps,&___hp,&___fp,"
+                                         stack-cell
+                                         ","
+                                         heap-cell
+                                         ","
+                                         (targ-demand-label-operand pre)
+                                         ",&___demand_attempt)){___ps->temp1="
+                                         (targ-demand-label-operand pre)
+                                         ";___JUMPEXTPRM(___NOTHING,___ps->handler_stack_limit);}"
+                                         #\newline))
+                                  (targ-scrub-dirty-unboxed)
+                                  (set! targ-proc-demand-lbl pre)
+                                  (set! targ-proc-demand-stack-end (+ targ-proc-fp stack))
+                                  (set! targ-proc-demand-plan
+                                    (make-write-group-plan
+                                      targ-proc-instr targ-proc-entry-frame targ-proc-fp
+                                      targ-proc-code-length stack-cell heap-cell
+                                      stack fresh-heap (or targ-proc-heap-reserved 0))))))
+                            (lambda ()
+                              (set! targ-demand-raw-spills? saved-raw-spills?)
+                              (set! targ-label-reset-fr? saved-reset-fr?)
+                              (set! targ-admitting? #f))))))))))))
+
 (define (targ-start-bb fs)
+  (targ-finish-write-group)
   (set! targ-proc-heap-reserved 0)
+  (set! targ-proc-heap-committed 0)
   (set! targ-proc-flo-reserved 0)
   (set! targ-proc-ssb-reserved 0)
   (set! targ-proc-fp fs))
@@ -422,6 +913,7 @@
   (targ-fp-cache-init))
 
 (define (targ-update-fr frame)
+  (targ-publish-backed-entry-frame)
   (let* ((live
           (frame-live frame))
          (any-closed-live?
@@ -566,6 +1058,16 @@
 
 ;;;----------------------------------------------------------------------------
 
+(define (targ-use-fused-entry-frame predecessor)
+  (if (and targ-proc-fused-entry
+           (eq? (car targ-proc-fused-entry) predecessor)
+           (cdr targ-proc-fused-entry))
+      (begin
+        (set! targ-proc-entry-frame (cdr targ-proc-fused-entry))
+        (set! targ-proc-fused-entry #f))
+      (compiler-internal-error
+        "targ-use-fused-entry-frame, missing or mismatched producer")))
+
 (define (targ-gen-gvm-instr prev-gvm-instr gvm-instr next-gvm-instr sn)
 
   (define (next-lbl)
@@ -575,6 +1077,7 @@
         (label-lbl-num next-gvm-instr)
         #f))
 
+  (set! targ-proc-instr gvm-instr)
   (set! targ-proc-instr-node
     (comment-get (gvm-instr-comment gvm-instr) 'node))
   (set! targ-proc-exit-frame
@@ -596,6 +1099,9 @@
   (case (gvm-instr-type gvm-instr)
 
     ((label)
+     (set! targ-proc-kernel-role-label
+           (and (memq (label-type gvm-instr) '(entry return))
+                (label-lbl-num gvm-instr)))
      (set! targ-proc-entry-frame targ-proc-exit-frame)
      (targ-start-bb (frame-size targ-proc-exit-frame))
      (case (label-type gvm-instr)
@@ -624,7 +1130,15 @@
           "targ-gen-gvm-instr, unknown label type"))))
 
     ((apply)
-     (if (not (targ-apply-ifjump-optimization? gvm-instr next-gvm-instr))
+     (if (targ-apply-ifjump-optimization? gvm-instr next-gvm-instr)
+         (begin
+           (if targ-proc-fused-entry
+               (compiler-internal-error
+                 "targ-gen-gvm-instr, unconsumed fused entry frame"))
+           ;; The skipped apply has not written its virtual result. A retry
+           ;; in the fused branch must describe the actual pre-apply roots.
+           (set! targ-proc-fused-entry
+                 (cons gvm-instr targ-proc-entry-frame)))
          (targ-gen-apply (apply-prim gvm-instr)
                          (apply-opnds gvm-instr)
                          (apply-loc gvm-instr)
@@ -646,7 +1160,9 @@
            (false (ifjump-false gvm-instr))
            (poll? (ifjump-poll? gvm-instr)))
        (if (targ-apply-ifjump-optimization? prev-gvm-instr gvm-instr)
-           (let ((not? (eq? test **not-proc-obj)))
+           (begin
+             (targ-use-fused-entry-frame prev-gvm-instr)
+             (let ((not? (eq? test **not-proc-obj)))
              (targ-gen-ifjump (apply-prim prev-gvm-instr)
                               (apply-opnds prev-gvm-instr)
                               (apply-loc prev-gvm-instr)
@@ -654,7 +1170,7 @@
                               (if not? false true)
                               (if not? true false)
                               poll?
-                              (next-lbl)))
+                              (next-lbl))))
            (targ-gen-ifjump test
                             opnds
                             #f ;; loc
@@ -830,15 +1346,18 @@
             ((< n 0) (extend-vars (cdr l) (+ n 1)))
             (else    (extend-vars (cons empty-var l) (- n 1)))))
 
-    (define (generate fs vars gc-map)
+    (define (generate fs vars gc-map fallback)
       (let ((label-descr
-             (debug-info-add!
-              targ-debug-info-state
-              targ-proc-instr-node
-              vars
-              frame))
+             (if (eq? kind 'return-demand)
+                 (debug-info-skip! targ-debug-info-state)
+                 (debug-info-add!
+                  targ-debug-info-state
+                  targ-proc-instr-node
+                  vars
+                  frame)))
             (link
-             (pos-in-list ret-var vars)))
+             (or (pos-in-list ret-var vars)
+                 (and fallback (pos-in-list fallback vars)))))
         (if link
           (begin
             (case kind
@@ -850,18 +1369,21 @@
                (targ-emit-label-return-task lbl fs link gc-map label-descr)
 ;;               (targ-repr-begin-block! 'task-return lbl)
 )
-              ((return-internal)
+              ((return-internal return-demand)
                (targ-emit-label-return-internal lbl fs link gc-map label-descr)
 ;;               (targ-repr-begin-block! 'return-internal lbl)
 )
               (else
                (compiler-internal-error
                  "targ-gen-label-return*, unknown label kind")))
-            (targ-begin-fr))
+            (if targ-label-reset-fr? (targ-begin-fr)))
           (compiler-internal-error
-            "targ-gen-label-return*, no return address in frame"))))
+            "targ-gen-label-return*, no return address in frame"
+            kind fs (frame-size frame)
+            (pos-in-list ret-var (frame-slots frame))
+            (pos-in-list ret-var (frame-regs frame))))))
 
-    (if (eq? kind 'return-internal)
+    (if (or (eq? kind 'return-internal) (eq? kind 'return-demand))
       (let* ((cfs
               targ-proc-fp)
              (cfs-after-alignment
@@ -886,11 +1408,20 @@
               (targ-build-gc-map
                vars
                (lambda (i var)
-                 (or (frame-live? var frame)
-                     (let ((j (- i cfs-after-alignment)))
-                       (and (>= j 0) ; all saved GVM regs are live
-                            (<= j (targ-nb-gvm-regs)))))))))
-        (generate cfs vars gc-map))
+                 (let ((raw?
+                        (and targ-demand-raw-spills?
+                             (if (< i cfs-after-alignment)
+                                 (targ-fp-cache-dirty? (make-stk (+ i 1)))
+                                 (let ((j (- i cfs-after-alignment)))
+                                   (and (>= j 0)
+                                        (< j (targ-nb-gvm-regs))
+                                        (targ-fp-cache-dirty? (make-reg j))))))))
+                   (and (not raw?)
+                        (or (frame-live? var frame)
+                            (let ((j (- i cfs-after-alignment)))
+                              (and (>= j 0) ; saved GVM regs are pointers
+                                   (<= j (targ-nb-gvm-regs)))))))))))
+        (generate cfs vars gc-map return-var))
       (let* ((fs ; remove frame reserve from actual frame size
               (- targ-proc-fp targ-frame-reserve))
              (vars
@@ -901,7 +1432,7 @@
                vars
                (lambda (i var)
                  (frame-live? var frame)))))
-        (generate fs vars gc-map)))))
+        (generate fs vars gc-map #f)))))
 
 ;;; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -935,6 +1466,10 @@
   (let ((proc (proc-obj-inline prim)))
     (if proc
       (begin
+        ;; Nonallocating inliners can still write a deeper frame slot.
+        ;; Admit their operand and result span before entering the inliner.
+        (targ-admit-write-group
+          (targ-sn-opnds opnds (targ-sn-loc loc sn)))
         (proc opnds loc sn)
         (targ-heap-reserve-and-check 0 #f sn))
       (compiler-internal-error
@@ -944,8 +1479,11 @@
 
 (define (targ-gen-copy opnd loc sn)
   (if opnd
-    (targ-emit
-     (targ-loc loc (targ-opnd opnd)))
+      (begin
+        (targ-admit-write-group
+          (targ-sn-opnd opnd (targ-sn-loc loc sn)))
+        (targ-emit
+          (targ-loc loc (targ-opnd opnd))))
 ;;    (targ-emit (targ-loc loc (targ-opnd (make-obj 1234567))));***********************
 )
   (targ-heap-reserve-and-check 0 #f sn))
@@ -1049,16 +1587,19 @@
             (proc (vector-ref x 1)))
 
         (define (gen-if not? branch-lbl fall-lbl)
-          (let ((fs (frame-size targ-proc-exit-frame)))
+          (let* ((fs (frame-size targ-proc-exit-frame))
+                 (sn (targ-sn-opnds opnds (targ-sn-loc loc fs))))
+            (targ-admit-write-group sn)
             (if (or (not args-flo?)
                     (begin
                       (targ-update-fr targ-proc-exit-frame)
                       (targ-end-of-block-checks-needed? poll?)))
-              (let ((sn (targ-sn-opnds opnds fs)))
+              (begin
                 (targ-update-fr targ-proc-entry-frame)
                 (targ-end-of-block-checks poll? sn)))
             (targ-emit
               (targ-adjust-stack fs))
+            (targ-finish-write-group)
             (targ-emit
               (list "IF" (proc not? opnds loc fs)))
 ;;            (targ-repr-exit-block! branch-lbl)
@@ -1144,15 +1685,17 @@
 
 (define (targ-gen-switch opnd cases default poll? next-lbl)
 
-  (targ-update-fr targ-proc-entry-frame)
-
   (let* ((fs (frame-size targ-proc-exit-frame))
          (sn (targ-sn-opnd opnd fs)))
+
+    (targ-admit-write-group sn)
+    (targ-update-fr targ-proc-entry-frame)
 
     (targ-end-of-block-checks poll? sn)
 
     (targ-emit
      (targ-adjust-stack fs))
+    (targ-finish-write-group)
 
     (let loop ((lst cases)
                (rev-cases-fixnum '())
@@ -1317,6 +1860,12 @@
 
 (define (targ-gen-jump opnd ret nb-args poll? safe? next-lbl)
 
+  (let* ((fs (frame-size targ-proc-exit-frame))
+         (sn (targ-sn-opnd opnd fs)))
+    ;; A slow admission must still see the incoming register/root view.
+    ;; In particular, preserve an aliased callee before changing its RA.
+    (targ-admit-write-group sn)
+
   (if ret ;; a return address needs to be passed?
       (begin
         (if (eqv? opnd return-addr-reg) ;; destination in location of ret addr?
@@ -1327,25 +1876,24 @@
         (targ-emit
          (targ-loc return-addr-reg (targ-opnd (make-lbl ret))))))
 
-  (targ-update-fr targ-proc-entry-frame)
+    (targ-update-fr targ-proc-entry-frame)
 
-  (let ((inlined
-         (and (obj? opnd)
-              (proc-obj? (obj-val opnd))
-              nb-args
-              (let* ((proc (obj-val opnd))
-                     (jump-inliner (proc-obj-jump-inline proc)))
-                (and jump-inliner
-                     (jump-inliner nb-args poll? safe?))))))
-    (if (not inlined)
-      (let* ((fs (frame-size targ-proc-exit-frame))
-             (sn (targ-sn-opnd opnd fs))
-             (set-nargs (if nb-args (list "SET_NARGS" nb-args) #f)))
+  (let* ((jump-inliner
+          (and (obj? opnd)
+               (proc-obj? (obj-val opnd))
+               nb-args
+               (proc-obj-jump-inline (obj-val opnd)))))
+    (if jump-inliner
+      (begin
+        (targ-finish-write-group)
+        (jump-inliner nb-args poll? safe?))
+      (let* ((set-nargs (if nb-args (list "SET_NARGS" nb-args) #f)))
 
         (targ-end-of-block-checks poll? sn)
 
         (targ-emit
          (targ-adjust-stack fs))
+        (targ-finish-write-group)
 
         (cond ((lbl? opnd)
                (let ((n (lbl-num opnd)))
@@ -1408,7 +1956,7 @@
                           (targ-opnd opnd))))))
 
 ;;        (targ-repr-end-block!)
-))))
+)))))
 
 (define (targ-arg-check-avoidable? proc nb-args)
   (let ((x (proc-obj-call-pat proc)))
@@ -2487,14 +3035,22 @@
 
 ;;;----------------------------------------------------------------------------
 
+(define (targ-require-stack-room delta)
+  ;; Room is reserved by the existing stack-limit handler, which must be
+  ;; entered before the frame grows. A refusal inside ___ADJFP also rejects
+  ;; that handler's own internal return frame and spins.
+  #f)
+
 (define (targ-adjust-stack fs)
   (if (= targ-proc-fp fs)
     #f
-    (let ((fp targ-proc-fp))
+    (let* ((fp targ-proc-fp)
+           (delta (- fs fp)))
       (set! targ-proc-fp fs)
       (targ-rd-fp)
       (targ-wr-fp)
-      (list "ADJFP" (- fs fp)))))
+      (targ-require-stack-room delta)
+      (list "ADJFP" delta))))
 
 (define (targ-sn-opnd opnd sn)
   (cond ((stk? opnd)
@@ -2530,8 +3086,21 @@
 (define (targ-fp-cache-size)
   (vector-ref targ-fp-cache 0))
 
+(define (targ-fp-cache-dirty-count)
+  (if (and targ-fp-cache-enabled? (vector? targ-fp-cache))
+      (let ((v (vector-ref targ-fp-cache 1)))
+        (let loop ((i 0) (count 0))
+          (if (< i (vector-length v))
+              (let ((x (vector-ref v i)))
+                (loop (+ i 1)
+                      (if (and x (vector-ref x 1)) (+ count 1) count)))
+              count)))
+      0))
+
 (define (targ-fp-cache-write loc stamp)
   (targ-heap-reserve targ-flonum-space #t)
+  (if targ-proc-demand-plan
+      (wgp-set-reserved-end! targ-proc-demand-plan targ-proc-heap-reserved))
   (targ-emit
     (targ-loc-no-invalidate
       loc
@@ -2545,8 +3114,8 @@
           (let ((x (vector-ref v i)))
             (if (and x (vector-ref x 1) (eqv? (vector-ref x 0) loc))
               (begin
-                (targ-fp-cache-write loc (vector-ref x 2))
-                (vector-set! x 1 #f))
+                (vector-set! x 1 #f)
+                (targ-fp-cache-write loc (vector-ref x 2)))
               (loop (+ i 1)))))))))
 
 (define (targ-fp-cache-enter opnd dirty?) ; allocate new entry for opnd
@@ -2877,8 +3446,10 @@
               (opnd (car opnds))
               (sn* (targ-sn-loc loc sn)))
 
+          (targ-admit-write-group sn*)
           (targ-update-fr targ-proc-entry-frame)
           (targ-emit (targ-adjust-stack sn*))
+          (targ-finish-write-group)
           (targ-emit (list "FORCE1"
                            (targ-ref-lbl-val lbl)
                            (targ-opnd opnd)))
@@ -2910,6 +3481,19 @@
         (if loc
             (targ-emit
              (targ-loc loc (targ-opnd (make-obj false-object)))))))))
+
+(define (targ-apply-poll-point)
+  (lambda (prim)
+    (proc-obj-inlinable?-set! prim (lambda (env) #t))
+    (proc-obj-inline-set!
+     prim
+     (lambda (opnds loc sn)
+       (targ-admit-write-group sn)
+       (targ-update-fr targ-proc-entry-frame)
+       (targ-end-of-block-checks #t sn)
+       (targ-finish-write-group)
+       (if loc
+           (targ-emit (targ-loc loc '("VOID"))))))))
 
 ;;; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -3227,15 +3811,28 @@
          (list "BOOLEAN" (generator opnds #f sn))))
      prim)))
 
+(define (targ-primitive-safety-check prim proc-safe?)
+  ;; The ## operations with C inliners specify their own argument checking.
+  ;; Their inlining does not require an unsafe caller.
+  ;; Specialization of ordinary procedures to unchecked ## operations remains
+  ;; guarded by the safety declaration in _prims.scm.
+  (let ((name (proc-obj-name prim)))
+    (cond ((and (>= (string-length name) 2)
+                (char=? (string-ref name 0) #\#)
+                (char=? (string-ref name 1) #\#))
+           (lambda (env) #t))
+          ((procedure? proc-safe?)
+           proc-safe?)
+          (else
+           (lambda (env)
+             (or proc-safe?
+                 (not (safe? env))))))))
+
 (define (targ-setup-test-proc proc-safe? args-flo? optimizable? generator)
   (lambda (prim)
     (proc-obj-testable?-set!
      prim
-     (if (procedure? proc-safe?)
-         proc-safe?
-         (lambda (env)
-           (or proc-safe?
-               (not (safe? env))))))
+     (targ-primitive-safety-check prim proc-safe?))
     (proc-obj-test-set!
      prim
      (vector
@@ -3304,11 +3901,7 @@
   (lambda (prim)
     (proc-obj-inlinable?-set!
       prim
-      (if (procedure? proc-safe?)
-          proc-safe?
-          (lambda (env)
-            (or proc-safe?
-                (not (safe? env))))))
+      (targ-primitive-safety-check prim proc-safe?))
     (proc-obj-inline-set!
       prim
       (lambda (opnds loc sn)
@@ -3334,11 +3927,7 @@
   (lambda (prim)
     (proc-obj-inlinable?-set!
       prim
-      (if (procedure? proc-safe?)
-          proc-safe?
-          (lambda (env)
-            (or proc-safe?
-                (not (safe? env))))))
+      (targ-primitive-safety-check prim proc-safe?))
     (proc-obj-inline-set!
       prim
       (lambda (opnds loc sn)
@@ -3426,6 +4015,34 @@
 ;; Table of inlinable operations (for 'apply' and 'ifjump' GVM instructions)
 
 (define targ-use-c-rts-char-operations #f)
+
+;; The runtime source annotates the C fragment reached by an existing GVM
+;; entry or return label. Keep the label object until numbering is complete.
+(define (targ-record-kernel-role code)
+  (let* ((prefix "/* gambit:kernel-entry ")
+         (start (string-length prefix))
+         (end (string-length code)))
+    (if (and (> end start) (string=? prefix (substring code 0 start)))
+        (let scan ((i start))
+          (if (and (< i end)
+                   (let ((ch (string-ref code i)))
+                     (or (and (char<=? #\a ch) (char<=? ch #\z)) (char=? ch #\_))))
+              (scan (+ i 1))
+              (let* ((label (and targ-proc-kernel-role-label
+                                 (targ-get-lbl targ-proc-kernel-role-label)))
+                     (role (substring code start i))
+                     (class (if (string=? role "handler_sfun_conv_error")
+                                'proc
+                                'return)))
+                (if (not (and (> i start)
+                              (<= (+ i 3) end)
+                              (string=? " */" (substring code i (+ i 3)))
+                              label
+                              (eq? (targ-lbl-val? label) class)
+                              (not (memq label (map cdr targ-proc-kernel-roles)))))
+                    (compiler-internal-error "invalid kernel entry role" code))
+                (set! targ-proc-kernel-roles
+                      (cons (cons role label) targ-proc-kernel-roles))))))))
 
 (define (targ-setup-inlinable)
 
@@ -4130,6 +4747,7 @@
 (targ-op "##identity"         (targ-apply-first-argument))
 (targ-op "##first-argument"   (targ-apply-first-argument))
 (targ-op "##check-heap-limit" (targ-apply-check-heap-limit))
+(targ-op "##poll-point"       (targ-apply-poll-point))
 
 ;;; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -4199,10 +4817,11 @@
                                        "}")))
                   (if (null? rev-args)
                     (begin
-                      (targ-emit (cons 'append lst1))
+                      (targ-record-kernel-role (obj-val code))
+                      (targ-emit (cons 'opaque-c lst1))
                       (if loc
                         (targ-emit (targ-loc loc '("RESULT"))))
-                      (targ-emit (cons 'append (reverse lst2))))
+                      (targ-emit (cons 'opaque-c (reverse lst2))))
                     (let ((arg (car rev-args)))
                       (loop (- i 1)
                             (cdr rev-args)
@@ -4234,6 +4853,7 @@
          (let ((fs (frame-size targ-proc-exit-frame)))
            (targ-end-of-block-checks poll? fs)
            (targ-emit (targ-adjust-stack fs))
+           (targ-finish-write-group)
            (targ-emit-jump-inline "THREAD_SAVE" safe? nb-args)
            (targ-rd-fp)
            (targ-wr-fp)
@@ -4249,7 +4869,23 @@
          (let ((fs (frame-size targ-proc-exit-frame)))
            (targ-end-of-block-checks poll? fs)
            (targ-emit (targ-adjust-stack fs))
+           (targ-finish-write-group)
            (targ-emit-jump-inline "THREAD_RESTORE" safe? nb-args)
+           (targ-rd-fp)
+           (targ-wr-fp)
+           (targ-wr-reg 0)
+           (targ-wr-reg (+ (targ-nb-arg-regs) 1))
+           #t))))
+
+(targ-jump-inline "##thread-park!"
+  (lambda (nb-args poll? safe?)
+    (and (< 1 nb-args)
+         (< nb-args 6)
+         (let ((fs (frame-size targ-proc-exit-frame)))
+           (targ-end-of-block-checks poll? fs)
+           (targ-emit (targ-adjust-stack fs))
+           (targ-finish-write-group)
+           (targ-emit-jump-inline "THREAD_PARK" safe? nb-args)
            (targ-rd-fp)
            (targ-wr-fp)
            (targ-wr-reg 0)
@@ -4274,6 +4910,7 @@
          (let ((fs (frame-size targ-proc-exit-frame)))
            (targ-end-of-block-checks poll? fs)
            (targ-emit (targ-adjust-stack fs))
+           (targ-finish-write-group)
            (targ-emit-jump-inline "CONTINUATION_CAPTURE" safe? nb-args)
            (targ-rd-fp)
            (targ-wr-fp)
@@ -4288,6 +4925,7 @@
          (let ((fs (frame-size targ-proc-exit-frame)))
            (targ-end-of-block-checks poll? fs)
            (targ-emit (targ-adjust-stack fs))
+           (targ-finish-write-group)
            (targ-emit-jump-inline "CONTINUATION_GRAFT_NO_WINDING" safe? nb-args)
            (targ-rd-fp)
            (targ-wr-fp)
@@ -4301,6 +4939,7 @@
          (let ((fs (frame-size targ-proc-exit-frame)))
            (targ-end-of-block-checks poll? fs)
            (targ-emit (targ-adjust-stack fs))
+           (targ-finish-write-group)
            (targ-emit-jump-inline "CONTINUATION_RETURN_NO_WINDING" safe? nb-args)
            (targ-rd-fp)
            (targ-wr-fp)

@@ -1,0 +1,125 @@
+/* Setup parameters structure */
+
+#define ___IO_SETTINGS_STDIN    0
+#define ___IO_SETTINGS_STDOUT   1
+#define ___IO_SETTINGS_STDERR   2
+#define ___IO_SETTINGS_TERMINAL 3
+#define ___IO_SETTINGS_STDIO    4
+#define ___IO_SETTINGS_FILE     5
+#define ___IO_SETTINGS_GENERAL  6
+#define ___IO_SETTINGS_LAST     ___IO_SETTINGS_GENERAL
+
+#ifndef ___IO_SETTINGS_DEFAULT
+#define ___IO_SETTINGS_DEFAULT \
+(___CHAR_ENCODING_ERRORS_ON | \
+ ___CHAR_ENCODING_UTF_8 | \
+ ___EOL_ENCODING_LF | \
+ ___FULL_BUFFERING)
+#endif
+
+typedef struct ___setup_params_struct
+  {
+    int version;
+    ___UCS_2STRING *argv;
+    ___SIZE_T min_heap;
+    ___SIZE_T max_heap;
+    int live_percent;
+    int parallelism_level;
+    ___SIZE_TS (*adjust_heap_hook) ___P((___SIZE_TS live),());
+    void (*display_error) ___P((char **msgs),());
+    void (*fatal_error) ___P((char **msgs),());
+    int standard_level;
+    int debug_settings;
+    int io_settings[___IO_SETTINGS_LAST+1];
+    ___UCS_2STRING gambitdir;
+    ___UCS_2STRING *gambitdir_map;
+    ___UCS_2STRING *module_search_order;
+    ___UCS_2STRING *module_whitelist;
+    int module_install_mode;
+    ___UCS_2STRING repl_client_addr;
+    ___UCS_2STRING repl_server_addr;
+    ___mod_or_lnk (*linker) ___P((___global_state),());
+
+    ___UCS_2 reset_argv0[1]; /* defaults for argv */
+    ___UCS_2STRING reset_argv[2];
+  } ___setup_params_struct;
+
+#define ___DEBUG_SETTINGS_LEVEL_MASK          15
+#define ___DEBUG_SETTINGS_LEVEL_SHIFT         0
+#define ___DEBUG_SETTINGS_UNCAUGHT_MASK       (1<<4)
+#define ___DEBUG_SETTINGS_UNCAUGHT_PRIMORDIAL 0
+#define ___DEBUG_SETTINGS_UNCAUGHT_ALL        1
+#define ___DEBUG_SETTINGS_UNCAUGHT_SHIFT      4
+#define ___DEBUG_SETTINGS_ERROR_MASK          (3<<5)
+#define ___DEBUG_SETTINGS_ERROR_REPL          0
+#define ___DEBUG_SETTINGS_ERROR_SINGLE_STEP   1
+#define ___DEBUG_SETTINGS_ERROR_QUIT          2
+#define ___DEBUG_SETTINGS_ERROR_SHIFT         5
+#define ___DEBUG_SETTINGS_REPL_MASK           (7<<7)
+#define ___DEBUG_SETTINGS_REPL_CONSOLE        0
+#define ___DEBUG_SETTINGS_REPL_STDIO          1
+#define ___DEBUG_SETTINGS_REPL_STDIO_AND_ERR  2
+#define ___DEBUG_SETTINGS_REPL_CLIENT         3
+#define ___DEBUG_SETTINGS_REPL_SHIFT          7
+#define ___DEBUG_SETTINGS_USER_INTR_MASK      (3<<10)
+#define ___DEBUG_SETTINGS_USER_INTR_REPL      0
+#define ___DEBUG_SETTINGS_USER_INTR_DEFER     1
+#define ___DEBUG_SETTINGS_USER_INTR_QUIT      2
+#define ___DEBUG_SETTINGS_USER_INTR_SHIFT     10
+
+#define ___DEBUG_SETTINGS_BACKTRACE_DETAIL_LEVEL_MASK  (15<<12)
+#define ___DEBUG_SETTINGS_BACKTRACE_DETAIL_LEVEL_SHIFT 12
+#define ___DEBUG_SETTINGS_HIGHLIGHT_SOURCE_LEVEL_MASK  (15<<16)
+#define ___DEBUG_SETTINGS_HIGHLIGHT_SOURCE_LEVEL_SHIFT 16
+
+#define ___DEBUG_SETTINGS_LEVEL(settings) \
+(((settings) & ___DEBUG_SETTINGS_LEVEL_MASK) \
+ >> ___DEBUG_SETTINGS_LEVEL_SHIFT)
+
+#define ___DEBUG_SETTINGS_UNCAUGHT(settings) \
+(((settings) & ___DEBUG_SETTINGS_UNCAUGHT_MASK) \
+ >> ___DEBUG_SETTINGS_LEVEL_SHIFT)
+
+#define ___DEBUG_SETTINGS_ERROR(settings) \
+(((settings) & ___DEBUG_SETTINGS_ERROR_MASK) \
+ >> ___DEBUG_SETTINGS_LEVEL_SHIFT)
+
+#define ___DEBUG_SETTINGS_REPL(settings) \
+(((settings) & ___DEBUG_SETTINGS_REPL_MASK) \
+ >> ___DEBUG_SETTINGS_LEVEL_SHIFT)
+
+#define ___DEBUG_SETTINGS_USER_INTR(settings) \
+(((settings) & ___DEBUG_SETTINGS_USER_INTR_MASK) \
+ >> ___DEBUG_SETTINGS_LEVEL_SHIFT)
+
+#define ___DEBUG_SETTINGS_BACKTRACE_DETAIL_LEVEL(settings) \
+(((settings) & ___DEBUG_SETTINGS_BACKTRACE_DETAIL_LEVEL_MASK) \
+ >> ___DEBUG_SETTINGS_BACKTRACE_DETAIL_LEVEL_SHIFT)
+
+#define ___DEBUG_SETTINGS_HIGHLIGHT_SOURCE_LEVEL(settings) \
+(((settings) & ___DEBUG_SETTINGS_HIGHLIGHT_SOURCE_LEVEL_MASK) \
+ >> ___DEBUG_SETTINGS_HIGHLIGHT_SOURCE_LEVEL_SHIFT)
+
+#define ___DEBUG_SETTINGS_INITIAL \
+((1 << ___DEBUG_SETTINGS_LEVEL_SHIFT) | \
+ (___DEBUG_SETTINGS_UNCAUGHT_PRIMORDIAL \
+  << ___DEBUG_SETTINGS_UNCAUGHT_SHIFT) | \
+ (___DEBUG_SETTINGS_ERROR_QUIT \
+  << ___DEBUG_SETTINGS_ERROR_SHIFT) | \
+ (___DEBUG_SETTINGS_REPL_STDIO \
+  << ___DEBUG_SETTINGS_REPL_SHIFT) | \
+ (___DEBUG_SETTINGS_USER_INTR_QUIT \
+  << ___DEBUG_SETTINGS_USER_INTR_SHIFT) | \
+ (0 << ___DEBUG_SETTINGS_BACKTRACE_DETAIL_LEVEL_SHIFT) | \
+ (1 << ___DEBUG_SETTINGS_HIGHLIGHT_SOURCE_LEVEL_SHIFT))
+
+#define ___DEBUG_SETTINGS_DEFAULT \
+((((___DEBUG_SETTINGS_INITIAL \
+    & ~___DEBUG_SETTINGS_ERROR_MASK) | ___DEBUG_SETTINGS_ERROR_REPL)    \
+  & ~___DEBUG_SETTINGS_USER_INTR_MASK) | ___DEBUG_SETTINGS_USER_INTR_REPL)
+
+#define ___MODULE_INSTALL_MODE_INITIAL ___MODULE_INSTALL_MODE_ASK_WHEN_REPL
+#define ___MODULE_INSTALL_MODE_ASK_NEVER     0
+#define ___MODULE_INSTALL_MODE_ASK_WHEN_REPL 1
+#define ___MODULE_INSTALL_MODE_ASK_ALWAYS    2
+
