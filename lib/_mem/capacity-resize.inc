@@ -182,6 +182,41 @@ ___HIDDEN int gc_smp_nursery_headroom(int processor_count)
   return 2 + (int)gc_isqrt_u32((uint32_t)processor_count);
 }
 
+/* Active multi-core young-nursery floor applied during non-contracting Minor
+ * GCs (never at idle startup and never during explicit contraction). Scales
+ * proportionally to processor_count (8 sections/core), strictly capped by
+ * min(max_heap / 4, phys_mem / 32, 256 sections) so multi-core allocation
+ * churn amortizes STW Minor GC barriers without idle-VM memory bloat. */
+___HIDDEN int gc_smp_active_young_sections(int processor_count,
+                                           ___SIZE_T max_heap_bytes,
+                                           ___SIZE_T phys_mem_bytes)
+{
+  int target;
+  int cap = 256;
+  if (processor_count <= 1)
+    return 0;
+  if (processor_count > 1024)
+    processor_count = 1024;
+  target = processor_count * 8;
+  if (max_heap_bytes > 0)
+    {
+      ___SIZE_T mh_secs = (max_heap_bytes >> ___LWS) / ___MSECTION_SIZE;
+      int mh_cap = (mh_secs > 1024u) ? 256 : (int)(mh_secs / 4u);
+      if (mh_cap < cap)
+        cap = mh_cap;
+    }
+  if (phys_mem_bytes > 0)
+    {
+      ___SIZE_T pm_secs = (phys_mem_bytes >> ___LWS) / ___MSECTION_SIZE;
+      int pm_cap = (pm_secs > 8192u) ? 256 : (int)(pm_secs / 32u);
+      if (pm_cap < cap)
+        cap = pm_cap;
+    }
+  if (target > cap)
+    target = cap;
+  return target;
+}
+
 /* Sub-linear generational young-nursery headroom cap above Immix non-moving
  * mature sections (Slice2V3MemoryEndgameRefinement.lean): avoids growing the
  * young nursery 1:1 with a large non-moving mature heap while preserving full
@@ -362,7 +397,7 @@ ___SIZE_TS requested_words_still;)
       SET_MAX(target_nb_sections, lower_bound_nb_sections);
       if (___COLLECTION(___vms).is_minor &&
           !major_reclaimed &&
-          ___GSTATE->setup_params.max_heap == 0 &&
+          !force_contract &&
           the_msections != 0)
         {
           int keep_nb = (___COLLECTION(___vms).fast_minor_pre_nb > 0)
@@ -371,14 +406,26 @@ ___SIZE_TS requested_words_still;)
           if (target_nb_sections < keep_nb)
             target_nb_sections = keep_nb;
         }
-      if (___GSTATE->setup_params.max_heap == 0 && ___vms->processor_count > 1)
+      if (___vms->processor_count > 1)
         {
-          /* Keep sub-linear shared SMP nursery headroom above normal_overflow_reserve
-           * so default-heap mutators do not amplify GCs without O(P) linear floor bloat. */
+          int extra_young = gc_smp_nursery_headroom(___vms->processor_count);
+          if (___COLLECTION(___vms).is_minor && !force_contract && !major_reclaimed)
+            {
+              ___SIZE_T phys_mem = 0;
+#ifdef ___USE_MMAP_MSECTIONS
+              phys_mem = msection_os_phys_memory_bytes();
+#endif
+              int active_young =
+                gc_smp_active_young_sections(___vms->processor_count,
+                                             ___GSTATE->setup_params.max_heap,
+                                             phys_mem);
+              if (active_young > extra_young)
+                extra_young = active_young;
+            }
           int smp_nursery_sections =
             nb_msections_assigned +
             compute_nb_msections_needed(normal_overflow_reserve) +
-            gc_smp_nursery_headroom(___vms->processor_count);
+            extra_young;
           SET_MAX(target_nb_sections, smp_nursery_sections);
         }
       upper_bound_nb_sections = target_nb_sections;

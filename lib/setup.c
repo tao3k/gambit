@@ -806,7 +806,7 @@ int allow_spin_mark;)
       unsigned int slot;
 
       ___MUTEX_LOCK(life->sync_part_mut);
-      my_gen = __atomic_load_n(&life->sync_bar_gen, __ATOMIC_RELAXED);
+      my_gen = __atomic_load_n(&life->sync_bar_gen, __ATOMIC_RELAXED) >> 1;
       slot = my_gen & 1u;
       if (life->sync_bar_arrived == 0)
         {
@@ -851,20 +851,23 @@ int allow_spin_mark;)
       life->sync_bar_arrived++;
       if (life->sync_bar_arrived == life->sync_active_count)
         {
+          uint32_t next_word = (my_gen + 1u) << 1;
+          uint32_t old_word;
           life->sync_bar_out_sop[slot] = life->sync_bar_sop;
           life->sync_bar_out_winner[slot] = life->sync_bar_winner;
           life->sync_bar_arrived = 0;
-          __atomic_store_n(&life->sync_bar_gen, my_gen + 1u, __ATOMIC_RELEASE);
+          old_word = __atomic_exchange_n(&life->sync_bar_gen, next_word, __ATOMIC_ACQ_REL);
           ___MUTEX_UNLOCK(life->sync_part_mut);
-          __atomic_thread_fence(__ATOMIC_SEQ_CST);
-          if (__atomic_load_n(&life->sync_bar_waiters, __ATOMIC_ACQUIRE) != 0)
+          if (old_word & 1u)
             ___gc_futex_wake_all_u32(&life->sync_bar_gen);
         }
       else
         {
           unsigned int spins = 0;
+          uint32_t expected_base = my_gen << 1;
+          uint32_t waiter_word = expected_base | 1u;
           ___MUTEX_UNLOCK(life->sync_part_mut);
-          while (__atomic_load_n(&life->sync_bar_gen, __ATOMIC_ACQUIRE) == my_gen)
+          while ((__atomic_load_n(&life->sync_bar_gen, __ATOMIC_ACQUIRE) >> 1) == my_gen)
             {
               if (spins < 2048u)
                 {
@@ -873,11 +876,19 @@ int allow_spin_mark;)
                 }
               else
                 {
-                  (void)__atomic_fetch_add(&life->sync_bar_waiters, 1u, __ATOMIC_SEQ_CST);
-                  if (__atomic_load_n(&life->sync_bar_gen, __ATOMIC_ACQUIRE) == my_gen)
-                    ___gc_futex_wait_u32(&life->sync_bar_gen, my_gen);
-                  (void)__atomic_fetch_sub(&life->sync_bar_waiters, 1u, __ATOMIC_RELAXED);
-                  spins = 0;
+                  uint32_t expected = expected_base;
+                  if (__atomic_compare_exchange_n(&life->sync_bar_gen,
+                                                  &expected,
+                                                  waiter_word,
+                                                  0,
+                                                  __ATOMIC_ACQ_REL,
+                                                  __ATOMIC_ACQUIRE) ||
+                      expected == waiter_word)
+                    {
+                      while (__atomic_load_n(&life->sync_bar_gen, __ATOMIC_ACQUIRE) == waiter_word)
+                        ___gc_futex_wait_u32(&life->sync_bar_gen, waiter_word);
+                    }
+                  break;
                 }
             }
         }
@@ -1105,20 +1116,23 @@ ___PSDKR)
         return;
       if (target > 1)
         {
-          uint32_t my_gen = __atomic_load_n(&life->fast_bar_gen, __ATOMIC_RELAXED);
+          uint32_t my_gen = __atomic_load_n(&life->fast_bar_gen, __ATOMIC_RELAXED) >> 1;
           ___WORD arrived = __atomic_add_fetch(&life->fast_bar_arrived, 1, __ATOMIC_ACQ_REL);
           if (arrived == target)
             {
+              uint32_t next_word = (my_gen + 1u) << 1;
+              uint32_t old_word;
               __atomic_store_n(&life->fast_bar_arrived, 0, __ATOMIC_RELAXED);
-              __atomic_store_n(&life->fast_bar_gen, my_gen + 1u, __ATOMIC_RELEASE);
-              __atomic_thread_fence(__ATOMIC_SEQ_CST);
-              if (__atomic_load_n(&life->fast_bar_waiters, __ATOMIC_RELAXED) > 0u)
+              old_word = __atomic_exchange_n(&life->fast_bar_gen, next_word, __ATOMIC_ACQ_REL);
+              if (old_word & 1u)
                 ___gc_futex_wake_all_u32(&life->fast_bar_gen);
             }
           else
             {
               int spins = 0;
-              while (__atomic_load_n(&life->fast_bar_gen, __ATOMIC_ACQUIRE) == my_gen)
+              uint32_t expected_base = my_gen << 1;
+              uint32_t waiter_word = expected_base | 1u;
+              while ((__atomic_load_n(&life->fast_bar_gen, __ATOMIC_ACQUIRE) >> 1) == my_gen)
                 {
                   if (spins < 2048)
                     {
@@ -1127,10 +1141,18 @@ ___PSDKR)
                     }
                   else
                     {
-                      __atomic_fetch_add(&life->fast_bar_waiters, 1u, __ATOMIC_SEQ_CST);
-                      while (__atomic_load_n(&life->fast_bar_gen, __ATOMIC_ACQUIRE) == my_gen)
-                        ___gc_futex_wait_u32(&life->fast_bar_gen, my_gen);
-                      __atomic_fetch_sub(&life->fast_bar_waiters, 1u, __ATOMIC_RELAXED);
+                      uint32_t expected = expected_base;
+                      if (__atomic_compare_exchange_n(&life->fast_bar_gen,
+                                                      &expected,
+                                                      waiter_word,
+                                                      0,
+                                                      __ATOMIC_ACQ_REL,
+                                                      __ATOMIC_ACQUIRE) ||
+                          expected == waiter_word)
+                        {
+                          while (__atomic_load_n(&life->fast_bar_gen, __ATOMIC_ACQUIRE) == waiter_word)
+                            ___gc_futex_wait_u32(&life->fast_bar_gen, waiter_word);
+                        }
                       break;
                     }
                 }

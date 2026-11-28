@@ -605,7 +605,7 @@
          (saved-handlers (%st-handlers st))
          (pframe (%make-mc-frame 'prompt
                                  (%frame-tag frame)
-                                 #f
+                                 #t
                                  caller-k
                                  saved-marks
                                  saved-barriers
@@ -645,7 +645,7 @@
                 (saved-handlers (%st-handlers st))
                 (pframe (%make-mc-frame 'prompt
                                         (%frame-tag frame)
-                                        #f
+                                        #t
                                         caller-k
                                         saved-marks
                                         saved-barriers

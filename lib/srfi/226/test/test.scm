@@ -446,3 +446,184 @@
     (test-equal 7777 (vector-ref published-snap 31))))
 
 ;;;============================================================================
+;;; 9. CPU-Adaptive Adversarial Concurrency & GC-Barrier Regressions (9a-9e)
+
+;; 9a. Lock-free closure-code one-shot identity & adaptive-P call/1cc throughput
+;;     regression (zero weak-table mutex contention, zero false positives).
+(let* ((num-threads (max 2 (min 16 (##current-vm-processor-count))))
+       (iters 4000)
+       (tag (make-continuation-prompt-tag 'c25-1cc))
+       (plain-fn (lambda (x) (fx+ x 1)))
+       (ok-count (make-atomic-fxbox 0)))
+  (test-equal #f (one-shot-continuation? plain-fn))
+  (test-equal #f (one-shot-continuation-consumed? plain-fn))
+  (test-equal #t (raises-error? (lambda () (promote-one-shot-continuation! plain-fn))))
+  (let ((threads
+         (let loop ((t 0) (acc '()))
+           (if (fx= t num-threads)
+               acc
+               (loop (fx+ t 1)
+                     (cons
+                      (thread-start!
+                       (make-thread
+                        (lambda ()
+                          (let inner ((i 0) (sum 0))
+                            (if (fx< i iters)
+                                (let ((v (call-with-continuation-prompt
+                                          (lambda ()
+                                            (call/1cc (lambda (k) (k 1)) tag))
+                                          tag)))
+                                  (inner (fx+ i 1) (fx+ sum v)))
+                                (if (fx= sum iters)
+                                    (atomic-fxbox+/fetch! ok-count 1)))))))
+                      acc))))))
+    (for-each thread-join! threads)
+    (test-equal num-threads (atomic-fxbox-ref ok-count))))
+
+;; 9b. Adaptive-P shift/reset GC-crossing replay stress (verifies frozen replay
+;;     underflow frames never overwrite enclosing prompt stack continuations).
+(let* ((num-threads (max 2 (min 16 (##current-vm-processor-count))))
+       (iters 6000)
+       (ok-count (make-atomic-fxbox 0)))
+  (let ((threads
+         (let loop ((t 0) (acc '()))
+           (if (fx= t num-threads)
+               acc
+               (loop (fx+ t 1)
+                     (cons
+                      (thread-start!
+                       (make-thread
+                        (lambda ()
+                          (let inner ((i 0) (sum 0))
+                            (if (fx< i iters)
+                                (begin
+                                  (if (and (fx= t 0) (fx= (fxand i 511) 511))
+                                      (##gc))
+                                  (inner (fx+ i 1)
+                                         (fx+ sum (reset (fx+ 1 (shift k (k 2)))))))
+                                (if (fx= sum (fx* iters 3))
+                                    (atomic-fxbox+/fetch! ok-count 1)))))))
+                      acc))))))
+    (for-each thread-join! threads)
+    (test-equal num-threads (atomic-fxbox-ref ok-count))))
+
+;; 9c. Adaptive-P concurrent invoke vs promote-one-shot-continuation! race:
+;;     every round must linearize cleanly with zero consumed-continuation resurrection.
+(let* ((num-threads (max 4 (min 16 (##current-vm-processor-count))))
+       (rounds 30)
+       (tag (make-continuation-prompt-tag 'c25-race))
+       (good-rounds (make-atomic-fxbox 0)))
+  (let rloop ((r 0))
+    (if (fx< r rounds)
+        (let ((shared-k #f)
+              (go (make-atomic-fxbox 0))
+              (invoke-wins (make-atomic-fxbox 0))
+              (promote-wins (make-atomic-fxbox 0)))
+          (call-with-continuation-prompt
+           (lambda ()
+             (fx+ 1 (call-with-one-shot-composable-continuation
+                     (lambda (k)
+                       (set! shared-k k)
+                       (abort-current-continuation tag (lambda () 'cap)))
+                     tag)))
+           tag)
+          (let ((threads
+                 (let tloop ((i 0) (acc '()))
+                   (if (fx= i num-threads)
+                       acc
+                       (tloop (fx+ i 1)
+                              (cons
+                               (thread-start!
+                                (make-thread
+                                 (lambda ()
+                                   (let spin ()
+                                     (if (fx= (atomic-fxbox-ref go) 0)
+                                         (begin (thread-yield!) (spin))))
+                                   (if (fx= (fxand i 1) 0)
+                                       (with-exception-catcher
+                                        (lambda (e) #f)
+                                        (lambda ()
+                                          (if (fx= (shared-k r) (fx+ r 1))
+                                              (atomic-fxbox+/fetch! invoke-wins 1))))
+                                       (with-exception-catcher
+                                        (lambda (e) #f)
+                                        (lambda ()
+                                          (if (promote-one-shot-continuation! shared-k)
+                                              (atomic-fxbox+/fetch! promote-wins 1))))))))
+                               acc))))))
+            (atomic-fxbox-set! go 1)
+            (for-each thread-join! threads)
+            (let ((iw (atomic-fxbox-ref invoke-wins))
+                  (pw (atomic-fxbox-ref promote-wins))
+                  (consumed? (one-shot-continuation-consumed? shared-k)))
+              ;; Either consumed before any promotion (iw=1, pw=0, consumed?=#t)
+              ;; OR promoted before consumption (pw>=1, consumed?=#f, iw>=1).
+              (if (or (and consumed? (fx= iw 1) (fx= pw 0))
+                      (and (not consumed?) (fx>= pw 1) (fx>= iw 1)))
+                  (atomic-fxbox+/fetch! good-rounds 1)))
+            (rloop (fx+ r 1))))))
+  (test-equal rounds (atomic-fxbox-ref good-rounds)))
+
+;; 9d. dynamic-wind denv preservation across default prompt normal return
+;;     (%mc-return-vals) under concurrent SATB/GC activity.
+(let* ((num-threads (max 2 (min 12 (##current-vm-processor-count))))
+       (iters 500)
+       (tag (make-continuation-prompt-tag 'c25-dw))
+       (ok-count (make-atomic-fxbox 0)))
+  (let ((threads
+         (let loop ((t 0) (acc '()))
+           (if (fx= t num-threads)
+               acc
+               (loop (fx+ t 1)
+                     (cons
+                      (thread-start!
+                       (make-thread
+                        (lambda ()
+                          (let inner ((i 0) (good #t))
+                            (if (fx< i iters)
+                                (let ((log '()))
+                                  (let ((res
+                                         (call-with-continuation-prompt
+                                          (lambda ()
+                                            (dynamic-wind
+                                              (lambda () (set! log (cons 'in log)))
+                                              (lambda () (fx+ i 10))
+                                              (lambda () (set! log (cons 'out log)))))
+                                          tag)))
+                                    (if (and (fx= t 0) (fx= (fxand i 63) 63)) (##gc))
+                                    (inner (fx+ i 1)
+                                           (and good
+                                                (fx= res (fx+ i 10))
+                                                (equal? log '(out in))))))
+                                (if good (atomic-fxbox+/fetch! ok-count 1)))))))
+                      acc))))))
+    (for-each thread-join! threads)
+    (test-equal num-threads (atomic-fxbox-ref ok-count))))
+
+;; 9e. Adaptive-P STW Minor GC packed-ulock barrier & active nursery churn +
+;;     explicit contraction stress (hundreds of back-to-back STW barriers).
+(let* ((num-threads (max 2 (min 16 (##current-vm-processor-count))))
+       (rounds 40)
+       (ok-count (make-atomic-fxbox 0)))
+  (let ((threads
+         (let loop ((t 0) (acc '()))
+           (if (fx= t num-threads)
+               acc
+               (loop (fx+ t 1)
+                     (cons
+                      (thread-start!
+                       (make-thread
+                        (lambda ()
+                          (let rloop ((r 0) (acc 0))
+                            (if (fx< r rounds)
+                                (let ((v (make-vector 2048 r)))
+                                  (if (and (fx= t 0) (fx= (fxand r 7) 7)) (##gc))
+                                  (rloop (fx+ r 1) (fx+ acc (vector-ref v 0) (vector-ref v 2047))))
+                                (if (fx= acc (fx* rounds (fx- rounds 1)))
+                                    (atomic-fxbox+/fetch! ok-count 1)))))))
+                      acc))))))
+    (for-each thread-join! threads)
+    (##gc)
+    (test-equal num-threads (atomic-fxbox-ref ok-count))))
+
+;;;============================================================================
