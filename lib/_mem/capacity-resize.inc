@@ -419,6 +419,14 @@ ___SIZE_TS requested_words_still;)
                 gc_smp_active_young_sections(___vms->processor_count,
                                              ___GSTATE->setup_params.max_heap,
                                              phys_mem);
+              if (___GSTATE->setup_params.min_heap > 0)
+                {
+                  ___SIZE_T min_secs =
+                    (___GSTATE->setup_params.min_heap >> ___LWS) / ___MSECTION_SIZE;
+                  int min_cap = (min_secs > 256u) ? 256 : (int)min_secs;
+                  if (active_young > min_cap)
+                    active_young = min_cap;
+                }
               if (active_young > extra_young)
                 extra_young = active_young;
             }

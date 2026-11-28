@@ -404,16 +404,45 @@ ___HIDDEN int plan_copy_round(___processor_state ps, ___SIZE_TS requested_words_
       for (section = g->young_head; section != 0 && fast_ok; section = section->next)
         {
           section_claim *cl = section_claim_at(section, c->source_offset);
+          ___WORD *half_base = section->base + c->source_offset;
+          ___WORD *half_past = half_base + half_words;
+          ___SIZE_TS sec_extra_stack = 0;
           y_secs++;
-          if (cl->raw_marks != 0 || cl->stack_state == STACK_PARKED)
+          if (cl->raw_marks != 0)
             {
-              fast_ok = 0;
-              break;
+              /* Captured continuation frames strictly shrink on copy because
+               * ___FRAME_SPACE(fs) >= fs + ___FRAME_RESERVE (3) > fs + ___FRAME_EXTRA_SLOTS + 1 (2). */
+              if (cl->raw_low == 0 || cl->raw_high == 0 ||
+                  cl->raw_low < half_base || cl->raw_high >= half_past ||
+                  cl->raw_high < cl->raw_low)
+                {
+                  fast_ok = 0;
+                  break;
+                }
+              {
+                ___SIZE_TS raw_span = (cl->raw_high - cl->raw_low) + 1;
+                if (raw_span > sec_extra_stack)
+                  sec_extra_stack = raw_span;
+                if (raw_span + ___FRAME_EXTRA_SLOTS + 2 > max_stack_words)
+                  max_stack_words = raw_span + ___FRAME_EXTRA_SLOTS + 2;
+              }
+            }
+          if (cl->stack_state == STACK_PARKED)
+            {
+              if (cl->parked_words <= 0 || cl->parked_words > half_words)
+                {
+                  fast_ok = 0;
+                  break;
+                }
+              if (cl->parked_words > sec_extra_stack)
+                sec_extra_stack = cl->parked_words;
+              if (cl->parked_words + ___FRAME_EXTRA_SLOTS + 2 > max_stack_words)
+                max_stack_words = cl->parked_words + ___FRAME_EXTRA_SLOTS + 2;
             }
           if (cl->heap_used != 0)
             {
               ___SIZE_TS used = sec_bound;
-              if (cl->stack_state == 0)
+              if (cl->stack_state == 0 && cl->raw_marks == 0)
                 {
                   int p;
                   for (p = 0; p < n; p++)
@@ -424,7 +453,7 @@ ___HIDDEN int plan_copy_round(___processor_state ps, ___SIZE_TS requested_words_
                           pps->mem.stack_msection_ != section &&
                           pps->mem.alloc_heap_start_ != 0 &&
                           pps->mem.alloc_heap_ptr_ >= pps->mem.alloc_heap_start_ &&
-                          pps->mem.alloc_heap_ptr_ <= section->base + c->source_offset + half_words)
+                          pps->mem.alloc_heap_ptr_ <= half_past)
                         {
                           ___SIZE_TS u = pps->mem.alloc_heap_ptr_ - pps->mem.alloc_heap_start_;
                           if (u > half_words)
@@ -439,6 +468,10 @@ ___HIDDEN int plan_copy_round(___processor_state ps, ___SIZE_TS requested_words_
                     }
                 }
               actual_young_words += used;
+            }
+          else if (sec_extra_stack > 0)
+            {
+              actual_young_words += sec_extra_stack;
             }
           if (section == alloc_msection)
             break;

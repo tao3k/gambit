@@ -409,28 +409,33 @@ extern void ___rest_observation_note_body(___processor_state ps);
 extern ___VOLATILE ___WORD ___rest_hooks_gate;
 #if !defined(___INCLUDED_FROM_MEM) && !defined(___MEM_SOURCE_FILE) && \
     (defined(__GNUC__) || defined(__clang__)) && defined(__ATOMIC_RELAXED)
-static inline ___BOOL ___rest_signed_sum_inline(___WORD a, ___WORD b, ___WORD *sum)
+#if defined(__OPTIMIZE__)
+#define ___REST_FAST_INLINE static inline __attribute__((always_inline))
+#else
+#define ___REST_FAST_INLINE static inline
+#endif
+___REST_FAST_INLINE ___BOOL ___rest_signed_sum_inline(___WORD a, ___WORD b, ___WORD *sum)
 {
   if (!sum) return 0;
   return !__builtin_add_overflow(a, b, sum);
 }
-static inline void ___rest_note_attempt_entry_inline(___processor_state ps,
+___REST_FAST_INLINE void ___rest_note_attempt_entry_inline(___processor_state ps,
                                                      ___WORD *hp, ___WORD *fp)
 {
   if (__builtin_expect(__atomic_load_n(&___rest_hooks_gate, __ATOMIC_RELAXED) != 0, 0))
     (___rest_note_attempt_entry)(ps, hp, fp);
 }
-static inline void ___rest_disarm_attempt_inline(void)
+___REST_FAST_INLINE void ___rest_disarm_attempt_inline(void)
 {
   if (__builtin_expect(__atomic_load_n(&___rest_hooks_gate, __ATOMIC_RELAXED) != 0, 0))
     (___rest_disarm_attempt)();
 }
-static inline void ___rest_observation_note_body_inline(___processor_state ps)
+___REST_FAST_INLINE void ___rest_observation_note_body_inline(___processor_state ps)
 {
   if (__builtin_expect(__atomic_load_n(&___rest_hooks_gate, __ATOMIC_RELAXED) != 0, 0))
     (___rest_observation_note_body)(ps);
 }
-static inline ___BOOL ___rest_fast_grant_fits_inline(___processor_state ps,
+___REST_FAST_INLINE ___BOOL ___rest_fast_grant_fits_inline(___processor_state ps,
                                                      ___WORD *hp, ___WORD *fp,
                                                      ___WORD pending, ___WORD np,
                                                      ___WORD stack_slots)
@@ -462,6 +467,7 @@ static inline ___BOOL ___rest_fast_grant_fits_inline(___processor_state ps,
     }
   return (___rest_fast_grant_fits)(ps, hp, fp, pending, np, stack_slots);
 }
+#undef ___REST_FAST_INLINE
 #define ___rest_signed_sum(a,b,sum) ___rest_signed_sum_inline((a),(b),(sum))
 #define ___rest_note_attempt_entry(ps,hp,fp) ___rest_note_attempt_entry_inline((ps),(hp),(fp))
 #define ___rest_disarm_attempt() ___rest_disarm_attempt_inline()

@@ -148,8 +148,9 @@ static ___BINDING_NOINLINE ___SCMOBJ ___binding_prm_slow
     return ___binding_primitive(vm, global);
   return ___EXT(___primitive_ref)(___ps, global);
 }
-#if (!defined(___LBLCOUNT) || (___LBLCOUNT < 4000)) && \
-    (!defined(___GLOCOUNT) || (___GLOCOUNT < 1000)) && \
+#if ((defined(___LIBRARY) && defined(__OPTIMIZE__)) || \
+     ((!defined(___LBLCOUNT) || (___LBLCOUNT < 4000)) && \
+      (!defined(___GLOCOUNT) || (___GLOCOUNT < 1000)))) && \
     (defined(__GNUC__) || defined(__clang__))
 #if defined(__OPTIMIZE__)
 #define ___BINDING_FAST_ATTR static inline __attribute__((always_inline))
