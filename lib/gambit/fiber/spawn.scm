@@ -12,28 +12,50 @@
 ;;; Continuation-Safe Resource Cleanup, Direct O(1) Fiber Spawn & Fused Yield
 
 ;; Continuation-safe resource cleanup: guarantees finally-thunk runs strictly
-;; once on normal return (including multiple values) or exception/nursery abort,
-;; and never fires during fiber-yield, channel park/resume, or algebraic effect
-;; perform/resume suspension (preventing dynamic-wind double-release).
+;; once on normal return (including multiple values), exception/nursery abort,
+;; or non-local prompt/call1cc unwind, and never fires during fiber-yield,
+;; channel park/resume, or algebraic effect perform/resume suspension
+;; (preventing dynamic-wind double-release).
 (define (with-finally thunk finally-thunk)
   (if (not (procedure? thunk))
       (error "with-finally: expected thunk" thunk))
   (if (not (procedure? finally-thunk))
       (error "with-finally: expected finally-thunk" finally-thunk))
-  (let ((done? #f))
-    (define (run-once!)
-      (if (not done?)
-          (begin
-            (set! done? #t)
-            (finally-thunk))))
+  (let* ((done? #f)
+         (run-once!
+          (lambda ()
+            (if (not done?)
+                (begin
+                  (set! done? #t)
+                  (finally-thunk)))))
+         (tc (%get-tc))
+         (guard-frame
+          (if (and tc (pair? (%tc-mc tc)))
+              (let ((gf (%make-mc-frame-9
+                         'unwind-guard
+                         #f
+                         #t
+                         #f
+                         (%tc-marks tc)
+                         (%tc-barriers tc)
+                         (%tc-handlers tc)
+                         #f
+                         (lambda (phase)
+                           (if (eq? phase 'unwind)
+                               (run-once!))))))
+                (%tc-mc-set! tc (cons gf (%tc-mc tc)))
+                gf)
+              #f)))
     (with-exception-catcher
      (lambda (e)
+       (if guard-frame (%mc-pop-guard! guard-frame))
        (run-once!)
        (raise e))
      (lambda ()
        (call-with-values
         thunk
         (lambda vals
+          (if guard-frame (%mc-pop-guard! guard-frame))
           (run-once!)
           (apply values vals)))))))
 

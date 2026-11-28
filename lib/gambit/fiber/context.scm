@@ -17,6 +17,23 @@
 (define (%set-tc! val)
   (macro-thread-control-state-set! (##current-thread) val))
 
+;; Dynamically remove `guard-frame` from the current thread's metacontinuation
+;; stack (O(1) pointer compare on top frame; preserves all outer frames).
+(define (%mc-pop-guard! guard-frame)
+  (let ((tc (%get-tc)))
+    (if tc
+        (let ((mc (%tc-mc tc)))
+          (if (pair? mc)
+              (if (eq? (car mc) guard-frame)
+                  (%tc-mc-set! tc (cdr mc))
+                  (let loop ((cur mc) (acc '()))
+                    (cond
+                      ((null? cur) #!void)
+                      ((eq? (car cur) guard-frame)
+                       (%tc-mc-set! tc (append (reverse acc) (cdr cur))))
+                      (else
+                       (loop (cdr cur) (cons (car cur) acc)))))))))))
+
 ;;;----------------------------------------------------------------------------
 ;;; Scheduler, Worker Context & Per-Carrier Recycled %fiber-k Freelist
 

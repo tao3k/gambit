@@ -112,6 +112,29 @@
         (%sched-push-lifo! ctx fk))
     (%sched-switch-next! ctx)))
 
+;; Idempotent nursery teardown: flushes batched credits on the current carrier,
+;; drops the parent's initial credit, parks until every spawned child finishes,
+;; and seals `cancelled` = 2 (closed). Guarded by `joined-box` so repeated
+;; exits under multi-shot composable replay can never drive `active` negative.
+(define (%nursery-teardown! n joined-box)
+  (if (not (car joined-box))
+      (begin
+        (set-car! joined-box #t)
+        (let ((cur-ctx (%carrier-wctx)))
+          (if (eq? (%wctx-nursery-cur cur-ctx) n)
+              (let* ((drop (fx+ (%wctx-nursery-batch cur-ctx) 1)))
+                (%wctx-nursery-batch-set! cur-ctx 0)
+                (%wctx-nursery-cur-set! cur-ctx #f)
+                (let ((prev (%fxatom-sub-acqrel! (%nursery-active n) drop)))
+                  (if (fx> prev drop)
+                      (##continuation-capture %park-nursery-cont! n))))
+              (begin
+                (%nursery-flush! cur-ctx)
+                (let ((prev (%fxatom-sub-acqrel! (%nursery-active n) 1)))
+                  (if (fx> prev 1)
+                      (##continuation-capture %park-nursery-cont! n))))))
+        (%fxatom-set-seq! (%nursery-cancelled n) 2))))
+
 (define (with-nursery proc)
   (if (not (procedure? proc))
       (error "with-nursery: expected procedure" proc))
@@ -129,26 +152,36 @@
                      (let ((cur-ctx (%current-wctx)))
                        (##continuation-graft (%wctx-sched-k cur-ctx)
                                              %nursery-child-abort! n e))))
+         (joined-box (cons #f #f))
+         (tc (%get-tc))
+         (guard-frame
+          (if (and tc (pair? (%tc-mc tc)))
+              (let ((gf (%make-mc-frame-9
+                         'unwind-guard
+                         #f
+                         #t
+                         #f
+                         (%tc-marks tc)
+                         (%tc-barriers tc)
+                         (%tc-handlers tc)
+                         #f
+                         (lambda (phase)
+                           (if (eq? phase 'unwind)
+                               (begin
+                                 (%fxatom-cas-seq! (%nursery-cancelled n) 0 1)
+                                 (%nursery-teardown! n joined-box)))))))
+                (%tc-mc-set! tc (cons gf (%tc-mc tc)))
+                gf)
+              #f))
          (parent-res #f))
     (%nursery-err-handler-set! n child-eh)
     (with-exception-catcher
      (lambda (e) (%nursery-record-error! n e))
      (lambda ()
        (set! parent-res (proc n))))
-    (let ((cur-ctx (%carrier-wctx)))
-      (if (eq? (%wctx-nursery-cur cur-ctx) n)
-          (let* ((drop (fx+ (%wctx-nursery-batch cur-ctx) 1)))
-            (%wctx-nursery-batch-set! cur-ctx 0)
-            (%wctx-nursery-cur-set! cur-ctx #f)
-            (let ((prev (%fxatom-sub-acqrel! (%nursery-active n) drop)))
-              (if (fx> prev drop)
-                  (##continuation-capture %park-nursery-cont! n))))
-          (begin
-            (%nursery-flush! cur-ctx)
-            (let ((prev (%fxatom-sub-acqrel! (%nursery-active n) 1)))
-              (if (fx> prev 1)
-                  (##continuation-capture %park-nursery-cont! n))))))
-    (%fxatom-set-seq! (%nursery-cancelled n) 2)
+    (if guard-frame
+        (%mc-pop-guard! guard-frame))
+    (%nursery-teardown! n joined-box)
     (if (%nursery-has-err? n)
         (raise (%nursery-first-err n))
         parent-res)))

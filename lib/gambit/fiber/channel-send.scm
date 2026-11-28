@@ -119,7 +119,8 @@
          int ___parked = 0;
          int ___canceled = 0;
          /* Fast path: lock-free single-waiter tx-fast slot (0 spinlocks!) */
-         if (___INT(___atomic_word_load(___rxw_p, 0)) == 0 &&
+         if ((___INT(___atomic_word_load(___tail_p, 1)) & 1) == 0 &&
+             ___INT(___atomic_word_load(___rxw_p, 0)) == 0 &&
              ___gc_atomic_slot_load(___rxf_p, 0) == ___FAL &&
              ___gc_atomic_slot_load(___txf_p, 0) == ___FAL) {
            ___WORD *___fk_f = ___fk_head_f;

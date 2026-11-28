@@ -36,6 +36,7 @@
   raise
   error))
 (##include "~~lib/gambit/concurrent/concurrent#.scm")
+(##include "~~lib/srfi/226/226#.scm")
 (##include "~~lib/srfi/230/230#.scm")
 (##include "fiber#.scm")
 (##include "_internal#.scm")

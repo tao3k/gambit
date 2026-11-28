@@ -13,6 +13,7 @@
   (import (gambit)
           (gambit effect)
           (gambit concurrent)
+          (srfi 226)
           (srfi 230))
 
   (export

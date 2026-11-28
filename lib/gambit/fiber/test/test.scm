@@ -1832,3 +1832,256 @@
   (test-equal #t rejected-err))
 
 ;;;============================================================================
+;;; Structured-Concurrency Nursery & with-finally Coherency Across Non-Local
+;;; Control Escapes (abort-current-continuation, call/1cc, effect suspend/resume)
+
+(let ()
+  ;; 1. with-nursery escaped via abort-current-continuation MUST cancel children,
+  ;;    join all children BEFORE the outer prompt handler runs, and seal nursery closed.
+  (let ((pt (make-continuation-prompt-tag 'nursery-abort-pt))
+        (leaked-n #f)
+        (child-saw-cancel #f)
+        (child-done #f)
+        (handler-saw-done #f)
+        (post-spawn-rejected #f))
+    (let ((res
+           (run-fibers
+            (lambda ()
+              (let ((r (call-with-continuation-prompt
+                        (lambda ()
+                          (with-nursery
+                           (lambda (n)
+                             (set! leaked-n n)
+                             (fiber-spawn
+                              (lambda ()
+                                (fiber-yield)
+                                (fiber-yield)
+                                (set! child-saw-cancel (nursery-cancelled? n))
+                                (set! child-done #t))
+                              n)
+                             (abort-current-continuation pt 'aborted-nursery))))
+                        pt
+                        (lambda (v)
+                          (set! handler-saw-done child-done)
+                          v))))
+                (set! post-spawn-rejected
+                  (with-exception-catcher
+                   (lambda (e) #t)
+                   (lambda () (fiber-spawn (lambda () #!void) leaked-n) #f)))
+                r))
+            workers: (max 2 (min 4 (##current-vm-processor-count))))))
+      (test-equal 'aborted-nursery res)
+      (test-equal #t child-done)
+      (test-equal #t handler-saw-done)
+      (test-equal #t child-saw-cancel)
+      (test-equal #t (nursery-cancelled? leaked-n))
+      (test-equal #t post-spawn-rejected)))
+
+  ;; 2. with-nursery escaped via call/1cc cancels, joins, and seals closed.
+  (let ((pt (make-continuation-prompt-tag 'nursery-1cc-pt))
+        (leaked-n #f)
+        (child-done #f)
+        (child-saw-cancel #f))
+    (let ((res
+           (run-fibers
+            (lambda ()
+              (call-with-continuation-prompt
+               (lambda ()
+                 (call/1cc
+                  (lambda (exit)
+                    (with-nursery
+                     (lambda (n)
+                       (set! leaked-n n)
+                       (fiber-spawn
+                        (lambda ()
+                          (fiber-yield)
+                          (set! child-saw-cancel (nursery-cancelled? n))
+                          (set! child-done #t))
+                        n)
+                       (exit 'exited-1cc))))
+                  pt))
+               pt))
+            workers: (max 2 (min 4 (##current-vm-processor-count))))))
+      (test-equal 'exited-1cc res)
+      (test-equal #t child-done)
+      (test-equal #t child-saw-cancel)
+      (test-equal #t (nursery-cancelled? leaked-n))))
+
+  ;; 3. Nested with-nursery escaped via outer abort tears down inner then outer.
+  (let ((pt (make-continuation-prompt-tag 'nested-nursery-abort))
+        (order '())
+        (order-mut (make-atomic-fxbox 0))
+        (inner-done #f)
+        (outer-done #f))
+    (let ((res
+           (run-fibers
+            (lambda ()
+              (call-with-continuation-prompt
+               (lambda ()
+                 (with-nursery
+                  (lambda (n-out)
+                    (fiber-spawn
+                     (lambda ()
+                       (fiber-yield)
+                       (fiber-yield)
+                       (set! outer-done #t))
+                     n-out)
+                    (with-nursery
+                     (lambda (n-in)
+                       (fiber-spawn
+                        (lambda ()
+                          (fiber-yield)
+                          (set! inner-done #t))
+                        n-in)
+                       (abort-current-continuation pt 'nested-abort))))))
+               pt
+               (lambda (v)
+                 (set! order (list inner-done outer-done))
+                 v)))
+            workers: (max 2 (min 4 (##current-vm-processor-count))))))
+      (test-equal 'nested-abort res)
+      (test-equal '(#t #t) order)))
+
+  ;; 4. Outer suspending algebraic effect perform/resume inside with-nursery keeps
+  ;;    the nursery live and joins cleanly on exit (and still unwinds on later abort).
+  (let ((e-ask (make-effect 'nursery-ask))
+        (pt (make-continuation-prompt-tag 'nursery-eff-abort))
+        (child-done #f))
+    (let ((res
+           (run-fibers
+            (lambda ()
+              (with-handler ((e-ask (k v) (resume k (fx+ v 10))))
+                (with-nursery
+                 (lambda (n)
+                   (fiber-spawn
+                    (lambda ()
+                      (fiber-yield)
+                      (set! child-done #t))
+                    n)
+                   (let ((x (perform e-ask 32)))
+                     ;; Nursery must still be live after resume!
+                     (test-equal #f (nursery-cancelled? n))
+                     (fiber-spawn (lambda () (fiber-yield)) n)
+                     x)))))
+            workers: (max 2 (min 4 (##current-vm-processor-count))))))
+      (test-equal 42 res)
+      (test-equal #t child-done))
+    ;; perform/resume followed by abort still cancels and joins!
+    (let ((ab-done #f))
+      (let ((res2
+             (run-fibers
+              (lambda ()
+                (call-with-continuation-prompt
+                 (lambda ()
+                   (with-handler ((e-ask (k v) (resume k (fx+ v 1))))
+                     (with-nursery
+                      (lambda (n)
+                        (fiber-spawn (lambda () (fiber-yield) (set! ab-done #t)) n)
+                        (let ((x (perform e-ask 5)))
+                          (abort-current-continuation pt x))))))
+                 pt
+                 (lambda (v) (list v ab-done))))
+              workers: (max 2 (min 4 (##current-vm-processor-count))))))
+        (test-equal '(6 #t) res2))))
+
+  ;; 5. with-finally executes strictly once on abort-current-continuation & call/1cc,
+  ;;    and zero times during fiber-yield or algebraic effect perform/resume suspension.
+  (let ((pt (make-continuation-prompt-tag 'finally-abort-pt))
+        (e-susp (make-effect 'finally-susp))
+        (c1 0)
+        (c2 0)
+        (c3 0)
+        (saw-mid #f))
+    (test-equal 'ab1
+      (call-with-continuation-prompt
+       (lambda ()
+         (with-finally
+          (lambda () (abort-current-continuation pt 'ab1))
+          (lambda () (set! c1 (fx+ c1 1)))))
+       pt
+       (lambda (v) v)))
+    (test-equal 1 c1)
+
+    (test-equal 'esc2
+      (call-with-continuation-prompt
+       (lambda ()
+         (call/1cc
+          (lambda (exit)
+            (with-finally
+             (lambda () (exit 'esc2))
+             (lambda () (set! c2 (fx+ c2 1)))))
+          pt))
+       pt))
+    (test-equal 1 c2)
+
+    (test-equal 99
+      (run-fibers
+       (lambda ()
+         (with-handler ((e-susp (k v)
+                          (set! saw-mid c3)
+                          (resume k (fx+ v 1))))
+           (with-finally
+            (lambda ()
+              (fiber-yield)
+              (let ((x (perform e-susp 98)))
+                (fiber-yield)
+                x))
+            (lambda () (set! c3 (fx+ c3 1))))))
+       workers: (max 2 (min 4 (##current-vm-processor-count)))))
+    (test-equal 0 saw-mid)
+    (test-equal 1 c3))
+
+  ;; 6. Adaptive-P SMP torture: concurrent nursery aborts + with-finally aborts +
+  ;;    buffered channel close/rx-fast race with ##gc.
+  (let* ((p (max 2 (min 8 (##current-vm-processor-count))))
+         (rounds 20)
+         (ok (make-atomic-fxbox 0)))
+    (run-fibers
+     (lambda ()
+       (with-nursery
+        (lambda (top)
+          (let tloop ((t 0))
+            (if (fx< t p)
+                (begin
+                  (fiber-spawn
+                   (lambda ()
+                     (let ((pt (make-continuation-prompt-tag 'smp-n-pt)))
+                       (let rloop ((r 0) (good #t))
+                         (if (fx< r rounds)
+                             (let ((cdone #f)
+                                   (fcount 0)
+                                   (ch (make-fiber-channel 2)))
+                               (let ((res
+                                      (call-with-continuation-prompt
+                                       (lambda ()
+                                         (with-finally
+                                          (lambda ()
+                                            (with-nursery
+                                             (lambda (n)
+                                               (fiber-spawn
+                                                (lambda ()
+                                                  (fiber-yield)
+                                                  (set! cdone #t))
+                                                n)
+                                               (fiber-spawn
+                                                (lambda ()
+                                                  (fiber-recv! ch))
+                                                n)
+                                               (fiber-spawn
+                                                (lambda ()
+                                                  (fiber-channel-close! ch))
+                                                n)
+                                               (abort-current-continuation pt r))))
+                                          (lambda () (set! fcount (fx+ fcount 1)))))
+                                       pt
+                                       (lambda (v) (list v cdone fcount)))))
+                                 (if (and (fx= t 0) (fx= (fxand r 7) 7)) (##gc))
+                                 (rloop (fx+ r 1)
+                                        (and good (equal? res (list r #t 1))))))
+                             (if good (atomic-fxbox+/fetch! ok 1))))))
+                   top)
+                  (tloop (fx+ t 1))))))))
+     workers: p)
+    (test-equal p (atomic-fxbox-ref ok))))
+
+;;;============================================================================

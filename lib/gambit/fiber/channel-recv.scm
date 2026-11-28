@@ -114,11 +114,13 @@
          ___WORD ___cap  = ___INT(___f[1]);
          ___WORD ___mask = ___INT(___f[2]);
          ___VOLATILE ___WORD *___seq_p  = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___f[4], ___tVECTOR));
+         ___VOLATILE ___WORD *___tail_p = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___f[5], ___tVECTOR));
          ___VOLATILE ___WORD *___head_p = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___f[6], ___tVECTOR));
          int ___parked = 0;
          int ___canceled = 0;
          /* Fast path: lock-free single-waiter rx-fast slot (0 spinlocks!) */
-         if (___INT(___atomic_word_load(___txw_p, 0)) == 0 &&
+         if ((___INT(___atomic_word_load(___tail_p, 1)) & 1) == 0 &&
+             ___INT(___atomic_word_load(___txw_p, 0)) == 0 &&
              ___gc_atomic_slot_load(___txf_p, 0) == ___FAL &&
              ___gc_atomic_slot_load(___rxf_p, 0) == ___FAL) {
            ___WORD *___fk_f = ___fk_head_f;
@@ -144,7 +146,6 @@
              ___WORD ___s   = ___INT(___atomic_word_load(___seq_p + ___idx, 4));
              ___WORD ___txw2 = ___INT(___atomic_word_load(___txw_p, 4));
              ___SCMOBJ ___txf2 = ___gc_atomic_slot_load(___txf_p, 4);
-             ___VOLATILE ___WORD *___tail_p = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___f[5], ___tVECTOR));
              if (___s - ((___pos << 1) + 1) < 0 && ___txw2 == 0 && ___txf2 == ___FAL &&
                  (___INT(___atomic_word_load(___tail_p, 4)) & 1) == 0) {
                ___parked = 1;

@@ -39,12 +39,12 @@
          ___SCMOBJ ___woke = ___FAL;
          int ___done = 0;
          /* Fast path A1: Lock-free single-waiter rx-fast direct handoff (0 spinlocks!) */
-         ___SCMOBJ ___rxf = ___gc_atomic_slot_load(___rxf_p, 0);
+         ___SCMOBJ ___rxf = ___gc_atomic_slot_load(___rxf_p, 1);
          if (___rxf != ___FAL) {
            ___VOLATILE ___WORD *___head_p = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___f[6], ___tVECTOR));
-           ___WORD ___raw_t = ___INT(___atomic_word_load(___tail_p, 1));
-           if ((___raw_t & 1) == 0 && (___raw_t >> 1) == ___INT(___atomic_word_load(___head_p, 1))) {
-             if (___gc_atomic_slot_cas(___ps, ___rxw_vec, ___rxf_p, ___rxf, ___FAL, 3,
+           ___WORD ___raw_t = ___INT(___atomic_word_load(___tail_p, 4));
+           if ((___raw_t & 1) == 0 && (___raw_t >> 1) == ___INT(___atomic_word_load(___head_p, 4))) {
+             if (___gc_atomic_slot_cas(___ps, ___rxw_vec, ___rxf_p, ___rxf, ___FAL, 4,
                                        ___EXT(___gc_write_barrier_slow),
                                        ___EXT(___gc_satb_barrier_val)) == ___rxf) {
                ___WORD *___rk_f = ___BODY_AS(___rxf, ___tSTRUCTURE);

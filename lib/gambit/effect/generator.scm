@@ -382,7 +382,8 @@
          (gen (%make-gen-raw (%make-gen-state) #f #f #f #f #f thunk #f))
          (unwind-fn
           (lambda (phase)
-            (if (eq? phase 'unwind)
+            (if (eq? phase 'restore)
+                (%gen-cas-state! gen %GEN-DONE %GEN-RUNNING)
                 (let ((pf (%gen-pframe gen))
                       (mc-cell (%gen-mc-cell gen))
                       (h-cell (%gen-h-cell gen)))
@@ -391,8 +392,7 @@
                       (begin
                         (if (pair? mc-cell) (set-cdr! mc-cell '()))
                         (if (pair? h-cell) (set-cdr! h-cell '()))))
-                  (%gen-state-store-rel! gen %GEN-DONE))
-                (%gen-cas-state! gen %GEN-DONE %GEN-RUNNING))))
+                  (%gen-state-store-rel! gen %GEN-DONE)))))
          (entry (%make-handler-entry yield 'gen gen))
          (frame (%make-handler-frame tag (list entry)))
          (pf (%make-mc-frame-9 'prompt tag #f #f '() '() '() #f unwind-fn))

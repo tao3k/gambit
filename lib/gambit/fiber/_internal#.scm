@@ -68,6 +68,7 @@
 (##namespace ("gambit/fiber/context#"
   %get-tc
   %set-tc!
+  %mc-pop-guard!
   %MAX-LIFO-STREAK
   %MAX-FK-POOL
   %MAX-NURSERY-BATCH
@@ -150,6 +151,7 @@
   %nursery-flush!
   %nursery-child-done-batched!
   %nursery-child-abort!
+  %nursery-teardown!
   %park-nursery-cont!
   %make-nursery
   %nursery-sched
