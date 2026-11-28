@@ -11,6 +11,7 @@
 (##namespace ("gambit/concurrent#"))
 (##include "~~lib/gambit/prim/prim#.scm")
 (##include "~~lib/_gambit#.scm")
+(##namespace ("" error))
 (##include "~~lib/srfi/230/230#.scm")
 (##include "concurrent#.scm")
 
@@ -40,21 +41,21 @@
      ,c)
     (##vector-cas! ,c 0 #!unbound #!unbound)))
 
-(##define-macro (%ctr-add-rlx! c delta)
+(##define-macro (%ctr-add-rel! c delta)
   `(macro-if-c-compiled
     (##c-code
      "___RESULT = ___CAST(___SCMOBJ,
         ___atomic_uword_fetch_add(___CAST(___VOLATILE ___WORD*, ___BODY_AS(___ARG1, ___tVECTOR)),
-                                  ___CAST(___WORD, ___ARG2), 0));"
+                                  ___CAST(___WORD, ___ARG2), 2));"
      ,c ,delta)
     (##vector-inc! ,c 0 ,delta)))
 
-(##define-macro (%ctr-sub-rlx! c delta)
+(##define-macro (%ctr-sub-rel! c delta)
   `(macro-if-c-compiled
     (##c-code
      "___RESULT = ___CAST(___SCMOBJ,
         ___atomic_uword_fetch_sub(___CAST(___VOLATILE ___WORD*, ___BODY_AS(___ARG1, ___tVECTOR)),
-                                  ___CAST(___WORD, ___ARG2), 0));"
+                                  ___CAST(___WORD, ___ARG2), 2));"
      ,c ,delta)
     (let ((cv ,c) (d ,delta))
       (let loop ((old (##vector-cas! cv 0 #!unbound #!unbound)))
@@ -342,15 +343,10 @@
         if (h0 >= 256) {
           ___SCMOBJ nxt = ___gc_atomic_slot_load(&svec[2], 1);
           if (nxt == ___FAL) {
-            ___WORD t0 = ___INT(___atomic_word_load(tt_p, 1));
-            if (t0 <= 256) {
-              ___CPU_RELAX();
-              ___RESULT = ___UNB2;
-              break;
-            }
-            if (++tries >= 32) { ___RESULT = ___DELETED; break; }
+            /* No successor segment is linked yet; return empty immediately for lock-free progress. */
             ___CPU_RELAX();
-            continue;
+            ___RESULT = ___UNB2;
+            break;
           }
           (void)___gc_atomic_slot_cas(
             ___ps, hc, hseg_p, seg, nxt, 2,
@@ -380,15 +376,9 @@
           if (h >= 256) {
             ___SCMOBJ nxt = ___gc_atomic_slot_load(&svec[2], 1);
             if (nxt == ___FAL) {
-              ___WORD t_now = ___INT(___atomic_word_load(tt_p, 1));
-              if (t_now <= 256) {
-                ___CPU_RELAX();
-                ___RESULT = ___UNB2;
-                break;
-              }
-              if (++tries >= 32) { ___RESULT = ___DELETED; break; }
               ___CPU_RELAX();
-              continue;
+              ___RESULT = ___UNB2;
+              break;
             }
             (void)___gc_atomic_slot_cas(
               ___ps, hc, hseg_p, seg, nxt, 2,
@@ -536,7 +526,12 @@
 
 (define (%next-pow2 n)
   (let loop ((p 16))
-    (if (##fx>= p n) p (loop (##fx* p 2)))))
+    (if (##fx>= p n)
+        p
+        (let ((nxt (##fxarithmetic-shift-left p 1)))
+          (if (##fx<= nxt p)
+              (error "capacity exceeds maximum supported power of two" n)
+              (loop nxt))))))
 
 (define (make-ws-deque #!optional (min-cap 256))
   (let* ((cap (%next-pow2 (if (and (##fixnum? min-cap) (##fx> min-cap 0)) min-cap 256)))
@@ -618,7 +613,11 @@
       if (t <= b) {
         ___WORD *sp = ___BODY_AS(slots, ___tVECTOR) + (b & mask);
         ___SCMOBJ val = ___gc_atomic_slot_load(sp, 1);
-        if (t == b) {
+        if (t < b) {
+          /* Dekker exclusive ownership of slot b: clear reference for GC immediately. */
+          ___GC_WRITE_BARRIER(___ps, slots, sp, ___FAL);
+          ___atomic_word_store(___CAST(___VOLATILE ___WORD*, sp), ___CAST(___WORD, ___FAL), 0);
+        } else {
           if (___atomic_word_cas(tp, ___FIX(t), ___FIX(t + 1), 4) != ___FIX(t)) {
             val = ___UNB2;
           }
@@ -642,7 +641,9 @@
       (let ((t (%ctr-load-acq top-box)))
         (cond
           ((##fx< t b)
-           (%slot-load-acq slots idx))
+           (let ((val (%slot-load-acq slots idx)))
+             (##vector-set! slots idx #f)
+             val))
           ((##fx= t b)
            (let* ((val (%slot-load-acq slots idx))
                   (prev (##vector-cas! top-box 0 (##fx+ t 1) t)))
@@ -763,6 +764,10 @@
 (define %ct-empty-bucket (##vector))
 
 (define (make-concurrent-table #!optional (min-buckets 64) (eq-fn equal?) (hash-fn equal?-hash))
+  (if (##not (##procedure? eq-fn))
+      (error "make-concurrent-table: expected equality procedure" eq-fn))
+  (if (##not (##procedure? hash-fn))
+      (error "make-concurrent-table: expected hash procedure" hash-fn))
   (let* ((nb (%next-pow2 (if (and (##fixnum? min-buckets) (##fx> min-buckets 0)) min-buckets 64)))
          (buckets (##make-vector nb %ct-empty-bucket))
          (fast? (or (and (##eq? eq-fn equal?) (##eq? hash-fn equal?-hash))
@@ -863,7 +868,11 @@
   (let ((mask (macro-concurrent-table-mask ct)))
     (if (and (macro-concurrent-table-fast-mode ct) (##fixnum? key))
         (%ct-fixnum-hash key mask)
-        (##fxand ((macro-concurrent-table-hash-fn ct) key) mask))))
+        (let ((h ((macro-concurrent-table-hash-fn ct) key)))
+          (cond
+            ((##fixnum? h) (##fxand h mask))
+            ((##bignum? h) (##fxand (##modulo h (##fx+ mask 1)) mask))
+            (else (error "concurrent-table: hash function must return an exact integer" h)))))))
 
 (define (%ct-vec-find bv key eq-fn)
   (let ((len (##vector-length bv)))
@@ -905,7 +914,8 @@
 (define (concurrent-table-size ct)
   (if (##not (macro-concurrent-table? ct))
       (%raise-bad-type (macro-type-concurrent-table) concurrent-table-size ct))
-  (%ctr-load-acq (macro-concurrent-table-count ct)))
+  (let ((n (%ctr-load-acq (macro-concurrent-table-count ct))))
+    (if (##fx> n 0) n 0)))
 
 ;; Wait-free read: single acquire load + contiguous immutable flat bucket scan.
 (define (concurrent-table-ref ct key #!optional (default #f))
@@ -932,7 +942,7 @@
               (if (##eq? prev cur)
                   (begin
                     (if (##not pos)
-                        (%ctr-add-rlx! cnt 1))
+                        (%ctr-add-rel! cnt 1))
                     val)
                   (loop)))))
         (let ((idx (%ct-bucket-idx ct key))
@@ -945,7 +955,7 @@
               (if (##eq? prev cur)
                   (begin
                     (if (##not pos)
-                        (%ctr-add-rlx! cnt 1))
+                        (%ctr-add-rel! cnt 1))
                     val)
                   (loop))))))))
 
@@ -953,6 +963,8 @@
 (define (concurrent-table-update! ct key updater)
   (if (##not (macro-concurrent-table? ct))
       (%raise-bad-type (macro-type-concurrent-table) concurrent-table-update! ct))
+  (if (##not (##procedure? updater))
+      (error "concurrent-table-update!: expected procedure" updater))
   (let ((buckets (macro-concurrent-table-buckets ct))
         (cnt (macro-concurrent-table-count ct)))
     (if (and (macro-concurrent-table-fast-mode ct) (##fixnum? key))
@@ -966,7 +978,7 @@
               (if (##eq? prev cur)
                   (begin
                     (if (##not pos)
-                        (%ctr-add-rlx! cnt 1))
+                        (%ctr-add-rel! cnt 1))
                     new-val)
                   (loop)))))
         (let ((idx (%ct-bucket-idx ct key))
@@ -980,7 +992,7 @@
               (if (##eq? prev cur)
                   (begin
                     (if (##not pos)
-                        (%ctr-add-rlx! cnt 1))
+                        (%ctr-add-rel! cnt 1))
                     new-val)
                   (loop))))))))
 
@@ -999,7 +1011,7 @@
             (let ((prev (%slot-cas-acqrel! buckets idx cur nxt)))
               (if (##eq? prev cur)
                   (begin
-                    (%ctr-sub-rlx! cnt 1)
+                    (%ctr-sub-rel! cnt 1)
                     #t)
                   (loop))))))))
 

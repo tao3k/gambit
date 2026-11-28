@@ -249,3 +249,99 @@
       (test-equal (* nworkers updates-per-worker) total-updates))))
 
 ;;;============================================================================
+;;; Overflow-Safe Power-of-Two Guards, Hash/API Validation, GC Slot Clearing
+;;; & Non-Negative Concurrent Table Size Torture
+
+(let ((check-err
+       (lambda (thunk)
+         (with-exception-catcher (lambda (e) #t) (lambda () (thunk) #f))))
+      (max-pow2
+       (let lp ((x 1))
+         (let ((y (##fxarithmetic-shift-left x 1)))
+           (if (##fx<= y x) x (lp y))))))
+  ;; Overflowing capacities must raise cleanly without infinite-looping
+  (test-equal #t (check-err (lambda () (make-ws-deque (##fx+ max-pow2 1)))))
+  (test-equal #t (check-err (lambda () (make-concurrent-table (##fx+ max-pow2 1)))))
+
+  ;; Invalid eq-fn / hash-fn / updater rejected cleanly
+  (test-equal #t (check-err (lambda () (make-concurrent-table 16 123 equal?-hash))))
+  (test-equal #t (check-err (lambda () (make-concurrent-table 16 equal? 456))))
+  (let ((t-api (make-concurrent-table 16)))
+    (test-equal #t (check-err (lambda () (concurrent-table-update! t-api 'k 789)))))
+
+  ;; Custom hash returning non-integer raises; bignum hash works deterministically
+  (let ((t-bad (make-concurrent-table 16 equal? (lambda (k) 'not-an-int)))
+        (t-big (make-concurrent-table 16 string=? (lambda (s) (+ (expt 2 80) (string-length s))))))
+    (test-equal #t (check-err (lambda () (concurrent-table-set! t-bad 'a 1))))
+    (test-equal #t (check-err (lambda () (concurrent-table-ref t-bad 'a))))
+    (test-equal #t (check-err (lambda () (concurrent-table-delete! t-bad 'a))))
+    (concurrent-table-set! t-big "alpha" 10)
+    (concurrent-table-set! t-big "beta" 20)
+    (test-equal 10 (concurrent-table-ref t-big (string-copy "alpha")))
+    (test-equal 20 (concurrent-table-ref t-big (string-copy "beta")))
+    (test-equal 2 (concurrent-table-size t-big))
+    (test-equal #t (concurrent-table-delete! t-big (string-copy "alpha")))
+    (test-equal 1 (concurrent-table-size t-big))))
+
+;; Chase-Lev ws-deque-try-pop! clears exclusively owned slots (t < b) for GC
+(let ((d (make-ws-deque 16))
+      (obj1 (list 'payload-1))
+      (obj2 (list 'payload-2)))
+  (test-equal #t (ws-deque-push! d obj1))
+  (test-equal #t (ws-deque-push! d obj2))
+  ;; Pop top item with t=0 < b=1 -> slot 1 must be cleared to #f immediately
+  (test-equal obj2 (ws-deque-try-pop-or! d #f))
+  (let ((slots (##structure-ref d 3 (##structure-type d) #f)))
+    (test-equal #f (vector-ref slots 1)))
+  (test-equal obj1 (ws-deque-try-pop-or! d #f))
+  (test-equal 0 (ws-deque-size d)))
+
+;; Multi-segment lf-queue boundary churn (> 1024 items, crossing 4+ 256-slot segments)
+;; + concurrent insert/delete table-size non-negativity + GC under adaptive-P SMP.
+(let* ((nprocs (##current-vm-processor-count))
+       (w (max 2 (min 8 nprocs)))
+       (ct-race (make-concurrent-table 16))
+       (neg-seen (make-atomic-fxbox 0))
+       (q-seg (make-lf-queue))
+       (q-items 1024))
+  ;; Multi-segment lf-queue exact FIFO conservation across 4 segment boundaries
+  (let push-lp ((i 0))
+    (when (< i q-items)
+      (lf-queue-enqueue! q-seg i)
+      (push-lp (+ i 1))))
+  (let pop-lp ((i 0) (ok #t))
+    (if (< i q-items)
+        (let ((v (lf-queue-try-dequeue-or! q-seg -1)))
+          (pop-lp (+ i 1) (and ok (= v i))))
+        (begin
+          (test-equal #t ok)
+          (test-equal -1 (lf-queue-try-dequeue-or! q-seg -1))
+          (test-equal #t (lf-queue-empty? q-seg)))))
+
+  ;; Concurrent insert/delete + continuous size reader never observes negative size
+  (let ((threads
+         (let loop ((t 0) (acc '()))
+           (if (= t w)
+               acc
+               (loop (+ t 1)
+                     (cons
+                      (thread-start!
+                       (make-thread
+                        (lambda ()
+                          (let rloop ((r 0))
+                            (when (< r 400)
+                              (let ((k (modulo r 8)))
+                                (concurrent-table-set! ct-race k r)
+                                (if (< (concurrent-table-size ct-race) 0)
+                                    (atomic-fxbox+/fetch! neg-seen 1))
+                                (concurrent-table-delete! ct-race k)
+                                (if (< (concurrent-table-size ct-race) 0)
+                                    (atomic-fxbox+/fetch! neg-seen 1))
+                                (if (and (= t 0) (= (modulo r 64) 63)) (##gc)))
+                              (rloop (+ r 1)))))))
+                      acc))))))
+    (for-each thread-join! threads)
+    (test-equal 0 (atomic-fxbox-ref neg-seen))
+    (test-equal 0 (concurrent-table-size ct-race))))
+
+;;;============================================================================
