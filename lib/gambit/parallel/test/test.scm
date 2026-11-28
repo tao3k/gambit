@@ -321,3 +321,120 @@
           (cycle (+ c 1))))))
 
 ;;;============================================================================
+;;; Public API Argument Validation (Safe Error Reporting Without Crashes)
+
+(test-equal #t (raises-error? (lambda () (deque-size-approx 123))))
+(test-equal #t (raises-error? (lambda () (deque-empty? 123))))
+(test-equal #t (raises-error? (lambda () (deque-push-bottom! 123 'x))))
+(test-equal #t (raises-error? (lambda () (deque-pop-bottom! 123))))
+(test-equal #t (raises-error? (lambda () (deque-steal! 123))))
+(test-equal #t (raises-error? (lambda () (work-stealing-pool-worker-count 123))))
+(test-equal #t (raises-error? (lambda () (work-stealing-pool-shutdown! 123))))
+(test-equal #t (raises-error? (lambda () (make-future 123))))
+(test-equal #t (raises-error? (lambda () (make-future (lambda () 1) 123))))
+(test-equal #t (raises-error? (lambda () (future-ready? 123))))
+(test-equal #t (raises-error? (lambda () (future-force 123))))
+(test-equal #t (raises-error? (lambda () (parallel-vector-map 123 '#(1 2)))))
+(test-equal #t (raises-error? (lambda () (parallel-vector-map (lambda (x) x) 123))))
+(test-equal #t (raises-error? (lambda () (parallel-map 123 '(1 2)))))
+(test-equal #t (raises-error? (lambda () (parallel-map (lambda (x) x) 123))))
+(test-equal #t (raises-error? (lambda () (parallel-for-each 123 '(1 2)))))
+(test-equal #t (raises-error? (lambda () (parallel-for-each (lambda (x) x) 123))))
+(test-equal #t (raises-error? (lambda () (parallel-reduce 123 0 '#(1 2)))))
+(test-equal #t (raises-error? (lambda () (parallel-reduce + 0 123))))
+
+;;;============================================================================
+;;; Zero-Leak Eager Thunk Clearing & SATB GC Stress on Futures
+
+(let* ((p (##current-vm-processor-count))
+       (w (max 2 (min 12 p)))
+       (pool (make-work-stealing-pool w)))
+  (parameterize ((current-work-stealing-pool pool))
+    ;; Normal future must clear its thunk slot once forced
+    (let* ((payload (make-vector 1024 7))
+           (f (make-future (lambda () (vector-ref payload 512)) pool)))
+      (test-equal 7 (future-force f))
+      (test-equal #t (future-ready? f))
+      (test-equal #f (##structure-ref f 2 (##structure-type f) #f)))
+    ;; Failing future must also clear its thunk slot once forced
+    (let* ((payload (make-vector 1024 9))
+           (f (make-future (lambda () (error "thunk-clear-boom" (vector-ref payload 0))) pool)))
+      (test-equal #t (raises-error? (lambda () (future-force f))))
+      (test-equal #t (future-ready? f))
+      (test-equal #f (##structure-ref f 2 (##structure-type f) #f)))
+    ;; Concurrent future-force + SATB GC storm: every completed future clears thunk
+    (let* ((n-futs (* w 40))
+           (futs (make-vector n-futs #f))
+           (bad-thunk (make-atomic-fxbox 0)))
+      (let init ((i 0))
+        (if (< i n-futs)
+            (let ((buf (make-vector 64 i)))
+              (vector-set! futs i (make-future (lambda () (vector-ref buf 32)) pool))
+              (init (+ i 1)))))
+      (let ((racers
+             (let rloop ((t 0) (acc '()))
+               (if (= t w)
+                   acc
+                   (rloop (+ t 1)
+                          (cons
+                           (thread-start!
+                            (make-thread
+                             (lambda ()
+                               (let flp ((i 0))
+                                 (if (< i n-futs)
+                                     (let* ((f (vector-ref futs i))
+                                            (v (future-force f)))
+                                       (if (or (not (= v i))
+                                               (not (eq? #f (##structure-ref f 2 (##structure-type f) #f))))
+                                           (atomic-fxbox-fetch-add! bad-thunk 1))
+                                       (if (and (= t 0) (= (bitwise-and i 31) 31))
+                                           (##gc))
+                                       (flp (+ i 1))))))))
+                           acc))))))
+        (for-each thread-join! racers))
+      (test-equal 0 (atomic-fxbox-ref bad-thunk))))
+  (work-stealing-pool-shutdown! pool))
+
+;;;============================================================================
+;;; Concurrent Idempotent Pool Shutdown & Post-Shutdown Future Safety
+
+(let* ((p (##current-vm-processor-count))
+       (n-callers (max 4 (min 12 p)))
+       (rounds 8)
+       (ok-rounds 0))
+  (let rloop ((r 0))
+    (if (< r rounds)
+        (let* ((pool (make-work-stealing-pool (max 2 (min 8 p))))
+               (go (make-atomic-fxbox 0))
+               (done (make-atomic-fxbox 0)))
+          ;; Submit active work right before concurrent multi-thread shutdown
+          (let ((f-pre (make-future (lambda () (+ 100 r)) pool)))
+            (let ((callers
+                   (let cloop ((i 0) (acc '()))
+                     (if (= i n-callers)
+                         acc
+                         (cloop (+ i 1)
+                                (cons
+                                 (thread-start!
+                                  (make-thread
+                                   (lambda ()
+                                     (let w ()
+                                       (if (= (atomic-fxbox-ref go 'acquire) 0)
+                                           (begin (thread-yield!) (w))))
+                                     (work-stealing-pool-shutdown! pool)
+                                     (atomic-fxbox-fetch-add! done 1))))
+                                 acc))))))
+              (atomic-fxbox-set! go 1 'release)
+              (for-each thread-join! callers))
+            ;; Repeat shutdown after completion is also idempotent
+            (work-stealing-pool-shutdown! pool)
+            ;; Both pre-shutdown and post-shutdown futures still force cleanly
+            (let ((f-post (make-future (lambda () (+ 200 r)) pool)))
+              (if (and (= (atomic-fxbox-ref done) n-callers)
+                       (= (future-force f-pre) (+ 100 r))
+                       (= (future-force f-post) (+ 200 r)))
+                  (set! ok-rounds (+ ok-rounds 1)))))
+          (rloop (+ r 1)))))
+  (test-equal rounds ok-rounds))
+
+;;;============================================================================

@@ -3,8 +3,9 @@
 herefromlib = gambit/parallel
 libfromhere = ../..
 SUBDIRS =
-HEADERS_SCM = parallel\#.scm
-MODULES_SCM = parallel.scm parallel.sld test/test.scm
+HEADERS_SCM = parallel\#.scm _internal\#.scm
+MODULES_SCM = parallel.scm parallel.sld atomics.scm deque.scm pool.scm \
+  future.scm combinators.scm test/test.scm
 MAIN_MODULES = parallel
 OTHER_RCFILES = makefile
 
