@@ -1945,6 +1945,7 @@
 
 (##define-macro (macro-make-tgroup name parent)
   `(let ((name ,name) (parent ,parent))
+     (##declare (not interrupts-enabled))
      (let* ((tgroups
              (macro-construct-tgroups #f #f #f))
             (tgroup
@@ -1967,9 +1968,12 @@
        (macro-tgroup-tgroups-deq-init! tgroups)
        (macro-tgroup-threads-deq-init! tgroup)
        (if parent
-         (macro-tgroup-tgroups-deq-insert-at-tail!
-          (macro-tgroup-tgroups parent)
-          tgroup))
+         (begin
+           (macro-lock-tgroup! parent)
+           (macro-tgroup-tgroups-deq-insert-at-tail!
+            (macro-tgroup-tgroups parent)
+            tgroup)
+           (macro-unlock-tgroup! parent)))
        tgroup)))
 
 (define-deq
