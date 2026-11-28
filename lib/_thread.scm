@@ -4698,22 +4698,27 @@
 (define-prim (##tgroup->tgroup-vector tgroup)
   (##declare (not interrupts-enabled))
   (let ((deq (macro-tgroup-tgroups tgroup)))
-    (let loop1 ((probe deq) (n 0))
-      (let ((next (macro-tgroup-tgroups-deq-next probe)))
-        (if (##not (##eq? next deq))
-            (loop1 next (##fx+ n 1))
-            (let ((v (##make-vector n)))
-              (let loop2 ((probe deq) (i 0))
-                (let ((next (macro-tgroup-tgroups-deq-next probe)))
-                  (if (##not (##eq? next deq))
-                      (if (##fx= i n) ;; more elements this time around?
-                          (loop1 next (##fx+ i 1))
-                          (begin
-                            (##vector-set! v i next)
-                            (loop2 next (##fx+ i 1))))
-                      (begin
-                        (##vector-shrink! v i) ;; there may be fewer elements!
-                        v))))))))))
+    (let retry ((cap 8))
+      (let ((v (##make-vector cap)))
+        (macro-lock-tgroup! tgroup)
+        (let loop ((probe deq) (i 0))
+          (let ((next (macro-tgroup-tgroups-deq-next probe)))
+            (if (##not (##eq? next deq))
+                (if (##fx= i cap)
+                    (let count ((p next) (n (##fx+ i 1)))
+                      (let ((nx (macro-tgroup-tgroups-deq-next p)))
+                        (if (##not (##eq? nx deq))
+                            (count nx (##fx+ n 1))
+                            (begin
+                              (macro-unlock-tgroup! tgroup)
+                              (retry (##fx+ n 4))))))
+                    (begin
+                      (##vector-set! v i next)
+                      (loop next (##fx+ i 1))))
+                (begin
+                  (macro-unlock-tgroup! tgroup)
+                  (##vector-shrink! v i)
+                  v))))))))
 
 (define-prim (##tgroup->tgroup-list tgroup)
   (##declare (not interrupts-enabled))
@@ -4722,22 +4727,27 @@
 (define-prim (##tgroup->thread-vector tgroup)
   (##declare (not interrupts-enabled))
   (let ((deq tgroup))
-    (let loop1 ((probe deq) (n 0))
-      (let ((next (macro-tgroup-threads-deq-next probe)))
-        (if (##not (##eq? next deq))
-            (loop1 next (##fx+ n 1))
-            (let ((v (##make-vector n)))
-              (let loop2 ((probe deq) (i 0))
-                (let ((next (macro-tgroup-threads-deq-next probe)))
-                  (if (##not (##eq? next deq))
-                      (if (##fx= i n) ;; more elements this time around?
-                          (loop1 next (##fx+ i 1))
-                          (begin
-                            (##vector-set! v i next)
-                            (loop2 next (##fx+ i 1))))
-                      (begin
-                        (##vector-shrink! v i) ;; there may be fewer elements!
-                        v))))))))))
+    (let retry ((cap 8))
+      (let ((v (##make-vector cap)))
+        (macro-lock-tgroup! tgroup)
+        (let loop ((probe deq) (i 0))
+          (let ((next (macro-tgroup-threads-deq-next probe)))
+            (if (##not (##eq? next deq))
+                (if (##fx= i cap)
+                    (let count ((p next) (n (##fx+ i 1)))
+                      (let ((nx (macro-tgroup-threads-deq-next p)))
+                        (if (##not (##eq? nx deq))
+                            (count nx (##fx+ n 1))
+                            (begin
+                              (macro-unlock-tgroup! tgroup)
+                              (retry (##fx+ n 4))))))
+                    (begin
+                      (##vector-set! v i next)
+                      (loop next (##fx+ i 1))))
+                (begin
+                  (macro-unlock-tgroup! tgroup)
+                  (##vector-shrink! v i)
+                  v))))))))
 
 (define-prim (##tgroup->thread-list tgroup)
   (##declare (not interrupts-enabled))

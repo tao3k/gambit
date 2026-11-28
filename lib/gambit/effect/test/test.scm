@@ -1832,4 +1832,124 @@
       (for-each thread-join! threads)
       (test-equal num-threads (atomic-fxbox-ref ok-count)))))
 
+;; 12d. Adaptive-P SMP ABBA deadlock regression: concurrent deep-stack
+;;      cross-thread / cross-section continuation restore (lock_source_stack_frame:
+;;      ALLOC_MEM_LOCK -> copy_gate) racing against variadic #!rest heap
+;;      overflows traversing parked stack-section breaks (___rest_caller_chain).
+(let* ((num-threads (max 4 (min 12 (##current-vm-processor-count))))
+       (iters 80)
+       (ok-count (make-atomic-fxbox 0))
+       (eff-hop (make-effect 'smp-rest-hop))
+       (var-sum (lambda (a b . rest)
+                  (let loop ((xs rest) (acc (fx+ a b)))
+                    (if (null? xs) acc (loop (cdr xs) (fx+ acc (car xs))))))))
+  (define (deep-rest depth i)
+    (if (fx= depth 0)
+        (let ((v (make-vector 32 i)))
+          (fx+ (vector-ref v 0) (var-sum 1 2 3 4 5 6 7 8)))
+        (let ((a (fx+ depth 1))
+              (b (fx+ depth 2))
+              (c (fx+ depth 3))
+              (d (fx+ depth 4)))
+          (let ((r (deep-rest (fx- depth 1) i)))
+            (fx+ r (fxand (fx+ a b c d) 3))))))
+  (define (deep-cont depth i)
+    (if (fx= depth 0)
+        (fx+ (perform eff-hop i) (var-sum 1 2 3 4 5 6))
+        (let ((a (fx+ depth 1))
+              (b (fx+ depth 2))
+              (c (fx+ depth 3))
+              (d (fx+ depth 4)))
+          (let ((r (deep-cont (fx- depth 1) i)))
+            (fx+ r (fxand (fx+ a b c d) 1))))))
+  (let* ((resumer-mbox (make-thread
+                        (lambda ()
+                          (let loop ()
+                            (let ((msg (thread-receive)))
+                              (if (pair? msg)
+                                  (let ((k (car msg))
+                                        (v (cadr msg))
+                                        (reply-thr (cddr msg)))
+                                    (thread-send reply-thr (resume k (fx+ v 1)))
+                                    (loop))))))))
+         (_ (thread-start! resumer-mbox))
+         (threads
+          (let loop ((t 0) (acc '()))
+            (if (fx= t num-threads)
+                acc
+                (let ((tid t))
+                  (loop (fx+ t 1)
+                        (cons
+                         (thread-start!
+                          (make-thread
+                           (lambda ()
+                             (let ((self (current-thread)))
+                               (let iloop ((i 0) (good #t))
+                                 (if (fx< i iters)
+                                     (let* ((r1 (deep-rest 240 i))
+                                            (r2 (with-handler
+                                                  ((eff-hop (k v)
+                                                     (if (fx= (fxand i 3) 0)
+                                                         (begin
+                                                           (thread-send resumer-mbox (cons k (cons v self)))
+                                                           (thread-receive))
+                                                         (fx+ (resume k (fx+ v 1)) 0))))
+                                                  (deep-cont 200 i))))
+                                       (if (and (fx= tid 0) (fx= (fxand i 15) 15)) (##gc))
+                                       (iloop (fx+ i 1)
+                                              (and good
+                                                   (fixnum? r1)
+                                                   (fx>= r1 i)
+                                                   (fixnum? r2)
+                                                   (fx>= r2 (fx+ i 22)))))
+                                     (if good (atomic-fxbox+/fetch! ok-count 1))))))))
+                         acc)))))))
+    (for-each thread-join! threads)
+    (thread-send resumer-mbox 'stop)
+    (thread-join! resumer-mbox)
+    (test-equal num-threads (atomic-fxbox-ref ok-count))))
+
+;; 12e. SMP tgroup enumeration vs concurrent thread termination & subgroup creation:
+;;      Regression for unlocked ##tgroup->thread-vector / ##tgroup->tgroup-vector /
+;;      macro-make-tgroup racing against ##thread-end! self-looping deque nodes.
+(let* ((rounds 25)
+       (ok 0))
+  (let rloop ((r 0))
+    (when (fx< r rounds)
+      (let* ((tg (make-thread-group (list 'smp-tg r) (thread-thread-group (current-thread))))
+             (spawners
+              (let loop ((i 0) (acc '()))
+                (if (fx= i 24)
+                    acc
+                    (loop (fx+ i 1)
+                          (cons (thread-start!
+                                 (make-thread
+                                  (lambda ()
+                                    (if (fx= (fxand i 3) 0)
+                                        (let ((sub (make-thread-group (list 'sub i) tg)))
+                                          (thread-sleep! 0.05))
+                                        (thread-sleep! 0.05)))
+                                  (list 'tg-w i)
+                                  tg))
+                                acc))))))
+        ;; Concurrently enumerate threads & subgroups while terminating siblings across cores
+        (let ((enumerator
+               (thread-start!
+                (make-thread
+                 (lambda ()
+                   (let eloop ((k 0))
+                     (when (fx< k 150)
+                       (thread-group->thread-list tg)
+                       (thread-group->thread-group-list tg)
+                       (eloop (fx+ k 1)))))))))
+          (for-each (lambda (t) (with-exception-catcher (lambda (_) #f) (lambda () (thread-terminate! t))))
+                    spawners)
+          (for-each (lambda (t) (with-exception-catcher (lambda (_) #f) (lambda () (thread-join! t))))
+                    spawners)
+          (thread-join! enumerator)
+          (set! ok (fx+ ok 1))))
+      (rloop (fx+ r 1))))
+  (test-equal rounds ok))
+
+
 ;;;============================================================================

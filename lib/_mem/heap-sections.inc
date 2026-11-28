@@ -1246,6 +1246,7 @@ ___BOOL ___rest_caller_chain(___WORD *window, ___WORD na, ___WORD ra,
         }
         link=___FP_STK(stack_past,-___BREAK_FRAME_NEXT);
         ___WORD *next=___CAST(___WORD*,link);
+        ___msection *prev_held=held;
         ___msection *next_section=0;
         ___SIZE_TS next_offset=0, next_half=0;
         section_claim *next_claim;
@@ -1271,6 +1272,24 @@ ___BOOL ___rest_caller_chain(___WORD *window, ___WORD na, ___WORD ra,
                    pinned,pinned_offset,section_claim_at(pinned,pinned_offset)->stack_owner,
                    stack_past+___BREAK_FRAME_NEXT,next,stack_past,___BREAK_FRAME_NEXT,___WS);
         }
+        /* Strictly preserve lock order (ALLOC_MEM_LOCK -> at most one copy_gate):
+         * keep the outgoing section pinned, drop its copy_gate before taking
+         * ALLOC_MEM_LOCK, then acquire and validate the successor copy_gate. */
+        if (held) {
+          if (pinned!=held) {
+            ___SECTION_PIN_ADD_REL(&section_claim_at(held,held_offset)->source_pins, 1);
+            REST_OBS(REST_PIN,___ps,rest_observation_attempt_record(___ps),rest_observation_attempt_id(___ps),
+                     ___COLLECTION(___VMSTATE_FROM_PSTATE(___ps)).epoch,held,held_offset,
+                     section_claim_at(held,held_offset)->stack_owner,top,held_base,held_past,0,0);
+            ___REST_CHAIN_ADD_RLX(&___rest_chain_old_pins, 1);
+            pinned=held;
+            pinned_offset=held_offset;
+          }
+          ___gc_copy_release(&held->copy_gate);
+          held=0;
+          held_base=0;
+          held_past=0;
+        }
         ALLOC_MEM_LOCK();
         next_offset=tospace_offset;
         next_section=resolve_source_half(the_msections, next, next_offset, &next_half);
@@ -1278,22 +1297,27 @@ ___BOOL ___rest_caller_chain(___WORD *window, ___WORD na, ___WORD ra,
           next_offset=tospace_offset==0 ? (___MSECTION_SIZE>>1) : 0;
           next_section=resolve_source_half(the_msections, next, next_offset, &next_half);
         }
-        next_claim=next_section ? section_claim_at(next_section,next_offset) : 0;
-        if (!next_section || next_section==held || !source_claim_is_live(next_claim) ||
-            next_claim->stack_state!=STACK_PARKED ||
-            !next_claim->parked_top || !next_claim->parked_break ||
-            next<next_claim->parked_top || next>next_claim->parked_break) {
+        if (!next_section || next_section==prev_held) {
           ALLOC_MEM_UNLOCK();
           REST_CHAIN_UNPIN(1);
           break;
         }
         ___gc_copy_acquire(&next_section->copy_gate);
+        next_claim=section_claim_at(next_section,next_offset);
+        if (!source_claim_is_live(next_claim) ||
+            next_claim->stack_state!=STACK_PARKED ||
+            !next_claim->parked_top || !next_claim->parked_break ||
+            next<next_claim->parked_top || next>next_claim->parked_break) {
+          ___gc_copy_release(&next_section->copy_gate);
+          ALLOC_MEM_UNLOCK();
+          REST_CHAIN_UNPIN(1);
+          break;
+        }
         ___REST_CHAIN_ADD_RLX(&___rest_chain_gates, 1);
         ___REST_CHAIN_ADD_RLX(&___rest_chain_crossings, 1);
         REST_OBS(REST_SUCCESSOR,___ps,rest_observation_attempt_record(___ps),rest_observation_attempt_id(___ps),
              ___COLLECTION(___VMSTATE_FROM_PSTATE(___ps)).epoch,
                  next_section,next_offset,next_claim->stack_owner,next,pinned,pinned_offset,1,0);
-        if (held && held!=next_section) ___gc_copy_release(&held->copy_gate);
         held=next_section;
         held_offset=next_offset;
         held_base=next_section->base+next_offset;
