@@ -65,10 +65,15 @@
   id: 8B1F3A70-9C24-4D6B-A5E1-EFF000000001
   constructor: %make-effect
   predicate: effect?
-  (name effect-name))
+  (name %effect-name))
 
 (define (make-effect #!optional (name 'effect))
   (%make-effect name))
+
+(define (effect-name eff)
+  (if (not (effect? eff))
+      (error "effect-name: expected effect" eff)
+      (%effect-name eff)))
 
 ;;;----------------------------------------------------------------------------
 ;;; Handler Evidence Entries, Frames, Continuations, Capabilities & Generators
@@ -94,9 +99,9 @@
   predicate: effect-continuation?
   (sub-k    %ec-sub-k    %ec-sub-k-set!)    ;; native Gambit continuation object
   (pframe   %ec-pframe   %ec-pframe-set!)   ;; saved prompt frame for zero-alloc tail-resume
-  (prefix   %ec-prefix)                     ;; metacontinuation prefix frames (usually '())
-  (marks    %ec-marks)                      ;; captured continuation marks (usually '())
-  (handlers %ec-handlers)                   ;; captured inner effect handlers (usually '())
+  (prefix   %ec-prefix   %ec-prefix-set!)   ;; metacontinuation prefix frames (usually '())
+  (marks    %ec-marks    %ec-marks-set!)    ;; captured continuation marks (usually '())
+  (handlers %ec-handlers %ec-handlers-set!) ;; captured inner effect handlers (usually '())
   (frame    %ec-frame    %ec-frame-set!)    ;; deep handler frame to reinstall on resume
   (state    %ec-state))                     ;; C: inline atomic fixnum (0/1/2); non-C: atomic-fxbox
 

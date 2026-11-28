@@ -10,6 +10,10 @@
 ;;; with scope-bound exception-unwind coherency.
 
 (define (call-with-tail-capability handler-proc body-proc)
+  (if (not (procedure? handler-proc))
+      (error "call-with-tail-capability: expected procedure" handler-proc))
+  (if (not (procedure? body-proc))
+      (error "call-with-tail-capability: expected procedure" body-proc))
   (body-proc (%make-capability 'tail handler-proc #f)))
 
 (define (%install-cap-cont! escape-k cap body-proc)
@@ -56,6 +60,10 @@
     (%mc-return1 (body-proc cap))))
 
 (define (call-with-suspend-capability handler-proc body-proc)
+  (if (not (procedure? handler-proc))
+      (error "call-with-suspend-capability: expected procedure" handler-proc))
+  (if (not (procedure? body-proc))
+      (error "call-with-suspend-capability: expected procedure" body-proc))
   (let* ((eff (%make-effect 'capability))
          (tag (make-continuation-prompt-tag 'cap-handler))
          (entry (%make-handler-entry eff 'suspend handler-proc))
@@ -78,6 +86,8 @@
                      (a2 %ABSENT)
                      #!rest
                      more)
+  (if (not (effect-capability? cap))
+      (error "perform-cap: expected effect-capability" cap))
   (if (eq? (%cap-kind cap) 'tail)
       ;; O(1) direct dispatch — zero handler-chain walk, zero capture!
       (let ((proc (%cap-proc cap)))

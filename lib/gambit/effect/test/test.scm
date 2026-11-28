@@ -973,4 +973,89 @@
     (for-each thread-join! threads)
     (test-equal num-threads (atomic-fxbox-ref ok-count))))
 
+;; Public API argument validation: invalid effects, capabilities, and handlers
+;; must raise clean Scheme errors rather than crashing under (not safe).
+(let ((raises? (lambda (thunk)
+                 (with-exception-catcher (lambda (e) #t) (lambda () (thunk) #f)))))
+  (test-equal #t (raises? (lambda () (effect-name 123))))
+  (test-equal #t (raises? (lambda () (perform 123))))
+  (test-equal #t (raises? (lambda () (perform 'not-an-effect))))
+  (test-equal #t (raises? (lambda () (perform-cap 123))))
+  (test-equal #t (raises? (lambda () (call-with-tail-capability 123 (lambda (c) c)))))
+  (test-equal #t (raises? (lambda () (call-with-tail-capability (lambda () 1) 123))))
+  (test-equal #t (raises? (lambda () (call-with-suspend-capability 123 (lambda (c) c)))))
+  (test-equal #t (raises? (lambda () (call-with-suspend-capability (lambda (k) k) 123))))
+  (test-equal #t (raises? (lambda () (call-with-effect-handler 123 #f (lambda () 1)))))
+  (test-equal #t (raises? (lambda () (call-with-effect-handler '() 123 (lambda () 1)))))
+  (test-equal #t (raises? (lambda () (call-with-effect-handler '() #f 123))))
+  (test-equal #t (raises? (lambda () (call-with-effect-handler '((123 456)) #f (lambda () 1))))))
+
+;; Zero-leak consumed one-shot effect-continuation slot clearing across slow paths
+;; (0-arg, multi-arg, and nested prompt/mark captures) while preserving multishot slots.
+(let ((e0 (make-effect 'zero-leak-e0))
+      (e-inner (make-effect 'zero-leak-inner))
+      (saved-0 #f)
+      (saved-2 #f)
+      (saved-nested #f)
+      (saved-multi #f))
+  ;; 0-arg one-shot resume clears all 6 captured slots
+  (test-equal 'ok-0
+    (with-handler ((e0 (k) (set! saved-0 k) (resume k)))
+      (call-with-values (lambda () (perform e0)) (lambda () 'ok-0))))
+  (test-equal #f (##structure-ref saved-0 1 (##structure-type saved-0) #f))
+  (test-equal #f (##structure-ref saved-0 2 (##structure-type saved-0) #f))
+  (test-equal '() (##structure-ref saved-0 3 (##structure-type saved-0) #f))
+  (test-equal '() (##structure-ref saved-0 4 (##structure-type saved-0) #f))
+  (test-equal '() (##structure-ref saved-0 5 (##structure-type saved-0) #f))
+  (test-equal #f (##structure-ref saved-0 6 (##structure-type saved-0) #f))
+  ;; 2-arg one-shot resume clears all 6 captured slots
+  (test-equal 30
+    (with-handler ((e0 (k) (set! saved-2 k) (resume k 10 20)))
+      (call-with-values (lambda () (perform e0)) (lambda (a b) (fx+ a b)))))
+  (test-equal #f (##structure-ref saved-2 1 (##structure-type saved-2) #f))
+  (test-equal #f (##structure-ref saved-2 6 (##structure-type saved-2) #f))
+  ;; Nested-prompt + continuation-mark one-shot resume clears all 6 slots
+  (test-equal '(42 mark-v)
+    (with-handler ((e0 (k) (set! saved-nested k) (resume k 42)))
+      (with-handler ((e-inner (k v) (resume k v)))
+        (with-continuation-mark 'k 'mark-v
+          (list (perform e0)
+                (call-with-immediate-continuation-mark 'k (lambda (v) v)))))))
+  (test-equal #f (##structure-ref saved-nested 1 (##structure-type saved-nested) #f))
+  (test-equal '() (##structure-ref saved-nested 3 (##structure-type saved-nested) #f))
+  (test-equal '() (##structure-ref saved-nested 4 (##structure-type saved-nested) #f))
+  (test-equal '() (##structure-ref saved-nested 5 (##structure-type saved-nested) #f))
+  ;; Multishot promoted continuation preserves slots across multiple replays
+  (test-equal '(10 20)
+    (with-handler ((e0 (k)
+                     (set! saved-multi k)
+                     (list (resume-multishot k 10) (resume k 20))))
+      (perform e0)))
+  (test-assert (not (eq? #f (##structure-ref saved-multi 1 (##structure-type saved-multi) #f)))))
+
+;; Generator caller metacontinuation/handler-chain detachment on yield and completion:
+;; suspended generator detaches caller mc-cell/h-cell cdr between yields, and finished
+;; generator clears all reusable cells.
+(let ((g (make-generator
+          (lambda ()
+            (perform yield 'y1)
+            (perform yield 'y2)
+            (perform yield 'y3)))))
+  (let ((gen (##closure-ref g 1)))
+    (call-with-continuation-prompt
+     (lambda ()
+       (test-equal 'y1 (g))
+       (test-equal 'y2 (g))
+       ;; While suspended after Yield #2, caller mc-cell/h-cell cdr MUST be detached
+       (test-equal '() (cdr (##structure-ref gen 5 (##structure-type gen) #f)))
+       (test-equal '() (cdr (##structure-ref gen 6 (##structure-type gen) #f)))
+       (test-equal 'y3 (g))
+       (test-equal #!eof (g))))
+    ;; After completion (DONE), all reusable cells on %generator MUST be cleared
+    (test-equal #f (##structure-ref gen 2 (##structure-type gen) #f))
+    (test-equal #f (##structure-ref gen 3 (##structure-type gen) #f))
+    (test-equal #f (##structure-ref gen 5 (##structure-type gen) #f))
+    (test-equal #f (##structure-ref gen 6 (##structure-type gen) #f))
+    (test-equal #!eof (g))))
+
 ;;;============================================================================

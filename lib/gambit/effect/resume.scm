@@ -17,6 +17,14 @@
   (let ((pr (%ec-prefix ek)))
     (if (pair? pr) (%freeze-mc-prefix! pr))))
 
+(define (%clear-consumed-ec! ek)
+  (%ec-sub-k-set! ek #f)
+  (%ec-pframe-set! ek #f)
+  (%ec-prefix-set! ek '())
+  (%ec-marks-set! ek '())
+  (%ec-handlers-set! ek '())
+  (%ec-frame-set! ek #f))
+
 ;; Non-tail one-shot replay receiver (<= 4 args).
 ;; Creates a frozen prompt frame (`handler = #t`) so caller-k is never reclaimed
 ;; in-place if `%return-oneshot-same-denv!` falls back to `##continuation-return`
@@ -92,7 +100,7 @@
    (%resume-nontail-oneshot! sub-k val)))
 
 ;; Zero-closure multi-arg capture receivers for general / multi-shot resume (<= 4 args)
-(define (%resume-checked-1! caller-k ek v1)
+(define (%resume-checked-1! caller-k ek v1 clear?)
   (let* ((st (%tc-fast))
          (cur-eh (macro-current-exception-handler))
          (eh-scope (if (%mc-eh-trampoline? cur-eh) #f cur-eh))
@@ -114,6 +122,7 @@
                                    saved-handlers
                                    eh-scope
                                    'replay)))
+    (if clear? (%clear-consumed-ec! ek))
     (%st-mc-set! st
                  (if (null? prefix)
                      (cons pframe saved-mc)
@@ -132,9 +141,9 @@
         (##continuation-return sub-k)
         (##continuation-return sub-k v1))))
 
-(define (%resume-checked ek v1 v2 more)
+(define (%resume-checked ek v1 v2 more clear?)
   (if (eq? v2 %ABSENT)
-      (##continuation-capture %resume-checked-1! ek v1)
+      (##continuation-capture %resume-checked-1! ek v1 clear?)
       (##continuation-capture
        (lambda (caller-k)
          (let* ((st (%tc-fast))
@@ -158,6 +167,7 @@
                                           saved-handlers
                                           eh-scope
                                           'replay)))
+           (if clear? (%clear-consumed-ec! ek))
            (%st-mc-set! st
                         (if (null? prefix)
                             (cons pframe saved-mc)
@@ -213,7 +223,7 @@
           ;; pframe/prefix before entering `%resume-checked`.
           (if (fx= prev %EC-MULTISHOT-COW)
               (%freeze-ec! ek))
-          (%resume-checked ek v1 v2 more)))))
+          (%resume-checked ek v1 v2 more (fx= prev %EC-ONE-SHOT-LIVE))))))
 
 (define (resume-multishot ek
                           #!optional
@@ -228,6 +238,6 @@
                  (fx= prev %EC-MULTISHOT-COW)))
         (error "cannot promote consumed one-shot continuation" ek))
     (%freeze-ec! ek)
-    (%resume-checked ek v1 v2 more)))
+    (%resume-checked ek v1 v2 more #f)))
 
 ;;;============================================================================

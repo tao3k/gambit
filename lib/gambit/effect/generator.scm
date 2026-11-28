@@ -22,20 +22,29 @@
          (pframe (car mc))
          (rest (cdr mc))
          (ck (%pf-escape-k pframe))
-         (is-init (eq? (%pf-handler pframe) 'init)))
+         (pf-h (%pf-handler pframe))
+         (is-init (eq? pf-h 'init))
+         (unfrozen (not pf-h)))
     (if (eq? (macro-denv-dynwind (macro-thread-denv (macro-current-thread)))
              (macro-denv-dynwind (##continuation-denv ck)))
         (begin
-          (if (not is-init)
-              (begin
-                (%pf-escape-k-set! pframe #f)
-                (%pf-eh-scope-set! pframe #f)))
           (%st-mc-set! st rest)
           (%st-marks-set! st (%pf-marks pframe))
           (%st-barriers-set! st (%pf-barriers pframe))
           (%st-handlers-set! st (%pf-handlers pframe))
+          (if unfrozen
+              (begin
+                (%pf-escape-k-set! pframe #f)
+                (%pf-eh-scope-set! pframe #f)
+                (%pf-marks-set! pframe '())
+                (%pf-barriers-set! pframe '())
+                (%pf-handlers-set! pframe '())
+                (let ((mc-cell (%gen-mc-cell gen))
+                      (h-cell (%gen-h-cell gen)))
+                  (if (pair? mc-cell) (set-cdr! mc-cell '()))
+                  (if (pair? h-cell) (set-cdr! h-cell '())))))
           (%gen-sub-k-set! gen sub-k)
-          ;; Release-store SUSPENDED strictly AFTER all pframe/st updates complete
+          ;; Release-store SUSPENDED strictly AFTER all pframe/st/cell updates complete
           (%gen-state-store-rel! gen %GEN-SUSPENDED)
           (if is-init
               (##continuation-return ck val)
@@ -44,14 +53,21 @@
         (##continuation-graft
          ck
          (lambda ()
-           (if (not is-init)
-               (begin
-                 (%pf-escape-k-set! pframe #f)
-                 (%pf-eh-scope-set! pframe #f)))
            (%st-mc-set! st rest)
            (%st-marks-set! st (%pf-marks pframe))
            (%st-barriers-set! st (%pf-barriers pframe))
            (%st-handlers-set! st (%pf-handlers pframe))
+           (if unfrozen
+               (begin
+                 (%pf-escape-k-set! pframe #f)
+                 (%pf-eh-scope-set! pframe #f)
+                 (%pf-marks-set! pframe '())
+                 (%pf-barriers-set! pframe '())
+                 (%pf-handlers-set! pframe '())
+                 (let ((mc-cell (%gen-mc-cell gen))
+                       (h-cell (%gen-h-cell gen)))
+                   (if (pair? mc-cell) (set-cdr! mc-cell '()))
+                   (if (pair? h-cell) (set-cdr! h-cell '())))))
            (%gen-sub-k-set! gen sub-k)
            (%gen-state-store-rel! gen %GEN-SUSPENDED)
            val)))))
@@ -114,7 +130,9 @@
         (let* ((top (car mc))
                (rest (cdr mc))
                (ck (%pf-escape-k top))
-               (unfrozen (not (%pf-handler top))))
+               (unfrozen (not (%pf-handler top)))
+               (mc-cell (%gen-mc-cell gen))
+               (h-cell (%gen-h-cell gen)))
           (%st-mc-set! st rest)
           (%st-marks-set! st (%pf-marks top))
           (%st-barriers-set! st (%pf-barriers top))
@@ -122,12 +140,30 @@
           (if unfrozen
               (begin
                 (%pf-escape-k-set! top #f)
-                (%pf-eh-scope-set! top #f)))
+                (%pf-eh-scope-set! top #f)
+                (%pf-marks-set! top '())
+                (%pf-barriers-set! top '())
+                (%pf-handlers-set! top '())
+                (%pf-unwind-hook-set! top #f)
+                (if (pair? mc-cell) (set-cdr! mc-cell '()))
+                (if (pair? h-cell) (set-cdr! h-cell '()))))
+          (%gen-sub-k-set! gen #f)
+          (%gen-pframe-set! gen #f)
+          (%gen-mc-cell-set! gen #f)
+          (%gen-h-cell-set! gen #f)
+          (%gen-thunk-set! gen #f)
+          (%gen-unwind-fn-set! gen #f)
           (%gen-state-store-rel! gen %GEN-DONE)
           (if unfrozen
               (let () (declare (inlining-limit 0)) (%return-oneshot-same-denv! ck #!eof))
               (##continuation-return ck #!eof)))
         (begin
+          (%gen-sub-k-set! gen #f)
+          (%gen-pframe-set! gen #f)
+          (%gen-mc-cell-set! gen #f)
+          (%gen-h-cell-set! gen #f)
+          (%gen-thunk-set! gen #f)
+          (%gen-unwind-fn-set! gen #f)
           (%gen-state-store-rel! gen %GEN-DONE)
           #!eof))))
 
@@ -178,8 +214,14 @@
          (unwind-fn
           (lambda (phase)
             (if (eq? phase 'unwind)
-                (begin
+                (let ((pf (%gen-pframe gen))
+                      (mc-cell (%gen-mc-cell gen))
+                      (h-cell (%gen-h-cell gen)))
                   (%gen-sub-k-set! gen #f)
+                  (if (and pf (not (%pf-handler pf)))
+                      (begin
+                        (if (pair? mc-cell) (set-cdr! mc-cell '()))
+                        (if (pair? h-cell) (set-cdr! h-cell '()))))
                   (%gen-state-store-rel! gen %GEN-DONE))
                 (%gen-cas-state! gen %GEN-DONE %GEN-RUNNING))))
          (entry (%make-handler-entry yield 'gen gen))

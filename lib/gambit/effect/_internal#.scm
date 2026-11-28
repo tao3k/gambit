@@ -47,6 +47,7 @@
   %GEN-DONE
   %ABSENT
   %make-effect
+  %effect-name
   %handler-entry
   %handler-entry?
   %entry-effect
@@ -63,8 +64,11 @@
   %ec-pframe
   %ec-pframe-set!
   %ec-prefix
+  %ec-prefix-set!
   %ec-marks
+  %ec-marks-set!
   %ec-handlers
+  %ec-handlers-set!
   %ec-frame
   %ec-frame-set!
   %ec-state
@@ -110,6 +114,7 @@
 
 (##namespace ("gambit/effect/resume#"
   %freeze-ec!
+  %clear-consumed-ec!
   %resume-nontail-oneshot-cont!
   %resume-nontail-oneshot!
   %tail-resume-dispatch!
