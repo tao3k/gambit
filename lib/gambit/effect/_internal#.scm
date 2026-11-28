@@ -130,10 +130,13 @@
 (##namespace ("gambit/effect/generator#"
   %gen-yield-swap-cont!
   %gen-yield-slow-handler
+  %gen-winding-guard-safe?
   %gen-install-pframe!
   %gen-finish!
   %gen-start-cont!
   %gen-start-cont-scoped!
-  %gen-resume-swap-cont!))
+  %gen-resume-swap-cont!
+  %gen-resume-ec-cont!
+  %gen-resume-ec!))
 
 ;;;============================================================================

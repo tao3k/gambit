@@ -1583,3 +1583,253 @@
       (test-equal num-threads (atomic-fxbox-ref ok-count)))))
 
 ;;;============================================================================
+;;; Generator Slow-Path Unwind-Hook Coherency, Multi-Value Yield, and
+;;; Winding-Transition Fault Safety
+
+(let ()
+  ;; Slow-path yield (inside continuation mark) followed by exception transitions
+  ;; the generator cleanly to DONE (#!eof) rather than wedging in RUNNING.
+  (let ((g (make-generator
+            (lambda ()
+              (with-continuation-mark 'gen-mk 'v1
+                (perform yield 10))
+              (raise 'slow-gen-boom)))))
+    (test-equal 10 (g))
+    (test-equal 'slow-gen-boom
+      (with-exception-catcher (lambda (e) e) (lambda () (g))))
+    (test-equal #!eof (g))
+    (test-equal #!eof (g)))
+
+  ;; Slow-path yield followed by outer prompt abort transitions to DONE (#!eof).
+  (let* ((pt (make-continuation-prompt-tag 'slow-gen-abort))
+         (g (make-generator
+             (lambda ()
+               (with-continuation-mark 'gen-mk 'v1
+                 (perform yield 11))
+               (abort-current-continuation pt 'aborted-out)))))
+    (test-equal 11 (g))
+    (test-equal 'aborted-out
+      (call-with-continuation-prompt (lambda () (g)) pt (lambda (x) x)))
+    (test-equal #!eof (g)))
+
+  ;; Slow-path yield followed by subsequent yield outside mark, then exception.
+  (let ((g (make-generator
+            (lambda ()
+              (with-continuation-mark 'gen-mk 'v1
+                (perform yield 21))
+              (perform yield 22)
+              (raise 'second-stage-boom)))))
+    (test-equal 21 (g))
+    (test-equal 22 (g))
+    (test-equal 'second-stage-boom
+      (with-exception-catcher (lambda (e) e) (lambda () (g))))
+    (test-equal #!eof (g)))
+
+  ;; Slow-path yield inside inner suspending handler, then outer effect abort.
+  (let ((e-inner (make-effect 'slow-gen-inner))
+        (e-outer (make-effect 'slow-gen-outer)))
+    (let ((g (make-generator
+              (lambda ()
+                (with-handler ((e-inner (k v) (resume k (fx* v 10))))
+                  (perform yield (perform e-inner 3))
+                  (perform e-outer 99)
+                  (perform yield 40))))))
+      (test-equal 30 (g))
+      (test-equal '(intercepted 99)
+        (with-handler ((e-outer (k v) (list 'intercepted v)))
+          (g)))
+      (test-equal #!eof (g))))
+
+  ;; Nested generators where inner yields via slow path then raises.
+  (let* ((inner (make-generator
+                 (lambda ()
+                   (with-continuation-mark 'k 1 (perform yield 10))
+                   (raise 'inner-slow-boom))))
+         (outer (make-generator
+                 (lambda ()
+                   (perform yield (inner))
+                   (perform yield (inner))))))
+    (test-equal 10 (outer))
+    (test-equal 'inner-slow-boom
+      (with-exception-catcher (lambda (e) e) (lambda () (outer))))
+    (test-equal #!eof (outer))
+    (test-equal #!eof (inner)))
+
+  ;; Multi-value and 0-value yields (0 / 1 / 2 / 3 values) stay live and finish cleanly.
+  (let ((g (make-generator
+            (lambda ()
+              (perform yield)
+              (perform yield 'single)
+              (perform yield 'a 'b)
+              (perform yield 10 20 30)))))
+    (test-equal '() (call-with-values g list))
+    (test-equal '(single) (call-with-values g list))
+    (test-equal '(a b) (call-with-values g list))
+    (test-equal '(10 20 30) (call-with-values g list))
+    (test-equal #!eof (g)))
+
+  ;; Generator dynamic-wind before-thunk raising on re-entry (both fast & slow paths)
+  ;; is delivered to the caller's exception catcher and transitions generator to DONE.
+  (let* ((n 0)
+         (g (make-generator
+             (lambda ()
+               (dynamic-wind
+                 (lambda ()
+                   (set! n (fx+ n 1))
+                   (if (fx= n 2) (raise 'fast-before-boom)))
+                 (lambda ()
+                   (perform yield 1)
+                   (perform yield 2))
+                 (lambda () #!void))))))
+    (test-equal 1 (g))
+    (test-equal 'fast-before-boom
+      (with-exception-catcher (lambda (e) e) (lambda () (g))))
+    (test-equal #!eof (g)))
+
+  (let* ((n 0)
+         (g (make-generator
+             (lambda ()
+               (dynamic-wind
+                 (lambda ()
+                   (set! n (fx+ n 1))
+                   (if (fx= n 2) (raise 'slow-before-boom)))
+                 (lambda ()
+                   (with-continuation-mark 'k 1 (perform yield 1))
+                   (perform yield 2))
+                 (lambda () #!void))))))
+    (test-equal 1 (g))
+    (test-equal 'slow-before-boom
+      (with-exception-catcher (lambda (e) e) (lambda () (g))))
+    (test-equal #!eof (g)))
+
+  ;; Trampolined caller dynamic-wind after-thunk raising during generator resume
+  ;; leaves caller marks unpolluted and transitions generator cleanly to DONE.
+  (let* ((pt (make-continuation-prompt-tag 'gen-tramp-after))
+         (saw-marks #f)
+         (g (make-generator
+             (lambda ()
+               (with-continuation-mark 'gen-only 'leak
+                 (perform yield 1))
+               (perform yield 2)))))
+    (test-equal 1 (g))
+    (test-equal 'tramp-after-boom
+      (with-exception-catcher
+       (lambda (e) e)
+       (lambda ()
+         (call-with-continuation-prompt
+          (lambda ()
+            (dynamic-wind
+              (lambda () #!void)
+              (lambda () (g))
+              (lambda ()
+                (set! saw-marks
+                      (continuation-mark-set->list (current-continuation-marks) 'gen-only))
+                (raise 'tramp-after-boom))))
+          pt))))
+    (test-equal '() saw-marks)
+    (test-equal #!eof (g)))
+
+  ;; Untramped bare caller dynamic-wind after-thunk raising inside an enclosing
+  ;; prompt must NEVER leak a stale unwind-guard frame onto the metacontinuation.
+  (let* ((pt (make-continuation-prompt-tag 'gen-untramp-after))
+         (saw-marks #f)
+         (g (make-generator
+             (lambda ()
+               (with-continuation-mark 'gen-only 'leak
+                 (perform yield 1))
+               (perform yield 2)))))
+    (test-equal 1 (g))
+    (test-equal 'untramp-after-boom
+      (call-with-continuation-prompt
+       (lambda ()
+         (with-exception-catcher
+          (lambda (e) e)
+          (lambda ()
+            (dynamic-wind
+              (lambda () #!void)
+              (lambda () (g))
+              (lambda ()
+                (set! saw-marks
+                      (continuation-mark-set->list (current-continuation-marks) 'gen-only))
+                (raise 'untramp-after-boom))))))
+       pt))
+    (test-equal '() saw-marks))
+
+  ;; Cross-thread generator migration after slow-path yield and fault.
+  (let ((g (make-generator
+            (lambda ()
+              (with-continuation-mark 'mk 'x (perform yield 101))
+              (raise 'migrated-boom)))))
+    (test-equal 101 (g))
+    (let ((th (thread-start!
+               (make-thread
+                (lambda ()
+                  (let ((c (with-exception-catcher (lambda (e) e) (lambda () (g)))))
+                    (list c (g))))))))
+      (test-equal (list 'migrated-boom #!eof) (thread-join! th))))
+
+  ;; Adaptive-P SMP torture combining slow-path yields, 0/2/3-value yields,
+  ;; outer aborts, and winding before-thunk faults with concurrent ##gc.
+  (let* ((hw (##current-vm-processor-count))
+         (num-threads (max 2 (min 8 hw)))
+         (rounds 30)
+         (ok-count (make-atomic-fxbox 0)))
+    (let ((threads
+           (let loop ((t 0) (acc '()))
+             (if (fx= t num-threads)
+                 acc
+                 (loop (fx+ t 1)
+                       (cons
+                        (thread-start!
+                         (make-thread
+                          (lambda ()
+                            (let ((pt (make-continuation-prompt-tag 'smp-gen-pt)))
+                              (let rloop ((r 0) (good #t))
+                                (if (fx< r rounds)
+                                    (let* ((g1 (make-generator
+                                                (lambda ()
+                                                  (with-continuation-mark 'mk r
+                                                    (perform yield r (fx+ r 1)))
+                                                  (raise 'smp-slow-err))))
+                                           (v1 (call-with-values g1 list))
+                                           (e1 (with-exception-catcher (lambda (e) e) (lambda () (g1))))
+                                           (d1 (g1))
+                                           (g2 (make-generator
+                                                (lambda ()
+                                                  (with-continuation-mark 'mk r
+                                                    (perform yield))
+                                                  (abort-current-continuation pt 'smp-ab))))
+                                           (v2 (call-with-values g2 list))
+                                           (a2 (call-with-continuation-prompt
+                                                (lambda () (g2)) pt (lambda (x) x)))
+                                           (d2 (g2))
+                                           (cnt 0)
+                                           (g3 (make-generator
+                                                (lambda ()
+                                                  (dynamic-wind
+                                                    (lambda ()
+                                                      (set! cnt (fx+ cnt 1))
+                                                      (if (fx= cnt 2) (raise 'smp-dw-err)))
+                                                    (lambda () (perform yield r) (perform yield 0))
+                                                    (lambda () #!void)))))
+                                           (v3 (g3))
+                                           (e3 (with-exception-catcher (lambda (e) e) (lambda () (g3))))
+                                           (d3 (g3)))
+                                      (if (and (fx= t 0) (fx= (fxand r 7) 7)) (##gc))
+                                      (rloop (fx+ r 1)
+                                             (and good
+                                                  (equal? v1 (list r (fx+ r 1)))
+                                                  (eq? e1 'smp-slow-err)
+                                                  (eof-object? d1)
+                                                  (null? v2)
+                                                  (eq? a2 'smp-ab)
+                                                  (eof-object? d2)
+                                                  (fx= v3 r)
+                                                  (eq? e3 'smp-dw-err)
+                                                  (eof-object? d3))))
+                                    (if good (atomic-fxbox+/fetch! ok-count 1))))))))
+                        acc))))))
+      (for-each thread-join! threads)
+      (test-equal num-threads (atomic-fxbox-ref ok-count)))))
+
+;;;============================================================================

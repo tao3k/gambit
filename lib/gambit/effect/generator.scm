@@ -73,12 +73,46 @@
            (%gen-state-store-rel! gen %GEN-SUSPENDED)
            val)))))
 
-;; Slow generator yield handler when nested prompts or frozen multi-shot frames exist
+;; Slow generator yield handler when nested prompts, continuation marks,
+;; frozen multi-shot frames, or 0/multi-value yields are active.
 (define (%gen-yield-slow-handler gen)
-  (lambda (ek val)
+  (lambda (ek #!optional (v1 %ABSENT) (v2 %ABSENT) #!rest more)
     (%gen-sub-k-set! gen ek)
     (%gen-state-store-rel! gen %GEN-SUSPENDED)
-    val))
+    (cond
+      ((eq? v1 %ABSENT) (values))
+      ((eq? v2 %ABSENT) v1)
+      ((null? more)     (values v1 v2))
+      (else             (apply values v1 v2 more)))))
+
+;; Return #t iff every caller dynamic-wind frame that will be unwound when
+;; jumping from `cur-dw` to `sub-dw` executes its after-thunk under an active
+;; `%mc-eh-trampoline?` (including when zero caller frames are unwound).
+(define (%gen-winding-guard-safe? cur-dw sub-dw)
+  (let ((cur-lvl (macro-dynwind-level cur-dw)))
+    (if (fx= cur-lvl 0)
+        #t
+        (let align ((sub sub-dw) (sub-lvl (macro-dynwind-level sub-dw)))
+          (if (fx> sub-lvl cur-lvl)
+              (let ((next-sub (macro-denv-dynwind
+                               (##continuation-denv (macro-dynwind-cont sub)))))
+                (align next-sub (macro-dynwind-level next-sub)))
+              (let walk ((c cur-dw) (cl cur-lvl) (s sub) (sl sub-lvl))
+                (cond
+                  ((eq? c s) #t)
+                  ((fx= cl 0) #t)
+                  (else
+                   (let* ((cdenv (##continuation-denv (macro-dynwind-cont c)))
+                          (eh-cell (macro-denv-exception-handler cdenv)))
+                     (if (not (and (pair? eh-cell) (%mc-eh-trampoline? (cdr eh-cell))))
+                         #f
+                         (let* ((nc (macro-denv-dynwind cdenv))
+                                (ncl (macro-dynwind-level nc)))
+                           (if (fx= cl sl)
+                               (let ((ns (macro-denv-dynwind
+                                          (##continuation-denv (macro-dynwind-cont s)))))
+                                 (walk nc ncl ns (macro-dynwind-level ns)))
+                               (walk nc ncl s sl)))))))))))))
 
 (define (%gen-install-pframe! st gen caller-k eh-scope)
   (let* ((pf (%gen-pframe gen))
@@ -204,26 +238,142 @@
 (define (%gen-resume-swap-cont! caller-k gen sub-k)
   (let* ((st (%tc-fast))
          (cur-eh (macro-current-exception-handler))
-         (eh-scope (if (%mc-eh-trampoline? cur-eh) #f cur-eh)))
-    (if (eq? (macro-denv-dynwind (macro-thread-denv (macro-current-thread)))
-             (macro-denv-dynwind (##continuation-denv sub-k)))
+         (eh-scope (if (%mc-eh-trampoline? cur-eh) #f cur-eh))
+         (cur-dw (macro-denv-dynwind (macro-thread-denv (macro-current-thread))))
+         (sub-dw (macro-denv-dynwind (##continuation-denv sub-k))))
+    (if (eq? cur-dw sub-dw)
         (begin
           (%gen-install-pframe! st gen caller-k eh-scope)
           (let () (declare (inlining-limit 0)) (%return-oneshot-same-denv! sub-k #f)))
-        (let ((cur-mc (%st-mc st))
-              (cur-marks (%st-marks st))
-              (cur-barriers (%st-barriers st))
-              (cur-handlers (%st-handlers st)))
+        (let* ((cur-mc (%st-mc st))
+               (cur-marks (%st-marks st))
+               (cur-barriers (%st-barriers st))
+               (cur-handlers (%st-handlers st))
+               (gframe (if (%gen-winding-guard-safe? cur-dw sub-dw)
+                           (%make-mc-frame-9 'unwind-guard
+                                             #f
+                                             #t
+                                             #f
+                                             cur-marks
+                                             cur-barriers
+                                             cur-handlers
+                                             eh-scope
+                                             (%gen-unwind-fn gen))
+                           #f)))
+          (if gframe
+              (%st-mc-set! st (cons gframe cur-mc)))
           (##continuation-graft
            sub-k
            (lambda ()
-             (let ((st2 (%tc-fast)))
-               (%st-mc-set! st2 cur-mc)
+             (let* ((st2 (%tc-fast))
+                    (mc2 (%st-mc st2))
+                    (base-mc (if (and gframe (pair? mc2) (eq? (car mc2) gframe))
+                                 (cdr mc2)
+                                 cur-mc)))
+               (%st-mc-set! st2 base-mc)
                (%st-marks-set! st2 cur-marks)
                (%st-barriers-set! st2 cur-barriers)
                (%st-handlers-set! st2 cur-handlers)
                (%gen-install-pframe! st2 gen caller-k eh-scope))
              #f))))))
+
+;; Dedicated zero-closure slow-path generator resumption receiver (<= 4 args).
+;; Preserves the generator's unwind hook on the replayed prompt frame so
+;; exceptions and outer prompt aborts transition the generator cleanly to DONE,
+;; and installs a temporary `'unwind-guard` frame during winding whenever every
+;; caller after-thunk runs under an active exception trampoline.
+(define (%gen-resume-ec-cont! caller-k gen sk clear?)
+  (let* ((st (%tc-fast))
+         (cur-eh (macro-current-exception-handler))
+         (eh-scope (if (%mc-eh-trampoline? cur-eh) #f cur-eh))
+         (sub-k (%ec-sub-k sk))
+         (prefix (%ec-prefix sk))
+         (cap-marks (%ec-marks sk))
+         (cap-handlers (%ec-handlers sk))
+         (frame (%ec-frame sk))
+         (unwind-fn (%gen-unwind-fn gen))
+         (cur-mc (%st-mc st))
+         (cur-marks (%st-marks st))
+         (cur-barriers (%st-barriers st))
+         (cur-handlers (%st-handlers st))
+         (cur-dw (macro-denv-dynwind (macro-thread-denv (macro-current-thread))))
+         (sub-dw (macro-denv-dynwind (##continuation-denv sub-k)))
+         (pframe (%make-mc-frame-9 'prompt
+                                   (%frame-tag frame)
+                                   #t
+                                   caller-k
+                                   cur-marks
+                                   cur-barriers
+                                   cur-handlers
+                                   eh-scope
+                                   unwind-fn)))
+    (if clear? (%clear-consumed-ec! sk))
+    (if (eq? cur-dw sub-dw)
+        (begin
+          (%st-mc-set! st
+                       (if (null? prefix)
+                           (cons pframe cur-mc)
+                           (append prefix (cons pframe cur-mc))))
+          (%st-marks-set! st
+                          (if (null? cap-marks)
+                              cur-marks
+                              (append cap-marks cur-marks)))
+          (%st-barriers-set! st cur-barriers)
+          (%st-handlers-set! st
+                             (let ((base (cons frame cur-handlers)))
+                               (if (null? cap-handlers)
+                                   base
+                                   (append cap-handlers base))))
+          (if (pair? prefix) (%mc-run-unwind-hooks! prefix 'restore))
+          (##continuation-return sub-k #f))
+        (let ((gframe (if (%gen-winding-guard-safe? cur-dw sub-dw)
+                          (%make-mc-frame-9 'unwind-guard
+                                            #f
+                                            #t
+                                            #f
+                                            cur-marks
+                                            cur-barriers
+                                            cur-handlers
+                                            eh-scope
+                                            unwind-fn)
+                          #f)))
+          (if gframe
+              (%st-mc-set! st (cons gframe cur-mc)))
+          (##continuation-graft
+           sub-k
+           (lambda ()
+             (let* ((st2 (%tc-fast))
+                    (mc2 (%st-mc st2))
+                    (base-mc (if (and gframe (pair? mc2) (eq? (car mc2) gframe))
+                                 (cdr mc2)
+                                 cur-mc)))
+               (%st-mc-set! st2
+                            (if (null? prefix)
+                                (cons pframe base-mc)
+                                (append prefix (cons pframe base-mc))))
+               (%st-marks-set! st2
+                               (if (null? cap-marks)
+                                   cur-marks
+                                   (append cap-marks cur-marks)))
+               (%st-barriers-set! st2 cur-barriers)
+               (%st-handlers-set! st2
+                                  (let ((base (cons frame cur-handlers)))
+                                    (if (null? cap-handlers)
+                                        base
+                                        (append cap-handlers base))))
+               (if (pair? prefix) (%mc-run-unwind-hooks! prefix 'restore)))
+             #f))))))
+
+(define (%gen-resume-ec! gen sk)
+  (let ((prev (%ec-cas-state! sk %EC-ONE-SHOT-LIVE %EC-ONE-SHOT-CONSUMED)))
+    (if (not (or (fx= prev %EC-ONE-SHOT-LIVE)
+                 (fx= prev %EC-MULTISHOT-COW)))
+        (begin
+          (%gen-state-store-rel! gen %GEN-DONE)
+          (error "one-shot continuation already consumed" sk)))
+    (if (fx= prev %EC-MULTISHOT-COW)
+        (%freeze-ec! sk))
+    (##continuation-capture %gen-resume-ec-cont! gen sk (fx= prev %EC-ONE-SHOT-LIVE))))
 
 (define (make-generator thunk)
   (if (not (procedure? thunk))
@@ -260,7 +410,7 @@
            (let ((sk (%gen-sub-k gen)))
              (%gen-sub-k-set! gen #f)
              (if (effect-continuation? sk)
-                 (resume sk #f)
+                 (%gen-resume-ec! gen sk)
                  (##continuation-capture %gen-resume-swap-cont! gen sk))))
           ((fx= prev %GEN-DONE)
            #!eof)
