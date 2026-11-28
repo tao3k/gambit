@@ -235,7 +235,7 @@ ___processor_state ___ps;)
   }
 
 #ifndef ___CALL_GC_FREQUENTLY
-  /* Amp-1 Cut 1B: This processor's dedicated heap_msection is ALREADY deducted
+  /* This processor's dedicated heap_msection is ALREADY deducted
    * in compute_msection_size(nb_msections_assigned). Do not clip heap_limit to 0
    * when free_approx == 0 on tight heaps (e.g. m16384 on p8/p12), or mutators
    * immediately trap back into ___heap_limit on the very next allocation. */
@@ -565,6 +565,8 @@ ___virtual_machine_state ___vms;)
     if (___vms->glos==0) return ___FIX(___HEAP_OVERFLOW_ERR);
     ___vms->glos->directory=0; ___vms->glos->pages=0;
     ___vms->glos->count=0; ___vms->glos->unbound=___UNB1;
+    ___vms->glos->prim_override_bits[0]=0; ___vms->glos->prim_override_bits[1]=0;
+    ___vms->glos->prim_override_bits[2]=0; ___vms->glos->prim_override_bits[3]=0;
     /* The initial image is this VM's bootstrap binding inventory. Later
      * identities registered by another VM do not reserve cells in this VM. */
     ___MUTEX_LOCK(___GSTATE->mem.global_gate);

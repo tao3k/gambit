@@ -734,12 +734,16 @@ static void sync_op_leave(___virtual_machine_state ___vms)
   if (!life) return;
   ___MUTEX_LOCK(life->sync_part_mut);
   if (life->sync_op_state == SYNC_OP_RUNNING)
-    life->sync_op_state = SYNC_OP_DRAINING;
+    {
+      life->sync_op_state = SYNC_OP_DRAINING;
+      __atomic_store_n(&life->sync_op_state_u32, SYNC_OP_DRAINING, __ATOMIC_RELEASE);
+    }
   if (life->sync_active_remaining > 0)
     life->sync_active_remaining--;
   if (life->sync_active_remaining == 0)
     {
       life->sync_op_state = SYNC_OP_IDLE;
+      __atomic_store_n(&life->sync_op_state_u32, SYNC_OP_IDLE, __ATOMIC_RELEASE);
       ___WORD_STORE_RELEASE(&life->sync_use_active_barrier, 0);
       ___CONDVAR_BROADCAST(life->sync_part_cv);
     }
@@ -1764,6 +1768,15 @@ ___processor_state ___ps;)
       ___ps->ffi_park_depth = 0;
       return;
     }
+  {
+    unsigned int spins = 0;
+    while (__atomic_load_n(&life->sync_op_state_u32, __ATOMIC_ACQUIRE) != SYNC_OP_IDLE &&
+           spins < 1024u)
+      {
+        ___CPU_RELAX();
+        spins++;
+      }
+  }
   ___MUTEX_LOCK(life->sync_part_mut);
   while (life->sync_op_state != SYNC_OP_IDLE)
     ___CONDVAR_WAIT(life->sync_part_cv, life->sync_part_mut);
@@ -1777,7 +1790,8 @@ ___processor_state ___ps;)
   /* Adopt active Concurrent SATB Major GC phase before returning to Scheme. */
   ___ps->mem.satb_active_ =
     (___WORD_LOAD_ACQUIRE(&___vms->mem.major_phase_) == ___GC_MAJOR_MARKING) ? 1 : 0;
-  ___CONDVAR_BROADCAST(life->sync_part_cv);
+  if (life->sync_block_new_parks > 0)
+    ___CONDVAR_BROADCAST(life->sync_part_cv);
   ___MUTEX_UNLOCK(life->sync_part_mut);
   /* Drain owner-affine foreign finalizers deferred during GCs while parked. */
   ___lifecycle_drain(___ps);
@@ -1963,6 +1977,7 @@ ___sync_op_struct *sop_ptr;)
           life->sync_coord_id = coord;
           life->sync_bar_arrived = 0;
           life->sync_op_state = SYNC_OP_RUNNING;
+          __atomic_store_n(&life->sync_op_state_u32, SYNC_OP_RUNNING, __ATOMIC_RELEASE);
           ___WORD_STORE_RELEASE(&life->sync_use_active_barrier,
                                 (life->sync_parked_count > 0) ? 1 : 0);
           initiator = 1;

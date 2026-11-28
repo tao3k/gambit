@@ -37,9 +37,18 @@ ___HIDDEN ___SCMOBJ primitive_value(___virtual_machine_state vm, ___glo_struct *
   if (___WORD_LOAD_ACQUIRE(&g->primitive_set))
     return ___WORD_LOAD_ACQUIRE(&g->primitive_value);
 #else
-  ___global_slot_page *page=___global_page(vm,g->val);
-  if (page != 0 && (___WORD_LOAD_ACQUIRE(&page->primitive_set) & primitive_mask(g)))
-    return ___WORD_LOAD_ACQUIRE(&page->primitive[g->val%___WORD_WIDTH]);
+  if (___EXPECT_TRUE(vm != 0 && vm->glos != 0 && g->val >= 0)) {
+    ___SIZE_T uid = ___CAST(___SIZE_T, g->val);
+    ___UWORD mask = ___CAST(___UWORD, 1) << (uid % ___WORD_WIDTH);
+    if (___EXPECT_TRUE((___CAST(___UWORD, ___WORD_LOAD_ACQUIRE(
+          &vm->glos->prim_override_bits[(uid / ___WORD_WIDTH) & 3])) & mask) == 0))
+      return ___PRMCELL(g->prm);
+  }
+  {
+    ___global_slot_page *page=___global_page(vm,g->val);
+    if (page != 0 && (___WORD_LOAD_ACQUIRE(&page->primitive_set) & primitive_mask(g)))
+      return ___WORD_LOAD_ACQUIRE(&page->primitive[g->val%___WORD_WIDTH]);
+  }
 #endif
   return ___PRMCELL(g->prm);
 }
@@ -74,6 +83,15 @@ ___processor_state ps; ___glo_struct *g; ___SCMOBJ value;)
   ___MUTEX_LOCK(___GSTATE->mem.global_gate);
   ___WORD_STORE_RELEASE(cell,value);
   ___WORD_STORE_RELEASE(flag,___WORD_LOAD_ACQUIRE(flag) | primitive_mask(g));
+#ifndef ___SINGLE_VM
+  if (vm->glos != 0 && g->val >= 0) {
+    ___SIZE_T uid = ___CAST(___SIZE_T, g->val);
+    ___SIZE_T bidx = (uid / ___WORD_WIDTH) & 3;
+    ___UWORD bmask = ___CAST(___UWORD, 1) << (uid % ___WORD_WIDTH);
+    ___WORD_STORE_RELEASE(&vm->glos->prim_override_bits[bidx],
+                          ___CAST(___UWORD, ___WORD_LOAD_ACQUIRE(&vm->glos->prim_override_bits[bidx])) | bmask);
+  }
+#endif
   ___MUTEX_UNLOCK(___GSTATE->mem.global_gate);
 }
 /* Only generated module code publishes this image template. A runtime module

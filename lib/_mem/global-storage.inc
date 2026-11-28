@@ -5,6 +5,7 @@
  * Old directories remain owned by this VM until its existing cleanup permit.
  */
 #ifndef ___SINGLE_VM
+#define ___GLOBAL_DIRECT_MAX_PAGES 65536
 /* All allocations precede publication. No Scheme allocation, GC, callback or
  * safepoint occurs here. Failure leaves the old directory and cells intact. */
 ___HIDDEN ___BOOL global_prepare_locked(___virtual_machine_state vm, int id)
@@ -12,40 +13,65 @@ ___HIDDEN ___BOOL global_prepare_locked(___virtual_machine_state vm, int id)
   ___global_slot_store *store=vm->glos;
   ___global_slot_directory *directory, *replacement=0;
   ___global_slot_page *page, *p;
-  ___SIZE_T capacity, position, i;
+  ___SIZE_T key, capacity, position, i;
+  ___BOOL keep_direct, need_grow;
   if (___global_page(vm,id)!=0) return 1;
   if (store==0 || id<0 || store->count>=INT_MAX) return 0;
+  key=___CAST(___SIZE_T,id)/___WORD_WIDTH;
   directory=store->directory;
   capacity=directory==0 ? ___WORD_WIDTH : directory->capacity;
-  if (directory==0 || store->count>=capacity/2) {
+  keep_direct=(directory==0)
+    ? (key < ___GLOBAL_DIRECT_MAX_PAGES)
+    : (directory->direct_cap != 0 && key < ___GLOBAL_DIRECT_MAX_PAGES);
+  need_grow=(directory==0)
+    || (keep_direct && key >= directory->direct_cap)
+    || (!keep_direct && (directory->direct_cap != 0 || store->count >= capacity/2));
+  if (need_grow) {
     ___SIZE_T bytes;
-    if (directory!=0) {
-      if (capacity>~___CAST(___SIZE_T,0)/2) return 0;
-      capacity*=2;
+    if (keep_direct) {
+      while (capacity <= key) {
+        if (capacity > ~___CAST(___SIZE_T,0)/2) return 0;
+        capacity *= 2;
+      }
+    } else {
+      if (directory != 0 && store->count >= capacity/2) {
+        if (capacity > ~___CAST(___SIZE_T,0)/2) return 0;
+        capacity *= 2;
+      }
     }
     if (capacity-1>(~___CAST(___SIZE_T,0)-sizeof(*directory))/sizeof(directory->entries[0])) return 0;
     bytes=sizeof(*directory)+(capacity-1)*sizeof(directory->entries[0]);
     replacement=___CAST(___global_slot_directory*,___ALLOC_MEM(bytes));
     if (replacement==0) return 0;
-    replacement->capacity=capacity; replacement->retired=directory;
+    replacement->capacity=capacity;
+    replacement->direct_cap=keep_direct ? capacity : 0;
+    replacement->retired=directory;
     for (i=0;i<capacity;i++) replacement->entries[i]=0;
     for (p=store->pages;p!=0;p=p->next) {
-      position=p->key&(capacity-1);
-      while (replacement->entries[position]!=0) position=(position+1)&(capacity-1);
-      replacement->entries[position]=p;
+      if (keep_direct) {
+        replacement->entries[p->key]=p;
+      } else {
+        position=p->key&(capacity-1);
+        while (replacement->entries[position]!=0) position=(position+1)&(capacity-1);
+        replacement->entries[position]=p;
+      }
     }
   }
   page=___CAST(___global_slot_page*,___ALLOC_MEM(sizeof(*page)));
   if (page==0) { if (replacement!=0) ___FREE_MEM(replacement); return 0; }
-  page->key=___CAST(___SIZE_T,id)/___WORD_WIDTH;
+  page->key=key;
   page->primitive_set=0;
   for (i=0;i<___WORD_WIDTH;i++) {
     page->ordinary[i]=___UNB1; page->primitive[i]=___FAL;
   }
   page->next=store->pages;
   if (replacement!=0) directory=replacement;
-  position=page->key&(directory->capacity-1);
-  while (directory->entries[position]!=0) position=(position+1)&(directory->capacity-1);
+  if (directory->direct_cap != 0) {
+    position=page->key;
+  } else {
+    position=page->key&(directory->capacity-1);
+    while (directory->entries[position]!=0) position=(position+1)&(directory->capacity-1);
+  }
   store->pages=page; ++store->count;
   ___WORD_STORE_RELEASE(&directory->entries[position],page);
   if (replacement!=0) ___WORD_STORE_RELEASE(&store->directory,replacement);

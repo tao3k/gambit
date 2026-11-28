@@ -20,6 +20,9 @@ static ___BINDING_NOINLINE ___global_slot_page *___global_page_at(___global_slot
   ___SIZE_T key, position, probes;
   if (directory==0 || id<0) return 0;
   key=___CAST(___SIZE_T,id)/___WORD_WIDTH;
+  if (___EXPECT_TRUE(key < directory->direct_cap))
+    return ___CAST(___global_slot_page*,___WORD_LOAD_ACQUIRE(&directory->entries[key]));
+  if (directory->direct_cap != 0) return 0;
   position=key & (directory->capacity-1);
   for (probes=0;probes<directory->capacity;probes++) {
     ___global_slot_page *page=___CAST(___global_slot_page*,___WORD_LOAD_ACQUIRE(&directory->entries[position]));
@@ -77,11 +80,20 @@ static ___SCMOBJ ___binding_primitive(___virtual_machine_state vm, ___glo_struct
   if (___WORD_LOAD_ACQUIRE(&global->primitive_set))
     return ___WORD_LOAD_ACQUIRE(&global->primitive_value);
 #else
-  ___global_slot_page *page=___global_page(vm,global->val);
-  if (page) {
-    ___UWORD mask=___CAST(___UWORD,1) << (global->val%___WORD_WIDTH);
-    if (___WORD_LOAD_ACQUIRE(&page->primitive_set)&mask)
-      return ___WORD_LOAD_ACQUIRE(&page->primitive[global->val%___WORD_WIDTH]);
+  if (___EXPECT_TRUE(vm != 0 && vm->glos != 0 && global->val >= 0)) {
+    ___SIZE_T uid = ___CAST(___SIZE_T, global->val);
+    ___UWORD mask = ___CAST(___UWORD, 1) << (uid % ___WORD_WIDTH);
+    if (___EXPECT_TRUE((___CAST(___UWORD, ___WORD_LOAD_ACQUIRE(
+          &vm->glos->prim_override_bits[(uid / ___WORD_WIDTH) & 3])) & mask) == 0))
+      return ___PRMCELL(global->prm);
+  }
+  {
+    ___global_slot_page *page=___global_page(vm,global->val);
+    if (page) {
+      ___UWORD mask=___CAST(___UWORD,1) << (global->val%___WORD_WIDTH);
+      if (___WORD_LOAD_ACQUIRE(&page->primitive_set)&mask)
+        return ___WORD_LOAD_ACQUIRE(&page->primitive[global->val%___WORD_WIDTH]);
+    }
   }
 #endif
   return ___PRMCELL(global->prm);
@@ -93,14 +105,55 @@ static ___BINDING_NOINLINE ___SCMOBJ ___binding_glo_load
    (___processor_state ___ps, ___virtual_machine_state vm, ___glo_struct *global)
 {
   if (___EXPECT_TRUE(vm != 0))
-    return ___WORD_LOAD_ACQUIRE(___binding_global(vm, global));
+    {
+#ifdef ___SINGLE_VM
+      return ___WORD_LOAD_ACQUIRE(&global->val);
+#else
+      ___global_slot_store *store = vm->glos;
+      if (___EXPECT_TRUE(store != 0))
+        {
+          int id = global->val;
+          ___global_slot_directory *dir =
+            ___CAST(___global_slot_directory*, ___WORD_LOAD_ACQUIRE(&store->directory));
+          if (___EXPECT_TRUE(dir != 0 && id >= 0))
+            {
+              ___SIZE_T key = ___CAST(___SIZE_T, id) / ___WORD_WIDTH;
+              ___global_slot_page *page;
+              if (___EXPECT_TRUE(key < dir->direct_cap))
+                page = ___CAST(___global_slot_page*, ___WORD_LOAD_ACQUIRE(&dir->entries[key]));
+              else if (dir->direct_cap != 0)
+                page = 0;
+              else
+                page = ___global_page_at(dir, id);
+              if (___EXPECT_TRUE(page != 0))
+                return ___WORD_LOAD_ACQUIRE(&page->ordinary[id % ___WORD_WIDTH]);
+            }
+          return ___WORD_LOAD_ACQUIRE(&store->unbound);
+        }
+      return ___WORD_LOAD_ACQUIRE(___binding_global(vm, global));
+#endif
+    }
   return ___WORD_LOAD_ACQUIRE(&___GLOCELL(global->val));
 }
 static ___BINDING_NOINLINE ___SCMOBJ ___binding_prm_load
    (___processor_state ___ps, ___virtual_machine_state vm, ___glo_struct *global)
 {
   if (___EXPECT_TRUE(vm != 0))
-    return ___binding_primitive(vm, global);
+    {
+#ifndef ___SINGLE_VM
+      ___global_slot_store *store = vm->glos;
+      int id = global->val;
+      if (___EXPECT_TRUE(store != 0 && id >= 0))
+        {
+          ___SIZE_T uid = ___CAST(___SIZE_T, id);
+          ___UWORD mask = ___CAST(___UWORD, 1) << (uid % ___WORD_WIDTH);
+          if (___EXPECT_TRUE((___CAST(___UWORD, ___WORD_LOAD_ACQUIRE(
+                &store->prim_override_bits[(uid / ___WORD_WIDTH) & 3])) & mask) == 0))
+            return ___PRMCELL(global->prm);
+        }
+#endif
+      return ___binding_primitive(vm, global);
+    }
   return ___EXT(___primitive_ref)(___ps, global);
 }
 #define ___PRM(i,glo) ___binding_prm_load(___ps,___binding_vm,&___GLOSTRUCT(i,glo))

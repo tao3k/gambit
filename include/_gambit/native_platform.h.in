@@ -218,6 +218,7 @@ typedef struct ___global_slot_page_struct {
 } ___global_slot_page;
 typedef struct ___global_slot_directory_struct {
   ___SIZE_T capacity;
+  ___SIZE_T direct_cap;
   struct ___global_slot_directory_struct *retired;
   ___global_slot_page *entries[1];
 } ___global_slot_directory;
@@ -226,6 +227,7 @@ typedef struct ___global_slot_store_struct {
   ___global_slot_page *pages;
   ___SIZE_T count;
   ___SCMOBJ unbound;
+  ___UWORD prim_override_bits[4];
 } ___global_slot_store;
 
 /* Context binding authority borrows the existing VM store. Directory growth

@@ -508,6 +508,7 @@ typedef struct ___vm_lifecycle_struct {
   ___MUTEX_DECL(sync_part_mut)
   ___CONDVAR_DECL(sync_part_cv)
   int sync_op_state; /* 0=IDLE, 1=RUNNING, 2=DRAINING */
+  ___VOLATILE uint32_t sync_op_state_u32;
   int sync_parked_count;
   int sync_active_count;
   int sync_active_remaining;
