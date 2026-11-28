@@ -198,3 +198,150 @@
   (test-equal (* nworkers (/ iters 20)) (unbox lock-counter)))
 
 ;;;============================================================================
+;;; Memory-Order Load/Store Validation, Bounds Safety & Fixnum Wraparound
+
+(define (raises-exc? thunk)
+  (with-exception-catcher (lambda (e) #t) (lambda () (thunk) #f)))
+
+;; Load operations reject release and acquire-release
+(test-equal #t (raises-exc? (lambda () (atomic-box-ref bx (memory-order release)))))
+(test-equal #t (raises-exc? (lambda () (atomic-box-ref bx (memory-order acquire-release)))))
+(test-equal #t (raises-exc? (lambda () (atomic-fxbox-ref fxb (memory-order release)))))
+(test-equal #t (raises-exc? (lambda () (atomic-fxbox-ref fxb (memory-order acquire-release)))))
+(test-equal #t (raises-exc? (lambda () (atomic-pair-ref pr (memory-order release)))))
+(test-equal #t (raises-exc? (lambda () (atomic-pair-ref pr (memory-order acquire-release)))))
+
+;; Store operations reject acquire and acquire-release
+(test-equal #t (raises-exc? (lambda () (atomic-flag-clear! flg (memory-order acquire)))))
+(test-equal #t (raises-exc? (lambda () (atomic-flag-clear! flg (memory-order acquire-release)))))
+(test-equal #t (raises-exc? (lambda () (atomic-box-set! bx 1 (memory-order acquire)))))
+(test-equal #t (raises-exc? (lambda () (atomic-box-set! bx 1 (memory-order acquire-release)))))
+(test-equal #t (raises-exc? (lambda () (atomic-fxbox-set! fxb 1 (memory-order acquire)))))
+(test-equal #t (raises-exc? (lambda () (atomic-fxbox-set! fxb 1 (memory-order acquire-release)))))
+(test-equal #t (raises-exc? (lambda () (atomic-pair-set! pr 1 2 (memory-order acquire)))))
+(test-equal #t (raises-exc? (lambda () (atomic-pair-set! pr 1 2 (memory-order acquire-release)))))
+
+;; Internal vector-atomic-* helpers reject non-vectors, out-of-bounds indices, and invalid orders
+(test-equal #t (raises-exc? (lambda () (srfi/230#vector-atomic-ref 123 0))))
+(test-equal #t (raises-exc? (lambda () (srfi/230#vector-atomic-ref (vector 1 2) -1))))
+(test-equal #t (raises-exc? (lambda () (srfi/230#vector-atomic-ref (vector 1 2) 2))))
+(test-equal #t (raises-exc? (lambda () (srfi/230#vector-atomic-set! (vector 1 2) 5 'x))))
+(test-equal #t (raises-exc? (lambda () (srfi/230#vector-atomic-swap! (vector 1 2) -1 'x))))
+(test-equal #t (raises-exc? (lambda () (srfi/230#vector-atomic-cas! (vector 1 2) 2 1 2))))
+(test-equal #t (raises-exc? (lambda () (srfi/230#vector-atomic-ref (vector 1 2) 0 (memory-order release)))))
+(test-equal #t (raises-exc? (lambda () (srfi/230#vector-atomic-set! (vector 1 2) 0 'x (memory-order acquire)))))
+
+;; Modular 2's-complement fixnum wraparound on atomic-fxbox+/fetch! and -/fetch!
+(let* ((max-fx (- (expt 2 (- (##fixnum-width) 1)) 1))
+       (min-fx (- (- max-fx) 1))
+       (wb (make-atomic-fxbox max-fx)))
+  (test-equal max-fx (atomic-fxbox+/fetch! wb 1))
+  (test-equal min-fx (atomic-fxbox-ref wb))
+  (test-equal min-fx (atomic-fxbox-/fetch! wb 1))
+  (test-equal max-fx (atomic-fxbox-ref wb)))
+
+;; atomic-pair-compare-and-swap! works across all 5 memory orders (including release & acq_rel)
+(let ((ap (make-atomic-pair 0 0)))
+  (for-each
+   (lambda (ord)
+     (call-with-values (lambda () (atomic-pair-ref ap))
+       (lambda (v s)
+         ;; Mismatch returns current pair unchanged
+         (call-with-values (lambda () (atomic-pair-compare-and-swap! ap -1 s 99 99 ord))
+           (lambda (rv rs)
+             (test-equal v rv)
+             (test-equal s rs)))
+         ;; Match transitions atomically
+         (call-with-values (lambda () (atomic-pair-compare-and-swap! ap v s (+ v 10) (+ s 1) ord))
+           (lambda (rv rs)
+             (test-equal v rv)
+             (test-equal s rs))))))
+   (list (memory-order relaxed)
+         (memory-order acquire)
+         (memory-order release)
+         (memory-order acquire-release)
+         (memory-order sequentially-consistent)))
+  (call-with-values (lambda () (atomic-pair-ref ap))
+    (lambda (v s)
+      (test-equal 50 v)
+      (test-equal 5 s))))
+
+;;;============================================================================
+;;; Adaptive-P SMP Lock-Free CAS Conservation (Treiber Stack + Stamped Pair + GC)
+
+(let* ((p (##current-vm-processor-count))
+       (w (max 4 (min 12 p)))
+       (iters 400)
+       (stack (make-atomic-box '()))
+       (stamped (make-atomic-pair 0 0))
+       (bits (make-atomic-fxbox 0))
+       (pushed-sum (make-atomic-fxbox 0))
+       (popped-sum (make-atomic-fxbox 0))
+       (popped-cnt (make-atomic-fxbox 0))
+       (threads
+        (let loop ((tid 0) (acc '()))
+          (if (= tid w)
+              acc
+              (loop (+ tid 1)
+                    (cons
+                     (thread-start!
+                      (make-thread
+                       (lambda ()
+                         (let iloop ((i 0))
+                           (when (< i iters)
+                             (let ((val (+ (* tid iters) i 1)))
+                               ;; Push onto lock-free Treiber stack via atomic-box-compare-and-swap!
+                               (let push ()
+                                 (let* ((head (atomic-box-ref stack (memory-order acquire)))
+                                        (node (cons val head)))
+                                   (unless (eq? (atomic-box-compare-and-swap! stack head node (memory-order acquire-release))
+                                                head)
+                                     (push))))
+                               (atomic-fxbox+/fetch! pushed-sum val)
+                               ;; Increment stamped (val, stamp) pair via atomic-pair-compare-and-swap!
+                               (let bump ()
+                                 (call-with-values (lambda () (atomic-pair-ref stamped (memory-order acquire)))
+                                   (lambda (cv cs)
+                                     (call-with-values
+                                       (lambda ()
+                                         (atomic-pair-compare-and-swap!
+                                          stamped cv cs (+ cv 1) (+ cs 1) (memory-order acquire-release)))
+                                       (lambda (rv rs)
+                                         (unless (and (eq? rv cv) (eq? rs cs))
+                                           (bump)))))))
+                               ;; Set per-thread bit via atomic-fxbox-ior/fetch!
+                               (atomic-fxbox-ior/fetch! bits (arithmetic-shift 1 tid))
+                               ;; Interleave pop & concurrent SATB GC
+                               (when (= (modulo i 2) 1)
+                                 (let pop ()
+                                   (let ((head (atomic-box-ref stack (memory-order acquire))))
+                                     (when (pair? head)
+                                       (if (eq? (atomic-box-compare-and-swap! stack head (cdr head) (memory-order acquire-release))
+                                                head)
+                                           (begin
+                                             (atomic-fxbox+/fetch! popped-sum (car head))
+                                             (atomic-fxbox+/fetch! popped-cnt 1))
+                                           (pop))))))
+                               (when (and (= tid 0) (= (modulo i 128) 127))
+                                 (##gc)))
+                             (iloop (+ i 1)))))))
+                     acc))))))
+  (for-each thread-join! threads)
+  ;; Drain remaining Treiber stack nodes
+  (let drain ()
+    (let ((head (atomic-box-ref stack)))
+      (when (pair? head)
+        (if (eq? (atomic-box-compare-and-swap! stack head (cdr head)) head)
+            (begin
+              (atomic-fxbox+/fetch! popped-sum (car head))
+              (atomic-fxbox+/fetch! popped-cnt 1)))
+        (drain))))
+  (test-equal (* w iters) (atomic-fxbox-ref popped-cnt))
+  (test-equal (atomic-fxbox-ref pushed-sum) (atomic-fxbox-ref popped-sum))
+  (test-equal (- (arithmetic-shift 1 w) 1) (atomic-fxbox-ref bits))
+  (call-with-values (lambda () (atomic-pair-ref stamped))
+    (lambda (cv cs)
+      (test-equal (* w iters) cv)
+      (test-equal (* w iters) cs))))
+
+;;;============================================================================

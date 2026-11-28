@@ -64,6 +64,18 @@
          ((##eq? ,order 'acquire-release) 3)
          (else (bad-memory-order ,order ,proc))))
 
+(##define-macro (macro-load-order->code order proc)
+  `(cond ((##eq? ,order 'acquire) 1)
+         ((##eq? ,order 'relaxed) 0)
+         ((##eq? ,order 'sequentially-consistent) 4)
+         (else (bad-memory-order ,order ,proc))))
+
+(##define-macro (macro-store-order->code order proc)
+  `(cond ((##eq? ,order 'release) 2)
+         ((##eq? ,order 'relaxed) 0)
+         ((##eq? ,order 'sequentially-consistent) 4)
+         (else (bad-memory-order ,order ,proc))))
+
 ;;;============================================================================
 ;;; Low-Level Inline GC-Barriered Vector-Slot Atomic Macros
 ;;;============================================================================
@@ -225,17 +237,30 @@
 
 ;;; Exported internal helpers for (gambit parallel) Chase-Lev ring buffer
 ;;; (prevents C23/TSan speculative stealer data races on wrapped ring slots).
+(##define-macro (macro-check-vector-index vec idx proc)
+  `(begin
+     (if (##not (##vector? ,vec))
+         (##raise-type-exception 1 'vector ,proc (##list ,vec ,idx)))
+     (if (##not (##fixnum? ,idx))
+         (##raise-type-exception 2 'fixnum ,proc (##list ,vec ,idx)))
+     (if (or (##fx< ,idx 0) (##fx>= ,idx (##vector-length ,vec)))
+         (##raise-range-exception 2 ,proc ,vec ,idx))))
+
 (define (vector-atomic-ref vec idx #!optional (order 'sequentially-consistent))
-  (macro-raw-slot-load vec idx (macro-order->code order vector-atomic-ref)))
+  (macro-check-vector-index vec idx vector-atomic-ref)
+  (macro-raw-slot-load vec idx (macro-load-order->code order vector-atomic-ref)))
 
 (define (vector-atomic-set! vec idx val #!optional (order 'sequentially-consistent))
-  (macro-raw-slot-exchange! vec idx val (macro-order->code order vector-atomic-set!))
+  (macro-check-vector-index vec idx vector-atomic-set!)
+  (macro-raw-slot-exchange! vec idx val (macro-store-order->code order vector-atomic-set!))
   (##void))
 
 (define (vector-atomic-swap! vec idx val #!optional (order 'sequentially-consistent))
+  (macro-check-vector-index vec idx vector-atomic-swap!)
   (macro-raw-slot-exchange! vec idx val (macro-order->code order vector-atomic-swap!)))
 
 (define (vector-atomic-cas! vec idx expected desired #!optional (order 'sequentially-consistent))
+  (macro-check-vector-index vec idx vector-atomic-cas!)
   (macro-raw-slot-cas! vec idx expected desired (macro-order->code order vector-atomic-cas!)))
 
 ;;;============================================================================
@@ -330,7 +355,7 @@
 
 (define (atomic-flag-clear! flag #!optional (order 'sequentially-consistent))
   (macro-check-flag flag atomic-flag-clear!)
-  (let ((code (macro-order->code order atomic-flag-clear!)))
+  (let ((code (macro-store-order->code order atomic-flag-clear!)))
     (macro-raw-fx-store! (macro-atomic-flag-cell flag) 0 0 code)
     (##void)))
 
@@ -350,7 +375,7 @@
   (macro-check-box box atomic-box-ref)
   (macro-raw-slot-load (macro-atomic-box-cell box)
                        0
-                       (macro-order->code order atomic-box-ref)))
+                       (macro-load-order->code order atomic-box-ref)))
 
 (define (atomic-box-set! box obj #!optional (order 'sequentially-consistent))
   (macro-check-box box atomic-box-set!)
@@ -359,7 +384,7 @@
   (macro-raw-slot-exchange! (macro-atomic-box-cell box)
                             0
                             obj
-                            (macro-order->code order atomic-box-set!))
+                            (macro-store-order->code order atomic-box-set!))
   (##void))
 
 (define (atomic-box-swap! box obj #!optional (order 'sequentially-consistent))
@@ -395,7 +420,7 @@
   (macro-check-fxbox fxbox atomic-fxbox-ref)
   (macro-raw-fx-load (macro-atomic-fxbox-cell fxbox)
                      0
-                     (macro-order->code order atomic-fxbox-ref)))
+                     (macro-load-order->code order atomic-fxbox-ref)))
 
 (define (atomic-fxbox-set! fxbox fx #!optional (order 'sequentially-consistent))
   (macro-check-fxbox fxbox atomic-fxbox-set!)
@@ -403,7 +428,7 @@
   (macro-raw-fx-store! (macro-atomic-fxbox-cell fxbox)
                        0
                        fx
-                       (macro-order->code order atomic-fxbox-set!))
+                       (macro-store-order->code order atomic-fxbox-set!))
   (##void))
 
 (define (atomic-fxbox-swap! fxbox fx #!optional (order 'sequentially-consistent))
@@ -470,7 +495,9 @@
 ;;;============================================================================
 
 (define (make-atomic-pair car-val cdr-val)
-  (macro-make-atomic-pair (##vector (##cons car-val cdr-val))))
+  (let ((cell (##make-vector 16 #f)))
+    (##vector-set! cell 0 (##cons car-val cdr-val))
+    (macro-make-atomic-pair cell)))
 
 (define (atomic-pair? obj)
   (macro-atomic-pair? obj))
@@ -479,7 +506,7 @@
   (macro-check-pair apair atomic-pair-ref)
   (let ((p (macro-raw-slot-load (macro-atomic-pair-cell apair)
                                 0
-                                (macro-order->code order atomic-pair-ref))))
+                                (macro-load-order->code order atomic-pair-ref))))
     (##values (##car p) (##cdr p))))
 
 (define (atomic-pair-set! apair car-val cdr-val
@@ -488,7 +515,7 @@
   (macro-raw-slot-exchange! (macro-atomic-pair-cell apair)
                             0
                             (##cons car-val cdr-val)
-                            (macro-order->code order atomic-pair-set!))
+                            (macro-store-order->code order atomic-pair-set!))
   (##void))
 
 (define (atomic-pair-swap! apair car-val cdr-val
@@ -503,17 +530,21 @@
 (define (atomic-pair-compare-and-swap! apair exp-car exp-cdr des-car des-cdr
                                        #!optional (order 'sequentially-consistent))
   (macro-check-pair apair atomic-pair-compare-and-swap!)
-  (let ((cell (macro-atomic-pair-cell apair))
-        (code (macro-order->code order atomic-pair-compare-and-swap!))
-        (desired (##cons des-car des-cdr)))
-    (let loop ((cur (macro-raw-slot-load cell 0 code)))
+  (let* ((cell (macro-atomic-pair-cell apair))
+         (code (macro-order->code order atomic-pair-compare-and-swap!))
+         ;; Map RMW release/acq_rel orders to valid load orders (relaxed/acquire)
+         ;; for the speculative read before CAS.
+         (load-code (if (##fx= code 2) 0 (if (##fx= code 3) 1 code))))
+    (let loop ((cur (macro-raw-slot-load cell 0 load-code))
+               (desired #f))
       (let ((c-car (##car cur))
             (c-cdr (##cdr cur)))
         (if (and (##eq? c-car exp-car) (##eq? c-cdr exp-cdr))
-            (let ((prev (macro-raw-slot-cas! cell 0 cur desired code)))
+            (let* ((des (or desired (##cons des-car des-cdr)))
+                   (prev (macro-raw-slot-cas! cell 0 cur des code)))
               (if (##eq? prev cur)
                   (##values c-car c-cdr)
-                  (loop prev)))
+                  (loop prev des)))
             (##values c-car c-cdr))))))
 
 (define atomic-fxbox+/fetch! atomic-fxbox-fetch-add!)
