@@ -58,15 +58,158 @@
 
 (macro-if-c-compiled
  (c-declare
-  "#ifdef __APPLE__
+  "#include <stdlib.h>
+#include <stdint.h>
+#ifdef __APPLE__
 #include <sys/sysctl.h>
 #include <pthread/qos.h>
+extern int __ulock_wait(uint32_t operation, void *addr, uint64_t value, uint32_t timeout);
+extern int __ulock_wake(uint32_t operation, void *addr, uint64_t wake_value);
+#define FIBER_UL_COMPARE_AND_WAIT 1u
+#define FIBER_ULF_WAKE_ALL        0x00000100u
+#define FIBER_ULF_NO_ERRNO        0x01000000u
+#elif defined(__linux__)
+#include <unistd.h>
+#include <time.h>
+#include <sys/syscall.h>
+#include <linux/futex.h>
 #endif
 #if defined(__APPLE__) || defined(__linux__) || defined(__unix__)
 #include <sched.h>
 #endif
+
+typedef struct {
+  uint32_t seq;
+  char pad1[124];
+  uint32_t waiters;
+  char pad2[124];
+} fiber_os_parker_t;
+
+static inline void fiber_parker_wake_one_ptr(fiber_os_parker_t *p, ___VOLATILE ___WORD *searching_p) {
+  if (!p) return;
+#ifdef __aarch64__
+  /* ARMv8-A RCsc: prior STLR (dq.tail/global-pending) + LDAR (waiters) is seq-cst ordered */
+  if (__atomic_load_n(&p->waiters, __ATOMIC_SEQ_CST) > 0u &&
+      (!searching_p || ___INT(___atomic_word_load(searching_p, 0)) == 0)) {
+#else
+  __atomic_thread_fence(__ATOMIC_SEQ_CST);
+  if (__atomic_load_n(&p->waiters, __ATOMIC_RELAXED) > 0u &&
+      (!searching_p || ___INT(___atomic_word_load(searching_p, 0)) == 0)) {
+#endif
+    __atomic_fetch_add(&p->seq, 1u, __ATOMIC_SEQ_CST);
+#ifdef __APPLE__
+    (void)__ulock_wake(FIBER_UL_COMPARE_AND_WAIT | FIBER_ULF_NO_ERRNO, &p->seq, 0);
+#elif defined(__linux__)
+    (void)syscall(SYS_futex, &p->seq, FUTEX_WAKE_PRIVATE, 1, NULL, NULL, 0);
+#endif
+  }
+}
+
+static inline void fiber_parker_wake_all_ptr(fiber_os_parker_t *p) {
+  if (!p) return;
+  __atomic_fetch_add(&p->seq, 1u, __ATOMIC_SEQ_CST);
+#ifdef __APPLE__
+  (void)__ulock_wake(FIBER_UL_COMPARE_AND_WAIT | FIBER_ULF_WAKE_ALL | FIBER_ULF_NO_ERRNO, &p->seq, 0);
+#elif defined(__linux__)
+  (void)syscall(SYS_futex, &p->seq, FUTEX_WAKE_PRIVATE, 0x7fffffff, NULL, NULL, 0);
+#endif
+}
 ")
  (begin))
+
+(define %parker-finish-wait-ffi!
+  (macro-if-c-compiled
+   (c-lambda (unsigned-int64 unsigned-int32) void
+     "fiber_os_parker_t *p = (fiber_os_parker_t *)(uintptr_t)___arg1;
+      uint32_t seq = ___arg2;
+      if (p) {
+        ___BEGIN_BLOCKING_FFI;
+#ifdef __APPLE__
+        (void)__ulock_wait(FIBER_UL_COMPARE_AND_WAIT | FIBER_ULF_NO_ERRNO, &p->seq, seq, 2000u);
+#elif defined(__linux__)
+        struct timespec ts;
+        ts.tv_sec = 0;
+        ts.tv_nsec = 2000000;
+        (void)syscall(SYS_futex, &p->seq, FUTEX_WAIT_PRIVATE, seq, &ts, NULL, 0);
+#else
+        sched_yield();
+#endif
+        ___END_BLOCKING_FFI;
+        __atomic_fetch_sub(&p->waiters, 1u, __ATOMIC_RELAXED);
+      }")
+   (lambda (addr seq) (thread-yield!))))
+
+(define (%make-parker)
+  (macro-if-c-compiled
+   (let ((v (make-u64vector 1 0)))
+     (##c-code
+      "fiber_os_parker_t *___p = (fiber_os_parker_t *)calloc(1, sizeof(fiber_os_parker_t));
+       (___CAST(___U64*, ___BODY_AS(___ARG1, ___tU64VECTOR)))[0] = (___U64)(uintptr_t)___p;
+       ___RESULT = ___VOID;"
+      v)
+     v)
+   #f))
+
+(define (%destroy-parker! parker)
+  (macro-if-c-compiled
+   (if parker
+       (##c-code
+        "___U64 *___vp = ___CAST(___U64*, ___BODY_AS(___ARG1, ___tU64VECTOR));
+         fiber_os_parker_t *___p = (fiber_os_parker_t *)(uintptr_t)___vp[0];
+         ___vp[0] = 0;
+         if (___p) free(___p);
+         ___RESULT = ___VOID;"
+        parker))
+   #!void))
+
+(define (%parker-wake-one! sched)
+  (macro-if-c-compiled
+   (let ((parker (%sched-parker sched)))
+     (if parker
+         (##c-code
+          "fiber_os_parker_t *___p = (fiber_os_parker_t *)(uintptr_t)(___CAST(___U64*, ___BODY_AS(___ARG1, ___tU64VECTOR)))[0];
+           ___VOLATILE ___WORD *___sp = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___ARG2, ___tVECTOR));
+           fiber_parker_wake_one_ptr(___p, ___sp);
+           ___RESULT = ___VOID;"
+          parker (%sched-searching sched))))
+   #!void))
+
+(define (%parker-wake-all! parker)
+  (macro-if-c-compiled
+   (if parker
+       (##c-code
+        "fiber_os_parker_t *___p = (fiber_os_parker_t *)(uintptr_t)(___CAST(___U64*, ___BODY_AS(___ARG1, ___tU64VECTOR)))[0];
+         fiber_parker_wake_all_ptr(___p);
+         ___RESULT = ___VOID;"
+        parker))
+   #!void))
+
+(define (%parker-begin-wait! parker)
+  (macro-if-c-compiled
+   (##c-code
+    "fiber_os_parker_t *___p = (fiber_os_parker_t *)(uintptr_t)(___CAST(___U64*, ___BODY_AS(___ARG1, ___tU64VECTOR)))[0];
+     uint32_t ___s = 0;
+     if (___p) {
+       ___s = __atomic_load_n(&___p->seq, __ATOMIC_ACQUIRE);
+       __atomic_fetch_add(&___p->waiters, 1u, __ATOMIC_SEQ_CST);
+     }
+     ___RESULT = ___FIX(___s);"
+    parker)
+   0))
+
+(define (%parker-abort-wait! parker)
+  (macro-if-c-compiled
+   (##c-code
+    "fiber_os_parker_t *___p = (fiber_os_parker_t *)(uintptr_t)(___CAST(___U64*, ___BODY_AS(___ARG1, ___tU64VECTOR)))[0];
+     if (___p) __atomic_fetch_sub(&___p->waiters, 1u, __ATOMIC_RELAXED);
+     ___RESULT = ___VOID;"
+    parker)
+   #!void))
+
+(define (%parker-finish-wait! parker seq)
+  (macro-if-c-compiled
+   (%parker-finish-wait-ffi! (u64vector-ref parker 0) seq)
+   (thread-yield!)))
 
 ;; Query physical performance-core count on heterogeneous Apple Silicon (e.g. 8 on 8P+4E),
 ;; falling back to VM processor count on homogeneous systems and non-C targets.
@@ -523,7 +666,9 @@
   (root-done      %sched-root-done)      ;; fxatom (0 -> 1)
   (root-box       %sched-root-box)       ;; box holding (ok? . val-or-exc)
   (searching      %sched-searching)      ;; 128B-padded count of active steal-searchers
-  (max-searching  %sched-max-searching)) ;; cap = max(1, W/2) preventing steal herds
+  (max-searching  %sched-max-searching)  ;; cap = max(1, W/2) preventing steal herds
+  (parker         %sched-parker)         ;; off-heap OS futex/ulock parker handle
+  (pcores         %sched-pcores))        ;; performance-core count for heterogeneous tiers
 
 (define-type %worker-ctx
   id: 8B1F3A70-9C24-4D6B-A5E1-F1B000000002
@@ -615,7 +760,8 @@
 ;; Global queue enqueue/dequeue maintaining global-pending >= global-q length.
 (define (%sched-enqueue-global! sched task)
   (%fxatom-add-acqrel! (%sched-global-pending sched) 1)
-  (lf-queue-enqueue! (%sched-global-q sched) task))
+  (lf-queue-enqueue! (%sched-global-q sched) task)
+  (%parker-wake-one! sched))
 
 (define (%sched-try-dequeue-global! sched)
   (let ((gp (%sched-global-pending sched)))
@@ -630,8 +776,10 @@
 
 ;; Push (task, nursery) pair to inline local deque (packing pair ONLY on 4096-overflow to global-q).
 (define (%sched-push-dq-pair! ctx task n)
-  (if (not (%dq-push-pair! (%wctx-dq ctx) task n))
-      (%sched-enqueue-global! (%wctx-sched ctx) (if n (cons task n) task))))
+  (let ((sched (%wctx-sched ctx)))
+    (if (%dq-push-pair! (%wctx-dq ctx) task n)
+        (%parker-wake-one! sched)
+        (%sched-enqueue-global! sched (if n (cons task n) task)))))
 
 (define (%sched-push-dq! ctx task)
   (%sched-push-dq-pair! ctx task #f))
@@ -1201,6 +1349,15 @@
            ___GC_WRITE_BARRIER(___ps, ___nbuf, ___ns, ___prev_n);
            ___atomic_word_store(___CAST(___VOLATILE ___WORD*, ___ns), ___CAST(___WORD, ___prev_n), 0);
            ___atomic_word_store(___tail_p, ___FIX(___t + 1), 2);
+           {
+             ___WORD *___sch_f = ___BODY_AS(___ctx_f[1], ___tSTRUCTURE);
+             ___SCMOBJ ___pk = ___sch_f[11];
+             if (___pk != ___FAL) {
+               fiber_os_parker_t *___pp = (fiber_os_parker_t *)(uintptr_t)(___CAST(___U64*, ___BODY_AS(___pk, ___tU64VECTOR)))[0];
+               ___VOLATILE ___WORD *___srch_p = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___sch_f[9], ___tVECTOR));
+               fiber_parker_wake_one_ptr(___pp, ___srch_p);
+             }
+           }
            ___RESULT = ___FAL;
          }
        }
@@ -1318,7 +1475,9 @@
      (let ((rxw (%make-padded-fxatom 0)))
        (##vector-set! rxw 1 #f)
        rxw)
-     (%make-padded-fxatom 0)
+     (let ((txw (%make-padded-fxatom 0)))
+       (##vector-set! txw 1 #f)
+       txw)
      (%make-fxatom 0)
      (%make-wait-q #f #f)
      (%make-wait-q #f #f))))
@@ -1336,6 +1495,19 @@
     ch)
    (fx> (%fxatom-load-seq (%ch-rx-waiters ch)) 0)))
 
+;; Check whether any sender is parked in either lock-free tx-fast (word 1) or swq (word 0).
+(define (%ch-tx-any-waiters-seq? ch)
+  (macro-if-c-compiled
+   (##c-code
+    "___WORD *___f = ___BODY_AS(___ARG1, ___tSTRUCTURE);
+     ___WORD *___txw_base = ___BODY_AS(___f[8], ___tVECTOR);
+     ___VOLATILE ___WORD *___txw_p = ___CAST(___VOLATILE ___WORD*, ___txw_base);
+     ___RESULT = (___gc_atomic_slot_load(___txw_base + 1, 4) != ___FAL ||
+                  ___INT(___atomic_word_load(___txw_p, 4)) > 0)
+                 ? ___TRU : ___FAL;"
+    ch)
+   (fx> (%fxatom-load-seq (%ch-tx-waiters ch)) 0)))
+
 ;; Lock-free CAS pop of the single-waiter rx-fast slot (word 1 of rx-waiters).
 (define (%ch-try-pop-rxfast-c! ch)
   (macro-if-c-compiled
@@ -1349,6 +1521,25 @@
                                ___EXT(___gc_write_barrier_slow),
                                ___EXT(___gc_satb_barrier_val)) == ___rk) {
        ___RESULT = ___rk;
+     } else {
+       ___RESULT = ___FAL;
+     }"
+    ch)
+   #f))
+
+;; Lock-free CAS pop of the single-waiter tx-fast slot (word 1 of tx-waiters).
+(define (%ch-try-pop-txfast-c! ch)
+  (macro-if-c-compiled
+   (##c-code
+    "___WORD *___f = ___BODY_AS(___ARG1, ___tSTRUCTURE);
+     ___SCMOBJ ___txw_vec = ___f[8];
+     ___WORD *___txf_p = ___BODY_AS(___txw_vec, ___tVECTOR) + 1;
+     ___SCMOBJ ___sk = ___gc_atomic_slot_load(___txf_p, 1);
+     if (___sk != ___FAL &&
+         ___gc_atomic_slot_cas(___ps, ___txw_vec, ___txf_p, ___sk, ___FAL, 3,
+                               ___EXT(___gc_write_barrier_slow),
+                               ___EXT(___gc_satb_barrier_val)) == ___sk) {
+       ___RESULT = ___sk;
      } else {
        ___RESULT = ___FAL;
      }"
@@ -1491,14 +1682,14 @@
           (loop)
           res))))
 
-;; Slow-path wakeups (called only when rx-fast occupied or waiter count > 0)
+;; Slow-path wakeups (called only when rx-fast/tx-fast occupied or waiter count > 0)
 (define (%ch-wake-one-receiver! ch)
   (let ((rk (%ch-try-pop-rxfast-c! ch)))
     (if rk
         (let ((item (%vyukov-try-pop-or! ch %CH-EMPTY)))
           (if (not (eq? item %CH-EMPTY))
               (begin
-                (if (fx> (%fxatom-load-seq (%ch-tx-waiters ch)) 0)
+                (if (%ch-tx-any-waiters-seq? ch)
                     (%ch-wake-one-sender! ch))
                 (%fk-val-set! rk item)
                 (%sched-push-lifo! (%carrier-wctx) rk))
@@ -1520,7 +1711,7 @@
           (if rk2
               (if (not (eq? item %CH-EMPTY))
                   (begin
-                    (if (fx> (%fxatom-load-seq (%ch-tx-waiters ch)) 0)
+                    (if (%ch-tx-any-waiters-seq? ch)
                         (%ch-wake-one-sender! ch))
                     (%fk-val-set! rk2 item)
                     (%sched-push-lifo! (%carrier-wctx) rk2))
@@ -1529,20 +1720,9 @@
                     (%sched-push-lifo! (%carrier-wctx) rk2))))))))
 
 (define (%ch-wake-one-sender! ch)
-  (let ((lock (%ch-lock ch))
-        (swq (%ch-send-waiters ch))
-        (txw (%ch-tx-waiters ch))
-        (sk #f)
-        (pushed? #f))
-    (%spin-lock! lock)
-    (if (not (%wq-empty? swq))
-        (begin
-          (set! sk (%wq-pop! swq))
-          (%fxatom-set-seq! txw (fx- (##vector-ref txw 0) 1))
-          (set! pushed? (%vyukov-try-push! ch (%fk-val sk)))))
-    (%spin-unlock! lock)
+  (let ((sk (%ch-try-pop-txfast-c! ch)))
     (if sk
-        (if pushed?
+        (if (%vyukov-try-push! ch (%fk-val sk))
             (begin
               (if (%ch-rx-any-waiters-seq? ch)
                   (%ch-wake-one-receiver! ch))
@@ -1550,7 +1730,29 @@
               (%sched-push-lifo! (%carrier-wctx) sk))
             (begin
               (%fk-val-set! sk %CH-RETRY)
-              (%sched-push-lifo! (%carrier-wctx) sk))))))
+              (%sched-push-lifo! (%carrier-wctx) sk)))
+        (let ((lock (%ch-lock ch))
+              (swq (%ch-send-waiters ch))
+              (txw (%ch-tx-waiters ch))
+              (sk2 #f)
+              (pushed? #f))
+          (%spin-lock! lock)
+          (if (not (%wq-empty? swq))
+              (begin
+                (set! sk2 (%wq-pop! swq))
+                (%fxatom-set-seq! txw (fx- (##vector-ref txw 0) 1))
+                (set! pushed? (%vyukov-try-push! ch (%fk-val sk2)))))
+          (%spin-unlock! lock)
+          (if sk2
+              (if pushed?
+                  (begin
+                    (if (%ch-rx-any-waiters-seq? ch)
+                        (%ch-wake-one-receiver! ch))
+                    (%fk-val-set! sk2 #t)
+                    (%sched-push-lifo! (%carrier-wctx) sk2))
+                  (begin
+                    (%fk-val-set! sk2 %CH-RETRY)
+                    (%sched-push-lifo! (%carrier-wctx) sk2))))))))
 
 ;; Single-C-block fused Dekker park-send for full buffered channels.
 ;; Returns: #t if parked cleanly, #f if race (ring freed or receiver parked),
@@ -1621,14 +1823,289 @@
     ch fk retry-tag)
    #f))
 
-;; Zero-closure multi-arg park receivers for buffered channels (cap > 0)
-(define (%park-send-buf-cont! raw-k ch val)
-  (let* ((ctx (%carrier-wctx))
-         (tc (%get-tc))
-         (fk (%alloc-fk! ctx raw-k tc val)))
-    (if (fx> (%wctx-nursery-batch ctx) 0) (%nursery-flush! ctx))
-    (if tc (%set-tc! #f))
-    (let ((fast (%ch-park-send-c! ch fk %CH-RETRY)))
+;; Single-C-block fused freelist pop + lock-free tx-fast Dekker park-send
+;; (with fallback to ch.lock + swq when tx-fast occupied) + straggler spill +
+;; zero-hop direct switch.
+;; Returns:
+;;   %fiber-k : parked cleanly and popped next runnable %fiber-k (fallback path)
+;;   1        : parked cleanly, caller dispatches via %sched-switch-next!
+;;   2        : race on swq path (ring freed or receiver parked); fk-pool untouched
+;;   3        : spinlock budget exhausted; fk-pool untouched
+;;   4        : fk-pool empty; caller allocates %fiber-k in Scheme
+;;   5        : pending nursery batch > 0; caller flushes in slow path
+;;   6        : race on tx-fast canceled via exchange; caller wakes ctx.picked-n with %CH-RETRY
+;;   7        : parked cleanly and spilled straggler lifo to dq; caller yields & switches
+(define (%ch-park-send-and-pop-c! ctx ch raw-k val)
+  (##declare (not interrupts-enabled))
+  (macro-if-c-compiled
+   (##c-code
+    "___WORD *___ctx_f = ___BODY_AS(___ARG1, ___tSTRUCTURE);
+     if (___INT(___ctx_f[14]) > 0) {
+       ___RESULT = ___FIX(5);
+     } else {
+       ___SCMOBJ ___fk = ___ctx_f[10];
+       if (___fk == ___FAL) {
+         ___RESULT = ___FIX(4);
+       } else {
+         ___WORD *___fk_head_f = ___BODY_AS(___fk, ___tSTRUCTURE);
+         ___SCMOBJ ___fk_type = ___fk_head_f[0];
+         ___WORD *___f = ___BODY_AS(___ARG2, ___tSTRUCTURE);
+         ___SCMOBJ ___txw_vec = ___f[8];
+         ___WORD *___txw_base = ___BODY_AS(___txw_vec, ___tVECTOR);
+         ___VOLATILE ___WORD *___txw_p = ___CAST(___VOLATILE ___WORD*, ___txw_base);
+         ___WORD *___txf_p = ___txw_base + 1;
+         ___WORD *___rxw_base = ___BODY_AS(___f[7], ___tVECTOR);
+         ___VOLATILE ___WORD *___rxw_p = ___CAST(___VOLATILE ___WORD*, ___rxw_base);
+         ___WORD *___rxf_p = ___rxw_base + 1;
+         ___WORD ___cap  = ___INT(___f[1]);
+         ___WORD ___mask = ___INT(___f[2]);
+         ___VOLATILE ___WORD *___seq_p  = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___f[4], ___tVECTOR));
+         ___VOLATILE ___WORD *___tail_p = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___f[5], ___tVECTOR));
+         int ___parked = 0;
+         int ___canceled = 0;
+         /* Fast path: lock-free single-waiter tx-fast slot (0 spinlocks!) */
+         if (___INT(___atomic_word_load(___rxw_p, 0)) == 0 &&
+             ___gc_atomic_slot_load(___rxf_p, 0) == ___FAL &&
+             ___gc_atomic_slot_load(___txf_p, 0) == ___FAL) {
+           ___WORD *___fk_f = ___fk_head_f;
+           ___SCMOBJ ___pool_nxt = ___fk_f[4];
+           ___GC_WRITE_BARRIER(___ps, ___fk, &___fk_f[1], ___ARG3);
+           ___WORD_STORE_RELAXED(&___fk_f[1], ___ARG3);
+           ___GC_WRITE_BARRIER(___ps, ___fk, &___fk_f[2], ___FAL);
+           ___WORD_STORE_RELAXED(&___fk_f[2], ___FAL);
+           ___GC_WRITE_BARRIER(___ps, ___fk, &___fk_f[3], ___ARG4);
+           ___WORD_STORE_RELAXED(&___fk_f[3], ___ARG4);
+           ___GC_WRITE_BARRIER(___ps, ___fk, &___fk_f[4], ___FAL);
+           ___WORD_STORE_RELAXED(&___fk_f[4], ___FAL);
+           if (___gc_atomic_slot_cas(___ps, ___txw_vec, ___txf_p, ___FAL, ___fk, 4,
+                                     ___EXT(___gc_write_barrier_slow),
+                                     ___EXT(___gc_satb_barrier_val)) == ___FAL) {
+             /* Commit private freelist pop */
+             ___GC_WRITE_BARRIER(___ps, ___ARG1, &___ctx_f[10], ___pool_nxt);
+             ___WORD_STORE_RELAXED(&___ctx_f[10], ___pool_nxt);
+             ___ctx_f[11] = ___FIX(___INT(___ctx_f[11]) - 1);
+             /* Dekker seq_cst re-check against ring pop & parked receivers */
+             ___WORD ___pos = ___INT(___atomic_word_load(___tail_p, 0));
+             ___WORD ___idx = (___mask >= 0) ? (___pos & ___mask) : (___pos % ___cap);
+             ___WORD ___s   = ___INT(___atomic_word_load(___seq_p + ___idx, 4));
+             ___WORD ___rxw2 = ___INT(___atomic_word_load(___rxw_p, 4));
+             ___SCMOBJ ___rxf2 = ___gc_atomic_slot_load(___rxf_p, 4);
+             if (___s - (___pos << 1) < 0 && ___rxw2 == 0 && ___rxf2 == ___FAL) {
+               ___parked = 1;
+             } else {
+               /* Race: ABA-free exchange cancel (never recycle or clear raw_k on prev!) */
+               ___SCMOBJ ___prev = ___gc_atomic_slot_exchange(
+                 ___ps, ___txw_vec, ___txf_p, ___FAL, 4,
+                 ___EXT(___gc_write_barrier_slow),
+                 ___EXT(___gc_satb_barrier_val));
+               if (___prev != ___FAL) {
+                 ___GC_WRITE_BARRIER(___ps, ___ARG1, &___ctx_f[16], ___prev);
+                 ___WORD_STORE_RELAXED(&___ctx_f[16], ___prev);
+                 ___canceled = 1;
+               } else {
+                 ___parked = 1;
+               }
+             }
+           } else {
+             ___GC_WRITE_BARRIER(___ps, ___fk, &___fk_f[1], ___FAL);
+             ___WORD_STORE_RELAXED(&___fk_f[1], ___FAL);
+             ___GC_WRITE_BARRIER(___ps, ___fk, &___fk_f[3], ___FAL);
+             ___WORD_STORE_RELAXED(&___fk_f[3], ___FAL);
+             ___GC_WRITE_BARRIER(___ps, ___fk, &___fk_f[4], ___pool_nxt);
+             ___WORD_STORE_RELAXED(&___fk_f[4], ___pool_nxt);
+           }
+         }
+         if (___canceled) {
+           ___RESULT = ___FIX(6);
+         } else if (!___parked) {
+           /* Fallback path: ch.lock + swq for >=2 concurrent parked senders */
+           ___VOLATILE ___WORD *___lock_p = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___f[9], ___tVECTOR));
+           int ___got = 0;
+           int ___i;
+           for (___i = 0; ___i < 64; ___i++) {
+             if (___atomic_word_cas(___lock_p, ___FIX(0), ___FIX(1), 1) == ___FIX(0)) {
+               ___got = 1;
+               break;
+             }
+#if defined(__aarch64__)
+             __asm__ __volatile__(\"yield\");
+#elif defined(__x86_64__) || defined(__i386__)
+             __asm__ __volatile__(\"pause\");
+#endif
+           }
+           if (!___got) {
+             ___RESULT = ___FIX(3);
+           } else {
+             ___WORD ___cur_txw = ___INT(___WORD_LOAD_RELAXED(___CAST(___WORD*, ___txw_p)));
+             ___atomic_word_store(___txw_p, ___FIX(___cur_txw + 1), 4);
+             ___WORD ___pos = ___INT(___atomic_word_load(___tail_p, 0));
+             ___WORD ___idx = (___mask >= 0) ? (___pos & ___mask) : (___pos % ___cap);
+             ___WORD ___s   = ___INT(___atomic_word_load(___seq_p + ___idx, 4));
+             ___SCMOBJ ___rwq = ___f[10];
+             ___WORD *___rwq_f = ___BODY_AS(___rwq, ___tSTRUCTURE);
+             if (___s - (___pos << 1) < 0 && ___rwq_f[1] == ___FAL &&
+                 ___gc_atomic_slot_load(___rxf_p, 4) == ___FAL) {
+               ___WORD *___fk_f = ___fk_head_f;
+               ___SCMOBJ ___pool_nxt = ___fk_f[4];
+               ___GC_WRITE_BARRIER(___ps, ___ARG1, &___ctx_f[10], ___pool_nxt);
+               ___WORD_STORE_RELAXED(&___ctx_f[10], ___pool_nxt);
+               ___ctx_f[11] = ___FIX(___INT(___ctx_f[11]) - 1);
+               ___GC_WRITE_BARRIER(___ps, ___fk, &___fk_f[1], ___ARG3);
+               ___WORD_STORE_RELAXED(&___fk_f[1], ___ARG3);
+               ___GC_WRITE_BARRIER(___ps, ___fk, &___fk_f[2], ___FAL);
+               ___WORD_STORE_RELAXED(&___fk_f[2], ___FAL);
+               ___GC_WRITE_BARRIER(___ps, ___fk, &___fk_f[3], ___ARG4);
+               ___WORD_STORE_RELAXED(&___fk_f[3], ___ARG4);
+               ___GC_WRITE_BARRIER(___ps, ___fk, &___fk_f[4], ___FAL);
+               ___WORD_STORE_RELAXED(&___fk_f[4], ___FAL);
+               ___SCMOBJ ___swq = ___f[11];
+               ___WORD *___swq_f = ___BODY_AS(___swq, ___tSTRUCTURE);
+               ___SCMOBJ ___t = ___swq_f[2];
+               if (___t == ___FAL) {
+                 ___GC_WRITE_BARRIER(___ps, ___swq, &___swq_f[1], ___fk);
+                 ___WORD_STORE_RELAXED(&___swq_f[1], ___fk);
+                 ___GC_WRITE_BARRIER(___ps, ___swq, &___swq_f[2], ___fk);
+                 ___WORD_STORE_RELAXED(&___swq_f[2], ___fk);
+               } else {
+                 ___WORD *___t_f = ___BODY_AS(___t, ___tSTRUCTURE);
+                 ___GC_WRITE_BARRIER(___ps, ___t, &___t_f[4], ___fk);
+                 ___WORD_STORE_RELAXED(&___t_f[4], ___fk);
+                 ___GC_WRITE_BARRIER(___ps, ___swq, &___swq_f[2], ___fk);
+                 ___WORD_STORE_RELAXED(&___swq_f[2], ___fk);
+               }
+               ___atomic_word_store(___lock_p, ___FIX(0), 2);
+               ___parked = 1;
+             } else {
+               ___atomic_word_store(___txw_p, ___FIX(___cur_txw), 4);
+               ___atomic_word_store(___lock_p, ___FIX(0), 2);
+               ___RESULT = ___FIX(2);
+             }
+           }
+         }
+         if (___parked) {
+           ___SCMOBJ ___lifo = ___ctx_f[6];
+           if (___lifo != ___FAL && ___STRUCTUREP(___lifo)) {
+             ___WORD ___ticks = ___INT(___ctx_f[8]);
+             ___WORD *___sch_f = ___BODY_AS(___ctx_f[1], ___tSTRUCTURE);
+             /* Idle-searcher-aware E-core straggler spill: expose private LIFO to idle P-cores */
+             if ((___ticks & 63) == 63 && ___INT(___ctx_f[2]) >= ___INT(___sch_f[12])) {
+               ___VOLATILE ___WORD *___srch_p = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___sch_f[9], ___tVECTOR));
+               ___SCMOBJ ___pk = ___sch_f[11];
+               fiber_os_parker_t *___pp = (___pk != ___FAL) ? (fiber_os_parker_t *)(uintptr_t)(___CAST(___U64*, ___BODY_AS(___pk, ___tU64VECTOR)))[0] : 0;
+               int ___idle_peer = (___INT(___atomic_word_load(___srch_p, 0)) > 0 ||
+                                   (___pp != 0 && __atomic_load_n(&___pp->waiters, __ATOMIC_RELAXED) > 0u));
+               if (___idle_peer) {
+                 ___WORD *___dq_f = ___BODY_AS(___ctx_f[3], ___tSTRUCTURE);
+                 ___VOLATILE ___WORD *___dh_p = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___dq_f[2], ___tVECTOR));
+                 ___VOLATILE ___WORD *___dt_p = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___dq_f[3], ___tVECTOR));
+                 ___WORD ___dt = ___INT(___atomic_word_load(___dt_p, 0));
+                 ___WORD ___dh = ___INT(___atomic_word_load(___dh_p, 1));
+                 if (___dt - ___dh < 4096) {
+                   ___SCMOBJ ___lbuf = ___dq_f[1];
+                   ___SCMOBJ ___lnbuf = ___dq_f[4];
+                   ___WORD ___didx = ___dt & 4095;
+                   ___WORD *___ds = ___BODY_AS(___lbuf, ___tVECTOR) + ___didx;
+                   ___WORD *___dns = ___BODY_AS(___lnbuf, ___tVECTOR) + ___didx;
+                   ___GC_WRITE_BARRIER(___ps, ___lbuf, ___ds, ___lifo);
+                   ___atomic_word_store(___CAST(___VOLATILE ___WORD*, ___ds), ___CAST(___WORD, ___lifo), 0);
+                   ___GC_WRITE_BARRIER(___ps, ___lnbuf, ___dns, ___FAL);
+                   ___atomic_word_store(___CAST(___VOLATILE ___WORD*, ___dns), ___CAST(___WORD, ___FAL), 0);
+                   ___atomic_word_store(___dt_p, ___FIX(___dt + 1), 2);
+                   fiber_parker_wake_one_ptr(___pp, ___srch_p);
+                   ___GC_WRITE_BARRIER(___ps, ___ARG1, &___ctx_f[6], ___FAL);
+                   ___WORD_STORE_RELAXED(&___ctx_f[6], ___FAL);
+                   ___ctx_f[8] = ___FIX(___ticks + 1);
+                   ___ctx_f[7] = ___FIX(0);
+                   ___RESULT = ___FIX(7);
+                   ___parked = 0;
+                 }
+               }
+             }
+             if (___parked) {
+               int ___need_global = 0;
+               if ((___ticks & 31) == 31) {
+                 ___VOLATILE ___WORD *___gp_p = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___sch_f[4], ___tVECTOR));
+                 if (___INT(___atomic_word_load(___gp_p, 0)) > 0) ___need_global = 1;
+               }
+               if (!___need_global) {
+                 ___WORD ___streak = ___INT(___ctx_f[7]);
+                 int ___ok_lifo = (___streak < 8);
+                 if (!___ok_lifo) {
+                   ___WORD *___dq_f = ___BODY_AS(___ctx_f[3], ___tSTRUCTURE);
+                   ___VOLATILE ___WORD *___dh_p = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___dq_f[2], ___tVECTOR));
+                   ___VOLATILE ___WORD *___dt_p = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___dq_f[3], ___tVECTOR));
+                   if (___atomic_word_load(___dh_p, 0) == ___atomic_word_load(___dt_p, 0)) ___ok_lifo = 1;
+                 }
+                 if (___ok_lifo) {
+                   ___ctx_f[8] = ___FIX(___ticks + 1);
+                   ___GC_WRITE_BARRIER(___ps, ___ARG1, &___ctx_f[6], ___FAL);
+                   ___WORD_STORE_RELAXED(&___ctx_f[6], ___FAL);
+                   ___ctx_f[7] = ___FIX((___streak < 8) ? (___streak + 1) : 8);
+                   ___WORD *___lf = ___BODY_AS(___lifo, ___tSTRUCTURE);
+                   if (___lf[0] == ___fk_type && ___lf[2] == ___FAL) {
+                     ___SCMOBJ ___nk = ___lf[1];
+                     ___SCMOBJ ___nval = ___lf[3];
+                     ___SCMOBJ ___phead = ___ctx_f[10];
+                     ___GC_WRITE_BARRIER(___ps, ___lifo, &___lf[1], ___FAL);
+                     ___WORD_STORE_RELAXED(&___lf[1], ___FAL);
+                     ___GC_WRITE_BARRIER(___ps, ___lifo, &___lf[3], ___FAL);
+                     ___WORD_STORE_RELAXED(&___lf[3], ___FAL);
+                     ___GC_WRITE_BARRIER(___ps, ___lifo, &___lf[4], ___phead);
+                     ___WORD_STORE_RELAXED(&___lf[4], ___phead);
+                     ___GC_WRITE_BARRIER(___ps, ___ARG1, &___ctx_f[10], ___lifo);
+                     ___WORD_STORE_RELAXED(&___ctx_f[10], ___lifo);
+                     ___ctx_f[11] = ___FIX(___INT(___ctx_f[11]) + 1);
+                     {
+                       ___WORD ___ra;
+                       ___WORD *___new_fp;
+                       if (___EXT(___try_return_oneshot_fiber_cont)(___ps, ___nk, &___ra, &___new_fp)) {
+                         ___SET_FP(___new_fp)
+                         ___SET_R1(___nval)
+#if ___NB_GVM_REGS > 2
+                         ___SET_R2(___FIX(0L))
+#endif
+#if ___NB_GVM_REGS > 3
+                         ___SET_R3(___FIX(0L))
+#endif
+#if ___NB_GVM_REGS > 4
+                         ___SET_R4(___FIX(0L))
+#endif
+                         ___JUMPEXTPRM(___NOTHING, ___ra)
+                       }
+                     }
+                     ___GC_WRITE_BARRIER(___ps, ___ARG1, &___ctx_f[10], ___phead);
+                     ___WORD_STORE_RELAXED(&___ctx_f[10], ___phead);
+                     ___ctx_f[11] = ___FIX(___INT(___ctx_f[11]) - 1);
+                     ___GC_WRITE_BARRIER(___ps, ___lifo, &___lf[1], ___nk);
+                     ___WORD_STORE_RELAXED(&___lf[1], ___nk);
+                     ___GC_WRITE_BARRIER(___ps, ___lifo, &___lf[3], ___nval);
+                     ___WORD_STORE_RELAXED(&___lf[3], ___nval);
+                     ___GC_WRITE_BARRIER(___ps, ___lifo, &___lf[4], ___FAL);
+                     ___WORD_STORE_RELAXED(&___lf[4], ___FAL);
+                   }
+                   ___RESULT = ___lifo;
+                 } else {
+                   ___RESULT = ___FIX(1);
+                 }
+               } else {
+                 ___RESULT = ___FIX(1);
+               }
+             }
+           } else {
+             ___RESULT = ___FIX(1);
+           }
+         }
+       }
+     }"
+    ctx ch raw-k val)
+   4))
+
+(define (%park-send-buf-slow! ctx raw-k tc ch val fast-code)
+  (if (fx> (%wctx-nursery-batch ctx) 0) (%nursery-flush! ctx))
+  (let ((fk (%alloc-fk! ctx raw-k tc val)))
+    (let ((fast (if (or (fx= fast-code 4) (fx= fast-code 5))
+                    (%ch-park-send-c! ch fk %CH-RETRY)
+                    (if (fx= fast-code 3) %CH-RETRY #f))))
       (if (not (eq? fast #t))
           (let ((lock (%ch-lock ch))
                 (rwq (%ch-recv-waiters ch))
@@ -1640,33 +2117,6 @@
             (%fxatom-set-seq! txw (fx+ (##vector-ref txw 0) 1))
             (%seq-cst-fence!)
             (cond
-              ((and (let* ((t (%fxatom-load-acq (%ch-tail ch)))
-                           (h (%fxatom-load-acq (%ch-head ch))))
-                      (fx= t h))
-                    (let ((rk-fast (%ch-try-pop-rxfast-c! ch)))
-                      (if rk-fast
-                          (begin
-                            (%fxatom-set-seq! txw (fx- (##vector-ref txw 0) 1))
-                            (%spin-unlock! lock)
-                            (%fk-val-set! rk-fast val)
-                            (%fk-val-set! fk #t)
-                            (%sched-push-lifo! ctx fk)
-                            (%sched-push-lifo! ctx rk-fast)
-                            #t)
-                          #f)))
-               #!void)
-              ((and (not (%wq-empty? rwq))
-                    (let* ((t (%fxatom-load-acq (%ch-tail ch)))
-                           (h (%fxatom-load-acq (%ch-head ch))))
-                      (fx= t h)))
-               (let ((rk (%wq-pop! rwq)))
-                 (%fxatom-set-seq! rxw (fx- (##vector-ref rxw 0) 1))
-                 (%fxatom-set-seq! txw (fx- (##vector-ref txw 0) 1))
-                 (%spin-unlock! lock)
-                 (%fk-val-set! rk val)
-                 (%fk-val-set! fk #t)
-                 (%sched-push-lifo! ctx fk)
-                 (%sched-push-lifo! ctx rk)))
               ((%vyukov-try-push! ch val)
                (%fxatom-set-seq! txw (fx- (##vector-ref txw 0) 1))
                (%spin-unlock! lock)
@@ -1674,10 +2124,62 @@
                    (%ch-wake-one-receiver! ch))
                (%fk-val-set! fk #t)
                (%sched-push-lifo! ctx fk))
+              ((let ((rk-fast (%ch-try-pop-rxfast-c! ch)))
+                 (if rk-fast
+                     (begin
+                       (%fxatom-set-seq! txw (fx- (##vector-ref txw 0) 1))
+                       (%spin-unlock! lock)
+                       (%fk-val-set! rk-fast %CH-RETRY)
+                       (%fk-val-set! fk %CH-RETRY)
+                       (%sched-push-lifo! ctx fk)
+                       (%sched-push-lifo! ctx rk-fast)
+                       #t)
+                     #f))
+               #!void)
+              ((not (%wq-empty? rwq))
+               (let ((rk (%wq-pop! rwq)))
+                 (%fxatom-set-seq! rxw (fx- (##vector-ref rxw 0) 1))
+                 (%fxatom-set-seq! txw (fx- (##vector-ref txw 0) 1))
+                 (%spin-unlock! lock)
+                 (%fk-val-set! rk %CH-RETRY)
+                 (%fk-val-set! fk %CH-RETRY)
+                 (%sched-push-lifo! ctx fk)
+                 (%sched-push-lifo! ctx rk)))
               (else
                (%wq-push! swq fk)
                (%spin-unlock! lock))))))
     (%sched-switch-next! ctx)))
+
+;; Zero-closure multi-arg park receivers for buffered channels (cap > 0)
+(define (%park-send-buf-cont! raw-k ch val)
+  (let ((ctx (%carrier-wctx))
+        (tc (%get-tc)))
+    (if tc
+        (begin
+          (%set-tc! #f)
+          (%park-send-buf-slow! ctx raw-k tc ch val 4))
+        (let ((res (%ch-park-send-and-pop-c! ctx ch raw-k val)))
+          (cond
+            ((%fiber-k? res)
+             (let ((nk (%fk-raw-k res))
+                   (ntc (%fk-tc res))
+                   (nval (%fk-val res)))
+               (%free-fk! ctx res)
+               (if ntc (%set-tc! ntc))
+               (%return-oneshot! nk nval)))
+            ((fx= res 1)
+             (%sched-switch-next! ctx))
+            ((fx= res 6)
+             (let ((w (%wctx-picked-n ctx)))
+               (%wctx-picked-n-set! ctx #f)
+               (%fk-val-set! w %CH-RETRY)
+               (%sched-push-lifo! ctx w)
+               (%sched-switch-next! ctx)))
+            ((fx= res 7)
+             (%os-sched-yield!)
+             (%sched-switch-next! ctx))
+            (else
+             (%park-send-buf-slow! ctx raw-k #f ch val res)))))))
 
 ;; Single-C-block fused Dekker park-recv for empty buffered channels.
 ;; Returns: #t if parked cleanly, #f if race (item arrived or sender parked),
@@ -1715,7 +2217,9 @@
        ___WORD ___s   = ___INT(___atomic_word_load(___seq_p + ___idx, 4));
        ___SCMOBJ ___swq = ___f[11];
        ___WORD *___swq_f = ___BODY_AS(___swq, ___tSTRUCTURE);
-       if (___s - ((___pos << 1) + 1) < 0 && ___swq_f[1] == ___FAL) {
+       ___WORD *___txf_p = ___BODY_AS(___f[8], ___tVECTOR) + 1;
+       if (___s - ((___pos << 1) + 1) < 0 && ___swq_f[1] == ___FAL &&
+           ___gc_atomic_slot_load(___txf_p, 4) == ___FAL) {
          ___SCMOBJ ___rwq = ___f[10];
          ___WORD *___rwq_f = ___BODY_AS(___rwq, ___tSTRUCTURE);
          ___SCMOBJ ___fk = ___ARG2;
@@ -1755,7 +2259,7 @@
 ;;   3        : spinlock budget exhausted; fk-pool untouched
 ;;   4        : fk-pool empty; caller allocates %fiber-k in Scheme
 ;;   5        : pending nursery batch > 0; caller flushes in slow path
-;;   6        : race on rx-fast canceled cleanly (fk recycled); caller returns %CH-RETRY
+;;   6        : race on rx-fast canceled via exchange; caller wakes ctx.picked-n with %CH-RETRY
 (define (%ch-park-recv-and-pop-c! ctx ch raw-k)
   (##declare (not interrupts-enabled))
   (macro-if-c-compiled
@@ -1775,7 +2279,9 @@
          ___WORD *___rxw_base = ___BODY_AS(___rxw_vec, ___tVECTOR);
          ___VOLATILE ___WORD *___rxw_p = ___CAST(___VOLATILE ___WORD*, ___rxw_base);
          ___WORD *___rxf_p = ___rxw_base + 1;
-         ___VOLATILE ___WORD *___txw_p = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___f[8], ___tVECTOR));
+         ___WORD *___txw_base = ___BODY_AS(___f[8], ___tVECTOR);
+         ___VOLATILE ___WORD *___txw_p = ___CAST(___VOLATILE ___WORD*, ___txw_base);
+         ___WORD *___txf_p = ___txw_base + 1;
          ___WORD ___cap  = ___INT(___f[1]);
          ___WORD ___mask = ___INT(___f[2]);
          ___VOLATILE ___WORD *___seq_p  = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___f[4], ___tVECTOR));
@@ -1784,6 +2290,7 @@
          int ___canceled = 0;
          /* Fast path: lock-free single-waiter rx-fast slot (0 spinlocks!) */
          if (___INT(___atomic_word_load(___txw_p, 0)) == 0 &&
+             ___gc_atomic_slot_load(___txf_p, 0) == ___FAL &&
              ___gc_atomic_slot_load(___rxf_p, 0) == ___FAL) {
            ___WORD *___fk_f = ___fk_head_f;
            ___SCMOBJ ___pool_nxt = ___fk_f[4];
@@ -1807,21 +2314,18 @@
              ___WORD ___idx = (___mask >= 0) ? (___pos & ___mask) : (___pos % ___cap);
              ___WORD ___s   = ___INT(___atomic_word_load(___seq_p + ___idx, 4));
              ___WORD ___txw2 = ___INT(___atomic_word_load(___txw_p, 4));
-             if (___s - ((___pos << 1) + 1) < 0 && ___txw2 == 0) {
+             ___SCMOBJ ___txf2 = ___gc_atomic_slot_load(___txf_p, 4);
+             if (___s - ((___pos << 1) + 1) < 0 && ___txw2 == 0 && ___txf2 == ___FAL) {
                ___parked = 1;
              } else {
-               /* Race: attempt lock-free cancel CAS(rx-fast, fk -> #f) */
-               if (___gc_atomic_slot_cas(___ps, ___rxw_vec, ___rxf_p, ___fk, ___FAL, 4,
-                                         ___EXT(___gc_write_barrier_slow),
-                                         ___EXT(___gc_satb_barrier_val)) == ___fk) {
-                 /* Exclusive cancel succeeded: recycle fk back to private pool */
-                 ___GC_WRITE_BARRIER(___ps, ___fk, &___fk_f[1], ___FAL);
-                 ___WORD_STORE_RELAXED(&___fk_f[1], ___FAL);
-                 ___GC_WRITE_BARRIER(___ps, ___fk, &___fk_f[4], ___pool_nxt);
-                 ___WORD_STORE_RELAXED(&___fk_f[4], ___pool_nxt);
-                 ___GC_WRITE_BARRIER(___ps, ___ARG1, &___ctx_f[10], ___fk);
-                 ___WORD_STORE_RELAXED(&___ctx_f[10], ___fk);
-                 ___ctx_f[11] = ___FIX(___INT(___ctx_f[11]) + 1);
+               /* Race: ABA-free exchange cancel (never recycle or clear raw_k on prev!) */
+               ___SCMOBJ ___prev = ___gc_atomic_slot_exchange(
+                 ___ps, ___rxw_vec, ___rxf_p, ___FAL, 4,
+                 ___EXT(___gc_write_barrier_slow),
+                 ___EXT(___gc_satb_barrier_val));
+               if (___prev != ___FAL) {
+                 ___GC_WRITE_BARRIER(___ps, ___ARG1, &___ctx_f[16], ___prev);
+                 ___WORD_STORE_RELAXED(&___ctx_f[16], ___prev);
                  ___canceled = 1;
                } else {
                  /* Sender already claimed fk and will resume it */
@@ -1864,7 +2368,8 @@
              ___WORD ___s   = ___INT(___atomic_word_load(___seq_p + ___idx, 4));
              ___SCMOBJ ___swq = ___f[11];
              ___WORD *___swq_f = ___BODY_AS(___swq, ___tSTRUCTURE);
-             if (___s - ((___pos << 1) + 1) < 0 && ___swq_f[1] == ___FAL) {
+             if (___s - ((___pos << 1) + 1) < 0 && ___swq_f[1] == ___FAL &&
+                 ___gc_atomic_slot_load(___txf_p, 4) == ___FAL) {
                ___WORD *___fk_f = ___fk_head_f;
                ___SCMOBJ ___pool_nxt = ___fk_f[4];
                ___GC_WRITE_BARRIER(___ps, ___ARG1, &___ctx_f[10], ___pool_nxt);
@@ -1903,78 +2408,114 @@
            }
          }
          if (___parked) {
-           /* Fused LIFO direct-switch candidate check + zero-hop jump */
+           /* Fused LIFO direct-switch candidate check + straggler spill + zero-hop jump */
            ___SCMOBJ ___lifo = ___ctx_f[6];
            if (___lifo != ___FAL && ___STRUCTUREP(___lifo)) {
              ___WORD ___ticks = ___INT(___ctx_f[8]);
-             int ___need_global = 0;
-             if ((___ticks & 31) == 31) {
-               ___WORD *___sch_f = ___BODY_AS(___ctx_f[1], ___tSTRUCTURE);
-               ___VOLATILE ___WORD *___gp_p = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___sch_f[4], ___tVECTOR));
-               if (___INT(___atomic_word_load(___gp_p, 0)) > 0) ___need_global = 1;
-             }
-             if (!___need_global) {
-               ___WORD ___streak = ___INT(___ctx_f[7]);
-               int ___ok_lifo = (___streak < 8);
-               if (!___ok_lifo) {
+             ___WORD *___sch_f = ___BODY_AS(___ctx_f[1], ___tSTRUCTURE);
+             /* Idle-searcher-aware E-core straggler spill: expose private LIFO to idle P-cores */
+             if ((___ticks & 63) == 63 && ___INT(___ctx_f[2]) >= ___INT(___sch_f[12])) {
+               ___VOLATILE ___WORD *___srch_p = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___sch_f[9], ___tVECTOR));
+               ___SCMOBJ ___pk = ___sch_f[11];
+               fiber_os_parker_t *___pp = (___pk != ___FAL) ? (fiber_os_parker_t *)(uintptr_t)(___CAST(___U64*, ___BODY_AS(___pk, ___tU64VECTOR)))[0] : 0;
+               int ___idle_peer = (___INT(___atomic_word_load(___srch_p, 0)) > 0 ||
+                                   (___pp != 0 && __atomic_load_n(&___pp->waiters, __ATOMIC_RELAXED) > 0u));
+               if (___idle_peer) {
                  ___WORD *___dq_f = ___BODY_AS(___ctx_f[3], ___tSTRUCTURE);
                  ___VOLATILE ___WORD *___dh_p = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___dq_f[2], ___tVECTOR));
                  ___VOLATILE ___WORD *___dt_p = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___dq_f[3], ___tVECTOR));
-                 if (___atomic_word_load(___dh_p, 0) == ___atomic_word_load(___dt_p, 0)) ___ok_lifo = 1;
+                 ___WORD ___dt = ___INT(___atomic_word_load(___dt_p, 0));
+                 ___WORD ___dh = ___INT(___atomic_word_load(___dh_p, 1));
+                 if (___dt - ___dh < 4096) {
+                   ___SCMOBJ ___lbuf = ___dq_f[1];
+                   ___SCMOBJ ___lnbuf = ___dq_f[4];
+                   ___WORD ___didx = ___dt & 4095;
+                   ___WORD *___ds = ___BODY_AS(___lbuf, ___tVECTOR) + ___didx;
+                   ___WORD *___dns = ___BODY_AS(___lnbuf, ___tVECTOR) + ___didx;
+                   ___GC_WRITE_BARRIER(___ps, ___lbuf, ___ds, ___lifo);
+                   ___atomic_word_store(___CAST(___VOLATILE ___WORD*, ___ds), ___CAST(___WORD, ___lifo), 0);
+                   ___GC_WRITE_BARRIER(___ps, ___lnbuf, ___dns, ___FAL);
+                   ___atomic_word_store(___CAST(___VOLATILE ___WORD*, ___dns), ___CAST(___WORD, ___FAL), 0);
+                   ___atomic_word_store(___dt_p, ___FIX(___dt + 1), 2);
+                   fiber_parker_wake_one_ptr(___pp, ___srch_p);
+                   ___GC_WRITE_BARRIER(___ps, ___ARG1, &___ctx_f[6], ___FAL);
+                   ___WORD_STORE_RELAXED(&___ctx_f[6], ___FAL);
+                   ___ctx_f[8] = ___FIX(___ticks + 1);
+                   ___ctx_f[7] = ___FIX(0);
+                   ___RESULT = ___FIX(7);
+                   ___parked = 0;
+                 }
                }
-               if (___ok_lifo) {
-                 ___ctx_f[8] = ___FIX(___ticks + 1);
-                 ___GC_WRITE_BARRIER(___ps, ___ARG1, &___ctx_f[6], ___FAL);
-                 ___WORD_STORE_RELAXED(&___ctx_f[6], ___FAL);
-                 ___ctx_f[7] = ___FIX((___streak < 8) ? (___streak + 1) : 8);
-                 ___WORD *___lf = ___BODY_AS(___lifo, ___tSTRUCTURE);
-                 if (___lf[0] == ___fk_type && ___lf[2] == ___FAL) {
-                   ___SCMOBJ ___nk = ___lf[1];
-                   ___SCMOBJ ___nval = ___lf[3];
-                   ___SCMOBJ ___phead = ___ctx_f[10];
-                   ___GC_WRITE_BARRIER(___ps, ___lifo, &___lf[1], ___FAL);
-                   ___WORD_STORE_RELAXED(&___lf[1], ___FAL);
-                   ___GC_WRITE_BARRIER(___ps, ___lifo, &___lf[3], ___FAL);
-                   ___WORD_STORE_RELAXED(&___lf[3], ___FAL);
-                   ___GC_WRITE_BARRIER(___ps, ___lifo, &___lf[4], ___phead);
-                   ___WORD_STORE_RELAXED(&___lf[4], ___phead);
-                   ___GC_WRITE_BARRIER(___ps, ___ARG1, &___ctx_f[10], ___lifo);
-                   ___WORD_STORE_RELAXED(&___ctx_f[10], ___lifo);
-                   ___ctx_f[11] = ___FIX(___INT(___ctx_f[11]) + 1);
-                   {
-                     ___WORD ___ra;
-                     ___WORD *___new_fp;
-                     if (___EXT(___try_return_oneshot_fiber_cont)(___ps, ___nk, &___ra, &___new_fp)) {
-                       ___SET_FP(___new_fp)
-                       ___SET_R1(___nval)
+             }
+             if (___parked) {
+               int ___need_global = 0;
+               if ((___ticks & 31) == 31) {
+                 ___VOLATILE ___WORD *___gp_p = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___sch_f[4], ___tVECTOR));
+                 if (___INT(___atomic_word_load(___gp_p, 0)) > 0) ___need_global = 1;
+               }
+               if (!___need_global) {
+                 ___WORD ___streak = ___INT(___ctx_f[7]);
+                 int ___ok_lifo = (___streak < 8);
+                 if (!___ok_lifo) {
+                   ___WORD *___dq_f = ___BODY_AS(___ctx_f[3], ___tSTRUCTURE);
+                   ___VOLATILE ___WORD *___dh_p = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___dq_f[2], ___tVECTOR));
+                   ___VOLATILE ___WORD *___dt_p = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___dq_f[3], ___tVECTOR));
+                   if (___atomic_word_load(___dh_p, 0) == ___atomic_word_load(___dt_p, 0)) ___ok_lifo = 1;
+                 }
+                 if (___ok_lifo) {
+                   ___ctx_f[8] = ___FIX(___ticks + 1);
+                   ___GC_WRITE_BARRIER(___ps, ___ARG1, &___ctx_f[6], ___FAL);
+                   ___WORD_STORE_RELAXED(&___ctx_f[6], ___FAL);
+                   ___ctx_f[7] = ___FIX((___streak < 8) ? (___streak + 1) : 8);
+                   ___WORD *___lf = ___BODY_AS(___lifo, ___tSTRUCTURE);
+                   if (___lf[0] == ___fk_type && ___lf[2] == ___FAL) {
+                     ___SCMOBJ ___nk = ___lf[1];
+                     ___SCMOBJ ___nval = ___lf[3];
+                     ___SCMOBJ ___phead = ___ctx_f[10];
+                     ___GC_WRITE_BARRIER(___ps, ___lifo, &___lf[1], ___FAL);
+                     ___WORD_STORE_RELAXED(&___lf[1], ___FAL);
+                     ___GC_WRITE_BARRIER(___ps, ___lifo, &___lf[3], ___FAL);
+                     ___WORD_STORE_RELAXED(&___lf[3], ___FAL);
+                     ___GC_WRITE_BARRIER(___ps, ___lifo, &___lf[4], ___phead);
+                     ___WORD_STORE_RELAXED(&___lf[4], ___phead);
+                     ___GC_WRITE_BARRIER(___ps, ___ARG1, &___ctx_f[10], ___lifo);
+                     ___WORD_STORE_RELAXED(&___ctx_f[10], ___lifo);
+                     ___ctx_f[11] = ___FIX(___INT(___ctx_f[11]) + 1);
+                     {
+                       ___WORD ___ra;
+                       ___WORD *___new_fp;
+                       if (___EXT(___try_return_oneshot_fiber_cont)(___ps, ___nk, &___ra, &___new_fp)) {
+                         ___SET_FP(___new_fp)
+                         ___SET_R1(___nval)
 #if ___NB_GVM_REGS > 2
-                       ___SET_R2(___FIX(0L))
+                         ___SET_R2(___FIX(0L))
 #endif
 #if ___NB_GVM_REGS > 3
-                       ___SET_R3(___FIX(0L))
+                         ___SET_R3(___FIX(0L))
 #endif
 #if ___NB_GVM_REGS > 4
-                       ___SET_R4(___FIX(0L))
+                         ___SET_R4(___FIX(0L))
 #endif
-                       ___JUMPEXTPRM(___NOTHING, ___ra)
+                         ___JUMPEXTPRM(___NOTHING, ___ra)
+                       }
                      }
+                     ___GC_WRITE_BARRIER(___ps, ___ARG1, &___ctx_f[10], ___phead);
+                     ___WORD_STORE_RELAXED(&___ctx_f[10], ___phead);
+                     ___ctx_f[11] = ___FIX(___INT(___ctx_f[11]) - 1);
+                     ___GC_WRITE_BARRIER(___ps, ___lifo, &___lf[1], ___nk);
+                     ___WORD_STORE_RELAXED(&___lf[1], ___nk);
+                     ___GC_WRITE_BARRIER(___ps, ___lifo, &___lf[3], ___nval);
+                     ___WORD_STORE_RELAXED(&___lf[3], ___nval);
+                     ___GC_WRITE_BARRIER(___ps, ___lifo, &___lf[4], ___FAL);
+                     ___WORD_STORE_RELAXED(&___lf[4], ___FAL);
                    }
-                   ___GC_WRITE_BARRIER(___ps, ___ARG1, &___ctx_f[10], ___phead);
-                   ___WORD_STORE_RELAXED(&___ctx_f[10], ___phead);
-                   ___ctx_f[11] = ___FIX(___INT(___ctx_f[11]) - 1);
-                   ___GC_WRITE_BARRIER(___ps, ___lifo, &___lf[1], ___nk);
-                   ___WORD_STORE_RELAXED(&___lf[1], ___nk);
-                   ___GC_WRITE_BARRIER(___ps, ___lifo, &___lf[3], ___nval);
-                   ___WORD_STORE_RELAXED(&___lf[3], ___nval);
-                   ___GC_WRITE_BARRIER(___ps, ___lifo, &___lf[4], ___FAL);
-                   ___WORD_STORE_RELAXED(&___lf[4], ___FAL);
+                   ___RESULT = ___lifo;
+                 } else {
+                   ___RESULT = ___FIX(1);
                  }
-                 ___RESULT = ___lifo;
                } else {
                  ___RESULT = ___FIX(1);
                }
-             } else {
-               ___RESULT = ___FIX(1);
              }
            } else {
              ___RESULT = ___FIX(1);
@@ -2006,18 +2547,29 @@
                 ((not (eq? item %CH-EMPTY))
                  (%fxatom-set-seq! rxw (fx- (##vector-ref rxw 0) 1))
                  (%spin-unlock! lock)
-                 (if (fx> (%fxatom-load-seq txw) 0)
+                 (if (%ch-tx-any-waiters-seq? ch)
                      (%ch-wake-one-sender! ch))
                  (%fk-val-set! fk item)
                  (%sched-push-lifo! ctx fk))
+                ((let ((sk-fast (%ch-try-pop-txfast-c! ch)))
+                   (if sk-fast
+                       (begin
+                         (%fxatom-set-seq! rxw (fx- (##vector-ref rxw 0) 1))
+                         (%spin-unlock! lock)
+                         (%fk-val-set! sk-fast %CH-RETRY)
+                         (%fk-val-set! fk %CH-RETRY)
+                         (%sched-push-lifo! ctx sk-fast)
+                         (%sched-push-lifo! ctx fk)
+                         #t)
+                       #f))
+                 #!void)
                 ((not (%wq-empty? swq))
-                 (let* ((sk (%wq-pop! swq))
-                        (sval (%fk-val sk)))
+                 (let ((sk (%wq-pop! swq)))
                    (%fxatom-set-seq! txw (fx- (##vector-ref txw 0) 1))
                    (%fxatom-set-seq! rxw (fx- (##vector-ref rxw 0) 1))
                    (%spin-unlock! lock)
-                   (%fk-val-set! sk #t)
-                   (%fk-val-set! fk sval)
+                   (%fk-val-set! sk %CH-RETRY)
+                   (%fk-val-set! fk %CH-RETRY)
                    (%sched-push-lifo! ctx sk)
                    (%sched-push-lifo! ctx fk)))
                 (else
@@ -2044,7 +2596,14 @@
             ((fx= res 1)
              (%sched-switch-next! ctx))
             ((fx= res 6)
-             (%return-oneshot! raw-k %CH-RETRY))
+             (let ((w (%wctx-picked-n ctx)))
+               (%wctx-picked-n-set! ctx #f)
+               (%fk-val-set! w %CH-RETRY)
+               (%sched-push-lifo! ctx w)
+               (%sched-switch-next! ctx)))
+            ((fx= res 7)
+             (%os-sched-yield!)
+             (%sched-switch-next! ctx))
             (else
              (%park-recv-buf-slow! ctx raw-k #f ch res)))))))
 
@@ -2396,7 +2955,7 @@
         (cond
           ((eq? item %CH-EMPTY) (%fiber-recv-park! ch))
           ((eq? item %CH-RETRY) (%fiber-recv-slow! ch))
-          ((fx= (%fxatom-load-seq (%ch-tx-waiters ch)) 0) item)
+          ((not (%ch-tx-any-waiters-seq? ch)) item)
           (else (%fiber-recv-wake-and-ret! ch item))))))
 
 ;;;----------------------------------------------------------------------------
@@ -2426,6 +2985,8 @@
                       (begin
                         (%wctx-steal-cursor-set! ctx v)
                         (%sched-release-search! sched)
+                        ;; Unconditional steal-cascade wakeup when last searcher transitions 1 -> 0
+                        (%parker-wake-one! sched)
                         task)
                       (let ((nxt (fx+ v 1)))
                         (loop (fx+ tried 1)
@@ -2493,46 +3054,47 @@
 ;; global-pending-guarded 32-tick fairness skip, empty-deque LIFO-streak bypass,
 ;; direct %dq-pop! switch, and lazy #f control-state restore.
 (define (%sched-switch-next! ctx)
-  (let* ((ticks (%wctx-ticks ctx))
-         (lifo (%wctx-lifo ctx))
-         (streak (%wctx-lifo-streak ctx))
-         (dq (%wctx-dq ctx))
-         (need-global (and (fx= (fxand ticks 31) 31)
-                           (fx> (%fxatom-load-rlx (%sched-global-pending (%wctx-sched ctx))) 0))))
+  (let ((ticks (%wctx-ticks ctx)))
     (if (and (fx= (fxand ticks 15) 15) (fx> (%wctx-nursery-batch ctx) 0))
         (%nursery-flush! ctx))
-    (if (and lifo
-             (%fiber-k? lifo)
-             (not need-global)
-             (or (fx< streak %MAX-LIFO-STREAK) (%dq-empty-rlx? dq)))
-        (let ((raw-k (%fk-raw-k lifo))
-              (tc (%fk-tc lifo))
-              (val (%fk-val lifo)))
-          (%wctx-ticks-set! ctx (fx+ ticks 1))
-          (%wctx-lifo-set! ctx #f)
-          (%wctx-lifo-streak-set! ctx
-            (if (fx< streak %MAX-LIFO-STREAK) (fx+ streak 1) %MAX-LIFO-STREAK))
-          (%free-fk! ctx lifo)
-          (if tc (%set-tc! tc))
-          (%return-oneshot! raw-k val))
-        (if (and (not need-global)
-                 (not (%dq-empty-rlx? dq)))
-            (let ((t (%dq-pop! ctx)))
-              (if t
-                  (begin
-                    (%wctx-ticks-set! ctx (fx+ ticks 1))
-                    (%wctx-lifo-streak-set! ctx 0)
-                    (if (%fiber-k? t)
-                        (let ((raw-k (%fk-raw-k t))
-                              (tc (%fk-tc t))
-                              (val (%fk-val t)))
-                          (%free-fk! ctx t)
-                          (if tc (%set-tc! tc))
-                          (%return-oneshot! raw-k val))
-                        (##continuation-graft-no-winding
-                         (%wctx-sched-k ctx) %worker-run-task ctx t (%wctx-picked-n ctx))))
-                  (##continuation-graft-no-winding (%wctx-sched-k ctx) %worker-dispatch ctx 0)))
-            (##continuation-graft-no-winding (%wctx-sched-k ctx) %worker-dispatch ctx 0)))))
+    (let* ((lifo (%wctx-lifo ctx))
+           (streak (%wctx-lifo-streak ctx))
+           (dq (%wctx-dq ctx))
+           (need-global (and (fx= (fxand ticks 31) 31)
+                             (fx> (%fxatom-load-rlx (%sched-global-pending (%wctx-sched ctx))) 0))))
+      (if (and lifo
+               (%fiber-k? lifo)
+               (not need-global)
+               (or (fx< streak %MAX-LIFO-STREAK) (%dq-empty-rlx? dq)))
+          (let ((raw-k (%fk-raw-k lifo))
+                (tc (%fk-tc lifo))
+                (val (%fk-val lifo)))
+            (%wctx-ticks-set! ctx (fx+ ticks 1))
+            (%wctx-lifo-set! ctx #f)
+            (%wctx-lifo-n-set! ctx #f)
+            (%wctx-lifo-streak-set! ctx
+              (if (fx< streak %MAX-LIFO-STREAK) (fx+ streak 1) %MAX-LIFO-STREAK))
+            (%free-fk! ctx lifo)
+            (if tc (%set-tc! tc))
+            (%return-oneshot! raw-k val))
+          (if (and (not need-global)
+                   (not (%dq-empty-rlx? dq)))
+              (let ((t (%dq-pop! ctx)))
+                (if t
+                    (begin
+                      (%wctx-ticks-set! ctx (fx+ ticks 1))
+                      (%wctx-lifo-streak-set! ctx 0)
+                      (if (%fiber-k? t)
+                          (let ((raw-k (%fk-raw-k t))
+                                (tc (%fk-tc t))
+                                (val (%fk-val t)))
+                            (%free-fk! ctx t)
+                            (if tc (%set-tc! tc))
+                            (%return-oneshot! raw-k val))
+                          (##continuation-graft-no-winding
+                           (%wctx-sched-k ctx) %worker-run-task ctx t (%wctx-picked-n ctx))))
+                    (##continuation-graft-no-winding (%wctx-sched-k ctx) %worker-dispatch ctx 0)))
+              (##continuation-graft-no-winding (%wctx-sched-k ctx) %worker-dispatch ctx 0))))))
 
 (define (%worker-run-task ctx task n)
   (cond
@@ -2569,21 +3131,56 @@
        (%fxatom-inc-owner-rel! (%wctx-completed cur-ctx))
        (%sched-switch-next! cur-ctx)))))
 
+(define (%sched-any-work-visible? sched)
+  (if (fx> (%fxatom-load-acq (%sched-global-pending sched)) 0)
+      #t
+      (let ((w (%sched-num-workers sched))
+            (deques (%sched-deques sched)))
+        (let loop ((i 0))
+          (if (fx< i w)
+              (if (not (%dq-empty-rlx? (##vector-ref deques i)))
+                  #t
+                  (loop (fx+ i 1)))
+              #f)))))
+
 (define (%worker-dispatch ctx idle-spins)
   (let ((task (%worker-poll-task ctx)))
     (if task
         (%worker-run-task ctx task (%wctx-picked-n ctx))
-        (begin
+        (let ((sched (%wctx-sched ctx)))
           (if (fx> (%wctx-nursery-batch ctx) 0) (%nursery-flush! ctx))
           (if (%wctx-lifo ctx)
               (%worker-dispatch ctx 0)
-              (if (%sched-quiescent? (%wctx-sched ctx))
-                  #!void
+              (if (%sched-quiescent? sched)
                   (begin
-                    (%idle-pause-c! idle-spins)
-                    (if (fx>= idle-spins 8)
-                        (begin (%os-sched-yield!) (%worker-dispatch ctx 0))
-                        (%worker-dispatch ctx (fx+ idle-spins 1))))))))))
+                    (%parker-wake-all! (%sched-parker sched))
+                    #!void)
+                  (let* ((parker (%sched-parker sched))
+                         (is-ecore (fx>= (%wctx-wid ctx) (%sched-pcores sched)))
+                         (pause-limit (if is-ecore 8 32))
+                         (park-limit (if is-ecore 16 128)))
+                    (if (and parker (fx>= idle-spins park-limit))
+                        (begin
+                          (thread-yield!)
+                          (let ((seq (%parker-begin-wait! parker)))
+                            (cond
+                              ((%sched-quiescent? sched)
+                               (%parker-abort-wait! parker)
+                               (%parker-wake-all! parker)
+                               #!void)
+                              ((%sched-any-work-visible? sched)
+                               (%parker-abort-wait! parker)
+                               (%worker-dispatch ctx 0))
+                              (else
+                               (%parker-finish-wait! parker seq)
+                               (%worker-dispatch ctx 0)))))
+                        (if (fx< idle-spins pause-limit)
+                            (begin
+                              (%idle-pause-c! idle-spins)
+                              (%worker-dispatch ctx (fx+ idle-spins 1)))
+                            (begin
+                              (%os-sched-yield!)
+                              (%worker-dispatch ctx (if parker (fx+ idle-spins 1) 0))))))))))))
 
 (define (%worker-loop sched wid)
   (let* ((w (%sched-num-workers sched))
@@ -2609,6 +3206,7 @@
   (if (not (procedure? thunk))
       (error "run-fibers: expected thunk" thunk))
   (let* ((w (max 1 (if (fixnum? workers) workers 1)))
+         (pcores (fiber-performance-core-count))
          (deques (let ((v (make-vector w #f)))
                    (let loop ((i 0))
                      (if (fx< i w)
@@ -2633,9 +3231,10 @@
          (root-box (cons #f #f))
          (searching (%make-padded-fxatom 0))
          (max-searching (max 1 (fxarithmetic-shift-right w 1)))
+         (parker (%make-parker))
          (sched (%make-scheduler w deques global-q global-pending
                                  spawned-vec completed-vec root-done root-box
-                                 searching max-searching)))
+                                 searching max-searching parker pcores)))
     (%sched-enqueue-global!
      sched
      (lambda ()
@@ -2643,12 +3242,14 @@
         (lambda (e)
           (set-car! root-box #f)
           (set-cdr! root-box e)
-          (%fxatom-set-rel! root-done 1))
+          (%fxatom-set-rel! root-done 1)
+          (%parker-wake-all! parker))
         (lambda ()
           (let ((res (thunk)))
             (set-car! root-box #t)
             (set-cdr! root-box res)
-            (%fxatom-set-rel! root-done 1))))))
+            (%fxatom-set-rel! root-done 1)
+            (%parker-wake-all! parker))))))
     (let ((threads
            (let loop ((i 0) (acc '()))
              (if (fx= i w)
@@ -2659,6 +3260,7 @@
                                (lambda () (%worker-loop sched i))))
                              acc))))))
       (for-each thread-join! threads))
+    (%destroy-parker! parker)
     (if (car root-box)
         (cdr root-box)
         (raise (cdr root-box)))))
