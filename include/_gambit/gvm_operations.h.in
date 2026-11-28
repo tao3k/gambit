@@ -1595,7 +1595,15 @@ ___VECTUPDATESMALL(___BODY_AS(v,___tBOXVALUES),___INT(i),val,___VALUESSIZE(v),__
 #define ___VECTORREF(v,i)___WORD_LOAD_RELAXED(___FXINDX_WORD(___BODY_AS(v,___tVECTOR),i))
 #define ___VECTORSET(v,i,val) do { ___SCMOBJ ___wbo=(v); ___SCMOBJ ___wbv=(val); ___WORD *___wbs=___FXINDX_WORD(___BODY_AS(___wbo,___tVECTOR),(i)); ___GC_WRITE_BARRIER(___ps,___wbo,___wbs,___wbv); ___WORD_STORE_RELAXED(___wbs,___wbv); } while (0);
 #define ___VECTORSHRINK(v,i) do { ___SCMOBJ ___gsh_v=(v); ___WORD *___gsh_hp=&___VECTOR_HEADER(___gsh_v); ___GC_SHRINK_HEADER(___ps,___gsh_v,___gsh_hp,(___WORD_LOAD_RELAXED(___gsh_hp)&~___LMASK)+___CAST(___WORD,___CAST(___UWORD,(i))<<(___LF-___TB_FIXNUM+___LWS))); } while (0);
+#if defined(__GNUC__) || defined(__clang__)
+#define ___VECTORCAS(v,i,val,oldval) \
+({ ___SCMOBJ ___cv_v=(v); ___SCMOBJ ___cv_i=(i); ___SCMOBJ ___cv_val=(val); ___SCMOBJ ___cv_old=(oldval); \
+   ___EXPECT_FALSE(___MEM_ALLOCATED(___cv_val)||___MEM_ALLOCATED(___cv_old)) \
+   ? ___gc_vector_cas_barrier(___ps,___cv_v,___cv_i,___cv_val,___cv_old,___EXT(___gc_write_barrier_slow),___EXT(___gc_satb_barrier_val)) \
+   : ___COMPARE_AND_SWAP_WORD(___CAST(___VOLATILE ___WORD*,___FXINDX_WORD(___BODY_AS(___cv_v,___tVECTOR),___cv_i)),___cv_old,___cv_val); })
+#else
 #define ___VECTORCAS(v,i,val,oldval)___gc_vector_cas_barrier(___ps,(v),(i),(val),(oldval),___EXT(___gc_write_barrier_slow),___EXT(___gc_satb_barrier_val))
+#endif
 #define ___VECTORINC(v,i,val)___FETCH_AND_ADD_WORD(___FXINDX_WORD(___BODY_AS(v,___tVECTOR),i),val)
 #define ___VECTORINBOUNDSP(v,i)(___CAST(___UWORD,___INT(i))<___VECTORSIZE(v))
 
@@ -1950,7 +1958,15 @@ ___FIELD(STRUCTURE,obj,___STRUCTURE_TYPE)
 #define ___STRUCTUREDIOP(x,typeid)___IS_NOT_DOUBLE_AND(x,___IS_ND_STRUCTURE(x)&&___TYPEID(___STRUCTURETYPE(___temp))==(typeid))
 #define ___UNCHECKEDSTRUCTUREREF(x,i,type,proc)___FETCH_WORD_FX(___BODY_AS(x,___tSTRUCTURE),i)
 #define ___UNCHECKEDSTRUCTURESET(x,val,i,type,proc) do { ___SCMOBJ ___wbo=(x); ___SCMOBJ ___wbv=(val); ___WORD *___wbs=___FXINDX_WORD(___BODY_AS(___wbo,___tSTRUCTURE),(i)); ___GC_WRITE_BARRIER(___ps,___wbo,___wbs,___wbv); ___WORD_STORE_RELAXED(___wbs,___wbv); } while (0);
+#if defined(__GNUC__) || defined(__clang__)
+#define ___UNCHECKEDSTRUCTURECAS(x,val,oldval,i,type,proc) \
+({ ___SCMOBJ ___cs_x=(x); ___SCMOBJ ___cs_val=(val); ___SCMOBJ ___cs_old=(oldval); ___SCMOBJ ___cs_i=(i); \
+   ___EXPECT_FALSE(___MEM_ALLOCATED(___cs_val)||___MEM_ALLOCATED(___cs_old)) \
+   ? ___gc_structure_cas_barrier(___ps,___cs_x,___cs_val,___cs_old,___cs_i,___EXT(___gc_write_barrier_slow),___EXT(___gc_satb_barrier_val)) \
+   : ___COMPARE_AND_SWAP_WORD(___CAST(___VOLATILE ___WORD*,___FXINDX_WORD(___BODY_AS(___cs_x,___tSTRUCTURE),___cs_i)),___cs_old,___cs_val); })
+#else
 #define ___UNCHECKEDSTRUCTURECAS(x,val,oldval,i,type,proc)___gc_structure_cas_barrier(___ps,(x),(val),(oldval),(i),___EXT(___gc_write_barrier_slow),___EXT(___gc_satb_barrier_val))
+#endif
 
 
 #define ___RATNUM_SIZE 2
@@ -2352,7 +2368,7 @@ do { \
           ___last_cur = ___cur; \
           ___spins = 0; \
         } \
-      if (___spins < 256) \
+      if (___spins < 1024) \
         { \
           ___UWORD ___dist = ((___CAST(___UWORD,___ticket) - ___CAST(___UWORD,___cur)) >> ___TB); \
           ___UWORD ___wait = (___dist <= 1) ? 1 : ((___dist < 8) ? (___dist << 1) : 16); \

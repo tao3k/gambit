@@ -86,6 +86,19 @@
 ;; on empty non-blocking pop/dequeue/steal polls).
 (define %empty-values-2 (##values #f #f))
 
+;; Immediate internal sentinels disjoint from all user Scheme values (#f, 0,
+;; #!unbound, heap objects) in C-compiled mode, avoiding global-table acquire
+;; lookups on every empty poll / retry check.
+(##define-macro (%imm-sentinel-empty? x fallback)
+  `(macro-if-c-compiled
+    (##c-code "___RESULT = (___ARG1 == ___UNB2) ? ___TRU : ___FAL;" ,x)
+    (##eq? ,x ,fallback)))
+
+(##define-macro (%imm-sentinel-retry? x fallback)
+  `(macro-if-c-compiled
+    (##c-code "___RESULT = (___ARG1 == ___DELETED) ? ___TRU : ___FAL;" ,x)
+    (##eq? ,x ,fallback)))
+
 ;;;============================================================================
 ;;; 1. Lock-Free Treiber Stack (GC-managed nodes -> immune to ABA)
 
@@ -166,7 +179,8 @@
   prefix: macro-
   opaque:
   (head unprintable: read-only:)
-  (tail unprintable: read-only:))
+  (tail unprintable: read-only:)
+  (empty-ret unprintable: read-only:))
 (implement-type-lf-queue)
 
 (define %lfq-empty (##cons 'lfq-empty 'lfq-empty))
@@ -199,7 +213,7 @@
          (tc (##make-vector 16 0)))
     (##vector-set! hc 0 seg0)
     (##vector-set! tc 0 seg0)
-    (macro-make-lf-queue hc tc)))
+    (macro-make-lf-queue hc tc %empty-values-2)))
 
 (define (lf-queue? obj)
   (macro-lf-queue? obj))
@@ -306,15 +320,14 @@
              (%slot-cas-acqrel! tc 0 r winner)
              (loop))))))))
 
-;; Returns dequeued item, `empty-sent` if empty, or `retry-sent` to retry in Scheme.
+;; Returns dequeued item, ___UNB2 (or `empty-sent` when interpreted) if empty,
+;; or ___DELETED (or `retry-sent` when interpreted) to retry in Scheme.
 ;; Zero-write empty peek avoids FAA overshoot; steady-state consumers claim
 ;; disjoint tickets via relaxed FAA on per-segment head_ctr with zero CAS retries.
 (##define-macro (%lfq-deq-fast! hc empty-sent retry-sent)
   `(macro-if-c-compiled
     (##c-code
      "___SCMOBJ hc = ___ARG1;
-      ___SCMOBJ empty_sent = ___ARG2;
-      ___SCMOBJ retry_sent = ___ARG3;
       ___WORD *hseg_p = ___BODY_AS(hc, ___tVECTOR);
       int tries = 0;
       for (;;) {
@@ -332,31 +345,31 @@
             ___WORD t0 = ___INT(___atomic_word_load(tt_p, 1));
             if (t0 <= 256) {
               ___CPU_RELAX();
-              ___RESULT = empty_sent;
+              ___RESULT = ___UNB2;
               break;
             }
-            if (++tries >= 32) { ___RESULT = retry_sent; break; }
+            if (++tries >= 32) { ___RESULT = ___DELETED; break; }
             ___CPU_RELAX();
             continue;
           }
           (void)___gc_atomic_slot_cas(
             ___ps, hc, hseg_p, seg, nxt, 2,
             ___EXT(___gc_write_barrier_slow), ___EXT(___gc_satb_barrier_val));
-          if (++tries >= 64) { ___RESULT = retry_sent; break; }
+          if (++tries >= 64) { ___RESULT = ___DELETED; break; }
           continue;
         }
-        /* Zero-write empty peek: avoid FAA when segment is currently empty. */
+        /* Zero-write relaxed empty peek: avoid FAA when segment is currently empty. */
         {
           ___WORD phys0 = ((h0 & 15) << 4) | (h0 >> 4);
           ___WORD *sp0 = ___BODY_AS(slots, ___tVECTOR) + phys0;
-          ___SCMOBJ v0 = ___gc_atomic_slot_load(sp0, 1);
+          ___SCMOBJ v0 = ___gc_atomic_slot_load(sp0, 0);
           if (v0 == ___UNB2) {
             ___WORD t0 = ___INT(___atomic_word_load(tt_p, 1));
             if (h0 >= t0) {
               ___SCMOBJ nxt = ___gc_atomic_slot_load(&svec[2], 1);
               if (nxt == ___FAL) {
                 ___CPU_RELAX();
-                ___RESULT = empty_sent;
+                ___RESULT = ___UNB2;
                 break;
               }
             }
@@ -370,17 +383,17 @@
               ___WORD t_now = ___INT(___atomic_word_load(tt_p, 1));
               if (t_now <= 256) {
                 ___CPU_RELAX();
-                ___RESULT = empty_sent;
+                ___RESULT = ___UNB2;
                 break;
               }
-              if (++tries >= 32) { ___RESULT = retry_sent; break; }
+              if (++tries >= 32) { ___RESULT = ___DELETED; break; }
               ___CPU_RELAX();
               continue;
             }
             (void)___gc_atomic_slot_cas(
               ___ps, hc, hseg_p, seg, nxt, 2,
               ___EXT(___gc_write_barrier_slow), ___EXT(___gc_satb_barrier_val));
-            if (++tries >= 64) { ___RESULT = retry_sent; break; }
+            if (++tries >= 64) { ___RESULT = ___DELETED; break; }
             continue;
           }
           {
@@ -425,15 +438,15 @@
             {
               ___WORD t_now = ___INT(___atomic_word_load(tt_p, 1));
               if (h + 1 >= t_now && ___gc_atomic_slot_load(&svec[2], 1) == ___FAL) {
-                ___RESULT = empty_sent;
+                ___RESULT = ___UNB2;
                 break;
               }
             }
           }
         }
-        if (++tries >= 64) { ___RESULT = retry_sent; break; }
+        if (++tries >= 64) { ___RESULT = ___DELETED; break; }
       }"
-     ,hc ,empty-sent ,retry-sent)
+     ,hc)
     ;; Interpreted fallback
     (let* ((seg (%slot-load-acq ,hc 0))
            (slots (##vector-ref seg 0))
@@ -484,8 +497,8 @@
     (let loop ()
       (let ((r (%lfq-deq-fast! hc %lfq-empty %lfq-retry)))
         (cond
-          ((##eq? r %lfq-empty) %empty-values-2)
-          ((##eq? r %lfq-retry) (loop))
+          ((%imm-sentinel-empty? r %lfq-empty) (macro-lf-queue-empty-ret q))
+          ((%imm-sentinel-retry? r %lfq-retry) (loop))
           (else (##values #t r)))))))
 
 ;; Zero-closure single-value variant: returns dequeued value or `default` when empty.
@@ -496,8 +509,8 @@
     (let loop ()
       (let ((r (%lfq-deq-fast! hc %lfq-empty %lfq-retry)))
         (cond
-          ((##eq? r %lfq-empty) default)
-          ((##eq? r %lfq-retry) (loop))
+          ((%imm-sentinel-empty? r %lfq-empty) default)
+          ((%imm-sentinel-retry? r %lfq-retry) (loop))
           (else r))))))
 
 ;;;============================================================================
@@ -511,11 +524,12 @@
   macros:
   prefix: macro-
   opaque:
-  (mask   unprintable: read-only:)
-  (cap    unprintable: read-only:)
-  (slots  unprintable: read-only:)
-  (top    unprintable: read-only:)
-  (bottom unprintable: read-only:))
+  (mask      unprintable: read-only:)
+  (cap       unprintable: read-only:)
+  (slots     unprintable: read-only:)
+  (top       unprintable: read-only:)
+  (bottom    unprintable: read-only:)
+  (empty-ret unprintable: read-only:))
 (implement-type-ws-deque)
 
 (define %ws-empty (##cons 'ws-empty 'ws-empty))
@@ -529,7 +543,8 @@
          (slots (##make-vector cap #f)))
     (macro-make-ws-deque (##fx- cap 1) cap slots
                          (%make-padded-ctr 0)
-                         (%make-padded-ctr 0))))
+                         (%make-padded-ctr 0)
+                         %empty-values-2)))
 
 (define (ws-deque? obj)
   (macro-ws-deque? obj))
@@ -594,7 +609,6 @@
       ___WORD *tvec = ___BODY_AS(___ARG2, ___tVECTOR);
       ___SCMOBJ slots = ___ARG3;
       ___WORD mask = ___INT(___ARG4);
-      ___SCMOBJ empty_sent = ___ARG5;
       ___VOLATILE ___WORD *bp = ___CAST(___VOLATILE ___WORD*, &bvec[0]);
       ___VOLATILE ___WORD *tp = ___CAST(___VOLATILE ___WORD*, &tvec[0]);
       ___WORD b = ___INT(___atomic_word_load(bp, 0)) - 1;
@@ -606,17 +620,17 @@
         ___SCMOBJ val = ___gc_atomic_slot_load(sp, 1);
         if (t == b) {
           if (___atomic_word_cas(tp, ___FIX(t), ___FIX(t + 1), 4) != ___FIX(t)) {
-            val = empty_sent;
+            val = ___UNB2;
           }
           ___atomic_word_store(bp, ___FIX(b + 1), 0);
         }
         ___RESULT = val;
       } else {
         ___atomic_word_store(bp, ___FIX(b + 1), 0);
-        ___RESULT = empty_sent;
+        ___RESULT = ___UNB2;
       }"
      (macro-ws-deque-bottom ,dq) (macro-ws-deque-top ,dq) (macro-ws-deque-slots ,dq)
-     (macro-ws-deque-mask ,dq) ,empty-sent)
+     (macro-ws-deque-mask ,dq))
     (let* ((bot-box (macro-ws-deque-bottom ,dq))
            (b (##fx- (%ctr-load-acq bot-box) 1))
            (top-box (macro-ws-deque-top ,dq))
@@ -649,10 +663,9 @@
       ___WORD *bvec = ___BODY_AS(___ARG2, ___tVECTOR);
       ___SCMOBJ slots = ___ARG3;
       ___WORD mask = ___INT(___ARG4);
-      ___SCMOBJ empty_sent = ___ARG5;
       ___VOLATILE ___WORD *tp = ___CAST(___VOLATILE ___WORD*, &tvec[0]);
       ___VOLATILE ___WORD *bp = ___CAST(___VOLATILE ___WORD*, &bvec[0]);
-      ___SCMOBJ res = empty_sent;
+      ___SCMOBJ res = ___UNB2;
       ___WORD t_peek = ___INT(___atomic_word_load(tp, 0));
       ___WORD b_peek = ___INT(___atomic_word_load(bp, 0));
       if (t_peek < b_peek) {
@@ -684,7 +697,7 @@
       }
       ___RESULT = res;"
      (macro-ws-deque-top ,dq) (macro-ws-deque-bottom ,dq) (macro-ws-deque-slots ,dq)
-     (macro-ws-deque-mask ,dq) ,empty-sent)
+     (macro-ws-deque-mask ,dq))
     (let* ((top-box (macro-ws-deque-top ,dq))
            (bot-box (macro-ws-deque-bottom ,dq))
            (t (%ctr-load-acq top-box))
@@ -700,8 +713,8 @@
   (if (##not (macro-ws-deque? dq))
       (%raise-bad-type (macro-type-ws-deque) ws-deque-try-pop! dq))
   (let ((r (%ws-pop-raw! dq %ws-empty)))
-    (if (##eq? r %ws-empty)
-        %empty-values-2
+    (if (%imm-sentinel-empty? r %ws-empty)
+        (macro-ws-deque-empty-ret dq)
         (##values #t r))))
 
 ;; Concurrent thief FIFO steal from top. Returns (values #t val) or (values #f #f).
@@ -709,8 +722,8 @@
   (if (##not (macro-ws-deque? dq))
       (%raise-bad-type (macro-type-ws-deque) ws-deque-try-steal! dq))
   (let ((r (%ws-steal-raw! dq %ws-empty)))
-    (if (##eq? r %ws-empty)
-        %empty-values-2
+    (if (%imm-sentinel-empty? r %ws-empty)
+        (macro-ws-deque-empty-ret dq)
         (##values #t r))))
 
 ;; Zero-closure owner-only LIFO pop: returns popped item or `default` when empty.
@@ -718,14 +731,14 @@
   (if (##not (macro-ws-deque? dq))
       (%raise-bad-type (macro-type-ws-deque) ws-deque-try-pop-or! dq))
   (let ((r (%ws-pop-raw! dq %ws-empty)))
-    (if (##eq? r %ws-empty) default r)))
+    (if (%imm-sentinel-empty? r %ws-empty) default r)))
 
 ;; Zero-closure concurrent thief FIFO steal: returns stolen item or `default` when empty.
 (define (ws-deque-try-steal-or! dq default)
   (if (##not (macro-ws-deque? dq))
       (%raise-bad-type (macro-type-ws-deque) ws-deque-try-steal-or! dq))
   (let ((r (%ws-steal-raw! dq %ws-empty)))
-    (if (##eq? r %ws-empty) default r)))
+    (if (%imm-sentinel-empty? r %ws-empty) default r)))
 
 ;;;============================================================================
 ;;; 4. Wait-Free-Read / Lock-Free-Write Sharded Concurrent Hash Table

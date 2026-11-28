@@ -1035,6 +1035,67 @@ ___HIDDEN void sort_card_hints(___gc_card_hint *arr, int n)
     }
 }
 
+/* Verify whether splitting sorted movable dirty cards between c_prev and
+ * c_next (<) produces object-disjoint parallel worker scans under
+ * scan_mature_card_list_with_state. Safe whenever card_lo(c_next) starts a
+ * fresh object, or the first object covering card_lo(c_next) starts at or
+ * after card_hi(c_prev), or is a forwarding/clipped pointer-array object. */
+#define ___REMSET_CARD_RUN_TARGET 16
+
+static inline int remset_cards_split_safe
+   (___msection *sec,
+    unsigned int c_prev,
+    unsigned int c_next)
+{
+  ___WORD *base = sec->base + sec->active_offset;
+  ___WORD *scan_end = base + sec->scan_end_words;
+  unsigned int half_card_base =
+    ___CAST(unsigned int, sec->active_offset >> ___GC_CARD_SHIFT_WORDS);
+  unsigned char *starts = section_card_starts(sec);
+  ___WORD *prev_hi = sec->base + (___CAST(___SIZE_TS, c_prev + 1) << ___GC_CARD_SHIFT_WORDS);
+  ___WORD *card_lo = sec->base + (___CAST(___SIZE_TS, c_next) << ___GC_CARD_SHIFT_WORDS);
+  ___WORD *p;
+
+  if (card_lo < base || card_lo >= scan_end)
+    return 1;
+  if (starts[c_next] == 0)
+    return 1;
+  {
+    int prev = ___CAST(int, c_next) - 1;
+    while (prev >= ___CAST(int, half_card_base) &&
+           starts[prev] == ___GC_CARD_NO_OBJ_START)
+      prev--;
+    if (prev < ___CAST(int, half_card_base))
+      return 1;
+    p = sec->base + (___CAST(___SIZE_TS, prev) << ___GC_CARD_SHIFT_WORDS) + starts[prev];
+    while (p < card_lo)
+      {
+        ___WORD h = *p;
+        if (___TESTTYPE(h, ___FORW))
+          p += 1;
+        else
+          {
+            ___SIZE_TS sz = ___HD_WORDS(h) + 1;
+            if (p + sz > card_lo)
+              break;
+            p += sz;
+          }
+      }
+  }
+  if (p >= prev_hi)
+    return 1;
+  {
+    ___WORD head = *p;
+    int subtype;
+    if (___TESTTYPE(head, ___FORW))
+      return 1;
+    subtype = ___HD_SUBTYPE(head);
+    return (subtype == ___sVECTOR ||
+            subtype == ___sBOXVALUES ||
+            subtype == ___sSTRUCTURE);
+  }
+}
+
 ___HIDDEN void collect_minor_card_hints(___virtual_machine_state vm)
 {
   ___gc_round *g = &___COLLECTION(vm);
@@ -1094,23 +1155,46 @@ ___HIDDEN void collect_minor_card_hints(___virtual_machine_state vm)
   g->card_run_cursor = 0;
   g->overflow_sec_cursor = 0;
 
-  /* Partition sorted movable dirty-card hints into per-section work-stealing runs. */
+  /* Partition sorted movable dirty-card hints into object-disjoint
+   * work-stealing runs (splitting dense sections near ___REMSET_CARD_RUN_TARGET). */
   if (!g->card_overflow && g->hint_count > 0)
     {
       int pos = 0;
       while (pos < g->hint_count)
         {
           ___msection *sec = g->hints[pos].section;
-          int start = pos;
-          while (pos < g->hint_count && g->hints[pos].section == sec)
-            pos++;
-          if (!remset_push_card_run(vm, g, sec, start, pos - start))
-            {
-              g->card_overflow = 1;
-              g->hint_count = 0;
-              g->card_run_count = 0;
-              break;
-            }
+          int sec_end = pos + 1;
+          while (sec_end < g->hint_count && g->hints[sec_end].section == sec)
+            sec_end++;
+          {
+            int run_start = pos;
+            int cur = pos + 1;
+            int oom = 0;
+            while (cur < sec_end)
+              {
+                if (cur - run_start >= ___REMSET_CARD_RUN_TARGET &&
+                    remset_cards_split_safe(sec,
+                                            g->hints[cur - 1].card_index,
+                                            g->hints[cur].card_index))
+                  {
+                    if (!remset_push_card_run(vm, g, sec, run_start, cur - run_start))
+                      {
+                        oom = 1;
+                        break;
+                      }
+                    run_start = cur;
+                  }
+                cur++;
+              }
+            if (oom || !remset_push_card_run(vm, g, sec, run_start, sec_end - run_start))
+              {
+                g->card_overflow = 1;
+                g->hint_count = 0;
+                g->card_run_count = 0;
+                break;
+              }
+          }
+          pos = sec_end;
         }
     }
 

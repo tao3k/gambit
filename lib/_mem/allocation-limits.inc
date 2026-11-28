@@ -1122,6 +1122,7 @@ static void publish_bumped_heap_limit(___processor_state ___ps)
 static int bump_heap_section_for_demand(___processor_state ___ps, ___WORD *hp,
                                         ___SIZE_TS heap_words)
 {
+  ___msection *ms;
   if (!___ps || !___ps->context || !hp || !heap_msection) return 0;
   /* A cursor past the hard edge still belongs to this section. Snap it
    * back so the next free section can be published. */
@@ -1143,9 +1144,11 @@ static int bump_heap_section_for_demand(___processor_state ___ps, ___WORD *hp,
     }
     return 0;
   }
-  alloc_heap_ptr=hp;
-  next_heap_msection_without_locking(___ps);
+  ms=next_msection_without_locking(___ps, stack_msection);
   ALLOC_MEM_UNLOCK();
+  alloc_heap_ptr=hp;
+  words_prev_msections += alloc_heap_ptr - alloc_heap_start;
+  set_heap_msection_possibly_sharing_with_stack(___ps, ms);
   publish_bumped_heap_limit(___ps);
   return ___ps->context->hp==alloc_heap_ptr;
 }

@@ -1271,6 +1271,9 @@ ___ORDERED_WORD_INLINE ___WORD ___gc_vector_cas_barrier
     void (*satb_val) ___P((___processor_state, ___SCMOBJ), ()))
 {
   ___WORD *slot = ___FXINDX_WORD(___BODY_AS(v, ___tVECTOR), i);
+  ___WORD cur = ___WORD_LOAD_ACQUIRE(___CAST(___VOLATILE ___WORD*, slot));
+  if (cur != ___CAST(___WORD, oldval))
+    return cur;
 #ifndef ___DISABLE_GENERATIONAL_GC
   if (___EXPECT_FALSE(___ps->mem.satb_active_ != 0 && ___MEM_ALLOCATED(oldval)))
     satb_val(___ps, oldval);
@@ -1299,6 +1302,9 @@ ___ORDERED_WORD_INLINE ___WORD ___gc_structure_cas_barrier
     void (*satb_val) ___P((___processor_state, ___SCMOBJ), ()))
 {
   ___WORD *slot = ___FXINDX_WORD(___BODY_AS(x, ___tSTRUCTURE), i);
+  ___WORD cur = ___WORD_LOAD_ACQUIRE(___CAST(___VOLATILE ___WORD*, slot));
+  if (cur != ___CAST(___WORD, oldval))
+    return cur;
 #ifndef ___DISABLE_GENERATIONAL_GC
   if (___EXPECT_FALSE(___ps->mem.satb_active_ != 0 && ___MEM_ALLOCATED(oldval)))
     satb_val(___ps, oldval);
