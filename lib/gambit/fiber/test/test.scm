@@ -545,3 +545,136 @@
   (test-equal 200 (atomic-fxbox-ref clean-tc-ok)))
 
 ;;;============================================================================
+;;; 13. Continuation-Safe Resource Cleanup (with-finally vs dynamic-wind across
+;;;     fiber-yield, channel park/resume, algebraic effects, nursery abort)
+;;;     + Heterogeneous Performance-Core Detection (fiber-performance-core-count)
+
+(define-effect cleanup-step-eff)
+
+;; 13a. with-finally across repeated fiber-yield + channel park/resume + multiple values
+(let ((cleanup-count (make-atomic-fxbox 0))
+      (mv-ok (make-atomic-fxbox 0)))
+  (run-fibers
+   (lambda ()
+     (let ((ch (make-fiber-channel 4)))
+       (with-nursery
+        (lambda (n)
+          (let loop ((i 0))
+            (if (fx< i 100)
+                (begin
+                  (fiber-spawn
+                   (lambda ()
+                     (call-with-values
+                      (lambda ()
+                        (with-finally
+                         (lambda ()
+                           (fiber-yield)
+                           (fiber-send! ch i)
+                           (fiber-yield)
+                           (values i (fx+ i 1)))
+                         (lambda ()
+                           (atomic-fxbox+/fetch! cleanup-count 1))))
+                      (lambda (a b)
+                        (if (and (fx= a i) (fx= b (fx+ i 1)))
+                            (atomic-fxbox+/fetch! mv-ok 1)))))
+                   n)
+                  (loop (fx+ i 1)))))
+          (fiber-spawn
+           (lambda ()
+             (let rloop ((k 0))
+               (if (fx< k 100)
+                   (begin (fiber-recv! ch) (rloop (fx+ k 1))))))
+           n))))))
+  (test-equal 100 (atomic-fxbox-ref cleanup-count))
+  (test-equal 100 (atomic-fxbox-ref mv-ok)))
+
+;; 13b. with-finally across non-tail algebraic effect perform/resume + fiber-yield
+;;      MUST fire cleanup strictly once (no double-release on delimited continuation capture!)
+(let ((wf-runs (make-atomic-fxbox 0))
+      (res #f))
+  (set! res
+    (run-fibers
+     (lambda ()
+       (with-handler
+         ((cleanup-step-eff (k x)
+            (fiber-yield)
+            (resume k (fx+ x 10))))
+         (with-finally
+          (lambda ()
+            (let* ((a (perform cleanup-step-eff 1))
+                   (_ (fiber-yield))
+                   (b (perform cleanup-step-eff a)))
+              b))
+          (lambda ()
+            (atomic-fxbox+/fetch! wf-runs 1)))))))
+  (test-equal 21 res)
+  (test-equal 1 (atomic-fxbox-ref wf-runs)))
+
+;; 13c. with-finally on exception raise inside nursery child MUST run cleanup
+;;      strictly once BEFORE with-nursery propagates the exception
+(let ((wf-abort (make-atomic-fxbox 0))
+      (caught #f))
+  (with-exception-catcher
+   (lambda (e) (set! caught e))
+   (lambda ()
+     (run-fibers
+      (lambda ()
+        (with-nursery
+         (lambda (n)
+           (fiber-spawn
+            (lambda ()
+              (with-finally
+               (lambda ()
+                 (fiber-yield)
+                 (fiber-yield)
+                 (raise 'wf-boom))
+               (lambda ()
+                 (atomic-fxbox+/fetch! wf-abort 1))))
+            n)))))))
+  (test-equal 'wf-boom caught)
+  (test-equal 1 (atomic-fxbox-ref wf-abort)))
+
+;; 13d. dynamic-wind across fiber-yield and channel park/resume MUST run after
+;;      strictly once (no-winding fiber scheduler never double-triggers after)
+(let ((dw-after (make-atomic-fxbox 0)))
+  (run-fibers
+   (lambda ()
+     (let ((c1 (make-fiber-channel 1))
+           (c2 (make-fiber-channel 1)))
+       (with-nursery
+        (lambda (n)
+          (fiber-spawn
+           (lambda ()
+             (dynamic-wind
+               (lambda () #!void)
+               (lambda ()
+                 (let loop ((i 0))
+                   (if (fx< i 20)
+                       (begin
+                         (fiber-yield)
+                         (let ((v (fiber-recv! c1)))
+                           (fiber-send! c2 (fx+ v 1)))
+                         (loop (fx+ i 1))))))
+               (lambda ()
+                 (atomic-fxbox+/fetch! dw-after 1))))
+           n)
+          (fiber-spawn
+           (lambda ()
+             (let loop ((i 0))
+               (if (fx< i 20)
+                   (begin
+                     (fiber-send! c1 i)
+                     (fiber-recv! c2)
+                     (loop (fx+ i 1))))))
+           n))))))
+  (test-equal 1 (atomic-fxbox-ref dw-after)))
+
+;; 13e. fiber-performance-core-count returns a valid positive P-core count
+(let ((pcores (fiber-performance-core-count)))
+  (test-assert (and (fixnum? pcores)
+                    (fx>= pcores 1)
+                    (fx<= pcores (##current-vm-processor-count))))
+  (test-equal pcores
+    (run-fibers (lambda () (fiber-worker-count)) workers: pcores)))
+
+;;;============================================================================

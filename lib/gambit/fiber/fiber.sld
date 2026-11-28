@@ -18,10 +18,12 @@
   (export
     run-fibers
     with-nursery
+    with-finally
     nursery?
     fiber-spawn
     fiber-yield
     fiber-worker-count
+    fiber-performance-core-count
 
     make-fiber-channel
     fiber-channel?

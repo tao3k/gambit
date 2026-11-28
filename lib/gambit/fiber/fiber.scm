@@ -56,6 +56,49 @@
         then-expr
         else-expr)))
 
+(macro-if-c-compiled
+ (c-declare
+  "#ifdef __APPLE__
+#include <sys/sysctl.h>
+#include <pthread/qos.h>
+#endif
+")
+ (begin))
+
+;; Query physical performance-core count on heterogeneous Apple Silicon (e.g. 8 on 8P+4E),
+;; falling back to VM processor count on homogeneous systems and non-C targets.
+(define (fiber-performance-core-count)
+  (let ((vm-procs (##current-vm-processor-count)))
+    (macro-if-c-compiled
+     (let ((pcores
+            (##c-code
+             "#ifdef __APPLE__
+              int ___n = 0;
+              size_t ___sz = sizeof(___n);
+              if (sysctlbyname(\"hw.perflevel0.physicalcpu\", &___n, &___sz, NULL, 0) == 0 && ___n > 0) {
+                ___RESULT = ___FIX(___n);
+              } else {
+                ___RESULT = ___FIX(0);
+              }
+#else
+              ___RESULT = ___FIX(0);
+#endif")))
+       (if (fx> pcores 0)
+           (if (fx< pcores vm-procs) pcores vm-procs)
+           vm-procs))
+     vm-procs)))
+
+;; Request high-priority interactive QoS on carrier threads so heterogeneous OS
+;; schedulers keep fiber workers resident on performance cores.
+(define (%set-carrier-qos!)
+  (macro-if-c-compiled
+   (##c-code
+    "#ifdef __APPLE__
+     pthread_set_qos_class_self_np(QOS_CLASS_USER_INTERACTIVE, 0);
+#endif
+     ___RESULT = ___VOID;")
+   #!void))
+
 ;; 1-word fixnum atomic box
 (define (%make-fxatom init)
   (##vector init))
@@ -447,11 +490,19 @@
   (nursery-cur   %wctx-nursery-cur   %wctx-nursery-cur-set!)   ;; batched completion target nursery
   (nursery-batch %wctx-nursery-batch %wctx-nursery-batch-set!)) ;; un-flushed completion count (0..16)
 
+(define (%outside-run-fibers-error!)
+  (error "fiber operation called outside run-fibers"))
+
 (define (%current-wctx)
   (let ((ctx (macro-thread-specific (##current-thread))))
     (if (%worker-ctx? ctx)
         ctx
-        (error "fiber operation called outside run-fibers"))))
+        (%outside-run-fibers-error!))))
+
+;; Unchecked carrier-thread worker-ctx load for internal scheduler callbacks
+;; that are guaranteed to run exclusively on initialized carrier threads.
+(define (%carrier-wctx)
+  (macro-thread-specific (##current-thread)))
 
 ;; Zero-allocation per-carrier %fiber-k pop/recycle (0 atomics, 0 GC retention)
 (define (%alloc-fk! ctx raw-k tc val)
@@ -467,17 +518,43 @@
           fk)
         (%make-fiber-k raw-k tc val #f))))
 
+;; Single-C-block inline %fiber-k recycle (clears GC-retained fields, zero GVM stack frame).
 (define (%free-fk! ctx fk)
-  (%fk-raw-k-set! fk #f)
-  (%fk-tc-set! fk #f)
-  (%fk-val-set! fk #f)
-  (let ((len (%wctx-fk-pool-len ctx)))
-    (if (fx< len %MAX-FK-POOL)
-        (begin
-          (%fk-next-set! fk (%wctx-fk-pool ctx))
-          (%wctx-fk-pool-set! ctx fk)
-          (%wctx-fk-pool-len-set! ctx (fx+ len 1)))
-        (%fk-next-set! fk #f))))
+  (macro-if-c-compiled
+   (##c-code
+    "___WORD *___ctx_f = ___BODY_AS(___ARG1, ___tSTRUCTURE);
+     ___WORD *___fk_f  = ___BODY_AS(___ARG2, ___tSTRUCTURE);
+     ___GC_WRITE_BARRIER(___ps, ___ARG2, &___fk_f[1], ___FAL);
+     ___WORD_STORE_RELAXED(&___fk_f[1], ___FAL);
+     ___GC_WRITE_BARRIER(___ps, ___ARG2, &___fk_f[2], ___FAL);
+     ___WORD_STORE_RELAXED(&___fk_f[2], ___FAL);
+     ___GC_WRITE_BARRIER(___ps, ___ARG2, &___fk_f[3], ___FAL);
+     ___WORD_STORE_RELAXED(&___fk_f[3], ___FAL);
+     ___WORD ___len = ___INT(___ctx_f[11]);
+     if (___len < 64) {
+       ___SCMOBJ ___head = ___ctx_f[10];
+       ___GC_WRITE_BARRIER(___ps, ___ARG2, &___fk_f[4], ___head);
+       ___WORD_STORE_RELAXED(&___fk_f[4], ___head);
+       ___GC_WRITE_BARRIER(___ps, ___ARG1, &___ctx_f[10], ___ARG2);
+       ___WORD_STORE_RELAXED(&___ctx_f[10], ___ARG2);
+       ___ctx_f[11] = ___FIX(___len + 1);
+     } else {
+       ___GC_WRITE_BARRIER(___ps, ___ARG2, &___fk_f[4], ___FAL);
+       ___WORD_STORE_RELAXED(&___fk_f[4], ___FAL);
+     }
+     ___RESULT = ___VOID;"
+    ctx fk)
+   (begin
+     (%fk-raw-k-set! fk #f)
+     (%fk-tc-set! fk #f)
+     (%fk-val-set! fk #f)
+     (let ((len (%wctx-fk-pool-len ctx)))
+       (if (fx< len %MAX-FK-POOL)
+           (begin
+             (%fk-next-set! fk (%wctx-fk-pool ctx))
+             (%wctx-fk-pool-set! ctx fk)
+             (%wctx-fk-pool-len-set! ctx (fx+ len 1)))
+           (%fk-next-set! fk #f))))))
 
 ;; Global queue enqueue/dequeue maintaining global-pending >= global-q length.
 (define (%sched-enqueue-global! sched task)
@@ -709,41 +786,228 @@
         parent-res)))
 
 ;;;----------------------------------------------------------------------------
-;;; Direct O(1) Fiber Spawn & Zero-Closure Yield
+;;; Continuation-Safe Resource Cleanup, Direct O(1) Fiber Spawn & Fused Yield
+
+;; Continuation-safe resource cleanup: guarantees finally-thunk runs strictly
+;; once on normal return (including multiple values) or exception/nursery abort,
+;; and never fires during fiber-yield, channel park/resume, or algebraic effect
+;; perform/resume suspension (preventing dynamic-wind double-release).
+(define (with-finally thunk finally-thunk)
+  (if (not (procedure? thunk))
+      (error "with-finally: expected thunk" thunk))
+  (if (not (procedure? finally-thunk))
+      (error "with-finally: expected finally-thunk" finally-thunk))
+  (let ((done? #f))
+    (define (run-once!)
+      (if (not done?)
+          (begin
+            (set! done? #t)
+            (finally-thunk))))
+    (with-exception-catcher
+     (lambda (e)
+       (run-once!)
+       (raise e))
+     (lambda ()
+       (call-with-values
+        thunk
+        (lambda vals
+          (run-once!)
+          (apply values vals)))))))
 
 (define (fiber-worker-count)
   (%sched-num-workers (%wctx-sched (%current-wctx))))
 
-;; Zero-closure multi-arg continuation receiver for fiber-yield.
-;; Nursery batch flushes are bounded by %sched-switch-next! (every 16 ticks),
-;; batch>=16, park, and idle boundaries.
-(define (%yield-cont! raw-k)
-  (let* ((ctx (%current-wctx))
-         (tc (%get-tc))
-         (fk (%alloc-fk! ctx raw-k tc #!void)))
-    (if tc (%set-tc! #f))
+;; Single-C-block fused yield: pop %fiber-k from private freelist, push to local
+;; runqueue with release tail, and immediately claim next runnable task from
+;; LIFO or CAS(dq.head).
+;; Returns:
+;;   %fiber-k / task : next runnable task already popped
+;;   1               : yielded fk pushed; caller dispatches via %sched-switch-next!
+;;   2               : fk-pool empty or dq full; caller uses slow path
+(define (%yield-push-and-pop-c! ctx raw-k)
+  (macro-if-c-compiled
+   (##c-code
+    "___WORD *___ctx_f = ___BODY_AS(___ARG1, ___tSTRUCTURE);
+     ___SCMOBJ ___fk = ___ctx_f[10];
+     if (___fk == ___FAL) {
+       ___RESULT = ___FIX(2);
+     } else {
+       ___WORD *___dq_f = ___BODY_AS(___ctx_f[3], ___tSTRUCTURE);
+       ___SCMOBJ ___buf = ___dq_f[1];
+       ___VOLATILE ___WORD *___head_p = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___dq_f[2], ___tVECTOR));
+       ___VOLATILE ___WORD *___tail_p = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___dq_f[3], ___tVECTOR));
+       ___WORD ___t = ___INT(___atomic_word_load(___tail_p, 0));
+       ___WORD ___h = ___INT(___atomic_word_load(___head_p, 1));
+       if (___t - ___h >= 4096) {
+         ___RESULT = ___FIX(2);
+       } else {
+         /* Pop fk from private freelist and populate */
+         ___WORD *___fk_f = ___BODY_AS(___fk, ___tSTRUCTURE);
+         ___SCMOBJ ___pool_nxt = ___fk_f[4];
+         ___GC_WRITE_BARRIER(___ps, ___ARG1, &___ctx_f[10], ___pool_nxt);
+         ___WORD_STORE_RELAXED(&___ctx_f[10], ___pool_nxt);
+         ___ctx_f[11] = ___FIX(___INT(___ctx_f[11]) - 1);
+         ___GC_WRITE_BARRIER(___ps, ___fk, &___fk_f[1], ___ARG2);
+         ___WORD_STORE_RELAXED(&___fk_f[1], ___ARG2);
+         ___GC_WRITE_BARRIER(___ps, ___fk, &___fk_f[2], ___FAL);
+         ___WORD_STORE_RELAXED(&___fk_f[2], ___FAL);
+         ___GC_WRITE_BARRIER(___ps, ___fk, &___fk_f[3], ___VOID);
+         ___WORD_STORE_RELAXED(&___fk_f[3], ___VOID);
+         ___GC_WRITE_BARRIER(___ps, ___fk, &___fk_f[4], ___FAL);
+         ___WORD_STORE_RELAXED(&___fk_f[4], ___FAL);
+         /* Push fk onto local runqueue with release tail */
+         ___WORD *___buf_p = ___BODY_AS(___buf, ___tVECTOR);
+         ___WORD *___pslot = ___buf_p + (___t & 4095);
+         ___GC_WRITE_BARRIER(___ps, ___buf, ___pslot, ___fk);
+         ___atomic_word_store(___CAST(___VOLATILE ___WORD*, ___pslot), ___CAST(___WORD, ___fk), 0);
+         ___atomic_word_store(___tail_p, ___FIX(___t + 1), 2);
+         /* Check tick boundaries (nursery flush every 16 ticks, global poll every 32 ticks) */
+         ___WORD ___ticks = ___INT(___ctx_f[8]);
+         if (((___ticks & 15) == 15 && ___INT(___ctx_f[14]) > 0)) {
+           ___RESULT = ___FIX(1);
+         } else {
+           int ___need_global = 0;
+           if ((___ticks & 31) == 31) {
+             ___WORD *___sch_f = ___BODY_AS(___ctx_f[1], ___tSTRUCTURE);
+             ___VOLATILE ___WORD *___gp_p = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___sch_f[4], ___tVECTOR));
+             if (___INT(___atomic_word_load(___gp_p, 0)) > 0) ___need_global = 1;
+           }
+           if (___need_global) {
+             ___RESULT = ___FIX(1);
+           } else {
+             ___SCMOBJ ___lifo = ___ctx_f[6];
+             ___WORD ___streak = ___INT(___ctx_f[7]);
+             if (___lifo != ___FAL && ___STRUCTUREP(___lifo) && ___streak < 8) {
+               ___ctx_f[8] = ___FIX(___ticks + 1);
+               ___GC_WRITE_BARRIER(___ps, ___ARG1, &___ctx_f[6], ___FAL);
+               ___WORD_STORE_RELAXED(&___ctx_f[6], ___FAL);
+               ___ctx_f[7] = ___FIX(___streak + 1);
+               ___RESULT = ___lifo;
+             } else {
+               ___WORD ___nt = ___t + 1;
+               ___SCMOBJ ___picked = ___FIX(1);
+               int ___tries;
+               for (___tries = 0; ___tries < 16; ___tries++) {
+                 ___WORD ___ch = ___INT(___atomic_word_load(___head_p, 1));
+                 if (___ch >= ___nt) break;
+                 ___WORD *___s = ___buf_p + (___ch & 4095);
+                 ___SCMOBJ ___item = ___gc_atomic_slot_load(___s, 1);
+                 if (___atomic_word_cas(___head_p, ___FIX(___ch), ___FIX(___ch + 1), 3) == ___FIX(___ch)) {
+                   ___GC_WRITE_BARRIER(___ps, ___buf, ___s, ___FAL);
+                   ___atomic_word_store(___CAST(___VOLATILE ___WORD*, ___s), ___CAST(___WORD, ___FAL), 0);
+                   ___ctx_f[8] = ___FIX(___ticks + 1);
+                   ___ctx_f[7] = ___FIX(0);
+                   ___picked = ___item;
+                   break;
+                 }
+               }
+               ___RESULT = ___picked;
+             }
+           }
+         }
+       }
+     }"
+    ctx raw-k)
+   2))
+
+(define (%yield-slow! ctx raw-k tc)
+  (let ((fk (%alloc-fk! ctx raw-k tc #!void)))
     (%sched-push-dq! ctx fk)
     (%sched-switch-next! ctx)))
+
+;; Zero-closure multi-arg continuation receiver for fiber-yield.
+(define (%yield-cont! raw-k)
+  (let ((ctx (%carrier-wctx))
+        (tc (%get-tc)))
+    (if tc
+        (begin
+          (%set-tc! #f)
+          (%yield-slow! ctx raw-k tc))
+        (let ((res (%yield-push-and-pop-c! ctx raw-k)))
+          (cond
+            ((%fiber-k? res)
+             (let ((nk (%fk-raw-k res))
+                   (ntc (%fk-tc res))
+                   (nval (%fk-val res)))
+               (%free-fk! ctx res)
+               (if ntc (%set-tc! ntc))
+               (##continuation-return-no-winding nk nval)))
+            ((fixnum? res)
+             (if (fx= res 1)
+                 (%sched-switch-next! ctx)
+                 (%yield-slow! ctx raw-k #f)))
+            (else
+             (##continuation-graft-no-winding
+              (%wctx-sched-k ctx) %worker-run-task ctx res)))))))
 
 (define (fiber-yield)
   (##continuation-capture %yield-cont!))
 
+;; Single-C-block fused fiber-spawn push:
+;; Increments nursery.active (if n != #f) and owner ctx.spawned BEFORE publishing
+;; task into private LIFO (evicting prior occupant to local runqueue with release tail).
+;; Returns #f if pushed cleanly, or the evicted task if local runqueue was full (4096).
+(define (%fiber-spawn-push-c! ctx task n)
+  (macro-if-c-compiled
+   (##c-code
+    "___WORD *___ctx_f = ___BODY_AS(___ARG1, ___tSTRUCTURE);
+     if (___ARG3 != ___FAL) {
+       ___WORD *___n_f = ___BODY_AS(___ARG3, ___tSTRUCTURE);
+       ___VOLATILE ___WORD *___act_p = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___n_f[2], ___tVECTOR));
+       ___atomic_uword_fetch_add(___act_p, ___FIX(1), 3);
+     }
+     ___VOLATILE ___WORD *___sp_p = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___ctx_f[4], ___tVECTOR));
+     ___WORD ___cur_sp = ___INT(___WORD_LOAD_RELAXED(___CAST(___WORD*, ___sp_p)));
+     ___atomic_word_store(___sp_p, ___FIX(___cur_sp + 1), 2);
+     ___SCMOBJ ___prev = ___ctx_f[6];
+     ___GC_WRITE_BARRIER(___ps, ___ARG1, &___ctx_f[6], ___ARG2);
+     ___WORD_STORE_RELAXED(&___ctx_f[6], ___ARG2);
+     if (___prev == ___FAL) {
+       ___RESULT = ___FAL;
+     } else {
+       ___WORD *___dq_f = ___BODY_AS(___ctx_f[3], ___tSTRUCTURE);
+       ___SCMOBJ ___buf = ___dq_f[1];
+       ___VOLATILE ___WORD *___head_p = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___dq_f[2], ___tVECTOR));
+       ___VOLATILE ___WORD *___tail_p = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___dq_f[3], ___tVECTOR));
+       ___WORD ___t = ___INT(___atomic_word_load(___tail_p, 0));
+       ___WORD ___h = ___INT(___atomic_word_load(___head_p, 1));
+       if (___t - ___h >= 4096) {
+         ___RESULT = ___prev;
+       } else {
+         ___WORD *___s = ___BODY_AS(___buf, ___tVECTOR) + (___t & 4095);
+         ___GC_WRITE_BARRIER(___ps, ___buf, ___s, ___prev);
+         ___atomic_word_store(___CAST(___VOLATILE ___WORD*, ___s), ___CAST(___WORD, ___prev), 0);
+         ___atomic_word_store(___tail_p, ___FIX(___t + 1), 2);
+         ___RESULT = ___FAL;
+       }
+     }"
+    ctx task n)
+   (begin
+     (if n (%fxatom-add-acqrel! (%nursery-active n) 1))
+     (%fxatom-inc-owner-rel! (%wctx-spawned ctx))
+     (let ((prev (%wctx-lifo ctx)))
+       (%wctx-lifo-set! ctx task)
+       (if (and prev (not (%dq-push! (%wctx-dq ctx) prev)))
+           prev
+           #f)))))
+
+(define (%fiber-spawn-spill! ctx prev)
+  (%sched-enqueue-global! (%wctx-sched ctx) prev)
+  #!void)
+
 (define (fiber-spawn thunk #!optional (n #f))
   (if (not (procedure? thunk))
-      (error "fiber-spawn: expected thunk" thunk))
-  (let ((ctx (%current-wctx)))
-    (if n
-        (begin
-          (if (not (nursery? n))
-              (error "fiber-spawn: expected nursery" n))
-          (%fxatom-add-acqrel! (%nursery-active n) 1)
-          (%fxatom-inc-owner-rel! (%wctx-spawned ctx))
-          (%sched-push-lifo! ctx (cons thunk n))
-          #!void)
-        (begin
-          (%fxatom-inc-owner-rel! (%wctx-spawned ctx))
-          (%sched-push-lifo! ctx thunk)
-          #!void))))
+      (error "fiber-spawn: expected thunk" thunk)
+      (let ((ctx (macro-thread-specific (##current-thread))))
+        (if (not (%worker-ctx? ctx))
+            (%outside-run-fibers-error!)
+            (if n
+                (if (not (nursery? n))
+                    (error "fiber-spawn: expected nursery" n)
+                    (let ((spill (%fiber-spawn-push-c! ctx (cons thunk n) n)))
+                      (if spill (%fiber-spawn-spill! ctx spill) #!void)))
+                (let ((spill (%fiber-spawn-push-c! ctx thunk #f)))
+                  (if spill (%fiber-spawn-spill! ctx spill) #!void)))))))
 
 ;;;----------------------------------------------------------------------------
 ;;; Intrusive Zero-Cons FIFO Wait Queue & Lock-Free Bounded MPMC Channel
@@ -1075,7 +1339,7 @@
 
 ;; Zero-closure multi-arg park receivers for buffered channels (cap > 0)
 (define (%park-send-buf-cont! raw-k ch val)
-  (let* ((ctx (%current-wctx))
+  (let* ((ctx (%carrier-wctx))
          (tc (%get-tc))
          (fk (%alloc-fk! ctx raw-k tc val)))
     (if (fx> (%wctx-nursery-batch ctx) 0) (%nursery-flush! ctx))
@@ -1344,7 +1608,7 @@
     (%sched-switch-next! ctx)))
 
 (define (%park-recv-buf-cont! raw-k ch)
-  (let ((ctx (%current-wctx))
+  (let ((ctx (%carrier-wctx))
         (tc (%get-tc)))
     (if (fx> (%wctx-nursery-batch ctx) 0) (%nursery-flush! ctx))
     (if tc (%set-tc! #f))
@@ -1621,7 +1885,7 @@
           ((eq? st #t) #t)
           ((fixnum? st) (%fiber-send-slow! ch val st))
           (else
-           (let* ((ctx (%current-wctx))
+           (let* ((ctx (%carrier-wctx))
                   (prev (%wctx-lifo ctx)))
              (%wctx-lifo-set! ctx st)
              (if prev
@@ -1805,7 +2069,7 @@
      (let ((fn (car task))
            (n (cdr task)))
        (##with-exception-handler (%nursery-err-handler n) fn)
-       (let ((cur-ctx (%current-wctx)))
+       (let ((cur-ctx (%carrier-wctx)))
          (%nursery-child-done-batched! cur-ctx n)
          (if (%get-tc) (%set-tc! #f))
          (%fxatom-inc-owner-rel! (%wctx-completed cur-ctx))
@@ -1813,7 +2077,7 @@
     (else
      ;; Detached fiber thunk
      (task)
-     (let ((cur-ctx (%current-wctx)))
+     (let ((cur-ctx (%carrier-wctx)))
        (if (%get-tc) (%set-tc! #f))
        (%fxatom-inc-owner-rel! (%wctx-completed cur-ctx))
        (%sched-switch-next! cur-ctx)))))
@@ -1845,6 +2109,7 @@
                           0))
          (ctx (%make-worker-ctx sched wid local-dq spawned completed
                                 #f 0 0 #f #f 0 init-victim #f 0)))
+    (%set-carrier-qos!)
     (macro-thread-specific-set! (##current-thread) ctx)
     (if (%get-tc) (%set-tc! #f))
     ;; Capture the carrier's single reusable trampoline continuation once
@@ -1853,7 +2118,7 @@
        (%wctx-sched-k-set! ctx base-k)
        (%worker-dispatch ctx 0)))))
 
-(define (run-fibers thunk #!key (workers (##current-vm-processor-count)))
+(define (run-fibers thunk #!key (workers (fiber-performance-core-count)))
   (if (not (procedure? thunk))
       (error "run-fibers: expected thunk" thunk))
   (let* ((w (max 1 (if (fixnum? workers) workers 1)))
