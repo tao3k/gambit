@@ -178,13 +178,14 @@
 (define (%osc-handlers-set! c v)(##unchecked-structure-set! c v 7 #f #f))
 (define (%osc-tag-fast c)       (##unchecked-structure-ref c 8 #f #f))
 
-;; Clear all heap references from an exclusively consumed one-shot cell so
-;; retaining the consumed closure cannot pin captured stack frames or marks.
+;; Clear captured continuation/frame/mark/handler heap references from an
+;; exclusively consumed one-shot cell so retaining the consumed closure cannot
+;; pin stack frames or marks. Keep the immutable `barriers` token list intact
+;; so concurrent pre-CAS barrier checks remain lock-free and data-race-free.
 (define (%osc-clear-consumed! c)
   (%osc-sub-k-set! c #f)
   (%osc-prefix-set! c '())
   (%osc-marks-set! c '())
-  (%osc-barriers-set! c '())
   (%osc-handlers-set! c '()))
 
 ;;;----------------------------------------------------------------------------

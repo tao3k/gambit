@@ -1825,3 +1825,205 @@
     (test-equal num-threads (atomic-fxbox-ref ok-count))))
 
 ;;;============================================================================
+;;; Exact LCA Unwind/Restore Diff in Non-Composable Jumps & Non-Destructive
+;;; Pre-CAS One-Shot Validation
+
+(let ()
+  ;; 1. Non-composable / call/1cc jump sharing an enclosing unwind-guard frame
+  ;;    (same scope or exiting inner guard while staying inside shared outer guard)
+  ;;    MUST NOT spuriously invoke 'unwind on the shared frame!
+  (let* ((pt (make-continuation-prompt-tag 'lca-noncomp-pt))
+         (outer-unwinds 0)
+         (outer-restores 0)
+         (inner-unwinds 0)
+         (branch-b-restores 0)
+         (saw-outer-mid -1))
+    ;; 1a. Same-scope call/1cc inside shared unwind-guard
+    (let ((res
+           (call-with-continuation-prompt
+            (lambda ()
+              (let* ((st (srfi/226#%tc-current))
+                     (gf (srfi/226#%make-mc-frame-9
+                          'unwind-guard #f #t #f
+                          (srfi/226#%tc-marks st) (srfi/226#%tc-barriers st) (srfi/226#%tc-handlers st) #f
+                          (lambda (phase)
+                            (cond
+                              ((eq? phase 'unwind) (set! outer-unwinds (fx+ outer-unwinds 1)))
+                              ((eq? phase 'restore) (set! outer-restores (fx+ outer-restores 1))))))))
+                (srfi/226#%tc-mc-set! st (cons gf (srfi/226#%tc-mc st)))
+                (let ((x (call/1cc (lambda (k) (k 'same-scope-ok)) pt)))
+                  (set! saw-outer-mid outer-unwinds)
+                  (srfi/226#%tc-mc-set! st (cdr (srfi/226#%tc-mc st)))
+                  x)))
+            pt)))
+      (test-equal 'same-scope-ok res)
+      (test-equal 0 saw-outer-mid)
+      (test-equal 0 outer-unwinds)
+      (test-equal 0 outer-restores))
+
+    ;; 1b. Exiting inner guard while staying inside shared outer guard unwinds ONLY inner
+    (let ((res
+           (call-with-continuation-prompt
+            (lambda ()
+              (let* ((st (srfi/226#%tc-current))
+                     (gf-out (srfi/226#%make-mc-frame-9
+                              'unwind-guard #f #t #f
+                              (srfi/226#%tc-marks st) (srfi/226#%tc-barriers st) (srfi/226#%tc-handlers st) #f
+                              (lambda (phase)
+                                (if (eq? phase 'unwind)
+                                    (set! outer-unwinds (fx+ outer-unwinds 1)))))))
+                (srfi/226#%tc-mc-set! st (cons gf-out (srfi/226#%tc-mc st)))
+                (let ((x (call/1cc
+                          (lambda (k)
+                            (let ((gf-in (srfi/226#%make-mc-frame-9
+                                          'unwind-guard #f #t #f
+                                          (srfi/226#%tc-marks st) (srfi/226#%tc-barriers st) (srfi/226#%tc-handlers st) #f
+                                          (lambda (phase)
+                                            (if (eq? phase 'unwind)
+                                                (set! inner-unwinds (fx+ inner-unwinds 1)))))))
+                              (srfi/226#%tc-mc-set! st (cons gf-in (srfi/226#%tc-mc st)))
+                              (k 'inner-dropped)))
+                          pt)))
+                  (srfi/226#%tc-mc-set! st (cdr (srfi/226#%tc-mc st)))
+                  x)))
+            pt)))
+      (test-equal 'inner-dropped res)
+      (test-equal 0 outer-unwinds)
+      (test-equal 1 inner-unwinds))
+
+    ;; 1c. Divergent branches sharing outer guard: unwinds A, restores B, leaves outer untouched
+    (let ((k-b #f)
+          (a-unwinds 0)
+          (res #f))
+      (set! res
+        (call-with-continuation-prompt
+         (lambda ()
+           (let* ((st (srfi/226#%tc-current))
+                  (gf-out (srfi/226#%make-mc-frame-9
+                           'unwind-guard #f #t #f
+                           (srfi/226#%tc-marks st) (srfi/226#%tc-barriers st) (srfi/226#%tc-handlers st) #f
+                           (lambda (phase)
+                             (if (eq? phase 'unwind)
+                                 (set! outer-unwinds (fx+ outer-unwinds 1)))))))
+             (srfi/226#%tc-mc-set! st (cons gf-out (srfi/226#%tc-mc st)))
+             (let ((v
+                    (let ((gf-b (srfi/226#%make-mc-frame-9
+                                 'unwind-guard #f #t #f
+                                 (srfi/226#%tc-marks st) (srfi/226#%tc-barriers st) (srfi/226#%tc-handlers st) #f
+                                 (lambda (phase)
+                                   (if (eq? phase 'restore)
+                                       (set! branch-b-restores (fx+ branch-b-restores 1)))))))
+                      (srfi/226#%tc-mc-set! st (cons gf-b (srfi/226#%tc-mc st)))
+                      (let ((r (call-with-non-composable-continuation
+                                (lambda (k) (set! k-b k) 'captured-b)
+                                pt)))
+                        (srfi/226#%tc-mc-set! st (cdr (srfi/226#%tc-mc st)))
+                        r))))
+               (if (eq? v 'captured-b)
+                   (let ((gf-a (srfi/226#%make-mc-frame-9
+                                'unwind-guard #f #t #f
+                                (srfi/226#%tc-marks st) (srfi/226#%tc-barriers st) (srfi/226#%tc-handlers st) #f
+                                (lambda (phase)
+                                  (if (eq? phase 'unwind)
+                                      (set! a-unwinds (fx+ a-unwinds 1)))))))
+                     (srfi/226#%tc-mc-set! st (cons gf-a (srfi/226#%tc-mc st)))
+                     (k-b 'jumped-to-b))
+                   (begin
+                     (srfi/226#%tc-mc-set! st (cdr (srfi/226#%tc-mc st)))
+                     v)))))
+         pt))
+      (test-equal 'jumped-to-b res)
+      (test-equal 0 outer-unwinds)
+      (test-equal 1 a-unwinds)
+      (test-equal 1 branch-b-restores)))
+
+  ;; 2. Non-destructive pre-CAS one-shot validation: rejected invocations (missing
+  ;;    prompt or blocked by barrier) MUST leave a live one-shot continuation LIVE
+  ;;    so subsequent valid invocation or promotion succeeds.
+  (let ((pt (make-continuation-prompt-tag 'precheck-pt))
+        (k1 #f)
+        (k2 #f))
+    ;; 2a. Missing prompt rejects without consuming k1; later invocation inside pt succeeds
+    (call-with-continuation-prompt
+     (lambda ()
+       (call/1cc (lambda (c) (set! k1 c) 'init) pt))
+     pt)
+    (test-equal #t (raises-error? (lambda () (k1 'no-prompt))))
+    (test-equal #f (one-shot-continuation-consumed? k1))
+    (test-equal 'valid-after-miss
+      (call-with-continuation-prompt
+       (lambda () (k1 'valid-after-miss))
+       pt))
+    (test-equal #t (one-shot-continuation-consumed? k1))
+    (test-equal #t (raises-error? (lambda () (k1 'second-try))))
+
+    ;; 2b. Barrier rejection preserves live state; promotion & invocation inside barrier succeed
+    (let ((b-res
+           (call-with-continuation-prompt
+            (lambda ()
+              (call-with-continuation-barrier
+               (lambda ()
+                 (let ((v (call/1cc (lambda (c) (set! k2 c) 'cap) pt)))
+                   (if (eq? v 'cap)
+                       'exited-barrier
+                       v))))
+              ;; Outside barrier: rejected AND k2 remains live!
+              (test-equal #t (raises-error? (lambda () (k2 'blocked))))
+              (test-equal #f (one-shot-continuation-consumed? k2))
+              ;; Promote after rejection still works!
+              (test-equal #t (promote-one-shot-continuation! k2))
+              ;; Promoted multi-shot still blocks outside barrier!
+              (test-equal #t (raises-error? (lambda () (k2 'still-blocked))))
+              'done-2b)
+            pt)))
+      (test-equal 'done-2b b-res)))
+
+  ;; 3. Adaptive-P SMP race: invalid callers (missing prompt) racing concurrently
+  ;;    with valid callers on the same one-shot continuation; strictly 1 valid caller wins.
+  (let* ((num-threads (max 2 (min 8 (##current-vm-processor-count))))
+         (rounds 25)
+         (all-ok #t))
+    (let rloop ((r 0))
+      (if (fx< r rounds)
+          (let ((pt (make-continuation-prompt-tag 'smp-precheck-pt))
+                (k #f)
+                (wins (make-atomic-fxbox 0))
+                (rejects (make-atomic-fxbox 0)))
+            (call-with-continuation-prompt
+             (lambda ()
+               (call/1cc (lambda (c) (set! k c) 'init) pt))
+             pt)
+            (let ((threads
+                   (let loop ((t 0) (acc '()))
+                     (if (fx= t num-threads)
+                         acc
+                         (loop (fx+ t 1)
+                               (cons
+                                (thread-start!
+                                 (make-thread
+                                  (lambda ()
+                                    (if (fx= (fxand t 1) 0)
+                                        ;; Even threads: invalid call (no prompt)
+                                        (if (raises-error? (lambda () (k 'bad)))
+                                            (atomic-fxbox+/fetch! rejects 1))
+                                        ;; Odd threads: valid call inside prompt
+                                        (let ((res
+                                               (call-with-continuation-prompt
+                                                (lambda ()
+                                                  (with-exception-catcher
+                                                   (lambda (_) 'lost)
+                                                   (lambda () (k 'won))))
+                                                pt)))
+                                          (if (eq? res 'won)
+                                              (atomic-fxbox+/fetch! wins 1)
+                                              (atomic-fxbox+/fetch! rejects 1)))))))
+                                acc))))))
+              (for-each thread-join! threads))
+            (if (or (not (fx= (atomic-fxbox-ref wins) 1))
+                    (not (fx= (atomic-fxbox-ref rejects) (fx- num-threads 1)))
+                    (not (one-shot-continuation-consumed? k)))
+                (set! all-ok #f))
+            (rloop (fx+ r 1)))))
+    (test-equal #t all-ok)))
+
+;;;============================================================================

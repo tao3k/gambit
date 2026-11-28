@@ -298,8 +298,10 @@
                              (if (null? cap-handlers)
                                  (%pf-handlers cur-pframe)
                                  (append cap-handlers (%pf-handlers cur-pframe))))
-          (if (pair? cur-prefix) (%mc-run-unwind-hooks! cur-prefix 'unwind))
-          (if (pair? prefix) (%mc-run-unwind-hooks! prefix 'restore))
+          (let ((dropped (%mc-diff-list cur-prefix prefix))
+                (reentered (%mc-diff-list prefix cur-prefix)))
+            (if (pair? dropped) (%mc-run-unwind-hooks! dropped 'unwind))
+            (if (pair? reentered) (%mc-run-unwind-hooks! reentered 'restore)))
           (cond
             ((eq? v1 %ABSENT) (##continuation-return sub-k))
             ((eq? v2 %ABSENT) (##continuation-return sub-k v1))
@@ -326,8 +328,10 @@
                                 (if (null? cap-handlers)
                                     (%pf-handlers cur-pframe)
                                     (append cap-handlers (%pf-handlers cur-pframe))))
-             (if (pair? cur-prefix) (%mc-run-unwind-hooks! cur-prefix 'unwind))
-             (if (pair? prefix) (%mc-run-unwind-hooks! prefix 'restore)))
+             (let ((dropped (%mc-diff-list cur-prefix prefix))
+                   (reentered (%mc-diff-list prefix cur-prefix)))
+               (if (pair? dropped) (%mc-run-unwind-hooks! dropped 'unwind))
+               (if (pair? reentered) (%mc-run-unwind-hooks! reentered 'restore))))
            (cond
              ((eq? v1 %ABSENT) (values))
              ((eq? v2 %ABSENT) v1)
@@ -545,27 +549,11 @@
 ;;; Lock-Free Atomic One-Shot Continuations & Unforgeable Closure-Code Identity
 
 (define (%invoke-one-shot-cell cell v1 v2 v3 more)
-  (let ((prev (%osc-cas-state! cell %CONT-ONE-SHOT-LIVE %CONT-ONE-SHOT-CONSUMED)))
+  (let ((st0 (%osc-load-state cell)))
     (cond
-      ((fx= prev %CONT-ONE-SHOT-LIVE)
-       ;; Exclusive one-shot winner: extract locals and immediately clear cell
-       ;; slots so retaining the consumed closure leaks zero stack frames/marks.
-       (let ((kind (%osc-kind-fast cell))
-             (sub-k (%osc-sub-k-fast cell))
-             (prefix (%osc-prefix-fast cell))
-             (marks (%osc-marks-fast cell))
-             (barriers (%osc-barriers-fast cell))
-             (handlers (%osc-handlers-fast cell))
-             (tag (%osc-tag-fast cell)))
-         (%osc-clear-consumed! cell)
-         (cond
-           ((eq? kind 'composable)
-            (%invoke-composable-parts sub-k prefix marks handlers v1 v2 v3 more))
-           ((eq? kind 'noncomp)
-            (%invoke-noncomp-parts sub-k prefix marks barriers handlers tag v1 v2 v3 more))
-           (else
-            (%invoke-raw-parts sub-k prefix marks barriers handlers #t v1 v2 v3 more)))))
-      ((fx= prev %CONT-MULTISHOT-COW)
+      ((fx= st0 %CONT-ONE-SHOT-CONSUMED)
+       (error "one-shot continuation already consumed"))
+      ((fx= st0 %CONT-MULTISHOT-COW)
        ;; Promoted multi-shot continuation: never clear shared cell slots!
        (let ((kind (%osc-kind-fast cell)))
          (cond
@@ -576,7 +564,57 @@
            (else
             (%invoke-raw-cell cell v1 v2 v3 more)))))
       (else
-       (error "one-shot continuation already consumed")))))
+       ;; Pre-validate barrier and target prompt BEFORE atomic consumption so a
+       ;; rejected invocation never destructively consumes a live one-shot cell.
+       (let ((kind (%osc-kind-fast cell)))
+         (cond
+           ((eq? kind 'noncomp)
+            (let ((cst (%tc-current)))
+              (if (%entering-barrier? (%osc-barriers-fast cell) (%st-barriers cst))
+                  (error "continuation invocation blocked by continuation barrier"))
+              (let ((mc (%st-mc cst))
+                    (tag (%osc-tag-fast cell)))
+                (if (not (or (and (pair? mc)
+                                  (eq? (%pf-kind (car mc)) 'prompt)
+                                  (eq? (%pf-tag (car mc)) tag))
+                             (%mc-find-tail-slow mc tag)))
+                    (error "non-composable continuation: target prompt not active" tag)))))
+           ((eq? kind 'raw)
+            (let ((cst (%tc-current)))
+              (if (%entering-barrier? (%osc-barriers-fast cell) (%st-barriers cst))
+                  (error "continuation invocation blocked by continuation barrier"))))))
+       (let ((prev (%osc-cas-state! cell %CONT-ONE-SHOT-LIVE %CONT-ONE-SHOT-CONSUMED)))
+         (cond
+           ((fx= prev %CONT-ONE-SHOT-LIVE)
+            ;; Exclusive one-shot winner: extract locals and immediately clear cell
+            ;; slots so retaining the consumed closure leaks zero stack frames/marks.
+            (let ((kind (%osc-kind-fast cell))
+                  (sub-k (%osc-sub-k-fast cell))
+                  (prefix (%osc-prefix-fast cell))
+                  (marks (%osc-marks-fast cell))
+                  (barriers (%osc-barriers-fast cell))
+                  (handlers (%osc-handlers-fast cell))
+                  (tag (%osc-tag-fast cell)))
+              (%osc-clear-consumed! cell)
+              (cond
+                ((eq? kind 'composable)
+                 (%invoke-composable-parts sub-k prefix marks handlers v1 v2 v3 more))
+                ((eq? kind 'noncomp)
+                 (%invoke-noncomp-parts sub-k prefix marks barriers handlers tag v1 v2 v3 more))
+                (else
+                 (%invoke-raw-parts sub-k prefix marks barriers handlers #t v1 v2 v3 more)))))
+           ((fx= prev %CONT-MULTISHOT-COW)
+            ;; Promoted multi-shot continuation: never clear shared cell slots!
+            (let ((kind (%osc-kind-fast cell)))
+              (cond
+                ((eq? kind 'composable)
+                 (%invoke-composable-cell cell v1 v2 v3 more))
+                ((eq? kind 'noncomp)
+                 (%invoke-noncomp-cell cell v1 v2 v3 more))
+                (else
+                 (%invoke-raw-cell cell v1 v2 v3 more)))))
+           (else
+            (error "one-shot continuation already consumed"))))))))
 
 (define (%make-one-shot-closure cell)
   (lambda (#!optional (v1 %ABSENT) (v2 %ABSENT) (v3 %ABSENT) #!rest more)
