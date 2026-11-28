@@ -62,6 +62,9 @@
 #include <sys/sysctl.h>
 #include <pthread/qos.h>
 #endif
+#if defined(__APPLE__) || defined(__linux__) || defined(__unix__)
+#include <sched.h>
+#endif
 ")
  (begin))
 
@@ -98,6 +101,15 @@
 #endif
      ___RESULT = ___VOID;")
    #!void))
+
+(define (%os-sched-yield!)
+  (macro-if-c-compiled
+   (##c-code
+    "#if defined(__APPLE__) || defined(__linux__) || defined(__unix__)
+     sched_yield();
+#endif
+     ___RESULT = ___VOID;")
+   (thread-yield!)))
 
 ;; 1-word fixnum atomic box
 (define (%make-fxatom init)
@@ -509,7 +521,9 @@
   (spawned-vec    %sched-spawned-vec)    ;; vector of W 128B-padded monotonic counters
   (completed-vec  %sched-completed-vec)  ;; vector of W 128B-padded monotonic counters
   (root-done      %sched-root-done)      ;; fxatom (0 -> 1)
-  (root-box       %sched-root-box))      ;; box holding (ok? . val-or-exc)
+  (root-box       %sched-root-box)       ;; box holding (ok? . val-or-exc)
+  (searching      %sched-searching)      ;; 128B-padded count of active steal-searchers
+  (max-searching  %sched-max-searching)) ;; cap = max(1, W/2) preventing steal herds
 
 (define-type %worker-ctx
   id: 8B1F3A70-9C24-4D6B-A5E1-F1B000000002
@@ -658,6 +672,34 @@
                       (sloop (fx+ j 1)
                              (fx+ s (%fxatom-load-acq (##vector-ref svec j))))
                       (fx= c s)))))))))
+
+;; Bounded searching-worker permit (caps concurrent steal scanners to max(1, W/2)).
+(define (%sched-try-acquire-search! sched)
+  (macro-if-c-compiled
+   (##c-code
+    "___WORD *___f = ___BODY_AS(___ARG1, ___tSTRUCTURE);
+     ___VOLATILE ___WORD *___sp = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___f[9], ___tVECTOR));
+     ___WORD ___cap = ___INT(___f[10]);
+     ___SCMOBJ ___ok = ___FAL;
+     int ___i;
+     for (___i = 0; ___i < 4; ___i++) {
+       ___WORD ___cur = ___INT(___atomic_word_load(___sp, 1));
+       if (___cur >= ___cap) break;
+       if (___atomic_word_cas(___sp, ___FIX(___cur), ___FIX(___cur + 1), 3) == ___FIX(___cur)) {
+         ___ok = ___TRU;
+         break;
+       }
+     }
+     ___RESULT = ___ok;"
+    sched)
+   (let ((box (%sched-searching sched))
+         (cap (%sched-max-searching sched)))
+     (let ((cur (%fxatom-load-acq box)))
+       (and (fx< cur cap)
+            (fx= (%fxatom-cas-acq! box cur (fx+ cur 1)) cur))))))
+
+(define (%sched-release-search! sched)
+  (%fxatom-sub-acqrel! (%sched-searching sched) 1))
 
 ;; Bounded CPU pause backoff for idle stealers to reduce cross-core coherence traffic.
 (define (%idle-pause-c! spins)
@@ -2216,14 +2258,20 @@
 ;;; Multi-Core M:N Work-Stealing Direct-Switch Trampoline
 ;;; (Sticky Victim Locality + Inline Chase-Lev Deque + Recycled %fiber-k)
 
-(define (%worker-try-steal ctx num-workers deques)
-  (if (fx<= num-workers 1)
+(define (%worker-try-steal ctx sched num-workers deques)
+  (if (or (fx<= num-workers 1)
+          (not (%sched-try-acquire-search! sched)))
       #f
       (let ((wid (%wctx-wid ctx))
             (start (%wctx-steal-cursor ctx)))
         (let loop ((tried 1) (victim start))
           (if (fx>= tried num-workers)
-              #f
+              (begin
+                ;; Advance cursor pseudorandomly on full miss to desynchronize thieves
+                (%wctx-steal-cursor-set!
+                 ctx (fxmodulo (fx+ (fx* start 5) 1) num-workers))
+                (%sched-release-search! sched)
+                #f)
               (let ((v (if (fx= victim wid)
                            (let ((n (fx+ victim 1)))
                              (if (fx>= n num-workers) 0 n))
@@ -2232,6 +2280,7 @@
                   (if task
                       (begin
                         (%wctx-steal-cursor-set! ctx v)
+                        (%sched-release-search! sched)
                         task)
                       (let ((nxt (fx+ v 1)))
                         (loop (fx+ tried 1)
@@ -2283,9 +2332,10 @@
                 (%wctx-lifo-streak-set! ctx 0)
                 (%wctx-picked-n-set! ctx #f)
                 (set! task t)))))
-    ;; 5. Sticky victim-locality FIFO batch work-steal (populates ctx.picked-n)
+    ;; 5. Sticky victim-locality FIFO batch work-steal (throttled to max(1, W/2) searchers)
     (if (not task)
         (let ((stolen (%worker-try-steal ctx
+                                         sched
                                          (%sched-num-workers sched)
                                          (%sched-deques sched))))
           (if stolen
@@ -2387,7 +2437,7 @@
                   (begin
                     (%idle-pause-c! idle-spins)
                     (if (fx>= idle-spins 8)
-                        (begin (thread-yield!) (%worker-dispatch ctx 0))
+                        (begin (%os-sched-yield!) (%worker-dispatch ctx 0))
                         (%worker-dispatch ctx (fx+ idle-spins 1))))))))))
 
 (define (%worker-loop sched wid)
@@ -2436,8 +2486,11 @@
          (global-pending (%make-padded-fxatom 0))
          (root-done (%make-fxatom 0))
          (root-box (cons #f #f))
+         (searching (%make-padded-fxatom 0))
+         (max-searching (max 1 (fxarithmetic-shift-right w 1)))
          (sched (%make-scheduler w deques global-q global-pending
-                                 spawned-vec completed-vec root-done root-box)))
+                                 spawned-vec completed-vec root-done root-box
+                                 searching max-searching)))
     (%sched-enqueue-global!
      sched
      (lambda ()
