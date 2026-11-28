@@ -109,10 +109,15 @@
              ___SCMOBJ ___next_task = ___FIX(1);
              ___SCMOBJ ___lifo = ___ctx_f[6];
              ___WORD ___streak = ___INT(___ctx_f[7]);
-             if (___lifo != ___FAL && ___STRUCTUREP(___lifo) && ___streak < 8) {
+             if (___lifo != ___FAL && ___streak < 8) {
+               ___SCMOBJ ___lifo_n = ___ctx_f[15];
                ___ctx_f[8] = ___FIX(___ticks + 1);
                ___GC_WRITE_BARRIER(___ps, ___ARG1, &___ctx_f[6], ___FAL);
                ___WORD_STORE_RELAXED(&___ctx_f[6], ___FAL);
+               ___GC_WRITE_BARRIER(___ps, ___ARG1, &___ctx_f[15], ___FAL);
+               ___WORD_STORE_RELAXED(&___ctx_f[15], ___FAL);
+               ___GC_WRITE_BARRIER(___ps, ___ARG1, &___ctx_f[16], ___lifo_n);
+               ___WORD_STORE_RELAXED(&___ctx_f[16], ___lifo_n);
                ___ctx_f[7] = ___FIX(___streak + 1);
                ___next_task = ___lifo;
              } else {
@@ -258,7 +263,9 @@
               (%wctx-sched-k ctx) %worker-run-task ctx res (%wctx-picked-n ctx))))))))
 
 (define (fiber-yield)
-  (##continuation-capture %yield-cont!))
+  (if (not (%worker-ctx? (%carrier-wctx)))
+      (%outside-run-fibers-error!)
+      (##continuation-capture %yield-cont!)))
 
 ;; Single-C-block fused zero-cons fiber-spawn with pre-reserved +32 nursery credits:
 ;; - Consumes 1 pre-reserved credit (0 atomics!) when ctx.nursery-cur == n && credit >= 1.
@@ -372,7 +379,9 @@
             (if n
                 (if (not (nursery? n))
                     (error "fiber-spawn: expected nursery" n)
-                    (let ((res (%fiber-spawn-push-c! ctx thunk n)))
-                      (if res (%fiber-spawn-slow! ctx thunk n res) #!void)))
+                    (if (not (eq? (%nursery-sched n) (%wctx-sched ctx)))
+                        (error "fiber-spawn: nursery belongs to a different scheduler" n)
+                        (let ((res (%fiber-spawn-push-c! ctx thunk n)))
+                          (if res (%fiber-spawn-slow! ctx thunk n res) #!void))))
                 (let ((res (%fiber-spawn-push-c! ctx thunk #f)))
                   (if res (%fiber-spawn-slow! ctx thunk #f res) #!void)))))))

@@ -160,6 +160,9 @@
   %nursery-first-err-set!
   %nursery-has-err?
   %nursery-has-err?-set!
+  %nursery-err-handler
+  %nursery-err-handler-set!
+  %nursery-cancelled
   nursery
 ))
 

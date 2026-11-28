@@ -1513,4 +1513,126 @@
           (rloop (fx+ r 1)))))
   (test-equal rounds ok-rounds))
 
+;; Scheduler boundary guards: fiber-yield outside run-fibers, nursery-cancel! /
+;; nursery-cancelled? type checks, and cross-scheduler nursery spawn rejection.
+(test-equal #t
+  (with-exception-catcher (lambda (e) #t) (lambda () (fiber-yield) #f)))
+(test-equal #t
+  (with-exception-catcher (lambda (e) #t) (lambda () (nursery-cancel! 123) #f)))
+(test-equal #t
+  (with-exception-catcher (lambda (e) #t) (lambda () (nursery-cancelled? 123) #f)))
+
+;; Cross-scheduler nursery spawn must raise cleanly instead of corrupting
+;; batched completion credits across distinct run-fibers pools.
+(let ((ch-n (make-fiber-channel 1))
+      (ch-done (make-fiber-channel 1)))
+  (let ((tA (thread-start!
+             (make-thread
+              (lambda ()
+                (run-fibers
+                 (lambda ()
+                   (with-nursery
+                    (lambda (nA)
+                      (fiber-send! ch-n nA)
+                      (fiber-recv! ch-done))))
+                 workers: 2)))))
+        (tB (thread-start!
+             (make-thread
+              (lambda ()
+                (run-fibers
+                 (lambda ()
+                   (let ((nA (fiber-recv! ch-n)))
+                     (let ((rejected
+                            (with-exception-catcher
+                             (lambda (e) #t)
+                             (lambda () (fiber-spawn (lambda () #!void) nA) #f))))
+                       (fiber-send! ch-done 'ok)
+                       rejected)))
+                 workers: 2))))))
+    (test-equal #t (thread-join! tB))
+    (thread-join! tA)))
+
+;; Cooperative structured nursery cancellation: explicit nursery-cancel! from
+;; both a sibling fiber and an external OS thread, preserving with-finally
+;; cleanup and waiting for full child quiescence before with-nursery returns.
+(let* ((p (##current-vm-processor-count))
+       (w (max 2 (min 12 p)))
+       (n-workers (max 4 (min 12 p)))
+       (cleaned (make-atomic-fxbox 0))
+       (saw-cancel (make-atomic-fxbox 0)))
+  (run-fibers
+   (lambda ()
+     (with-nursery
+      (lambda (n)
+        (test-equal #f (nursery-cancelled? n))
+        (let loop ((i 0))
+          (if (fx< i n-workers)
+              (begin
+                (fiber-spawn
+                 (lambda ()
+                   (with-finally
+                    (lambda ()
+                      (let spin ()
+                        (if (nursery-cancelled? n)
+                            (atomic-fxbox+/fetch! saw-cancel 1)
+                            (begin (fiber-yield) (spin)))))
+                    (lambda ()
+                      (atomic-fxbox+/fetch! cleaned 1))))
+                 n)
+                (loop (fx+ i 1)))))
+        ;; Trigger cancellation from an external OS thread (idempotent)
+        (let ((ext (thread-start!
+                    (make-thread
+                     (lambda ()
+                       (thread-sleep! 0.01)
+                       (nursery-cancel! n)
+                       (nursery-cancel! n))))))
+          (thread-join! ext))
+        (test-equal #t (nursery-cancelled? n)))))
+   workers: w)
+  (test-equal n-workers (atomic-fxbox-ref saw-cancel))
+  (test-equal n-workers (atomic-fxbox-ref cleaned)))
+
+;; Error-triggered automatic nursery cancellation across P cores: first child
+;; exception automatically marks nursery-cancelled? = #t for all siblings while
+;; with-nursery still waits for every sibling's with-finally cleanup before
+;; re-raising the error.
+(let* ((p (##current-vm-processor-count))
+       (w (max 2 (min 12 p)))
+       (n-siblings (max 4 (min 12 p)))
+       (cleaned (make-atomic-fxbox 0))
+       (saw-cancel (make-atomic-fxbox 0)))
+  (test-equal 'child-boom
+    (with-exception-catcher
+     (lambda (e) e)
+     (lambda ()
+       (run-fibers
+        (lambda ()
+          (with-nursery
+           (lambda (n)
+             (let loop ((i 0))
+               (if (fx< i n-siblings)
+                   (begin
+                     (fiber-spawn
+                      (lambda ()
+                        (with-finally
+                         (lambda ()
+                           (let spin ()
+                             (if (nursery-cancelled? n)
+                                 (atomic-fxbox+/fetch! saw-cancel 1)
+                                 (begin (fiber-yield) (spin)))))
+                         (lambda ()
+                           (atomic-fxbox+/fetch! cleaned 1))))
+                      n)
+                     (loop (fx+ i 1)))))
+             (fiber-spawn
+              (lambda ()
+                (fiber-yield)
+                (fiber-yield)
+                (raise 'child-boom))
+              n))))
+        workers: w))))
+  (test-equal n-siblings (atomic-fxbox-ref saw-cancel))
+  (test-equal n-siblings (atomic-fxbox-ref cleaned)))
+
 ;;;============================================================================

@@ -17,6 +17,8 @@ run-fibers
 with-nursery
 with-finally
 nursery?
+nursery-cancel!
+nursery-cancelled?
 fiber-spawn
 fiber-yield
 fiber-worker-count

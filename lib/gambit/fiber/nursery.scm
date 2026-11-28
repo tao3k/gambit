@@ -22,9 +22,23 @@
   (waiter-k    %nursery-waiter-k     %nursery-waiter-k-set!)
   (first-err   %nursery-first-err    %nursery-first-err-set!)
   (has-err?    %nursery-has-err?     %nursery-has-err?-set!)
-  (err-handler %nursery-err-handler  %nursery-err-handler-set!))
+  (err-handler %nursery-err-handler  %nursery-err-handler-set!)
+  (cancelled   %nursery-cancelled))  ;; 128B-padded fxatom (0=live, 1=cancelled)
+
+(define (nursery-cancel! n)
+  (if (not (nursery? n))
+      (error "nursery-cancel!: expected nursery" n))
+  (%fxatom-set-seq! (%nursery-cancelled n) 1)
+  #!void)
+
+(define (nursery-cancelled? n)
+  (if (not (nursery? n))
+      (error "nursery-cancelled?: expected nursery" n))
+  (not (fx= (%fxatom-load-acq (%nursery-cancelled n)) 0)))
 
 (define (%nursery-record-error! n exc)
+  ;; Automatically signal cooperative cancellation to sibling fibers on first error.
+  (%fxatom-set-seq! (%nursery-cancelled n) 1)
   (%spin-lock! (%nursery-lock n))
   (if (not (%nursery-has-err? n))
       (begin
@@ -109,7 +123,8 @@
                            #f
                            #f
                            #f
-                           #f))
+                           #f
+                           (%make-padded-fxatom 0)))
          (child-eh (lambda (e)
                      (let ((cur-ctx (%current-wctx)))
                        (##continuation-graft (%wctx-sched-k cur-ctx)
