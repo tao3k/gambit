@@ -1081,11 +1081,45 @@
      seq
      (%make-padded-fxatom 0)
      (%make-padded-fxatom 0)
-     (%make-padded-fxatom 0)
+     (let ((rxw (%make-padded-fxatom 0)))
+       (##vector-set! rxw 1 #f)
+       rxw)
      (%make-padded-fxatom 0)
      (%make-fxatom 0)
      (%make-wait-q #f #f)
      (%make-wait-q #f #f))))
+
+;; Check whether any receiver is parked in either lock-free rx-fast (word 1) or rwq (word 0).
+(define (%ch-rx-any-waiters-seq? ch)
+  (macro-if-c-compiled
+   (##c-code
+    "___WORD *___f = ___BODY_AS(___ARG1, ___tSTRUCTURE);
+     ___WORD *___rxw_base = ___BODY_AS(___f[7], ___tVECTOR);
+     ___VOLATILE ___WORD *___rxw_p = ___CAST(___VOLATILE ___WORD*, ___rxw_base);
+     ___RESULT = (___gc_atomic_slot_load(___rxw_base + 1, 4) != ___FAL ||
+                  ___INT(___atomic_word_load(___rxw_p, 4)) > 0)
+                 ? ___TRU : ___FAL;"
+    ch)
+   (fx> (%fxatom-load-seq (%ch-rx-waiters ch)) 0)))
+
+;; Lock-free CAS pop of the single-waiter rx-fast slot (word 1 of rx-waiters).
+(define (%ch-try-pop-rxfast-c! ch)
+  (macro-if-c-compiled
+   (##c-code
+    "___WORD *___f = ___BODY_AS(___ARG1, ___tSTRUCTURE);
+     ___SCMOBJ ___rxw_vec = ___f[7];
+     ___WORD *___rxf_p = ___BODY_AS(___rxw_vec, ___tVECTOR) + 1;
+     ___SCMOBJ ___rk = ___gc_atomic_slot_load(___rxf_p, 1);
+     if (___rk != ___FAL &&
+         ___gc_atomic_slot_cas(___ps, ___rxw_vec, ___rxf_p, ___rk, ___FAL, 3,
+                               ___EXT(___gc_write_barrier_slow),
+                               ___EXT(___gc_satb_barrier_val)) == ___rk) {
+       ___RESULT = ___rk;
+     } else {
+       ___RESULT = ___FAL;
+     }"
+    ch)
+   #f))
 
 ;; Single-C-block bounded-retry Vyukov ring push (2*pos / 2*pos+1 supports all cap >= 1).
 ;; Returns: 0=pushed & rxw==0, 1=pushed & rxw>0, 2=full, 3=retry after safepoint poll.
@@ -1098,7 +1132,8 @@
      ___SCMOBJ ___buf = ___f[3];
      ___VOLATILE ___WORD *___seq_p  = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___f[4], ___tVECTOR));
      ___VOLATILE ___WORD *___tail_p = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___f[5], ___tVECTOR));
-     ___VOLATILE ___WORD *___rxw_p  = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___f[7], ___tVECTOR));
+     ___WORD *___rxw_base = ___BODY_AS(___f[7], ___tVECTOR);
+     ___VOLATILE ___WORD *___rxw_p  = ___CAST(___VOLATILE ___WORD*, ___rxw_base);
      ___WORD *___buf_p = ___BODY_AS(___buf, ___tVECTOR);
      ___SCMOBJ ___val = ___ARG2;
      ___WORD ___res = 3;
@@ -1115,7 +1150,8 @@
            ___GC_WRITE_BARRIER(___ps, ___buf, ___slot, ___val);
            ___WORD_STORE_RELAXED(___slot, ___val);
            ___atomic_word_store(___seq_p + ___idx, ___FIX(___exp + 1), 4);
-           ___res = (___INT(___atomic_word_load(___rxw_p, 4)) > 0) ? 1 : 0;
+           ___res = (___gc_atomic_slot_load(___rxw_base + 1, 4) != ___FAL ||
+                     ___INT(___atomic_word_load(___rxw_p, 4)) > 0) ? 1 : 0;
            break;
          }
        } else if (___dif < 0) {
@@ -1221,30 +1257,42 @@
           (loop)
           res))))
 
-;; Slow-path wakeups (called only when waiter count > 0)
+;; Slow-path wakeups (called only when rx-fast occupied or waiter count > 0)
 (define (%ch-wake-one-receiver! ch)
-  (let ((lock (%ch-lock ch))
-        (rwq (%ch-recv-waiters ch))
-        (rxw (%ch-rx-waiters ch))
-        (rk #f)
-        (item %CH-EMPTY))
-    (%spin-lock! lock)
-    (if (not (%wq-empty? rwq))
-        (begin
-          (set! rk (%wq-pop! rwq))
-          (%fxatom-set-seq! rxw (fx- (##vector-ref rxw 0) 1))
-          (set! item (%vyukov-try-pop-or! ch %CH-EMPTY))))
-    (%spin-unlock! lock)
+  (let ((rk (%ch-try-pop-rxfast-c! ch)))
     (if rk
-        (if (not (eq? item %CH-EMPTY))
-            (begin
-              (if (fx> (%fxatom-load-seq (%ch-tx-waiters ch)) 0)
-                  (%ch-wake-one-sender! ch))
-              (%fk-val-set! rk item)
-              (%sched-push-lifo! (%current-wctx) rk))
-            (begin
-              (%fk-val-set! rk %CH-RETRY)
-              (%sched-push-lifo! (%current-wctx) rk))))))
+        (let ((item (%vyukov-try-pop-or! ch %CH-EMPTY)))
+          (if (not (eq? item %CH-EMPTY))
+              (begin
+                (if (fx> (%fxatom-load-seq (%ch-tx-waiters ch)) 0)
+                    (%ch-wake-one-sender! ch))
+                (%fk-val-set! rk item)
+                (%sched-push-lifo! (%carrier-wctx) rk))
+              (begin
+                (%fk-val-set! rk %CH-RETRY)
+                (%sched-push-lifo! (%carrier-wctx) rk))))
+        (let ((lock (%ch-lock ch))
+              (rwq (%ch-recv-waiters ch))
+              (rxw (%ch-rx-waiters ch))
+              (rk2 #f)
+              (item %CH-EMPTY))
+          (%spin-lock! lock)
+          (if (not (%wq-empty? rwq))
+              (begin
+                (set! rk2 (%wq-pop! rwq))
+                (%fxatom-set-seq! rxw (fx- (##vector-ref rxw 0) 1))
+                (set! item (%vyukov-try-pop-or! ch %CH-EMPTY))))
+          (%spin-unlock! lock)
+          (if rk2
+              (if (not (eq? item %CH-EMPTY))
+                  (begin
+                    (if (fx> (%fxatom-load-seq (%ch-tx-waiters ch)) 0)
+                        (%ch-wake-one-sender! ch))
+                    (%fk-val-set! rk2 item)
+                    (%sched-push-lifo! (%carrier-wctx) rk2))
+                  (begin
+                    (%fk-val-set! rk2 %CH-RETRY)
+                    (%sched-push-lifo! (%carrier-wctx) rk2))))))))
 
 (define (%ch-wake-one-sender! ch)
   (let ((lock (%ch-lock ch))
@@ -1262,13 +1310,13 @@
     (if sk
         (if pushed?
             (begin
-              (if (fx> (%fxatom-load-seq (%ch-rx-waiters ch)) 0)
+              (if (%ch-rx-any-waiters-seq? ch)
                   (%ch-wake-one-receiver! ch))
               (%fk-val-set! sk #t)
-              (%sched-push-lifo! (%current-wctx) sk))
+              (%sched-push-lifo! (%carrier-wctx) sk))
             (begin
               (%fk-val-set! sk %CH-RETRY)
-              (%sched-push-lifo! (%current-wctx) sk))))))
+              (%sched-push-lifo! (%carrier-wctx) sk))))))
 
 ;; Single-C-block fused Dekker park-send for full buffered channels.
 ;; Returns: #t if parked cleanly, #f if race (ring freed or receiver parked),
@@ -1306,7 +1354,9 @@
        ___WORD ___s   = ___INT(___atomic_word_load(___seq_p + ___idx, 4));
        ___SCMOBJ ___rwq = ___f[10];
        ___WORD *___rwq_f = ___BODY_AS(___rwq, ___tSTRUCTURE);
-       if (___s - (___pos << 1) < 0 && ___rwq_f[1] == ___FAL) {
+       ___WORD *___rxf_p = ___BODY_AS(___f[7], ___tVECTOR) + 1;
+       if (___s - (___pos << 1) < 0 && ___rwq_f[1] == ___FAL &&
+           ___gc_atomic_slot_load(___rxf_p, 4) == ___FAL) {
          ___SCMOBJ ___swq = ___f[11];
          ___WORD *___swq_f = ___BODY_AS(___swq, ___tSTRUCTURE);
          ___SCMOBJ ___fk = ___ARG2;
@@ -1356,6 +1406,21 @@
             (%fxatom-set-seq! txw (fx+ (##vector-ref txw 0) 1))
             (%seq-cst-fence!)
             (cond
+              ((and (let* ((t (%fxatom-load-acq (%ch-tail ch)))
+                           (h (%fxatom-load-acq (%ch-head ch))))
+                      (fx= t h))
+                    (let ((rk-fast (%ch-try-pop-rxfast-c! ch)))
+                      (if rk-fast
+                          (begin
+                            (%fxatom-set-seq! txw (fx- (##vector-ref txw 0) 1))
+                            (%spin-unlock! lock)
+                            (%fk-val-set! rk-fast val)
+                            (%fk-val-set! fk #t)
+                            (%sched-push-lifo! ctx fk)
+                            (%sched-push-lifo! ctx rk-fast)
+                            #t)
+                          #f)))
+               #!void)
               ((and (not (%wq-empty? rwq))
                     (let* ((t (%fxatom-load-acq (%ch-tail ch)))
                            (h (%fxatom-load-acq (%ch-head ch))))
@@ -1371,7 +1436,7 @@
               ((%vyukov-try-push! ch val)
                (%fxatom-set-seq! txw (fx- (##vector-ref txw 0) 1))
                (%spin-unlock! lock)
-               (if (fx> (%fxatom-load-seq rxw) 0)
+               (if (%ch-rx-any-waiters-seq? ch)
                    (%ch-wake-one-receiver! ch))
                (%fk-val-set! fk #t)
                (%sched-push-lifo! ctx fk))
@@ -1447,58 +1512,44 @@
     ch fk retry-tag)
    #f))
 
-;; Single-C-block fused freelist pop + Dekker park-recv + LIFO %fiber-k pop.
+;; Single-C-block fused freelist pop + lock-free rx-fast Dekker park-recv
+;; (with fallback to ch.lock + rwq when rx-fast occupied) + LIFO %fiber-k pop.
 ;; Returns:
 ;;   %fiber-k : parked cleanly and popped next runnable %fiber-k directly from ctx.lifo
 ;;   1        : parked cleanly, caller dispatches via %sched-switch-next!
-;;   2        : race (item arrived or sender parked); fk-pool untouched
+;;   2        : race on rwq path (item arrived or sender parked); fk-pool untouched
 ;;   3        : spinlock budget exhausted; fk-pool untouched
 ;;   4        : fk-pool empty; caller allocates %fiber-k in Scheme
+;;   5        : pending nursery batch > 0; caller flushes in slow path
+;;   6        : race on rx-fast canceled cleanly (fk recycled); caller returns %CH-RETRY
 (define (%ch-park-recv-and-pop-c! ctx ch raw-k)
   (macro-if-c-compiled
    (##c-code
     "___WORD *___ctx_f = ___BODY_AS(___ARG1, ___tSTRUCTURE);
-     ___SCMOBJ ___fk = ___ctx_f[10];
-     if (___fk == ___FAL) {
-       ___RESULT = ___FIX(4);
+     if (___INT(___ctx_f[14]) > 0) {
+       ___RESULT = ___FIX(5);
      } else {
-       ___WORD *___f = ___BODY_AS(___ARG2, ___tSTRUCTURE);
-       ___VOLATILE ___WORD *___lock_p = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___f[9], ___tVECTOR));
-       int ___got = 0;
-       int ___i;
-       for (___i = 0; ___i < 64; ___i++) {
-         if (___atomic_word_cas(___lock_p, ___FIX(0), ___FIX(1), 1) == ___FIX(0)) {
-           ___got = 1;
-           break;
-         }
-#if defined(__aarch64__)
-         __asm__ __volatile__(\"yield\");
-#elif defined(__x86_64__) || defined(__i386__)
-         __asm__ __volatile__(\"pause\");
-#endif
-       }
-       if (!___got) {
-         ___RESULT = ___FIX(3);
+       ___SCMOBJ ___fk = ___ctx_f[10];
+       if (___fk == ___FAL) {
+         ___RESULT = ___FIX(4);
        } else {
-         ___VOLATILE ___WORD *___rxw_p = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___f[7], ___tVECTOR));
-         ___WORD ___cur_rxw = ___INT(___WORD_LOAD_RELAXED(___CAST(___WORD*, ___rxw_p)));
-         ___atomic_word_store(___rxw_p, ___FIX(___cur_rxw + 1), 4);
+         ___WORD *___f = ___BODY_AS(___ARG2, ___tSTRUCTURE);
+         ___SCMOBJ ___rxw_vec = ___f[7];
+         ___WORD *___rxw_base = ___BODY_AS(___rxw_vec, ___tVECTOR);
+         ___VOLATILE ___WORD *___rxw_p = ___CAST(___VOLATILE ___WORD*, ___rxw_base);
+         ___WORD *___rxf_p = ___rxw_base + 1;
+         ___VOLATILE ___WORD *___txw_p = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___f[8], ___tVECTOR));
          ___WORD ___cap  = ___INT(___f[1]);
          ___WORD ___mask = ___INT(___f[2]);
          ___VOLATILE ___WORD *___seq_p  = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___f[4], ___tVECTOR));
          ___VOLATILE ___WORD *___head_p = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___f[6], ___tVECTOR));
-         ___WORD ___pos = ___INT(___atomic_word_load(___head_p, 0));
-         ___WORD ___idx = (___mask >= 0) ? (___pos & ___mask) : (___pos % ___cap);
-         ___WORD ___s   = ___INT(___atomic_word_load(___seq_p + ___idx, 4));
-         ___SCMOBJ ___swq = ___f[11];
-         ___WORD *___swq_f = ___BODY_AS(___swq, ___tSTRUCTURE);
-         if (___s - ((___pos << 1) + 1) < 0 && ___swq_f[1] == ___FAL) {
-           /* Pop fk from private fk-pool and populate fields with GC write barriers */
+         int ___parked = 0;
+         int ___canceled = 0;
+         /* Fast path: lock-free single-waiter rx-fast slot (0 spinlocks!) */
+         if (___INT(___atomic_word_load(___txw_p, 0)) == 0 &&
+             ___gc_atomic_slot_load(___rxf_p, 0) == ___FAL) {
            ___WORD *___fk_f = ___BODY_AS(___fk, ___tSTRUCTURE);
            ___SCMOBJ ___pool_nxt = ___fk_f[4];
-           ___GC_WRITE_BARRIER(___ps, ___ARG1, &___ctx_f[10], ___pool_nxt);
-           ___WORD_STORE_RELAXED(&___ctx_f[10], ___pool_nxt);
-           ___ctx_f[11] = ___FIX(___INT(___ctx_f[11]) - 1);
            ___GC_WRITE_BARRIER(___ps, ___fk, &___fk_f[1], ___ARG3);
            ___WORD_STORE_RELAXED(&___fk_f[1], ___ARG3);
            ___GC_WRITE_BARRIER(___ps, ___fk, &___fk_f[2], ___FAL);
@@ -1507,23 +1558,114 @@
            ___WORD_STORE_RELAXED(&___fk_f[3], ___FAL);
            ___GC_WRITE_BARRIER(___ps, ___fk, &___fk_f[4], ___FAL);
            ___WORD_STORE_RELAXED(&___fk_f[4], ___FAL);
-           /* Push fk onto channel recv-waiters FIFO queue */
-           ___SCMOBJ ___rwq = ___f[10];
-           ___WORD *___rwq_f = ___BODY_AS(___rwq, ___tSTRUCTURE);
-           ___SCMOBJ ___t = ___rwq_f[2];
-           if (___t == ___FAL) {
-             ___GC_WRITE_BARRIER(___ps, ___rwq, &___rwq_f[1], ___fk);
-             ___WORD_STORE_RELAXED(&___rwq_f[1], ___fk);
-             ___GC_WRITE_BARRIER(___ps, ___rwq, &___rwq_f[2], ___fk);
-             ___WORD_STORE_RELAXED(&___rwq_f[2], ___fk);
+           if (___gc_atomic_slot_cas(___ps, ___rxw_vec, ___rxf_p, ___FAL, ___fk, 4,
+                                     ___EXT(___gc_write_barrier_slow),
+                                     ___EXT(___gc_satb_barrier_val)) == ___FAL) {
+             /* Commit private freelist pop */
+             ___GC_WRITE_BARRIER(___ps, ___ARG1, &___ctx_f[10], ___pool_nxt);
+             ___WORD_STORE_RELAXED(&___ctx_f[10], ___pool_nxt);
+             ___ctx_f[11] = ___FIX(___INT(___ctx_f[11]) - 1);
+             /* Dekker seq_cst re-check against ring arrival & parked senders */
+             ___WORD ___pos = ___INT(___atomic_word_load(___head_p, 0));
+             ___WORD ___idx = (___mask >= 0) ? (___pos & ___mask) : (___pos % ___cap);
+             ___WORD ___s   = ___INT(___atomic_word_load(___seq_p + ___idx, 4));
+             ___WORD ___txw2 = ___INT(___atomic_word_load(___txw_p, 4));
+             if (___s - ((___pos << 1) + 1) < 0 && ___txw2 == 0) {
+               ___parked = 1;
+             } else {
+               /* Race: attempt lock-free cancel CAS(rx-fast, fk -> #f) */
+               if (___gc_atomic_slot_cas(___ps, ___rxw_vec, ___rxf_p, ___fk, ___FAL, 4,
+                                         ___EXT(___gc_write_barrier_slow),
+                                         ___EXT(___gc_satb_barrier_val)) == ___fk) {
+                 /* Exclusive cancel succeeded: recycle fk back to private pool */
+                 ___GC_WRITE_BARRIER(___ps, ___fk, &___fk_f[1], ___FAL);
+                 ___WORD_STORE_RELAXED(&___fk_f[1], ___FAL);
+                 ___GC_WRITE_BARRIER(___ps, ___fk, &___fk_f[4], ___pool_nxt);
+                 ___WORD_STORE_RELAXED(&___fk_f[4], ___pool_nxt);
+                 ___GC_WRITE_BARRIER(___ps, ___ARG1, &___ctx_f[10], ___fk);
+                 ___WORD_STORE_RELAXED(&___ctx_f[10], ___fk);
+                 ___ctx_f[11] = ___FIX(___INT(___ctx_f[11]) + 1);
+                 ___canceled = 1;
+               } else {
+                 /* Sender already claimed fk and will resume it */
+                 ___parked = 1;
+               }
+             }
            } else {
-             ___WORD *___t_f = ___BODY_AS(___t, ___tSTRUCTURE);
-             ___GC_WRITE_BARRIER(___ps, ___t, &___t_f[4], ___fk);
-             ___WORD_STORE_RELAXED(&___t_f[4], ___fk);
-             ___GC_WRITE_BARRIER(___ps, ___rwq, &___rwq_f[2], ___fk);
-             ___WORD_STORE_RELAXED(&___rwq_f[2], ___fk);
+             /* Initial CAS lost (another receiver occupies rx-fast): restore fk in pool */
+             ___GC_WRITE_BARRIER(___ps, ___fk, &___fk_f[1], ___FAL);
+             ___WORD_STORE_RELAXED(&___fk_f[1], ___FAL);
+             ___GC_WRITE_BARRIER(___ps, ___fk, &___fk_f[4], ___pool_nxt);
+             ___WORD_STORE_RELAXED(&___fk_f[4], ___pool_nxt);
            }
-           ___atomic_word_store(___lock_p, ___FIX(0), 2);
+         }
+         if (___canceled) {
+           ___RESULT = ___FIX(6);
+         } else if (!___parked) {
+           /* Fallback path: ch.lock + rwq for >=2 concurrent parked receivers */
+           ___VOLATILE ___WORD *___lock_p = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___f[9], ___tVECTOR));
+           int ___got = 0;
+           int ___i;
+           for (___i = 0; ___i < 64; ___i++) {
+             if (___atomic_word_cas(___lock_p, ___FIX(0), ___FIX(1), 1) == ___FIX(0)) {
+               ___got = 1;
+               break;
+             }
+#if defined(__aarch64__)
+             __asm__ __volatile__(\"yield\");
+#elif defined(__x86_64__) || defined(__i386__)
+             __asm__ __volatile__(\"pause\");
+#endif
+           }
+           if (!___got) {
+             ___RESULT = ___FIX(3);
+           } else {
+             ___WORD ___cur_rxw = ___INT(___WORD_LOAD_RELAXED(___CAST(___WORD*, ___rxw_p)));
+             ___atomic_word_store(___rxw_p, ___FIX(___cur_rxw + 1), 4);
+             ___WORD ___pos = ___INT(___atomic_word_load(___head_p, 0));
+             ___WORD ___idx = (___mask >= 0) ? (___pos & ___mask) : (___pos % ___cap);
+             ___WORD ___s   = ___INT(___atomic_word_load(___seq_p + ___idx, 4));
+             ___SCMOBJ ___swq = ___f[11];
+             ___WORD *___swq_f = ___BODY_AS(___swq, ___tSTRUCTURE);
+             if (___s - ((___pos << 1) + 1) < 0 && ___swq_f[1] == ___FAL) {
+               ___WORD *___fk_f = ___BODY_AS(___fk, ___tSTRUCTURE);
+               ___SCMOBJ ___pool_nxt = ___fk_f[4];
+               ___GC_WRITE_BARRIER(___ps, ___ARG1, &___ctx_f[10], ___pool_nxt);
+               ___WORD_STORE_RELAXED(&___ctx_f[10], ___pool_nxt);
+               ___ctx_f[11] = ___FIX(___INT(___ctx_f[11]) - 1);
+               ___GC_WRITE_BARRIER(___ps, ___fk, &___fk_f[1], ___ARG3);
+               ___WORD_STORE_RELAXED(&___fk_f[1], ___ARG3);
+               ___GC_WRITE_BARRIER(___ps, ___fk, &___fk_f[2], ___FAL);
+               ___WORD_STORE_RELAXED(&___fk_f[2], ___FAL);
+               ___GC_WRITE_BARRIER(___ps, ___fk, &___fk_f[3], ___FAL);
+               ___WORD_STORE_RELAXED(&___fk_f[3], ___FAL);
+               ___GC_WRITE_BARRIER(___ps, ___fk, &___fk_f[4], ___FAL);
+               ___WORD_STORE_RELAXED(&___fk_f[4], ___FAL);
+               ___SCMOBJ ___rwq = ___f[10];
+               ___WORD *___rwq_f = ___BODY_AS(___rwq, ___tSTRUCTURE);
+               ___SCMOBJ ___t = ___rwq_f[2];
+               if (___t == ___FAL) {
+                 ___GC_WRITE_BARRIER(___ps, ___rwq, &___rwq_f[1], ___fk);
+                 ___WORD_STORE_RELAXED(&___rwq_f[1], ___fk);
+                 ___GC_WRITE_BARRIER(___ps, ___rwq, &___rwq_f[2], ___fk);
+                 ___WORD_STORE_RELAXED(&___rwq_f[2], ___fk);
+               } else {
+                 ___WORD *___t_f = ___BODY_AS(___t, ___tSTRUCTURE);
+                 ___GC_WRITE_BARRIER(___ps, ___t, &___t_f[4], ___fk);
+                 ___WORD_STORE_RELAXED(&___t_f[4], ___fk);
+                 ___GC_WRITE_BARRIER(___ps, ___rwq, &___rwq_f[2], ___fk);
+                 ___WORD_STORE_RELAXED(&___rwq_f[2], ___fk);
+               }
+               ___atomic_word_store(___lock_p, ___FIX(0), 2);
+               ___parked = 1;
+             } else {
+               ___atomic_word_store(___rxw_p, ___FIX(___cur_rxw), 4);
+               ___atomic_word_store(___lock_p, ___FIX(0), 2);
+               ___RESULT = ___FIX(2);
+             }
+           }
+         }
+         if (___parked) {
            /* Fused LIFO direct-switch candidate check */
            ___SCMOBJ ___lifo = ___ctx_f[6];
            if (___lifo != ___FAL && ___STRUCTUREP(___lifo)) {
@@ -1558,10 +1700,6 @@
            } else {
              ___RESULT = ___FIX(1);
            }
-         } else {
-           ___atomic_word_store(___rxw_p, ___FIX(___cur_rxw), 4);
-           ___atomic_word_store(___lock_p, ___FIX(0), 2);
-           ___RESULT = ___FIX(2);
          }
        }
      }"
@@ -1569,8 +1707,9 @@
    4))
 
 (define (%park-recv-buf-slow! ctx raw-k tc ch fast-code)
+  (if (fx> (%wctx-nursery-batch ctx) 0) (%nursery-flush! ctx))
   (let ((fk (%alloc-fk! ctx raw-k tc #f)))
-    (let ((fast (if (fx= fast-code 4)
+    (let ((fast (if (or (fx= fast-code 4) (fx= fast-code 5))
                     (%ch-park-recv-c! ch fk %CH-RETRY)
                     (if (fx= fast-code 3) %CH-RETRY #f))))
       (if (not (eq? fast #t))
@@ -1610,21 +1749,25 @@
 (define (%park-recv-buf-cont! raw-k ch)
   (let ((ctx (%carrier-wctx))
         (tc (%get-tc)))
-    (if (fx> (%wctx-nursery-batch ctx) 0) (%nursery-flush! ctx))
-    (if tc (%set-tc! #f))
-    (let ((res (if (not tc) (%ch-park-recv-and-pop-c! ctx ch raw-k) 4)))
-      (cond
-        ((%fiber-k? res)
-         (let ((nk (%fk-raw-k res))
-               (ntc (%fk-tc res))
-               (nval (%fk-val res)))
-           (%free-fk! ctx res)
-           (if ntc (%set-tc! ntc))
-           (##continuation-return-no-winding nk nval)))
-        ((fx= res 1)
-         (%sched-switch-next! ctx))
-        (else
-         (%park-recv-buf-slow! ctx raw-k tc ch res))))))
+    (if tc
+        (begin
+          (%set-tc! #f)
+          (%park-recv-buf-slow! ctx raw-k tc ch 4))
+        (let ((res (%ch-park-recv-and-pop-c! ctx ch raw-k)))
+          (cond
+            ((%fiber-k? res)
+             (let ((nk (%fk-raw-k res))
+                   (ntc (%fk-tc res))
+                   (nval (%fk-val res)))
+               (%free-fk! ctx res)
+               (if ntc (%set-tc! ntc))
+               (##continuation-return-no-winding nk nval)))
+            ((fx= res 1)
+             (%sched-switch-next! ctx))
+            ((fx= res 6)
+             (##continuation-return-no-winding raw-k %CH-RETRY))
+            (else
+             (%park-recv-buf-slow! ctx raw-k #f ch res)))))))
 
 ;; Zero-closure multi-arg park receivers for unbuffered rendezvous (cap == 0)
 (define (%park-send-unbuf-cont! raw-k ch val)
@@ -1689,10 +1832,31 @@
      if (___cap <= 0) {
        ___RESULT = ___FIX(4);
      } else {
-       ___VOLATILE ___WORD *___rxw_p = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___f[7], ___tVECTOR));
+       ___SCMOBJ ___rxw_vec = ___f[7];
+       ___WORD *___rxw_base = ___BODY_AS(___rxw_vec, ___tVECTOR);
+       ___VOLATILE ___WORD *___rxw_p = ___CAST(___VOLATILE ___WORD*, ___rxw_base);
+       ___WORD *___rxf_p = ___rxw_base + 1;
        ___SCMOBJ ___out = ___FAL;
        int ___done = 0;
-       if (___INT(___atomic_word_load(___rxw_p, 0)) > 0) {
+       /* Fast path A1: Lock-free single-waiter rx-fast direct handoff (0 spinlocks!) */
+       ___SCMOBJ ___rxf = ___gc_atomic_slot_load(___rxf_p, 0);
+       if (___rxf != ___FAL) {
+         ___VOLATILE ___WORD *___tail_p = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___f[5], ___tVECTOR));
+         ___VOLATILE ___WORD *___head_p = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___f[6], ___tVECTOR));
+         if (___atomic_word_load(___tail_p, 1) == ___atomic_word_load(___head_p, 1)) {
+           if (___gc_atomic_slot_cas(___ps, ___rxw_vec, ___rxf_p, ___rxf, ___FAL, 3,
+                                     ___EXT(___gc_write_barrier_slow),
+                                     ___EXT(___gc_satb_barrier_val)) == ___rxf) {
+             ___WORD *___rk_f = ___BODY_AS(___rxf, ___tSTRUCTURE);
+             ___GC_WRITE_BARRIER(___ps, ___rxf, &___rk_f[3], ___ARG2);
+             ___WORD_STORE_RELAXED(&___rk_f[3], ___ARG2);
+             ___out = ___rxf;
+             ___done = 1;
+           }
+         }
+       }
+       /* Fast path A2: Fallback rwq direct handoff when >=2 concurrent receivers parked */
+       if (!___done && ___INT(___atomic_word_load(___rxw_p, 0)) > 0) {
          ___VOLATILE ___WORD *___lock_p = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___f[9], ___tVECTOR));
          int ___got_lock = 0;
          int ___i;
@@ -1762,7 +1926,8 @@
                ___GC_WRITE_BARRIER(___ps, ___buf, ___slot, ___val);
                ___WORD_STORE_RELAXED(___slot, ___val);
                ___atomic_word_store(___seq_p + ___idx, ___FIX(___exp + 1), 4);
-               ___out = (___INT(___atomic_word_load(___rxw_p, 4)) > 0) ? ___FIX(1) : ___TRU;
+               ___out = (___gc_atomic_slot_load(___rxf_p, 4) != ___FAL ||
+                         ___INT(___atomic_word_load(___rxw_p, 4)) > 0) ? ___FIX(1) : ___TRU;
                break;
              }
            } else if (___dif < 0) {
