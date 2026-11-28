@@ -40,13 +40,13 @@ typedef struct {
 static inline void fiber_parker_wake_one_ptr(fiber_os_parker_t *p, ___VOLATILE ___WORD *searching_p) {
   if (!p) return;
 #ifdef __aarch64__
-  /* ARMv8-A RCsc: prior STLR (dq.tail/global-pending) + LDAR (waiters) is seq-cst ordered */
+  /* ARMv8-A RCsc: prior STLR (dq.tail/global-pending) + LDAR (waiters, searching) is seq-cst ordered */
   if (__atomic_load_n(&p->waiters, __ATOMIC_SEQ_CST) > 0u &&
-      (!searching_p || ___INT(___atomic_word_load(searching_p, 0)) == 0)) {
+      (!searching_p || ___INT(___atomic_word_load(searching_p, 4)) == 0)) {
 #else
   __atomic_thread_fence(__ATOMIC_SEQ_CST);
-  if (__atomic_load_n(&p->waiters, __ATOMIC_RELAXED) > 0u &&
-      (!searching_p || ___INT(___atomic_word_load(searching_p, 0)) == 0)) {
+  if (__atomic_load_n(&p->waiters, __ATOMIC_SEQ_CST) > 0u &&
+      (!searching_p || ___INT(___atomic_word_load(searching_p, 4)) == 0)) {
 #endif
     __atomic_fetch_add(&p->seq, 1u, __ATOMIC_SEQ_CST);
 #ifdef __APPLE__
@@ -318,6 +318,15 @@ static inline void fiber_parker_wake_all_ptr(fiber_os_parker_t *p) {
     "___RESULT = ___CAST(___SCMOBJ,
        ___atomic_uword_fetch_sub(___CAST(___VOLATILE ___WORD*, ___BODY_AS(___ARG1, ___tVECTOR)),
                                  ___CAST(___WORD, ___ARG2), 3));"
+    box delta)
+   (##vector-inc! box 0 (##fx- 0 delta))))
+
+(define (%fxatom-sub-seq! box delta)
+  (macro-if-c-compiled
+   (##c-code
+    "___RESULT = ___CAST(___SCMOBJ,
+       ___atomic_uword_fetch_sub(___CAST(___VOLATILE ___WORD*, ___BODY_AS(___ARG1, ___tVECTOR)),
+                                 ___CAST(___WORD, ___ARG2), 4));"
     box delta)
    (##vector-inc! box 0 (##fx- 0 delta))))
 

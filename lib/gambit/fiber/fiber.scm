@@ -32,6 +32,7 @@
   thread-start!
   thread-join!
   thread-yield!
+  dynamic-wind
   with-exception-catcher
   raise
   error))

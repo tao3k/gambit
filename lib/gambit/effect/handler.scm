@@ -223,15 +223,18 @@
           (%st-barriers-set! st (%pf-barriers pframe))
           (%st-handlers-set! st (%pf-handlers pframe))
           (##continuation-graft escape-k proc ek))
-        (##continuation-graft
-         escape-k
-         (lambda ()
-           (let ((st2 (%tc-fast)))
-             (%st-mc-set! st2 rest)
-             (%st-marks-set! st2 pf-marks)
-             (%st-barriers-set! st2 (%pf-barriers pframe))
-             (%st-handlers-set! st2 (%pf-handlers pframe)))
-           (proc ek))))))
+        (let ((prev-re (%tc-rewind-escape st)))
+          (%tc-rewind-escape-set! st 'suspending)
+          (##continuation-graft
+           escape-k
+           (lambda ()
+             (let ((st2 (%tc-fast)))
+               (%tc-rewind-escape-set! st2 prev-re)
+               (%st-mc-set! st2 rest)
+               (%st-marks-set! st2 pf-marks)
+               (%st-barriers-set! st2 (%pf-barriers pframe))
+               (%st-handlers-set! st2 (%pf-handlers pframe)))
+             (proc ek)))))))
 
 (define (%perform-fast-cap-1! sub-k frame proc a1)
   (let* ((st (%tc-fast))
@@ -257,15 +260,18 @@
           (%st-barriers-set! st (%pf-barriers pframe))
           (%st-handlers-set! st (%pf-handlers pframe))
           (##continuation-graft escape-k proc ek a1))
-        (##continuation-graft
-         escape-k
-         (lambda ()
-           (let ((st2 (%tc-fast)))
-             (%st-mc-set! st2 rest)
-             (%st-marks-set! st2 pf-marks)
-             (%st-barriers-set! st2 (%pf-barriers pframe))
-             (%st-handlers-set! st2 (%pf-handlers pframe)))
-           (proc ek a1))))))
+        (let ((prev-re (%tc-rewind-escape st)))
+          (%tc-rewind-escape-set! st 'suspending)
+          (##continuation-graft
+           escape-k
+           (lambda ()
+             (let ((st2 (%tc-fast)))
+               (%tc-rewind-escape-set! st2 prev-re)
+               (%st-mc-set! st2 rest)
+               (%st-marks-set! st2 pf-marks)
+               (%st-barriers-set! st2 (%pf-barriers pframe))
+               (%st-handlers-set! st2 (%pf-handlers pframe)))
+             (proc ek a1)))))))
 
 (define (%perform-fast-cap-n! sub-k frame proc args)
   (let* ((st (%tc-fast))
@@ -291,15 +297,18 @@
           (%st-barriers-set! st (%pf-barriers pframe))
           (%st-handlers-set! st (%pf-handlers pframe))
           (##continuation-graft escape-k ##apply proc (cons ek args)))
-        (##continuation-graft
-         escape-k
-         (lambda ()
-           (let ((st2 (%tc-fast)))
-             (%st-mc-set! st2 rest)
-             (%st-marks-set! st2 pf-marks)
-             (%st-barriers-set! st2 (%pf-barriers pframe))
-             (%st-handlers-set! st2 (%pf-handlers pframe)))
-           (##apply proc (cons ek args)))))))
+        (let ((prev-re (%tc-rewind-escape st)))
+          (%tc-rewind-escape-set! st 'suspending)
+          (##continuation-graft
+           escape-k
+           (lambda ()
+             (let ((st2 (%tc-fast)))
+               (%tc-rewind-escape-set! st2 prev-re)
+               (%st-mc-set! st2 rest)
+               (%st-marks-set! st2 pf-marks)
+               (%st-barriers-set! st2 (%pf-barriers pframe))
+               (%st-handlers-set! st2 (%pf-handlers pframe)))
+             (##apply proc (cons ek args))))))))
 
 (define (%perform-suspend-dispatch st handlers frame proc a1 a2 more)
   (let ((tag (%frame-tag frame))
@@ -347,20 +356,23 @@
                            ((null? more)     (##continuation-graft escape-k proc ek a1 a2))
                            (else             (##continuation-graft escape-k ##apply proc
                                                                    (cons ek (cons a1 (cons a2 more)))))))
-                       (##continuation-graft
-                        escape-k
-                        (lambda ()
-                          (let ((st2 (%tc-fast)))
-                            (%st-mc-set! st2 rest)
-                            (%st-marks-set! st2 (%pf-marks pframe))
-                            (%st-barriers-set! st2 (%pf-barriers pframe))
-                            (%st-handlers-set! st2 (%pf-handlers pframe)))
-                          (if (pair? prefix) (%mc-run-unwind-hooks! prefix 'suspend))
-                          (cond
-                            ((eq? a1 %ABSENT) (proc ek))
-                            ((eq? a2 %ABSENT) (proc ek a1))
-                            ((null? more)     (proc ek a1 a2))
-                            (else             (##apply proc (cons ek (cons a1 (cons a2 more))))))))))))))))))
+                       (let ((prev-re (%tc-rewind-escape st)))
+                         (%tc-rewind-escape-set! st 'suspending)
+                         (##continuation-graft
+                          escape-k
+                          (lambda ()
+                            (let ((st2 (%tc-fast)))
+                              (%tc-rewind-escape-set! st2 prev-re)
+                              (%st-mc-set! st2 rest)
+                              (%st-marks-set! st2 (%pf-marks pframe))
+                              (%st-barriers-set! st2 (%pf-barriers pframe))
+                              (%st-handlers-set! st2 (%pf-handlers pframe)))
+                            (if (pair? prefix) (%mc-run-unwind-hooks! prefix 'suspend))
+                            (cond
+                              ((eq? a1 %ABSENT) (proc ek))
+                              ((eq? a2 %ABSENT) (proc ek a1))
+                              ((null? more)     (proc ek a1 a2))
+                              (else             (##apply proc (cons ek (cons a1 (cons a2 more)))))))))))))))))))
 
 ;;;----------------------------------------------------------------------------
 ;;; Perform (Specialized 0/1/2/N-arg Fast Path — Zero Rest-Arg Consing)

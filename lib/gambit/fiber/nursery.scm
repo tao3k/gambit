@@ -153,6 +153,8 @@
                        (##continuation-graft (%wctx-sched-k cur-ctx)
                                              %nursery-child-abort! n e))))
          (joined-box (cons #f #f))
+         (in-eh? #f)
+         (suspended? #f)
          (tc (%get-tc))
          (guard-frame
           (if (and tc (pair? (%tc-mc tc)))
@@ -166,22 +168,54 @@
                          (%tc-handlers tc)
                          #f
                          (lambda (phase)
-                           (if (eq? phase 'unwind)
-                               (begin
-                                 (%fxatom-cas-seq! (%nursery-cancelled n) 0 1)
-                                 (%nursery-teardown! n joined-box)))))))
+                           (cond
+                             ((eq? phase 'unwind)
+                              (if (not in-eh?)
+                                  (begin
+                                    (%fxatom-cas-seq! (%nursery-cancelled n) 0 1)
+                                    (%nursery-teardown! n joined-box))))
+                             ((eq? phase 'suspend)
+                              (set! suspended? #t))
+                             ((eq? phase 'restore)
+                              (set! suspended? #f)))))))
                 (%tc-mc-set! tc (cons gf (%tc-mc tc)))
                 gf)
               #f))
-         (parent-res #f))
+         (cur-eh (macro-current-exception-handler)))
     (%nursery-err-handler-set! n child-eh)
-    (with-exception-catcher
-     (lambda (e) (%nursery-record-error! n e))
+    (macro-dynamic-bind
+     exception-handler
+     (lambda (exc)
+       (let ((returned? #f)
+             (prev-in-eh? in-eh?)
+             (eh-tc (%get-tc)))
+         (if eh-tc (%tc-rewind-escape-set! eh-tc #f))
+         (set! in-eh? #t)
+         (dynamic-wind
+          (lambda () #!void)
+          (lambda ()
+            (let ((res (macro-dynamic-bind
+                        exception-handler
+                        cur-eh
+                        (lambda () (cur-eh exc)))))
+              (set! returned? #t)
+              res))
+          (lambda ()
+            (set! in-eh? prev-in-eh?)
+            (let ((cur-tc (%get-tc)))
+              (if (and (not returned?)
+                       (not suspended?)
+                       (not (and cur-tc (eq? (%tc-rewind-escape cur-tc) 'suspending))))
+                  (begin
+                    (if guard-frame (%mc-pop-guard! guard-frame))
+                    (%nursery-record-error! n exc)
+                    (%nursery-teardown! n joined-box))))))))
      (lambda ()
-       (set! parent-res (proc n))))
-    (if guard-frame
-        (%mc-pop-guard! guard-frame))
-    (%nursery-teardown! n joined-box)
-    (if (%nursery-has-err? n)
-        (raise (%nursery-first-err n))
-        parent-res)))
+       (call-with-values
+        (lambda () (proc n))
+        (lambda vals
+          (if guard-frame (%mc-pop-guard! guard-frame))
+          (%nursery-teardown! n joined-box)
+          (if (%nursery-has-err? n)
+              (raise (%nursery-first-err n))
+              (apply values vals))))))))

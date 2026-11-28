@@ -278,4 +278,4 @@
             (fx= (%fxatom-cas-acq! box cur (fx+ cur 1)) cur))))))
 
 (define (%sched-release-search! sched)
-  (%fxatom-sub-acqrel! (%sched-searching sched) 1))
+  (%fxatom-sub-seq! (%sched-searching sched) 1))

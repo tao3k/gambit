@@ -2085,3 +2085,194 @@
     (test-equal p (atomic-fxbox-ref ok))))
 
 ;;;============================================================================
+;;; Linearizable Nursery Close CAS & Zero-Capture Continuable-Exception Parity
+
+(let ()
+  ;; 1. with-finally preserves continuable exceptions (bare, inside prompt,
+  ;;    outside prompt trampoline, inside run-fibers, and with outer effect
+  ;;    suspend/resume inside the exception handler) without premature cleanup.
+  (let ((c-bare 0) (mid-bare -1))
+    (let ((res
+           (with-exception-handler
+            (lambda (e) (set! mid-bare c-bare) (fx+ e 100))
+            (lambda ()
+              (with-finally
+               (lambda () (fx+ 1 (raise 42)))
+               (lambda () (set! c-bare (fx+ c-bare 1))))))))
+      (test-equal 143 res)
+      (test-equal 0 mid-bare)
+      (test-equal 1 c-bare)))
+
+  (let ((c-in 0) (c-out 0))
+    (test-equal 143
+      (call-with-continuation-prompt
+       (lambda ()
+         (with-exception-handler
+          (lambda (e) (fx+ e 100))
+          (lambda ()
+            (with-finally
+             (lambda () (fx+ 1 (raise 42)))
+             (lambda () (set! c-in (fx+ c-in 1)))))))))
+    (test-equal 1 c-in)
+
+    (test-equal 143
+      (with-exception-handler
+       (lambda (e) (fx+ e 100))
+       (lambda ()
+         (call-with-continuation-prompt
+          (lambda ()
+            (with-finally
+             (lambda () (fx+ 1 (raise 42)))
+             (lambda () (set! c-out (fx+ c-out 1)))))))))
+    (test-equal 1 c-out))
+
+  ;; Continuable exception inside run-fibers + outer effect suspend/resume in handler
+  (let ((e-ask (make-effect 'finally-eh-ask))
+        (c-fib 0) (mid-fib -1))
+    (let ((res
+           (run-fibers
+            (lambda ()
+              (with-handler ((e-ask (k v) (resume k (fx+ v 10))))
+                (with-exception-handler
+                 (lambda (e)
+                   (let ((ans (perform e-ask e)))
+                     (set! mid-fib c-fib)
+                     ans))
+                 (lambda ()
+                   (with-finally
+                    (lambda ()
+                      (fiber-yield)
+                      (fx+ 1 (raise 32)))
+                    (lambda () (set! c-fib (fx+ c-fib 1))))))))
+            workers: (max 2 (min 4 (##current-vm-processor-count))))))
+      (test-equal 43 res)
+      (test-equal 0 mid-fib)
+      (test-equal 1 c-fib)))
+
+  ;; 2. with-finally runs strictly once BEFORE an escaping with-exception-catcher
+  ;;    (bare, inside prompt, and outside prompt).
+  (let ((c-esc 0) (saw-esc -1))
+    (let ((res
+           (with-exception-catcher
+            (lambda (e) (set! saw-esc c-esc) e)
+            (lambda ()
+              (call-with-continuation-prompt
+               (lambda ()
+                 (with-finally
+                  (lambda () (raise 'esc-boom))
+                  (lambda () (set! c-esc (fx+ c-esc 1))))))))))
+      (test-equal 'esc-boom res)
+      (test-equal 1 saw-esc)
+      (test-equal 1 c-esc)))
+
+  ;; 3. with-nursery preserves continuable exceptions (nursery stays live and
+  ;;    uncancelled while body resumes) AND preserves 0/1/N multi-value returns.
+  (let ((saw-live #f) (child-ran #f))
+    (let ((res
+           (run-fibers
+            (lambda ()
+              (with-exception-handler
+               (lambda (e) (fx+ e 100))
+               (lambda ()
+                 (with-nursery
+                  (lambda (n)
+                    (fiber-spawn (lambda () (fiber-yield) (set! child-ran #t)) n)
+                    (let ((x (raise 42)))
+                      (set! saw-live (not (nursery-cancelled? n)))
+                      (fx+ 1 x)))))))
+            workers: (max 2 (min 4 (##current-vm-processor-count))))))
+      (test-equal 143 res)
+      (test-equal #t saw-live)
+      (test-equal #t child-ran)))
+
+  (let ((mv0 #f) (mv3 #f))
+    (run-fibers
+     (lambda ()
+       (set! mv0 (call-with-values (lambda () (with-nursery (lambda (n) (values)))) list))
+       (set! mv3 (call-with-values (lambda () (with-nursery (lambda (n) (values 1 2 3)))) list)))
+     workers: (max 2 (min 4 (##current-vm-processor-count))))
+    (test-equal '() mv0)
+    (test-equal '(1 2 3) mv3))
+
+  ;; 4. with-nursery escaping exception joins all children and seals nursery closed
+  ;;    BEFORE the enclosing with-exception-catcher body runs.
+  (let ((child-done (make-atomic-fxbox 0))
+        (catcher-saw (make-atomic-fxbox -1))
+        (leaked-n #f)
+        (post-rejected #f))
+    (let ((caught
+           (run-fibers
+            (lambda ()
+              (with-exception-catcher
+               (lambda (e)
+                 (atomic-fxbox-set! catcher-saw (atomic-fxbox-ref child-done))
+                 (set! post-rejected
+                   (with-exception-catcher
+                    (lambda (_) #t)
+                    (lambda () (fiber-spawn (lambda () #!void) leaked-n) #f)))
+                 e)
+               (lambda ()
+                 (with-nursery
+                  (lambda (n)
+                    (set! leaked-n n)
+                    (fiber-spawn
+                     (lambda ()
+                       (let loop ((i 0))
+                         (if (fx< i 20) (begin (fiber-yield) (loop (fx+ i 1)))))
+                       (atomic-fxbox-set! child-done 1))
+                     n)
+                    (raise 'parent-escape))))))
+            workers: (max 2 (min 4 (##current-vm-processor-count))))))
+      (test-equal 'parent-escape caught)
+      (test-equal 1 (atomic-fxbox-ref child-done))
+      (test-equal 1 (atomic-fxbox-ref catcher-saw))
+      (test-equal #t (nursery-cancelled? leaked-n))
+      (test-equal #t post-rejected)))
+
+  ;; 5. Adversarial multi-core nursery close-vs-spawn TOCTOU stress test:
+  ;;    persistent attacker fibers race (fiber-spawn ... n) against %nursery-teardown!
+  ;;    across adaptive P cores; linearizable non-zero active CAS guarantees 0 orphans.
+  (let* ((p (max 2 (min 8 (##current-vm-processor-count))))
+         (rounds 6000)
+         (orphans (make-atomic-fxbox 0))
+         (spawn-ok (make-atomic-fxbox 0))
+         (spawn-err (make-atomic-fxbox 0))
+         (ch (make-fiber-channel 1)))
+    (run-fibers
+     (lambda ()
+       (let spawn-att ((k 0))
+         (if (fx< k (max 2 (fxarithmetic-shift-right p 1)))
+             (begin
+               (fiber-spawn
+                (lambda ()
+                  (let loop ()
+                    (let ((pair (fiber-recv! ch)))
+                      (if (pair? pair)
+                          (let ((n (car pair))
+                                (ret (cdr pair)))
+                            (with-exception-catcher
+                             (lambda (_) (atomic-fxbox+/fetch! spawn-err 1))
+                             (lambda ()
+                               (fiber-spawn
+                                (lambda ()
+                                  (atomic-fxbox+/fetch! spawn-ok 1)
+                                  (if (fx= (atomic-fxbox-ref ret) 1)
+                                      (atomic-fxbox+/fetch! orphans 1)))
+                                n)))
+                            (loop)))))))
+               (spawn-att (fx+ k 1)))))
+       (fiber-yield)
+       (let loop ((i 0))
+         (if (fx< i rounds)
+             (let ((ret (make-atomic-fxbox 0)))
+               (with-nursery
+                (lambda (n)
+                  (fiber-send! ch (cons n ret))))
+               (atomic-fxbox-set! ret 1)
+               (loop (fx+ i 1)))))
+       (fiber-channel-close! ch))
+     workers: p)
+    (test-equal 0 (atomic-fxbox-ref orphans))
+    (test-equal rounds (fx+ (atomic-fxbox-ref spawn-ok) (atomic-fxbox-ref spawn-err)))))
+
+;;;============================================================================

@@ -12,16 +12,20 @@
 ;;; Continuation-Safe Resource Cleanup, Direct O(1) Fiber Spawn & Fused Yield
 
 ;; Continuation-safe resource cleanup: guarantees finally-thunk runs strictly
-;; once on normal return (including multiple values), exception/nursery abort,
-;; or non-local prompt/call1cc unwind, and never fires during fiber-yield,
-;; channel park/resume, or algebraic effect perform/resume suspension
-;; (preventing dynamic-wind double-release).
+;; once on normal return (including multiple values), escaping exception/nursery
+;; abort, or non-local prompt/call1cc unwind, preserves continuable exceptions
+;; (with-exception-handler returning a value without premature cleanup), and
+;; never fires during fiber-yield, channel park/resume, or algebraic effect
+;; perform/resume suspension (zero continuation-capture & zero dynamic-wind on
+;; the normal execution path).
 (define (with-finally thunk finally-thunk)
   (if (not (procedure? thunk))
       (error "with-finally: expected thunk" thunk))
   (if (not (procedure? finally-thunk))
       (error "with-finally: expected finally-thunk" finally-thunk))
   (let* ((done? #f)
+         (in-eh? #f)
+         (suspended? #f)
          (run-once!
           (lambda ()
             (if (not done?)
@@ -41,16 +45,44 @@
                          (%tc-handlers tc)
                          #f
                          (lambda (phase)
-                           (if (eq? phase 'unwind)
-                               (run-once!))))))
+                           (cond
+                             ((eq? phase 'unwind)
+                              (if (not in-eh?)
+                                  (run-once!)))
+                             ((eq? phase 'suspend)
+                              (set! suspended? #t))
+                             ((eq? phase 'restore)
+                              (set! suspended? #f)))))))
                 (%tc-mc-set! tc (cons gf (%tc-mc tc)))
                 gf)
-              #f)))
-    (with-exception-catcher
-     (lambda (e)
-       (if guard-frame (%mc-pop-guard! guard-frame))
-       (run-once!)
-       (raise e))
+              #f))
+         (cur-eh (macro-current-exception-handler)))
+    (macro-dynamic-bind
+     exception-handler
+     (lambda (exc)
+       (let ((returned? #f)
+             (prev-in-eh? in-eh?)
+             (eh-tc (%get-tc)))
+         (if eh-tc (%tc-rewind-escape-set! eh-tc #f))
+         (set! in-eh? #t)
+         (dynamic-wind
+          (lambda () #!void)
+          (lambda ()
+            (let ((res (macro-dynamic-bind
+                        exception-handler
+                        cur-eh
+                        (lambda () (cur-eh exc)))))
+              (set! returned? #t)
+              res))
+          (lambda ()
+            (set! in-eh? prev-in-eh?)
+            (let ((cur-tc (%get-tc)))
+              (if (and (not returned?)
+                       (not suspended?)
+                       (not (and cur-tc (eq? (%tc-rewind-escape cur-tc) 'suspending))))
+                  (begin
+                    (if guard-frame (%mc-pop-guard! guard-frame))
+                    (run-once!))))))))
      (lambda ()
        (call-with-values
         thunk
@@ -291,37 +323,49 @@
 
 ;; Single-C-block fused zero-cons fiber-spawn with pre-reserved +32 nursery credits:
 ;; - Consumes 1 pre-reserved credit (0 atomics!) when ctx.nursery-cur == n && credit >= 1.
-;; - Otherwise refills +32 in ONE fetch_add_acqrel (or returns 1 if switching away from
-;;   a different nursery with un-flushed credit so Scheme flushes it first).
+;; - Otherwise refills +32 via a linearizable non-zero CAS (cur > 0 -> cur + 32),
+;;   failing closed (returns 2) once n.active reaches the absorbing 0 state so no
+;;   concurrent external spawn can ever resurrect a torn-down nursery (returns 1 if
+;;   switching away from a different nursery with un-flushed credit).
 ;; - Publishes (thunk, n) into private (lifo, lifo-n) and evicts any prior occupant
 ;;   to the flat dual-array (buf, nbuf) runqueue with release tail (0 heap pairs!).
 ;; Returns:
 ;;   #f       : pushed cleanly
 ;;   1        : must flush different ctx.nursery-cur credit before spawning into n
+;;   2        : nursery already closed (n.active == 0)
 ;;   prev-obj : local 4096-slot runqueue full; caller spills (prev-obj, ctx.picked-n) to global-q
 (define (%fiber-spawn-push-c! ctx thunk n)
   (macro-if-c-compiled
    (##c-code
     "___WORD *___ctx_f = ___BODY_AS(___ARG1, ___tSTRUCTURE);
-     int ___need_flush = 0;
+     int ___status = 0;
      if (___ARG3 != ___FAL) {
        ___SCMOBJ ___cur_n = ___ctx_f[13];
        ___WORD ___cred = ___INT(___ctx_f[14]);
        if (___cur_n == ___ARG3 && ___cred >= 1) {
          ___ctx_f[14] = ___FIX(___cred - 1);
        } else if (___cur_n != ___FAL && ___cur_n != ___ARG3 && ___cred > 0) {
-         ___need_flush = 1;
+         ___status = 1;
        } else {
          ___WORD *___n_f = ___BODY_AS(___ARG3, ___tSTRUCTURE);
          ___VOLATILE ___WORD *___act_p = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___n_f[2], ___tVECTOR));
-         ___atomic_uword_fetch_add(___act_p, ___FIX(32), 3);
-         ___GC_WRITE_BARRIER(___ps, ___ARG1, &___ctx_f[13], ___ARG3);
-         ___WORD_STORE_RELAXED(&___ctx_f[13], ___ARG3);
-         ___ctx_f[14] = ___FIX(31);
+         for (;;) {
+           ___WORD ___cur = ___INT(___atomic_word_load(___act_p, 1));
+           if (___cur <= 0) {
+             ___status = 2;
+             break;
+           }
+           if (___atomic_word_cas(___act_p, ___FIX(___cur), ___FIX(___cur + 32), 3) == ___FIX(___cur)) {
+             ___GC_WRITE_BARRIER(___ps, ___ARG1, &___ctx_f[13], ___ARG3);
+             ___WORD_STORE_RELAXED(&___ctx_f[13], ___ARG3);
+             ___ctx_f[14] = ___FIX(31);
+             break;
+           }
+         }
        }
      }
-     if (___need_flush) {
-       ___RESULT = ___FIX(1);
+     if (___status != 0) {
+       ___RESULT = ___FIX(___status);
      } else {
        ___VOLATILE ___WORD *___sp_p = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___ctx_f[4], ___tVECTOR));
        ___WORD ___cur_sp = ___INT(___WORD_LOAD_RELAXED(___CAST(___WORD*, ___sp_p)));
@@ -369,28 +413,43 @@
        }
      }"
     ctx thunk n)
-   (begin
-     (if n (%fxatom-add-acqrel! (%nursery-active n) 1))
-     (%fxatom-inc-owner-rel! (%wctx-spawned ctx))
-     (let ((prev (%wctx-lifo ctx))
-           (prev-n (%wctx-lifo-n ctx)))
-       (%wctx-lifo-set! ctx thunk)
-       (%wctx-lifo-n-set! ctx n)
-       (if (and prev (not (%dq-push-pair! (%wctx-dq ctx) prev prev-n)))
-           (begin (%wctx-picked-n-set! ctx prev-n) prev)
-           #f)))))
+   (let ((closed?
+          (if n
+              (let ((act (%nursery-active n)))
+                (let loop ()
+                  (let ((cur (%fxatom-load-acq act)))
+                    (if (fx<= cur 0)
+                        #t
+                        (if (fx= (%fxatom-cas-seq! act cur (fx+ cur 1)) cur)
+                            #f
+                            (loop))))))
+              #f)))
+     (if closed?
+         2
+         (begin
+           (%fxatom-inc-owner-rel! (%wctx-spawned ctx))
+           (let ((prev (%wctx-lifo ctx))
+                 (prev-n (%wctx-lifo-n ctx)))
+             (%wctx-lifo-set! ctx thunk)
+             (%wctx-lifo-n-set! ctx n)
+             (if (and prev (not (%dq-push-pair! (%wctx-dq ctx) prev prev-n)))
+                 (begin (%wctx-picked-n-set! ctx prev-n) prev)
+                 #f)))))))
 
 (define (%fiber-spawn-slow! ctx thunk n res)
-  (if (eq? res 1)
-      (begin
-        (%nursery-flush! ctx)
-        (let ((spill (%fiber-spawn-push-c! ctx thunk n)))
-          (if spill
-              (%fiber-spawn-slow! ctx thunk n spill)
-              #!void)))
-      (let ((prev-n (%wctx-picked-n ctx)))
-        (%sched-enqueue-global! (%wctx-sched ctx) (if prev-n (cons res prev-n) res))
-        #!void)))
+  (cond
+    ((eq? res 1)
+     (%nursery-flush! ctx)
+     (let ((spill (%fiber-spawn-push-c! ctx thunk n)))
+       (if spill
+           (%fiber-spawn-slow! ctx thunk n spill)
+           #!void)))
+    ((eq? res 2)
+     (error "fiber-spawn: nursery already closed" n))
+    (else
+     (let ((prev-n (%wctx-picked-n ctx)))
+       (%sched-enqueue-global! (%wctx-sched ctx) (if prev-n (cons res prev-n) res))
+       #!void))))
 
 (define (fiber-spawn thunk #!optional (n #f))
   (if (not (procedure? thunk))

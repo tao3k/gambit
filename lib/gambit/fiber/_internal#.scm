@@ -35,6 +35,7 @@
   %fxatom-cas-seq!
   %fxatom-add-acqrel!
   %fxatom-sub-acqrel!
+  %fxatom-sub-seq!
   %fxatom-inc-owner-rel!
   %vec-fx-load-acq
   %vec-fx-store-seq!
