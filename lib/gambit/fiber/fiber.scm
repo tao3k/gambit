@@ -1249,151 +1249,239 @@
           (%spin-unlock! lock)))
     (%sched-switch-next! ctx)))
 
-;; Single-C-block linearizable direct handoff for buffered channels.
-;; Sets rk.val = val with SATB/generational write barrier before unlocking.
-;; Returns: parked %fiber-k if handed off, #f if no eligible waiter, or retry-tag.
-(define (%ch-try-direct-handoff-c! ch val retry-tag)
+;; Single-C-block fused buffered send (linearizable direct handoff + bounded-retry Vyukov push).
+;; Returns:
+;;   #t        : pushed into ring and rx-waiters == 0 (immediate return)
+;;   %fiber-k  : handed off directly to parked receiver (caller pushes onto LIFO slot)
+;;   1         : pushed into ring and rx-waiters > 0 (caller wakes one receiver)
+;;   2         : ring full (caller parks)
+;;   3         : Vyukov CAS retry budget exhausted (caller polls safepoint and retries)
+;;   4         : unbuffered channel (cap == 0)
+;;   5         : direct-handoff spinlock budget exhausted (caller yields and retries)
+(define (%ch-send-fast-c! ch val)
   (macro-if-c-compiled
    (##c-code
     "___WORD *___f = ___BODY_AS(___ARG1, ___tSTRUCTURE);
-     ___VOLATILE ___WORD *___rxw_p = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___f[7], ___tVECTOR));
-     if (___INT(___atomic_word_load(___rxw_p, 0)) == 0) {
-       ___RESULT = ___FAL;
+     ___WORD ___cap = ___INT(___f[1]);
+     if (___cap <= 0) {
+       ___RESULT = ___FIX(4);
      } else {
-       ___VOLATILE ___WORD *___lock_p = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___f[9], ___tVECTOR));
-       int ___got_lock = 0;
-       int ___i;
-       for (___i = 0; ___i < 64; ___i++) {
-         if (___atomic_word_cas(___lock_p, ___FIX(0), ___FIX(1), 1) == ___FIX(0)) {
-           ___got_lock = 1;
-           break;
-         }
+       ___VOLATILE ___WORD *___rxw_p = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___f[7], ___tVECTOR));
+       ___SCMOBJ ___out = ___FAL;
+       int ___done = 0;
+       if (___INT(___atomic_word_load(___rxw_p, 0)) > 0) {
+         ___VOLATILE ___WORD *___lock_p = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___f[9], ___tVECTOR));
+         int ___got_lock = 0;
+         int ___i;
+         for (___i = 0; ___i < 64; ___i++) {
+           if (___atomic_word_cas(___lock_p, ___FIX(0), ___FIX(1), 1) == ___FIX(0)) {
+             ___got_lock = 1;
+             break;
+           }
 #if defined(__aarch64__)
-         __asm__ __volatile__(\"yield\");
+           __asm__ __volatile__(\"yield\");
 #elif defined(__x86_64__) || defined(__i386__)
-         __asm__ __volatile__(\"pause\");
+           __asm__ __volatile__(\"pause\");
 #endif
-       }
-       if (!___got_lock) {
-         ___RESULT = ___ARG3;
-       } else {
-         ___SCMOBJ ___rwq = ___f[10];
-         ___WORD *___rwq_f = ___BODY_AS(___rwq, ___tSTRUCTURE);
-         ___SCMOBJ ___rk = ___rwq_f[1];
-         ___SCMOBJ ___out = ___FAL;
-         if (___rk != ___FAL) {
-           ___VOLATILE ___WORD *___tail_p = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___f[5], ___tVECTOR));
-           ___VOLATILE ___WORD *___head_p = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___f[6], ___tVECTOR));
-           ___WORD ___t = ___atomic_word_load(___tail_p, 1);
-           ___WORD ___h = ___atomic_word_load(___head_p, 1);
-           if (___t == ___h) {
-             ___WORD *___rk_f = ___BODY_AS(___rk, ___tSTRUCTURE);
-             ___SCMOBJ ___nxt = ___rk_f[4];
-             ___GC_WRITE_BARRIER(___ps, ___rk, &___rk_f[4], ___FAL);
-             ___WORD_STORE_RELAXED(&___rk_f[4], ___FAL);
-             ___GC_WRITE_BARRIER(___ps, ___rwq, &___rwq_f[1], ___nxt);
-             ___WORD_STORE_RELAXED(&___rwq_f[1], ___nxt);
-             if (___nxt == ___FAL) {
-               ___GC_WRITE_BARRIER(___ps, ___rwq, &___rwq_f[2], ___FAL);
-               ___WORD_STORE_RELAXED(&___rwq_f[2], ___FAL);
+         }
+         if (!___got_lock) {
+           ___out = ___FIX(5);
+           ___done = 1;
+         } else {
+           ___SCMOBJ ___rwq = ___f[10];
+           ___WORD *___rwq_f = ___BODY_AS(___rwq, ___tSTRUCTURE);
+           ___SCMOBJ ___rk = ___rwq_f[1];
+           if (___rk != ___FAL) {
+             ___VOLATILE ___WORD *___tail_p = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___f[5], ___tVECTOR));
+             ___VOLATILE ___WORD *___head_p = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___f[6], ___tVECTOR));
+             ___WORD ___t = ___atomic_word_load(___tail_p, 1);
+             ___WORD ___h = ___atomic_word_load(___head_p, 1);
+             if (___t == ___h) {
+               ___WORD *___rk_f = ___BODY_AS(___rk, ___tSTRUCTURE);
+               ___SCMOBJ ___nxt = ___rk_f[4];
+               ___GC_WRITE_BARRIER(___ps, ___rk, &___rk_f[4], ___FAL);
+               ___WORD_STORE_RELAXED(&___rk_f[4], ___FAL);
+               ___GC_WRITE_BARRIER(___ps, ___rwq, &___rwq_f[1], ___nxt);
+               ___WORD_STORE_RELAXED(&___rwq_f[1], ___nxt);
+               if (___nxt == ___FAL) {
+                 ___GC_WRITE_BARRIER(___ps, ___rwq, &___rwq_f[2], ___FAL);
+                 ___WORD_STORE_RELAXED(&___rwq_f[2], ___FAL);
+               }
+               ___GC_WRITE_BARRIER(___ps, ___rk, &___rk_f[3], ___ARG2);
+               ___WORD_STORE_RELAXED(&___rk_f[3], ___ARG2);
+               ___WORD ___cur_rxw = ___INT(___WORD_LOAD_RELAXED(___CAST(___WORD*, ___rxw_p)));
+               ___atomic_word_store(___rxw_p, ___FIX(___cur_rxw - 1), 4);
+               ___out = ___rk;
+               ___done = 1;
              }
-             ___GC_WRITE_BARRIER(___ps, ___rk, &___rk_f[3], ___ARG2);
-             ___WORD_STORE_RELAXED(&___rk_f[3], ___ARG2);
-             ___WORD ___cur_rxw = ___INT(___WORD_LOAD_RELAXED(___CAST(___WORD*, ___rxw_p)));
-             ___atomic_word_store(___rxw_p, ___FIX(___cur_rxw - 1), 4);
-             ___out = ___rk;
+           }
+           ___atomic_word_store(___lock_p, ___FIX(0), 2);
+         }
+       }
+       if (!___done) {
+         ___WORD ___mask = ___INT(___f[2]);
+         ___SCMOBJ ___buf = ___f[3];
+         ___VOLATILE ___WORD *___seq_p  = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___f[4], ___tVECTOR));
+         ___VOLATILE ___WORD *___tail_p = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___f[5], ___tVECTOR));
+         ___WORD *___buf_p = ___BODY_AS(___buf, ___tVECTOR);
+         ___SCMOBJ ___val = ___ARG2;
+         ___out = ___FIX(3);
+         int ___tries;
+         for (___tries = 0; ___tries < 64; ___tries++) {
+           ___WORD ___pos = ___INT(___atomic_word_load(___tail_p, 0));
+           ___WORD ___idx = (___mask >= 0) ? (___pos & ___mask) : (___pos % ___cap);
+           ___WORD ___s   = ___INT(___atomic_word_load(___seq_p + ___idx, 1));
+           ___WORD ___exp = ___pos << 1;
+           ___WORD ___dif = ___s - ___exp;
+           if (___dif == 0) {
+             if (___atomic_word_cas(___tail_p, ___FIX(___pos), ___FIX(___pos + 1), 0) == ___FIX(___pos)) {
+               ___WORD *___slot = ___buf_p + ___idx;
+               ___GC_WRITE_BARRIER(___ps, ___buf, ___slot, ___val);
+               ___WORD_STORE_RELAXED(___slot, ___val);
+               ___atomic_word_store(___seq_p + ___idx, ___FIX(___exp + 1), 4);
+               ___out = (___INT(___atomic_word_load(___rxw_p, 4)) > 0) ? ___FIX(1) : ___TRU;
+               break;
+             }
+           } else if (___dif < 0) {
+             ___out = ___FIX(2);
+             break;
            }
          }
-         ___atomic_word_store(___lock_p, ___FIX(0), 2);
-         ___RESULT = ___out;
        }
+       ___RESULT = ___out;
      }"
-    ch val retry-tag)
-   (let ((rxw (%ch-rx-waiters ch)))
-     (if (fx> (%fxatom-load-rlx rxw) 0)
-         (let ((lock (%ch-lock ch))
-               (rwq (%ch-recv-waiters ch))
-               (rk #f))
-           (%spin-lock! lock)
-           (if (and (not (%wq-empty? rwq))
-                    (let* ((t (%fxatom-load-acq (%ch-tail ch)))
-                           (h (%fxatom-load-acq (%ch-head ch))))
-                      (fx= t h)))
-               (begin
-                 (set! rk (%wq-pop! rwq))
-                 (%fk-val-set! rk val)
-                 (%fxatom-set-seq! rxw (fx- (##vector-ref rxw 0) 1))))
-           (%spin-unlock! lock)
-           rk)
-         #f))))
+    ch val)
+   (if (fx<= (%ch-cap ch) 0)
+       4
+       (let ((rxw (%ch-rx-waiters ch))
+             (rk #f))
+         (if (fx> (%fxatom-load-rlx rxw) 0)
+             (let ((lock (%ch-lock ch))
+                   (rwq (%ch-recv-waiters ch)))
+               (%spin-lock! lock)
+               (if (and (not (%wq-empty? rwq))
+                        (let* ((t (%fxatom-load-acq (%ch-tail ch)))
+                               (h (%fxatom-load-acq (%ch-head ch))))
+                          (fx= t h)))
+                   (begin
+                     (set! rk (%wq-pop! rwq))
+                     (%fk-val-set! rk val)
+                     (%fxatom-set-seq! rxw (fx- (##vector-ref rxw 0) 1))))
+               (%spin-unlock! lock)))
+         (if rk
+             rk
+             (let ((st (%vyukov-try-push-c! ch val)))
+               (if (fx= st 0) #t st)))))))
 
-(define (%fiber-send-buf! ch val)
-  ;; Fast path A: Single-C-block linearizable direct handoff (1 instruction skip if rxw==0)
-  (let loop ()
-    (let ((rk (%ch-try-direct-handoff-c! ch val %CH-RETRY)))
-      (cond
-        ((not rk)
-         (%fiber-send-buf-ring! ch val (%ch-rx-waiters ch)))
-        ((eq? rk %CH-RETRY)
-         (thread-yield!)
-         (loop))
-        (else
-         (%sched-push-lifo! (%current-wctx) rk)
-         #t)))))
+;; Single-C-block fused buffered receive (bounded-retry Vyukov pop).
+;; Returns item directly, `empty-tag` if ring empty, or `retry-tag` if cap == 0 or retry budget hit.
+(define (%ch-recv-fast-c! ch empty-tag retry-tag)
+  (macro-if-c-compiled
+   (##c-code
+    "___WORD *___f = ___BODY_AS(___ARG1, ___tSTRUCTURE);
+     ___WORD ___cap = ___INT(___f[1]);
+     if (___cap <= 0) {
+       ___RESULT = ___ARG3;
+     } else {
+       ___WORD ___mask = ___INT(___f[2]);
+       ___SCMOBJ ___buf = ___f[3];
+       ___VOLATILE ___WORD *___seq_p  = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___f[4], ___tVECTOR));
+       ___VOLATILE ___WORD *___head_p = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___f[6], ___tVECTOR));
+       ___WORD *___buf_p = ___BODY_AS(___buf, ___tVECTOR);
+       ___SCMOBJ ___res = ___ARG3;
+       int ___tries;
+       for (___tries = 0; ___tries < 64; ___tries++) {
+         ___WORD ___pos = ___INT(___atomic_word_load(___head_p, 0));
+         ___WORD ___idx = (___mask >= 0) ? (___pos & ___mask) : (___pos % ___cap);
+         ___WORD ___s   = ___INT(___atomic_word_load(___seq_p + ___idx, 1));
+         ___WORD ___exp = (___pos << 1) + 1;
+         ___WORD ___dif = ___s - ___exp;
+         if (___dif == 0) {
+           if (___atomic_word_cas(___head_p, ___FIX(___pos), ___FIX(___pos + 1), 0) == ___FIX(___pos)) {
+             ___WORD *___slot = ___buf_p + ___idx;
+             ___SCMOBJ ___item = ___WORD_LOAD_RELAXED(___slot);
+             ___GC_WRITE_BARRIER(___ps, ___buf, ___slot, ___FAL);
+             ___WORD_STORE_RELAXED(___slot, ___FAL);
+             ___atomic_word_store(___seq_p + ___idx, ___FIX((___pos + ___cap) << 1), 4);
+             ___res = ___item;
+             break;
+           }
+         } else if (___dif < 0) {
+           ___res = ___ARG2;
+           break;
+         }
+       }
+       ___RESULT = ___res;
+     }"
+    ch empty-tag retry-tag)
+   (if (fx<= (%ch-cap ch) 0)
+       retry-tag
+       (%vyukov-try-pop-c! ch empty-tag retry-tag))))
 
-(define (%fiber-send-buf-ring! ch val rxw)
-  ;; Fast path B: Single-C-block lock-free bounded MPMC ring push (zero spinlocks)
-  (let loop ()
-    (let ((st (%vyukov-try-push-c! ch val)))
-      (cond
-        ((fx= st 0) #t)
-        ((fx= st 1) (%ch-wake-one-receiver! ch) #t)
-        ((fx= st 2)
-         (let ((res (##continuation-capture %park-send-buf-cont! ch val)))
-           (if (eq? res %CH-RETRY)
-               (%fiber-send-buf! ch val)
-               #t)))
-        (else (loop))))))
+(define (%fiber-send-evict-and-true! ctx prev)
+  (%sched-push-dq! ctx prev)
+  #t)
+
+(define (%fiber-send-slow! ch val st)
+  (cond
+    ((fx= st 1)
+     (%ch-wake-one-receiver! ch)
+     #t)
+    ((fx= st 2)
+     (let ((res (##continuation-capture %park-send-buf-cont! ch val)))
+       (if (eq? res %CH-RETRY)
+           (fiber-send! ch val)
+           #t)))
+    ((fx= st 3)
+     (fiber-send! ch val))
+    ((fx= st 5)
+     (thread-yield!)
+     (fiber-send! ch val))
+    (else
+     ;; Unbuffered rendezvous (cap == 0) with relaxed hint
+     (let ((rwq (%ch-recv-waiters ch)))
+       (if (not (%wq-head rwq))
+           (##continuation-capture %park-send-unbuf-cont! ch val)
+           (let ((lock (%ch-lock ch)))
+             (%spin-lock! lock)
+             (if (not (%wq-empty? rwq))
+                 (let ((rk (%wq-pop! rwq)))
+                   (%spin-unlock! lock)
+                   (%fk-val-set! rk val)
+                   (%sched-push-lifo! (%current-wctx) rk)
+                   #t)
+                 (begin
+                   (%spin-unlock! lock)
+                   (##continuation-capture %park-send-unbuf-cont! ch val)))))))))
 
 (define (fiber-send! ch val)
   (if (not (fiber-channel? ch))
-      (error "fiber-send!: expected fiber-channel" ch))
-  (if (fx> (%ch-cap ch) 0)
-      (%fiber-send-buf! ch val)
-      ;; Unbuffered rendezvous (cap == 0) with relaxed hint
-      (let ((rwq (%ch-recv-waiters ch)))
-        (if (not (%wq-head rwq))
-            (##continuation-capture %park-send-unbuf-cont! ch val)
-            (let ((lock (%ch-lock ch)))
-              (%spin-lock! lock)
-              (if (not (%wq-empty? rwq))
-                  (let ((rk (%wq-pop! rwq)))
-                    (%spin-unlock! lock)
-                    (%fk-val-set! rk val)
-                    (%sched-push-lifo! (%current-wctx) rk)
-                    #t)
-                  (begin
-                    (%spin-unlock! lock)
-                    (##continuation-capture %park-send-unbuf-cont! ch val))))))))
+      (error "fiber-send!: expected fiber-channel" ch)
+      (let ((st (%ch-send-fast-c! ch val)))
+        (cond
+          ((eq? st #t) #t)
+          ((fixnum? st) (%fiber-send-slow! ch val st))
+          (else
+           (let* ((ctx (%current-wctx))
+                  (prev (%wctx-lifo ctx)))
+             (%wctx-lifo-set! ctx st)
+             (if prev
+                 (%fiber-send-evict-and-true! ctx prev)
+                 #t)))))))
 
-(define (%fiber-recv-buf! ch)
-  ;; Fast path: Lock-free bounded MPMC ring pop (zero spinlocks)
-  (let ((item (%vyukov-try-pop-or! ch %CH-EMPTY)))
-    (if (not (eq? item %CH-EMPTY))
-        (begin
-          (if (fx> (%fxatom-load-seq (%ch-tx-waiters ch)) 0)
-              (%ch-wake-one-sender! ch))
-          item)
-        (let ((res (##continuation-capture %park-recv-buf-cont! ch)))
-          (if (eq? res %CH-RETRY)
-              (%fiber-recv-buf! ch)
-              res)))))
+(define (%fiber-recv-wake-and-ret! ch item)
+  (%ch-wake-one-sender! ch)
+  item)
 
-(define (fiber-recv! ch)
-  (if (not (fiber-channel? ch))
-      (error "fiber-recv!: expected fiber-channel" ch))
+(define (%fiber-recv-park! ch)
+  (let ((res (##continuation-capture %park-recv-buf-cont! ch)))
+    (if (eq? res %CH-RETRY)
+        (fiber-recv! ch)
+        res)))
+
+(define (%fiber-recv-slow! ch)
   (if (fx> (%ch-cap ch) 0)
-      (%fiber-recv-buf! ch)
+      (fiber-recv! ch)
       ;; Unbuffered rendezvous (cap == 0) with relaxed hint
       (let ((swq (%ch-send-waiters ch)))
         (if (not (%wq-head swq))
@@ -1410,6 +1498,16 @@
                   (begin
                     (%spin-unlock! lock)
                     (##continuation-capture %park-recv-unbuf-cont! ch))))))))
+
+(define (fiber-recv! ch)
+  (if (not (fiber-channel? ch))
+      (error "fiber-recv!: expected fiber-channel" ch)
+      (let ((item (%ch-recv-fast-c! ch %CH-EMPTY %CH-RETRY)))
+        (cond
+          ((eq? item %CH-EMPTY) (%fiber-recv-park! ch))
+          ((eq? item %CH-RETRY) (%fiber-recv-slow! ch))
+          ((fx= (%fxatom-load-seq (%ch-tx-waiters ch)) 0) item)
+          (else (%fiber-recv-wake-and-ret! ch item))))))
 
 ;;;----------------------------------------------------------------------------
 ;;; Multi-Core M:N Work-Stealing Direct-Switch Trampoline
