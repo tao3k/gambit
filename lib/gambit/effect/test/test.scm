@@ -1322,3 +1322,143 @@
     (test-equal num-threads (atomic-fxbox-ref ok-count))))
 
 ;;;============================================================================
+;;; Generator Lifecycle Coherency Across Non-Local Control Escapes
+
+;; Escaping a running generator via abort-current-continuation, raw/prompted
+;; call/1cc, or an outer suspending effect must transition the generator
+;; cleanly to DONE (#!eof on subsequent calls) rather than leaving it stuck in
+;; RUNNING, while resuming an outer suspending effect restores RUNNING cleanly.
+(let ((tag (make-continuation-prompt-tag 'gen-esc-tag))
+      (outer-eff (make-effect 'gen-outer-eff)))
+  ;; 1. abort-current-continuation escape -> clean #!eof + detached mc-cell/h-cell
+  (let* ((g1 (make-generator
+              (lambda ()
+                (perform yield 'y1)
+                (abort-current-continuation tag 'aborted-out))))
+         (gen1 (##closure-ref g1 1)))
+    (test-equal 'y1 (g1))
+    (test-equal 'aborted-out
+      (call-with-continuation-prompt (lambda () (g1)) tag (lambda (v) v)))
+    (test-equal #!eof (g1))
+    (test-equal '() (cdr (##structure-ref gen1 5 (##structure-type gen1) #f)))
+    (test-equal '() (cdr (##structure-ref gen1 6 (##structure-type gen1) #f))))
+
+  ;; 2. abort-current-continuation across throwing dynamic-wind after-thunk:
+  ;;    rollback keeps generator alive and yielding subsequent values!
+  (let ((g-rb (make-generator
+               (lambda ()
+                 (perform yield 'before-rb)
+                 (with-exception-catcher
+                  (lambda (e) 'rolled-back)
+                  (lambda ()
+                    (dynamic-wind
+                      (lambda () #!void)
+                      (lambda () (abort-current-continuation tag 'never))
+                      (lambda () (error "gen-after-boom")))))
+                 (perform yield 'after-rb)))))
+    (test-equal 'before-rb (g-rb))
+    (test-equal 'after-rb
+      (call-with-continuation-prompt (lambda () (g-rb)) tag (lambda (v) 'wrong)))
+    (test-equal #!eof (g-rb)))
+
+  ;; 3. Raw call/1cc escape -> clean #!eof
+  (let ((g-raw #f))
+    (test-equal 'raw-escaped
+      (call/1cc
+       (lambda (k)
+         (set! g-raw (make-generator
+                      (lambda ()
+                        (perform yield 'a)
+                        (k 'raw-escaped))))
+         (test-equal 'a (g-raw))
+         (g-raw))))
+    (test-equal #!eof (g-raw)))
+
+  ;; 4. Prompted non-composable call/1cc escape -> clean #!eof
+  (let ((g-nc #f))
+    (test-equal 'nc-escaped
+      (call-with-continuation-prompt
+       (lambda ()
+         (call/1cc
+          (lambda (k)
+            (set! g-nc (make-generator
+                        (lambda ()
+                          (perform yield 'b)
+                          (k 'nc-escaped))))
+            (test-equal 'b (g-nc))
+            (g-nc))
+          tag))
+       tag))
+    (test-equal #!eof (g-nc)))
+
+  ;; 5. Outer suspending effect: abandoned (non-resuming) -> clean #!eof
+  (let ((g-ab (make-generator
+               (lambda ()
+                 (perform yield 'first)
+                 (perform outer-eff 'bye)))))
+    (test-equal 'first (g-ab))
+    (test-equal '(handled bye)
+      (with-handler ((outer-eff (k v) (list 'handled v)))
+        (g-ab)))
+    (test-equal #!eof (g-ab)))
+
+  ;; 6. Outer suspending effect: resumed -> restores RUNNING, yields next item, finishes to #!eof
+  (let ((g-res (make-generator
+                (lambda ()
+                  (perform yield 'start)
+                  (let ((x (perform outer-eff 10)))
+                    (perform yield (+ x 5)))))))
+    (test-equal 'start (g-res))
+    (test-equal 25
+      (with-handler ((outer-eff (k v)
+                       ;; While suspended at outer-eff, calling (g-res) returns #!eof (not stuck!)
+                       (test-equal #!eof (g-res))
+                       (resume k (* v 2))))
+        (g-res)))
+    (test-equal #!eof (g-res))))
+
+;; Adaptive-P SMP torture: concurrent generator non-local escapes (abort,
+;; raw call/1cc, outer effect abandon & resume) interleaved with GC.
+(let* ((num-threads (max 2 (min 12 (##current-vm-processor-count))))
+       (rounds 30)
+       (ok-count (make-atomic-fxbox 0)))
+  (let ((threads
+         (let loop ((t 0) (acc '()))
+           (if (fx= t num-threads)
+               acc
+               (loop (fx+ t 1)
+                     (cons
+                      (thread-start!
+                       (make-thread
+                        (lambda ()
+                          (let ((tg (make-continuation-prompt-tag 'smp-ge))
+                                (eo (make-effect 'smp-ge-eff)))
+                            (let rloop ((r 0) (good #t))
+                              (if (fx< r rounds)
+                                  (let* ((g1 (make-generator
+                                              (lambda ()
+                                                (perform yield r)
+                                                (abort-current-continuation tg 'esc))))
+                                         (v1a (g1))
+                                         (v1b (call-with-continuation-prompt
+                                               (lambda () (g1)) tg (lambda (v) v)))
+                                         (v1c (g1))
+                                         (g2 (make-generator
+                                              (lambda ()
+                                                (perform yield r)
+                                                (perform yield (fx+ (perform eo r) 1)))))
+                                         (v2a (g2))
+                                         (v2b (with-handler ((eo (k v) (resume k (fx+ v 10))))
+                                                (g2)))
+                                         (v2c (g2)))
+                                    (if (and (fx= t 0) (fx= (fxand r 7) 7)) (##gc))
+                                    (rloop (fx+ r 1)
+                                           (and good
+                                                (fx= v1a r) (eq? v1b 'esc) (eof-object? v1c)
+                                                (fx= v2a r) (fx= v2b (fx+ r 11)) (eof-object? v2c))))
+                                  (if good (atomic-fxbox+/fetch! ok-count 1))))))))
+                      acc))))))
+    (for-each thread-join! threads)
+    (test-equal num-threads (atomic-fxbox-ref ok-count))))
+
+;;;============================================================================

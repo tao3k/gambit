@@ -12,6 +12,16 @@
 ;;; unwind hooks coherent whenever an uncaught exception escapes through an
 ;;; enclosing `with-exception-catcher` or `with-exception-handler`.
 
+;; Invoke procedural unwind hooks ('unwind or 'restore) on every metacontinuation
+;; frame in `frames` that carries one. Zero allocation; O(1) skip on empty list.
+(define (%mc-run-unwind-hooks! frames phase)
+  (let loop ((fs frames))
+    (if (pair? fs)
+        (let ((hook (%pf-unwind-hook (car fs))))
+          (if (procedure? hook)
+              (hook phase))
+          (loop (cdr fs))))))
+
 (define (%make-mc-eh-trampoline prev-eh)
   (let ((box (cons prev-eh #f)))
     (let ((fn (lambda (exc)

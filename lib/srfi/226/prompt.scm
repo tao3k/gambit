@@ -205,7 +205,7 @@
 ;; extra allocation; otherwise defer `st` commit to the post-unwind landing
 ;; thunk so `dynamic-wind` after-thunks observe intact prompts/marks/handlers
 ;; and raising inside an after-thunk never corrupts `st`.
-(define (%abort-to-pframe! st pframe rest tag a1 a2 a3 more)
+(define (%abort-to-pframe! st prefix pframe rest tag a1 a2 a3 more)
   (let ((escape-k (%pf-escape-k pframe))
         (handler (%pf-handler pframe)))
     (if (%mc-same-dynwind? escape-k)
@@ -214,6 +214,9 @@
           (%st-marks-set! st (%pf-marks pframe))
           (%st-barriers-set! st (%pf-barriers pframe))
           (%st-handlers-set! st (%pf-handlers pframe))
+          (if (pair? prefix) (%mc-run-unwind-hooks! prefix 'unwind))
+          (let ((uh (%pf-unwind-hook pframe)))
+            (if (procedure? uh) (uh 'unwind)))
           (if (or (eq? handler %DEFAULT-PROMPT-HANDLER)
                   (eq? handler %FROZEN-DEFAULT-PROMPT-HANDLER))
               (if (and (not (eq? a1 %ABSENT)) (eq? a2 %ABSENT))
@@ -244,6 +247,9 @@
            (%st-marks-set! st (%pf-marks pframe))
            (%st-barriers-set! st (%pf-barriers pframe))
            (%st-handlers-set! st (%pf-handlers pframe))
+           (if (pair? prefix) (%mc-run-unwind-hooks! prefix 'unwind))
+           (let ((uh (%pf-unwind-hook pframe)))
+             (if (procedure? uh) (uh 'unwind)))
            (%invoke-abort-handler handler tag a1 a2 a3 more))))))
 
 (define (abort-current-continuation tag
@@ -260,12 +266,12 @@
     (if (and (pair? mc)
              (eq? (%pf-kind (car mc)) 'prompt)
              (eq? (%pf-tag (car mc)) tag))
-        (%abort-to-pframe! st (car mc) (cdr mc) tag a1 a2 a3 more)
+        (%abort-to-pframe! st '() (car mc) (cdr mc) tag a1 a2 a3 more)
         (let ((found (%mc-find-tail-slow mc tag)))
           (if (not found)
               (error "abort-current-continuation: no prompt found for tag" tag)
               (let ((tail (cdr found)))
-                (%abort-to-pframe! st (car tail) (cdr tail) tag a1 a2 a3 more)))))))
+                (%abort-to-pframe! st (car found) (car tail) (cdr tail) tag a1 a2 a3 more)))))))
 
 (define (%pop-barrier-token! st token)
   (let ((bs (%st-barriers st)))

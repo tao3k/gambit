@@ -289,6 +289,7 @@
                          (%st-marks-set! st (%pf-marks pframe))
                          (%st-barriers-set! st (%pf-barriers pframe))
                          (%st-handlers-set! st (%pf-handlers pframe))
+                         (if (pair? prefix) (%mc-run-unwind-hooks! prefix 'unwind))
                          (cond
                            ((eq? a1 %ABSENT) (##continuation-graft escape-k proc ek))
                            ((eq? a2 %ABSENT) (##continuation-graft escape-k proc ek a1))
@@ -302,6 +303,7 @@
                           (%st-marks-set! st (%pf-marks pframe))
                           (%st-barriers-set! st (%pf-barriers pframe))
                           (%st-handlers-set! st (%pf-handlers pframe))
+                          (if (pair? prefix) (%mc-run-unwind-hooks! prefix 'unwind))
                           (cond
                             ((eq? a1 %ABSENT) (proc ek))
                             ((eq? a2 %ABSENT) (proc ek a1))

@@ -156,6 +156,7 @@
                                (if (null? cap-handlers)
                                    base
                                    (append cap-handlers base))))
+          (if (pair? prefix) (%mc-run-unwind-hooks! prefix 'restore))
           (if (eq? v1 %ABSENT)
               (##continuation-return sub-k)
               (##continuation-return sub-k v1)))
@@ -176,7 +177,8 @@
                                 (let ((base (cons frame saved-handlers)))
                                   (if (null? cap-handlers)
                                       base
-                                      (append cap-handlers base)))))
+                                      (append cap-handlers base))))
+             (if (pair? prefix) (%mc-run-unwind-hooks! prefix 'restore)))
            (if (eq? v1 %ABSENT) (values) v1))))))
 
 (define (%resume-checked ek v1 v2 more clear?)
@@ -223,6 +225,7 @@
                                       (if (null? cap-handlers)
                                           base
                                           (append cap-handlers base))))
+                 (if (pair? prefix) (%mc-run-unwind-hooks! prefix 'restore))
                  (if (null? more)
                      (##continuation-return sub-k v1 v2)
                      (##apply ##continuation-return sub-k v1 v2 more)))
@@ -243,7 +246,8 @@
                                        (let ((base (cons frame saved-handlers)))
                                          (if (null? cap-handlers)
                                              base
-                                             (append cap-handlers base)))))
+                                             (append cap-handlers base))))
+                    (if (pair? prefix) (%mc-run-unwind-hooks! prefix 'restore)))
                   (if (null? more)
                       (values v1 v2)
                       (apply values v1 v2 more))))))))))

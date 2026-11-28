@@ -53,6 +53,7 @@
                              (if (null? cap-handlers)
                                  caller-handlers
                                  (append cap-handlers caller-handlers)))
+          (if (pair? prefix) (%mc-run-unwind-hooks! prefix 'restore))
           (if (eq? v1 %ABSENT)
               (##continuation-return sub-k)
               (##continuation-return sub-k v1)))
@@ -72,7 +73,8 @@
              (%st-handlers-set! st
                                 (if (null? cap-handlers)
                                     caller-handlers
-                                    (append cap-handlers caller-handlers))))
+                                    (append cap-handlers caller-handlers)))
+             (if (pair? prefix) (%mc-run-unwind-hooks! prefix 'restore)))
            (if (eq? v1 %ABSENT) (values) v1))))))
 
 ;; Zero-closure <=4-arg fast receiver for exclusively consumed one-shot
@@ -149,6 +151,7 @@
                                     (if (null? cap-handlers)
                                         caller-handlers
                                         (append cap-handlers caller-handlers)))
+                 (if (pair? prefix) (%mc-run-unwind-hooks! prefix 'restore))
                  (cond
                    ((eq? v1 %ABSENT) (##continuation-return sub-k))
                    ((eq? v2 %ABSENT) (##continuation-return sub-k v1))
@@ -171,7 +174,8 @@
                     (%st-handlers-set! st
                                        (if (null? cap-handlers)
                                            caller-handlers
-                                           (append cap-handlers caller-handlers))))
+                                           (append cap-handlers caller-handlers)))
+                    (if (pair? prefix) (%mc-run-unwind-hooks! prefix 'restore)))
                   (cond
                     ((eq? v1 %ABSENT) (values))
                     ((eq? v2 %ABSENT) v1)
@@ -219,6 +223,7 @@
                                     (if (null? cap-handlers)
                                         caller-handlers
                                         (append cap-handlers caller-handlers)))
+                 (if (pair? prefix) (%mc-run-unwind-hooks! prefix 'restore))
                  (cond
                    ((eq? v3 %ABSENT) (##continuation-return sub-k v1 v2))
                    ((null? more) (##continuation-return sub-k v1 v2 v3))
@@ -239,13 +244,14 @@
                     (%st-handlers-set! st
                                        (if (null? cap-handlers)
                                            caller-handlers
-                                           (append cap-handlers caller-handlers))))
+                                           (append cap-handlers caller-handlers)))
+                    (if (pair? prefix) (%mc-run-unwind-hooks! prefix 'restore)))
                   (cond
                     ((eq? v3 %ABSENT) (values v1 v2))
                     ((null? more) (values v1 v2 v3))
                     (else (apply values v1 v2 v3 more)))))))))))
 
-(define (%commit-noncomp-and-return! cst cur-pframe cur-rest sub-k prefix
+(define (%commit-noncomp-and-return! cst cur-prefix cur-pframe cur-rest sub-k prefix
                                      cap-marks cap-barriers cap-handlers
                                      v1 v2 v3 more)
   (if (%mc-same-dynwind? sub-k)
@@ -263,6 +269,8 @@
                            (if (null? cap-handlers)
                                (%pf-handlers cur-pframe)
                                (append cap-handlers (%pf-handlers cur-pframe))))
+        (if (pair? cur-prefix) (%mc-run-unwind-hooks! cur-prefix 'unwind))
+        (if (pair? prefix) (%mc-run-unwind-hooks! prefix 'restore))
         (cond
           ((eq? v1 %ABSENT) (##continuation-return sub-k))
           ((eq? v2 %ABSENT) (##continuation-return sub-k v1))
@@ -285,6 +293,8 @@
                             (if (null? cap-handlers)
                                 (%pf-handlers cur-pframe)
                                 (append cap-handlers (%pf-handlers cur-pframe))))
+         (if (pair? cur-prefix) (%mc-run-unwind-hooks! cur-prefix 'unwind))
+         (if (pair? prefix) (%mc-run-unwind-hooks! prefix 'restore))
          (cond
            ((eq? v1 %ABSENT) (values))
            ((eq? v2 %ABSENT) v1)
@@ -298,6 +308,7 @@
     (if (%entering-barrier? cap-barriers (%st-barriers cst))
         (error "continuation invocation blocked by continuation barrier"))
     (let* ((mc (%st-mc cst))
+           (cur-prefix '())
            (cur-pframe #f)
            (cur-rest #f))
       (if (and (pair? mc)
@@ -310,9 +321,10 @@
             (if (not found)
                 (error "non-composable continuation: target prompt not active" tag)
                 (let ((tail (cdr found)))
+                  (set! cur-prefix (car found))
                   (set! cur-pframe (car tail))
                   (set! cur-rest (cdr tail))))))
-      (%commit-noncomp-and-return! cst cur-pframe cur-rest sub-k prefix
+      (%commit-noncomp-and-return! cst cur-prefix cur-pframe cur-rest sub-k prefix
                                    cap-marks cap-barriers cap-handlers
                                    v1 v2 v3 more))))
 
@@ -337,11 +349,12 @@
     (if (%entering-barrier? cap-barriers (%st-barriers cst))
         (error "continuation invocation blocked by continuation barrier"))
     (if (%mc-same-dynwind? sub-k)
-        (begin
+        (let ((dropped (%list-prefix-until (%st-mc cst) cap-mc)))
           (%st-mc-set! cst cap-mc)
           (%st-marks-set! cst cap-marks)
           (%st-barriers-set! cst cap-barriers)
           (%st-handlers-set! cst cap-handlers)
+          (if (pair? dropped) (%mc-run-unwind-hooks! dropped 'unwind))
           (cond
             ((eq? v1 %ABSENT) (##continuation-return sub-k))
             ((eq? v2 %ABSENT) (##continuation-return sub-k v1))
@@ -351,11 +364,13 @@
         (##continuation-graft
          sub-k
          (lambda ()
-           (let ((st (%tc-current)))
+           (let* ((st (%tc-current))
+                  (dropped (%list-prefix-until (%st-mc st) cap-mc)))
              (%st-mc-set! st cap-mc)
              (%st-marks-set! st cap-marks)
              (%st-barriers-set! st cap-barriers)
-             (%st-handlers-set! st cap-handlers))
+             (%st-handlers-set! st cap-handlers)
+             (if (pair? dropped) (%mc-run-unwind-hooks! dropped 'unwind)))
            (cond
              ((eq? v1 %ABSENT) (values))
              ((eq? v2 %ABSENT) v1)

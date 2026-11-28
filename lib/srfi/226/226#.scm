@@ -79,6 +79,7 @@ shift
 %mc-same-dynwind?
 %mc-split-at-tag
 %mc-return1
+%mc-run-unwind-hooks!
 %freeze-mc-prefix!
 %list-prefix-until
 %barrier-between?
