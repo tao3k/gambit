@@ -29,6 +29,10 @@ make-fiber-channel
 fiber-channel?
 fiber-send!
 fiber-recv!
+fiber-try-send!
+fiber-try-recv!
+fiber-channel-close!
+fiber-channel-closed?
 
 ))
 

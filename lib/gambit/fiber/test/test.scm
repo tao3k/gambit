@@ -1323,4 +1323,194 @@
   (##gc)
   (test-equal n-fibers (atomic-fxbox-ref done)))
 
+;; External OS-thread <-> fiber-scheduler bidirectional channel bridge
+;; (buffered cap=4 and unbuffered cap=0): verifies %fk-sched wakeup routing
+;; from non-carrier OS threads with zero crashes and exact conservation.
+(let* ((p (##current-vm-processor-count))
+       (w (max 2 (min 8 p)))
+       (n-msgs 200)
+       (expected-sum (fxquotient (fx* n-msgs (fx- n-msgs 1)) 2)))
+  (for-each
+   (lambda (cap)
+     (let ((to-fiber (make-fiber-channel cap))
+           (to-os (make-fiber-channel cap)))
+       (let ((os-sender
+              (thread-start!
+               (make-thread
+                (lambda ()
+                  (thread-sleep! 0.01)
+                  (let loop ((i 0))
+                    (if (fx< i n-msgs)
+                        (begin
+                          (fiber-send! to-fiber i)
+                          (loop (fx+ i 1)))))
+                  (fiber-channel-close! to-fiber)))))
+             (os-receiver
+              (thread-start!
+               (make-thread
+                (lambda ()
+                  (let loop ((acc 0))
+                    (let ((v (fiber-recv! to-os)))
+                      (if (eof-object? v)
+                          acc
+                          (loop (fx+ acc v))))))))))
+         (run-fibers
+          (lambda ()
+            (with-nursery
+             (lambda (n)
+               (let cloop ((k 0))
+                 (if (fx< k 2)
+                     (begin
+                       (fiber-spawn
+                        (lambda ()
+                          (let rloop ()
+                            (let ((v (fiber-recv! to-fiber)))
+                              (if (not (eof-object? v))
+                                  (begin
+                                    (fiber-send! to-os v)
+                                    (rloop))))))
+                        n)
+                       (cloop (fx+ k 1))))))))
+          workers: w)
+         (fiber-channel-close! to-os)
+         (thread-join! os-sender)
+         (test-equal expected-sum (thread-join! os-receiver)))))
+   '(4 0)))
+
+;; Cross-scheduler (sched-A <-> sched-B) channel bridge: two independent
+;; run-fibers pools communicating across buffered & unbuffered channels
+;; must route wakeups to each fiber's owning %fk-sched without corrupting
+;; either scheduler's quiescence counters.
+(let* ((p (##current-vm-processor-count))
+       (w (max 2 (min 6 (fxmax 2 (fxquotient p 2)))))
+       (n-req 250)
+       (expected-sum (fx* 2 (fxquotient (fx* n-req (fx- n-req 1)) 2))))
+  (for-each
+   (lambda (cap)
+     (let ((req (make-fiber-channel cap))
+           (rep (make-fiber-channel cap)))
+       (let ((tA (thread-start!
+                  (make-thread
+                   (lambda ()
+                     (run-fibers
+                      (lambda ()
+                        (let loop ((i 0) (s 0))
+                          (if (fx< i n-req)
+                              (begin
+                                (fiber-send! req i)
+                                (loop (fx+ i 1) (fx+ s (fiber-recv! rep))))
+                              (begin
+                                (fiber-channel-close! req)
+                                s))))
+                      workers: w)))))
+             (tB (thread-start!
+                  (make-thread
+                   (lambda ()
+                     (run-fibers
+                      (lambda ()
+                        (let loop ((cnt 0))
+                          (let ((v (fiber-recv! req)))
+                            (if (eof-object? v)
+                                cnt
+                                (begin
+                                  (fiber-send! rep (fx* v 2))
+                                  (loop (fx+ cnt 1)))))))
+                      workers: w))))))
+         (test-equal expected-sum (thread-join! tA))
+         (test-equal n-req (thread-join! tB)))))
+   '(4 0)))
+
+;; Non-blocking fiber-try-send! / fiber-try-recv! + fiber-channel-close!
+;; drain ordering, idempotence, and post-close send rejection.
+(let ((ch (make-fiber-channel 2)))
+  (test-equal #f (fiber-channel-closed? ch))
+  (test-equal 'empty (fiber-try-recv! ch 'empty))
+  (test-equal #t (fiber-try-send! ch 'a))
+  (test-equal #t (fiber-try-send! ch 'b))
+  (test-equal #f (fiber-try-send! ch 'c))
+  (fiber-channel-close! ch)
+  (fiber-channel-close! ch) ;; idempotent close
+  (test-equal #t (fiber-channel-closed? ch))
+  (test-equal #t (with-exception-catcher (lambda (e) #t) (lambda () (fiber-send! ch 'x) #f)))
+  (test-equal #t (with-exception-catcher (lambda (e) #t) (lambda () (fiber-try-send! ch 'x) #f)))
+  (test-equal 'a (fiber-try-recv! ch 'empty))
+  (test-equal 'b (fiber-try-recv! ch 'empty))
+  (test-equal #!eof (fiber-try-recv! ch 'empty))
+  (test-equal #!eof (fiber-recv! ch)))
+
+;; Concurrent channel close linearizability and waiter wakeup stress:
+;; N receivers + N senders racing against concurrent fiber-channel-close!
+;; across cap in {0, 1, 2, 4, 8} with GC; verifies zero lost wakeups,
+;; exact item conservation for all successful sends, and clean termination.
+(let* ((p (##current-vm-processor-count))
+       (w (max 2 (min 12 p)))
+       (n-peers (max 4 (min 12 p)))
+       (rounds 20)
+       (ok-rounds 0))
+  (let rloop ((r 0))
+    (if (fx< r rounds)
+        (let* ((cap (vector-ref '#(0 1 2 4 8) (fxmodulo r 5)))
+               (ch (make-fiber-channel cap))
+               (sent-cnt (make-atomic-fxbox 0))
+               (recv-cnt (make-atomic-fxbox 0))
+               (err-cnt (make-atomic-fxbox 0))
+               (rx-done (make-atomic-fxbox 0))
+               (tx-done (make-atomic-fxbox 0)))
+          (run-fibers
+           (lambda ()
+             (with-nursery
+              (lambda (n)
+                ;; Receivers loop until #!eof
+                (let cloop ((i 0))
+                  (if (fx< i n-peers)
+                      (begin
+                        (fiber-spawn
+                         (lambda ()
+                           (let lp ()
+                             (let ((v (fiber-recv! ch)))
+                               (if (eof-object? v)
+                                   (atomic-fxbox+/fetch! rx-done 1)
+                                   (begin
+                                     (atomic-fxbox+/fetch! recv-cnt 1)
+                                     (lp))))))
+                         n)
+                        (cloop (fx+ i 1)))))
+                ;; Senders push until closed exception
+                (let sloop ((i 0))
+                  (if (fx< i n-peers)
+                      (begin
+                        (fiber-spawn
+                         (lambda ()
+                           (with-exception-catcher
+                            (lambda (e)
+                              (atomic-fxbox+/fetch! err-cnt 1)
+                              (atomic-fxbox+/fetch! tx-done 1))
+                            (lambda ()
+                              (let lp ((k 0))
+                                (if (fx< k 80)
+                                    (begin
+                                      (fiber-send! ch k)
+                                      (atomic-fxbox+/fetch! sent-cnt 1)
+                                      (if (fx= (fxand k 15) 15) (fiber-yield))
+                                      (lp (fx+ k 1)))
+                                    (atomic-fxbox+/fetch! tx-done 1))))))
+                         n)
+                        (sloop (fx+ i 1)))))
+                ;; Closer races concurrently after brief yield
+                (fiber-spawn
+                 (lambda ()
+                   (let y ((k 0))
+                     (if (fx< k (fx+ 2 (fxmodulo r 5)))
+                         (begin (fiber-yield) (y (fx+ k 1)))))
+                   (if (fx= (fxand r 7) 7) (##gc))
+                   (fiber-channel-close! ch))
+                 n))))
+           workers: w)
+          (if (and (fx= (atomic-fxbox-ref rx-done) n-peers)
+                   (fx= (atomic-fxbox-ref tx-done) n-peers)
+                   (fx= (atomic-fxbox-ref sent-cnt) (atomic-fxbox-ref recv-cnt)))
+              (set! ok-rounds (fx+ ok-rounds 1)))
+          (rloop (fx+ r 1)))))
+  (test-equal rounds ok-rounds))
+
 ;;;============================================================================

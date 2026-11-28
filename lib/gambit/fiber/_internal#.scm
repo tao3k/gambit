@@ -83,6 +83,7 @@
   %sched-push-dq!
   %sched-push-lifo!
   %sched-wake!
+  %wake-fk!
   %sched-quiescent?
   %sched-try-acquire-search!
   %sched-release-search!
@@ -94,6 +95,7 @@
   %fk-tc-set!
   %fk-val
   %fk-val-set!
+  %fk-sched
   %fiber-k
   %make-scheduler
   %scheduler?
@@ -176,6 +178,10 @@
   %wq-pop!
   %ch-rx-any-waiters-seq?
   %ch-tx-any-waiters-seq?
+  %ch-closed-rlx?
+  %ch-closed-seq?
+  %ch-seal-tail-seq!
+  %ch-drain-closed-or-eof!
   %ch-try-pop-rxfast-c!
   %ch-try-pop-txfast-c!
   %vyukov-try-push-c!
@@ -200,6 +206,7 @@
   %ch-tx-waiters
   %ch-lock
   %ch-recv-waiters
+  %ch-send-waiters
   fiber-channel
 ))
 

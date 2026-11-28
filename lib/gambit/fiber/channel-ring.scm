@@ -50,7 +50,7 @@
   (mask         %ch-mask)        ;; cap-1 when power-of-2, else -1 (exact fxmodulo)
   (buf          %ch-buf)         ;; ring payload slots (GC write-barrier via ##vector-set!)
   (seq          %ch-seq)         ;; per-slot sequence fixnums
-  (tail         %ch-tail)        ;; 128B-padded producer cursor
+  (tail         %ch-tail)        ;; 128B-padded packed (pos << 1) | closed_bit
   (head         %ch-head)        ;; 128B-padded consumer cursor
   (rx-waiters   %ch-rx-waiters)  ;; 128B-padded count of parked receivers
   (tx-waiters   %ch-tx-waiters)  ;; 128B-padded count of parked senders
@@ -89,6 +89,35 @@
      (%make-fxatom 0)
      (%make-wait-q #f #f)
      (%make-wait-q #f #f))))
+
+(define (%ch-closed-rlx? ch)
+  (not (fx= (fxand (%fxatom-load-rlx (%ch-tail ch)) 1) 0)))
+
+(define (%ch-closed-seq? ch)
+  (not (fx= (fxand (%fxatom-load-seq (%ch-tail ch)) 1) 0)))
+
+;; Atomically seal bit 0 of ch.tail with seq_cst ordering so no subsequent
+;; sender can claim a ring slot after close and final_tail = (raw_t >> 1)
+;; is permanently frozen.
+(define (%ch-seal-tail-seq! ch)
+  (macro-if-c-compiled
+   (##c-code
+    "___WORD *___f = ___BODY_AS(___ARG1, ___tSTRUCTURE);
+     ___VOLATILE ___WORD *___tail_p = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___f[5], ___tVECTOR));
+     for (;;) {
+       ___WORD ___raw_t = ___INT(___atomic_word_load(___tail_p, 4));
+       if (___raw_t & 1) break;
+       if (___atomic_word_cas(___tail_p, ___FIX(___raw_t), ___FIX(___raw_t | 1), 4) == ___FIX(___raw_t))
+         break;
+     }
+     ___RESULT = ___VOID;"
+    ch)
+   (let ((tail-box (%ch-tail ch)))
+     (let loop ()
+       (let ((raw-t (%fxatom-load-seq tail-box)))
+         (if (fx= (fxand raw-t 1) 0)
+             (if (not (fx= (%fxatom-cas-seq! tail-box raw-t (fxior raw-t 1)) raw-t))
+                 (loop))))))))
 
 ;; Check whether any receiver is parked in either lock-free rx-fast (word 1) or rwq (word 0).
 (define (%ch-rx-any-waiters-seq? ch)
@@ -155,7 +184,8 @@
    #f))
 
 ;; Single-C-block bounded-retry Vyukov ring push (2*pos / 2*pos+1 supports all cap >= 1).
-;; Returns: 0=pushed & rxw==0, 1=pushed & rxw>0, 2=full, 3=retry after safepoint poll.
+;; Atomically checks bit 0 of packed tail = (pos << 1) | closed_bit inside the CAS.
+;; Returns: 0=pushed & rxw==0, 1=pushed & rxw>0, 2=full, 3=retry after safepoint poll, 6=closed.
 (define (%vyukov-try-push-c! ch val)
   (macro-if-c-compiled
    (##c-code
@@ -172,13 +202,18 @@
      ___WORD ___res = 3;
      int ___tries;
      for (___tries = 0; ___tries < 64; ___tries++) {
-       ___WORD ___pos = ___INT(___atomic_word_load(___tail_p, 0));
+       ___WORD ___raw_t = ___INT(___atomic_word_load(___tail_p, 0));
+       if (___raw_t & 1) {
+         ___res = 6;
+         break;
+       }
+       ___WORD ___pos = ___raw_t >> 1;
        ___WORD ___idx = (___mask >= 0) ? (___pos & ___mask) : (___pos % ___cap);
        ___WORD ___s   = ___INT(___atomic_word_load(___seq_p + ___idx, 1));
        ___WORD ___exp = ___pos << 1;
        ___WORD ___dif = ___s - ___exp;
        if (___dif == 0) {
-         if (___atomic_word_cas(___tail_p, ___FIX(___pos), ___FIX(___pos + 1), 0) == ___FIX(___pos)) {
+         if (___atomic_word_cas(___tail_p, ___FIX(___raw_t), ___FIX((___pos + 1) << 1), 0) == ___FIX(___raw_t)) {
            ___WORD *___slot = ___buf_p + ___idx;
            ___GC_WRITE_BARRIER(___ps, ___buf, ___slot, ___val);
            ___WORD_STORE_RELAXED(___slot, ___val);
@@ -200,28 +235,31 @@
          (cap (%ch-cap ch))
          (mask (%ch-mask ch)))
      (let loop ()
-       (let* ((pos (%fxatom-load-rlx tail-box))
-              (idx (if (fx>= mask 0) (fxand pos mask) (fxmodulo pos cap)))
-              (s (%vec-fx-load-acq seq idx))
-              (exp (fxarithmetic-shift-left pos 1))
-              (dif (fx- s exp)))
-         (cond
-           ((fx= dif 0)
-            (if (fx= (%fxatom-cas-rlx! tail-box pos (fx+ pos 1)) pos)
-                (begin
-                  (##vector-set! buf idx val)
-                  (%vec-fx-store-seq! seq idx (fx+ exp 1))
-                  (if (fx> (%fxatom-load-seq (%ch-rx-waiters ch)) 0) 1 0))
-                (loop)))
-           ((fx< dif 0) 2)
-           (else (loop))))))))
+       (let ((raw-t (%fxatom-load-rlx tail-box)))
+         (if (not (fx= (fxand raw-t 1) 0))
+             6
+             (let* ((pos (fxarithmetic-shift-right raw-t 1))
+                    (idx (if (fx>= mask 0) (fxand pos mask) (fxmodulo pos cap)))
+                    (s (%vec-fx-load-acq seq idx))
+                    (exp (fxarithmetic-shift-left pos 1))
+                    (dif (fx- s exp)))
+               (cond
+                 ((fx= dif 0)
+                  (if (fx= (%fxatom-cas-rlx! tail-box raw-t (fxarithmetic-shift-left (fx+ pos 1) 1)) raw-t)
+                      (begin
+                        (##vector-set! buf idx val)
+                        (%vec-fx-store-seq! seq idx (fx+ exp 1))
+                        (if (fx> (%fxatom-load-seq (%ch-rx-waiters ch)) 0) 1 0))
+                      (loop)))
+                 ((fx< dif 0) 2)
+                 (else (loop))))))))))
 
 (define (%vyukov-try-push! ch val)
   (let loop ()
     (let ((st (%vyukov-try-push-c! ch val)))
       (cond
         ((fx<= st 1) #t)
-        ((fx= st 2) #f)
+        ((or (fx= st 2) (fx= st 6)) #f)
         (else (loop))))))
 
 ;; Single-C-block bounded-retry Vyukov ring pop (2*pos+1 / 2*(pos+cap) supports all cap >= 1).
@@ -290,6 +328,26 @@
           (loop)
           res))))
 
+;; Drain any pre-close committed or in-flight buffered items before reporting #!eof.
+;; Because ch.tail is sealed atomically to (final_tail << 1) | 1, head < final_tail
+;; proves a pre-close sender claimed slot `head` and is committing seq[idx].
+(define (%ch-drain-closed-or-eof! ch)
+  (let ((final-tail (fxarithmetic-shift-right (%fxatom-load-acq (%ch-tail ch)) 1)))
+    (let loop ((spins 0))
+      (let ((item (%vyukov-try-pop-or! ch %CH-EMPTY)))
+        (if (not (eq? item %CH-EMPTY))
+            (begin
+              (if (%ch-tx-any-waiters-seq? ch)
+                  (%ch-wake-one-sender! ch))
+              item)
+            (if (fx>= (%fxatom-load-acq (%ch-head ch)) final-tail)
+                #!eof
+                (if (fx< spins 16)
+                    (loop (fx+ spins 1))
+                    (begin
+                      (thread-yield!)
+                      (loop 0)))))))))
+
 ;; Slow-path wakeups (called only when rx-fast/tx-fast occupied or waiter count > 0)
 (define (%ch-wake-one-receiver! ch)
   (let ((rk (%ch-try-pop-rxfast-c! ch)))
@@ -300,10 +358,10 @@
                 (if (%ch-tx-any-waiters-seq? ch)
                     (%ch-wake-one-sender! ch))
                 (%fk-val-set! rk item)
-                (%sched-push-lifo! (%carrier-wctx) rk))
+                (%wake-fk! rk))
               (begin
                 (%fk-val-set! rk %CH-RETRY)
-                (%sched-push-lifo! (%carrier-wctx) rk))))
+                (%wake-fk! rk))))
         (let ((lock (%ch-lock ch))
               (rwq (%ch-recv-waiters ch))
               (rxw (%ch-rx-waiters ch))
@@ -322,23 +380,23 @@
                     (if (%ch-tx-any-waiters-seq? ch)
                         (%ch-wake-one-sender! ch))
                     (%fk-val-set! rk2 item)
-                    (%sched-push-lifo! (%carrier-wctx) rk2))
+                    (%wake-fk! rk2))
                   (begin
                     (%fk-val-set! rk2 %CH-RETRY)
-                    (%sched-push-lifo! (%carrier-wctx) rk2))))))))
+                    (%wake-fk! rk2))))))))
 
 (define (%ch-wake-one-sender! ch)
   (let ((sk (%ch-try-pop-txfast-c! ch)))
     (if sk
-        (if (%vyukov-try-push! ch (%fk-val sk))
+        (if (and (not (%ch-closed-rlx? ch)) (%vyukov-try-push! ch (%fk-val sk)))
             (begin
               (if (%ch-rx-any-waiters-seq? ch)
                   (%ch-wake-one-receiver! ch))
               (%fk-val-set! sk #t)
-              (%sched-push-lifo! (%carrier-wctx) sk))
+              (%wake-fk! sk))
             (begin
               (%fk-val-set! sk %CH-RETRY)
-              (%sched-push-lifo! (%carrier-wctx) sk)))
+              (%wake-fk! sk)))
         (let ((lock (%ch-lock ch))
               (swq (%ch-send-waiters ch))
               (txw (%ch-tx-waiters ch))
@@ -349,7 +407,8 @@
               (begin
                 (set! sk2 (%wq-pop! swq))
                 (%fxatom-set-seq! txw (fx- (##vector-ref txw 0) 1))
-                (set! pushed? (%vyukov-try-push! ch (%fk-val sk2)))))
+                (if (not (%ch-closed-rlx? ch))
+                    (set! pushed? (%vyukov-try-push! ch (%fk-val sk2))))))
           (%spin-unlock! lock)
           (if sk2
               (if pushed?
@@ -357,7 +416,7 @@
                     (if (%ch-rx-any-waiters-seq? ch)
                         (%ch-wake-one-receiver! ch))
                     (%fk-val-set! sk2 #t)
-                    (%sched-push-lifo! (%carrier-wctx) sk2))
+                    (%wake-fk! sk2))
                   (begin
                     (%fk-val-set! sk2 %CH-RETRY)
-                    (%sched-push-lifo! (%carrier-wctx) sk2))))))))
+                    (%wake-fk! sk2))))))))

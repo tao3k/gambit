@@ -39,13 +39,14 @@
        ___WORD ___mask = ___INT(___f[2]);
        ___VOLATILE ___WORD *___seq_p  = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___f[4], ___tVECTOR));
        ___VOLATILE ___WORD *___tail_p = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___f[5], ___tVECTOR));
-       ___WORD ___pos = ___INT(___atomic_word_load(___tail_p, 0));
+       ___WORD ___raw_t = ___INT(___atomic_word_load(___tail_p, 4));
+       ___WORD ___pos = ___raw_t >> 1;
        ___WORD ___idx = (___mask >= 0) ? (___pos & ___mask) : (___pos % ___cap);
        ___WORD ___s   = ___INT(___atomic_word_load(___seq_p + ___idx, 4));
        ___SCMOBJ ___rwq = ___f[10];
        ___WORD *___rwq_f = ___BODY_AS(___rwq, ___tSTRUCTURE);
        ___WORD *___rxf_p = ___BODY_AS(___f[7], ___tVECTOR) + 1;
-       if (___s - (___pos << 1) < 0 && ___rwq_f[1] == ___FAL &&
+       if ((___raw_t & 1) == 0 && ___s - (___pos << 1) < 0 && ___rwq_f[1] == ___FAL &&
            ___gc_atomic_slot_load(___rxf_p, 4) == ___FAL) {
          ___SCMOBJ ___swq = ___f[11];
          ___WORD *___swq_f = ___BODY_AS(___swq, ___tSTRUCTURE);
@@ -138,13 +139,14 @@
              ___GC_WRITE_BARRIER(___ps, ___ARG1, &___ctx_f[10], ___pool_nxt);
              ___WORD_STORE_RELAXED(&___ctx_f[10], ___pool_nxt);
              ___ctx_f[11] = ___FIX(___INT(___ctx_f[11]) - 1);
-             /* Dekker seq_cst re-check against ring pop & parked receivers */
-             ___WORD ___pos = ___INT(___atomic_word_load(___tail_p, 0));
+             /* Dekker seq_cst re-check against ring pop, parked receivers & channel close */
+             ___WORD ___raw_t = ___INT(___atomic_word_load(___tail_p, 4));
+             ___WORD ___pos = ___raw_t >> 1;
              ___WORD ___idx = (___mask >= 0) ? (___pos & ___mask) : (___pos % ___cap);
              ___WORD ___s   = ___INT(___atomic_word_load(___seq_p + ___idx, 4));
              ___WORD ___rxw2 = ___INT(___atomic_word_load(___rxw_p, 4));
              ___SCMOBJ ___rxf2 = ___gc_atomic_slot_load(___rxf_p, 4);
-             if (___s - (___pos << 1) < 0 && ___rxw2 == 0 && ___rxf2 == ___FAL) {
+             if ((___raw_t & 1) == 0 && ___s - (___pos << 1) < 0 && ___rxw2 == 0 && ___rxf2 == ___FAL) {
                ___parked = 1;
              } else {
                /* Race: ABA-free exchange cancel (never recycle or clear raw_k on prev!) */
@@ -192,12 +194,13 @@
            } else {
              ___WORD ___cur_txw = ___INT(___WORD_LOAD_RELAXED(___CAST(___WORD*, ___txw_p)));
              ___atomic_word_store(___txw_p, ___FIX(___cur_txw + 1), 4);
-             ___WORD ___pos = ___INT(___atomic_word_load(___tail_p, 0));
+             ___WORD ___raw_t = ___INT(___atomic_word_load(___tail_p, 4));
+             ___WORD ___pos = ___raw_t >> 1;
              ___WORD ___idx = (___mask >= 0) ? (___pos & ___mask) : (___pos % ___cap);
              ___WORD ___s   = ___INT(___atomic_word_load(___seq_p + ___idx, 4));
              ___SCMOBJ ___rwq = ___f[10];
              ___WORD *___rwq_f = ___BODY_AS(___rwq, ___tSTRUCTURE);
-             if (___s - (___pos << 1) < 0 && ___rwq_f[1] == ___FAL &&
+             if ((___raw_t & 1) == 0 && ___s - (___pos << 1) < 0 && ___rwq_f[1] == ___FAL &&
                  ___gc_atomic_slot_load(___rxf_p, 4) == ___FAL) {
                ___WORD *___fk_f = ___fk_head_f;
                ___SCMOBJ ___pool_nxt = ___fk_f[4];
@@ -268,6 +271,8 @@
                    fiber_parker_wake_one_ptr(___pp, ___srch_p);
                    ___GC_WRITE_BARRIER(___ps, ___ARG1, &___ctx_f[6], ___FAL);
                    ___WORD_STORE_RELAXED(&___ctx_f[6], ___FAL);
+                   ___GC_WRITE_BARRIER(___ps, ___ARG1, &___ctx_f[15], ___FAL);
+                   ___WORD_STORE_RELAXED(&___ctx_f[15], ___FAL);
                    ___ctx_f[8] = ___FIX(___ticks + 1);
                    ___ctx_f[7] = ___FIX(0);
                    ___RESULT = ___FIX(7);
@@ -294,6 +299,8 @@
                    ___ctx_f[8] = ___FIX(___ticks + 1);
                    ___GC_WRITE_BARRIER(___ps, ___ARG1, &___ctx_f[6], ___FAL);
                    ___WORD_STORE_RELAXED(&___ctx_f[6], ___FAL);
+                   ___GC_WRITE_BARRIER(___ps, ___ARG1, &___ctx_f[15], ___FAL);
+                   ___WORD_STORE_RELAXED(&___ctx_f[15], ___FAL);
                    ___ctx_f[7] = ___FIX((___streak < 8) ? (___streak + 1) : 8);
                    ___WORD *___lf = ___BODY_AS(___lifo, ___tSTRUCTURE);
                    if (___lf[0] == ___fk_type && ___lf[2] == ___FAL) {
@@ -371,12 +378,22 @@
             (%fxatom-set-seq! txw (fx+ (##vector-ref txw 0) 1))
             (%seq-cst-fence!)
             (cond
+              ((%ch-closed-seq? ch)
+               (%fxatom-set-seq! txw (fx- (##vector-ref txw 0) 1))
+               (%spin-unlock! lock)
+               (%fk-val-set! fk %CH-RETRY)
+               (%sched-push-lifo! ctx fk))
               ((%vyukov-try-push! ch val)
                (%fxatom-set-seq! txw (fx- (##vector-ref txw 0) 1))
                (%spin-unlock! lock)
                (if (%ch-rx-any-waiters-seq? ch)
                    (%ch-wake-one-receiver! ch))
                (%fk-val-set! fk #t)
+               (%sched-push-lifo! ctx fk))
+              ((%ch-closed-seq? ch)
+               (%fxatom-set-seq! txw (fx- (##vector-ref txw 0) 1))
+               (%spin-unlock! lock)
+               (%fk-val-set! fk %CH-RETRY)
                (%sched-push-lifo! ctx fk))
               ((let ((rk-fast (%ch-try-pop-rxfast-c! ch)))
                  (if rk-fast
@@ -386,7 +403,7 @@
                        (%fk-val-set! rk-fast %CH-RETRY)
                        (%fk-val-set! fk %CH-RETRY)
                        (%sched-push-lifo! ctx fk)
-                       (%sched-push-lifo! ctx rk-fast)
+                       (%wake-fk! rk-fast)
                        #t)
                      #f))
                #!void)
@@ -398,7 +415,7 @@
                  (%fk-val-set! rk %CH-RETRY)
                  (%fk-val-set! fk %CH-RETRY)
                  (%sched-push-lifo! ctx fk)
-                 (%sched-push-lifo! ctx rk)))
+                 (%wake-fk! rk)))
               (else
                (%wq-push! swq fk)
                (%spin-unlock! lock))))))

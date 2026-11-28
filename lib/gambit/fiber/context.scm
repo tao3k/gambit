@@ -35,7 +35,8 @@
   (raw-k %fk-raw-k %fk-raw-k-set!)  ;; native Gambit continuation (cleared on recycle)
   (tc    %fk-tc    %fk-tc-set!)     ;; saved per-fiber thread control-state
   (val   %fk-val   %fk-val-set!)    ;; intrusive resume/send payload
-  (next  %fk-next  %fk-next-set!))  ;; intrusive wait-queue / freelist link
+  (next  %fk-next  %fk-next-set!)   ;; intrusive wait-queue / freelist link
+  (sched %fk-sched))                ;; immutable owning %scheduler (for safe cross-thread wake)
 
 (define-type %scheduler
   id: 8B1F3A70-9C24-4D6B-A5E1-F1B000000001
@@ -120,7 +121,7 @@
           (%fk-val-set! fk val)
           (%fk-next-set! fk #f)
           fk)
-        (%make-fiber-k raw-k tc val #f))))
+        (%make-fiber-k raw-k tc val #f (%wctx-sched ctx)))))
 
 ;; Single-C-block inline %fiber-k recycle (clears GC-retained fields, zero GVM stack frame).
 (define (%free-fk! ctx fk)
@@ -202,6 +203,16 @@
     (if (and (%worker-ctx? ctx) (eq? (%wctx-sched ctx) sched))
         (%sched-push-lifo! ctx task)
         (%sched-enqueue-global! sched task))))
+
+;; Wake a parked `%fiber-k` onto its owning scheduler safely from ANY caller
+;; (same scheduler carrier -> fast LIFO; external OS thread or foreign
+;; scheduler -> owning scheduler's lock-free global queue + OS parker wake).
+(define (%wake-fk! fk)
+  (let ((ctx (macro-thread-specific (##current-thread)))
+        (target-sched (%fk-sched fk)))
+    (if (and (%worker-ctx? ctx) (eq? (%wctx-sched ctx) target-sched))
+        (%sched-push-lifo! ctx fk)
+        (%sched-enqueue-global! target-sched fk))))
 
 ;; Sharded quiescence check:
 ;; Fast-skip while root fiber has not yet finished (root-done == 0 guarantees completed < spawned).

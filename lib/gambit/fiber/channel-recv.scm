@@ -45,8 +45,10 @@
        ___SCMOBJ ___swq = ___f[11];
        ___WORD *___swq_f = ___BODY_AS(___swq, ___tSTRUCTURE);
        ___WORD *___txf_p = ___BODY_AS(___f[8], ___tVECTOR) + 1;
+       ___VOLATILE ___WORD *___tail_p = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___f[5], ___tVECTOR));
        if (___s - ((___pos << 1) + 1) < 0 && ___swq_f[1] == ___FAL &&
-           ___gc_atomic_slot_load(___txf_p, 4) == ___FAL) {
+           ___gc_atomic_slot_load(___txf_p, 4) == ___FAL &&
+           (___INT(___atomic_word_load(___tail_p, 4)) & 1) == 0) {
          ___SCMOBJ ___rwq = ___f[10];
          ___WORD *___rwq_f = ___BODY_AS(___rwq, ___tSTRUCTURE);
          ___SCMOBJ ___fk = ___ARG2;
@@ -136,13 +138,15 @@
              ___GC_WRITE_BARRIER(___ps, ___ARG1, &___ctx_f[10], ___pool_nxt);
              ___WORD_STORE_RELAXED(&___ctx_f[10], ___pool_nxt);
              ___ctx_f[11] = ___FIX(___INT(___ctx_f[11]) - 1);
-             /* Dekker seq_cst re-check against ring arrival & parked senders */
+             /* Dekker seq_cst re-check against ring arrival, parked senders & channel close */
              ___WORD ___pos = ___INT(___atomic_word_load(___head_p, 0));
              ___WORD ___idx = (___mask >= 0) ? (___pos & ___mask) : (___pos % ___cap);
              ___WORD ___s   = ___INT(___atomic_word_load(___seq_p + ___idx, 4));
              ___WORD ___txw2 = ___INT(___atomic_word_load(___txw_p, 4));
              ___SCMOBJ ___txf2 = ___gc_atomic_slot_load(___txf_p, 4);
-             if (___s - ((___pos << 1) + 1) < 0 && ___txw2 == 0 && ___txf2 == ___FAL) {
+             ___VOLATILE ___WORD *___tail_p = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___f[5], ___tVECTOR));
+             if (___s - ((___pos << 1) + 1) < 0 && ___txw2 == 0 && ___txf2 == ___FAL &&
+                 (___INT(___atomic_word_load(___tail_p, 4)) & 1) == 0) {
                ___parked = 1;
              } else {
                /* Race: ABA-free exchange cancel (never recycle or clear raw_k on prev!) */
@@ -195,8 +199,10 @@
              ___WORD ___s   = ___INT(___atomic_word_load(___seq_p + ___idx, 4));
              ___SCMOBJ ___swq = ___f[11];
              ___WORD *___swq_f = ___BODY_AS(___swq, ___tSTRUCTURE);
+             ___VOLATILE ___WORD *___tail_p = ___CAST(___VOLATILE ___WORD*, ___BODY_AS(___f[5], ___tVECTOR));
              if (___s - ((___pos << 1) + 1) < 0 && ___swq_f[1] == ___FAL &&
-                 ___gc_atomic_slot_load(___txf_p, 4) == ___FAL) {
+                 ___gc_atomic_slot_load(___txf_p, 4) == ___FAL &&
+                 (___INT(___atomic_word_load(___tail_p, 4)) & 1) == 0) {
                ___WORD *___fk_f = ___fk_head_f;
                ___SCMOBJ ___pool_nxt = ___fk_f[4];
                ___GC_WRITE_BARRIER(___ps, ___ARG1, &___ctx_f[10], ___pool_nxt);
@@ -267,6 +273,8 @@
                    fiber_parker_wake_one_ptr(___pp, ___srch_p);
                    ___GC_WRITE_BARRIER(___ps, ___ARG1, &___ctx_f[6], ___FAL);
                    ___WORD_STORE_RELAXED(&___ctx_f[6], ___FAL);
+                   ___GC_WRITE_BARRIER(___ps, ___ARG1, &___ctx_f[15], ___FAL);
+                   ___WORD_STORE_RELAXED(&___ctx_f[15], ___FAL);
                    ___ctx_f[8] = ___FIX(___ticks + 1);
                    ___ctx_f[7] = ___FIX(0);
                    ___RESULT = ___FIX(7);
@@ -293,6 +301,8 @@
                    ___ctx_f[8] = ___FIX(___ticks + 1);
                    ___GC_WRITE_BARRIER(___ps, ___ARG1, &___ctx_f[6], ___FAL);
                    ___WORD_STORE_RELAXED(&___ctx_f[6], ___FAL);
+                   ___GC_WRITE_BARRIER(___ps, ___ARG1, &___ctx_f[15], ___FAL);
+                   ___WORD_STORE_RELAXED(&___ctx_f[15], ___FAL);
                    ___ctx_f[7] = ___FIX((___streak < 8) ? (___streak + 1) : 8);
                    ___WORD *___lf = ___BODY_AS(___lifo, ___tSTRUCTURE);
                    if (___lf[0] == ___fk_type && ___lf[2] == ___FAL) {
@@ -378,6 +388,11 @@
                      (%ch-wake-one-sender! ch))
                  (%fk-val-set! fk item)
                  (%sched-push-lifo! ctx fk))
+                ((%ch-closed-seq? ch)
+                 (%fxatom-set-seq! rxw (fx- (##vector-ref rxw 0) 1))
+                 (%spin-unlock! lock)
+                 (%fk-val-set! fk %CH-RETRY)
+                 (%sched-push-lifo! ctx fk))
                 ((let ((sk-fast (%ch-try-pop-txfast-c! ch)))
                    (if sk-fast
                        (begin
@@ -385,7 +400,7 @@
                          (%spin-unlock! lock)
                          (%fk-val-set! sk-fast %CH-RETRY)
                          (%fk-val-set! fk %CH-RETRY)
-                         (%sched-push-lifo! ctx sk-fast)
+                         (%wake-fk! sk-fast)
                          (%sched-push-lifo! ctx fk)
                          #t)
                        #f))
@@ -397,7 +412,7 @@
                    (%spin-unlock! lock)
                    (%fk-val-set! sk %CH-RETRY)
                    (%fk-val-set! fk %CH-RETRY)
-                   (%sched-push-lifo! ctx sk)
+                   (%wake-fk! sk)
                    (%sched-push-lifo! ctx fk)))
                 (else
                  (%wq-push! rwq fk)
@@ -445,16 +460,21 @@
     (%nursery-flush! ctx)
     (if tc (%set-tc! #f))
     (%spin-lock! lock)
-    (if (not (%wq-empty? rwq))
-        (let ((rk (%wq-pop! rwq)))
-          (%spin-unlock! lock)
-          (%fk-val-set! rk val)
-          (%fk-val-set! fk #t)
-          (%sched-push-lifo! ctx fk)
-          (%sched-push-lifo! ctx rk))
-        (begin
-          (%wq-push! swq fk)
-          (%spin-unlock! lock)))
+    (cond
+      ((%ch-closed-seq? ch)
+       (%spin-unlock! lock)
+       (%fk-val-set! fk %CH-RETRY)
+       (%sched-push-lifo! ctx fk))
+      ((not (%wq-empty? rwq))
+       (let ((rk (%wq-pop! rwq)))
+         (%spin-unlock! lock)
+         (%fk-val-set! rk val)
+         (%fk-val-set! fk #t)
+         (%sched-push-lifo! ctx fk)
+         (%wake-fk! rk)))
+      (else
+       (%wq-push! swq fk)
+       (%spin-unlock! lock)))
     (%sched-switch-next! ctx)))
 
 (define (%park-recv-unbuf-cont! raw-k ch)
@@ -467,15 +487,20 @@
     (%nursery-flush! ctx)
     (if tc (%set-tc! #f))
     (%spin-lock! lock)
-    (if (not (%wq-empty? swq))
-        (let* ((sk (%wq-pop! swq))
-               (sval (%fk-val sk)))
-          (%spin-unlock! lock)
-          (%fk-val-set! sk #t)
-          (%fk-val-set! fk sval)
-          (%sched-push-lifo! ctx sk)
-          (%sched-push-lifo! ctx fk))
-        (begin
-          (%wq-push! rwq fk)
-          (%spin-unlock! lock)))
+    (cond
+      ((not (%wq-empty? swq))
+       (let* ((sk (%wq-pop! swq))
+              (sval (%fk-val sk)))
+         (%spin-unlock! lock)
+         (%fk-val-set! sk #t)
+         (%fk-val-set! fk sval)
+         (%wake-fk! sk)
+         (%sched-push-lifo! ctx fk)))
+      ((%ch-closed-seq? ch)
+       (%spin-unlock! lock)
+       (%fk-val-set! fk %CH-RETRY)
+       (%sched-push-lifo! ctx fk))
+      (else
+       (%wq-push! rwq fk)
+       (%spin-unlock! lock)))
     (%sched-switch-next! ctx)))
