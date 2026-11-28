@@ -40,7 +40,8 @@
    parallel-vector-map
    parallel-reduce)
 
-  (import (srfi 230))
+  (import (srfi 226)
+          (srfi 230))
   (begin
     (##define-syntax future
       (lambda (src)

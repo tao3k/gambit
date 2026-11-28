@@ -22,6 +22,8 @@
 (##namespace ("gambit/parallel#"))
 (##include "~~lib/gambit/prim/prim#.scm")
 (##include "~~lib/_gambit#.scm")
+(##include "~~lib/_thread#.scm")
+(##include "~~lib/srfi/226/226#.scm")
 (##include "~~lib/srfi/230/230#.scm")
 (##namespace (""
               make-mutex mutex-lock! mutex-unlock!

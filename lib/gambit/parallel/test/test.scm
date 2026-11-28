@@ -15,7 +15,9 @@
 ;;;   6. Adaptive-P heavy fork-join + concurrent GC + repeated pool lifecycle
 
 (import (gambit parallel))
+(import (srfi 226))
 (import (srfi 230))
+(import (gambit effect))
 (import (_test))
 
 (define (raises-error? thunk)
@@ -454,5 +456,212 @@
            (let ((y (##fxarithmetic-shift-left x 1)))
              (if (##fx<= y x) x (lp y))))))
     (test-equal #t (check-err (lambda () (make-work-stealing-deque (##fx+ max-pow2 1)))))))
+
+;;;============================================================================
+;;; Deadlock-Free Future Cycle Detection, Non-Local Escape Quiescence,
+;;; Self-Shutdown Guard & Zero-Retention Last-Item Deque Pop
+
+(let ()
+  ;; 1. Direct & indirect self-reentrant future-force cycles raise immediately
+  ;;    instead of spinning forever.
+  (let* ((pool (make-work-stealing-pool 1)))
+    (work-stealing-pool-shutdown! pool)
+    ;; Direct cycle: f forces f
+    (let ((f #f))
+      (set! f (make-future (lambda () (future-force f)) pool))
+      (test-equal #t (raises-error? (lambda () (future-force f))))
+      (test-equal #t (future-ready? f)))
+    ;; Indirect cycle: f1 forces f2 which forces f1
+    (let ((f1 #f) (f2 #f))
+      (set! f1 (make-future (lambda () (future-force f2)) pool))
+      (set! f2 (make-future (lambda () (future-force f1)) pool))
+      (test-equal #t (raises-error? (lambda () (future-force f1))))
+      (test-equal #t (future-ready? f1))
+      (test-equal #t (future-ready? f2))))
+
+  ;; 2. Future body escaping via abort-current-continuation or call/1cc transitions
+  ;;    the future cleanly to a ready error state so subsequent/peer forces never wedge.
+  (let* ((pt (make-continuation-prompt-tag 'fut-abort-pt))
+         (pool (make-work-stealing-pool 1)))
+    (work-stealing-pool-shutdown! pool)
+    (let ((f1 (make-future (lambda () (abort-current-continuation pt 'aborted-fut)) pool)))
+      (test-equal 'aborted-fut
+        (call-with-continuation-prompt (lambda () (future-force f1)) pt (lambda (v) v)))
+      (test-equal #t (future-ready? f1))
+      (test-equal #t (raises-error? (lambda () (future-force f1)))))
+    (let ((f2 (make-future (lambda () (abort-current-continuation pt 'via-abort)) pool)))
+      (test-equal 'via-1cc
+        (call-with-continuation-prompt
+         (lambda ()
+           (call/1cc
+            (lambda (exit)
+              (let ((f3 (make-future (lambda () (exit 'via-1cc)) pool)))
+                (future-force f3)))
+            pt))
+         pt))
+      (test-equal 'via-abort
+        (call-with-continuation-prompt (lambda () (future-force f2)) pt (lambda (v) v)))
+      (test-equal #t (future-ready? f2)))
+    ;; Outer suspending algebraic effect perform/resume inside a future completes cleanly.
+    (let ((e-ask (make-effect 'fut-ask)))
+      (let ((f4 (make-future (lambda () (+ 10 (perform e-ask 32))) pool)))
+        (test-equal 42
+          (with-handler ((e-ask (k v) (resume k v)))
+            (future-force f4)))
+        (test-equal #t (future-ready? f4))
+        (test-equal 42 (future-force f4)))))
+
+  ;; 3. Structured fork-join non-local escape quiescence: aborting out of the left
+  ;;    branch of parallel-vector-map, parallel-for-each, and parallel-reduce joins
+  ;;    the right future BEFORE the outer prompt handler runs (zero orphaned work).
+  (let* ((p (##current-vm-processor-count))
+         (w (max 2 (min 8 p)))
+         (pool (make-work-stealing-pool w))
+         (pt (make-continuation-prompt-tag 'fj-abort-pt))
+         (vec (vector 0 1 2 3 4 5 6 7)))
+    (parameterize ((current-work-stealing-pool pool))
+      ;; parallel-vector-map
+      (let ((right-done (make-atomic-fxbox 0))
+            (saw-done #f))
+        (test-equal 'vmap-ab
+          (call-with-continuation-prompt
+           (lambda ()
+             (parallel-vector-map
+              (lambda (x)
+                (if (= x 0)
+                    (abort-current-continuation pt 'vmap-ab)
+                    (begin
+                      (if (= x 7)
+                          (begin
+                            (let spin ((k 0) (a 0)) (if (< k 40000) (spin (+ k 1) (+ a 1))))
+                            (atomic-fxbox-set! right-done 1 'release)))
+                      x)))
+              vec 2))
+           pt
+           (lambda (v)
+             (set! saw-done (= (atomic-fxbox-ref right-done 'acquire) 1))
+             v)))
+        (test-equal #t saw-done))
+      ;; parallel-for-each
+      (let ((right-done (make-atomic-fxbox 0))
+            (saw-done #f))
+        (test-equal 'fe-ab
+          (call-with-continuation-prompt
+           (lambda ()
+             (parallel-for-each
+              (lambda (x)
+                (if (= x 0)
+                    (abort-current-continuation pt 'fe-ab)
+                    (if (= x 7)
+                        (begin
+                          (let spin ((k 0) (a 0)) (if (< k 40000) (spin (+ k 1) (+ a 1))))
+                          (atomic-fxbox-set! right-done 1 'release)))))
+              (vector->list vec) 2))
+           pt
+           (lambda (v)
+             (set! saw-done (= (atomic-fxbox-ref right-done 'acquire) 1))
+             v)))
+        (test-equal #t saw-done))
+      ;; parallel-reduce
+      (let ((right-done (make-atomic-fxbox 0))
+            (saw-done #f))
+        (test-equal 'red-ab
+          (call-with-continuation-prompt
+           (lambda ()
+             (parallel-reduce
+              (lambda (acc x)
+                (if (= x 0)
+                    (abort-current-continuation pt 'red-ab)
+                    (begin
+                      (if (= x 7)
+                          (begin
+                            (let spin ((k 0) (a 0)) (if (< k 40000) (spin (+ k 1) (+ a 1))))
+                            (atomic-fxbox-set! right-done 1 'release)))
+                      (+ acc x))))
+              0 vec 2))
+           pt
+           (lambda (v)
+             (set! saw-done (= (atomic-fxbox-ref right-done 'acquire) 1))
+             v)))
+        (test-equal #t saw-done)))
+    (work-stealing-pool-shutdown! pool))
+
+  ;; 4. Worker thread calling work-stealing-pool-shutdown! on its own pool raises
+  ;;    a clean error instead of self-join deadlocking, leaving the pool healthy.
+  (let* ((pool (make-work-stealing-pool 2))
+         (f-self (make-future (lambda () (work-stealing-pool-shutdown! pool)) pool)))
+    ;; Let a pool worker thread claim and execute f-self (even at p=1) before forcing.
+    (let wait ()
+      (if (not (future-ready? f-self))
+          (begin (thread-yield!) (wait))))
+    (test-equal #t (raises-error? (lambda () (future-force f-self))))
+    ;; Pool remains completely usable after rejecting worker self-shutdown
+    (test-equal 99 (future-force (make-future (lambda () 99) pool)))
+    (work-stealing-pool-shutdown! pool))
+
+  ;; 5. Zero-retention last-item Chase-Lev pop: popping the sole item (t == b)
+  ;;    clears the backing vector slot to #f so large closures are never pinned.
+  (let* ((q (make-work-stealing-deque 4))
+         (sentinel (list 'zero-retention-sentinel)))
+    (deque-push-bottom! q sentinel)
+    (test-equal sentinel (deque-pop-bottom! q 'empty))
+    (let* ((arr-box (##structure-ref q 3 (##structure-type q) #f))
+           (vec (atomic-box-ref arr-box 'acquire)))
+      (test-equal #f (vector-ref vec 0))))
+
+  ;; 6. Adaptive-P SMP torture combining concurrent future aborts, fork-join aborts,
+  ;;    self-cycle detection, and last-item deque pops with ##gc.
+  (let* ((p (##current-vm-processor-count))
+         (w (max 2 (min 8 p)))
+         (pool (make-work-stealing-pool w))
+         (ok (make-atomic-fxbox 0)))
+    (let ((threads
+           (let loop ((t 0) (acc '()))
+             (if (= t w)
+                 acc
+                 (loop (+ t 1)
+                       (cons
+                        (thread-start!
+                         (make-thread
+                          (lambda ()
+                            (parameterize ((current-work-stealing-pool pool))
+                              (let ((pt (make-continuation-prompt-tag 'smp-fj-pt))
+                                    (vec (vector 0 1 2 3 4 5 6 7)))
+                                (let rloop ((r 0) (good #t))
+                                  (if (< r 15)
+                                      (let* ((rd (make-atomic-fxbox 0))
+                                             (seen-rd #f)
+                                             (v (call-with-continuation-prompt
+                                                 (lambda ()
+                                                   (parallel-vector-map
+                                                    (lambda (x)
+                                                      (if (= x 0)
+                                                          (abort-current-continuation pt r)
+                                                          (begin
+                                                            (if (= x 7) (atomic-fxbox-set! rd 1 'release))
+                                                            x)))
+                                                    vec 2))
+                                                 pt
+                                                 (lambda (x)
+                                                   (set! seen-rd (= (atomic-fxbox-ref rd 'acquire) 1))
+                                                   x)))
+                                             (q (make-work-stealing-deque 4))
+                                             (s (cons r t)))
+                                        (deque-push-bottom! q s)
+                                        (let* ((popped (deque-pop-bottom! q 'empty))
+                                               (ab (##structure-ref q 3 (##structure-type q) #f))
+                                               (arr (atomic-box-ref ab 'acquire)))
+                                          (if (and (= t 0) (= (bitwise-and r 3) 3)) (##gc))
+                                          (rloop (+ r 1)
+                                                 (and good
+                                                      (= v r)
+                                                      seen-rd
+                                                      (eq? popped s)
+                                                      (eq? (vector-ref arr 0) #f)))))
+                                      (if good (atomic-fxbox-fetch-add! ok 1)))))))))
+                        acc))))))
+      (for-each thread-join! threads)
+      (test-equal w (atomic-fxbox-ref ok)))
+    (work-stealing-pool-shutdown! pool)))
 
 ;;;============================================================================

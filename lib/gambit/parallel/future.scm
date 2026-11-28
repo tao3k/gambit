@@ -79,10 +79,55 @@
       (error "future-ready?: expected future" f))
   (##pair? (%future-state-load-acq f)))
 
+(define %future-aborted-error
+  (with-exception-catcher
+   (lambda (e) e)
+   (lambda () (error "future aborted by non-local control escape"))))
+
+;; O(1) dynamic guard removal from the current thread's metacontinuation stack.
+(define (%parallel-pop-guard! guard-frame)
+  (let ((tc (macro-thread-control-state (##current-thread))))
+    (if tc
+        (let ((mc (%tc-mc tc)))
+          (if (##pair? mc)
+              (if (##eq? (##car mc) guard-frame)
+                  (%tc-mc-set! tc (##cdr mc))
+                  (let loop ((cur mc) (acc '()))
+                    (cond
+                      ((##null? cur) #!void)
+                      ((##eq? (##car cur) guard-frame)
+                       (%tc-mc-set! tc (append (reverse acc) (##cdr cur))))
+                      (else
+                       (loop (##cdr cur) (##cons (##car cur) acc)))))))))))
+
 (define (future-run-once! f)
-  (let ((prev (%future-state-cas-acqrel! f pending-sentinel running-sentinel)))
+  (let* ((self (##current-thread))
+         (prev (%future-state-cas-acqrel! f pending-sentinel self)))
     (if (##eq? prev pending-sentinel)
-        (let ((th (macro-ws-future-thunk f)))
+        (let* ((th (macro-ws-future-thunk f))
+               (done-box (##cons #f #f))
+               (tc (macro-thread-control-state self))
+               (guard-frame
+                (if (and tc (##pair? (%tc-mc tc)))
+                    (let ((gf (%make-mc-frame-9
+                               'unwind-guard
+                               #f
+                               #t
+                               #f
+                               (%tc-marks tc)
+                               (%tc-barriers tc)
+                               (%tc-handlers tc)
+                               #f
+                               (lambda (phase)
+                                 (if (and (##eq? phase 'unwind)
+                                          (not (##car done-box)))
+                                     (begin
+                                       (##set-car! done-box #t)
+                                       (%future-state-store-rel!
+                                        f (##cons 'err %future-aborted-error))))))))
+                      (%tc-mc-set! tc (##cons gf (%tc-mc tc)))
+                      gf)
+                    #f)))
           ;; Eagerly drop thunk reference with SATB shade so captured closure
           ;; data can be collected while or immediately after thunk executes.
           (%future-thunk-clear! f)
@@ -90,7 +135,11 @@
                  (with-exception-catcher
                   (lambda (exc) (##cons 'err exc))
                   (lambda () (##cons 'ok (th))))))
-            (%future-state-store-rel! f result)
+            (if guard-frame (%parallel-pop-guard! guard-frame))
+            (if (not (##car done-box))
+                (begin
+                  (##set-car! done-box #t)
+                  (%future-state-store-rel! f result)))
             #t))
         #f)))
 
@@ -108,36 +157,44 @@
 (define (future-force f)
   (if (not (macro-ws-future? f))
       (error "future-force: expected future" f))
-  (let ((pool (macro-ws-future-pool f)))
-    ;; Fast path: already completed.
+  (let ((pool (macro-ws-future-pool f))
+        (self (##current-thread)))
+    ;; Fast path: already completed or self-reentrant cycle.
     (let ((st0 (%future-state-load-acq f)))
-      (if (##pair? st0)
-          (if (##eq? (##car st0) 'ok) (##cdr st0) (raise (##cdr st0)))
-          (begin
-            ;; Try claiming & running this future directly (zero-deadlock helping!).
-            (future-run-once! f)
-            ;; While another thread is running this future, help execute work!
-            (let* ((wb (current-worker-binding))
-                   (self-id (if (and (##pair? wb) (##eq? (##car wb) pool))
-                                (##cdr wb)
-                                #f))
-                   (n (macro-work-stealing-pool-nworkers pool)))
-              (let wait ((cursor 0) (spins 0))
-                (let ((st (%future-state-load-acq f)))
-                  (if (##pair? st)
-                      (if (##eq? (##car st) 'ok) (##cdr st) (raise (##cdr st)))
-                      (let ((task (pool-try-get-task pool self-id cursor)))
-                        (if (##not (##eq? task empty-sentinel))
+      (cond
+        ((##pair? st0)
+         (if (##eq? (##car st0) 'ok) (##cdr st0) (raise (##cdr st0))))
+        ((##eq? st0 self)
+         (error "future-force: reentrant cycle detected" f))
+        (else
+         ;; Try claiming & running this future directly (zero-deadlock helping!).
+         (future-run-once! f)
+         ;; While another thread is running this future, help execute work!
+         (let* ((wb (current-worker-binding))
+                (self-id (if (and (##pair? wb) (##eq? (##car wb) pool))
+                             (##cdr wb)
+                             #f))
+                (n (macro-work-stealing-pool-nworkers pool)))
+           (let wait ((cursor 0) (spins 0))
+             (let ((st (%future-state-load-acq f)))
+               (cond
+                 ((##pair? st)
+                  (if (##eq? (##car st) 'ok) (##cdr st) (raise (##cdr st))))
+                 ((##eq? st self)
+                  (error "future-force: reentrant cycle detected" f))
+                 (else
+                  (let ((task (pool-try-get-task pool self-id cursor)))
+                    (if (##not (##eq? task empty-sentinel))
+                        (begin
+                          (pool-run-task! task)
+                          (wait (##fxremainder (##fx+ cursor 1) n) 0))
+                        (if (##fx< spins 16)
                             (begin
-                              (pool-run-task! task)
-                              (wait (##fxremainder (##fx+ cursor 1) n) 0))
-                            (if (##fx< spins 16)
-                                (begin
-                                  (%cpu-pause!)
-                                  (wait (##fxremainder (##fx+ cursor 1) n) (##fx+ spins 1)))
-                                (begin
-                                  (thread-yield!)
-                                  (wait (##fxremainder (##fx+ cursor 1) n) 0))))))))))))))
+                              (%cpu-pause!)
+                              (wait (##fxremainder (##fx+ cursor 1) n) (##fx+ spins 1)))
+                            (begin
+                              (thread-yield!)
+                              (wait (##fxremainder (##fx+ cursor 1) n) 0)))))))))))))))
 
 (define (force-future f)
   (future-force f))

@@ -57,11 +57,14 @@
   %future-state-store-rel!
   %future-thunk-clear!
   %make-future-state
+  %parallel-pop-guard!
+  %future-aborted-error
   future-run-once!
 ))
 
 (##namespace ("gambit/parallel/combinators#"
   default-grain
+  %with-fork-join-guard
 ))
 
 ;;;============================================================================

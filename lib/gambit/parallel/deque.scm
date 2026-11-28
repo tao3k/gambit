@@ -65,19 +65,21 @@
 (define (deque-grow-array! q old-a t b)
   (let* ((old-cap (##vector-length old-a))
          (old-mask (##fx- old-cap 1))
-         (new-cap (##fxarithmetic-shift-left old-cap 1))
-         (new-mask (##fx- new-cap 1))
-         (new-a (##make-vector new-cap #f)))
-    (let loop ((i t))
-      (if (##fx< i b)
-          (begin
-            (##vector-set!
-             new-a
-             (##fxand i new-mask)
-             (%vec-slot-load-rlx old-a (##fxand i old-mask)))
-            (loop (##fx+ i 1)))))
-    (atomic-box-set! (macro-work-stealing-deque-array q) new-a 'release)
-    new-a))
+         (new-cap (##fxarithmetic-shift-left old-cap 1)))
+    (if (##fx<= new-cap old-cap)
+        (error "deque-push-bottom!: deque capacity overflow" old-cap))
+    (let* ((new-mask (##fx- new-cap 1))
+           (new-a (##make-vector new-cap #f)))
+      (let loop ((i t))
+        (if (##fx< i b)
+            (begin
+              (##vector-set!
+               new-a
+               (##fxand i new-mask)
+               (%vec-slot-load-rlx old-a (##fxand i old-mask)))
+              (loop (##fx+ i 1)))))
+      (atomic-box-set! (macro-work-stealing-deque-array q) new-a 'release)
+      new-a)))
 
 ;;; Owner-only LIFO push at bottom.
 (define (deque-push-bottom! q item)
@@ -112,8 +114,15 @@
                  (x (%vec-slot-load-rlx a idx)))
             (if (##fx= t b)
                 (let ((prev (%fxatom-cas-seq! top-box t (##fx+ t 1))))
-                  (%fxatom-store-rlx! bot-box (##fx+ b 1))
-                  (if (##fx= prev t) x empty))
+                  (if (##fx= prev t)
+                      (begin
+                        ;; Owner won CAS(top: t -> t+1); clear slot to avoid GC pinning.
+                        (%vec-slot-store-rlx! a idx #f)
+                        (%fxatom-store-rlx! bot-box (##fx+ b 1))
+                        x)
+                      (begin
+                        (%fxatom-store-rlx! bot-box (##fx+ b 1))
+                        empty)))
                 (begin
                   ;; Safe to clear slot when t < b (no thief can read b).
                   (%vec-slot-store-rlx! a idx #f)

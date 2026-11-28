@@ -13,6 +13,36 @@
          (g (if (##fx> chunks 0) (##fxquotient n chunks) n)))
     (if (##fx> g 1) g 1)))
 
+;; Zero-overhead non-local escape quiescence guard for fork-join right futures:
+;; when an outer prompt or effect handler is active, ensures `right` is joined
+;; before control transfers out on `'unwind` (abort-current-continuation / call/1cc).
+(define (%with-fork-join-guard right thunk)
+  (let ((tc (macro-thread-control-state (##current-thread))))
+    (if (and tc (##pair? (%tc-mc tc)))
+        (let* ((joined-box (##cons #f #f))
+               (gf (%make-mc-frame-9
+                    'unwind-guard
+                    #f
+                    #t
+                    #f
+                    (%tc-marks tc)
+                    (%tc-barriers tc)
+                    (%tc-handlers tc)
+                    #f
+                    (lambda (phase)
+                      (if (and (##eq? phase 'unwind)
+                               (not (##car joined-box)))
+                          (begin
+                            (##set-car! joined-box #t)
+                            (with-exception-catcher
+                             (lambda (_) #f)
+                             (lambda () (future-force right)))))))))
+          (%tc-mc-set! tc (##cons gf (%tc-mc tc)))
+          (let ((res (thunk)))
+            (%parallel-pop-guard! gf)
+            res))
+        (thunk))))
+
 (define (parallel-vector-map fn vec #!optional (grain #f))
   (if (not (##procedure? fn))
       (error "parallel-vector-map: expected procedure" fn))
@@ -48,7 +78,8 @@
                                      (has-err #f))
                                 (with-exception-catcher
                                  (lambda (e) (set! left-err e) (set! has-err #t))
-                                 (lambda () (run-range lo mid)))
+                                 (lambda ()
+                                   (%with-fork-join-guard right (lambda () (run-range lo mid)))))
                                 (if has-err
                                     (begin
                                       (with-exception-catcher
@@ -99,7 +130,8 @@
                                        (has-err #f))
                                   (with-exception-catcher
                                    (lambda (e) (set! left-err e) (set! has-err #t))
-                                   (lambda () (run-range lo mid)))
+                                   (lambda ()
+                                     (%with-fork-join-guard right (lambda () (run-range lo mid)))))
                                   (if has-err
                                       (begin
                                         (with-exception-catcher
@@ -138,7 +170,8 @@
                                  (lv #f))
                             (with-exception-catcher
                              (lambda (e) (set! left-err e) (set! has-err #t))
-                             (lambda () (set! lv (reduce-range lo mid))))
+                             (lambda ()
+                               (%with-fork-join-guard right (lambda () (set! lv (reduce-range lo mid))))))
                             (if has-err
                                 (begin
                                   (with-exception-catcher
