@@ -1018,38 +1018,33 @@ ___PSDKR)
         return;
       if (target > 1)
         {
-          ___UWORD my_gen = __atomic_load_n(&life->fast_bar_gen, __ATOMIC_RELAXED);
+          uint32_t my_gen = __atomic_load_n(&life->fast_bar_gen, __ATOMIC_RELAXED);
           ___WORD arrived = __atomic_add_fetch(&life->fast_bar_arrived, 1, __ATOMIC_ACQ_REL);
           if (arrived == target)
             {
               __atomic_store_n(&life->fast_bar_arrived, 0, __ATOMIC_RELAXED);
-              __atomic_store_n(&life->fast_bar_gen, my_gen + 1, __ATOMIC_RELEASE);
+              __atomic_store_n(&life->fast_bar_gen, my_gen + 1u, __ATOMIC_RELEASE);
+              __atomic_thread_fence(__ATOMIC_SEQ_CST);
+              if (__atomic_load_n(&life->fast_bar_waiters, __ATOMIC_RELAXED) > 0u)
+                ___gc_futex_wake_all_u32(&life->fast_bar_gen);
             }
           else
             {
               int spins = 0;
               while (__atomic_load_n(&life->fast_bar_gen, __ATOMIC_ACQUIRE) == my_gen)
                 {
-                  if (spins < 512)
+                  if (spins < 2048)
                     {
                       ___CPU_RELAX();
                       spins++;
                     }
-                  else if (spins < 544)
-                    {
-                      ___THREAD_YIELD();
-                      spins++;
-                    }
                   else
                     {
-#if defined(___USE_POSIX_THREAD_SYSTEM) && !defined(_WIN32)
-                      struct timespec ts;
-                      ts.tv_sec = 0;
-                      ts.tv_nsec = 20000;
-                      nanosleep(&ts, 0);
-#else
-                      ___THREAD_YIELD();
-#endif
+                      __atomic_fetch_add(&life->fast_bar_waiters, 1u, __ATOMIC_SEQ_CST);
+                      while (__atomic_load_n(&life->fast_bar_gen, __ATOMIC_ACQUIRE) == my_gen)
+                        ___gc_futex_wait_u32(&life->fast_bar_gen, my_gen);
+                      __atomic_fetch_sub(&life->fast_bar_waiters, 1u, __ATOMIC_RELAXED);
+                      break;
                     }
                 }
             }

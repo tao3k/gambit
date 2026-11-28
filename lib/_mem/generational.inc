@@ -501,6 +501,13 @@ static inline void still_mark_dirty_slot
 }
 #endif
 
+static inline void static_mark_dirty_section(___msection *sec)
+{
+  if (sec != 0 && sec->major_static_gen != 0 &&
+      ___WORD_LOAD_RELAXED(&sec->static_major_dirty) == 0)
+    ___WORD_STORE_RELEASE(&sec->static_major_dirty, 1);
+}
+
 ___EXP_FUNC(void,___gc_write_barrier_slow)
    ___P((___processor_state ___ps,
          ___SCMOBJ obj,
@@ -546,6 +553,7 @@ ___WORD *slot_ptr;)
           ___CAST(___SIZE_TS, (addr - ___CAST(___UWORD, sec->base)) / ___WS);
         ___SIZE_TS card_word_base =
           (word_off >> ___GC_CARD_SHIFT_WORDS) << ___GC_CARD_SHIFT_WORDS;
+        static_mark_dirty_section(sec);
         ___gc_card_mark_in_section(sec, section_card_bits(sec), word_off,
                                    ___MSECTION_SIZE, &___ps->mem.card_hints_);
         ___ps->mem.wb_last_card_lo_ = ___CAST(___UWORD, sec->base + card_word_base);
@@ -592,15 +600,28 @@ ___SCMOBJ val;)
 #ifndef ___USE_HANDLES
           ___WORD *vbase = ___BODY0(val) - ___STILL_BODY;
           if ((___WORD_LOAD_RELAXED(&vbase[___STILL_DIRTY]) & ___STILL_FLAG_YOUNG) == 0)
-            return;
+            {
+              if (___EXPECT_FALSE(vm->mem.nb_msections_static_ > 0) &&
+                  ___HD_TYP(___WORD_LOAD_RELAXED(&___BODY0(obj)[-1])) == ___MOVABLE0)
+                static_mark_dirty_section(
+                  wb_find_mature_section(___ps, vm, ___CAST(___UWORD, slot_ptr)));
+              return;
+            }
 #else
           return;
 #endif
         }
       else if (vtyp == ___MOVABLE0)
         {
-          if (wb_find_mature_section(___ps, vm, ___CAST(___UWORD, ___BODY0(val))) != 0)
-            return;
+          ___msection *vsec = wb_find_mature_section(___ps, vm, ___CAST(___UWORD, ___BODY0(val)));
+          if (vsec != 0)
+            {
+              if (___EXPECT_FALSE(vm->mem.nb_msections_static_ > 0 && vsec->major_static_gen == 0) &&
+                  ___HD_TYP(___WORD_LOAD_RELAXED(&___BODY0(obj)[-1])) == ___MOVABLE0)
+                static_mark_dirty_section(
+                  wb_find_mature_section(___ps, vm, ___CAST(___UWORD, slot_ptr)));
+              return;
+            }
         }
     }
 
@@ -649,6 +670,7 @@ ___WORD *slot_ptr;)
       {
         ___SIZE_TS word_off =
           ___CAST(___SIZE_TS, (addr - ___CAST(___UWORD, sec->base)) / ___WS);
+        static_mark_dirty_section(sec);
         ___gc_card_mark_in_section(sec, section_card_bits(sec), word_off,
                                    ___MSECTION_SIZE, 0);
         ___WORD_STORE_RELEASE(&vm->mem.card_overflow_any_, 1);
@@ -724,6 +746,7 @@ ___SIZE_TS words;)
         ___SIZE_TS last_off = first_off + words - 1;
         ___SIZE_TS half_end = sec->active_offset + (___MSECTION_SIZE >> 1) - 1;
         ___SIZE_TS cur;
+        static_mark_dirty_section(sec);
         if (last_off > half_end)
           last_off = half_end;
         cur = first_off;
@@ -1333,6 +1356,7 @@ ___HIDDEN void promo_cand_add(___virtual_machine_state vm, ___msection *sec)
   int i;
   ___SIZE_TS room;
   if (sec == 0 || sec->region_age != ___GC_REGION_MATURE ||
+      sec->major_static_gen != 0 ||
       vm->mem.promo_cands_ == 0 || cap <= 0)
     return;
   room = section_best_promo_span(sec, 1, 0, 0, 0);
@@ -2501,6 +2525,9 @@ ___HIDDEN void finalize_gc_sections(___virtual_machine_state vm)
                   s->major_snapshot_words = 0;
                   s->major_live_words = 0;
                   s->major_evacuate = 0;
+                  s->major_static_gen = 0;
+                  s->major_survive_count = 0;
+                  s->static_major_dirty = 0;
                   s->major_hole_start = 0;
                   s->major_hole_end = 0;
                   memset(s->major_line_live, 0, sizeof(s->major_line_live));
@@ -2535,6 +2562,7 @@ ___HIDDEN void finalize_gc_sections(___virtual_machine_state vm)
           {
             ___msection *s = vm->mem.promo_cands_[i];
             if (s != 0 && s->region_age == ___GC_REGION_MATURE &&
+                s->major_static_gen == 0 &&
                 section_best_promo_span(s, 1, 0, 0, 0) > 0)
               vm->mem.promo_cands_[out++] = s;
           }
@@ -2582,7 +2610,7 @@ ___HIDDEN void finalize_gc_sections(___virtual_machine_state vm)
                     *section_claim_at(cur, opp) = (section_claim){0};
                     if (vm->mem.custom_msection_alloc_ == 0 &&
                         ___GC_FROM_RECLAIM_MIN_SECTIONS >= 0)
-                      release_drained_source_half(cur, opp);
+                      release_drained_source_half(cur, opp, 0);
                   }
               }
               cur->gc_is_dest = 0;
@@ -2597,6 +2625,9 @@ ___HIDDEN void finalize_gc_sections(___virtual_machine_state vm)
                   cur->major_snapshot_words = 0;
                   cur->major_live_words = ___CAST(___WORD, cur->mature_words);
                   cur->major_evacuate = 0;
+                  cur->major_static_gen = 0;
+                  cur->major_survive_count = 0;
+                  cur->static_major_dirty = 0;
                   cur->major_hole_start = 0;
                   cur->major_hole_end = 0;
                 }
@@ -2606,6 +2637,9 @@ ___HIDDEN void finalize_gc_sections(___virtual_machine_state vm)
                   cur->major_snapshot_words = 0;
                   cur->major_live_words = 0;
                   cur->major_evacuate = 0;
+                  cur->major_static_gen = 0;
+                  cur->major_survive_count = 0;
+                  cur->static_major_dirty = 0;
                   cur->major_hole_start = 0;
                   cur->major_hole_end = 0;
                 }
@@ -2753,6 +2787,9 @@ ___HIDDEN void finalize_gc_sections(___virtual_machine_state vm)
           sec->major_live_words = 0;
           sec->major_evacuate = 0;
           sec->gc_evacuating = 0;
+          sec->major_static_gen = 0;
+          sec->major_survive_count = 0;
+          sec->static_major_dirty = 0;
           sec->major_hole_start = 0;
           sec->major_hole_end = 0;
           memset(sec->major_line_live, 0, sizeof(sec->major_line_live));
@@ -2833,6 +2870,7 @@ ___HIDDEN void finalize_gc_sections(___virtual_machine_state vm)
       }
 
       vm->mem.nb_msections_mature_ = mature_count;
+      vm->mem.nb_msections_static_ = 0;
       vm->mem.mature_tail_ = mat_tail;
       vm->mem.occupied_words_mature_ = mature_words_total;
       vm->mem.major_evacuate_count_ = 0;
@@ -2854,12 +2892,16 @@ ___HIDDEN void finalize_gc_sections(___virtual_machine_state vm)
           sec->mature_words = 0;
           sec->card_dirty_any = 0;
           sec->major_mark_epoch = 0;
+          sec->major_static_gen = 0;
+          sec->major_survive_count = 0;
+          sec->static_major_dirty = 0;
           sec->major_hole_start = 0;
           sec->major_hole_end = 0;
           memset(sec->major_line_live, 0, sizeof(sec->major_line_live));
           memset(___CAST(void*, section_lxr_drc_bits(sec)), 0x55, SECTION_LXR_DRC_BYTES);
         }
       vm->mem.nb_msections_mature_ = 0;
+      vm->mem.nb_msections_static_ = 0;
       vm->mem.mature_tail_ = 0;
       vm->mem.occupied_words_mature_ = 0;
       vm->mem.minor_gcs_since_major_ = 0;

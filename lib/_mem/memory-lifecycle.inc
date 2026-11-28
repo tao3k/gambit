@@ -763,6 +763,10 @@ ___virtual_machine_state ___vms;)
   ___vms->mem.refc_bins_created_ = 0;
   ___vms->mem.refc_bins_shared_ = 0;
   ___vms->mem.refc_bins_freed_ = 0;
+  ___vms->mem.msection_spare_head_ = 0;
+  ___vms->mem.msection_spare_count_ = 0;
+  ___vms->mem.nb_msections_static_ = 0;
+  ___vms->mem.major_static_skipped_sections_ = 0.0;
 
 #if ___TARGET_HEAP_SPACE_HIST_LENGTH > 0
 
@@ -977,6 +981,7 @@ ___virtual_machine_state ___vms;)
     ___cleanup_mem_pstate (___PSTATE_FROM_PROCESSOR_ID(0,___vms));
 
   free_msections (&the_msections);
+  msection_spare_pool_purge(___vms);
   mature_radix_cleanup(___vms);
   remset_buffers_cleanup(___vms);
   if (___vms->mem.mature_sections_ != 0)

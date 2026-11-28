@@ -432,7 +432,12 @@ ___SIZE_TS requested_words_still;)
         break;
     }
 
-  adjust_msections (&the_msections, target_nb_sections);
+  {
+    int keep_spare = (___COLLECTION(___vms).is_minor && !major_reclaimed && !force_contract);
+    adjust_msections_ex (___vms, &the_msections, target_nb_sections, keep_spare);
+    if (!keep_spare)
+      msection_spare_pool_purge(___vms);
+  }
 
   /*
    * Detect heap overflows caused by failure to allocate msections

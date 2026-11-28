@@ -51,6 +51,9 @@ typedef struct ___msect
     ___UWORD major_line_live[8];       /* 512 bits: 1 bit per 128-word Immix line */
     unsigned char major_evacuate;      /* 1 = fragmented (<50% live), 2 = 100%-dead unlink */
     unsigned char gc_evacuating;       /* 1 = sparse mature section selected for STW selective evacuation */
+    unsigned char major_static_gen;    /* 1 = immortal/static mature cohort skipped by concurrent Major GC */
+    unsigned char major_survive_count; /* consecutive dense Major cycles survived before static promotion */
+    ___VOLATILE ___WORD static_major_dirty; /* 1 = static section may hold outgoing edges to non-static objects */
     ___SIZE_TS major_hole_start;       /* 64-word card-aligned start of largest dead Immix hole */
     ___SIZE_TS major_hole_end;         /* 64-word card-aligned end of largest dead Immix hole */
     ___WORD base[1];       /* content of section */
@@ -753,6 +756,13 @@ ___VOLATILE ___WORD phantom_bytes_peak_;
 ___VOLATILE ___WORD refc_bins_created_;
 ___VOLATILE ___WORD refc_bins_shared_;
 ___VOLATILE ___WORD refc_bins_freed_;
+
+/* Per-VM bounded spare msection pool (eliminates steady-state Minor GC mmap/munmap churn)
+ * and immortal/static mature generation counters. */
+___msection *msection_spare_head_;
+int msection_spare_count_;
+int nb_msections_static_;
+___F64 major_static_skipped_sections_;
 
 } ___vmstate_mem;
 

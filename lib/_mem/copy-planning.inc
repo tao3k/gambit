@@ -357,6 +357,7 @@ ___HIDDEN int plan_copy_round(___processor_state ps, ___SIZE_TS requested_words_
    * bound on destination demand. Skip single-threaded full-graph census so
    * all w workers trace and copy in parallel immediately. */
   g->fast_minor_pre_nb = 0;
+  ___WORD_STORE_RELAXED(&g->has_reached_gc_hash_tables, 0);
   if (g->is_minor && !g->evac_selective &&
       ___GSTATE->setup_params.max_heap == 0 &&
       the_msections != 0)
@@ -755,14 +756,14 @@ ___HIDDEN int plan_copy_round(___processor_state ps, ___SIZE_TS requested_words_
         ___SIZE_TS max_heap = ___GSTATE->setup_params.max_heap;
         old_tail = the_msections ? the_msections->tail : 0;
         if (need > 0 && max_heap == 0)
-          adjust_msections(&the_msections, need);
+          adjust_msections_ex(vm, &the_msections, need, 1);
         else if (need > 0)
           {
             ___SIZE_TS cap = max_heap >> ___LWS;
             ___SIZE_TS still = occupied_words_still;
             if (still >= 0 && still <= cap &&
                 (___SIZE_TS)need <= (cap - still) / ___MSECTION_SIZE)
-              adjust_msections(&the_msections, need);
+              adjust_msections_ex(vm, &the_msections, need, 1);
           }
         if (the_msections != 0)
           {

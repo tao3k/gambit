@@ -4,6 +4,58 @@
 #define ___LIFECYCLE_H
 #include "gambit.h"
 #include <limits.h>
+#include <stdint.h>
+#if defined(__APPLE__) && defined(__has_include)
+#if __has_include(<os/os_sync_wait_on_address.h>)
+#include <os/os_sync_wait_on_address.h>
+#define ___GC_HAVE_DARWIN_FUTEX 1
+#endif
+#elif defined(__linux__)
+#include <linux/futex.h>
+#include <sys/syscall.h>
+#include <unistd.h>
+#define ___GC_HAVE_LINUX_FUTEX 1
+#endif
+
+static inline void ___gc_futex_wait_u32(___VOLATILE uint32_t *addr, uint32_t expected)
+{
+#if defined(___GC_HAVE_DARWIN_FUTEX)
+  (void)os_sync_wait_on_address(
+    ___CAST(void*, ___CAST(uintptr_t, addr)),
+    ___CAST(uint64_t, expected),
+    sizeof(uint32_t),
+    OS_SYNC_WAIT_ON_ADDRESS_NONE);
+#elif defined(___GC_HAVE_LINUX_FUTEX)
+  (void)syscall(SYS_futex, ___CAST(void*, ___CAST(uintptr_t, addr)),
+                FUTEX_WAIT_PRIVATE, expected, 0, 0, 0);
+#elif defined(___USE_POSIX_THREAD_SYSTEM) && !defined(_WIN32)
+  struct timespec ts;
+  (void)addr;
+  (void)expected;
+  ts.tv_sec = 0;
+  ts.tv_nsec = 20000;
+  nanosleep(&ts, 0);
+#else
+  (void)addr;
+  (void)expected;
+  ___THREAD_YIELD();
+#endif
+}
+
+static inline void ___gc_futex_wake_all_u32(___VOLATILE uint32_t *addr)
+{
+#if defined(___GC_HAVE_DARWIN_FUTEX)
+  (void)os_sync_wake_by_address_all(
+    ___CAST(void*, ___CAST(uintptr_t, addr)),
+    sizeof(uint32_t),
+    OS_SYNC_WAKE_BY_ADDRESS_NONE);
+#elif defined(___GC_HAVE_LINUX_FUTEX)
+  (void)syscall(SYS_futex, ___CAST(void*, ___CAST(uintptr_t, addr)),
+                FUTEX_WAKE_PRIVATE, INT_MAX, 0, 0, 0);
+#else
+  (void)addr;
+#endif
+}
 static inline ___WORD ___lifecycle_cas(___VOLATILE ___WORD *p,___WORD old,___WORD value)
 {
 #ifdef ___USE_sequential_sync
@@ -467,9 +519,10 @@ typedef struct ___vm_lifecycle_struct {
   unsigned char *sync_targets; /* initiator-owned interrupt target mask while non-IDLE */
   int sync_bar_arrived;
   ___UWORD sync_bar_gen;
-  /* Phase C: cache-line-isolated lock-free sense-reversing barrier for internal GC BARRIER() */
+  /* Cache-line-isolated lock-free adaptive-spin + futex sense-reversing barrier for internal GC BARRIER() */
   char fast_bar_pad0[128];
-  ___VOLATILE ___UWORD fast_bar_gen;
+  ___VOLATILE uint32_t fast_bar_gen;
+  ___VOLATILE uint32_t fast_bar_waiters;
   ___VOLATILE ___WORD fast_bar_arrived;
   char fast_bar_pad1[128];
   ___sync_op_struct sync_bar_sop;

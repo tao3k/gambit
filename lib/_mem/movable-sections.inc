@@ -236,7 +236,7 @@ ___HIDDEN void free_msection_storage(___msection *s)
     (void)munmap(___CAST(void*, s), msection_mmap_size());
 }
 
-___HIDDEN void release_drained_source_half(___msection *section, ___SIZE_TS source_offset)
+___HIDDEN void release_drained_source_half(___msection *section, ___SIZE_TS source_offset, int hard_unmap)
 {
   ___SIZE_T ps = msection_os_page_size();
   ___SIZE_TS half_words = (___MSECTION_SIZE >> 1);
@@ -258,10 +258,18 @@ ___HIDDEN void release_drained_source_half(___msection *section, ___SIZE_TS sour
   if (plo >= lo && phi <= hi && phi > plo)
     {
 #if defined(__APPLE__)
-      (void)mmap(___CAST(void*, plo), (___SIZE_T)(phi - plo),
-                 PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON | MAP_FIXED, -1, 0);
+#ifdef MADV_FREE_REUSABLE
+      if (!hard_unmap)
+        (void)madvise(___CAST(void*, plo), (___SIZE_T)(phi - plo), MADV_FREE_REUSABLE);
+      else
+#endif
+        (void)mmap(___CAST(void*, plo), (___SIZE_T)(phi - plo),
+                   PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON | MAP_FIXED, -1, 0);
 #elif defined(__linux__) && defined(MADV_DONTNEED)
+      (void)hard_unmap;
       (void)madvise(___CAST(void*, plo), (___SIZE_T)(phi - plo), MADV_DONTNEED);
+#else
+      (void)hard_unmap;
 #endif
     }
 }
@@ -299,15 +307,16 @@ ___HIDDEN void reclaim_drained_source_pages
     start_sec = (is_minor && ___vms->mem.mature_tail_ != 0)
                   ? ___vms->mem.mature_tail_->next
                   : sections->head;
-    for (section = start_sec; section != 0; section = section->next)
+      for (section = start_sec; section != 0; section = section->next)
       {
+        int hard = !is_minor;
         if (section->region_age == ___GC_REGION_MATURE)
           {
             ___SIZE_TS opp = half - section->active_offset;
             if (opp != section->active_offset &&
                 section_claim_at(section, opp)->stack_state == 0 &&
                 !section_claim_at(section, opp)->heap_used)
-              release_drained_source_half(section, opp);
+              release_drained_source_half(section, opp, hard);
           }
         else if (alloc_ms != 0 && section->index > alloc_ms->index)
           {
@@ -320,16 +329,16 @@ ___HIDDEN void reclaim_drained_source_pages
              * release every unclaimed half immediately. */
             if (section_claim_at(section, 0)->stack_state == 0 &&
                 !section_claim_at(section, 0)->heap_used)
-              release_drained_source_half(section, 0);
+              release_drained_source_half(section, 0, hard);
             if (section_claim_at(section, half)->stack_state == 0 &&
                 !section_claim_at(section, half)->heap_used)
-              release_drained_source_half(section, half);
+              release_drained_source_half(section, half, hard);
           }
         else
           {
             if (section_claim_at(section, source_offset)->stack_state == 0 &&
                 !section_claim_at(section, source_offset)->heap_used)
-              release_drained_source_half(section, source_offset);
+              release_drained_source_half(section, source_offset, hard);
           }
       }
   }
@@ -345,10 +354,11 @@ ___HIDDEN void free_msection_storage(___msection *s)
   free_mem_aligned_heap(s);
 }
 
-___HIDDEN void release_drained_source_half(___msection *section, ___SIZE_TS source_offset)
+___HIDDEN void release_drained_source_half(___msection *section, ___SIZE_TS source_offset, int hard_unmap)
 {
   (void)section;
   (void)source_offset;
+  (void)hard_unmap;
 }
 
 ___HIDDEN void reclaim_drained_source_pages
@@ -438,13 +448,59 @@ void *ptr;)
  * 'nb_sections' field.
  */
 
-___HIDDEN void adjust_msections
-   ___P((___msections **msp,
-         int n),
-        (msp,
-         n)
-___msections **msp;
-int n;)
+#define ___GC_MSECTION_SPARE_CAP 64
+
+___HIDDEN ___msection *msection_spare_pool_pop(___virtual_machine_state vm)
+{
+  if (vm != 0 && vm->mem.msection_spare_head_ != 0)
+    {
+      ___msection *s = vm->mem.msection_spare_head_;
+      vm->mem.msection_spare_head_ = s->next;
+      s->next = 0;
+      s->prev = 0;
+      if (vm->mem.msection_spare_count_ > 0)
+        vm->mem.msection_spare_count_--;
+      return s;
+    }
+  return alloc_msection_storage ();
+}
+
+___HIDDEN void msection_spare_pool_push(___virtual_machine_state vm, ___msection *s, int keep_spare)
+{
+  if (s == 0)
+    return;
+  if (keep_spare && vm != 0 && vm->mem.msection_spare_count_ < ___GC_MSECTION_SPARE_CAP)
+    {
+      s->prev = 0;
+      s->next = vm->mem.msection_spare_head_;
+      vm->mem.msection_spare_head_ = s;
+      vm->mem.msection_spare_count_++;
+      return;
+    }
+  free_msection_storage (s);
+}
+
+___HIDDEN void msection_spare_pool_purge(___virtual_machine_state vm)
+{
+  ___msection *s;
+  if (vm == 0)
+    return;
+  s = vm->mem.msection_spare_head_;
+  vm->mem.msection_spare_head_ = 0;
+  vm->mem.msection_spare_count_ = 0;
+  while (s != 0)
+    {
+      ___msection *nxt = s->next;
+      free_msection_storage (s);
+      s = nxt;
+    }
+}
+
+___HIDDEN void adjust_msections_ex
+   (___virtual_machine_state vm,
+    ___msections **msp,
+    int n,
+    int keep_spare)
 {
   int max_ns, ns;
   ___msections *ms = *msp;
@@ -524,7 +580,7 @@ int n;)
               ms->sections[j]->pos = j;
             }
 
-          free_msection_storage (s);
+          msection_spare_pool_push (vm, s, keep_spare);
 
           ns--;
         }
@@ -547,7 +603,7 @@ int n;)
 
       while (ns < n)
         {
-          ___msection *s = alloc_msection_storage ();
+          ___msection *s = keep_spare ? msection_spare_pool_pop (vm) : alloc_msection_storage ();
 
           if (s == 0)
             return;
@@ -597,6 +653,9 @@ int n;)
           memset(s->major_line_live,0,sizeof(s->major_line_live));
           s->major_evacuate=0;
           s->gc_evacuating=0;
+          s->major_static_gen=0;
+          s->major_survive_count=0;
+          s->static_major_dirty=0;
           s->major_hole_start=0;
           s->major_hole_end=0;
           memset(___CAST(void*,section_card_bits(s)),0,SECTION_CARD_BYTES);
@@ -614,6 +673,17 @@ int n;)
           ms->tail = tl;
         }
     }
+}
+
+___HIDDEN void adjust_msections
+   ___P((___msections **msp,
+         int n),
+        (msp,
+         n)
+___msections **msp;
+int n;)
+{
+  adjust_msections_ex(0, msp, n, 0);
 }
 
 

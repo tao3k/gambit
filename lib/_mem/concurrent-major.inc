@@ -65,6 +65,8 @@ typedef struct major_local_queue_struct
     ___SCMOBJ (*out_buf)[___GC_MAJOR_REMOTE_BATCH];
     unsigned int *out_cnt;
     ___VOLATILE ___WORD *remote_pending;
+    int track_nonstatic;
+    int saw_nonstatic;
   } major_local_queue;
 
 static inline void major_inbox_lock(major_remote_inbox *ib)
@@ -630,7 +632,12 @@ ___HIDDEN void major_shade_obj_q
   sec = major_find_mature_section_cached(vm, q, ___CAST(___UWORD, hdr));
   if (sec != 0)
     {
-      ___SIZE_TS off = ___CAST(___SIZE_TS, hdr - (sec->base + sec->active_offset));
+      ___SIZE_TS off;
+      if (sec->major_static_gen != 0)
+        return;
+      if (q != 0 && q->track_nonstatic)
+        q->saw_nonstatic = 1;
+      off = ___CAST(___SIZE_TS, hdr - (sec->base + sec->active_offset));
       if (off >= 0 && off < sec->major_snapshot_words)
         {
           ___VOLATILE ___WORD *mbits;
@@ -681,6 +688,13 @@ ___HIDDEN void major_shade_obj_q
           }
         }
       return;
+    }
+
+  if (q != 0 && q->track_nonstatic)
+    {
+      ___WORD vhead = ___WORD_LOAD_RELAXED(hdr);
+      if (___HD_TYP(vhead) != ___PERM)
+        q->saw_nonstatic = 1;
     }
 
   if (vm->mem.major_still_bases_count_ > 0)
@@ -1526,7 +1540,8 @@ ___HIDDEN void major_initial_mark_clear_parallel
   for (si = w_id; si < nm; si += w_cnt)
     {
       ___msection *sec = vm->mem.mature_sections_[si];
-      if (sec == 0 || sec->region_age != ___GC_REGION_MATURE)
+      if (sec == 0 || sec->region_age != ___GC_REGION_MATURE ||
+          sec->major_static_gen != 0)
         continue;
       sec->major_mark_epoch = epoch;
       sec->major_snapshot_words = sec->mature_words;
@@ -1537,6 +1552,95 @@ ___HIDDEN void major_initial_mark_clear_parallel
       memset(sec->major_line_live, 0, sizeof(sec->major_line_live));
       memset(___CAST(void*, section_major_mark_bits(sec)), 0, SECTION_MAJOR_MARK_BYTES);
     }
+}
+
+/* Scan a dirty static mature section during STW (Initial-Mark or Remark).
+ * When clear_if_closed != 0, clear static_major_dirty to 0 only if zero
+ * outgoing edges to non-static objects were observed (inductive closure). */
+___HIDDEN ___SIZE_TS major_scan_dirty_static_section
+   (___virtual_machine_state vm,
+    major_local_queue *q,
+    ___msection *sec,
+    int clear_if_closed)
+{
+  ___WORD *base = sec->base + sec->active_offset;
+  ___WORD *end = base + sec->mature_words;
+  ___WORD *ptr = base;
+  ___SIZE_TS scanned = 0;
+
+  if (q != 0)
+    {
+      q->track_nonstatic = clear_if_closed ? 1 : 0;
+      q->saw_nonstatic = 0;
+    }
+
+  while (ptr < end)
+    {
+      ___WORD head = *ptr;
+      if (___TESTTYPE(head, ___FORW))
+        {
+          ptr += 1;
+          continue;
+        }
+      {
+        ___SIZE_TS words = ___HD_WORDS(head);
+        int subtype = ___HD_SUBTYPE(head);
+        if (still_subtype_has_pointers(subtype))
+          {
+            ___SIZE_TS w = major_scan_object_q(
+              vm, q, major_make_scmobj_from_body(ptr + 1, subtype), 1);
+            if (w > 0)
+              scanned += w;
+          }
+        ptr += words + 1;
+      }
+    }
+
+  if (q != 0)
+    {
+      q->track_nonstatic = 0;
+      if (clear_if_closed && q->saw_nonstatic == 0)
+        ___WORD_STORE_RELEASE(&sec->static_major_dirty, 0);
+    }
+  return scanned;
+}
+
+/* Parallel Initial-Mark seeding of dirty static sections after bitmap clear. */
+___HIDDEN void major_initial_mark_seed_static_dirty_parallel
+   (___virtual_machine_state vm,
+    int w_id,
+    int w_cnt)
+{
+  int nm = ___COLLECTION(vm).major_sweep_nm;
+  int si;
+  ___SCMOBJ lbuf[___GC_MAJOR_LOCAL_MARK_CAP];
+  unsigned int lcnt = 0;
+  major_prefetch_ring ring;
+  major_local_queue lq = {0};
+
+  if (vm->mem.nb_msections_static_ <= 0)
+    return;
+
+  ring.head = 0u;
+  ring.tail = 0u;
+  lq.buf = lbuf;
+  lq.count = &lcnt;
+  lq.cap = ___GC_MAJOR_LOCAL_MARK_CAP;
+  lq.ring = &ring;
+
+  for (si = w_id; si < nm; si += w_cnt)
+    {
+      ___msection *sec = vm->mem.mature_sections_[si];
+      if (sec == 0 || sec->region_age != ___GC_REGION_MATURE ||
+          sec->major_static_gen == 0 ||
+          ___WORD_LOAD_ACQUIRE(&sec->static_major_dirty) == 0)
+        continue;
+      major_scan_dirty_static_section(vm, &lq, sec, 0);
+    }
+
+  major_prefetch_ring_drain_to_queue(vm, &lq, 1);
+  if (lcnt > 0)
+    major_mark_stack_push_batch_ex(vm, lbuf, lcnt, 1);
 }
 
 /* Drain all processors' SATB & local mark buffers into the Major mark stack during STW. */
@@ -1641,7 +1745,7 @@ ___HIDDEN int major_is_dead_white_mature(___virtual_machine_state vm, ___SCMOBJ 
   if (sec != 0)
     {
       ___SIZE_TS off;
-      if (sec->major_mark_epoch != vm->mem.major_epoch_)
+      if (sec->major_static_gen != 0 || sec->major_mark_epoch != vm->mem.major_epoch_)
         return 0;
       off = ___CAST(___SIZE_TS, hdr - (sec->base + sec->active_offset));
       if (off < 0 || off >= sec->major_snapshot_words)
@@ -1690,6 +1794,13 @@ ___HIDDEN void major_overflow_recovery_scan_stw(___virtual_machine_state vm)
           ___WORD *ptr;
           if (sec->region_age != ___GC_REGION_MATURE)
             break;
+          if (sec->major_static_gen != 0 &&
+              ___WORD_LOAD_ACQUIRE(&sec->static_major_dirty) == 0)
+            {
+              if (sec == vm->mem.mature_tail_)
+                break;
+              continue;
+            }
           base = sec->base + sec->active_offset;
           end = base + sec->mature_words;
           ptr = base;
@@ -1839,6 +1950,21 @@ ___HIDDEN void major_remark_phase_a_parallel
       pps->mem.satb_count_ = 0;
     }
 
+  if (vm->mem.nb_msections_static_ > 0)
+    {
+      int nm = vm->mem.nb_msections_mature_;
+      int si;
+      for (si = w_id; si < nm; si += w_cnt)
+        {
+          ___msection *sec = vm->mem.mature_sections_[si];
+          if (sec == 0 || sec->region_age != ___GC_REGION_MATURE ||
+              sec->major_static_gen == 0 ||
+              ___WORD_LOAD_ACQUIRE(&sec->static_major_dirty) == 0)
+            continue;
+          scanned += major_scan_dirty_static_section(vm, &lq, sec, 1);
+        }
+    }
+
   for (;;)
     {
       while (lcnt > 0 || ring.tail != ring.head)
@@ -1924,55 +2050,80 @@ ___HIDDEN void major_remark_phase_a_parallel
       if (w_cnt <= 1)
         break;
 
-      while (___WORD_LOAD_ACQUIRE(&vm->mem.major_remark_working_) > 0 ||
-             (use_chez && ___WORD_LOAD_ACQUIRE(&g->major_remote_pending) > 0))
-        {
-          if (use_chez && ___WORD_LOAD_ACQUIRE(&inboxes[w_id].count) > 0)
-            {
-              major_remote_inbox *my_ib = &inboxes[w_id];
-              ___SCMOBJ rbatch[___GC_MAJOR_LOCAL_MARK_CAP];
-              unsigned int take = 0;
-              unsigned int ri;
-              major_inbox_lock(my_ib);
-              if (my_ib->count > 0)
-                {
-                  take = (my_ib->count > ___GC_MAJOR_LOCAL_MARK_CAP)
-                           ? ___GC_MAJOR_LOCAL_MARK_CAP
-                           : ___CAST(unsigned int, my_ib->count);
-                  my_ib->count -= ___CAST(___SIZE_TS, take);
-                  memcpy(rbatch, &my_ib->buf[my_ib->count], take * sizeof(___SCMOBJ));
-                  ___WORD_FETCH_ADD_RELEASE(&vm->mem.major_remark_working_, 1);
-                  ___WORD_FETCH_ADD_RELEASE(&g->major_remote_pending, -___CAST(___WORD, take));
-                }
-              major_inbox_unlock(my_ib);
-              if (take > 0)
-                {
-                  for (ri = 0; ri < take; ri++)
-                    major_shade_obj_q(vm, &lq, rbatch[ri], 1);
-                  break;
-                }
-            }
-          if (___WORD_LOAD_ACQUIRE(&vm->mem.major_mark_stack_count_) > 0)
-            {
-              major_mark_lock(vm);
+      {
+        unsigned int idle_spins = 0;
+        while (___WORD_LOAD_ACQUIRE(&vm->mem.major_remark_working_) > 0 ||
+               (use_chez && ___WORD_LOAD_ACQUIRE(&g->major_remote_pending) > 0))
+          {
+            if (use_chez && ___WORD_LOAD_ACQUIRE(&inboxes[w_id].count) > 0)
               {
-                ___WORD avail = ___WORD_LOAD_RELAXED(&vm->mem.major_mark_stack_count_);
-                if (avail > 0)
+                major_remote_inbox *my_ib = &inboxes[w_id];
+                ___SCMOBJ rbatch[___GC_MAJOR_LOCAL_MARK_CAP];
+                unsigned int take = 0;
+                unsigned int ri;
+                major_inbox_lock(my_ib);
+                if (my_ib->count > 0)
                   {
-                    unsigned int take = (avail > 64) ? 64u : ___CAST(unsigned int, avail);
-                    avail -= ___CAST(___WORD, take);
-                    memcpy(lbuf, &vm->mem.major_mark_stack_[avail], take * sizeof(___SCMOBJ));
-                    ___WORD_STORE_RELEASE(&vm->mem.major_mark_stack_count_, avail);
+                    take = (my_ib->count > ___GC_MAJOR_LOCAL_MARK_CAP)
+                             ? ___GC_MAJOR_LOCAL_MARK_CAP
+                             : ___CAST(unsigned int, my_ib->count);
+                    my_ib->count -= ___CAST(___SIZE_TS, take);
+                    memcpy(rbatch, &my_ib->buf[my_ib->count], take * sizeof(___SCMOBJ));
                     ___WORD_FETCH_ADD_RELEASE(&vm->mem.major_remark_working_, 1);
-                    lcnt = take;
-                    major_mark_unlock(vm);
+                    ___WORD_FETCH_ADD_RELEASE(&g->major_remote_pending, -___CAST(___WORD, take));
+                  }
+                major_inbox_unlock(my_ib);
+                if (take > 0)
+                  {
+                    for (ri = 0; ri < take; ri++)
+                      major_shade_obj_q(vm, &lq, rbatch[ri], 1);
                     break;
                   }
               }
-              major_mark_unlock(vm);
-            }
-          ___CPU_RELAX();
-        }
+            if (___WORD_LOAD_ACQUIRE(&vm->mem.major_mark_stack_count_) > 0)
+              {
+                major_mark_lock(vm);
+                {
+                  ___WORD avail = ___WORD_LOAD_RELAXED(&vm->mem.major_mark_stack_count_);
+                  if (avail > 0)
+                    {
+                      unsigned int take = (avail > 64) ? 64u : ___CAST(unsigned int, avail);
+                      avail -= ___CAST(___WORD, take);
+                      memcpy(lbuf, &vm->mem.major_mark_stack_[avail], take * sizeof(___SCMOBJ));
+                      ___WORD_STORE_RELEASE(&vm->mem.major_mark_stack_count_, avail);
+                      ___WORD_FETCH_ADD_RELEASE(&vm->mem.major_remark_working_, 1);
+                      lcnt = take;
+                      major_mark_unlock(vm);
+                      break;
+                    }
+                }
+                major_mark_unlock(vm);
+              }
+            if (idle_spins < 1024u)
+              {
+                ___CPU_RELAX();
+                idle_spins++;
+              }
+            else if (idle_spins < 4096u)
+              {
+                int ri;
+                for (ri = 0; ri < 8; ri++)
+                  ___CPU_RELAX();
+                idle_spins++;
+              }
+            else
+              {
+#if defined(___USE_POSIX_THREAD_SYSTEM) && !defined(_WIN32)
+                struct timespec ts;
+                ts.tv_sec = 0;
+                ts.tv_nsec = 5000;
+                nanosleep(&ts, 0);
+#else
+                ___CPU_RELAX();
+#endif
+              }
+          }
+      }
       if (lcnt == 0 &&
           ring.tail == ring.head &&
           ___WORD_LOAD_ACQUIRE(&vm->mem.major_remark_working_) == 0 &&
@@ -2248,6 +2399,11 @@ ___HIDDEN void major_remark_phase_c_parallel
       ___msection *sec = vm->mem.mature_sections_[si];
       if (sec == 0 || sec->region_age != ___GC_REGION_MATURE)
         continue;
+      if (sec->major_static_gen != 0)
+        {
+          sec->major_evacuate = 0;
+          continue;
+        }
 
       if (sec->major_mark_epoch == epoch &&
           sec->major_live_words == 0 &&
@@ -2264,6 +2420,7 @@ ___HIDDEN void major_remark_phase_c_parallel
       {
         ___SIZE_TS local_live_words = 0;
         ___SIZE_TS effective_live;
+        int has_weak = 0;
 
         memset(sec->major_line_live, 0, sizeof(sec->major_line_live));
 
@@ -2343,6 +2500,8 @@ ___HIDDEN void major_remark_phase_c_parallel
                         }
                       else
                         {
+                          if (___HD_SUBTYPE(head) == ___sWEAK)
+                            has_weak = 1;
                           local_live_words += (words + 1);
                           if (in_dead)
                             {
@@ -2365,7 +2524,11 @@ ___HIDDEN void major_remark_phase_c_parallel
                       if (!major_is_marked_word(sec, off))
                         *ptr = ___MAKE_HD_WORDS(words, ___sU8VECTOR);
                       else
-                        local_live_words += (words + 1);
+                        {
+                          if (___HD_SUBTYPE(head) == ___sWEAK)
+                            has_weak = 1;
+                          local_live_words += (words + 1);
+                        }
                     }
                   ptr += words + 1;
                 }
@@ -2405,6 +2568,27 @@ ___HIDDEN void major_remark_phase_c_parallel
           sec->major_evacuate = 1;
         else
           sec->major_evacuate = 0;
+
+        if (!has_weak &&
+            sec->major_mark_epoch == epoch &&
+            sec->major_evacuate == 0 &&
+            sec->mature_words == sec->major_snapshot_words &&
+            sec->major_hole_end <= sec->major_hole_start &&
+            sec->mature_words >= ((___MSECTION_SIZE >> 1) * 3) / 4 &&
+            local_live_words * 100 >= sec->mature_words * 85)
+          {
+            if (sec->major_survive_count < 255)
+              sec->major_survive_count++;
+            if (sec->major_survive_count >= 2)
+              {
+                sec->major_static_gen = 1;
+                ___WORD_STORE_RELEASE(&sec->static_major_dirty, 1);
+              }
+          }
+        else
+          {
+            sec->major_survive_count = 0;
+          }
       }
     }
 }
@@ -2481,6 +2665,8 @@ ___HIDDEN void major_remark_phase_d_coord(___virtual_machine_state vm)
       ___msection *new_mat_tail = 0;
       ___SIZE_TS new_mature_words = 0;
       int new_mature_count = 0;
+      int new_static_count = 0;
+      ___SIZE_TS skipped_static = 0;
 
       vm->mem.promo_cand_count_ = 0;
 
@@ -2520,6 +2706,9 @@ ___HIDDEN void major_remark_phase_d_coord(___virtual_machine_state vm)
               sec->major_snapshot_words = 0;
               sec->major_live_words = 0;
               sec->major_evacuate = 0;
+              sec->major_static_gen = 0;
+              sec->major_survive_count = 0;
+              sec->static_major_dirty = 0;
               sec->major_hole_start = 0;
               sec->major_hole_end = 0;
               memset(sec->major_line_live, 0, sizeof(sec->major_line_live));
@@ -2542,12 +2731,21 @@ ___HIDDEN void major_remark_phase_d_coord(___virtual_machine_state vm)
             }
           else
             {
-              if (sec->major_evacuate == 1)
-                evac_count++;
+              if (sec->major_static_gen != 0)
+                {
+                  new_static_count++;
+                  if (sec->major_mark_epoch != vm->mem.major_epoch_)
+                    skipped_static++;
+                }
+              else
+                {
+                  if (sec->major_evacuate == 1)
+                    evac_count++;
+                  promo_cand_add(vm, sec);
+                }
               new_mature_count++;
               new_mature_words += sec->mature_words;
               new_mat_tail = sec;
-              promo_cand_add(vm, sec);
             }
 
           if (is_last)
@@ -2556,6 +2754,8 @@ ___HIDDEN void major_remark_phase_d_coord(___virtual_machine_state vm)
         }
 
       vm->mem.nb_msections_mature_ = new_mature_count;
+      vm->mem.nb_msections_static_ = new_static_count;
+      vm->mem.major_static_skipped_sections_ += ___CAST(___F64, skipped_static);
       vm->mem.mature_tail_ = new_mat_tail;
       vm->mem.occupied_words_mature_ = new_mature_words;
       if (reclaimed_sections > 0)
@@ -2880,6 +3080,17 @@ ___HIDDEN void major_abort_for_full_compacting_gc(___virtual_machine_state vm)
   vm->mem.major_still_lo_ = 0;
   vm->mem.major_still_span_ = 0;
   vm->mem.major_evacuate_count_ = 0;
+  if (vm->mem.the_msections_ != 0)
+    {
+      ___msection *sec;
+      for (sec = vm->mem.the_msections_->head; sec != 0; sec = sec->next)
+        {
+          sec->major_static_gen = 0;
+          sec->major_survive_count = 0;
+          sec->static_major_dirty = 0;
+        }
+    }
+  vm->mem.nb_msections_static_ = 0;
 
   major_fold_local_stats_stw(vm);
 

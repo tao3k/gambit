@@ -198,7 +198,8 @@ ___HIDDEN int lxr_drc_try_reclaim_line
 {
   lxr_drc_table *tbl = ___CAST(lxr_drc_table*, ___COLLECTION(vm).lxr_drc);
   if (tbl == 0 || sec == 0 || sec->region_age != ___GC_REGION_MATURE ||
-      sec->gc_evacuating || line < 0 || line >= ___LXR_LINES_PER_SEC)
+      sec->gc_evacuating || sec->major_static_gen ||
+      line < 0 || line >= ___LXR_LINES_PER_SEC)
     return 0;
   if (___WORD_LOAD_ACQUIRE(&vm->mem.major_phase_) != ___GC_MAJOR_IDLE)
     {
@@ -228,7 +229,7 @@ ___HIDDEN int lxr_drc_reclaim_free_lines_idle
 
   if (tbl == 0 || sec == 0 ||
       sec->region_age != ___GC_REGION_MATURE || sec->gc_evacuating ||
-      sec->major_mark_epoch == 0)
+      sec->major_static_gen || sec->major_mark_epoch == 0)
     return 0;
 
   max_ln = sec->major_snapshot_words >> 7;

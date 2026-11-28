@@ -1664,6 +1664,10 @@ ___virtual_machine_state ___vms;)
 
   scan_workers_count[0] = nw;
   scan_workers_count[1] = nw;
+  g->scan_active[0] = ___CAST(uint32_t, nw);
+  g->scan_active[1] = ___CAST(uint32_t, nw);
+  g->scan_waiters[0] = 0u;
+  g->scan_waiters[1] = 0u;
 
 #endif
 

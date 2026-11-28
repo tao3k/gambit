@@ -303,6 +303,9 @@ typedef struct ___gc_round_struct
     int major_action; /* 0=none, 1=start, 2=drain_satb, 3=remark_sweep, 4=abort */
     int has_wills;
     int has_young_still;
+    ___VOLATILE ___WORD has_reached_gc_hash_tables;
+    ___VOLATILE uint32_t scan_active[2];
+    ___VOLATILE uint32_t scan_waiters[2];
     int card_overflow;
     int hint_count;
     int fast_minor_pre_nb;

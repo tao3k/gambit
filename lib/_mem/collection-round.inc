@@ -52,37 +52,39 @@ ___collector_worker *work;)
           ___CPU_RELAX();
         }
 
-      /* Lock-free atomic termination wait (eliminates scan_termination_mutex
-       * and pthread_cond_wait/signal syscalls on every parallel GC phase). */
-#if defined(__ATOMIC_ACQ_REL) && defined(__ATOMIC_ACQUIRE)
+      /* Lock-free atomic termination wait with adaptive spin + OS futex
+       * (zero sched_yield storms, zero nanosleep overshoot, zero mutexes). */
+#if defined(__ATOMIC_ACQ_REL) && defined(__ATOMIC_ACQUIRE) && defined(__ATOMIC_SEQ_CST)
       {
-        ___WORD rem = __atomic_sub_fetch(workers_count, 1, __ATOMIC_ACQ_REL);
-        if (rem == 0)
-          break;
+        ___gc_round *g = &___COLLECTION(___vms);
+        int tw = traverse_weak_refs;
+        uint32_t rem;
+        (void)__atomic_sub_fetch(workers_count, 1, __ATOMIC_RELAXED);
+        rem = __atomic_sub_fetch(&g->scan_active[tw], 1u, __ATOMIC_ACQ_REL);
+        if (rem == 0u)
+          {
+            __atomic_thread_fence(__ATOMIC_SEQ_CST);
+            if (__atomic_load_n(&g->scan_waiters[tw], __ATOMIC_RELAXED) > 0u)
+              ___gc_futex_wake_all_u32(&g->scan_active[tw]);
+            break;
+          }
         {
           int wspins = 0;
-          while (__atomic_load_n(workers_count, __ATOMIC_ACQUIRE) != 0)
+          uint32_t cur;
+          while ((cur = __atomic_load_n(&g->scan_active[tw], __ATOMIC_ACQUIRE)) != 0u)
             {
-              if (wspins < 512)
+              if (wspins < 2048)
                 {
                   ___CPU_RELAX();
                   wspins++;
                 }
-              else if (wspins < 544)
-                {
-                  ___THREAD_YIELD();
-                  wspins++;
-                }
               else
                 {
-#if defined(___USE_POSIX_THREAD_SYSTEM) && !defined(_WIN32)
-                  struct timespec ts;
-                  ts.tv_sec = 0;
-                  ts.tv_nsec = 20000;
-                  nanosleep(&ts, 0);
-#else
-                  ___THREAD_YIELD();
-#endif
+                  __atomic_fetch_add(&g->scan_waiters[tw], 1u, __ATOMIC_SEQ_CST);
+                  while ((cur = __atomic_load_n(&g->scan_active[tw], __ATOMIC_ACQUIRE)) != 0u)
+                    ___gc_futex_wait_u32(&g->scan_active[tw], cur);
+                  __atomic_fetch_sub(&g->scan_waiters[tw], 1u, __ATOMIC_RELAXED);
+                  break;
                 }
             }
           break;
@@ -530,6 +532,8 @@ ___SIZE_TS requested_words_still;)
       if (active_worker)
         major_initial_mark_clear_parallel(___vms, worker_idx, ___COLLECTION(___vms).worker_count);
       BARRIER();
+      if (active_worker)
+        major_initial_mark_seed_static_dirty_parallel(___vms, worker_idx, ___COLLECTION(___vms).worker_count);
       if (is_coord)
         major_initial_mark_seed_wills(___vms);
       BARRIER();
@@ -696,10 +700,14 @@ ___SIZE_TS requested_words_still;)
   ___dev_restore_after_barrier(___ps, rc_epoch);
 #endif
   /* Process gc hash tables before any processor frees unreachable still objects
-   * (prevents cross-worker UAF when a weak table holds a dead still object). */
+   * (prevents cross-worker UAF when a weak table holds a dead still object).
+   * Skipped in O(1) when no worker reached any GC hash table in this round. */
 
-  if(active_worker) garbage_collect_cleanup_phase(work);
-  BARRIER();
+  if (___WORD_LOAD_ACQUIRE(&___COLLECTION(___vms).has_reached_gc_hash_tables) != 0)
+    {
+      if(active_worker) garbage_collect_cleanup_phase(work);
+      BARRIER();
+    }
   if (!___COLLECTION(___vms).is_minor)
     {
       free_unmarked_still_objs(___PSPNC);
@@ -795,7 +803,10 @@ ___SIZE_TS requested_words_still;)
        * mmap/munmap & page-fault thrashing; purge all empty slabs on major GC
        * (including explicit ##gc) for immediate OS memory contraction. */
       if (!___COLLECTION(___vms).is_minor)
-        still_slab_purge_empty();
+        {
+          still_slab_purge_empty();
+          msection_spare_pool_purge(___vms);
+        }
       if (gc_take_freed_malloc_still_words() >=
           ((___SIZE_T)(4u * 1024u * 1024u) / ___WS))
         os_heap_pressure_relief();
