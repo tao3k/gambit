@@ -565,33 +565,7 @@ int ___try_rewind_prompt_span(___processor_state ___ps,
       return 0;
     }
 
-  raw_stack_clear_mark(claim->raw_marks, top - base);
-  raw_stack_clear_mark(claim->raw_marks, span_end - base);
-  if (claim->raw_live_spans > 0)
-    claim->raw_live_spans--;
-  if (claim->raw_live_spans == 0 || span_end >= claim->raw_high)
-    {
-      claim->raw_marks = 0;
-      claim->raw_low = 0;
-      claim->raw_high = 0;
-      claim->raw_live_spans = 0;
-    }
-  else
-    {
-      ___SIZE_TS idx = (span_end - base) + 1;
-      ___SIZE_TS hi = claim->raw_high - base;
-      while (idx < hi && raw_stack_mark_at(claim->raw_marks, idx) != RAW_STACK_START)
-        idx++;
-      if (idx < hi)
-        claim->raw_low = base + idx;
-      else
-        {
-          claim->raw_marks = 0;
-          claim->raw_low = 0;
-          claim->raw_high = 0;
-          claim->raw_live_spans = 0;
-        }
-    }
+  raw_stack_reclaim_span_locked(claim, base, top, span_end);
   ___gc_copy_release(&section->copy_gate);
 
   if (___EXPECT_FALSE(___ps->mem.satb_active_ != 0))
@@ -696,33 +670,7 @@ int ___try_rewind_oneshot_span(___processor_state ___ps,
       return 0;
     }
 
-  raw_stack_clear_mark(claim->raw_marks, top - base);
-  raw_stack_clear_mark(claim->raw_marks, span_end - base);
-  if (claim->raw_live_spans > 0)
-    claim->raw_live_spans--;
-  if (claim->raw_live_spans == 0 || span_end >= claim->raw_high)
-    {
-      claim->raw_marks = 0;
-      claim->raw_low = 0;
-      claim->raw_high = 0;
-      claim->raw_live_spans = 0;
-    }
-  else
-    {
-      ___SIZE_TS idx = (span_end - base) + 1;
-      ___SIZE_TS hi = claim->raw_high - base;
-      while (idx < hi && raw_stack_mark_at(claim->raw_marks, idx) != RAW_STACK_START)
-        idx++;
-      if (idx < hi)
-        claim->raw_low = base + idx;
-      else
-        {
-          claim->raw_marks = 0;
-          claim->raw_low = 0;
-          claim->raw_high = 0;
-          claim->raw_live_spans = 0;
-        }
-    }
+  raw_stack_reclaim_span_locked(claim, base, top, span_end);
   ___gc_copy_release(&section->copy_gate);
 
   if (___EXPECT_FALSE(___ps->mem.satb_active_ != 0))
@@ -817,37 +765,18 @@ ___EXP_FUNC(int,___try_return_oneshot_fiber_cont)
       if (claim->stack_owner == ___ps &&
           claim->stack_state == STACK_ACTIVE &&
           claim->raw_marks != 0 &&
-          claim->raw_low == top)
+          (claim->raw_wrap_low == top || claim->raw_low == top))
         {
           span_end = raw_stack_span_end(claim, own_base, top);
           if (span_end && span_end > top && span_end <= own_base + half_words)
             {
-              raw_stack_clear_mark(claim->raw_marks, top - own_base);
-              raw_stack_clear_mark(claim->raw_marks, span_end - own_base);
-              if (claim->raw_live_spans > 0)
-                claim->raw_live_spans--;
-              if (claim->raw_live_spans == 0 || span_end >= claim->raw_high)
+              raw_stack_reclaim_span_locked(claim, own_base, top, span_end);
+              if (___ps->mem.alloc_stack_limit_ > own_base &&
+                  (claim->raw_live_spans == 0 || claim->raw_low >= ___ps->mem.alloc_stack_limit_))
                 {
-                  claim->raw_marks = 0;
-                  claim->raw_low = 0;
-                  claim->raw_high = 0;
-                  claim->raw_live_spans = 0;
-                }
-              else
-                {
-                  ___SIZE_TS idx = (span_end - own_base) + 1;
-                  ___SIZE_TS hi = claim->raw_high - own_base;
-                  while (idx < hi && raw_stack_mark_at(claim->raw_marks, idx) != RAW_STACK_START)
-                    idx++;
-                  if (idx < hi)
-                    claim->raw_low = own_base + idx;
-                  else
-                    {
-                      claim->raw_marks = 0;
-                      claim->raw_low = 0;
-                      claim->raw_high = 0;
-                      claim->raw_live_spans = 0;
-                    }
+                  ___ps->mem.alloc_stack_limit_ = own_base;
+                  ___ps->context->stack_limit = own_base + ___MSECTION_FUDGE;
+                  claim->raw_wrap_low = claim->raw_low;
                 }
               ___gc_copy_release(&own->copy_gate);
               if (___EXPECT_FALSE(cur_denv != cont_denv))
@@ -977,11 +906,12 @@ ___EXP_FUNC(int,___try_return_oneshot_fiber_cont)
 
   /* Bonus active-section reset: if reclaiming this span leaves our own active
    * stack section with zero live spans and it is not an undoable overflow
-   * section, move the frames straight to the top of the section! */
+   * section, move the frames straight to the top of the section and restore
+   * the full section floor! */
   if (same_section && section == own && claim->raw_live_spans == 1)
     {
       ___WORD *top_break = ___ps->mem.alloc_stack_start_ - ___FIRST_BREAK_FRAME_SPACE;
-      ___WORD *safe_lo = ___ps->mem.alloc_stack_limit_ + ___MSECTION_FUDGE;
+      ___WORD *safe_lo = own_base + ___MSECTION_FUDGE;
       if (top_break > safe_lo &&
           ___CAST(___SIZE_TS, top_break - safe_lo) >= total_words &&
           ___FP_STK(top_break, -___FIRST_BREAK_FRAME_STACK_MSECTION) == 0)
@@ -991,7 +921,13 @@ ___EXP_FUNC(int,___try_return_oneshot_fiber_cont)
           claim->raw_marks = 0;
           claim->raw_low = 0;
           claim->raw_high = 0;
+          claim->raw_wrap_low = 0;
           claim->raw_live_spans = 0;
+          if (___ps->mem.alloc_stack_limit_ > own_base)
+            {
+              ___ps->mem.alloc_stack_limit_ = own_base;
+              ___ps->context->stack_limit = own_base + ___MSECTION_FUDGE;
+            }
           ___gc_copy_release(&section->copy_gate);
           if (___EXPECT_FALSE(cur_denv != cont_denv))
             {
@@ -1027,31 +963,14 @@ ___EXP_FUNC(int,___try_return_oneshot_fiber_cont)
     }
   ___FP_SET_STK(dest, -___BREAK_FRAME_NEXT, next_break_link)
 
-  raw_stack_clear_mark(claim->raw_marks, top - src_base);
-  raw_stack_clear_mark(claim->raw_marks, known_break - src_base);
-  if (claim->raw_live_spans > 0)
-    claim->raw_live_spans--;
-  if (claim->raw_live_spans == 0)
+  raw_stack_reclaim_span_locked(claim, src_base, top, known_break);
+  if (same_section && section == own &&
+      ___ps->mem.alloc_stack_limit_ > own_base &&
+      (claim->raw_live_spans == 0 || claim->raw_low >= ___ps->mem.alloc_stack_limit_))
     {
-      claim->raw_marks = 0;
-      claim->raw_low = 0;
-      claim->raw_high = 0;
-    }
-  else if (top == claim->raw_low)
-    {
-      ___SIZE_TS idx = (known_break - src_base) + 1;
-      ___SIZE_TS hi = claim->raw_high - src_base;
-      while (idx < hi && raw_stack_mark_at(claim->raw_marks, idx) != RAW_STACK_START)
-        idx++;
-      if (idx < hi)
-        claim->raw_low = src_base + idx;
-      else
-        {
-          claim->raw_marks = 0;
-          claim->raw_low = 0;
-          claim->raw_high = 0;
-          claim->raw_live_spans = 0;
-        }
+      ___ps->mem.alloc_stack_limit_ = own_base;
+      ___ps->context->stack_limit = own_base + ___MSECTION_FUDGE;
+      claim->raw_wrap_low = claim->raw_low;
     }
 
   ___gc_copy_release(&section->copy_gate);

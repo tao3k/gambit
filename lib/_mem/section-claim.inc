@@ -12,7 +12,7 @@ typedef struct section_claim
   ___processor_state stack_owner;
   ___WORD *stack_floor;
   ___WORD *parked_top, *parked_break;
-  ___WORD *raw_low, *raw_high;
+  ___WORD *raw_low, *raw_high, *raw_wrap_low;
   unsigned char *raw_marks;
   ___msection *reuse_next;
   ___msection *parked_next;

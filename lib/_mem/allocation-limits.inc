@@ -72,6 +72,90 @@ ___PSDKR)
       int words;
       int transferred_all = 0;
 
+      /* Single-section circular stack wrap-around: when the dedicated active
+       * stack section has ample unmarked headroom above its highest live raw
+       * span (after one-shot continuations reclaimed dead spans above it),
+       * wrap the short unpublished active suffix directly back to top_break
+       * and raise alloc_stack_limit above raw_high -- zero locks, zero new
+       * msections, zero STW GC! */
+      if (prev_stack_msection != 0 &&
+          prev_stack_msection != heap_msection &&
+          ___ps->mem.satb_active_ == 0 &&
+          prev_alloc_stack_ptr != prev_stack_break &&
+          (tospace_offset == 0 || tospace_offset == (___MSECTION_SIZE >> 1)))
+        {
+          ___WORD *top_break = prev_alloc_stack_start - ___FIRST_BREAK_FRAME_SPACE;
+          if (___FP_STK(top_break, -___FIRST_BREAK_FRAME_STACK_MSECTION) == 0)
+            {
+              ___WORD *wfp = prev_alloc_stack_ptr;
+              ___WORD wra = ___FP_STK(wfp, -___FRAME_STACK_RA);
+              int wfc = 0;
+              int wlink = 0;
+              int wwords = 0;
+              int reached_brk = 0;
+              while (wfc < 5)
+                {
+                  int wfs;
+                  ___WORD wra2;
+                  wfc++;
+                  if (wra == ___GSTATE->internal_return)
+                    {
+                      ___WORD actual_ra = ___FP_STK(wfp, ___RETI_RA);
+                      ___RETI_GET_FS_LINK(actual_ra, wfs, wlink)
+                    }
+                  else
+                    {
+                      ___RETN_GET_FS_LINK(wra, wfs, wlink)
+                    }
+                  ___FP_ADJFP(wfp, -___FRAME_SPACE(wfs))
+                  wra2 = ___FP_STK(wfp, wlink + 1);
+                  wwords = ___CAST(int, wfp - prev_alloc_stack_ptr);
+                  if (wfp == prev_stack_break)
+                    {
+                      reached_brk = 1;
+                      break;
+                    }
+                  if (wwords >= 100)
+                    break;
+                  wra = wra2;
+                }
+              if (reached_brk && wwords > 0 && wwords <= 100)
+                {
+                  ___WORD *sec_base = start_of_tospace(prev_stack_msection);
+                  section_claim *wclaim = section_claim_at(prev_stack_msection, tospace_offset);
+                  ___gc_copy_acquire(&prev_stack_msection->copy_gate);
+                  if (wclaim->stack_owner == ___ps &&
+                      wclaim->stack_state == STACK_ACTIVE &&
+                      !wclaim->heap_used &&
+                      ___SECTION_PIN_LOAD_ACQ(&wclaim->source_pins) == 0)
+                    {
+                      ___WORD *new_floor =
+                        (wclaim->raw_marks == 0 || wclaim->raw_live_spans == 0)
+                        ? sec_base
+                        : (wclaim->raw_high + ___FRAME_ALIGN);
+                      if (top_break > new_floor + stack_reserve + wwords + 256 &&
+                          top_break - wwords > prev_stack_break)
+                        {
+                          ___WORD next_link = ___FP_STK(prev_stack_break, -___BREAK_FRAME_NEXT);
+                          memmove(top_break - wwords, prev_alloc_stack_ptr, wwords << ___LWS);
+                          ___FP_SET_STK(top_break, -___BREAK_FRAME_NEXT, next_link)
+                          ___FP_SET_STK(top_break, wlink + 1, ___GSTATE->handler_break)
+                          ___ps->context->stack_break = top_break;
+                          alloc_stack_ptr = top_break - wwords;
+                          alloc_stack_limit = new_floor;
+                          wclaim->raw_wrap_low = (new_floor == sec_base) ? wclaim->raw_low : 0;
+                          bytes_allocated_minus_occupied +=
+                            ___CAST(___F64, prev_alloc_stack_start - prev_stack_break) * ___WS;
+                          ___gc_copy_release(&prev_stack_msection->copy_gate);
+                          clear_fast_span(___ps);
+                          goto stack_wrapped_in_place;
+                        }
+                    }
+                  ___gc_copy_release(&prev_stack_msection->copy_gate);
+                }
+            }
+        }
+
       /*
        * Get a new stack msection.
        */
@@ -344,6 +428,7 @@ ___PSDKR)
     }
   }
 
+ stack_wrapped_in_place:
   /* A stack return reloads the heap cursor. The following allocation is
    * unchecked up to the fudge, so a nearly full half has to be replaced
    * before that reload. */

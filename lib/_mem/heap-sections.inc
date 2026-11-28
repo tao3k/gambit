@@ -155,6 +155,104 @@ ___HIDDEN void raw_stack_clear_mark(unsigned char *marks, ___SIZE_TS index)
   marks[index/4] &= ___CAST(unsigned char, ~(3U << (2*(index%4))));
 }
 
+/* Reclaim one published [top .. span_end) raw span under section->copy_gate,
+ * keeping raw_low, raw_high, and raw_wrap_low tight with 64-bit word skipping. */
+___HIDDEN void raw_stack_reclaim_span_locked(section_claim *claim,
+                                             ___WORD *base,
+                                             ___WORD *top,
+                                             ___WORD *span_end)
+{
+  raw_stack_clear_mark(claim->raw_marks, top - base);
+  raw_stack_clear_mark(claim->raw_marks, span_end - base);
+  if (claim->raw_live_spans > 0)
+    claim->raw_live_spans--;
+  if (claim->raw_live_spans == 0)
+    {
+      claim->raw_marks = 0;
+      claim->raw_low = 0;
+      claim->raw_high = 0;
+      claim->raw_wrap_low = 0;
+      return;
+    }
+
+  if (top == claim->raw_low)
+    {
+      ___SIZE_TS idx = (span_end - base) + 1;
+      ___SIZE_TS hi = claim->raw_high - base;
+      while (idx < hi)
+        {
+          if ((idx & 31) == 0 && hi - idx >= 32)
+            {
+              ___U64 z;
+              memcpy(&z, &claim->raw_marks[idx >> 2], 8);
+              if (z == 0) { idx += 32; continue; }
+            }
+          if (raw_stack_mark_at(claim->raw_marks, idx) == RAW_STACK_START)
+            break;
+          idx++;
+        }
+      if (idx < hi)
+        claim->raw_low = base + idx;
+      else
+        {
+          claim->raw_marks = 0;
+          claim->raw_low = 0;
+          claim->raw_high = 0;
+          claim->raw_wrap_low = 0;
+          claim->raw_live_spans = 0;
+          return;
+        }
+    }
+
+  if (span_end == claim->raw_high)
+    {
+      ___SIZE_TS lo = claim->raw_low - base;
+      ___SIZE_TS idx = (top > base) ? (top - base) - 1 : 0;
+      while (idx > lo)
+        {
+          if ((idx & 31) == 31 && idx - lo >= 32)
+            {
+              ___U64 z;
+              memcpy(&z, &claim->raw_marks[(idx - 31) >> 2], 8);
+              if (z == 0) { idx -= 32; continue; }
+            }
+          if (raw_stack_mark_at(claim->raw_marks, idx) == RAW_STACK_END)
+            break;
+          idx--;
+        }
+      if (idx > lo && raw_stack_mark_at(claim->raw_marks, idx) == RAW_STACK_END)
+        claim->raw_high = base + idx;
+      else
+        {
+          claim->raw_marks = 0;
+          claim->raw_low = 0;
+          claim->raw_high = 0;
+          claim->raw_wrap_low = 0;
+          claim->raw_live_spans = 0;
+          return;
+        }
+    }
+
+  if (top == claim->raw_wrap_low)
+    {
+      ___SIZE_TS idx = (span_end - base) + 1;
+      ___SIZE_TS hi = claim->raw_high - base;
+      while (idx < hi)
+        {
+          if ((idx & 31) == 0 && hi - idx >= 32)
+            {
+              ___U64 z;
+              memcpy(&z, &claim->raw_marks[idx >> 2], 8);
+              if (z == 0) { idx += 32; continue; }
+            }
+          if (raw_stack_mark_at(claim->raw_marks, idx) == RAW_STACK_START)
+            break;
+          idx++;
+        }
+      claim->raw_wrap_low = (idx < hi) ? (base + idx) : 0;
+    }
+}
+
 /* Called by the running stack owner before publishing a detached raw fp.
  * Once detached, a segment's bounds survive stack parking and undo. */
 ___EXP_FUNC(void,___publish_raw_stack_span)
@@ -163,6 +261,7 @@ ___EXP_FUNC(void,___publish_raw_stack_span)
   ___msection *section=stack_msection;
   section_claim *claim;
   ___WORD *base;
+  ___WORD *floor;
   ___SIZE_TS words;
 
   if (!section || (tospace_offset!=0 && tospace_offset!=(___MSECTION_SIZE>>1)))
@@ -173,13 +272,15 @@ ___EXP_FUNC(void,___publish_raw_stack_span)
   ___ps->mem.local_young_escaped_ = 1;
 
   base=start_of_tospace(section);
+  floor=alloc_stack_limit;
   claim=section_claim_at(section,tospace_offset);
   ___gc_copy_acquire(&section->copy_gate);
   if (claim->stack_owner!=___ps || claim->stack_state!=STACK_ACTIVE ||
       brk!=___ps->context->stack_break || top==brk ||
+      (floor && top < floor) ||
       !___gc_stack_span_words(base,base+(___MSECTION_SIZE>>1),top,brk,
                               ___BREAK_FRAME_SPACE,&words) ||
-      (claim->raw_marks && brk>=claim->raw_low))
+      (claim->raw_marks && claim->raw_wrap_low && brk>=claim->raw_wrap_low))
     {
       ___gc_copy_release(&section->copy_gate);
       rc_contract_error("Invalid raw stack source span");
@@ -190,11 +291,18 @@ ___EXP_FUNC(void,___publish_raw_stack_span)
       claim->raw_marks=___CAST(unsigned char*,section_claim_at(section,0)+2)
         +(tospace_offset ? RAW_STACK_MAP_BYTES : 0);
       memset(claim->raw_marks,0,RAW_STACK_MAP_BYTES);
+      claim->raw_low=top;
       claim->raw_high=brk;
+      claim->raw_wrap_low=top;
+    }
+  else
+    {
+      if (top < claim->raw_low) claim->raw_low=top;
+      if (brk > claim->raw_high) claim->raw_high=brk;
+      claim->raw_wrap_low=top;
     }
   raw_stack_set_mark(claim->raw_marks,top-base,RAW_STACK_START);
   raw_stack_set_mark(claim->raw_marks,brk-base,RAW_STACK_END);
-  claim->raw_low=top;
   claim->raw_live_spans++;
   ___gc_copy_release(&section->copy_gate);
 }
