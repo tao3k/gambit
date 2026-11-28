@@ -1028,6 +1028,38 @@
     (%sched-push-dq! ctx fk)
     (%sched-switch-next! ctx)))
 
+;; Direct linear one-shot fiber continuation return with zero-copy in-place
+;; rewind or full-span reclamation. Falls back to ##continuation-return-no-winding
+;; whenever concurrent SATB marking is active, denv changed, or the span is
+;; aliased / heap-promoted / > 4 KiB.
+(define (%return-oneshot! cont val)
+  (##declare (not interrupts-enabled))
+  (macro-if-c-compiled
+   (if (##c-code
+        "___SCMOBJ ___cont = ___ARG1;
+         ___SCMOBJ ___val = ___ARG2;
+         ___WORD ___ra;
+         ___WORD *___new_fp;
+         if (___EXT(___try_return_oneshot_fiber_cont)(___ps, ___cont, &___ra, &___new_fp)) {
+           ___SET_FP(___new_fp)
+           ___SET_R1(___val)
+#if ___NB_GVM_REGS > 2
+           ___SET_R2(___FIX(0L))
+#endif
+#if ___NB_GVM_REGS > 3
+           ___SET_R3(___FIX(0L))
+#endif
+#if ___NB_GVM_REGS > 4
+           ___SET_R4(___FIX(0L))
+#endif
+           ___JUMPEXTPRM(___NOTHING, ___ra)
+         }
+         ___RESULT = ___FAL;"
+        cont val)
+       (##void)
+       (##continuation-return-no-winding cont val))
+   (##continuation-return-no-winding cont val)))
+
 ;; Zero-closure multi-arg continuation receiver for fiber-yield.
 (define (%yield-cont! raw-k)
   (let ((ctx (%carrier-wctx))
@@ -1044,7 +1076,7 @@
                    (nval (%fk-val res)))
                (%free-fk! ctx res)
                (if ntc (%set-tc! ntc))
-               (##continuation-return-no-winding nk nval)))
+               (%return-oneshot! nk nval)))
             ((fixnum? res)
              (if (fx= res 1)
                  (%sched-switch-next! ctx)
@@ -1556,7 +1588,7 @@
                 (swq (%ch-send-waiters ch))
                 (rxw (%ch-rx-waiters ch))
                 (txw (%ch-tx-waiters ch)))
-            (if (eq? fast %CH-RETRY) (thread-yield!))
+            (if (eq? fast %CH-RETRY) (%os-sched-yield!))
             (%spin-lock! lock)
             (%fxatom-set-seq! txw (fx+ (##vector-ref txw 0) 1))
             (%seq-cst-fence!)
@@ -1873,7 +1905,7 @@
                 (swq (%ch-send-waiters ch))
                 (rxw (%ch-rx-waiters ch))
                 (txw (%ch-tx-waiters ch)))
-            (if (eq? fast %CH-RETRY) (thread-yield!))
+            (if (eq? fast %CH-RETRY) (%os-sched-yield!))
             (%spin-lock! lock)
             (%fxatom-set-seq! rxw (fx+ (##vector-ref rxw 0) 1))
             (%seq-cst-fence!)
@@ -1916,11 +1948,11 @@
                    (nval (%fk-val res)))
                (%free-fk! ctx res)
                (if ntc (%set-tc! ntc))
-               (##continuation-return-no-winding nk nval)))
+               (%return-oneshot! nk nval)))
             ((fx= res 1)
              (%sched-switch-next! ctx))
             ((fx= res 6)
-             (##continuation-return-no-winding raw-k %CH-RETRY))
+             (%return-oneshot! raw-k %CH-RETRY))
             (else
              (%park-recv-buf-slow! ctx raw-k #f ch res)))))))
 
@@ -2369,7 +2401,7 @@
             (if (fx< streak %MAX-LIFO-STREAK) (fx+ streak 1) %MAX-LIFO-STREAK))
           (%free-fk! ctx lifo)
           (if tc (%set-tc! tc))
-          (##continuation-return-no-winding raw-k val))
+          (%return-oneshot! raw-k val))
         (if (and (not need-global)
                  (not (%dq-empty-rlx? dq)))
             (let ((t (%dq-pop! ctx)))
@@ -2383,7 +2415,7 @@
                               (val (%fk-val t)))
                           (%free-fk! ctx t)
                           (if tc (%set-tc! tc))
-                          (##continuation-return-no-winding raw-k val))
+                          (%return-oneshot! raw-k val))
                         (##continuation-graft-no-winding
                          (%wctx-sched-k ctx) %worker-run-task ctx t (%wctx-picked-n ctx))))
                   (##continuation-graft-no-winding (%wctx-sched-k ctx) %worker-dispatch ctx 0)))
@@ -2397,7 +2429,7 @@
            (val (%fk-val task)))
        (%free-fk! ctx task)
        (if tc (%set-tc! tc))
-       (##continuation-return-no-winding raw-k val)))
+       (%return-oneshot! raw-k val)))
     (n
      ;; Zero-cons, zero-closure nursery child (thunk + nursery from flat dual-array dq)
      (##with-exception-handler (%nursery-err-handler n) task)

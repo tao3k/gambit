@@ -1175,6 +1175,8 @@ typedef struct ___global_state_struct
        ___P((___processor_state ps, ___WORD group_point, ___WORD attempt), ());
     void (*___publish_raw_stack_span)
        ___P((___processor_state ___ps, ___WORD *top, ___WORD *brk), ());
+    int (*___try_return_oneshot_fiber_cont)
+       ___P((___processor_state ___ps, ___SCMOBJ cont, ___WORD *ra_out, ___WORD **new_fp_out), ());
     ___WORD (*___rest_observation_room)
        ___P((___processor_state ps), ());
     ___WORD (*___rest_observation_settled)

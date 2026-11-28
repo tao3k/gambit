@@ -64,12 +64,14 @@ shift
 %mc-frame-kind
 %mc-frame-tag
 %mc-frame-handler
+%mc-frame-handler-set!
 %mc-frame-escape-k
 %mc-frame-marks
 %mc-frame-barriers
 %mc-frame-handlers
 %mc-split-at-tag
 %mc-return1
+%freeze-mc-prefix!
 %list-prefix-until
 %barrier-between?
 

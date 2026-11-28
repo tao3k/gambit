@@ -195,7 +195,101 @@ ___EXP_FUNC(void,___publish_raw_stack_span)
   raw_stack_set_mark(claim->raw_marks,top-base,RAW_STACK_START);
   raw_stack_set_mark(claim->raw_marks,brk-base,RAW_STACK_END);
   claim->raw_low=top;
+  claim->raw_live_spans++;
   ___gc_copy_release(&section->copy_gate);
+}
+
+/* Park an active stack section whose active caller frames were completely
+ * transferred onto the next section (parked_top == 0). If zero raw spans,
+ * pins, heap uses, or concurrent SATB cycles hold references into it, recycle
+ * it immediately onto this processor's local free list without locking. */
+___HIDDEN int park_empty_active_stack_section(___processor_state ___ps,
+                                              ___msection *section,
+                                              ___WORD *floor,
+                                              ___SIZE_TS used_words)
+{
+  section_claim *claim=section_claim_at(section,tospace_offset);
+  int recycled=0;
+  ___gc_copy_acquire(&section->copy_gate);
+  if (claim->stack_owner!=___ps || claim->stack_state!=STACK_ACTIVE)
+    {
+      ___gc_copy_release(&section->copy_gate);
+      rc_contract_error("Invalid empty active stack park claim");
+      return 0;
+    }
+  claim->stack_floor=floor;
+  claim->parked_top=0;
+  claim->parked_break=0;
+  claim->parked_words=used_words;
+  if (!claim->heap_used &&
+      claim->raw_live_spans==0 && !claim->raw_marks &&
+      ___ps->mem.satb_active_==0 &&
+      ___SECTION_PIN_LOAD_ACQ(&claim->source_pins)==0)
+    {
+      claim->stack_state=STACK_REUSABLE;
+      claim->reuse_next=msection_free_list;
+      msection_free_list=section;
+      bytes_allocated_minus_occupied += ___CAST(___F64, used_words) * ___WS;
+      recycled=1;
+    }
+  else
+    {
+      claim->stack_state=STACK_PARKED;
+      if (!claim->heap_used)
+        {
+          claim->parked_next=parked_stack_list;
+          parked_stack_list=section;
+        }
+    }
+  ___gc_copy_release(&section->copy_gate);
+  clear_fast_span(___ps);
+  return recycled;
+}
+
+/* Reclaim one drained parked stack section owned by this processor into a
+ * fresh active section without taking the global allocation lock. */
+___HIDDEN ___msection *reclaim_drained_parked_stack_section(___processor_state ___ps)
+{
+  ___msection **prev=&parked_stack_list;
+  ___msection *sec=parked_stack_list;
+  int steps=0;
+
+  if (___EXPECT_FALSE(___ps->mem.satb_active_!=0))
+    return 0;
+
+  while (sec!=0 && steps<8)
+    {
+      section_claim *claim=section_claim_at(sec,tospace_offset);
+      ___msection *next;
+      ___gc_copy_acquire(&sec->copy_gate);
+      next=claim->parked_next;
+      if (___ps->mem.satb_active_==0 &&
+          claim->stack_owner==___ps &&
+          claim->stack_state==STACK_PARKED &&
+          !claim->heap_used &&
+          !claim->parked_top &&
+          claim->raw_live_spans==0 &&
+          !claim->raw_marks &&
+          ___SECTION_PIN_LOAD_ACQ(&claim->source_pins)==0)
+        {
+          ___SIZE_TS pw=claim->parked_words;
+          *prev=next;
+          if (pw>0)
+            {
+              words_prev_msections = (words_prev_msections >= pw)
+                                     ? (words_prev_msections - pw) : 0;
+              bytes_allocated_minus_occupied += ___CAST(___F64, pw) * ___WS;
+            }
+          *claim=(section_claim){0};
+          ___gc_copy_release(&sec->copy_gate);
+          return sec;
+        }
+      ___gc_copy_release(&sec->copy_gate);
+      prev=&claim->parked_next;
+      sec=next;
+      steps++;
+    }
+  return 0;
 }
 
 ___HIDDEN void park_stack_section(___processor_state ___ps, ___msection *section,
@@ -1556,6 +1650,7 @@ ___virtual_machine_state ___vms;)
       length = r->source_words;
       tospace_offset = g->destination_offset;
       msection_free_list = 0;
+      parked_stack_list = 0;
       words_prev_msections = 0;
       words_still_objs_deferred = 0;
       still_words_budget = 0;

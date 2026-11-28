@@ -373,6 +373,9 @@ ___SIZE_TS tospace_offset_;
 /* msection free list */
 ___msection *msection_free_list_;
 
+/* processor-private list of parked stack sections eligible for local reuse */
+___msection *parked_stack_list_;
+
 /* msection where continuation frames are currently being allocated */
 ___msection *stack_msection_;
 

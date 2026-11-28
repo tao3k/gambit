@@ -70,6 +70,7 @@ ___PSDKR)
       ___WORD *fp;
       int frame_count;
       int words;
+      int transferred_all = 0;
 
       /*
        * Get a new stack msection.
@@ -77,6 +78,8 @@ ___PSDKR)
 
       ___msection *ms = stack_msection != heap_msection
         ? take_released_stack_section(___ps) : 0;
+      if (ms == 0 && stack_msection != heap_msection)
+        ms = reclaim_drained_parked_stack_section(___ps);
 
       if (ms != 0)
         set_stack_msection (___ps, ms);
@@ -241,19 +244,43 @@ ___PSDKR)
             {
               /* reached the break frame */
 
-              /* best to not transfer any frames to new stack msection */
+              if (words > 0 && words <= 100 && prev_stack_msection != heap_msection)
+                {
+                  /* Transfer the short unpublished active suffix directly so
+                   * prev_stack_msection retains no parked active frames and
+                   * can be recycled locally once its raw spans drain. */
+                  ___FP_SET_STK(alloc_stack_ptr,
+                                -___BREAK_FRAME_NEXT,
+                                ___FP_STK(prev_stack_break, -___BREAK_FRAME_NEXT))
 
-              /*
-               * Add a break frame.
-               */
+                  ___ps->context->stack_break = alloc_stack_ptr;
 
-              ___FP_ADJFP(alloc_stack_ptr,___BREAK_FRAME_SPACE)
-              ___FP_SET_STK(alloc_stack_ptr,
-                            -___BREAK_FRAME_NEXT,
-                            ___CAST(___WORD,prev_alloc_stack_ptr))
-              ___ps->context->stack_break = alloc_stack_ptr;
+                  memmove (alloc_stack_ptr - words,
+                           prev_alloc_stack_ptr,
+                           words << ___LWS);
 
-              fp = prev_alloc_stack_ptr;
+                  ___FP_SET_STK(alloc_stack_ptr,
+                                link+1,
+                                ___GSTATE->handler_break)
+
+                  ___FP_ADJFP(alloc_stack_ptr, words)
+
+                  transferred_all = 1;
+                }
+              else
+                {
+                  /*
+                   * Add a break frame.
+                   */
+
+                  ___FP_ADJFP(alloc_stack_ptr,___BREAK_FRAME_SPACE)
+                  ___FP_SET_STK(alloc_stack_ptr,
+                                -___BREAK_FRAME_NEXT,
+                                ___CAST(___WORD,prev_alloc_stack_ptr))
+                  ___ps->context->stack_break = alloc_stack_ptr;
+
+                  fp = prev_alloc_stack_ptr;
+                }
 
               break;
             }
@@ -301,9 +328,19 @@ ___PSDKR)
             }
         }
 
-      park_stack_section(___ps,prev_stack_msection,prev_alloc_stack_limit,
-                         fp,prev_stack_break);
-      stack_msection_stop_using (___ps, prev_alloc_stack_start, fp);
+      if (transferred_all)
+        {
+          if (!park_empty_active_stack_section(___ps, prev_stack_msection,
+                                               prev_alloc_stack_limit,
+                                               prev_alloc_stack_start - prev_stack_break))
+            stack_msection_stop_using (___ps, prev_alloc_stack_start, prev_stack_break);
+        }
+      else
+        {
+          park_stack_section(___ps,prev_stack_msection,prev_alloc_stack_limit,
+                             fp,prev_stack_break);
+          stack_msection_stop_using (___ps, prev_alloc_stack_start, fp);
+        }
     }
   }
 

@@ -76,7 +76,7 @@
   predicate: %mc-frame?
   (kind     %mc-frame-kind)     ;; 'prompt or 'underflow
   (tag      %mc-frame-tag)      ;; prompt-tag (or #f for underflow)
-  (handler  %mc-frame-handler)  ;; abort handler proc (or #f)
+  (handler  %mc-frame-handler %mc-frame-handler-set!) ;; #f=rewindable, #t=shared/immutable, proc=abort handler
   (escape-k %mc-frame-escape-k %mc-frame-escape-k-set!) ;; native Gambit continuation object
   (marks    %mc-frame-marks)    ;; saved marks outside this frame
   (barriers %mc-frame-barriers) ;; saved barriers outside this frame
@@ -179,6 +179,18 @@
 (define (%default-prompt-handler tag)
   (lambda (thunk)
     (call-with-continuation-prompt thunk tag)))
+
+;; Mark every captured metacontinuation prefix frame as immutable (handler = #t
+;; when #f) so no concurrent multi-shot replay or original return can rewind or
+;; clear escape-k in-place while another shot/core still reads that frame.
+(define (%freeze-mc-prefix! prefix)
+  (let loop ((fs prefix))
+    (if (pair? fs)
+        (let ((f (car fs)))
+          (if (not (%mc-frame-handler f))
+              (%mc-frame-handler-set! f #t))
+          (loop (cdr fs)))))
+  prefix)
 
 ;; Fast single-value return through topmost metacontinuation frame (zero thunk,
 ;; zero rest-list; clears escape-k slot before in-place prompt stack rewind so
@@ -350,6 +362,7 @@
             (error "call-with-composable-continuation: no prompt found for tag" tag))
         (if (%barrier-between? (%tc-barriers st) (%mc-frame-barriers pframe))
             (error "call-with-composable-continuation: cannot capture across continuation barrier" tag))
+        (if (pair? prefix) (%freeze-mc-prefix! prefix))
         (let ((captured-marks (%list-prefix-until (%tc-marks st) (%mc-frame-marks pframe)))
               (captured-handlers (%list-prefix-until (%tc-handlers st) (%mc-frame-handlers pframe))))
           (##continuation-capture
@@ -400,6 +413,7 @@
       (lambda (prefix pframe rest)
         (if (not pframe)
             (error "call-with-non-composable-continuation: no prompt found for tag" tag))
+        (if (pair? prefix) (%freeze-mc-prefix! prefix))
         (let ((captured-marks (%list-prefix-until (%tc-marks st) (%mc-frame-marks pframe)))
               (captured-barriers (%tc-barriers st))
               (captured-handlers (%list-prefix-until (%tc-handlers st) (%mc-frame-handlers pframe))))

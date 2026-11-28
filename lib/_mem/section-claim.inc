@@ -15,7 +15,10 @@ typedef struct section_claim
   ___WORD *raw_low, *raw_high;
   unsigned char *raw_marks;
   ___msection *reuse_next;
+  ___msection *parked_next;
+  ___SIZE_TS parked_words;
   enum stack_claim_state stack_state;
+  unsigned raw_live_spans;
   unsigned heap_used;
   unsigned source_pins;
 } section_claim;

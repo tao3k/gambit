@@ -543,6 +543,68 @@ ___virtual_machine_state ___vms;)
 #define SYNC_INIT_MSG(var) ((var) = SYNC_WAITING) /* exclusive construction */
 #define SYNC_ACK_MSG(var) ___WORD_STORE_RELEASE(&(var),SYNC_WAITING)
 
+#if defined(___GC_HAVE_DARWIN_FUTEX) || defined(___GC_HAVE_LINUX_FUTEX)
+#define SYNC_GET_MSG_SPIN_TIMEOUT 2048
+
+#define SYNC_GET_MSG(expr) \
+do { \
+     int loops_left = SYNC_GET_MSG_SPIN_TIMEOUT; \
+     while ((expr) == SYNC_WAITING) \
+       { \
+         ___DEV_RESTORE_INSIDE_BARRIER() \
+         WASTE_TIME(); \
+         if (--loops_left == 0) \
+           { \
+             ___VOLATILE uint32_t *seq_p = ___CAST(___VOLATILE uint32_t*, &___ps->sync_futex_seq); \
+             ___VOLATILE uint32_t *wt_p = ___CAST(___VOLATILE uint32_t*, &___ps->sync_futex_waiters); \
+             uint32_t seq = __atomic_load_n(seq_p, __ATOMIC_ACQUIRE); \
+             loops_left = SYNC_GET_MSG_SPIN_TIMEOUT; \
+             (void)__atomic_fetch_add(wt_p, 1u, __ATOMIC_SEQ_CST); \
+             if ((expr) == SYNC_WAITING) \
+               ___gc_futex_wait_u32(seq_p, seq); \
+             (void)__atomic_fetch_sub(wt_p, 1u, __ATOMIC_RELAXED); \
+           } \
+       } \
+   } while (0)
+
+#define SYNC_GET_MSG_SPIN_MARK(expr, allow_spin_mark) \
+do { \
+     int loops_left = SYNC_GET_MSG_SPIN_TIMEOUT; \
+     int spin_slices_left = 4; \
+     while ((expr) == SYNC_WAITING) \
+       { \
+         ___DEV_RESTORE_INSIDE_BARRIER() \
+         if ((allow_spin_mark) && spin_slices_left > 0 && \
+             ___gc_major_mark_stw_spin_slice(___ps)) \
+           { \
+             spin_slices_left--; \
+             continue; \
+           } \
+         WASTE_TIME(); \
+         if (--loops_left == 0) \
+           { \
+             ___VOLATILE uint32_t *seq_p = ___CAST(___VOLATILE uint32_t*, &___ps->sync_futex_seq); \
+             ___VOLATILE uint32_t *wt_p = ___CAST(___VOLATILE uint32_t*, &___ps->sync_futex_waiters); \
+             uint32_t seq = __atomic_load_n(seq_p, __ATOMIC_ACQUIRE); \
+             loops_left = SYNC_GET_MSG_SPIN_TIMEOUT; \
+             (void)__atomic_fetch_add(wt_p, 1u, __ATOMIC_SEQ_CST); \
+             if ((expr) == SYNC_WAITING) \
+               ___gc_futex_wait_u32(seq_p, seq); \
+             (void)__atomic_fetch_sub(wt_p, 1u, __ATOMIC_RELAXED); \
+           } \
+       } \
+   } while (0)
+
+#define SYNC_SEND_MSG(ps,field,val) \
+do { \
+     ___VOLATILE uint32_t *seq_p = ___CAST(___VOLATILE uint32_t*, &ps->sync_futex_seq); \
+     ___VOLATILE uint32_t *wt_p = ___CAST(___VOLATILE uint32_t*, &ps->sync_futex_waiters); \
+     ___WORD_STORE_RELEASE(&ps->field,val); \
+     (void)__atomic_fetch_add(seq_p, 1u, __ATOMIC_SEQ_CST); \
+     if (__atomic_load_n(wt_p, __ATOMIC_ACQUIRE) != 0) \
+       ___gc_futex_wake_all_u32(seq_p); \
+   } while (0)
+#else
 #define SYNC_GET_MSG_SPIN_TIMEOUT 8000
 
 #define SYNC_GET_MSG(expr) \
@@ -566,7 +628,7 @@ do { \
        } \
    } while (0)
 
-/* Amp-2 Cut 2B: Opportunistic STW entry spin-wait concurrent major marking.
+/* Opportunistic STW entry spin-wait concurrent major marking.
  * Used exclusively during upward tree reduction on STW entry (first_iter != 0),
  * strictly BEFORE upward SYNC_SEND_MSG release publication. */
 #define SYNC_GET_MSG_SPIN_MARK(expr, allow_spin_mark) \
@@ -608,6 +670,7 @@ do { \
          ___CONDVAR_SIGNAL(ps->sync_cv); \
        } \
    } while (0)
+#endif
 
 
 ___HIDDEN void ___sync_wait
@@ -729,16 +792,18 @@ int allow_spin_mark;)
   int sid = id;
 
   /* When one or more processors are parked in blocking FFI, synchronize only
-   * across the snapshotted active subset using a sense-reversing barrier
-   * protected by sync_part_mut (zero overhead when sync_parked_count == 0). */
+   * across the snapshotted active subset using a double-buffered sense-reversing
+   * adaptive-spin + OS futex barrier (zero overhead when sync_parked_count == 0). */
   if (___vms->lifecycle != 0 &&
       ___WORD_LOAD_ACQUIRE(&___vms->lifecycle->sync_use_active_barrier) != 0)
     {
       ___vm_lifecycle *life = ___vms->lifecycle;
-      ___UWORD my_gen;
+      uint32_t my_gen;
+      unsigned int slot;
 
       ___MUTEX_LOCK(life->sync_part_mut);
-      my_gen = life->sync_bar_gen;
+      my_gen = __atomic_load_n(&life->sync_bar_gen, __ATOMIC_RELAXED);
+      slot = my_gen & 1u;
       if (life->sync_bar_arrived == 0)
         {
           life->sync_bar_sop = sop;
@@ -782,20 +847,38 @@ int allow_spin_mark;)
       life->sync_bar_arrived++;
       if (life->sync_bar_arrived == life->sync_active_count)
         {
-          life->sync_bar_out_sop = life->sync_bar_sop;
-          life->sync_bar_out_winner = life->sync_bar_winner;
+          life->sync_bar_out_sop[slot] = life->sync_bar_sop;
+          life->sync_bar_out_winner[slot] = life->sync_bar_winner;
           life->sync_bar_arrived = 0;
-          life->sync_bar_gen = my_gen + 1;
-          ___CONDVAR_BROADCAST(life->sync_part_cv);
+          __atomic_store_n(&life->sync_bar_gen, my_gen + 1u, __ATOMIC_RELEASE);
+          ___MUTEX_UNLOCK(life->sync_part_mut);
+          __atomic_thread_fence(__ATOMIC_SEQ_CST);
+          if (__atomic_load_n(&life->sync_bar_waiters, __ATOMIC_ACQUIRE) != 0)
+            ___gc_futex_wake_all_u32(&life->sync_bar_gen);
         }
       else
         {
-          while (life->sync_bar_gen == my_gen)
-            ___CONDVAR_WAIT(life->sync_part_cv, life->sync_part_mut);
+          unsigned int spins = 0;
+          ___MUTEX_UNLOCK(life->sync_part_mut);
+          while (__atomic_load_n(&life->sync_bar_gen, __ATOMIC_ACQUIRE) == my_gen)
+            {
+              if (spins < 2048u)
+                {
+                  ___CPU_RELAX();
+                  spins++;
+                }
+              else
+                {
+                  (void)__atomic_fetch_add(&life->sync_bar_waiters, 1u, __ATOMIC_SEQ_CST);
+                  if (__atomic_load_n(&life->sync_bar_gen, __ATOMIC_ACQUIRE) == my_gen)
+                    ___gc_futex_wait_u32(&life->sync_bar_gen, my_gen);
+                  (void)__atomic_fetch_sub(&life->sync_bar_waiters, 1u, __ATOMIC_RELAXED);
+                  spins = 0;
+                }
+            }
         }
-      *sop_ptr = life->sync_bar_out_sop;
-      sid = life->sync_bar_out_winner;
-      ___MUTEX_UNLOCK(life->sync_part_mut);
+      *sop_ptr = life->sync_bar_out_sop[slot];
+      sid = life->sync_bar_out_winner[slot];
       return sid;
     }
 
@@ -5766,6 +5849,8 @@ ___processor_state ___ps;)
   SYNC_INIT_MSG(___ps->sync_id1);
   SYNC_INIT_MSG(___ps->sync_id2);
   ___WORD_STORE_RELEASE(&___ps->sync_waiters, 0);
+  ___ps->sync_futex_seq = 0;
+  ___ps->sync_futex_waiters = 0;
 
   return ___FIX(___NO_ERR);
 }
@@ -7095,6 +7180,7 @@ ___HIDDEN void setup_dynamic_linking ___PVOID
   ___GSTATE->___group_demand_enter = ___group_demand_enter;
   ___GSTATE->___group_demand_commit = ___group_demand_commit;
   ___GSTATE->___publish_raw_stack_span = ___publish_raw_stack_span;
+  ___GSTATE->___try_return_oneshot_fiber_cont = ___try_return_oneshot_fiber_cont;
   ___GSTATE->___rest_observation_room = ___rest_observation_room;
   ___GSTATE->___rest_observation_settled = ___rest_observation_settled;
   ___GSTATE->___rest_observation_last_demand = ___rest_observation_last_demand;

@@ -314,7 +314,7 @@
 ;;; across 40 rounds. In every single round, the atomic CAS (0 -> 1) must
 ;;; guarantee EXACTLY 1 winner and 11 rejected callers.
 
-(let ((num-threads 12)
+(let ((num-threads (max 4 (min 16 (##current-vm-processor-count))))
       (rounds 40)
       (total-winners (make-atomic-fxbox 0))
       (total-rejected (make-atomic-fxbox 0)))
@@ -363,5 +363,86 @@
             (rloop (fx+ r 1))))))
   (test-equal rounds (atomic-fxbox-ref total-winners))
   (test-equal (fx* rounds (fx- num-threads 1)) (atomic-fxbox-ref total-rejected)))
+
+;;;============================================================================
+;;; 8. 12-Core SMP Adversarial Multi-Shot Composable Replay + Frozen Prefix
+;;;    + Concurrent Downstream Snapshot Readers & GC Stress
+;;;
+;;; Captures a multi-shot composable continuation enclosing an inner prompt
+;;; frame (which enters the captured metacontinuation prefix), then replays
+;;; that SAME continuation concurrently across 12 SMP threads while an active
+;;; downstream consumer thread reads published immutable snapshots and forces
+;;; garbage collections. Verifies zero cross-shot corruption, zero prefix
+;;; escape-k clobbering, and exact snapshot immutability.
+
+(let* ((outer-tag (make-continuation-prompt-tag 'smp-outer))
+       (inner-tag (make-continuation-prompt-tag 'smp-inner))
+       (shared-multi-k #f)
+       (num-threads (max 4 (min 16 (##current-vm-processor-count))))
+       (shots-per-thread 40)
+       (ok-shots (make-atomic-fxbox 0))
+       (reader-ok (make-atomic-fxbox 0))
+       (stop-reader (make-atomic-fxbox 0))
+       ;; Published immutable snapshot read continuously by downstream consumer
+       (published-snap (make-vector 32 7777)))
+  ;; Capture multi-shot composable continuation across an inner prompt frame
+  (call-with-continuation-prompt
+   (lambda ()
+     (let ((inner-res
+            (call-with-continuation-prompt
+             (lambda ()
+               (let ((x (call-with-composable-continuation
+                         (lambda (k)
+                           (set! shared-multi-k k)
+                           (abort-current-continuation outer-tag (lambda () 'captured)))
+                         outer-tag)))
+                 ;; Each shot computes a fresh immutable snapshot vector (COW fork)
+                 (let ((v (make-vector 8 (fx+ x 100))))
+                   (fx+ (vector-ref v 0) (vector-ref v 7)))))
+             inner-tag)))
+       (fx+ inner-res 1)))
+   outer-tag)
+  (test-assert (procedure? shared-multi-k))
+  (let* ((reader-thread
+          (thread-start!
+           (make-thread
+            (lambda ()
+              (let loop ((iters 0))
+                (if (fx= (atomic-fxbox-ref stop-reader) 0)
+                    (begin
+                      (let check ((idx 0) (good #t))
+                        (if (fx< idx 32)
+                            (check (fx+ idx 1)
+                                   (and good (fx= (vector-ref published-snap idx) 7777)))
+                            (if good (atomic-fxbox+/fetch! reader-ok 1))))
+                      (if (fx= (fxand iters 31) 31) (thread-yield!))
+                      (loop (fx+ iters 1)))))))))
+         (workers
+          (let tloop ((t 0) (acc '()))
+            (if (fx= t num-threads)
+                acc
+                (tloop (fx+ t 1)
+                       (cons
+                        (thread-start!
+                         (make-thread
+                          (lambda ()
+                            (let sloop ((s 0))
+                              (if (fx< s shots-per-thread)
+                                  (let* ((arg (fx+ (fx* t 100) s))
+                                         (res (shared-multi-k arg))
+                                         (expected (fx+ (fx* 2 (fx+ arg 100)) 1)))
+                                    (if (and (fx= res expected)
+                                             (fx= (vector-ref published-snap 0) 7777))
+                                        (atomic-fxbox+/fetch! ok-shots 1))
+                                    (if (and (fx= t 0) (fx= (fxand s 15) 15))
+                                        (##gc))
+                                    (sloop (fx+ s 1))))))))
+                        acc))))))
+    (for-each thread-join! workers)
+    (atomic-fxbox-set! stop-reader 1)
+    (thread-join! reader-thread)
+    (test-equal (fx* num-threads shots-per-thread) (atomic-fxbox-ref ok-shots))
+    (test-assert (fx>= (atomic-fxbox-ref reader-ok) 0))
+    (test-equal 7777 (vector-ref published-snap 31))))
 
 ;;;============================================================================

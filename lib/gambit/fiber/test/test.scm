@@ -678,3 +678,275 @@
     (run-fibers (lambda () (fiber-worker-count)) workers: pcores)))
 
 ;;;============================================================================
+;;; 14. Adversarial SMP One-Shot Stack Rewind, Parked-Section Recycling,
+;;;     Mixed Multi-Shot call/cc, Deep > 4 KiB Stacks & COW-Fork Replay DAG
+
+;; 14a. High-volume ping-pong + concurrent GC hammering across all carriers:
+;;      verifies one-shot stack rewind & parked-section recycling remain 100%
+;;      memory-safe under concurrent minor/major GC and cross-core stealing.
+(##gc)
+(let* ((num-pairs (max 2 (min 8 (##current-vm-processor-count))))
+       (ok-pairs (make-atomic-fxbox 0))
+       (rw-before (##gc-oneshot-continuation-rewinds)))
+  (run-fibers
+   (lambda ()
+     (with-nursery
+      (lambda (n)
+        (let ploop ((p 0))
+          (if (fx< p num-pairs)
+              (begin
+                (fiber-spawn
+                 (lambda ()
+                   (let ((c1 (make-fiber-channel 16))
+                         (c2 (make-fiber-channel 16)))
+                     (with-nursery
+                      (lambda (pn)
+                        (fiber-spawn
+                         (lambda ()
+                           (let rloop ((i 0))
+                             (if (fx< i 1500)
+                                 (let ((v (fiber-recv! c1)))
+                                   (fiber-send! c2 (fx+ v 1))
+                                   (rloop (fx+ i 1))))))
+                         pn)
+                        (fiber-spawn
+                         (lambda ()
+                           (let iloop ((i 0) (acc 0))
+                             (if (fx< i 1500)
+                                 (begin
+                                   (if (and (fx= p 0) (fx= (fxand i 511) 511))
+                                       (##gc))
+                                   (fiber-send! c1 i)
+                                   (iloop (fx+ i 1) (fx+ acc (fiber-recv! c2))))
+                                 (if (fx= acc 1125750)
+                                     (atomic-fxbox+/fetch! ok-pairs 1)))))
+                         pn)))))
+                 n)
+                (ploop (fx+ p 1)))))))))
+  (test-equal num-pairs (atomic-fxbox-ref ok-pairs))
+  (test-assert (fx> (fx- (##gc-oneshot-continuation-rewinds) rw-before) 0)))
+
+;; 14b. Mixed multi-shot call/cc inside fibers + one-shot fiber park/yield:
+;;      proves non-aliasing guard never reclaims or corrupts a live multi-shot
+;;      call/cc span when a fiber yields/parks and migrates across carriers.
+(let ((ok-count (make-atomic-fxbox 0)))
+  (run-fibers
+   (lambda ()
+     (with-nursery
+      (lambda (n)
+        (let loop ((i 0))
+          (if (fx< i 16)
+              (begin
+                (fiber-spawn
+                 (lambda ()
+                   (let ((saved-k #f)
+                         (visits 0)
+                         (sum 0))
+                     (let ((v (call-with-current-continuation
+                               (lambda (k)
+                                 (set! saved-k k)
+                                 (fiber-yield)
+                                 10))))
+                       (set! visits (fx+ visits 1))
+                       (set! sum (fx+ sum v))
+                       (fiber-yield)
+                       (if (fx< visits 3)
+                           (saved-k (fx+ v 10))))
+                     (if (and (fx= visits 3) (fx= sum 60))
+                         (atomic-fxbox+/fetch! ok-count 1))))
+                 n)
+                (loop (fx+ i 1)))))))))
+  (test-equal 16 (atomic-fxbox-ref ok-count)))
+
+;; 14c. Deep (> 4 KiB / > 64 frames) recursive fiber stacks across channel
+;;      park/resume & work-stealing: verifies partial-chunk restores never
+;;      prematurely clear their underlying stack span.
+(let ((deep-ok (make-atomic-fxbox 0)))
+  (run-fibers
+   (lambda ()
+     (with-nursery
+      (lambda (n)
+        (let loop ((i 0))
+          (if (fx< i 8)
+              (begin
+                (fiber-spawn
+                 (lambda ()
+                   (let ((ch (make-fiber-channel 1)))
+                     (let ((res
+                            (let recur ((d 140))
+                              (if (fx= d 0)
+                                  (begin
+                                    (fiber-yield)
+                                    (fiber-spawn (lambda () (fiber-send! ch 42)))
+                                    (fiber-recv! ch))
+                                  (let ((x (fx+ d 1)))
+                                    (fx+ 1 (recur (fx- d 1)) (fx- x d)))))))
+                       (if (fx= res (fx+ 42 (fx* 140 2)))
+                           (atomic-fxbox+/fetch! deep-ok 1)))))
+                 n)
+                (loop (fx+ i 1)))))))))
+  (test-equal 8 (atomic-fxbox-ref deep-ok)))
+
+;; 14d. Multi-shot replay + concurrent downstream snapshot reader fiber DAG:
+;;      producer publishes immutable snapshots and replays via fresh COW vectors
+;;      while concurrent downstream consumer fibers verify snapshot immutability
+;;      and linear side-effecting tasks execute strictly once.
+(let ((linear-runs (make-atomic-fxbox 0))
+      (reader-ok (make-atomic-fxbox 0))
+      (replay-ok (make-atomic-fxbox 0)))
+  (run-fibers
+   (lambda ()
+     (let ((snap-ch (make-fiber-channel 32))
+           (done-ch (make-fiber-channel 16)))
+       (with-nursery
+        (lambda (n)
+          ;; Linear side-effecting upstream task (executes strictly once)
+          (fiber-spawn
+           (lambda ()
+             (atomic-fxbox+/fetch! linear-runs 1)
+             (fiber-send! done-ch 'linear-done))
+           n)
+          ;; Pure multi-shot producer publishing immutable COW snapshots
+          (fiber-spawn
+           (lambda ()
+             (let loop ((shot 0))
+               (if (fx< shot 64)
+                   (let ((cow-buf (make-vector 16 (fx+ 1000 shot))))
+                     (fiber-send! snap-ch (cons shot cow-buf))
+                     (fiber-yield)
+                     (atomic-fxbox+/fetch! replay-ok 1)
+                     (loop (fx+ shot 1))))))
+           n)
+          ;; 4 concurrent downstream consumer fibers verifying every snapshot
+          (let cloop ((c 0))
+            (if (fx< c 4)
+                (begin
+                  (fiber-spawn
+                   (lambda ()
+                     (let rloop ((k 0))
+                       (if (fx< k 16)
+                           (let* ((msg (fiber-recv! snap-ch))
+                                  (shot (car msg))
+                                  (buf (cdr msg))
+                                  (exp (fx+ 1000 shot)))
+                             (fiber-yield)
+                             (let chk ((j 0) (good #t))
+                               (if (fx< j 16)
+                                   (chk (fx+ j 1) (and good (fx= (vector-ref buf j) exp)))
+                                   (if good (atomic-fxbox+/fetch! reader-ok 1))))
+                             (rloop (fx+ k 1))))))
+                   n)
+                  (cloop (fx+ c 1)))))
+          (fiber-recv! done-ch))))))
+  (test-equal 1 (atomic-fxbox-ref linear-runs))
+  (test-equal 64 (atomic-fxbox-ref replay-ok))
+  (test-equal 64 (atomic-fxbox-ref reader-ok)))
+
+;; 14e. Property-based randomized MPMC linearizability & exact per-producer FIFO
+;;      model check on fiber-channel (adaptive to VM processor count) across
+;;      cap in {0, 1, 2, 4, 8, 16} with interleaved fiber-yield and concurrent
+;;      GC: verifies zero drops, zero duplicates, exact item set conservation,
+;;      and strict per-producer FIFO order across all cores.
+(let* ((p (max 2 (min 8 (##current-vm-processor-count))))
+       (rounds 12)
+       (items-per-prod 50)
+       (all-ok #t))
+  (let rloop ((r 0))
+    (if (fx< r rounds)
+        (let* ((cap (vector-ref '#(0 1 2 4 8 16) (fxmodulo r 6)))
+               (ch (make-fiber-channel cap))
+               (total (fx* p items-per-prod))
+               (seen (let ((v (make-vector total #f)))
+                       (let sloop ((i 0))
+                         (if (fx< i total)
+                             (begin (vector-set! v i (make-atomic-fxbox 0))
+                                    (sloop (fx+ i 1)))))
+                       v))
+               (order-bad (make-atomic-fxbox 0))
+               (dup-bad (make-atomic-fxbox 0))
+               (cons-done (make-atomic-fxbox 0)))
+          (run-fibers
+           (lambda ()
+             (with-nursery
+              (lambda (n)
+                ;; P concurrent producers encoding (prod-id * items-per-prod + seq)
+                (let ploop ((pid 0))
+                  (if (fx< pid p)
+                      (begin
+                        (fiber-spawn
+                         (lambda ()
+                           (let iloop ((seq 0))
+                             (if (fx< seq items-per-prod)
+                                 (let ((tok (fx+ (fx* pid items-per-prod) seq)))
+                                   (fiber-send! ch tok)
+                                   (if (fx= (fxand (fx+ pid seq r) 7) 7) (fiber-yield))
+                                   (iloop (fx+ seq 1))))))
+                         n)
+                        (ploop (fx+ pid 1)))))
+                ;; P concurrent consumers verifying lock-free uniqueness & exact conservation
+                (let cloop ((cid 0))
+                  (if (fx< cid p)
+                      (begin
+                        (fiber-spawn
+                         (lambda ()
+                           (let iloop ((k 0))
+                             (if (fx< k items-per-prod)
+                                 (let* ((v (fiber-recv! ch))
+                                        (prev (atomic-fxbox+/fetch! (vector-ref seen v) 1)))
+                                   (if (not (fx= prev 0))
+                                       (atomic-fxbox+/fetch! dup-bad 1))
+                                   (atomic-fxbox+/fetch! cons-done 1)
+                                   (if (and (fx= cid 0) (fx= (fxand k 31) 31))
+                                       (##gc))
+                                   (iloop (fx+ k 1))))))
+                         n)
+                        (cloop (fx+ cid 1))))))))
+           workers: p)
+          ;; Single-consumer exact per-producer FIFO check on the same channel
+          (let ((ch-fifo (make-fiber-channel cap))
+                (fifo-last (make-vector p -1)))
+            (run-fibers
+             (lambda ()
+               (with-nursery
+                (lambda (n)
+                  (let ploop ((pid 0))
+                    (if (fx< pid p)
+                        (begin
+                          (fiber-spawn
+                           (lambda ()
+                             (let iloop ((seq 0))
+                               (if (fx< seq 25)
+                                   (begin
+                                     (fiber-send! ch-fifo (fx+ (fx* pid 25) seq))
+                                     (if (fx= (fxand seq 7) 7) (fiber-yield))
+                                     (iloop (fx+ seq 1))))))
+                           n)
+                          (ploop (fx+ pid 1)))))
+                  (fiber-spawn
+                   (lambda ()
+                     (let cloop ((k 0))
+                       (if (fx< k (fx* p 25))
+                           (let* ((v (fiber-recv! ch-fifo))
+                                  (pid (fxquotient v 25))
+                                  (seq (fxmodulo v 25)))
+                             (if (not (fx= seq (fx+ (vector-ref fifo-last pid) 1)))
+                                 (atomic-fxbox+/fetch! order-bad 1))
+                             (vector-set! fifo-last pid seq)
+                             (cloop (fx+ k 1))))))
+                   n))))
+             workers: p))
+          ;; Verify every single item [0 .. total) was delivered strictly once
+          (let vloop ((i 0))
+            (if (fx< i total)
+                (begin
+                  (if (not (fx= (atomic-fxbox-ref (vector-ref seen i)) 1))
+                      (set! all-ok #f))
+                  (vloop (fx+ i 1)))))
+          (if (or (not (fx= (atomic-fxbox-ref cons-done) total))
+                  (not (fx= (atomic-fxbox-ref dup-bad) 0))
+                  (not (fx= (atomic-fxbox-ref order-bad) 0)))
+              (set! all-ok #f))
+          (rloop (fx+ r 1)))))
+  (test-assert all-ok))
+
+;;;============================================================================

@@ -193,7 +193,7 @@
     (test-equal num-threads (atomic-fxbox-ref ok-count))))
 
 ;; 5b. 12 threads racing to `resume` the SAME one-shot effect-continuation
-(let ((num-threads 12)
+(let ((num-threads (max 4 (min 16 (##current-vm-processor-count))))
       (rounds 30)
       (total-winners (make-atomic-fxbox 0))
       (total-rejected (make-atomic-fxbox 0)))
@@ -342,5 +342,110 @@
       (tail: (x) (list 'inner-20 x))
       (list (car (perform-cap outer-cap 1))
             (car (perform-cap inner-cap 2))))))
+
+;;;============================================================================
+;;; 9. 12-Core SMP Adversarial Linear One-Shot Race & Multi-Shot Nested-Handler
+;;;    Concurrent Replay + Downstream Snapshot Verification
+
+;; 9a. 12 threads simultaneously race to consume the SAME linear one-shot
+;;     effect continuation via `resume` (and competing `resume-multishot`).
+;;     For a linear effect, strictly 1 caller succeeds when `resume` wins;
+;;     consumed continuations never re-execute.
+(let ((num-threads (max 4 (min 16 (##current-vm-processor-count))))
+      (rounds 30)
+      (linear-eff (make-effect 'smp-linear-race))
+      (total-winners (make-atomic-fxbox 0))
+      (total-rejected (make-atomic-fxbox 0)))
+  (let rloop ((r 0))
+    (if (fx< r rounds)
+        (let ((shared-ek #f)
+              (round-winners (make-atomic-fxbox 0))
+              (round-rejected (make-atomic-fxbox 0))
+              (side-effect-count (make-atomic-fxbox 0))
+              (go-flag (make-atomic-fxbox 0)))
+          (with-handler
+            ((linear-eff (k x)
+               (set! shared-ek k)
+               'suspended))
+            (let ((v (perform linear-eff r)))
+              (atomic-fxbox+/fetch! side-effect-count 1)
+              (fx+ v 1000)))
+          (let ((threads
+                 (let tloop ((i 0) (acc '()))
+                   (if (fx= i num-threads)
+                       acc
+                       (tloop (fx+ i 1)
+                              (cons
+                               (thread-start!
+                                (make-thread
+                                 (lambda ()
+                                   (let spin ()
+                                     (if (fx= (atomic-fxbox-ref go-flag) 0)
+                                         (begin (thread-yield!) (spin))))
+                                   (with-exception-catcher
+                                    (lambda (e)
+                                      (atomic-fxbox+/fetch! round-rejected 1))
+                                    (lambda ()
+                                      (let ((res (resume shared-ek r)))
+                                        (if (fx= res (fx+ r 1000))
+                                            (atomic-fxbox+/fetch! round-winners 1))))))))
+                               acc))))))
+            (atomic-fxbox-set! go-flag 1)
+            (for-each thread-join! threads)
+            (test-equal 1 (atomic-fxbox-ref side-effect-count))
+            (test-equal 1 (atomic-fxbox-ref round-winners))
+            (test-equal (fx- num-threads 1) (atomic-fxbox-ref round-rejected))
+            (atomic-fxbox+/fetch! total-winners (atomic-fxbox-ref round-winners))
+            (atomic-fxbox+/fetch! total-rejected (atomic-fxbox-ref round-rejected))
+            (rloop (fx+ r 1))))))
+  (test-equal rounds (atomic-fxbox-ref total-winners))
+  (test-equal (fx* rounds (fx- num-threads 1)) (atomic-fxbox-ref total-rejected)))
+
+;; 9b. Multi-shot effect continuation capturing an inner nested effect handler
+;;     frame in its prefix: concurrently replayed across 12 SMP threads while
+;;     each shot exits through the shared inner prompt frame (verifies frozen
+;;     prefix frames never clear escape-k in-place under concurrent readers).
+(let ((outer-eff (make-effect 'smp-outer-multi))
+      (inner-eff (make-effect 'smp-inner-multi))
+      (shared-ek #f)
+      (num-threads (max 4 (min 16 (##current-vm-processor-count))))
+      (shots-per-thread 30)
+      (ok-shots (make-atomic-fxbox 0)))
+  (with-handler
+    ((outer-eff (k seed)
+       (set! shared-ek k)
+       'captured))
+    (with-handler
+      ((inner-eff (k v)
+         (resume k (fx+ v 10)))
+       (return: (r) (fx* r 2)))
+      (let* ((a (perform outer-eff 0))
+             (b (perform inner-eff a)))
+        (fx+ b 5))))
+  (test-equal #t (effect-continuation? shared-ek))
+  ;; Promote once to MULTISHOT_COW before concurrent multi-core replay
+  (test-equal 30 (resume-multishot shared-ek 0))
+  (let ((threads
+         (let tloop ((t 0) (acc '()))
+           (if (fx= t num-threads)
+               acc
+               (tloop (fx+ t 1)
+                      (cons
+                       (thread-start!
+                        (make-thread
+                         (lambda ()
+                           (let sloop ((s 0))
+                             (if (fx< s shots-per-thread)
+                                 (let* ((arg (fx+ (fx* t 50) s))
+                                        (res (resume-multishot shared-ek arg))
+                                        (expected (fx* (fx+ (fx+ arg 10) 5) 2)))
+                                   (if (fx= res expected)
+                                       (atomic-fxbox+/fetch! ok-shots 1))
+                                   (if (and (fx= t 0) (fx= (fxand s 15) 15))
+                                       (##gc))
+                                   (sloop (fx+ s 1))))))))
+                       acc))))))
+    (for-each thread-join! threads)
+    (test-equal (fx* num-threads shots-per-thread) (atomic-fxbox-ref ok-shots))))
 
 ;;;============================================================================

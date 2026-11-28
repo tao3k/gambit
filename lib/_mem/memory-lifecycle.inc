@@ -334,6 +334,7 @@ ___processor_state ___ps;)
    */
 
   msection_free_list = 0;
+  parked_stack_list = 0;
 
   words_prev_msections = 0;
 

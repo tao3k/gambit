@@ -257,6 +257,7 @@
 
 #define tospace_offset          ___PSTATE_MEM(tospace_offset_)
 #define msection_free_list      ___PSTATE_MEM(msection_free_list_)
+#define parked_stack_list       ___PSTATE_MEM(parked_stack_list_)
 #define stack_msection          ___PSTATE_MEM(stack_msection_)
 #define alloc_stack_start       ___PSTATE_MEM(alloc_stack_start_)
 #define alloc_stack_ptr         ___PSTATE_MEM(alloc_stack_ptr_)

@@ -240,6 +240,7 @@
                                                      (%mc-frame-barriers pframe))
                                   (error "perform: cannot suspend across continuation barrier"
                                          (effect-name eff)))
+                              (if (pair? prefix) (%freeze-mc-prefix! prefix))
                               (let ((cap-marks (%list-prefix-until (%tc-marks st)
                                                                    (%mc-frame-marks pframe)))
                                     (cap-handlers (%handlers-prefix-before handlers frame))
@@ -399,6 +400,11 @@
     (if (not (or (fx= prev %EC-ONE-SHOT-LIVE)
                  (fx= prev %EC-MULTISHOT-COW)))
         (error "cannot promote consumed one-shot continuation" ek))
+    (let ((pf (%ec-pframe ek)))
+      (if (and pf (not (%mc-frame-handler pf)))
+          (%mc-frame-handler-set! pf #t)))
+    (let ((pr (%ec-prefix ek)))
+      (if (pair? pr) (%freeze-mc-prefix! pr)))
     (%resume-checked ek v1 v2 more)))
 
 ;;;----------------------------------------------------------------------------
@@ -505,6 +511,7 @@
                 (if (%barrier-between? (%tc-barriers st)
                                        (%mc-frame-barriers pframe))
                     (error "perform-cap: cannot suspend across continuation barrier" cap))
+                (if (pair? prefix) (%freeze-mc-prefix! prefix))
                 (let ((cap-marks (%list-prefix-until (%tc-marks st)
                                                      (%mc-frame-marks pframe)))
                       (cap-handlers (%handlers-prefix-before handlers frame))
