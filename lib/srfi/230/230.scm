@@ -76,6 +76,26 @@
          ((##eq? ,order 'sequentially-consistent) 4)
          (else (bad-memory-order ,order ,proc))))
 
+(##define-macro (macro-dispatch-load-order order proc op . args)
+  `(cond ((##eq? ,order 'acquire) (,op ,@args 1))
+         ((##eq? ,order 'relaxed) (,op ,@args 0))
+         ((##eq? ,order 'sequentially-consistent) (,op ,@args 4))
+         (else (bad-memory-order ,order ,proc))))
+
+(##define-macro (macro-dispatch-store-order order proc op . args)
+  `(cond ((##eq? ,order 'release) (,op ,@args 2))
+         ((##eq? ,order 'relaxed) (,op ,@args 0))
+         ((##eq? ,order 'sequentially-consistent) (,op ,@args 4))
+         (else (bad-memory-order ,order ,proc))))
+
+(##define-macro (macro-dispatch-rmw-order order proc op . args)
+  `(cond ((##eq? ,order 'acquire) (,op ,@args 1))
+         ((##eq? ,order 'relaxed) (,op ,@args 0))
+         ((##eq? ,order 'release) (,op ,@args 2))
+         ((##eq? ,order 'sequentially-consistent) (,op ,@args 4))
+         ((##eq? ,order 'acquire-release) (,op ,@args 3))
+         (else (bad-memory-order ,order ,proc))))
+
 ;;;============================================================================
 ;;; Low-Level Inline GC-Barriered Vector-Slot Atomic Macros
 ;;;============================================================================
@@ -84,28 +104,45 @@
 
 (##define-macro (macro-raw-fence! code)
   `(macro-if-c-compiled
-    (##c-code "___atomic_fence_order((int)___INT(___ARG1)); ___RESULT = ___VOID;"
-              ,code)
+    ,(if (##fixnum? code)
+         `(##c-code
+           ,(string-append "___atomic_fence_order(" (number->string code) "); ___RESULT = ___VOID;"))
+         `(##c-code "___atomic_fence_order((int)___INT(___ARG1)); ___RESULT = ___VOID;"
+                    ,code))
     (begin
       (##vector-cas! fence-scratch 0 0 0)
       (##void))))
 
 (##define-macro (macro-raw-slot-load vec idx code)
   `(macro-if-c-compiled
-    (##c-code
-     "___WORD *___s = ___FXINDX_WORD(___BODY_AS(___ARG1, ___tVECTOR), ___ARG2);
-      ___RESULT = ___gc_atomic_slot_load(___s, (int)___INT(___ARG3));"
-     ,vec ,idx ,code)
+    ,(if (##fixnum? code)
+         `(##c-code
+           ,(string-append
+             "___WORD *___s = ___FXINDX_WORD(___BODY_AS(___ARG1, ___tVECTOR), ___ARG2);
+              ___RESULT = ___gc_atomic_slot_load(___s, " (number->string code) ");")
+           ,vec ,idx)
+         `(##c-code
+           "___WORD *___s = ___FXINDX_WORD(___BODY_AS(___ARG1, ___tVECTOR), ___ARG2);
+            ___RESULT = ___gc_atomic_slot_load(___s, (int)___INT(___ARG3));"
+           ,vec ,idx ,code))
     (##vector-cas! ,vec ,idx #!unbound #!unbound)))
 
 (##define-macro (macro-raw-slot-exchange! vec idx newval code)
   `(macro-if-c-compiled
-    (##c-code
-     "___WORD *___s = ___FXINDX_WORD(___BODY_AS(___ARG1, ___tVECTOR), ___ARG2);
-      ___RESULT = ___gc_atomic_slot_exchange(
-        ___ps, ___ARG1, ___s, ___ARG3, (int)___INT(___ARG4),
-        ___EXT(___gc_write_barrier_slow), ___EXT(___gc_satb_barrier_val));"
-     ,vec ,idx ,newval ,code)
+    ,(if (##fixnum? code)
+         `(##c-code
+           ,(string-append
+             "___WORD *___s = ___FXINDX_WORD(___BODY_AS(___ARG1, ___tVECTOR), ___ARG2);
+              ___RESULT = ___gc_atomic_slot_exchange(
+                ___ps, ___ARG1, ___s, ___ARG3, " (number->string code) ",
+                ___EXT(___gc_write_barrier_slow), ___EXT(___gc_satb_barrier_val));")
+           ,vec ,idx ,newval)
+         `(##c-code
+           "___WORD *___s = ___FXINDX_WORD(___BODY_AS(___ARG1, ___tVECTOR), ___ARG2);
+            ___RESULT = ___gc_atomic_slot_exchange(
+              ___ps, ___ARG1, ___s, ___ARG3, (int)___INT(___ARG4),
+              ___EXT(___gc_write_barrier_slow), ___EXT(___gc_satb_barrier_val));"
+           ,vec ,idx ,newval ,code))
     (let ((v ,vec) (i ,idx) (nv ,newval))
       (let loop ((old (##vector-cas! v i #!unbound #!unbound)))
         (let ((prev (##vector-cas! v i nv old)))
@@ -113,33 +150,78 @@
               old
               (loop prev)))))))
 
+(##define-macro (macro-raw-slot-store-void! vec idx newval code)
+  `(macro-if-c-compiled
+    ,(if (##fixnum? code)
+         `(##c-code
+           ,(string-append
+             "___WORD *___s = ___FXINDX_WORD(___BODY_AS(___ARG1, ___tVECTOR), ___ARG2);
+              ___gc_atomic_slot_exchange(
+                ___ps, ___ARG1, ___s, ___ARG3, " (number->string code) ",
+                ___EXT(___gc_write_barrier_slow), ___EXT(___gc_satb_barrier_val));
+              ___RESULT = ___VOID;")
+           ,vec ,idx ,newval)
+         `(##c-code
+           "___WORD *___s = ___FXINDX_WORD(___BODY_AS(___ARG1, ___tVECTOR), ___ARG2);
+            ___gc_atomic_slot_exchange(
+              ___ps, ___ARG1, ___s, ___ARG3, (int)___INT(___ARG4),
+              ___EXT(___gc_write_barrier_slow), ___EXT(___gc_satb_barrier_val));
+            ___RESULT = ___VOID;"
+           ,vec ,idx ,newval ,code))
+    (begin
+      (macro-raw-slot-exchange! ,vec ,idx ,newval ,code)
+      (##void))))
+
 (##define-macro (macro-raw-slot-cas! vec idx expected desired code)
   `(macro-if-c-compiled
-    (##c-code
-     "___WORD *___s = ___FXINDX_WORD(___BODY_AS(___ARG1, ___tVECTOR), ___ARG2);
-      ___RESULT = ___gc_atomic_slot_cas(
-        ___ps, ___ARG1, ___s, ___ARG3, ___ARG4, (int)___INT(___ARG5),
-        ___EXT(___gc_write_barrier_slow), ___EXT(___gc_satb_barrier_val));"
-     ,vec ,idx ,expected ,desired ,code)
+    ,(if (##fixnum? code)
+         `(##c-code
+           ,(string-append
+             "___WORD *___s = ___FXINDX_WORD(___BODY_AS(___ARG1, ___tVECTOR), ___ARG2);
+              ___RESULT = ___gc_atomic_slot_cas(
+                ___ps, ___ARG1, ___s, ___ARG3, ___ARG4, " (number->string code) ",
+                ___EXT(___gc_write_barrier_slow), ___EXT(___gc_satb_barrier_val));")
+           ,vec ,idx ,expected ,desired)
+         `(##c-code
+           "___WORD *___s = ___FXINDX_WORD(___BODY_AS(___ARG1, ___tVECTOR), ___ARG2);
+            ___RESULT = ___gc_atomic_slot_cas(
+              ___ps, ___ARG1, ___s, ___ARG3, ___ARG4, (int)___INT(___ARG5),
+              ___EXT(___gc_write_barrier_slow), ___EXT(___gc_satb_barrier_val));"
+           ,vec ,idx ,expected ,desired ,code))
     (##vector-cas! ,vec ,idx ,desired ,expected)))
 
 (##define-macro (macro-raw-fx-load vec idx code)
   `(macro-if-c-compiled
-    (##c-code
-     "___WORD *___s = ___FXINDX_WORD(___BODY_AS(___ARG1, ___tVECTOR), ___ARG2);
-      ___RESULT = ___CAST(___SCMOBJ,
-        ___atomic_word_load(___CAST(___VOLATILE ___WORD*, ___s), (int)___INT(___ARG3)));"
-     ,vec ,idx ,code)
+    ,(if (##fixnum? code)
+         `(##c-code
+           ,(string-append
+             "___WORD *___s = ___FXINDX_WORD(___BODY_AS(___ARG1, ___tVECTOR), ___ARG2);
+              ___RESULT = ___CAST(___SCMOBJ,
+                ___atomic_word_load(___CAST(___VOLATILE ___WORD*, ___s), " (number->string code) "));")
+           ,vec ,idx)
+         `(##c-code
+           "___WORD *___s = ___FXINDX_WORD(___BODY_AS(___ARG1, ___tVECTOR), ___ARG2);
+            ___RESULT = ___CAST(___SCMOBJ,
+              ___atomic_word_load(___CAST(___VOLATILE ___WORD*, ___s), (int)___INT(___ARG3)));"
+           ,vec ,idx ,code))
     (##vector-cas! ,vec ,idx #!unbound #!unbound)))
 
 (##define-macro (macro-raw-fx-store! vec idx val code)
   `(macro-if-c-compiled
-    (##c-code
-     "___WORD *___s = ___FXINDX_WORD(___BODY_AS(___ARG1, ___tVECTOR), ___ARG2);
-      ___atomic_word_store(___CAST(___VOLATILE ___WORD*, ___s),
-                           ___CAST(___WORD, ___ARG3), (int)___INT(___ARG4));
-      ___RESULT = ___VOID;"
-     ,vec ,idx ,val ,code)
+    ,(if (##fixnum? code)
+         `(##c-code
+           ,(string-append
+             "___WORD *___s = ___FXINDX_WORD(___BODY_AS(___ARG1, ___tVECTOR), ___ARG2);
+              ___atomic_word_store(___CAST(___VOLATILE ___WORD*, ___s),
+                                   ___CAST(___WORD, ___ARG3), " (number->string code) ");
+              ___RESULT = ___VOID;")
+           ,vec ,idx ,val)
+         `(##c-code
+           "___WORD *___s = ___FXINDX_WORD(___BODY_AS(___ARG1, ___tVECTOR), ___ARG2);
+            ___atomic_word_store(___CAST(___VOLATILE ___WORD*, ___s),
+                                 ___CAST(___WORD, ___ARG3), (int)___INT(___ARG4));
+            ___RESULT = ___VOID;"
+           ,vec ,idx ,val ,code))
     (let ((v ,vec) (i ,idx) (nv ,val))
       (let loop ((old (##vector-cas! v i #!unbound #!unbound)))
         (let ((prev (##vector-cas! v i nv old)))
@@ -147,46 +229,82 @@
 
 (##define-macro (macro-raw-fx-exchange! vec idx val code)
   `(macro-if-c-compiled
-    (##c-code
-     "___WORD *___s = ___FXINDX_WORD(___BODY_AS(___ARG1, ___tVECTOR), ___ARG2);
-      ___RESULT = ___CAST(___SCMOBJ,
-        ___atomic_word_exchange(___CAST(___VOLATILE ___WORD*, ___s),
-                                ___CAST(___WORD, ___ARG3), (int)___INT(___ARG4)));"
-     ,vec ,idx ,val ,code)
+    ,(if (##fixnum? code)
+         `(##c-code
+           ,(string-append
+             "___WORD *___s = ___FXINDX_WORD(___BODY_AS(___ARG1, ___tVECTOR), ___ARG2);
+              ___RESULT = ___CAST(___SCMOBJ,
+                ___atomic_word_exchange(___CAST(___VOLATILE ___WORD*, ___s),
+                                        ___CAST(___WORD, ___ARG3), " (number->string code) "));")
+           ,vec ,idx ,val)
+         `(##c-code
+           "___WORD *___s = ___FXINDX_WORD(___BODY_AS(___ARG1, ___tVECTOR), ___ARG2);
+            ___RESULT = ___CAST(___SCMOBJ,
+              ___atomic_word_exchange(___CAST(___VOLATILE ___WORD*, ___s),
+                                      ___CAST(___WORD, ___ARG3), (int)___INT(___ARG4)));"
+           ,vec ,idx ,val ,code))
     (let ((v ,vec) (i ,idx) (nv ,val))
       (let loop ((old (##vector-cas! v i #!unbound #!unbound)))
         (let ((prev (##vector-cas! v i nv old)))
           (if (##eq? prev old) old (loop prev)))))))
 
+(##define-macro (macro-raw-flag-tas! vec idx code)
+  `(##not (##fx= (macro-raw-fx-exchange! ,vec ,idx 1 ,code) 0)))
+
 (##define-macro (macro-raw-fx-cas! vec idx expected desired code)
   `(macro-if-c-compiled
-    (##c-code
-     "___WORD *___s = ___FXINDX_WORD(___BODY_AS(___ARG1, ___tVECTOR), ___ARG2);
-      ___RESULT = ___CAST(___SCMOBJ,
-        ___atomic_word_cas(___CAST(___VOLATILE ___WORD*, ___s),
-                           ___CAST(___WORD, ___ARG3),
-                           ___CAST(___WORD, ___ARG4), (int)___INT(___ARG5)));"
-     ,vec ,idx ,expected ,desired ,code)
+    ,(if (##fixnum? code)
+         `(##c-code
+           ,(string-append
+             "___WORD *___s = ___FXINDX_WORD(___BODY_AS(___ARG1, ___tVECTOR), ___ARG2);
+              ___RESULT = ___CAST(___SCMOBJ,
+                ___atomic_word_cas(___CAST(___VOLATILE ___WORD*, ___s),
+                                   ___CAST(___WORD, ___ARG3),
+                                   ___CAST(___WORD, ___ARG4), " (number->string code) "));")
+           ,vec ,idx ,expected ,desired)
+         `(##c-code
+           "___WORD *___s = ___FXINDX_WORD(___BODY_AS(___ARG1, ___tVECTOR), ___ARG2);
+            ___RESULT = ___CAST(___SCMOBJ,
+              ___atomic_word_cas(___CAST(___VOLATILE ___WORD*, ___s),
+                                 ___CAST(___WORD, ___ARG3),
+                                 ___CAST(___WORD, ___ARG4), (int)___INT(___ARG5)));"
+           ,vec ,idx ,expected ,desired ,code))
     (##vector-cas! ,vec ,idx ,desired ,expected)))
 
 (##define-macro (macro-raw-fx-fetch-add! vec idx delta code)
   `(macro-if-c-compiled
-    (##c-code
-     "___WORD *___s = ___FXINDX_WORD(___BODY_AS(___ARG1, ___tVECTOR), ___ARG2);
-      ___RESULT = ___CAST(___SCMOBJ,
-        ___atomic_uword_fetch_add(___CAST(___VOLATILE ___WORD*, ___s),
-                                  ___CAST(___WORD, ___ARG3), (int)___INT(___ARG4)));"
-     ,vec ,idx ,delta ,code)
+    ,(if (##fixnum? code)
+         `(##c-code
+           ,(string-append
+             "___WORD *___s = ___FXINDX_WORD(___BODY_AS(___ARG1, ___tVECTOR), ___ARG2);
+              ___RESULT = ___CAST(___SCMOBJ,
+                ___atomic_uword_fetch_add(___CAST(___VOLATILE ___WORD*, ___s),
+                                          ___CAST(___WORD, ___ARG3), " (number->string code) "));")
+           ,vec ,idx ,delta)
+         `(##c-code
+           "___WORD *___s = ___FXINDX_WORD(___BODY_AS(___ARG1, ___tVECTOR), ___ARG2);
+            ___RESULT = ___CAST(___SCMOBJ,
+              ___atomic_uword_fetch_add(___CAST(___VOLATILE ___WORD*, ___s),
+                                        ___CAST(___WORD, ___ARG3), (int)___INT(___ARG4)));"
+           ,vec ,idx ,delta ,code))
     (##vector-inc! ,vec ,idx ,delta)))
 
 (##define-macro (macro-raw-fx-fetch-sub! vec idx delta code)
   `(macro-if-c-compiled
-    (##c-code
-     "___WORD *___s = ___FXINDX_WORD(___BODY_AS(___ARG1, ___tVECTOR), ___ARG2);
-      ___RESULT = ___CAST(___SCMOBJ,
-        ___atomic_uword_fetch_sub(___CAST(___VOLATILE ___WORD*, ___s),
-                                  ___CAST(___WORD, ___ARG3), (int)___INT(___ARG4)));"
-     ,vec ,idx ,delta ,code)
+    ,(if (##fixnum? code)
+         `(##c-code
+           ,(string-append
+             "___WORD *___s = ___FXINDX_WORD(___BODY_AS(___ARG1, ___tVECTOR), ___ARG2);
+              ___RESULT = ___CAST(___SCMOBJ,
+                ___atomic_uword_fetch_sub(___CAST(___VOLATILE ___WORD*, ___s),
+                                          ___CAST(___WORD, ___ARG3), " (number->string code) "));")
+           ,vec ,idx ,delta)
+         `(##c-code
+           "___WORD *___s = ___FXINDX_WORD(___BODY_AS(___ARG1, ___tVECTOR), ___ARG2);
+            ___RESULT = ___CAST(___SCMOBJ,
+              ___atomic_uword_fetch_sub(___CAST(___VOLATILE ___WORD*, ___s),
+                                        ___CAST(___WORD, ___ARG3), (int)___INT(___ARG4)));"
+           ,vec ,idx ,delta ,code))
     (let ((v ,vec) (i ,idx) (d ,delta))
       (let loop ((old (##vector-cas! v i #!unbound #!unbound)))
         (let* ((next (##fxwrap- old d))
@@ -195,12 +313,20 @@
 
 (##define-macro (macro-raw-fx-fetch-and! vec idx mask code)
   `(macro-if-c-compiled
-    (##c-code
-     "___WORD *___s = ___FXINDX_WORD(___BODY_AS(___ARG1, ___tVECTOR), ___ARG2);
-      ___RESULT = ___CAST(___SCMOBJ,
-        ___atomic_uword_fetch_and(___CAST(___VOLATILE ___WORD*, ___s),
-                                  ___CAST(___WORD, ___ARG3), (int)___INT(___ARG4)));"
-     ,vec ,idx ,mask ,code)
+    ,(if (##fixnum? code)
+         `(##c-code
+           ,(string-append
+             "___WORD *___s = ___FXINDX_WORD(___BODY_AS(___ARG1, ___tVECTOR), ___ARG2);
+              ___RESULT = ___CAST(___SCMOBJ,
+                ___atomic_uword_fetch_and(___CAST(___VOLATILE ___WORD*, ___s),
+                                          ___CAST(___WORD, ___ARG3), " (number->string code) "));")
+           ,vec ,idx ,mask)
+         `(##c-code
+           "___WORD *___s = ___FXINDX_WORD(___BODY_AS(___ARG1, ___tVECTOR), ___ARG2);
+            ___RESULT = ___CAST(___SCMOBJ,
+              ___atomic_uword_fetch_and(___CAST(___VOLATILE ___WORD*, ___s),
+                                        ___CAST(___WORD, ___ARG3), (int)___INT(___ARG4)));"
+           ,vec ,idx ,mask ,code))
     (let ((v ,vec) (i ,idx) (m ,mask))
       (let loop ((old (##vector-cas! v i #!unbound #!unbound)))
         (let* ((next (##fxand old m))
@@ -209,12 +335,20 @@
 
 (##define-macro (macro-raw-fx-fetch-ior! vec idx mask code)
   `(macro-if-c-compiled
-    (##c-code
-     "___WORD *___s = ___FXINDX_WORD(___BODY_AS(___ARG1, ___tVECTOR), ___ARG2);
-      ___RESULT = ___CAST(___SCMOBJ,
-        ___atomic_uword_fetch_ior(___CAST(___VOLATILE ___WORD*, ___s),
-                                  ___CAST(___WORD, ___ARG3), (int)___INT(___ARG4)));"
-     ,vec ,idx ,mask ,code)
+    ,(if (##fixnum? code)
+         `(##c-code
+           ,(string-append
+             "___WORD *___s = ___FXINDX_WORD(___BODY_AS(___ARG1, ___tVECTOR), ___ARG2);
+              ___RESULT = ___CAST(___SCMOBJ,
+                ___atomic_uword_fetch_ior(___CAST(___VOLATILE ___WORD*, ___s),
+                                          ___CAST(___WORD, ___ARG3), " (number->string code) "));")
+           ,vec ,idx ,mask)
+         `(##c-code
+           "___WORD *___s = ___FXINDX_WORD(___BODY_AS(___ARG1, ___tVECTOR), ___ARG2);
+            ___RESULT = ___CAST(___SCMOBJ,
+              ___atomic_uword_fetch_ior(___CAST(___VOLATILE ___WORD*, ___s),
+                                        ___CAST(___WORD, ___ARG3), (int)___INT(___ARG4)));"
+           ,vec ,idx ,mask ,code))
     (let ((v ,vec) (i ,idx) (m ,mask))
       (let loop ((old (##vector-cas! v i #!unbound #!unbound)))
         (let* ((next (##fxior old m))
@@ -223,12 +357,20 @@
 
 (##define-macro (macro-raw-fx-fetch-xor! vec idx mask code)
   `(macro-if-c-compiled
-    (##c-code
-     "___WORD *___s = ___FXINDX_WORD(___BODY_AS(___ARG1, ___tVECTOR), ___ARG2);
-      ___RESULT = ___CAST(___SCMOBJ,
-        ___atomic_uword_fetch_xor(___CAST(___VOLATILE ___WORD*, ___s),
-                                  ___CAST(___WORD, ___ARG3), (int)___INT(___ARG4)));"
-     ,vec ,idx ,mask ,code)
+    ,(if (##fixnum? code)
+         `(##c-code
+           ,(string-append
+             "___WORD *___s = ___FXINDX_WORD(___BODY_AS(___ARG1, ___tVECTOR), ___ARG2);
+              ___RESULT = ___CAST(___SCMOBJ,
+                ___atomic_uword_fetch_xor(___CAST(___VOLATILE ___WORD*, ___s),
+                                          ___CAST(___WORD, ___ARG3), " (number->string code) "));")
+           ,vec ,idx ,mask)
+         `(##c-code
+           "___WORD *___s = ___FXINDX_WORD(___BODY_AS(___ARG1, ___tVECTOR), ___ARG2);
+            ___RESULT = ___CAST(___SCMOBJ,
+              ___atomic_uword_fetch_xor(___CAST(___VOLATILE ___WORD*, ___s),
+                                        ___CAST(___WORD, ___ARG3), (int)___INT(___ARG4)));"
+           ,vec ,idx ,mask ,code))
     (let ((v ,vec) (i ,idx) (m ,mask))
       (let loop ((old (##vector-cas! v i #!unbound #!unbound)))
         (let* ((next (##fxxor old m))
@@ -237,31 +379,30 @@
 
 ;;; Exported internal helpers for (gambit parallel) Chase-Lev ring buffer
 ;;; (prevents C23/TSan speculative stealer data races on wrapped ring slots).
-(##define-macro (macro-check-vector-index vec idx proc)
-  `(begin
-     (if (##not (##vector? ,vec))
-         (##raise-type-exception 1 'vector ,proc (##list ,vec ,idx)))
-     (if (##not (##fixnum? ,idx))
-         (##raise-type-exception 2 'fixnum ,proc (##list ,vec ,idx)))
-     (if (or (##fx< ,idx 0) (##fx>= ,idx (##vector-length ,vec)))
-         (##raise-range-exception 2 ,proc ,vec ,idx))))
+(##define-macro (macro-with-vector-index vec idx proc body)
+  `(if (##vector? ,vec)
+       (if (##fixnum? ,idx)
+           (if (and (##fx>= ,idx 0) (##fx< ,idx (##vector-length ,vec)))
+               ,body
+               (##raise-range-exception 2 ,proc ,vec ,idx))
+           (##raise-type-exception 2 'fixnum ,proc (##list ,vec ,idx)))
+       (##raise-type-exception 1 'vector ,proc (##list ,vec ,idx))))
 
 (define (vector-atomic-ref vec idx #!optional (order 'sequentially-consistent))
-  (macro-check-vector-index vec idx vector-atomic-ref)
-  (macro-raw-slot-load vec idx (macro-load-order->code order vector-atomic-ref)))
+  (macro-with-vector-index vec idx vector-atomic-ref
+    (macro-dispatch-load-order order vector-atomic-ref macro-raw-slot-load vec idx)))
 
 (define (vector-atomic-set! vec idx val #!optional (order 'sequentially-consistent))
-  (macro-check-vector-index vec idx vector-atomic-set!)
-  (macro-raw-slot-exchange! vec idx val (macro-store-order->code order vector-atomic-set!))
-  (##void))
+  (macro-with-vector-index vec idx vector-atomic-set!
+    (macro-dispatch-store-order order vector-atomic-set! macro-raw-slot-store-void! vec idx val)))
 
 (define (vector-atomic-swap! vec idx val #!optional (order 'sequentially-consistent))
-  (macro-check-vector-index vec idx vector-atomic-swap!)
-  (macro-raw-slot-exchange! vec idx val (macro-order->code order vector-atomic-swap!)))
+  (macro-with-vector-index vec idx vector-atomic-swap!
+    (macro-dispatch-rmw-order order vector-atomic-swap! macro-raw-slot-exchange! vec idx val)))
 
 (define (vector-atomic-cas! vec idx expected desired #!optional (order 'sequentially-consistent))
-  (macro-check-vector-index vec idx vector-atomic-cas!)
-  (macro-raw-slot-cas! vec idx expected desired (macro-order->code order vector-atomic-cas!)))
+  (macro-with-vector-index vec idx vector-atomic-cas!
+    (macro-dispatch-rmw-order order vector-atomic-cas! macro-raw-slot-cas! vec idx expected desired)))
 
 ;;;============================================================================
 ;;; Disjoint SRFI-230 Atomic Types
@@ -349,15 +490,16 @@
   (macro-atomic-flag? obj))
 
 (define (atomic-flag-test-and-set! flag #!optional (order 'sequentially-consistent))
-  (macro-check-flag flag atomic-flag-test-and-set!)
-  (let ((code (macro-order->code order atomic-flag-test-and-set!)))
-    (##not (##fx= (macro-raw-fx-exchange! (macro-atomic-flag-cell flag) 0 1 code) 0))))
+  (if (macro-atomic-flag? flag)
+      (macro-dispatch-rmw-order order atomic-flag-test-and-set!
+                                macro-raw-flag-tas! (macro-atomic-flag-cell flag) 0)
+      (raise-bad-type 1 (macro-type-atomic-flag) atomic-flag-test-and-set! flag)))
 
 (define (atomic-flag-clear! flag #!optional (order 'sequentially-consistent))
-  (macro-check-flag flag atomic-flag-clear!)
-  (let ((code (macro-store-order->code order atomic-flag-clear!)))
-    (macro-raw-fx-store! (macro-atomic-flag-cell flag) 0 0 code)
-    (##void)))
+  (if (macro-atomic-flag? flag)
+      (macro-dispatch-store-order order atomic-flag-clear!
+                                  macro-raw-fx-store! (macro-atomic-flag-cell flag) 0 0)
+      (raise-bad-type 1 (macro-type-atomic-flag) atomic-flag-clear! flag)))
 
 ;;;============================================================================
 ;;; Atomic Boxes (GC-Barriered: Generational Card + Yuasa SATB via Exchange/CAS)
@@ -372,36 +514,31 @@
   (macro-atomic-box? obj))
 
 (define (atomic-box-ref box #!optional (order 'sequentially-consistent))
-  (macro-check-box box atomic-box-ref)
-  (macro-raw-slot-load (macro-atomic-box-cell box)
-                       0
-                       (macro-load-order->code order atomic-box-ref)))
+  (if (macro-atomic-box? box)
+      (macro-dispatch-load-order order atomic-box-ref
+                                 macro-raw-slot-load (macro-atomic-box-cell box) 0)
+      (raise-bad-type 1 (macro-type-atomic-box) atomic-box-ref box)))
 
 (define (atomic-box-set! box obj #!optional (order 'sequentially-consistent))
-  (macro-check-box box atomic-box-set!)
   ;; Uses atomic_exchange (never load+shade+store) so concurrent writers can
   ;; never lose an overwritten mature pointer during Concurrent SATB Major GC.
-  (macro-raw-slot-exchange! (macro-atomic-box-cell box)
-                            0
-                            obj
-                            (macro-store-order->code order atomic-box-set!))
-  (##void))
+  (if (macro-atomic-box? box)
+      (macro-dispatch-store-order order atomic-box-set!
+                                  macro-raw-slot-store-void! (macro-atomic-box-cell box) 0 obj)
+      (raise-bad-type 1 (macro-type-atomic-box) atomic-box-set! box)))
 
 (define (atomic-box-swap! box obj #!optional (order 'sequentially-consistent))
-  (macro-check-box box atomic-box-swap!)
-  (macro-raw-slot-exchange! (macro-atomic-box-cell box)
-                            0
-                            obj
-                            (macro-order->code order atomic-box-swap!)))
+  (if (macro-atomic-box? box)
+      (macro-dispatch-rmw-order order atomic-box-swap!
+                                macro-raw-slot-exchange! (macro-atomic-box-cell box) 0 obj)
+      (raise-bad-type 1 (macro-type-atomic-box) atomic-box-swap! box)))
 
 (define (atomic-box-compare-and-swap! box expected desired
                                       #!optional (order 'sequentially-consistent))
-  (macro-check-box box atomic-box-compare-and-swap!)
-  (macro-raw-slot-cas! (macro-atomic-box-cell box)
-                       0
-                       expected
-                       desired
-                       (macro-order->code order atomic-box-compare-and-swap!)))
+  (if (macro-atomic-box? box)
+      (macro-dispatch-rmw-order order atomic-box-compare-and-swap!
+                                macro-raw-slot-cas! (macro-atomic-box-cell box) 0 expected desired)
+      (raise-bad-type 1 (macro-type-atomic-box) atomic-box-compare-and-swap! box)))
 
 ;;;============================================================================
 ;;; Atomic Fixnum Boxes (Zero-Barrier Hardware Atomic RMW, 00-Tag Preserving)
@@ -417,78 +554,77 @@
   (macro-atomic-fxbox? obj))
 
 (define (atomic-fxbox-ref fxbox #!optional (order 'sequentially-consistent))
-  (macro-check-fxbox fxbox atomic-fxbox-ref)
-  (macro-raw-fx-load (macro-atomic-fxbox-cell fxbox)
-                     0
-                     (macro-load-order->code order atomic-fxbox-ref)))
+  (if (macro-atomic-fxbox? fxbox)
+      (macro-dispatch-load-order order atomic-fxbox-ref
+                                 macro-raw-fx-load (macro-atomic-fxbox-cell fxbox) 0)
+      (raise-bad-type 1 (macro-type-atomic-fxbox) atomic-fxbox-ref fxbox)))
 
 (define (atomic-fxbox-set! fxbox fx #!optional (order 'sequentially-consistent))
-  (macro-check-fxbox fxbox atomic-fxbox-set!)
-  (macro-check-fixnum fx 2 atomic-fxbox-set!)
-  (macro-raw-fx-store! (macro-atomic-fxbox-cell fxbox)
-                       0
-                       fx
-                       (macro-store-order->code order atomic-fxbox-set!))
-  (##void))
+  (if (macro-atomic-fxbox? fxbox)
+      (if (##fixnum? fx)
+          (macro-dispatch-store-order order atomic-fxbox-set!
+                                      macro-raw-fx-store! (macro-atomic-fxbox-cell fxbox) 0 fx)
+          (raise-bad-type 2 'fixnum atomic-fxbox-set! fx))
+      (raise-bad-type 1 (macro-type-atomic-fxbox) atomic-fxbox-set! fxbox)))
 
 (define (atomic-fxbox-swap! fxbox fx #!optional (order 'sequentially-consistent))
-  (macro-check-fxbox fxbox atomic-fxbox-swap!)
-  (macro-check-fixnum fx 2 atomic-fxbox-swap!)
-  (macro-raw-fx-exchange! (macro-atomic-fxbox-cell fxbox)
-                          0
-                          fx
-                          (macro-order->code order atomic-fxbox-swap!)))
+  (if (macro-atomic-fxbox? fxbox)
+      (if (##fixnum? fx)
+          (macro-dispatch-rmw-order order atomic-fxbox-swap!
+                                    macro-raw-fx-exchange! (macro-atomic-fxbox-cell fxbox) 0 fx)
+          (raise-bad-type 2 'fixnum atomic-fxbox-swap! fx))
+      (raise-bad-type 1 (macro-type-atomic-fxbox) atomic-fxbox-swap! fxbox)))
 
 (define (atomic-fxbox-compare-and-swap! fxbox expected desired
                                         #!optional (order 'sequentially-consistent))
-  (macro-check-fxbox fxbox atomic-fxbox-compare-and-swap!)
-  (macro-check-fixnum expected 2 atomic-fxbox-compare-and-swap!)
-  (macro-check-fixnum desired 3 atomic-fxbox-compare-and-swap!)
-  (macro-raw-fx-cas! (macro-atomic-fxbox-cell fxbox)
-                     0
-                     expected
-                     desired
-                     (macro-order->code order atomic-fxbox-compare-and-swap!)))
+  (if (macro-atomic-fxbox? fxbox)
+      (if (##fixnum? expected)
+          (if (##fixnum? desired)
+              (macro-dispatch-rmw-order order atomic-fxbox-compare-and-swap!
+                                        macro-raw-fx-cas! (macro-atomic-fxbox-cell fxbox) 0 expected desired)
+              (raise-bad-type 3 'fixnum atomic-fxbox-compare-and-swap! desired))
+          (raise-bad-type 2 'fixnum atomic-fxbox-compare-and-swap! expected))
+      (raise-bad-type 1 (macro-type-atomic-fxbox) atomic-fxbox-compare-and-swap! fxbox)))
 
 (define (atomic-fxbox-fetch-add! fxbox fx #!optional (order 'sequentially-consistent))
-  (macro-check-fxbox fxbox atomic-fxbox-fetch-add!)
-  (macro-check-fixnum fx 2 atomic-fxbox-fetch-add!)
-  (macro-raw-fx-fetch-add! (macro-atomic-fxbox-cell fxbox)
-                           0
-                           fx
-                           (macro-order->code order atomic-fxbox-fetch-add!)))
+  (if (macro-atomic-fxbox? fxbox)
+      (if (##fixnum? fx)
+          (macro-dispatch-rmw-order order atomic-fxbox-fetch-add!
+                                    macro-raw-fx-fetch-add! (macro-atomic-fxbox-cell fxbox) 0 fx)
+          (raise-bad-type 2 'fixnum atomic-fxbox-fetch-add! fx))
+      (raise-bad-type 1 (macro-type-atomic-fxbox) atomic-fxbox-fetch-add! fxbox)))
 
 (define (atomic-fxbox-fetch-sub! fxbox fx #!optional (order 'sequentially-consistent))
-  (macro-check-fxbox fxbox atomic-fxbox-fetch-sub!)
-  (macro-check-fixnum fx 2 atomic-fxbox-fetch-sub!)
-  (macro-raw-fx-fetch-sub! (macro-atomic-fxbox-cell fxbox)
-                           0
-                           fx
-                           (macro-order->code order atomic-fxbox-fetch-sub!)))
+  (if (macro-atomic-fxbox? fxbox)
+      (if (##fixnum? fx)
+          (macro-dispatch-rmw-order order atomic-fxbox-fetch-sub!
+                                    macro-raw-fx-fetch-sub! (macro-atomic-fxbox-cell fxbox) 0 fx)
+          (raise-bad-type 2 'fixnum atomic-fxbox-fetch-sub! fx))
+      (raise-bad-type 1 (macro-type-atomic-fxbox) atomic-fxbox-fetch-sub! fxbox)))
 
 (define (atomic-fxbox-fetch-and! fxbox fx #!optional (order 'sequentially-consistent))
-  (macro-check-fxbox fxbox atomic-fxbox-fetch-and!)
-  (macro-check-fixnum fx 2 atomic-fxbox-fetch-and!)
-  (macro-raw-fx-fetch-and! (macro-atomic-fxbox-cell fxbox)
-                           0
-                           fx
-                           (macro-order->code order atomic-fxbox-fetch-and!)))
+  (if (macro-atomic-fxbox? fxbox)
+      (if (##fixnum? fx)
+          (macro-dispatch-rmw-order order atomic-fxbox-fetch-and!
+                                    macro-raw-fx-fetch-and! (macro-atomic-fxbox-cell fxbox) 0 fx)
+          (raise-bad-type 2 'fixnum atomic-fxbox-fetch-and! fx))
+      (raise-bad-type 1 (macro-type-atomic-fxbox) atomic-fxbox-fetch-and! fxbox)))
 
 (define (atomic-fxbox-fetch-ior! fxbox fx #!optional (order 'sequentially-consistent))
-  (macro-check-fxbox fxbox atomic-fxbox-fetch-ior!)
-  (macro-check-fixnum fx 2 atomic-fxbox-fetch-ior!)
-  (macro-raw-fx-fetch-ior! (macro-atomic-fxbox-cell fxbox)
-                           0
-                           fx
-                           (macro-order->code order atomic-fxbox-fetch-ior!)))
+  (if (macro-atomic-fxbox? fxbox)
+      (if (##fixnum? fx)
+          (macro-dispatch-rmw-order order atomic-fxbox-fetch-ior!
+                                    macro-raw-fx-fetch-ior! (macro-atomic-fxbox-cell fxbox) 0 fx)
+          (raise-bad-type 2 'fixnum atomic-fxbox-fetch-ior! fx))
+      (raise-bad-type 1 (macro-type-atomic-fxbox) atomic-fxbox-fetch-ior! fxbox)))
 
 (define (atomic-fxbox-fetch-xor! fxbox fx #!optional (order 'sequentially-consistent))
-  (macro-check-fxbox fxbox atomic-fxbox-fetch-xor!)
-  (macro-check-fixnum fx 2 atomic-fxbox-fetch-xor!)
-  (macro-raw-fx-fetch-xor! (macro-atomic-fxbox-cell fxbox)
-                           0
-                           fx
-                           (macro-order->code order atomic-fxbox-fetch-xor!)))
+  (if (macro-atomic-fxbox? fxbox)
+      (if (##fixnum? fx)
+          (macro-dispatch-rmw-order order atomic-fxbox-fetch-xor!
+                                    macro-raw-fx-fetch-xor! (macro-atomic-fxbox-cell fxbox) 0 fx)
+          (raise-bad-type 2 'fixnum atomic-fxbox-fetch-xor! fx))
+      (raise-bad-type 1 (macro-type-atomic-fxbox) atomic-fxbox-fetch-xor! fxbox)))
 
 ;;;============================================================================
 ;;; Atomic Pairs (Lock-Free Immutable Cons-Cell Replacement: Zero Tear!)
@@ -558,6 +694,6 @@
 ;;;============================================================================
 
 (define (atomic-fence #!optional (order 'sequentially-consistent))
-  (macro-raw-fence! (macro-order->code order atomic-fence)))
+  (macro-dispatch-rmw-order order atomic-fence macro-raw-fence!))
 
 ;;;============================================================================

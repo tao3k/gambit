@@ -77,6 +77,9 @@ typedef struct ___still_slab_lock_padded_struct
 #define ___SSL_INIT8 ___SSL_INIT, ___SSL_INIT, ___SSL_INIT, ___SSL_INIT, ___SSL_INIT, ___SSL_INIT, ___SSL_INIT, ___SSL_INIT
 #define ___SSL_INIT16 ___SSL_INIT8, ___SSL_INIT8
 
+#if defined(__GNUC__) || defined(__clang__)
+__attribute__((aligned(128)))
+#endif
 static ___still_slab_lock_padded still_slab_locks_[___STILL_SLAB_BUCKETS] = {
   ___SSL_INIT16, ___SSL_INIT16, ___SSL_INIT16, ___SSL_INIT16,
   ___SSL_INIT16, ___SSL_INIT16, ___SSL_INIT16, ___SSL_INIT16

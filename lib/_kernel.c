@@ -6227,23 +6227,82 @@ do { \
   } while (0)
 #endif
 
+#if defined(__aarch64__) && defined(__ARM_NEON)
+#include <arm_neon.h>
+#endif
+
+static inline void ___init_f64_fill(___F64 *body, ___SIZE_TS limit, ___F64 f)
+{
+  ___SIZE_TS i = 0;
+#if defined(__aarch64__) && defined(__ARM_NEON)
+  float64x2_t vf = vdupq_n_f64(f);
+  for (; limit - i >= 8; i += 8)
+    {
+      vst1q_f64(body + i,     vf);
+      vst1q_f64(body + i + 2, vf);
+      vst1q_f64(body + i + 4, vf);
+      vst1q_f64(body + i + 6, vf);
+    }
+#else
+  for (; limit - i >= 8; i += 8)
+    {
+      body[i]   = f; body[i+1] = f; body[i+2] = f; body[i+3] = f;
+      body[i+4] = f; body[i+5] = f; body[i+6] = f; body[i+7] = f;
+    }
+#endif
+  for (; i < limit; i++)
+    body[i] = f;
+}
+
+static inline void ___init_f32_fill(___F32 *body, ___SIZE_TS limit, ___F32 f)
+{
+  ___SIZE_TS i = 0;
+#if defined(__aarch64__) && defined(__ARM_NEON)
+  float32x4_t vf = vdupq_n_f32(f);
+  for (; limit - i >= 16; i += 16)
+    {
+      vst1q_f32(body + i,      vf);
+      vst1q_f32(body + i + 4,  vf);
+      vst1q_f32(body + i + 8,  vf);
+      vst1q_f32(body + i + 12, vf);
+    }
+#else
+  for (; limit - i >= 8; i += 8)
+    {
+      body[i]   = f; body[i+1] = f; body[i+2] = f; body[i+3] = f;
+      body[i+4] = f; body[i+5] = f; body[i+6] = f; body[i+7] = f;
+    }
+#endif
+  for (; i < limit; i++)
+    body[i] = f;
+}
+
+#define ___INIT_SCMOBJ_FLOAT_FILL_F32VECTOR ___init_f32_fill
+#define ___INIT_SCMOBJ_FLOAT_FILL_F64VECTOR ___init_f64_fill
+
 #define ___INIT_SCMOBJ_INLINE(type, elem_type, unsigned_elem_type, nb_elems, fill) \
 do { \
   if (!___FIXNUMP(result)) \
     { \
       elem_type *body = ___CAST(elem_type*, ___BODY_AS(result,___t ## type)); \
       elem_type f = fill; \
+      ___SIZE_TS limit = (nb_elems); \
       if (sizeof (elem_type) == 1 || \
           ___CAST_U8(f) * (~___CAST(unsigned_elem_type,0)/0xff) == \
           ___CAST(unsigned_elem_type,f)) /* repetition of identical bytes? */ \
         { \
           /* it is usually faster to initialize an array with memset */ \
-          memset(body, ___CAST_U8(f), (nb_elems) * sizeof (elem_type)); \
+          memset(body, ___CAST_U8(f), limit * sizeof (elem_type)); \
         } \
       else \
         { \
-          ___SIZE_TS i; \
-          for (i=0; i<n; i++) \
+          ___SIZE_TS i = 0; \
+          for (; limit - i >= 8; i += 8) \
+            { \
+              body[i]   = f; body[i+1] = f; body[i+2] = f; body[i+3] = f; \
+              body[i+4] = f; body[i+5] = f; body[i+6] = f; body[i+7] = f; \
+            } \
+          for (; i < limit; i++) \
             body[i] = f; \
         } \
     } \
@@ -6255,16 +6314,15 @@ do { \
     { \
       elem_type *body = ___CAST(elem_type*, ___BODY_AS(result,___t ## type)); \
       elem_type f = fill; \
+      ___SIZE_TS limit = (nb_elems); \
       if (f == 0.0 && 1.0/f > 0.0) /* detect positive 0 */ \
         { \
           /* it is usually faster to initialize an array with memset */ \
-          memset(body, 0, (nb_elems) * sizeof (elem_type)); \
+          memset(body, 0, limit * sizeof (elem_type)); \
         } \
       else \
         { \
-          ___SIZE_TS i; \
-          for (i=0; i<n; i++) \
-            body[i] = f; \
+          ___INIT_SCMOBJ_FLOAT_FILL_ ## type(body, limit, f); \
         } \
     } \
   } while (0)
@@ -12175,20 +12233,28 @@ ___DEF_SLBL(8,___L8__23__23_kernel_2d_handlers)
    ___activation_record *held = 0;
    ___WORD held_epoch = 0;
 
-   /* The grant compares the processor record. Between safe points the
-    * live cursors stay in registers, so publish them before the test. */
+   /* Publish live cursors only when hooks/observation are active or on slow path. */
+   ___BOOL rest_fast = ___rest_hooks_gate_closed();
+#ifdef ___GAMBIT_REST_OBSERVATION
    ___W_HEAP
    ___W_FP
-#ifdef ___GAMBIT_REST_OBSERVATION
    ___rest_observation_form(1);
 #endif
-   ___rest_note_attempt_entry(___ps, ___hp, ___fp);
-   if (!___rest_fast_grant_fits(___ps, ___hp, ___fp, i, np, 1))
+   if (__builtin_expect(!rest_fast, 0))
+     {
+       ___W_HEAP
+       ___W_FP
+       ___rest_note_attempt_entry(___ps, ___hp, ___fp);
+     }
+   if (!___rest_fast_grant_fits_gated(___ps, ___hp, ___fp, i, np, 1, rest_fast))
      {
        ___BOOL overflow;
        ___SCMOBJ repaired=___ps->temp1;
        ___WORD *caller;
        int frame_fs, frame_link;
+       rest_fast = 0;
+       ___W_HEAP
+       ___W_FP
 
        ___COVER_REST_PARAM_HANDLER_NEED_TO_GC;
        /* Nine words against a ten-word demand, and the hard tail is no
@@ -12428,16 +12494,20 @@ ___DEF_SLBL(8,___L8__23__23_kernel_2d_handlers)
      }
    }
 
-   if (__builtin_expect(held != 0 || ___rest_attempt_words != 0, 0))
+   if (__builtin_expect(!rest_fast && (held != 0 || ___rest_attempt_words != 0), 0))
      {
        ___WORD_FETCH_ADD_RELAXED(&___rest_fallback_pops, (___WORD)i);
        ___WORD_FETCH_ADD_RELAXED(&___rest_fallback_pair_writes, (___WORD)i);
      }
-   while (i > 0)
-     {
-       rest_param_list = ___CONS(___POP,rest_param_list);
-       i--;
-     }
+   {
+     ___WORD *fp_cur = ___fp;
+     while (i > 0)
+       {
+         rest_param_list = ___CONS(___FP_POP(fp_cur),rest_param_list);
+         i--;
+       }
+     ___fp = fp_cur;
+   }
 
    if (held)
      {
@@ -12468,8 +12538,11 @@ ___DEF_SLBL(8,___L8__23__23_kernel_2d_handlers)
 
    ___POP_ARGS_IN_REGS(np) /* load register arguments */
 
-   ___rest_disarm_attempt();
-   ___rest_observation_note_body(___ps);
+   if (__builtin_expect(!rest_fast, 0))
+     {
+       ___rest_disarm_attempt();
+       ___rest_observation_note_body(___ps);
+     }
    ___JUMPEXTPRM(___SET_NARGS(-1),___ps->temp1)
 
 
@@ -12499,7 +12572,8 @@ ___DEF_SLBL(9,___L9__23__23_kernel_2d_handlers)
    ___WORD k;
    ___WORD fnk;
    ___SCMOBJ key_descr;
-   ___SCMOBJ key_vals[___MAX_NB_PARMS];
+   ___SCMOBJ key_vals_small[___REST_KEY_SMALL_CAP];
+   ___SCMOBJ *key_vals;
 
    np = ___PRD_NBPARMS(___SUBTYPED_HEADER(___ps->temp1));
    na = ___ps->na;
@@ -12531,49 +12605,69 @@ ___DEF_SLBL(9,___L9__23__23_kernel_2d_handlers)
                   ___PRMCELL(___G__23__23_raise_2d_wrong_2d_number_2d_of_2d_arguments_2d_exception_2d_nary.prm))
      }
 
-   /* find first non-keyword pair in remaining arguments */
-
-   for (fnk=k-1; fnk>0; fnk-=2)
-     if (!___KEYWORDP(___STK(-fnk)))
-       break;
-
-   fnk++;
-
-   /* assign values to keyword parameters from last to first */
-
-   for (j=nb_key-1; j>=0; j--)
-     key_vals[j] = ___VECTORELEM(key_descr, j*2+1);
-
-   for (i=fnk+1; i<=k; i+=2)
+   if (__builtin_expect(nb_key <= ___REST_KEY_SMALL_CAP, 1))
+     key_vals = key_vals_small;
+   else
      {
-       ___SCMOBJ key = ___STK(-i);
-
-       for (j=nb_key-1; j>=0; j--)
-         if (key == ___VECTORELEM(key_descr, j*2))
-           {
-             ___COVER_KEYWORD_PARAM_HANDLER_FOUND;
-             key_vals[j] = ___STK(-i+1);
-             goto continue1;
-           }
-
-       /* the keyword was not found in the keyword parameter descriptor */
-
-       ___COVER_KEYWORD_PARAM_HANDLER_NOT_FOUND;
-
-       ___PUSH(___FIX(0)) /* make space for operator */
-
-       for (i=0; i<na; i++)
-         ___SET_STK(-i,___STK(-(i+1))) /* shift arguments up by one */
-
-       ___SET_STK(-na,___ps->temp1) /* set operator argument */
-
-       ___POP_ARGS_IN_REGS(na+1) /* load register arguments */
-
-       ___JUMPPRM(___SET_NARGS(na+1),
-                  ___PRMCELL(___G__23__23_raise_2d_unknown_2d_keyword_2d_argument_2d_exception_2d_nary.prm))
-
-       continue1:;
+       key_vals = ___rest_key_scratch(___ps, nb_key);
+       if (__builtin_expect(key_vals == 0, 0))
+         {
+           ___ADJFP(-na)
+           ___FP_SET_STK(___fp,-___FRAME_STACK_RA,___R0)
+           ___W_FP
+           ___JUMPPRM(___SET_NARGS(0),
+                      ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
+         }
      }
+
+   {
+     ___WORD *fp_cur = ___fp;
+     ___WORD *kdp = ___BODY_AS(key_descr, ___tVECTOR);
+
+     /* find first non-keyword pair in remaining arguments */
+
+     for (fnk=k-1; fnk>0; fnk-=2)
+       if (!___KEYWORDP(___FP_STK(fp_cur,-fnk)))
+         break;
+
+     fnk++;
+
+     /* assign values to keyword parameters from last to first */
+
+     for (j=nb_key-1; j>=0; j--)
+       key_vals[j] = kdp[j*2+1];
+
+     for (i=fnk+1; i<=k; i+=2)
+       {
+         ___SCMOBJ key = ___FP_STK(fp_cur,-i);
+
+         for (j=nb_key-1; j>=0; j--)
+           if (key == kdp[j*2])
+             {
+               ___COVER_KEYWORD_PARAM_HANDLER_FOUND;
+               key_vals[j] = ___FP_STK(fp_cur,-i+1);
+               goto continue1;
+             }
+
+         /* the keyword was not found in the keyword parameter descriptor */
+
+         ___COVER_KEYWORD_PARAM_HANDLER_NOT_FOUND;
+
+         ___PUSH(___FIX(0)) /* make space for operator */
+
+         for (i=0; i<na; i++)
+           ___SET_STK(-i,___STK(-(i+1))) /* shift arguments up by one */
+
+         ___SET_STK(-na,___ps->temp1) /* set operator argument */
+
+         ___POP_ARGS_IN_REGS(na+1) /* load register arguments */
+
+         ___JUMPPRM(___SET_NARGS(na+1),
+                    ___PRMCELL(___G__23__23_raise_2d_unknown_2d_keyword_2d_argument_2d_exception_2d_nary.prm))
+
+         continue1:;
+       }
+   }
 
    if (k & 1) /* keyword arguments must come in pairs */
      {
@@ -12601,8 +12695,12 @@ ___DEF_SLBL(9,___L9__23__23_kernel_2d_handlers)
 
    ___ADJFP(-k) /* remove keyword arguments */
 
-   for (i=0; i<nb_key; i++) /* push value of all keyword params */
-     ___PUSH(key_vals[i])
+   {
+     ___WORD *fp_cur = ___fp;
+     for (i=0; i<nb_key; i++) /* push value of all keyword params */
+       ___FP_PUSH(fp_cur, key_vals[i])
+     ___fp = fp_cur;
+   }
 
    ___POP_ARGS_IN_REGS(np) /* load register arguments */
 
@@ -12662,7 +12760,8 @@ ___DEF_SLBL(10,___L10__23__23_kernel_2d_handlers)
    ___WORD k;
    ___WORD fnk;
    ___SCMOBJ key_descr;
-   ___SCMOBJ key_vals[___MAX_NB_PARMS];
+   ___SCMOBJ key_vals_small[___REST_KEY_SMALL_CAP];
+   ___SCMOBJ *key_vals;
    ___SCMOBJ rest_param_list;
 
    np = ___PRD_NBPARMS(___SUBTYPED_HEADER(___ps->temp1));
@@ -12695,52 +12794,72 @@ ___DEF_SLBL(10,___L10__23__23_kernel_2d_handlers)
                   ___PRMCELL(___G__23__23_raise_2d_wrong_2d_number_2d_of_2d_arguments_2d_exception_2d_nary.prm))
      }
 
-   /* find first non-keyword pair in remaining arguments */
-
-   for (fnk=k-1; fnk>0; fnk-=2)
-     if (!___KEYWORDP(___STK(-fnk)))
-       break;
-
-   fnk++;
-
-   /* assign values to keyword parameters from last to first */
-
-   for (j=nb_key-1; j>=0; j--)
-     key_vals[j] = ___VECTORELEM(key_descr, j*2+1);
-
-   for (i=fnk+1; i<=k; i+=2)
+   if (__builtin_expect(nb_key <= ___REST_KEY_SMALL_CAP, 1))
+     key_vals = key_vals_small;
+   else
      {
-       ___SCMOBJ key = ___STK(-i);
+       key_vals = ___rest_key_scratch(___ps, nb_key);
+       if (__builtin_expect(key_vals == 0, 0))
+         {
+           ___ADJFP(-na)
+           ___FP_SET_STK(___fp,-___FRAME_STACK_RA,___R0)
+           ___W_FP
+           ___JUMPPRM(___SET_NARGS(0),
+                      ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
+         }
+     }
 
-       for (j=nb_key-1; j>=0; j--)
-         if (key == ___VECTORELEM(key_descr, j*2))
+   {
+     ___WORD *fp_cur = ___fp;
+     ___WORD *kdp = ___BODY_AS(key_descr, ___tVECTOR);
+
+     /* find first non-keyword pair in remaining arguments */
+
+     for (fnk=k-1; fnk>0; fnk-=2)
+       if (!___KEYWORDP(___FP_STK(fp_cur,-fnk)))
+         break;
+
+     fnk++;
+
+     /* assign values to keyword parameters from last to first */
+
+     for (j=nb_key-1; j>=0; j--)
+       key_vals[j] = kdp[j*2+1];
+
+     for (i=fnk+1; i<=k; i+=2)
+       {
+         ___SCMOBJ key = ___FP_STK(fp_cur,-i);
+
+         for (j=nb_key-1; j>=0; j--)
+           if (key == kdp[j*2])
+             {
+               ___COVER_KEYWORD_REST_PARAM_HANDLER_FOUND;
+               key_vals[j] = ___FP_STK(fp_cur,-i+1);
+               goto continue2;
+             }
+
+         /* the keyword was not found in the keyword parameter descriptor */
+
+         if (!___ps->temp4) /* not DSSSL style rest parameter? */
            {
-             ___COVER_KEYWORD_REST_PARAM_HANDLER_FOUND;
-             key_vals[j] = ___STK(-i+1);
-             goto continue2;
+             ___COVER_KEYWORD_REST_PARAM_HANDLER_NOT_FOUND;
+
+             ___PUSH(___FIX(0)) /* make space for operator */
+
+             for (i=0; i<na; i++)
+               ___SET_STK(-i,___STK(-(i+1))) /* shift arguments up by one */
+
+             ___SET_STK(-na,___ps->temp1) /* set operator argument */
+
+             ___POP_ARGS_IN_REGS(na+1) /* load register arguments */
+
+             ___JUMPPRM(___SET_NARGS(na+1),
+                        ___PRMCELL(___G__23__23_raise_2d_unknown_2d_keyword_2d_argument_2d_exception_2d_nary.prm))
            }
 
-       /* the keyword was not found in the keyword parameter descriptor */
-
-       if (!___ps->temp4) /* not DSSSL style rest parameter? */
-         {
-           ___COVER_KEYWORD_REST_PARAM_HANDLER_NOT_FOUND;
-
-           ___PUSH(___FIX(0)) /* make space for operator */
-
-           for (i=0; i<na; i++)
-             ___SET_STK(-i,___STK(-(i+1))) /* shift arguments up by one */
-
-           ___SET_STK(-na,___ps->temp1) /* set operator argument */
-
-           ___POP_ARGS_IN_REGS(na+1) /* load register arguments */
-
-           ___JUMPPRM(___SET_NARGS(na+1),
-                      ___PRMCELL(___G__23__23_raise_2d_unknown_2d_keyword_2d_argument_2d_exception_2d_nary.prm))
-         }
-
-       continue2:;
-     }
+         continue2:;
+       }
+   }
 
    if (!___ps->temp4) /* not DSSSL style rest parameter? */
      i = fnk;
@@ -12794,31 +12913,42 @@ ___DEF_SLBL(10,___L10__23__23_kernel_2d_handlers)
    unsigned rest_observation_form = ___ps->temp4 ? 2 : 3;
 #endif
 
+   ___BOOL rest_fast = ___rest_hooks_gate_closed();
+
    {
      ___WORD staged = 0;
      ___WORD stack_slots = 0;
 
-     /* Publish the live cursors before comparing them to the record.
-      * Both keyword spellings use this handler's own I and J. */
+     /* Publish live cursors only when hooks/observation are active or on slow path. */
+#ifdef ___GAMBIT_REST_OBSERVATION
      ___W_HEAP
      ___W_FP
-#ifdef ___GAMBIT_REST_OBSERVATION
      ___rest_observation_form(rest_observation_form);
 #endif
-     ___rest_note_attempt_entry(___ps, ___hp, ___fp);
+     if (__builtin_expect(!rest_fast, 0))
+       {
+         ___W_HEAP
+         ___W_FP
+         ___rest_note_attempt_entry(___ps, ___hp, ___fp);
+       }
      if (!___rest_signed_sum(j, nb_key, &staged) ||
          !___rest_signed_sum(staged, 1, &stack_slots))
        {
+         ___W_HEAP
+         ___W_FP
          ___rest_disarm_attempt();
          ___JUMPPRM(___SET_NARGS(0),
                     ___PRMCELL(___G__23__23_raise_2d_heap_2d_overflow_2d_exception.prm))
        }
-     if (!___rest_fast_grant_fits(___ps, ___hp, ___fp, i, np, stack_slots))
+     if (!___rest_fast_grant_fits_gated(___ps, ___hp, ___fp, i, np, stack_slots, rest_fast))
        {
          ___BOOL overflow;
          ___SCMOBJ repaired=___ps->temp1;
          ___WORD *caller;
          int frame_fs, frame_link;
+         rest_fast = 0;
+         ___W_HEAP
+         ___W_FP
 
          ___COVER_KEYWORD_REST_PARAM_HANDLER_NEED_TO_GC;
          if (___rest_planted_short() &&
@@ -13044,16 +13174,20 @@ ___DEF_SLBL(10,___L10__23__23_kernel_2d_handlers)
      }
    }
 
-   if (__builtin_expect(held != 0 || ___rest_attempt_words != 0, 0))
+   if (__builtin_expect(!rest_fast && (held != 0 || ___rest_attempt_words != 0), 0))
      {
        ___WORD_FETCH_ADD_RELAXED(&___rest_fallback_pops, (___WORD)i);
        ___WORD_FETCH_ADD_RELAXED(&___rest_fallback_pair_writes, (___WORD)i);
      }
-   while (i > 0)
-     {
-       rest_param_list = ___CONS(___POP,rest_param_list);
-       i--;
-     }
+   {
+     ___WORD *fp_cur = ___fp;
+     while (i > 0)
+       {
+         rest_param_list = ___CONS(___FP_POP(fp_cur),rest_param_list);
+         i--;
+       }
+     ___fp = fp_cur;
+   }
 
    if (held)
      {
@@ -13082,15 +13216,22 @@ ___DEF_SLBL(10,___L10__23__23_kernel_2d_handlers)
 
    ___COVER_KEYWORD_REST_PARAM_HANDLER_NO_NEED_TO_GC;
 
-   for (i=0; i<nb_key; i++) /* push value of all keyword params */
-     ___PUSH(key_vals[i])
+   {
+     ___WORD *fp_cur = ___fp;
+     for (i=0; i<nb_key; i++) /* push value of all keyword params */
+       ___FP_PUSH(fp_cur, key_vals[i])
 
-   ___PUSH(rest_param_list) /* rest parameter is last */
+     ___FP_PUSH(fp_cur, rest_param_list) /* rest parameter is last */
+     ___fp = fp_cur;
+   }
 
    ___POP_ARGS_IN_REGS(np) /* load register arguments */
 
-   ___rest_disarm_attempt();
-   ___rest_observation_note_body(___ps);
+   if (__builtin_expect(!rest_fast, 0))
+     {
+       ___rest_disarm_attempt();
+       ___rest_observation_note_body(___ps);
+     }
    ___JUMPEXTPRM(___SET_NARGS(-1),___ps->temp1)
 
 

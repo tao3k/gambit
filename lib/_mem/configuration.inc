@@ -363,8 +363,13 @@
 
 #else
 
+#if defined(__ATOMIC_ACQ_REL) && defined(__ATOMIC_ACQUIRE) && defined(__ATOMIC_RELEASE)
+#define ALLOC_MEM_LOCK() ___gc_futex_mutex_lock(___CAST(___VOLATILE uint32_t*, &___VMSTATE_MEM(alloc_mem_futex_state_)))
+#define ALLOC_MEM_UNLOCK() ___gc_futex_mutex_unlock(___CAST(___VOLATILE uint32_t*, &___VMSTATE_MEM(alloc_mem_futex_state_)))
+#else
 #define ALLOC_MEM_LOCK() ___SPINLOCK_LOCK(alloc_mem_lock)
 #define ALLOC_MEM_UNLOCK() ___SPINLOCK_UNLOCK(alloc_mem_lock)
+#endif
 #define MISC_MEM_LOCK() ___SPINLOCK_LOCK(misc_mem_lock)
 #define MISC_MEM_UNLOCK() ___SPINLOCK_UNLOCK(misc_mem_lock)
 

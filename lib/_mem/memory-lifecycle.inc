@@ -388,6 +388,8 @@ ___processor_state ___ps;)
   ___ps->mem.major_mark_local_count_ = 0;
   ___ps->mem.major_mark_local_buf_ =
     ___CAST(___SCMOBJ*, ___ALLOC_MEM(___GC_MAJOR_LOCAL_MARK_CAP * sizeof(___SCMOBJ)));
+  ___ps->mem.rest_key_scratch_ = 0;
+  ___ps->mem.rest_key_scratch_cap_ = 0;
   if (___ps->mem.satb_buf_ == 0 || ___ps->mem.major_mark_local_buf_ == 0)
     {
       if (___ps->mem.satb_buf_ != 0)
@@ -536,6 +538,8 @@ ___virtual_machine_state ___vms;)
         ___PSTATE_FROM_PROCESSOR_ID(source,___vms)->mem.rc_domain_ = 0;
         ___PSTATE_FROM_PROCESSOR_ID(source,___vms)->mem.satb_buf_ = 0;
         ___PSTATE_FROM_PROCESSOR_ID(source,___vms)->mem.major_mark_local_buf_ = 0;
+        ___PSTATE_FROM_PROCESSOR_ID(source,___vms)->mem.rest_key_scratch_ = 0;
+        ___PSTATE_FROM_PROCESSOR_ID(source,___vms)->mem.rest_key_scratch_cap_ = 0;
       }
   }
 
@@ -547,6 +551,7 @@ ___virtual_machine_state ___vms;)
 
   ___SPINLOCK_INIT(misc_mem_lock);
   ___SPINLOCK_INIT(alloc_mem_lock);
+  ___vms->mem.alloc_mem_futex_state_ = 0;
 
   /*
    * Initialize condition variable to determine end of scan at VM level.
@@ -945,6 +950,12 @@ ___processor_state ___ps;)
       ___FREE_MEM(___ps->mem.major_mark_local_buf_);
       ___ps->mem.major_mark_local_buf_ = 0;
       ___ps->mem.major_mark_local_count_ = 0;
+    }
+  if (___ps->mem.rest_key_scratch_ != 0)
+    {
+      ___FREE_MEM(___ps->mem.rest_key_scratch_);
+      ___ps->mem.rest_key_scratch_ = 0;
+      ___ps->mem.rest_key_scratch_cap_ = 0;
     }
   cleanup_rc (___ps);
 }

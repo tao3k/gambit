@@ -1647,6 +1647,39 @@ ___ORDERED_WORD_INLINE ___SCMOBJ ___gc_atomic_slot_load
                  ___atomic_word_load(___CAST(___VOLATILE ___WORD*, slot), order));
 }
 
+/* GC-barriered atomic release store for a slot mutated exclusively under a
+ * lock while concurrent lock-free readers observe it via acquire loads. */
+___ORDERED_WORD_INLINE void ___gc_atomic_slot_store_release
+   (___processor_state ___ps,
+    ___SCMOBJ container,
+    ___WORD *slot,
+    ___SCMOBJ newval,
+    void (*wb_slow) ___P((___processor_state, ___SCMOBJ, ___WORD*), ()),
+    void (*satb_val) ___P((___processor_state, ___SCMOBJ), ()))
+{
+#ifndef ___DISABLE_GENERATIONAL_GC
+  if (___MEM_ALLOCATED(newval))
+    {
+      ___UWORD a = ___CAST(___UWORD, slot);
+      ___UWORD lo = ___CAST(___UWORD, ___ps->mem.alloc_heap_start_);
+      ___UWORD hi = ___CAST(___UWORD, ___ps->mem.alloc_heap_limit_);
+      if (___EXPECT_FALSE(a - lo >= hi - lo &&
+                          a - ___ps->mem.wb_last_card_lo_ >= (___CAST(___UWORD, ___GC_CARD_WORDS) * ___WS)))
+        wb_slow(___ps, container, slot);
+    }
+  if (___EXPECT_FALSE(___ps->mem.satb_active_ != 0))
+    {
+      ___SCMOBJ oldval = ___CAST(___SCMOBJ,
+                                 ___WORD_LOAD_RELAXED(___CAST(___VOLATILE ___WORD*, slot)));
+      if (___MEM_ALLOCATED(oldval))
+        satb_val(___ps, oldval);
+    }
+#else
+  (void)___ps; (void)container; (void)wb_slow; (void)satb_val;
+#endif
+  ___WORD_STORE_RELEASE(___CAST(___VOLATILE ___WORD*, slot), ___CAST(___WORD, newval));
+}
+
 ___ORDERED_WORD_INLINE ___SCMOBJ ___gc_atomic_slot_exchange
    (___processor_state ___ps,
     ___SCMOBJ container,

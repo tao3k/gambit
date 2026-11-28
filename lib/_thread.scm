@@ -2045,61 +2045,70 @@
 
   (##declare (not interrupts-enabled))
 
-  ;; acquire low-level lock of the thread
-  (macro-lock-current-thread!)
+  ;; Fast path: lock-free acquire peek of current processor's run-queue
+  ;; leftmost entry. Synchronizes with release stores in macro-btq-leftmost-set!
+  ;; and avoids acquiring thread and processor locks when no peer is runnable,
+  ;; while issuing a single pipeline-relax pause so tight yield-spin loops do
+  ;; not saturate the cache coherency fabric or starve peer cores.
+  (let ((p (macro-current-processor)))
+    (if (##eq? (macro-btq-leftmost-atomic-ref p) p)
+        (##c-code "___CPU_RELAX(); ___RESULT = ___VOID;")
+        (begin
+          ;; acquire low-level lock of the thread
+          (macro-lock-current-thread!)
 
-  ;; acquire low-level lock of the processor
-  (macro-lock-current-processor!)
+          ;; acquire low-level lock of the processor
+          (macro-lock-current-processor!)
 
-  ;; Check if there are other runnable threads.
+          ;; Check if there are other runnable threads.
 
-  (macro-if-btq-next
-   (macro-current-processor)
-   next-thread
+          (macro-if-btq-next
+           (macro-current-processor)
+           next-thread
 
-   (begin
+           (begin
 
-     ;; There are other runnable threads, so switch to running
-     ;; the next runnable thread.
+             ;; There are other runnable threads, so switch to running
+             ;; the next runnable thread.
 
-     (macro-thread-save!
+             (macro-thread-save!
 
-      (lambda (current-thread)
+              (lambda (current-thread)
 
-        ;;TODO: reenable
-        ;;(macro-thread-unboost-and-clear-quantum-used! current-thread)
+                ;;TODO: reenable
+                ;;(macro-thread-unboost-and-clear-quantum-used! current-thread)
 
-        (macro-thread-resume-thunk-set!
-         current-thread
-         ##thread-void-action!)
+                (macro-thread-resume-thunk-set!
+                 current-thread
+                 ##thread-void-action!)
 
-        (macro-add-thread-to-run-queue-of-current-processor-without-locking! current-thread)
+                (macro-add-thread-to-run-queue-of-current-processor-without-locking! current-thread)
 
-        ;; thread is no longer the current thread
-        (macro-processor-current-thread-set!
-         (macro-current-processor)
-         #f)
+                ;; thread is no longer the current thread
+                (macro-processor-current-thread-set!
+                 (macro-current-processor)
+                 #f)
 
-        ;; release low-level lock of the thread
-        (macro-unlock-thread! current-thread)
+                ;; release low-level lock of the thread
+                (macro-unlock-thread! current-thread)
 
-        ;; schedule next runnable thread
-        (##thread-schedule-with-acquired-processor!))))
+                ;; schedule next runnable thread
+                (##thread-schedule-with-acquired-processor!))))
 
-   (begin
+           (begin
 
-     ;; Fast case where only the current thread is runnable.
+             ;; Fast case where only the current thread is runnable.
 
-     ;;TODO: reenable
-     ;;(macro-thread-unboost-and-clear-quantum-used! (macro-current-thread))
+             ;;TODO: reenable
+             ;;(macro-thread-unboost-and-clear-quantum-used! (macro-current-thread))
 
-     ;; release low-level lock of processor
-     (macro-unlock-current-processor!)
+             ;; release low-level lock of processor
+             (macro-unlock-current-processor!)
 
-     ;; release low-level lock of the thread
-     (macro-unlock-current-thread!)
+             ;; release low-level lock of the thread
+             (macro-unlock-current-thread!)
 
-     (##void))))
+             (##void)))))))
 
 ;;;----------------------------------------------------------------------------
 

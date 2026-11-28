@@ -497,6 +497,9 @@ unsigned int satb_overflow_;
 ___SCMOBJ *satb_buf_;
 unsigned int major_mark_local_count_;
 ___SCMOBJ *major_mark_local_buf_;
+/* Per-processor overflow scratch for keyword procedures with > 32 keyword parameters */
+___SCMOBJ *rest_key_scratch_;
+___WORD rest_key_scratch_cap_;
 
 /* Phase A.2.1: per-processor lock-free still_slab slot cache (classes 0..3: 2.5K..8K) */
 void *still_local_free_[4];
@@ -616,6 +619,11 @@ ___SPINLOCK_DECL(misc_mem_lock_)
 
 /* spinlock for allocation of memory at the VM level */
 ___SPINLOCK_DECL(alloc_mem_lock_)
+/* Cache-line-isolated 3-state adaptive-spin + OS-futex allocation mutex
+ * (0=unlocked, 1=locked-uncontended, 2=locked-contended). */
+char alloc_mem_futex_pad0_[128];
+___VOLATILE ___U32 alloc_mem_futex_state_;
+char alloc_mem_futex_pad1_[128];
 
 /* mutex and condition variable to determine termination of GC scan */
 ___MUTEX_DECL(scan_termination_mutex_)

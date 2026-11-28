@@ -680,7 +680,14 @@ static ___WORD rest_observation_last_entry_room = -1;
 static int rest_observation_last_one_word;
 static int rest_observation_last_physical;
 static ___VOLATILE ___WORD rest_observation_admission_captured;
+#if defined(__GNUC__) || defined(__clang__)
+/* Keep the read-hot rest hooks gate on its own 128-byte cache line so mutable
+ * GC counters and slab locks cannot falsely share with variadic call sites. */
+__attribute__((aligned(128))) ___VOLATILE ___WORD ___rest_hooks_gate = 1;
+__attribute__((aligned(128))) ___WORD ___rest_hooks_gate_cacheline_guard_ = 1;
+#else
 ___VOLATILE ___WORD ___rest_hooks_gate = 1;
+#endif
 
 ___WORD ___rest_observation_last_demand(___WORD *pending, ___WORD *parameters)
 {
@@ -2176,6 +2183,23 @@ ___WORD ___rest_frame_cursor(___processor_state ps)
 {
   if (!ps || ps!=___PSTATE || !ps->context || !ps->context->fp) return 0;
   return ___CAST(___WORD,ps->context->fp);
+}
+
+___SCMOBJ *___rest_key_scratch(___processor_state ps, ___WORD nb_key)
+{
+  ___SCMOBJ *buf;
+  if (!ps || nb_key <= 0 || nb_key > ___MAX_NB_PARMS)
+    return 0;
+  if (ps->mem.rest_key_scratch_ != 0 && ps->mem.rest_key_scratch_cap_ >= nb_key)
+    return ps->mem.rest_key_scratch_;
+  buf = ___CAST(___SCMOBJ*, ___ALLOC_MEM(___CAST(___SIZE_T, nb_key) * sizeof(___SCMOBJ)));
+  if (buf == 0)
+    return 0;
+  if (ps->mem.rest_key_scratch_ != 0)
+    ___FREE_MEM(ps->mem.rest_key_scratch_);
+  ps->mem.rest_key_scratch_ = buf;
+  ps->mem.rest_key_scratch_cap_ = nb_key;
+  return buf;
 }
 
 ___BOOL ___rest_fast_grant_fits(___processor_state ps, ___WORD *hp, ___WORD *fp,

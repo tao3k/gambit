@@ -56,6 +56,57 @@ static inline void ___gc_futex_wake_all_u32(___VOLATILE uint32_t *addr)
   (void)addr;
 #endif
 }
+
+static inline void ___gc_futex_wake_one_u32(___VOLATILE uint32_t *addr)
+{
+#if defined(___GC_HAVE_DARWIN_FUTEX)
+  (void)os_sync_wake_by_address_any(
+    ___CAST(void*, ___CAST(uintptr_t, addr)),
+    sizeof(uint32_t),
+    OS_SYNC_WAKE_BY_ADDRESS_NONE);
+#elif defined(___GC_HAVE_LINUX_FUTEX)
+  (void)syscall(SYS_futex, ___CAST(void*, ___CAST(uintptr_t, addr)),
+                FUTEX_WAKE_PRIVATE, 1, 0, 0, 0);
+#else
+  (void)addr;
+#endif
+}
+
+#if defined(__ATOMIC_ACQ_REL) && defined(__ATOMIC_ACQUIRE) && defined(__ATOMIC_RELEASE)
+static inline void ___gc_futex_mutex_lock(___VOLATILE uint32_t *state)
+{
+  uint32_t c = 0u;
+  if (__builtin_expect(__atomic_compare_exchange_n(state, &c, 1u, 0,
+                                                   __ATOMIC_ACQUIRE, __ATOMIC_RELAXED), 1))
+    return;
+  for (;;)
+    {
+      unsigned int spins = 0u;
+      while (__atomic_load_n(state, __ATOMIC_RELAXED) != 0u && spins < 128u)
+        {
+          ___CPU_RELAX();
+          spins++;
+        }
+      c = 0u;
+      if (__atomic_compare_exchange_n(state, &c, 2u, 0,
+                                      __ATOMIC_ACQUIRE, __ATOMIC_RELAXED))
+        return;
+      if (c == 1u)
+        {
+          if (!__atomic_compare_exchange_n(state, &c, 2u, 0,
+                                           __ATOMIC_RELAXED, __ATOMIC_RELAXED))
+            continue;
+        }
+      ___gc_futex_wait_u32(state, 2u);
+    }
+}
+
+static inline void ___gc_futex_mutex_unlock(___VOLATILE uint32_t *state)
+{
+  if (__builtin_expect(__atomic_exchange_n(state, 0u, __ATOMIC_RELEASE) == 2u, 0))
+    ___gc_futex_wake_one_u32(state);
+}
+#endif
 static inline ___WORD ___lifecycle_cas(___VOLATILE ___WORD *p,___WORD old,___WORD value)
 {
 #ifdef ___USE_sequential_sync
@@ -262,6 +313,8 @@ extern enum ___rest_status ___rest_activation_cleanup(___processor_state ps,
 extern ___BOOL ___rest_fast_grant_fits(___processor_state ps, ___WORD *hp,
                                       ___WORD *fp, ___WORD pending, ___WORD np,
                                       ___WORD stack_slots);
+#define ___REST_KEY_SMALL_CAP 32
+extern ___SCMOBJ *___rest_key_scratch(___processor_state ps, ___WORD nb_key);
 /* A new movable section fits the live still-word and assigned-section
  * bound. This is not the cumulative allocator counter. */
 extern ___BOOL ___rest_new_section_admitted(___processor_state ps, ___SIZE_T max_heap);
@@ -419,6 +472,10 @@ ___REST_FAST_INLINE ___BOOL ___rest_signed_sum_inline(___WORD a, ___WORD b, ___W
   if (!sum) return 0;
   return !__builtin_add_overflow(a, b, sum);
 }
+___REST_FAST_INLINE ___BOOL ___rest_hooks_gate_closed_inline(void)
+{
+  return __builtin_expect(__atomic_load_n(&___rest_hooks_gate, __ATOMIC_RELAXED) == 0, 1);
+}
 ___REST_FAST_INLINE void ___rest_note_attempt_entry_inline(___processor_state ps,
                                                      ___WORD *hp, ___WORD *fp)
 {
@@ -435,45 +492,81 @@ ___REST_FAST_INLINE void ___rest_observation_note_body_inline(___processor_state
   if (__builtin_expect(__atomic_load_n(&___rest_hooks_gate, __ATOMIC_RELAXED) != 0, 0))
     (___rest_observation_note_body)(ps);
 }
+___REST_FAST_INLINE ___BOOL ___rest_fast_grant_fits_gated_inline(___processor_state ps,
+                                                     ___WORD *hp, ___WORD *fp,
+                                                     ___WORD pending, ___WORD np,
+                                                     ___WORD stack_slots,
+                                                     ___BOOL gate_closed)
+{
+  if (__builtin_expect(
+        gate_closed &&
+        ps != 0 && ps->context != 0 && hp != 0 && fp != 0 &&
+        (___UWORD)pending <= 1024u &&
+        (___UWORD)np <= 1024u &&
+        (___UWORD)stack_slots <= 2050u,
+        1))
+    {
+      ___UWORD words = (___UWORD)pending * (___UWORD)(___PAIR_SIZE + ___PAIR_BODY) +
+                       (___UWORD)np + (___UWORD)___VECTOR_BODY;
+      ___UWORD sd = ___CAST(___UWORD, fp) - ps->stack_fast_floor_b;
+      ___UWORD hd = ___CAST(___UWORD, hp) - ps->heap_fast_lo_b;
+      if (__builtin_expect(
+            sd < ps->stack_fast_limit_b &&
+            sd >= (___CAST(___UWORD, stack_slots) << ___LWS) &&
+            hd < ps->heap_fast_bytes &&
+            (ps->heap_fast_bytes - hd) >= (words << ___LWS),
+            1))
+        return 1;
+    }
+  if (ps != 0 && ps->context != 0 && gate_closed)
+    {
+      ps->context->hp = hp;
+      ps->context->fp = fp;
+    }
+  return (___rest_fast_grant_fits)(ps, hp, fp, pending, np, stack_slots);
+}
 ___REST_FAST_INLINE ___BOOL ___rest_fast_grant_fits_inline(___processor_state ps,
                                                      ___WORD *hp, ___WORD *fp,
                                                      ___WORD pending, ___WORD np,
                                                      ___WORD stack_slots)
 {
   if (__builtin_expect(
-        __atomic_load_n(&___rest_hooks_gate, __ATOMIC_RELAXED) == 0 &&
+        ___rest_hooks_gate_closed_inline() &&
         ps != 0 && ps->context != 0 && hp != 0 && fp != 0 &&
-        ps->context->hp == hp && pending >= 0 && np >= 0 && stack_slots >= 0,
+        ps->context->hp == hp &&
+        (___UWORD)pending <= 1024u &&
+        (___UWORD)np <= 1024u &&
+        (___UWORD)stack_slots <= 2050u,
         1))
     {
-      ___WORD pair_words = (___WORD)(___PAIR_SIZE + ___PAIR_BODY);
-      ___WORD pairs, payload, words;
+      ___UWORD words = (___UWORD)pending * (___UWORD)(___PAIR_SIZE + ___PAIR_BODY) +
+                       (___UWORD)np + (___UWORD)___VECTOR_BODY;
+      ___UWORD sd = ___CAST(___UWORD, fp) - ps->stack_fast_floor_b;
+      ___UWORD hd = ___CAST(___UWORD, hp) - ps->heap_fast_lo_b;
       if (__builtin_expect(
-            !__builtin_mul_overflow(pending, pair_words, &pairs) &&
-            !__builtin_add_overflow(pairs, np, &payload) &&
-            !__builtin_add_overflow(payload, (___WORD)___VECTOR_BODY, &words),
+            sd < ps->stack_fast_limit_b &&
+            sd >= (___CAST(___UWORD, stack_slots) << ___LWS) &&
+            hd < ps->heap_fast_bytes &&
+            (ps->heap_fast_bytes - hd) >= (words << ___LWS),
             1))
-        {
-          ___UWORD sd = ___CAST(___UWORD, fp) - ps->stack_fast_floor_b;
-          ___UWORD hd = ___CAST(___UWORD, hp) - ps->heap_fast_lo_b;
-          if (__builtin_expect(
-                sd < ps->stack_fast_limit_b &&
-                (sd / sizeof(___WORD)) >= (___UWORD)stack_slots &&
-                hd < ps->heap_fast_bytes &&
-                ((ps->heap_fast_bytes - hd) / sizeof(___WORD)) >= (___UWORD)words,
-                1))
-            return 1;
-        }
+        return 1;
     }
   return (___rest_fast_grant_fits)(ps, hp, fp, pending, np, stack_slots);
 }
 #undef ___REST_FAST_INLINE
+#define ___rest_hooks_gate_closed() ___rest_hooks_gate_closed_inline()
 #define ___rest_signed_sum(a,b,sum) ___rest_signed_sum_inline((a),(b),(sum))
 #define ___rest_note_attempt_entry(ps,hp,fp) ___rest_note_attempt_entry_inline((ps),(hp),(fp))
 #define ___rest_disarm_attempt() ___rest_disarm_attempt_inline()
 #define ___rest_observation_note_body(ps) ___rest_observation_note_body_inline((ps))
 #define ___rest_fast_grant_fits(ps,hp,fp,pending,np,slots) \
   ___rest_fast_grant_fits_inline((ps),(hp),(fp),(pending),(np),(slots))
+#define ___rest_fast_grant_fits_gated(ps,hp,fp,pending,np,slots,gate_closed) \
+  ___rest_fast_grant_fits_gated_inline((ps),(hp),(fp),(pending),(np),(slots),(gate_closed))
+#else
+#define ___rest_hooks_gate_closed() (___WORD_LOAD_RELAXED(&___rest_hooks_gate) == 0)
+#define ___rest_fast_grant_fits_gated(ps,hp,fp,pending,np,slots,gate_closed) \
+  ___rest_fast_grant_fits((ps),(hp),(fp),(pending),(np),(slots))
 #endif
 /* Fallible pin, view, domain and phase checks. Does not store a result
  * and does not construct a pair. Call it before the first pair write. */

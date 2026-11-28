@@ -977,7 +977,19 @@
 (##define-macro (macro-btq-right node)          `(macro-struct-slot 7 ,node))
 (##define-macro (macro-btq-right-set! node x)   `(macro-struct-slot 7 ,node ,x))
 (##define-macro (macro-btq-leftmost node)       `(macro-struct-slot 7 ,node))
-(##define-macro (macro-btq-leftmost-set! node x)`(macro-struct-slot 7 ,node ,x))
+(##define-macro (macro-btq-leftmost-atomic-ref node)
+  `(##c-code
+    "___WORD *___s = ___BODY_AS(___ARG1, ___tSTRUCTURE) + 7;
+     ___RESULT = ___gc_atomic_slot_load(___s, 1);"
+    ,node))
+(##define-macro (macro-btq-leftmost-set! node x)
+  `(##c-code
+    "___WORD *___s = ___BODY_AS(___ARG1, ___tSTRUCTURE) + 7;
+     ___gc_atomic_slot_store_release(
+       ___ps, ___ARG1, ___s, ___ARG2,
+       ___EXT(___gc_write_barrier_slow), ___EXT(___gc_satb_barrier_val));
+     ___RESULT = ___VOID;"
+    ,node ,x))
 (##define-macro (macro-btq-owner node)          `(macro-struct-slot 8 ,node))
 (##define-macro (macro-btq-owner-set! node x)   `(macro-struct-slot 8 ,node ,x))
 (##define-macro (macro-btq-lock2 node)          `(macro-struct-slot 9 ,node))

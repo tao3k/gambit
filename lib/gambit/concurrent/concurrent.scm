@@ -121,35 +121,35 @@
   (macro-lf-stack? obj))
 
 (define (lf-stack-empty? st)
-  (if (##not (macro-lf-stack? st))
-      (%raise-bad-type (macro-type-lf-stack) lf-stack-empty? st))
-  (##null? (%slot-load-acq (macro-lf-stack-head st) 0)))
+  (if (macro-lf-stack? st)
+      (##null? (%slot-load-acq (macro-lf-stack-head st) 0))
+      (%raise-bad-type (macro-type-lf-stack) lf-stack-empty? st)))
 
 (define (lf-stack-push! st val)
-  (if (##not (macro-lf-stack? st))
-      (%raise-bad-type (macro-type-lf-stack) lf-stack-push! st))
-  (let ((head (macro-lf-stack-head st)))
-    (let loop ()
-      (let* ((cur (%slot-load-acq head 0))
-             (nxt (##cons val cur))
-             (prev (%slot-cas-acqrel! head 0 cur nxt)))
-        (if (##eq? prev cur)
-            #t
-            (loop))))))
+  (if (macro-lf-stack? st)
+      (let ((head (macro-lf-stack-head st)))
+        (let loop ()
+          (let* ((cur (%slot-load-acq head 0))
+                 (nxt (##cons val cur))
+                 (prev (%slot-cas-acqrel! head 0 cur nxt)))
+            (if (##eq? prev cur)
+                #t
+                (loop)))))
+      (%raise-bad-type (macro-type-lf-stack) lf-stack-push! st)))
 
 ;; Returns (values #t val) on success, or (values #f #f) when empty.
 (define (lf-stack-try-pop! st)
-  (if (##not (macro-lf-stack? st))
-      (%raise-bad-type (macro-type-lf-stack) lf-stack-try-pop! st))
-  (let ((head (macro-lf-stack-head st)))
-    (let loop ()
-      (let ((cur (%slot-load-acq head 0)))
-        (if (##null? cur)
-            %empty-values-2
-            (let ((prev (%slot-cas-acqrel! head 0 cur (##cdr cur))))
-              (if (##eq? prev cur)
-                  (##values #t (##car cur))
-                  (loop))))))))
+  (if (macro-lf-stack? st)
+      (let ((head (macro-lf-stack-head st)))
+        (let loop ()
+          (let ((cur (%slot-load-acq head 0)))
+            (if (##null? cur)
+                %empty-values-2
+                (let ((prev (%slot-cas-acqrel! head 0 cur (##cdr cur))))
+                  (if (##eq? prev cur)
+                      (##values #t (##car cur))
+                      (loop)))))))
+      (%raise-bad-type (macro-type-lf-stack) lf-stack-try-pop! st)))
 
 ;;;============================================================================
 ;;; 2. Lock-Free Unbounded Per-Segment FAA MPMC FIFO Queue
@@ -220,24 +220,25 @@
   (macro-lf-queue? obj))
 
 (define (lf-queue-empty? q)
-  (if (##not (macro-lf-queue? q))
-      (%raise-bad-type (macro-type-lf-queue) lf-queue-empty? q))
-  (let loop ((seg (%slot-load-acq (macro-lf-queue-head q) 0)))
-    (let* ((ctrl (##vector-ref seg 1))
-           (h (%slot-load-acq ctrl 0))
-           (t (%slot-load-acq ctrl 16)))
-      (cond
-        ((##fx>= h 256)
-         (let ((nxt (%slot-load-acq seg 2)))
-           (if nxt (loop nxt) #t)))
-        ((##fx< h t) #f)
-        (else
-         (let ((nxt (%slot-load-acq seg 2)))
-           (if nxt (loop nxt) #t)))))))
+  (if (macro-lf-queue? q)
+      (let loop ((seg (%slot-load-acq (macro-lf-queue-head q) 0)))
+        (let* ((ctrl (##vector-ref seg 1))
+               (h (%slot-load-acq ctrl 0))
+               (t (%slot-load-acq ctrl 16)))
+          (cond
+            ((##fx>= h 256)
+             (let ((nxt (%slot-load-acq seg 2)))
+               (if nxt (loop nxt) #t)))
+            ((##fx< h t) #f)
+            (else
+             (let ((nxt (%slot-load-acq seg 2)))
+               (if nxt (loop nxt) #t))))))
+      (%raise-bad-type (macro-type-lf-queue) lf-queue-empty? q)))
 
 ;; Returns #t if enqueued, #f to retry, or `seg` needing seg[2] allocation.
-;; Relaxed FAA claims an exclusive ticket in one instruction; CAS_ACQREL
-;; publishes the payload into the 16-way cache-line-permuted slot.
+;; Relaxed FAA claims an exclusive ticket in one instruction; release CAS (casl)
+;; publishes the payload into the 16-way cache-line-permuted slot, bypassing
+;; generational/SATB barriers for immediate values.
 (##define-macro (%lfq-enq-fast! tc val)
   `(macro-if-c-compiled
     (##c-code
@@ -256,9 +257,17 @@
         if (t < 256) {
           ___WORD phys = ((t & 15) << 4) | (t >> 4);
           ___WORD *slot_ptr = ___BODY_AS(slots, ___tVECTOR) + phys;
-          ___SCMOBJ prev = ___gc_atomic_slot_cas(
-            ___ps, slots, slot_ptr, ___UNB2, val, 3,
-            ___EXT(___gc_write_barrier_slow), ___EXT(___gc_satb_barrier_val));
+          ___SCMOBJ prev;
+          if (___EXPECT_FALSE(!___MEM_ALLOCATED(val))) {
+            prev = ___CAST(___SCMOBJ,
+              ___atomic_word_cas(___CAST(___VOLATILE ___WORD*, slot_ptr),
+                                 ___CAST(___WORD, ___UNB2),
+                                 ___CAST(___WORD, val), 2));
+          } else {
+            prev = ___gc_atomic_slot_cas(
+              ___ps, slots, slot_ptr, ___UNB2, val, 2,
+              ___EXT(___gc_write_barrier_slow), ___EXT(___gc_satb_barrier_val));
+          }
           if (prev == ___UNB2) {
             if (t == 255) {
               ___SCMOBJ nxt = ___gc_atomic_slot_load(&svec[2], 1);
@@ -304,27 +313,32 @@
                 (begin (%slot-cas-acqrel! ,tc 0 seg nxt) #f)
                 seg))))))
 
+(define (%lfq-enq-slow! tc val first-r)
+  (let loop ((r first-r))
+    (cond
+      ((##eq? r #t) #t)
+      ((##eq? r #f) (loop (%lfq-enq-fast! tc val)))
+      (else
+       ;; `r` is the closed tail segment needing a lazily linked successor
+       (let* ((new-seg (%make-lf-qseg))
+              (prev (%slot-cas-acqrel! r 2 #f new-seg))
+              (winner (if (##not prev) new-seg prev)))
+         (%slot-cas-acqrel! tc 0 r winner)
+         (loop (%lfq-enq-fast! tc val)))))))
+
 (define (lf-queue-enqueue! q val)
-  (if (##not (macro-lf-queue? q))
-      (%raise-bad-type (macro-type-lf-queue) lf-queue-enqueue! q))
-  (let ((tc (macro-lf-queue-tail q)))
-    (let loop ()
-      (let ((r (%lfq-enq-fast! tc val)))
-        (cond
-          ((##eq? r #t) #t)
-          ((##eq? r #f) (loop))
-          (else
-           ;; `r` is the closed tail segment needing a lazily linked successor
-           (let* ((new-seg (%make-lf-qseg))
-                  (prev (%slot-cas-acqrel! r 2 #f new-seg))
-                  (winner (if (##not prev) new-seg prev)))
-             (%slot-cas-acqrel! tc 0 r winner)
-             (loop))))))))
+  (if (macro-lf-queue? q)
+      (let* ((tc (macro-lf-queue-tail q))
+             (r (%lfq-enq-fast! tc val)))
+        (if (##eq? r #t)
+            #t
+            (%lfq-enq-slow! tc val r)))
+      (%raise-bad-type (macro-type-lf-queue) lf-queue-enqueue! q)))
 
 ;; Returns dequeued item, ___UNB2 (or `empty-sent` when interpreted) if empty,
 ;; or ___DELETED (or `retry-sent` when interpreted) to retry in Scheme.
-;; Zero-write empty peek avoids FAA overshoot; steady-state consumers claim
-;; disjoint tickets via relaxed FAA on per-segment head_ctr with zero CAS retries.
+;; Zero-write relaxed empty peek avoids FAA overshoot and acquire stalls;
+;; post-FAA acquire load on slot_ptr synchronizes with producer's release CAS.
 (##define-macro (%lfq-deq-fast! hc empty-sent retry-sent)
   `(macro-if-c-compiled
     (##c-code
@@ -339,11 +353,10 @@
         ___WORD *cvec = ___BODY_AS(ctrl, ___tVECTOR);
         ___VOLATILE ___WORD *ht_p = ___CAST(___VOLATILE ___WORD*, &cvec[0]);
         ___VOLATILE ___WORD *tt_p = ___CAST(___VOLATILE ___WORD*, &cvec[16]);
-        ___WORD h0 = ___INT(___atomic_word_load(ht_p, 1));
+        ___WORD h0 = ___INT(___atomic_word_load(ht_p, 0));
         if (h0 >= 256) {
           ___SCMOBJ nxt = ___gc_atomic_slot_load(&svec[2], 1);
           if (nxt == ___FAL) {
-            /* No successor segment is linked yet; return empty immediately for lock-free progress. */
             ___CPU_RELAX();
             ___RESULT = ___UNB2;
             break;
@@ -354,15 +367,15 @@
           if (++tries >= 64) { ___RESULT = ___DELETED; break; }
           continue;
         }
-        /* Zero-write relaxed empty peek: avoid FAA when segment is currently empty. */
+        /* Zero-write relaxed empty peek: avoid FAA and acquire stalls when empty. */
         {
           ___WORD phys0 = ((h0 & 15) << 4) | (h0 >> 4);
           ___WORD *sp0 = ___BODY_AS(slots, ___tVECTOR) + phys0;
           ___SCMOBJ v0 = ___gc_atomic_slot_load(sp0, 0);
           if (v0 == ___UNB2) {
-            ___WORD t0 = ___INT(___atomic_word_load(tt_p, 1));
+            ___WORD t0 = ___INT(___atomic_word_load(tt_p, 0));
             if (h0 >= t0) {
-              ___SCMOBJ nxt = ___gc_atomic_slot_load(&svec[2], 1);
+              ___SCMOBJ nxt = ___gc_atomic_slot_load(&svec[2], 0);
               if (nxt == ___FAL) {
                 ___CPU_RELAX();
                 ___RESULT = ___UNB2;
@@ -391,8 +404,8 @@
             ___WORD *slot_ptr = ___BODY_AS(slots, ___tVECTOR) + phys;
             ___SCMOBJ val = ___gc_atomic_slot_load(slot_ptr, 1);
             int wspins = 0;
-            while (val == ___UNB2 && wspins < 64) {
-              ___CPU_RELAX();
+            while (val == ___UNB2 && wspins < 32) {
+              if (wspins >= 8) ___CPU_RELAX();
               val = ___gc_atomic_slot_load(slot_ptr, 1);
               wspins++;
             }
@@ -479,29 +492,44 @@
                                ,empty-sent
                                ,retry-sent))))))))))))
 
+(define (%lfq-deq-retry! q hc)
+  (let loop ()
+    (let ((r (%lfq-deq-fast! hc %lfq-empty %lfq-retry)))
+      (cond
+        ((%imm-sentinel-empty? r %lfq-empty) (macro-lf-queue-empty-ret q))
+        ((%imm-sentinel-retry? r %lfq-retry) (loop))
+        (else (##values #t r))))))
+
 ;; Returns (values #t val) on success, or (values #f #f) when empty.
+;; Tail-check + hoisted first pass keeps the common path zero-frame leaf.
 (define (lf-queue-try-dequeue! q)
-  (if (##not (macro-lf-queue? q))
-      (%raise-bad-type (macro-type-lf-queue) lf-queue-try-dequeue! q))
-  (let ((hc (macro-lf-queue-head q)))
-    (let loop ()
-      (let ((r (%lfq-deq-fast! hc %lfq-empty %lfq-retry)))
+  (if (macro-lf-queue? q)
+      (let* ((hc (macro-lf-queue-head q))
+             (r (%lfq-deq-fast! hc %lfq-empty %lfq-retry)))
         (cond
           ((%imm-sentinel-empty? r %lfq-empty) (macro-lf-queue-empty-ret q))
-          ((%imm-sentinel-retry? r %lfq-retry) (loop))
-          (else (##values #t r)))))))
+          ((%imm-sentinel-retry? r %lfq-retry) (%lfq-deq-retry! q hc))
+          (else (##values #t r))))
+      (%raise-bad-type (macro-type-lf-queue) lf-queue-try-dequeue! q)))
+
+(define (%lfq-deq-or-retry! hc default)
+  (let loop ()
+    (let ((r (%lfq-deq-fast! hc %lfq-empty %lfq-retry)))
+      (cond
+        ((%imm-sentinel-empty? r %lfq-empty) default)
+        ((%imm-sentinel-retry? r %lfq-retry) (loop))
+        (else r)))))
 
 ;; Zero-closure single-value variant: returns dequeued value or `default` when empty.
 (define (lf-queue-try-dequeue-or! q default)
-  (if (##not (macro-lf-queue? q))
-      (%raise-bad-type (macro-type-lf-queue) lf-queue-try-dequeue-or! q))
-  (let ((hc (macro-lf-queue-head q)))
-    (let loop ()
-      (let ((r (%lfq-deq-fast! hc %lfq-empty %lfq-retry)))
+  (if (macro-lf-queue? q)
+      (let* ((hc (macro-lf-queue-head q))
+             (r (%lfq-deq-fast! hc %lfq-empty %lfq-retry)))
         (cond
           ((%imm-sentinel-empty? r %lfq-empty) default)
-          ((%imm-sentinel-retry? r %lfq-retry) (loop))
-          (else r))))))
+          ((%imm-sentinel-retry? r %lfq-retry) (%lfq-deq-or-retry! hc default))
+          (else r)))
+      (%raise-bad-type (macro-type-lf-queue) lf-queue-try-dequeue-or! q)))
 
 ;;;============================================================================
 ;;; 3. Lock-Free Bounded Chase-Lev Work-Stealing Deque (Single-Block C23 Fast Path)
@@ -545,57 +573,57 @@
   (macro-ws-deque? obj))
 
 (define (ws-deque-size dq)
-  (if (##not (macro-ws-deque? dq))
-      (%raise-bad-type (macro-type-ws-deque) ws-deque-size dq))
-  (let ((b (%ctr-load-acq (macro-ws-deque-bottom dq)))
-        (t (%ctr-load-acq (macro-ws-deque-top dq))))
-    (let ((d (##fx- b t)))
-      (if (##fx> d 0) d 0))))
+  (if (macro-ws-deque? dq)
+      (let ((b (%ctr-load-acq (macro-ws-deque-bottom dq)))
+            (t (%ctr-load-acq (macro-ws-deque-top dq))))
+        (let ((d (##fx- b t)))
+          (if (##fx> d 0) d 0)))
+      (%raise-bad-type (macro-type-ws-deque) ws-deque-size dq)))
 
 ;; Owner-only push at bottom. Caches a private lower bound on top in bvec[1]
 ;; so steady-state pushes avoid reading the thief-contended top cache line.
 ;; Returns #t on success, #f if bounded ring is full.
 (define (ws-deque-push! dq val)
-  (if (##not (macro-ws-deque? dq))
-      (%raise-bad-type (macro-type-ws-deque) ws-deque-push! dq))
-  (macro-if-c-compiled
-   (##c-code
-    "___WORD *bvec = ___BODY_AS(___ARG1, ___tVECTOR);
-     ___WORD *tvec = ___BODY_AS(___ARG2, ___tVECTOR);
-     ___SCMOBJ slots = ___ARG3;
-     ___WORD mask = ___INT(___ARG4);
-     ___WORD cap = ___INT(___ARG5);
-     ___SCMOBJ val = ___ARG6;
-     ___VOLATILE ___WORD *bp = ___CAST(___VOLATILE ___WORD*, &bvec[0]);
-     ___VOLATILE ___WORD *tp = ___CAST(___VOLATILE ___WORD*, &tvec[0]);
-     ___WORD b = ___INT(___atomic_word_load(bp, 0));
-     ___WORD cached_t = ___INT(bvec[1]);
-     if (___EXPECT_FALSE(b - cached_t >= cap)) {
-       cached_t = ___INT(___atomic_word_load(tp, 1));
-       bvec[1] = ___FIX(cached_t);
-     }
-     if (___EXPECT_FALSE(b - cached_t >= cap)) {
-       ___RESULT = ___FAL;
-     } else {
-       ___WORD *sp = ___BODY_AS(slots, ___tVECTOR) + (b & mask);
-       ___GC_WRITE_BARRIER(___ps, slots, sp, val);
-       ___atomic_word_store(___CAST(___VOLATILE ___WORD*, sp), ___CAST(___WORD, val), 0);
-       ___atomic_word_store(bp, ___FIX(b + 1), 2);
-       ___RESULT = ___TRU;
-     }"
-    (macro-ws-deque-bottom dq) (macro-ws-deque-top dq) (macro-ws-deque-slots dq)
-    (macro-ws-deque-mask dq) (macro-ws-deque-cap dq) val)
-   (let* ((bot-box (macro-ws-deque-bottom dq))
-          (b (%ctr-load-acq bot-box))
-          (t (%ctr-load-acq (macro-ws-deque-top dq)))
-          (cap (macro-ws-deque-cap dq)))
-     (if (##fx>= (##fx- b t) cap)
-         #f
-         (begin
-           (srfi/230#vector-atomic-set! (macro-ws-deque-slots dq) (##fxand b (macro-ws-deque-mask dq)) val (memory-order relaxed))
-           (let loop ((old (##vector-cas! bot-box 0 #!unbound #!unbound)))
-             (let ((prev (##vector-cas! bot-box 0 (##fx+ b 1) old)))
-               (if (##eq? prev old) #t (loop prev)))))))))
+  (if (macro-ws-deque? dq)
+      (macro-if-c-compiled
+       (##c-code
+        "___WORD *bvec = ___BODY_AS(___ARG1, ___tVECTOR);
+         ___WORD *tvec = ___BODY_AS(___ARG2, ___tVECTOR);
+         ___SCMOBJ slots = ___ARG3;
+         ___WORD mask = ___INT(___ARG4);
+         ___WORD cap = ___INT(___ARG5);
+         ___SCMOBJ val = ___ARG6;
+         ___VOLATILE ___WORD *bp = ___CAST(___VOLATILE ___WORD*, &bvec[0]);
+         ___VOLATILE ___WORD *tp = ___CAST(___VOLATILE ___WORD*, &tvec[0]);
+         ___WORD b = ___INT(___atomic_word_load(bp, 0));
+         ___WORD cached_t = ___INT(bvec[1]);
+         if (___EXPECT_FALSE(b - cached_t >= cap)) {
+           cached_t = ___INT(___atomic_word_load(tp, 1));
+           bvec[1] = ___FIX(cached_t);
+         }
+         if (___EXPECT_FALSE(b - cached_t >= cap)) {
+           ___RESULT = ___FAL;
+         } else {
+           ___WORD *sp = ___BODY_AS(slots, ___tVECTOR) + (b & mask);
+           ___GC_WRITE_BARRIER(___ps, slots, sp, val);
+           ___atomic_word_store(___CAST(___VOLATILE ___WORD*, sp), ___CAST(___WORD, val), 0);
+           ___atomic_word_store(bp, ___FIX(b + 1), 2);
+           ___RESULT = ___TRU;
+         }"
+        (macro-ws-deque-bottom dq) (macro-ws-deque-top dq) (macro-ws-deque-slots dq)
+        (macro-ws-deque-mask dq) (macro-ws-deque-cap dq) val)
+       (let* ((bot-box (macro-ws-deque-bottom dq))
+              (b (%ctr-load-acq bot-box))
+              (t (%ctr-load-acq (macro-ws-deque-top dq)))
+              (cap (macro-ws-deque-cap dq)))
+         (if (##fx>= (##fx- b t) cap)
+             #f
+             (begin
+               (srfi/230#vector-atomic-set! (macro-ws-deque-slots dq) (##fxand b (macro-ws-deque-mask dq)) val (memory-order relaxed))
+               (let loop ((old (##vector-cas! bot-box 0 #!unbound #!unbound)))
+                 (let ((prev (##vector-cas! bot-box 0 (##fx+ b 1) old)))
+                   (if (##eq? prev old) #t (loop prev))))))))
+      (%raise-bad-type (macro-type-ws-deque) ws-deque-push! dq)))
 
 (##define-macro (%ws-pop-raw! dq empty-sent)
   `(macro-if-c-compiled
@@ -694,7 +722,6 @@
         }
       } else {
         ___CPU_RELAX();
-        ___CPU_RELAX();
       }
       ___RESULT = res;"
      (macro-ws-deque-top ,dq) (macro-ws-deque-bottom ,dq) (macro-ws-deque-slots ,dq)
@@ -711,35 +738,35 @@
 
 ;; Owner-only LIFO pop from bottom. Returns (values #t val) or (values #f #f).
 (define (ws-deque-try-pop! dq)
-  (if (##not (macro-ws-deque? dq))
-      (%raise-bad-type (macro-type-ws-deque) ws-deque-try-pop! dq))
-  (let ((r (%ws-pop-raw! dq %ws-empty)))
-    (if (%imm-sentinel-empty? r %ws-empty)
-        (macro-ws-deque-empty-ret dq)
-        (##values #t r))))
+  (if (macro-ws-deque? dq)
+      (let ((r (%ws-pop-raw! dq %ws-empty)))
+        (if (%imm-sentinel-empty? r %ws-empty)
+            (macro-ws-deque-empty-ret dq)
+            (##values #t r)))
+      (%raise-bad-type (macro-type-ws-deque) ws-deque-try-pop! dq)))
 
 ;; Concurrent thief FIFO steal from top. Returns (values #t val) or (values #f #f).
 (define (ws-deque-try-steal! dq)
-  (if (##not (macro-ws-deque? dq))
-      (%raise-bad-type (macro-type-ws-deque) ws-deque-try-steal! dq))
-  (let ((r (%ws-steal-raw! dq %ws-empty)))
-    (if (%imm-sentinel-empty? r %ws-empty)
-        (macro-ws-deque-empty-ret dq)
-        (##values #t r))))
+  (if (macro-ws-deque? dq)
+      (let ((r (%ws-steal-raw! dq %ws-empty)))
+        (if (%imm-sentinel-empty? r %ws-empty)
+            (macro-ws-deque-empty-ret dq)
+            (##values #t r)))
+      (%raise-bad-type (macro-type-ws-deque) ws-deque-try-steal! dq)))
 
 ;; Zero-closure owner-only LIFO pop: returns popped item or `default` when empty.
 (define (ws-deque-try-pop-or! dq default)
-  (if (##not (macro-ws-deque? dq))
-      (%raise-bad-type (macro-type-ws-deque) ws-deque-try-pop-or! dq))
-  (let ((r (%ws-pop-raw! dq %ws-empty)))
-    (if (%imm-sentinel-empty? r %ws-empty) default r)))
+  (if (macro-ws-deque? dq)
+      (let ((r (%ws-pop-raw! dq %ws-empty)))
+        (if (%imm-sentinel-empty? r %ws-empty) default r))
+      (%raise-bad-type (macro-type-ws-deque) ws-deque-try-pop-or! dq)))
 
 ;; Zero-closure concurrent thief FIFO steal: returns stolen item or `default` when empty.
 (define (ws-deque-try-steal-or! dq default)
-  (if (##not (macro-ws-deque? dq))
-      (%raise-bad-type (macro-type-ws-deque) ws-deque-try-steal-or! dq))
-  (let ((r (%ws-steal-raw! dq %ws-empty)))
-    (if (%imm-sentinel-empty? r %ws-empty) default r)))
+  (if (macro-ws-deque? dq)
+      (let ((r (%ws-steal-raw! dq %ws-empty)))
+        (if (%imm-sentinel-empty? r %ws-empty) default r))
+      (%raise-bad-type (macro-type-ws-deque) ws-deque-try-steal-or! dq)))
 
 ;;;============================================================================
 ;;; 4. Wait-Free-Read / Lock-Free-Write Sharded Concurrent Hash Table
@@ -912,107 +939,107 @@
                 nxt))))))
 
 (define (concurrent-table-size ct)
-  (if (##not (macro-concurrent-table? ct))
-      (%raise-bad-type (macro-type-concurrent-table) concurrent-table-size ct))
-  (let ((n (%ctr-load-acq (macro-concurrent-table-count ct))))
-    (if (##fx> n 0) n 0)))
+  (if (macro-concurrent-table? ct)
+      (let ((n (%ctr-load-acq (macro-concurrent-table-count ct))))
+        (if (##fx> n 0) n 0))
+      (%raise-bad-type (macro-type-concurrent-table) concurrent-table-size ct)))
 
 ;; Wait-free read: single acquire load + contiguous immutable flat bucket scan.
 (define (concurrent-table-ref ct key #!optional (default #f))
-  (if (##not (macro-concurrent-table? ct))
-      (%raise-bad-type (macro-type-concurrent-table) concurrent-table-ref ct))
-  (if (and (macro-concurrent-table-fast-mode ct) (##fixnum? key))
-      (%ct-fast-fixnum-ref (macro-concurrent-table-buckets ct) (macro-concurrent-table-mask ct) key default)
-      (let* ((bv (%slot-load-acq (macro-concurrent-table-buckets ct) (%ct-bucket-idx ct key)))
-             (pos (%ct-vec-find bv key (macro-concurrent-table-eq-fn ct))))
-        (if pos (##vector-ref bv (##fx+ pos 1)) default))))
+  (if (macro-concurrent-table? ct)
+      (if (and (macro-concurrent-table-fast-mode ct) (##fixnum? key))
+          (%ct-fast-fixnum-ref (macro-concurrent-table-buckets ct) (macro-concurrent-table-mask ct) key default)
+          (let* ((bv (%slot-load-acq (macro-concurrent-table-buckets ct) (%ct-bucket-idx ct key)))
+                 (pos (%ct-vec-find bv key (macro-concurrent-table-eq-fn ct))))
+            (if pos (##vector-ref bv (##fx+ pos 1)) default)))
+      (%raise-bad-type (macro-type-concurrent-table) concurrent-table-ref ct)))
 
 (define (concurrent-table-set! ct key val)
-  (if (##not (macro-concurrent-table? ct))
-      (%raise-bad-type (macro-type-concurrent-table) concurrent-table-set! ct))
-  (let ((buckets (macro-concurrent-table-buckets ct))
-        (cnt (macro-concurrent-table-count ct)))
-    (if (and (macro-concurrent-table-fast-mode ct) (##fixnum? key))
-        (let ((idx (%ct-fixnum-hash key (macro-concurrent-table-mask ct))))
-          (let loop ()
-            (let* ((cur (%slot-load-acq buckets idx))
-                   (pos (%ct-vec-find-eq cur key))
-                   (nxt (%ct-vec-replace-at cur pos key val))
-                   (prev (%slot-cas-acqrel! buckets idx cur nxt)))
-              (if (##eq? prev cur)
-                  (begin
-                    (if (##not pos)
-                        (%ctr-add-rel! cnt 1))
-                    val)
-                  (loop)))))
-        (let ((idx (%ct-bucket-idx ct key))
-              (eq-fn (macro-concurrent-table-eq-fn ct)))
-          (let loop ()
-            (let* ((cur (%slot-load-acq buckets idx))
-                   (pos (%ct-vec-find cur key eq-fn))
-                   (nxt (%ct-vec-replace-at cur pos key val))
-                   (prev (%slot-cas-acqrel! buckets idx cur nxt)))
-              (if (##eq? prev cur)
-                  (begin
-                    (if (##not pos)
-                        (%ctr-add-rel! cnt 1))
-                    val)
-                  (loop))))))))
+  (if (macro-concurrent-table? ct)
+      (let ((buckets (macro-concurrent-table-buckets ct))
+            (cnt (macro-concurrent-table-count ct)))
+        (if (and (macro-concurrent-table-fast-mode ct) (##fixnum? key))
+            (let ((idx (%ct-fixnum-hash key (macro-concurrent-table-mask ct))))
+              (let loop ()
+                (let* ((cur (%slot-load-acq buckets idx))
+                       (pos (%ct-vec-find-eq cur key))
+                       (nxt (%ct-vec-replace-at cur pos key val))
+                       (prev (%slot-cas-acqrel! buckets idx cur nxt)))
+                  (if (##eq? prev cur)
+                      (begin
+                        (if (##not pos)
+                            (%ctr-add-rel! cnt 1))
+                        val)
+                      (loop)))))
+            (let ((idx (%ct-bucket-idx ct key))
+                  (eq-fn (macro-concurrent-table-eq-fn ct)))
+              (let loop ()
+                (let* ((cur (%slot-load-acq buckets idx))
+                       (pos (%ct-vec-find cur key eq-fn))
+                       (nxt (%ct-vec-replace-at cur pos key val))
+                       (prev (%slot-cas-acqrel! buckets idx cur nxt)))
+                  (if (##eq? prev cur)
+                      (begin
+                        (if (##not pos)
+                            (%ctr-add-rel! cnt 1))
+                        val)
+                      (loop)))))))
+      (%raise-bad-type (macro-type-concurrent-table) concurrent-table-set! ct)))
 
 ;; Atomic functional update: (updater found? old-val) -> new-val.
 (define (concurrent-table-update! ct key updater)
-  (if (##not (macro-concurrent-table? ct))
-      (%raise-bad-type (macro-type-concurrent-table) concurrent-table-update! ct))
-  (if (##not (##procedure? updater))
-      (error "concurrent-table-update!: expected procedure" updater))
-  (let ((buckets (macro-concurrent-table-buckets ct))
-        (cnt (macro-concurrent-table-count ct)))
-    (if (and (macro-concurrent-table-fast-mode ct) (##fixnum? key))
-        (let ((idx (%ct-fixnum-hash key (macro-concurrent-table-mask ct))))
-          (let loop ()
-            (let* ((cur (%slot-load-acq buckets idx))
-                   (pos (%ct-vec-find-eq cur key))
-                   (new-val (if pos (updater #t (##vector-ref cur (##fx+ pos 1))) (updater #f #f)))
-                   (nxt (%ct-vec-replace-at cur pos key new-val))
-                   (prev (%slot-cas-acqrel! buckets idx cur nxt)))
-              (if (##eq? prev cur)
-                  (begin
-                    (if (##not pos)
-                        (%ctr-add-rel! cnt 1))
-                    new-val)
-                  (loop)))))
-        (let ((idx (%ct-bucket-idx ct key))
-              (eq-fn (macro-concurrent-table-eq-fn ct)))
-          (let loop ()
-            (let* ((cur (%slot-load-acq buckets idx))
-                   (pos (%ct-vec-find cur key eq-fn))
-                   (new-val (if pos (updater #t (##vector-ref cur (##fx+ pos 1))) (updater #f #f)))
-                   (nxt (%ct-vec-replace-at cur pos key new-val))
-                   (prev (%slot-cas-acqrel! buckets idx cur nxt)))
-              (if (##eq? prev cur)
-                  (begin
-                    (if (##not pos)
-                        (%ctr-add-rel! cnt 1))
-                    new-val)
-                  (loop))))))))
+  (if (macro-concurrent-table? ct)
+      (if (##procedure? updater)
+          (let ((buckets (macro-concurrent-table-buckets ct))
+                (cnt (macro-concurrent-table-count ct)))
+            (if (and (macro-concurrent-table-fast-mode ct) (##fixnum? key))
+                (let ((idx (%ct-fixnum-hash key (macro-concurrent-table-mask ct))))
+                  (let loop ()
+                    (let* ((cur (%slot-load-acq buckets idx))
+                           (pos (%ct-vec-find-eq cur key))
+                           (new-val (if pos (updater #t (##vector-ref cur (##fx+ pos 1))) (updater #f #f)))
+                           (nxt (%ct-vec-replace-at cur pos key new-val))
+                           (prev (%slot-cas-acqrel! buckets idx cur nxt)))
+                      (if (##eq? prev cur)
+                          (begin
+                            (if (##not pos)
+                                (%ctr-add-rel! cnt 1))
+                            new-val)
+                          (loop)))))
+                (let ((idx (%ct-bucket-idx ct key))
+                      (eq-fn (macro-concurrent-table-eq-fn ct)))
+                  (let loop ()
+                    (let* ((cur (%slot-load-acq buckets idx))
+                           (pos (%ct-vec-find cur key eq-fn))
+                           (new-val (if pos (updater #t (##vector-ref cur (##fx+ pos 1))) (updater #f #f)))
+                           (nxt (%ct-vec-replace-at cur pos key new-val))
+                           (prev (%slot-cas-acqrel! buckets idx cur nxt)))
+                      (if (##eq? prev cur)
+                          (begin
+                            (if (##not pos)
+                                (%ctr-add-rel! cnt 1))
+                            new-val)
+                          (loop)))))))
+          (error "concurrent-table-update!: expected procedure" updater))
+      (%raise-bad-type (macro-type-concurrent-table) concurrent-table-update! ct)))
 
 (define (concurrent-table-delete! ct key)
-  (if (##not (macro-concurrent-table? ct))
-      (%raise-bad-type (macro-type-concurrent-table) concurrent-table-delete! ct))
-  (let ((buckets (macro-concurrent-table-buckets ct))
-        (idx (%ct-bucket-idx ct key))
-        (eq-fn (macro-concurrent-table-eq-fn ct))
-        (cnt (macro-concurrent-table-count ct)))
-    (let loop ()
-      (let* ((cur (%slot-load-acq buckets idx))
-             (nxt (%ct-vec-delete cur key eq-fn)))
-        (if (##eq? nxt cur)
-            #f
-            (let ((prev (%slot-cas-acqrel! buckets idx cur nxt)))
-              (if (##eq? prev cur)
-                  (begin
-                    (%ctr-sub-rel! cnt 1)
-                    #t)
-                  (loop))))))))
+  (if (macro-concurrent-table? ct)
+      (let ((buckets (macro-concurrent-table-buckets ct))
+            (idx (%ct-bucket-idx ct key))
+            (eq-fn (macro-concurrent-table-eq-fn ct))
+            (cnt (macro-concurrent-table-count ct)))
+        (let loop ()
+          (let* ((cur (%slot-load-acq buckets idx))
+                 (nxt (%ct-vec-delete cur key eq-fn)))
+            (if (##eq? nxt cur)
+                #f
+                (let ((prev (%slot-cas-acqrel! buckets idx cur nxt)))
+                  (if (##eq? prev cur)
+                      (begin
+                        (%ctr-sub-rel! cnt 1)
+                        #t)
+                      (loop)))))))
+      (%raise-bad-type (macro-type-concurrent-table) concurrent-table-delete! ct)))
 
 ;;;============================================================================
