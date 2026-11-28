@@ -105,6 +105,7 @@
   %mc-return-vals
   %mc-find-tail-slow
   %entering-barrier?
+  %pop-barrier-token!
   %prompt-cont!
   %prompt-cont-scoped!
   %invoke-abort-handler

@@ -105,6 +105,7 @@
   %entries-all-tail?
   %find-entry-in-frame
   %handlers-prefix-before
+  %pop-handler-frame!
   %install-handler-cont!
   %install-handler-cont-scoped!
   %perform-fast-cap-0!

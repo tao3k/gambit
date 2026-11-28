@@ -1209,3 +1209,116 @@
     (test-equal num-threads (atomic-fxbox-ref ok-count))))
 
 ;;;============================================================================
+;;; Tail-Resumptive Handler Dynamic Frame Popping Across Continuation Replay
+
+;; Exiting a tail-resumptive handler inside a resumed composable or effect
+;; continuation (both normally, inside return clauses, and via exception unwind)
+;; must dynamically pop only its own frame, preserving resumer-installed outer
+;; handlers and never resurrecting dead capture-site handlers.
+(let ((e-tail (make-effect 'dynpop-tail))
+      (e-outer (make-effect 'dynpop-outer))
+      (e-res-a (make-effect 'dynpop-res-a))
+      (e-res-b (make-effect 'dynpop-res-b))
+      (e-zombie (make-effect 'dynpop-zombie))
+      (tag (make-continuation-prompt-tag 'dynpop-tag))
+      (saved-k #f))
+  ;; 1. Composable continuation captured inside tail handler under capture-site e-zombie
+  (with-handler ((tail: e-zombie (x) (list 'zombie x)))
+    (call-with-continuation-prompt
+     (lambda ()
+       (let ((a (with-handler ((tail: e-tail (x) (+ x 1))
+                               (return: (v)
+                                 (list v
+                                       (with-exception-catcher
+                                        (lambda (e) 'no-res-in-ret)
+                                        (lambda () (perform e-res-a v))))))
+                  (let ((v (call-with-composable-continuation
+                            (lambda (k) (set! saved-k k) 0)
+                            tag)))
+                    (+ v (perform e-tail 10))))))
+         (list a
+               (with-exception-catcher (lambda (e) 'no-res-after) (lambda () (perform e-res-a 99)))
+               (with-exception-catcher (lambda (e) 'no-zombie) (lambda () (perform e-zombie 77))))))
+     tag))
+  (test-equal '((16 (res-a 16)) (res-a 99) no-zombie)
+    (with-handler ((tail: e-res-a (x) (list 'res-a x)))
+      (saved-k 5)))
+
+  ;; 2. Pure (gambit effect) multi-shot resume under distinct resumer handlers
+  (test-equal '((16 (res-a 88)) (21 (res-b 88)))
+    (with-handler ((e-outer (k v)
+                     (list
+                      (with-handler ((tail: e-res-a (x) (list 'res-a x)))
+                        (resume-multishot k v))
+                      (with-handler ((tail: e-res-b (x) (list 'res-b x)))
+                        (resume-multishot k (+ v 5))))))
+      (let ((a (with-handler ((tail: e-tail (x) (+ x 1)))
+                 (+ (perform e-outer 5) (perform e-tail 10)))))
+        (list a
+              (with-exception-catcher
+               (lambda (e)
+                 (with-exception-catcher
+                  (lambda (e2) 'neither)
+                  (lambda () (perform e-res-b 88))))
+               (lambda () (perform e-res-a 88)))))))
+
+  ;; 3. Exception unwind out of tail-resumptive handler after resume preserves resumer handler
+  (test-equal '(res-a 55)
+    (with-handler ((e-outer (k v)
+                     (with-handler ((tail: e-res-a (x) (list 'res-a x)))
+                       (resume k v))))
+      (with-exception-catcher
+       (lambda (e) (perform e-res-a 55))
+       (lambda ()
+         (with-handler ((tail: e-tail (x) (+ x 1)))
+           (perform e-outer 5)
+           (error "tail-unwind-after-resume")))))))
+
+;; Adaptive-P SMP torture: concurrent multi-shot tail-handler replay under
+;; distinct resumer handlers + exception unwind + GC.
+(let* ((num-threads (max 2 (min 12 (##current-vm-processor-count))))
+       (rounds 30)
+       (ok-count (make-atomic-fxbox 0)))
+  (let ((threads
+         (let loop ((t 0) (acc '()))
+           (if (fx= t num-threads)
+               acc
+               (loop (fx+ t 1)
+                     (cons
+                      (thread-start!
+                       (make-thread
+                        (lambda ()
+                          (let ((et (make-effect 'smp-dt))
+                                (eo (make-effect 'smp-do))
+                                (er (make-effect 'smp-dr))
+                                (ez (make-effect 'smp-dz)))
+                            (let rloop ((r 0) (good #t))
+                              (if (fx< r rounds)
+                                  (let ((res
+                                         (with-handler ((eo (k v)
+                                                          (with-handler ((tail: er (x) (fx+ x r)))
+                                                            (resume k v))))
+                                           (let ((a (with-handler ((tail: et (x) (fx+ x 1)))
+                                                      (fx+ (perform eo 10) (perform et 5)))))
+                                             (fx+ a (perform er 100)))))
+                                        (res2
+                                         (with-handler ((eo (k v)
+                                                          (with-handler ((tail: er (x) (fx+ x 1)))
+                                                            (resume k v))))
+                                           (with-exception-catcher
+                                            (lambda (e) (perform er r))
+                                            (lambda ()
+                                              (with-handler ((tail: et (x) x))
+                                                (perform eo 0)
+                                                (error "smp-tail-boom")))))))
+                                    (if (and (fx= t 0) (fx= (fxand r 7) 7)) (##gc))
+                                    (rloop (fx+ r 1)
+                                           (and good
+                                                (fx= res (fx+ 116 r))
+                                                (fx= res2 (fx+ r 1)))))
+                                  (if good (atomic-fxbox+/fetch! ok-count 1))))))))
+                      acc))))))
+    (for-each thread-join! threads)
+    (test-equal num-threads (atomic-fxbox-ref ok-count))))
+
+;;;============================================================================

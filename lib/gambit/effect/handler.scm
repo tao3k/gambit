@@ -77,21 +77,36 @@
     (let ((res (if return-fn (return-fn (thunk)) (thunk))))
       (%mc-return1 res))))
 
+;; Dynamically pop `frame` (and any unpopped inner frames above it on exception
+;; unwind) from the current thread's handler stack instead of restoring a stale
+;; capture-time snapshot. O(1) pointer compare on the normal-return fast path;
+;; preserves any outer handlers installed around a resumed continuation.
+(define (%pop-handler-frame! st frame)
+  (let ((hs (%st-handlers st)))
+    (if (and (pair? hs) (eq? (car hs) frame))
+        (%st-handlers-set! st (cdr hs))
+        (let loop ((cur hs))
+          (cond
+            ((null? cur) #!void)
+            ((eq? (car cur) frame)
+             (%st-handlers-set! st (cdr cur)))
+            (else (loop (cdr cur))))))))
+
 (define (%call-with-handler-entries entries return-fn thunk)
   (if (%entries-all-tail? entries)
-      ;; Koka ICFP '21 Tail-Resumptive Fast Path:
-      ;; Zero prompt, zero continuation capture, zero parameterize!
+      ;; Tail-Resumptive Fast Path:
+      ;; Zero prompt, zero continuation capture, zero parameterize, and
+      ;; continuation-replay-safe dynamic frame popping on exit/unwind.
       (let* ((frame (%make-handler-frame #f entries))
-             (st (%tc-fast))
-             (old-handlers (%st-handlers st)))
-        (%st-handlers-set! st (cons frame old-handlers))
+             (st (%tc-fast)))
+        (%st-handlers-set! st (cons frame (%st-handlers st)))
         (with-exception-catcher
          (lambda (e)
-           (%st-handlers-set! (%tc-fast) old-handlers)
+           (%pop-handler-frame! (%tc-fast) frame)
            (raise e))
          (lambda ()
            (let ((res (thunk)))
-             (%st-handlers-set! (%tc-fast) old-handlers)
+             (%pop-handler-frame! (%tc-fast) frame)
              (if return-fn (return-fn res) res)))))
       ;; Native Single-Capture Deep Effect Handler on SRFI-226 metacontinuation
       ;; with scope-bound exception unwind trampoline outside ##continuation-capture

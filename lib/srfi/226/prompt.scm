@@ -267,16 +267,27 @@
               (let ((tail (cdr found)))
                 (%abort-to-pframe! st (car tail) (cdr tail) tag a1 a2 a3 more)))))))
 
+(define (%pop-barrier-token! st token)
+  (let ((bs (%st-barriers st)))
+    (if (and (pair? bs) (eq? (car bs) token))
+        (%st-barriers-set! st (cdr bs))
+        (let loop ((cur bs))
+          (cond
+            ((null? cur) #!void)
+            ((eq? (car cur) token)
+             (%st-barriers-set! st (cdr cur)))
+            (else (loop (cdr cur))))))))
+
 (define (call-with-continuation-barrier thunk)
   (if (not (procedure? thunk))
       (error "call-with-continuation-barrier: expected procedure" thunk))
-  (let* ((st (%tc-current))
-         (barrier-token (list 'continuation-barrier))
-         (saved-barriers (%st-barriers st))
-         (new-barriers (cons barrier-token saved-barriers)))
+  (let ((barrier-token (list 'continuation-barrier)))
     (dynamic-wind
-      (lambda () (%st-barriers-set! (%tc-current) new-barriers))
+      (lambda ()
+        (let ((st (%tc-current)))
+          (%st-barriers-set! st (cons barrier-token (%st-barriers st)))))
       thunk
-      (lambda () (%st-barriers-set! (%tc-current) saved-barriers)))))
+      (lambda ()
+        (%pop-barrier-token! (%tc-current) barrier-token)))))
 
 ;;;============================================================================

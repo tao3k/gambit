@@ -1395,4 +1395,28 @@
           (loop (fx+ i 1) (equal? res (list 'from-k2 i)))))
       (test-equal #t ok)))
 
+;; Dynamic continuation-barrier push/pop: entering and exiting an inner barrier
+;; inside a replayed composable continuation must preserve an enclosing outer barrier.
+(let ((t-out (make-continuation-prompt-tag 'dynbar-out))
+      (t-cap (make-continuation-prompt-tag 'dynbar-cap))
+      (saved #f))
+  (call-with-continuation-prompt
+   (lambda ()
+     (let ((v (call-with-composable-continuation (lambda (k) (set! saved k) 'init) t-cap)))
+       (if (eq? v 'go)
+           (begin
+             (call-with-continuation-barrier (lambda () 'inner-barrier-ok))
+             (call-with-composable-continuation (lambda (k) 'outer-barrier-bypassed) t-out))
+           v)))
+   t-cap)
+  (test-equal 'outer-barrier-preserved
+    (call-with-continuation-prompt
+     (lambda ()
+       (call-with-continuation-barrier
+        (lambda ()
+          (with-exception-catcher
+           (lambda (e) 'outer-barrier-preserved)
+           (lambda () (saved 'go))))))
+     t-out)))
+
 ;;;============================================================================
