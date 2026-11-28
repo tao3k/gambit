@@ -866,3 +866,111 @@
     (test-equal num-threads (atomic-fxbox-ref ok-count))))
 
 ;;;============================================================================
+;;; 12. Transactional Post-dynamic-wind Perform & Generator Yield Safety
+;;;     (Single-Thread Exactness + Adaptive-P SMP Torture)
+
+;; 12a. Transactional `perform` across dynamic-wind: after-thunk sees intact
+;;      inner handlers & marks; if after-thunk throws caught inside with-handler,
+;;      the outer effect handler remains 100% live and uncorrupted.
+(let ((outer-eff (make-effect 'dw-perf-outer))
+      (inner-eff (make-effect 'dw-perf-inner))
+      (after-saw #f))
+  (let ((r1
+         (with-handler ((outer-eff (k v) (list 'handled v)))
+           (with-handler ((tail: inner-eff () 'inner-alive))
+             (dynamic-wind
+               (lambda () #!void)
+               (lambda () (perform outer-eff 42))
+               (lambda () (set! after-saw (perform inner-eff)))))))
+        (r2
+         (with-handler ((outer-eff (k v) (list 'still-live v)))
+           (with-exception-catcher
+            (lambda (e) (perform outer-eff 7))
+            (lambda ()
+              (dynamic-wind
+                (lambda () #!void)
+                (lambda () (perform outer-eff 99))
+                (lambda () (error "perform-after-boom"))))))))
+    (test-equal '(handled 42) r1)
+    (test-equal 'inner-alive after-saw)
+    (test-equal '(still-live 7) r2)))
+
+;; 12b. Generator `yield` inside dynamic-wind whose after-thunk throws:
+;;      exception delivers cleanly to caller's catcher, generator transitions
+;;      atomically to DONE (#!eof), and enclosing prompts return once.
+(let ((t-outer (make-continuation-prompt-tag 'gen-dw-after-outer))
+      (after-count 0))
+  (let ((res
+         (call-with-continuation-prompt
+          (lambda ()
+            (let ((g (make-generator
+                      (lambda ()
+                        (dynamic-wind
+                          (lambda () #!void)
+                          (lambda () (perform yield 1))
+                          (lambda () (error "gen-dw-after-boom")))))))
+              (let ((c (with-exception-catcher
+                        (lambda (e) (error-exception-message e))
+                        (lambda () (g)))))
+                (set! after-count (fx+ after-count 1))
+                (list c (g)))))
+          t-outer)))
+    (test-equal (list "gen-dw-after-boom" #!eof) res)
+    (test-equal 1 after-count)))
+
+;; 12c. Adaptive-P SMP concurrent torture mixing transactional dynamic-wind
+;;      perform & generator yield faults with concurrent GC.
+(let* ((num-threads (max 2 (min 12 (##current-vm-processor-count))))
+       (iters 60)
+       (ok-count (make-atomic-fxbox 0)))
+  (let ((threads
+         (let loop ((t 0) (acc '()))
+           (if (fx= t num-threads)
+               acc
+               (loop (fx+ t 1)
+                     (cons
+                      (thread-start!
+                       (make-thread
+                        (lambda ()
+                          (let ((eo (make-effect 'smp-dw-eo))
+                                (ei (make-effect 'smp-dw-ei)))
+                            (let iloop ((i 0) (good #t))
+                              (if (fx< i iters)
+                                  (let ((saw #f))
+                                    (let ((r1
+                                           (with-handler ((eo (k v) (fx+ v 1)))
+                                             (with-handler ((tail: ei () i))
+                                               (dynamic-wind
+                                                 (lambda () #!void)
+                                                 (lambda () (perform eo i))
+                                                 (lambda () (set! saw (perform ei)))))))
+                                          (r2
+                                           (with-handler ((eo (k v) (fx+ v 10)))
+                                             (with-exception-catcher
+                                              (lambda (e) (perform eo i))
+                                              (lambda ()
+                                                (dynamic-wind
+                                                  (lambda () #!void)
+                                                  (lambda () (perform eo 999))
+                                                  (lambda () (error "smp-perf-dw")))))))
+                                          (g (make-generator
+                                              (lambda ()
+                                                (dynamic-wind
+                                                  (lambda () #!void)
+                                                  (lambda () (perform yield i))
+                                                  (lambda () (error "smp-gen-dw")))))))
+                                      (let ((c (with-exception-catcher (lambda (e) 'ok) (lambda () (g)))))
+                                        (if (and (fx= t 0) (fx= (fxand i 15) 15)) (##gc))
+                                        (iloop (fx+ i 1)
+                                               (and good
+                                                    (fx= r1 (fx+ i 1))
+                                                    (fx= saw i)
+                                                    (fx= r2 (fx+ i 10))
+                                                    (eq? c 'ok)
+                                                    (eof-object? (g)))))))
+                                  (if good (atomic-fxbox+/fetch! ok-count 1))))))))
+                      acc))))))
+    (for-each thread-join! threads)
+    (test-equal num-threads (atomic-fxbox-ref ok-count))))
+
+;;;============================================================================

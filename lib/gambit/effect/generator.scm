@@ -23,20 +23,38 @@
          (rest (cdr mc))
          (ck (%pf-escape-k pframe))
          (is-init (eq? (%pf-handler pframe) 'init)))
-    (if (not is-init)
+    (if (eq? (macro-denv-dynwind (macro-thread-denv (macro-current-thread)))
+             (macro-denv-dynwind (##continuation-denv ck)))
         (begin
-          (%pf-escape-k-set! pframe #f)
-          (%pf-eh-scope-set! pframe #f)))
-    (%st-mc-set! st rest)
-    (%st-marks-set! st (%pf-marks pframe))
-    (%st-barriers-set! st (%pf-barriers pframe))
-    (%st-handlers-set! st (%pf-handlers pframe))
-    (%gen-sub-k-set! gen sub-k)
-    ;; Release-store SUSPENDED strictly AFTER all pframe/st updates complete
-    (%gen-state-store-rel! gen %GEN-SUSPENDED)
-    (if is-init
-        (##continuation-return ck val)
-        (let () (declare (inlining-limit 0)) (%return-oneshot-same-denv! ck val)))))
+          (if (not is-init)
+              (begin
+                (%pf-escape-k-set! pframe #f)
+                (%pf-eh-scope-set! pframe #f)))
+          (%st-mc-set! st rest)
+          (%st-marks-set! st (%pf-marks pframe))
+          (%st-barriers-set! st (%pf-barriers pframe))
+          (%st-handlers-set! st (%pf-handlers pframe))
+          (%gen-sub-k-set! gen sub-k)
+          ;; Release-store SUSPENDED strictly AFTER all pframe/st updates complete
+          (%gen-state-store-rel! gen %GEN-SUSPENDED)
+          (if is-init
+              (##continuation-return ck val)
+              (let () (declare (inlining-limit 0)) (%return-oneshot-same-denv! ck val))))
+        ;; Winding path: defer st/SUSPENDED commit until dynamic-wind after-thunks finish
+        (##continuation-graft
+         ck
+         (lambda ()
+           (if (not is-init)
+               (begin
+                 (%pf-escape-k-set! pframe #f)
+                 (%pf-eh-scope-set! pframe #f)))
+           (%st-mc-set! st rest)
+           (%st-marks-set! st (%pf-marks pframe))
+           (%st-barriers-set! st (%pf-barriers pframe))
+           (%st-handlers-set! st (%pf-handlers pframe))
+           (%gen-sub-k-set! gen sub-k)
+           (%gen-state-store-rel! gen %GEN-SUSPENDED)
+           val)))))
 
 ;; Slow generator yield handler when nested prompts or frozen multi-shot frames exist
 (define (%gen-yield-slow-handler gen)

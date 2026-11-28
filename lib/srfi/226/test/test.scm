@@ -762,3 +762,188 @@
     (test-equal num-threads (atomic-fxbox-ref ok-count))))
 
 ;;;============================================================================
+;;; 11. Transactional Post-dynamic-wind Commit, Captured-Continuation Marks
+;;;     Inspection & Zero-Leak One-Shot Slot Clearing (Adaptive-P SMP)
+
+;; 11a. Transactional abort across dynamic-wind: after-thunk must see intact
+;;      marks & active prompt; if after-thunk raises caught inside the prompt,
+;;      the prompt and marks must remain 100% intact.
+(let ((t-a (make-continuation-prompt-tag 'dw-abort-a))
+      (t-b (make-continuation-prompt-tag 'dw-abort-b))
+      (seen-marks #f)
+      (seen-prompt #f))
+  (let ((res
+         (call-with-continuation-prompt
+          (lambda ()
+            (with-continuation-mark 'dw-k 'inside-mark
+              (dynamic-wind
+                (lambda () #!void)
+                (lambda () (abort-current-continuation t-a 'aborted-ok))
+                (lambda ()
+                  (set! seen-marks
+                        (continuation-mark-set->list (current-continuation-marks) 'dw-k))
+                  (set! seen-prompt (continuation-prompt-available? t-a))))))
+          t-a
+          (lambda (v) v))))
+    (test-equal 'aborted-ok res)
+    (test-equal '(inside-mark) seen-marks)
+    (test-equal #t seen-prompt)
+    (test-equal #f (continuation-prompt-available? t-a)))
+  (let ((res2
+         (call-with-continuation-prompt
+          (lambda ()
+            (with-continuation-mark 'dw-k2 'survives
+              (with-exception-catcher
+               (lambda (e)
+                 (list 'caught
+                       (continuation-prompt-available? t-b)
+                       (continuation-mark-set->list (current-continuation-marks) 'dw-k2)))
+               (lambda ()
+                 (dynamic-wind
+                   (lambda () #!void)
+                   (lambda () (abort-current-continuation t-b 'never))
+                   (lambda () (error "after-abort-boom")))))))
+          t-b
+          (lambda (v) (list 'wrong-handler v)))))
+    (test-equal '(caught #t (survives)) res2)
+    (test-equal #f (continuation-prompt-available? t-b))))
+
+;; 11b. Exact (continuation-marks cont) inspection for composable, noncomp,
+;;      call/1cc, and one-shot composable continuations + consumed slot clear
+;;      vs promoted multi-shot mark preservation.
+(let ((t-m (make-continuation-prompt-tag 'marks-inspect))
+      (ck #f) (nk #f) (ok1 #f) (ok-promo #f) (raw-1cc #f))
+  (call-with-continuation-prompt
+   (lambda ()
+     (with-continuation-mark 'mk 'comp-val
+       (call-with-composable-continuation (lambda (k) (set! ck k) 'ok) t-m)))
+   t-m)
+  (call-with-continuation-prompt
+   (lambda ()
+     (with-continuation-mark 'mk 'noncomp-val
+       (call-with-non-composable-continuation (lambda (k) (set! nk k) 'ok) t-m)))
+   t-m)
+  (call-with-continuation-prompt
+   (lambda ()
+     (with-continuation-mark 'mk 'oneshot-val
+       (call-with-one-shot-composable-continuation (lambda (k) (set! ok1 k) 'ok) t-m)))
+   t-m)
+  (call-with-continuation-prompt
+   (lambda ()
+     (with-continuation-mark 'mk 'promo-val
+       (call-with-one-shot-composable-continuation (lambda (k) (set! ok-promo k) 'ok) t-m)))
+   t-m)
+  (with-continuation-mark 'mk 'raw-val
+    (call/1cc (lambda (k) (set! raw-1cc k) 'ok) (make-continuation-prompt-tag 'absent)))
+  (with-continuation-mark 'mk 'caller-decoy
+    (begin
+      (test-equal '(comp-val) (continuation-mark-set->list (continuation-marks ck) 'mk))
+      (test-equal '(noncomp-val) (continuation-mark-set->list (continuation-marks nk) 'mk))
+      (test-equal '(oneshot-val) (continuation-mark-set->list (continuation-marks ok1) 'mk))
+      (test-equal '(raw-val) (continuation-mark-set->list (continuation-marks raw-1cc) 'mk))
+      ;; Consume ok1 -> slots immediately cleared (zero GC retention leak)
+      (ok1 'done)
+      (test-equal #t (one-shot-continuation-consumed? ok1))
+      (test-equal '() (continuation-mark-set->list (continuation-marks ok1) 'mk))
+      ;; Promote ok-promo -> marks preserved across multiple invocations
+      (promote-one-shot-continuation! ok-promo)
+      (ok-promo 'shot1)
+      (ok-promo 'shot2)
+      (test-equal '(promo-val) (continuation-mark-set->list (continuation-marks ok-promo) 'mk)))))
+
+;; 11c. Transactional non-composable continuation invocation across dynamic-wind
+;;      whose after-thunk raises an exception: prompt and marks stay intact.
+(let ((t-nc (make-continuation-prompt-tag 'dw-noncomp))
+      (saved-nk #f))
+  (let ((res
+         (call-with-continuation-prompt
+          (lambda ()
+            (with-continuation-mark 'nc-k 'alive
+              (let ((first? (call-with-non-composable-continuation
+                             (lambda (k) (set! saved-nk k) #t)
+                             t-nc)))
+                (if first?
+                    (with-exception-catcher
+                     (lambda (e)
+                       (list 'caught-nc
+                             (continuation-prompt-available? t-nc)
+                             (continuation-mark-set->list (current-continuation-marks) 'nc-k)))
+                     (lambda ()
+                       (dynamic-wind
+                         (lambda () #!void)
+                         (lambda () (saved-nk #f))
+                         (lambda () (error "noncomp-after-boom")))))
+                    'jumped))))
+          t-nc)))
+    (test-equal '(caught-nc #t (alive)) res)
+    (test-equal #f (continuation-prompt-available? t-nc))))
+
+;; 11d. Adaptive-P SMP concurrent torture: transactional dynamic-wind aborts
+;;      (normal & throwing) + concurrent one-shot clear vs multishot mark reads.
+(let* ((num-threads (max 2 (min 12 (##current-vm-processor-count))))
+       (rounds 50)
+       (ok-count (make-atomic-fxbox 0)))
+  (let ((threads
+         (let loop ((t 0) (acc '()))
+           (if (fx= t num-threads)
+               acc
+               (loop (fx+ t 1)
+                     (cons
+                      (thread-start!
+                       (make-thread
+                        (lambda ()
+                          (let ((tg (make-continuation-prompt-tag 'smp-dw)))
+                            (let rloop ((r 0) (good #t))
+                              (if (fx< r rounds)
+                                  (let ((obs-ok #f))
+                                    (let ((v1
+                                           (call-with-continuation-prompt
+                                            (lambda ()
+                                              (with-continuation-mark 'sk r
+                                                (dynamic-wind
+                                                  (lambda () #!void)
+                                                  (lambda () (abort-current-continuation tg r))
+                                                  (lambda ()
+                                                    (set! obs-ok
+                                                          (and (continuation-prompt-available? tg)
+                                                               (equal? (continuation-mark-set->list
+                                                                        (current-continuation-marks) 'sk)
+                                                                       (list r))))))))
+                                            tg
+                                            (lambda (x) x)))
+                                          (v2
+                                           (call-with-continuation-prompt
+                                            (lambda ()
+                                              (with-exception-catcher
+                                               (lambda (e) (continuation-prompt-available? tg))
+                                               (lambda ()
+                                                 (dynamic-wind
+                                                   (lambda () #!void)
+                                                   (lambda () (abort-current-continuation tg 'no))
+                                                   (lambda () (error "smp-dw-boom"))))))
+                                            tg
+                                            (lambda (x) #f))))
+                                      ;; One-shot composable with marks + fast reclaim
+                                      (let ((k1 #f))
+                                        (let ((v3
+                                               (call-with-continuation-prompt
+                                                (lambda ()
+                                                  (fx+ 10
+                                                       (call-with-one-shot-composable-continuation
+                                                        (lambda (k)
+                                                          (set! k1 k)
+                                                          (abort-current-continuation tg (lambda () (k r))))
+                                                        tg)))
+                                                tg)))
+                                          (if (and (fx= t 0) (fx= (fxand r 15) 15)) (##gc))
+                                          (rloop (fx+ r 1)
+                                                 (and good obs-ok (fx= v1 r) v2
+                                                      (fx= v3 (fx+ r 10))
+                                                      (one-shot-continuation-consumed? k1)
+                                                      (not (continuation-prompt-available? tg))))))))
+                                  (if good (atomic-fxbox+/fetch! ok-count 1))))))))
+                      acc))))))
+    (for-each thread-join! threads)
+    (test-equal num-threads (atomic-fxbox-ref ok-count))))
+
+;;;============================================================================

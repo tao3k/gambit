@@ -76,6 +76,7 @@ shift
 %mc-frame-unwind-hook-set!
 %mc-eh-trampoline?
 %mc-ensure-tramp-denv
+%mc-same-dynwind?
 %mc-split-at-tag
 %mc-return1
 %freeze-mc-prefix!
