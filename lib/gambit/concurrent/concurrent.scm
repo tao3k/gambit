@@ -82,6 +82,10 @@
 (define (%raise-bad-type type-id proc x)
   (##raise-type-exception 1 type-id proc (##list x)))
 
+;; Immutable pre-allocated empty multiple-values sentinel (zero heap allocation
+;; on empty non-blocking pop/dequeue/steal polls).
+(define %empty-values-2 (##values #f #f))
+
 ;;;============================================================================
 ;;; 1. Lock-Free Treiber Stack (GC-managed nodes -> immune to ABA)
 
@@ -127,7 +131,7 @@
     (let loop ()
       (let ((cur (%slot-load-acq head 0)))
         (if (##null? cur)
-            (##values #f #f)
+            %empty-values-2
             (let ((prev (%slot-cas-acqrel! head 0 cur (##cdr cur))))
               (if (##eq? prev cur)
                   (##values #t (##car cur))
@@ -397,7 +401,7 @@
     (let loop ()
       (let ((r (%lfq-deq-fast! hc tc %lfq-empty %lfq-retry)))
         (cond
-          ((##eq? r %lfq-empty) (##values #f #f))
+          ((##eq? r %lfq-empty) %empty-values-2)
           ((##eq? r %lfq-retry) (loop))
           (else (##values #t r)))))))
 
@@ -597,7 +601,7 @@
       (%raise-bad-type (macro-type-ws-deque) ws-deque-try-pop! dq))
   (let ((r (%ws-pop-raw! dq %ws-empty)))
     (if (##eq? r %ws-empty)
-        (##values #f #f)
+        %empty-values-2
         (##values #t r))))
 
 ;; Concurrent thief FIFO steal from top. Returns (values #t val) or (values #f #f).
@@ -606,7 +610,7 @@
       (%raise-bad-type (macro-type-ws-deque) ws-deque-try-steal! dq))
   (let ((r (%ws-steal-raw! dq %ws-empty)))
     (if (##eq? r %ws-empty)
-        (##values #f #f)
+        %empty-values-2
         (##values #t r))))
 
 ;; Zero-closure owner-only LIFO pop: returns popped item or `default` when empty.
@@ -642,9 +646,12 @@
   (fast-mode unprintable: read-only:))
 (implement-type-concurrent-table)
 
+;; Shared immutable empty flat bucket vector: #(k0 v0 k1 v1 ...)
+(define %ct-empty-bucket (##vector))
+
 (define (make-concurrent-table #!optional (min-buckets 64) (eq-fn equal?) (hash-fn equal?-hash))
   (let* ((nb (%next-pow2 (if (and (##fixnum? min-buckets) (##fx> min-buckets 0)) min-buckets 64)))
-         (buckets (##make-vector nb '()))
+         (buckets (##make-vector nb %ct-empty-bucket))
          (fast? (or (and (##eq? eq-fn equal?) (##eq? hash-fn equal?-hash))
                     (and (##eq? eq-fn eq?) (##eq? hash-fn eq?-hash)))))
     (macro-make-concurrent-table (##fx- nb 1) buckets eq-fn hash-fn (%make-padded-ctr 0) fast?)))
@@ -670,23 +677,74 @@
       ___U64 h = ___CAST(___U64, ___CAST(___UWORD, key)) * ___CAST(___U64, 11400714819323198485ULL);
       ___WORD idx = (___WORD)((h >> 32) & ___CAST(___U64, mask));
       ___WORD *slot = ___BODY_AS(bvec, ___tVECTOR) + idx;
-      ___SCMOBJ xs = ___gc_atomic_slot_load(slot, 1);
-      while (___PAIRP(xs)) {
-        ___SCMOBJ entry = ___CAR(xs);
-        if (___EQP(___CAR(entry), key)) {
-          res = ___CDR(entry);
+      ___SCMOBJ bv = ___gc_atomic_slot_load(slot, 1);
+      ___WORD *elems = ___BODY_AS(bv, ___tVECTOR);
+      ___SIZE_TS len = ___INT(___VECTORLENGTH(bv));
+      ___SIZE_TS i;
+      for (i = 0; i < len; i += 2) {
+        if (___EQP(___CAST(___SCMOBJ, ___WORD_LOAD_RELAXED(&elems[i])), key)) {
+          res = ___CAST(___SCMOBJ, ___WORD_LOAD_RELAXED(&elems[i + 1]));
           break;
         }
-        xs = ___CDR(xs);
       }
       ___RESULT = res;"
      ,buckets ,mask ,key ,default)
-    (let* ((alist (%slot-load-acq ,buckets (##fxand (equal?-hash ,key) ,mask))))
-      (let loop ((xs alist))
+    (let* ((bv (%slot-load-acq ,buckets (##fxand (equal?-hash ,key) ,mask)))
+           (len (##vector-length bv)))
+      (let loop ((i 0))
         (cond
-          ((##null? xs) ,default)
-          ((##eq? (##caar xs) ,key) (##cdar xs))
-          (else (loop (##cdr xs))))))))
+          ((##fx>= i len) ,default)
+          ((##eq? (##vector-ref bv i) ,key) (##vector-ref bv (##fx+ i 1)))
+          (else (loop (##fx+ i 2))))))))
+
+(##define-macro (%ct-vec-find-eq bv key)
+  `(macro-if-c-compiled
+    (##c-code
+     "___SCMOBJ bv = ___ARG1;
+      ___SCMOBJ key = ___ARG2;
+      ___WORD *elems = ___BODY_AS(bv, ___tVECTOR);
+      ___SIZE_TS len = ___INT(___VECTORLENGTH(bv));
+      ___SIZE_TS i;
+      ___SCMOBJ res = ___FAL;
+      for (i = 0; i < len; i += 2) {
+        if (___EQP(___CAST(___SCMOBJ, ___WORD_LOAD_RELAXED(&elems[i])), key)) {
+          res = ___FIX(i);
+          break;
+        }
+      }
+      ___RESULT = res;"
+     ,bv ,key)
+    (let ((len (##vector-length ,bv)))
+      (let loop ((i 0))
+        (cond
+          ((##fx>= i len) #f)
+          ((##eq? (##vector-ref ,bv i) ,key) i)
+          (else (loop (##fx+ i 2))))))))
+
+(##define-macro (%ct-vec-copy-range! dst doff src soff n)
+  `(macro-if-c-compiled
+    (##c-code
+     "___SCMOBJ dst = ___ARG1;
+      ___WORD doff = ___INT(___ARG2);
+      ___SCMOBJ src = ___ARG3;
+      ___WORD soff = ___INT(___ARG4);
+      ___WORD n = ___INT(___ARG5);
+      ___WORD *dp = ___BODY_AS(dst, ___tVECTOR) + doff;
+      ___WORD *sp = ___BODY_AS(src, ___tVECTOR) + soff;
+      ___WORD i;
+      for (i = 0; i < n; i++) {
+        ___SCMOBJ v = ___CAST(___SCMOBJ, ___WORD_LOAD_RELAXED(&sp[i]));
+        ___GC_WRITE_BARRIER(___ps, dst, &dp[i], v);
+        ___WORD_STORE_RELAXED(&dp[i], ___CAST(___WORD, v));
+      }
+      ___RESULT = dst;"
+     ,dst ,doff ,src ,soff ,n)
+    (let loop ((i 0))
+      (if (##fx< i ,n)
+          (begin
+            (##vector-set! ,dst (##fx+ ,doff i) (##vector-ref ,src (##fx+ ,soff i)))
+            (loop (##fx+ i 1)))
+          ,dst))))
 
 (define (%ct-bucket-idx ct key)
   (let ((mask (macro-concurrent-table-mask ct)))
@@ -694,75 +752,57 @@
         (%ct-fixnum-hash key mask)
         (##fxand ((macro-concurrent-table-hash-fn ct) key) mask))))
 
-(define (%alist-find alist key eq-fn)
-  (let loop ((xs alist))
-    (cond
-      ((##null? xs) #f)
-      ((eq-fn (##caar xs) key) (##car xs))
-      (else (loop (##cdr xs))))))
+(define (%ct-vec-find bv key eq-fn)
+  (let ((len (##vector-length bv)))
+    (let loop ((i 0))
+      (cond
+        ((##fx>= i len) #f)
+        ((eq-fn (##vector-ref bv i) key) i)
+        (else (loop (##fx+ i 2)))))))
 
-(define (%alist-find-eq alist key)
-  (let loop ((xs alist))
-    (cond
-      ((##null? xs) #f)
-      ((##eq? (##caar xs) key) (##car xs))
-      (else (loop (##cdr xs))))))
+;; Copy-on-write immutable flat bucket vector replace.
+;; (> (vector-length nxt) (vector-length cur)) is #t iff key did NOT exist.
+(define (%ct-vec-replace-at cur pos key val)
+  (let ((len (##vector-length cur)))
+    (if pos
+        (let ((nxt (##make-vector len #f)))
+          (%ct-vec-copy-range! nxt 0 cur 0 len)
+          (##vector-set! nxt (##fx+ pos 1) val)
+          nxt)
+        (let ((nxt (##make-vector (##fx+ len 2) #f)))
+          (%ct-vec-copy-range! nxt 0 cur 0 len)
+          (##vector-set! nxt len key)
+          (##vector-set! nxt (##fx+ len 1) val)
+          nxt))))
 
-;; Zero-closure replace: `(eq? (cdr result) alist)` is #t iff key did NOT exist.
-(define (%alist-replace alist key val eq-fn)
-  (let loop ((xs alist) (prefix '()))
-    (cond
-      ((##null? xs)
-       (##cons (##cons key val) alist))
-      ((eq-fn (##caar xs) key)
-       (let rebuild ((p prefix) (res (##cons (##cons key val) (##cdr xs))))
-         (if (##null? p)
-             res
-             (rebuild (##cdr p) (##cons (##car p) res)))))
-      (else
-       (loop (##cdr xs) (##cons (##car xs) prefix))))))
-
-(define (%alist-replace-eq alist key val)
-  (let loop ((xs alist) (prefix '()))
-    (cond
-      ((##null? xs)
-       (##cons (##cons key val) alist))
-      ((##eq? (##caar xs) key)
-       (let rebuild ((p prefix) (res (##cons (##cons key val) (##cdr xs))))
-         (if (##null? p)
-             res
-             (rebuild (##cdr p) (##cons (##car p) res)))))
-      (else
-       (loop (##cdr xs) (##cons (##car xs) prefix))))))
-
-;; Zero-closure delete: `(eq? result alist)` is #t iff key was NOT found.
-(define (%alist-delete alist key eq-fn)
-  (let loop ((xs alist) (prefix '()))
-    (cond
-      ((##null? xs)
-       alist)
-      ((eq-fn (##caar xs) key)
-       (let rebuild ((p prefix) (res (##cdr xs)))
-         (if (##null? p)
-             res
-             (rebuild (##cdr p) (##cons (##car p) res)))))
-      (else
-       (loop (##cdr xs) (##cons (##car xs) prefix))))))
+;; Copy-on-write immutable flat bucket vector delete.
+;; (eq? nxt cur) is #t iff key was NOT found.
+(define (%ct-vec-delete cur key eq-fn)
+  (let ((pos (%ct-vec-find cur key eq-fn)))
+    (if (##not pos)
+        cur
+        (let ((len (##vector-length cur)))
+          (if (##fx= len 2)
+              %ct-empty-bucket
+              (let ((nxt (##make-vector (##fx- len 2) #f)))
+                (%ct-vec-copy-range! nxt 0 cur 0 pos)
+                (%ct-vec-copy-range! nxt pos cur (##fx+ pos 2) (##fx- len (##fx+ pos 2)))
+                nxt))))))
 
 (define (concurrent-table-size ct)
   (if (##not (macro-concurrent-table? ct))
       (%raise-bad-type (macro-type-concurrent-table) concurrent-table-size ct))
   (%ctr-load-acq (macro-concurrent-table-count ct)))
 
-;; Wait-free read: single acquire load + immutable bucket scan.
+;; Wait-free read: single acquire load + contiguous immutable flat bucket scan.
 (define (concurrent-table-ref ct key #!optional (default #f))
   (if (##not (macro-concurrent-table? ct))
       (%raise-bad-type (macro-type-concurrent-table) concurrent-table-ref ct))
   (if (and (macro-concurrent-table-fast-mode ct) (##fixnum? key))
       (%ct-fast-fixnum-ref (macro-concurrent-table-buckets ct) (macro-concurrent-table-mask ct) key default)
-      (let* ((alist (%slot-load-acq (macro-concurrent-table-buckets ct) (%ct-bucket-idx ct key)))
-             (entry (%alist-find alist key (macro-concurrent-table-eq-fn ct))))
-        (if entry (##cdr entry) default))))
+      (let* ((bv (%slot-load-acq (macro-concurrent-table-buckets ct) (%ct-bucket-idx ct key)))
+             (pos (%ct-vec-find bv key (macro-concurrent-table-eq-fn ct))))
+        (if pos (##vector-ref bv (##fx+ pos 1)) default))))
 
 (define (concurrent-table-set! ct key val)
   (if (##not (macro-concurrent-table? ct))
@@ -773,11 +813,12 @@
         (let ((idx (%ct-fixnum-hash key (macro-concurrent-table-mask ct))))
           (let loop ()
             (let* ((cur (%slot-load-acq buckets idx))
-                   (nxt (%alist-replace-eq cur key val))
+                   (pos (%ct-vec-find-eq cur key))
+                   (nxt (%ct-vec-replace-at cur pos key val))
                    (prev (%slot-cas-acqrel! buckets idx cur nxt)))
               (if (##eq? prev cur)
                   (begin
-                    (if (##eq? (##cdr nxt) cur)
+                    (if (##not pos)
                         (%ctr-add-rlx! cnt 1))
                     val)
                   (loop)))))
@@ -785,11 +826,12 @@
               (eq-fn (macro-concurrent-table-eq-fn ct)))
           (let loop ()
             (let* ((cur (%slot-load-acq buckets idx))
-                   (nxt (%alist-replace cur key val eq-fn))
+                   (pos (%ct-vec-find cur key eq-fn))
+                   (nxt (%ct-vec-replace-at cur pos key val))
                    (prev (%slot-cas-acqrel! buckets idx cur nxt)))
               (if (##eq? prev cur)
                   (begin
-                    (if (##eq? (##cdr nxt) cur)
+                    (if (##not pos)
                         (%ctr-add-rlx! cnt 1))
                     val)
                   (loop))))))))
@@ -804,13 +846,13 @@
         (let ((idx (%ct-fixnum-hash key (macro-concurrent-table-mask ct))))
           (let loop ()
             (let* ((cur (%slot-load-acq buckets idx))
-                   (entry (%alist-find-eq cur key))
-                   (new-val (if entry (updater #t (##cdr entry)) (updater #f #f)))
-                   (nxt (%alist-replace-eq cur key new-val))
+                   (pos (%ct-vec-find-eq cur key))
+                   (new-val (if pos (updater #t (##vector-ref cur (##fx+ pos 1))) (updater #f #f)))
+                   (nxt (%ct-vec-replace-at cur pos key new-val))
                    (prev (%slot-cas-acqrel! buckets idx cur nxt)))
               (if (##eq? prev cur)
                   (begin
-                    (if (##eq? (##cdr nxt) cur)
+                    (if (##not pos)
                         (%ctr-add-rlx! cnt 1))
                     new-val)
                   (loop)))))
@@ -818,13 +860,13 @@
               (eq-fn (macro-concurrent-table-eq-fn ct)))
           (let loop ()
             (let* ((cur (%slot-load-acq buckets idx))
-                   (entry (%alist-find cur key eq-fn))
-                   (new-val (if entry (updater #t (##cdr entry)) (updater #f #f)))
-                   (nxt (%alist-replace cur key new-val eq-fn))
+                   (pos (%ct-vec-find cur key eq-fn))
+                   (new-val (if pos (updater #t (##vector-ref cur (##fx+ pos 1))) (updater #f #f)))
+                   (nxt (%ct-vec-replace-at cur pos key new-val))
                    (prev (%slot-cas-acqrel! buckets idx cur nxt)))
               (if (##eq? prev cur)
                   (begin
-                    (if (##eq? (##cdr nxt) cur)
+                    (if (##not pos)
                         (%ctr-add-rlx! cnt 1))
                     new-val)
                   (loop))))))))
@@ -838,7 +880,7 @@
         (cnt (macro-concurrent-table-count ct)))
     (let loop ()
       (let* ((cur (%slot-load-acq buckets idx))
-             (nxt (%alist-delete cur key eq-fn)))
+             (nxt (%ct-vec-delete cur key eq-fn)))
         (if (##eq? nxt cur)
             #f
             (let ((prev (%slot-cas-acqrel! buckets idx cur nxt)))

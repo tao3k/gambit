@@ -217,6 +217,9 @@ typedef struct ___collector_worker_struct
     ___WORD *census_base_;
     ___SIZE_TS census_offset_;
     ___SIZE_TS census_epoch_;
+    ___msection *mature_skip_section_;
+    ___WORD *mature_skip_base_;
+    ___SIZE_TS mature_skip_epoch_;
     ___msection *sec_cache_[___GC_SEC_CACHE_SIZE];
     ___SIZE_TS sec_cache_epoch_;
     int sec_cache_nb_sections_;

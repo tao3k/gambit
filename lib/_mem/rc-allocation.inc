@@ -1417,7 +1417,7 @@ enum ___rest_status ___rest_claim_ready(___processor_state ps,
   }
   ___CAST(___SCMOBJ*,record->roots)[root_count-1]=vector;
   record->rest_phase=___REST_READY;
-  ___rest_ready_claims++;
+  ___WORD_FETCH_ADD_RELAXED(&___rest_ready_claims, 1);
   REST_OBS(REST_READY,ps,record,attempt,epoch,vector,0,0,0,0,0,0,0);
 #ifdef ___GAMBIT_REST_OBSERVATION
   rest_observation_ready_result=(uint64_t)vector;
@@ -2380,7 +2380,7 @@ ___BOOL ___rest_reload_window(___processor_state ps, ___WORD *fp,
     status=___REST_LOST;
   if (status==___REST_OK && window) {
     for (u=0; u<n; u++) fp[u]=window[u];
-    ___rest_resume_reloads++;
+    ___WORD_FETCH_ADD_RELAXED(&___rest_resume_reloads, 1);
   }
   if (status==___REST_OK && label_out) *label_out=label;
 #ifdef ___GAMBIT_REST_OBSERVATION

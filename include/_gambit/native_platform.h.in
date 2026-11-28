@@ -222,7 +222,7 @@ typedef struct ___global_slot_directory_struct {
   struct ___global_slot_directory_struct *retired;
   ___global_slot_page *entries[1];
 } ___global_slot_directory;
-#define ___GLOBAL_INLINE_PAGES 32
+#define ___GLOBAL_INLINE_PAGES 256
 typedef struct ___global_slot_store_struct {
   ___global_slot_directory *directory;
   ___global_slot_page *pages;

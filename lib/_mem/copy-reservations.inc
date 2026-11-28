@@ -458,13 +458,26 @@ ___WORD n;)
                 ___UWORD addr = ___CAST(___UWORD, header);
                 ___msection *source_section = 0;
 
-                /* Single cached lookup distinguishes frozen fromspace source
-                 * from mature/destination revisit without two find_msection calls. */
+                /* Dual worker-private caches: frozen young fromspace section
+                 * plus disjoint non-evacuating mature skip section so mixed
+                 * young/mature edges never thrash find_msection during minor GC. */
                 if (__builtin_expect(
                       work->census_section_ && work->census_epoch_ == epoch &&
                       addr - ___CAST(___UWORD, work->census_base_ + work->census_offset_) < half_bytes, 1))
                   {
                     source_section = work->census_section_;
+                  }
+                else if (__builtin_expect(
+                           is_minor && work->mature_skip_section_ &&
+                           work->mature_skip_epoch_ == epoch &&
+                           addr - ___CAST(___UWORD, work->mature_skip_base_) < half_bytes, 1))
+                  {
+                    if (___EXPECT_FALSE(
+                          ___WORD_LOAD_RELAXED(&work->vm->mem.major_phase_) == ___GC_MAJOR_MARKING &&
+                          !traverse_weak_refs))
+                      major_shade_mature_movable(work->vm, work->mature_skip_section_, header, head);
+                    finish_tail(work);
+                    continue;
                   }
                 else
                   {
@@ -473,6 +486,13 @@ ___WORD n;)
                       {
                         if (is_minor && sec->region_age == ___GC_REGION_MATURE && !sec->gc_evacuating)
                           {
+                            ___WORD *mbase = sec->base + sec->active_offset;
+                            if (addr - ___CAST(___UWORD, mbase) < half_bytes)
+                              {
+                                work->mature_skip_section_ = sec;
+                                work->mature_skip_base_ = mbase;
+                                work->mature_skip_epoch_ = epoch;
+                              }
                             if (___EXPECT_FALSE(
                                   ___WORD_LOAD_RELAXED(&work->vm->mem.major_phase_) == ___GC_MAJOR_MARKING &&
                                   !traverse_weak_refs))

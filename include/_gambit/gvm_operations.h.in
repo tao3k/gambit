@@ -2343,16 +2343,21 @@ do { \
 do { \
   ___WORD ___ticket = ___WORD_FETCH_ADD_RELAXED(___CAST(___VOLATILE ___WORD*,&next),___FIX(1)); \
   ___WORD ___cur; \
+  ___WORD ___last_cur = ___ticket; \
   ___UWORD ___spins = 0; \
   while ((___cur = ___WORD_LOAD_ACQUIRE(___CAST(___VOLATILE ___WORD*,&current))) != ___ticket) \
     { \
+      if (___cur != ___last_cur) \
+        { \
+          ___last_cur = ___cur; \
+          ___spins = 0; \
+        } \
       if (___spins < 256) \
         { \
-          ___UWORD ___wait = ((___CAST(___UWORD,___ticket) - ___CAST(___UWORD,___cur)) >> ___TB); \
-          if (___wait > 8) ___wait = 8; \
-          if (___wait == 0) ___wait = 1; \
+          ___UWORD ___dist = ((___CAST(___UWORD,___ticket) - ___CAST(___UWORD,___cur)) >> ___TB); \
+          ___UWORD ___wait = (___dist <= 1) ? 1 : ((___dist < 8) ? (___dist << 1) : 16); \
+          ___spins += ___wait; \
           do { ___CPU_RELAX(); } while (--___wait > 0); \
-          ___spins++; \
         } \
       else \
         ___THREAD_YIELD(); \

@@ -1829,6 +1829,9 @@ ___virtual_machine_state ___vms;)
       work->census_base_ = 0;
       work->census_offset_ = 0;
       work->census_epoch_ = 0;
+      work->mature_skip_section_ = 0;
+      work->mature_skip_base_ = 0;
+      work->mature_skip_epoch_ = 0;
       work->sec_cache_epoch_ = 0;
       work->sec_cache_nb_sections_ = -1;
       work->reserve = &___RESUME(___vms,
