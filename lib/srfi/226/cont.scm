@@ -12,7 +12,11 @@
 ;;; `promote-one-shot-continuation!`) with O(1) closure-code identity,
 ;;; zero-leak consumed-slot clearing, and transactional dynamic-wind commit.
 
-;; Zero-closure <=4-arg capture receiver for 1-value / 0-value composable replay
+;; Zero-closure <=4-arg capture receiver for 1-value / 0-value composable replay.
+;; Transactionally defers control-state commit to a post-unwind landing thunk
+;; via `##continuation-graft` when crossing `dynamic-wind` frames (including
+;; `call-with-continuation-barrier`) so caller after-thunks observe pure caller
+;; state and active continuation barriers remain enforced inside `sub-k`.
 (define (%composable-replay-1! caller-k cell v1)
   (let* ((cst (%tc-current))
          (cur-eh (macro-current-exception-handler))
@@ -34,27 +38,49 @@
                                    caller-handlers
                                    eh-scope
                                    #f)))
-    (%st-mc-set! cst
-                 (if (null? prefix)
-                     (cons uframe caller-mc)
-                     (append prefix (cons uframe caller-mc))))
-    (%st-marks-set! cst
-                    (if (null? cap-marks)
-                        caller-marks
-                        (append cap-marks caller-marks)))
-    (%st-barriers-set! cst caller-barriers)
-    (%st-handlers-set! cst
-                       (if (null? cap-handlers)
-                           caller-handlers
-                           (append cap-handlers caller-handlers)))
-    (if (eq? v1 %ABSENT)
-        (##continuation-return sub-k)
-        (##continuation-return sub-k v1))))
+    (if (%mc-same-dynwind? sub-k)
+        (begin
+          (%st-mc-set! cst
+                       (if (null? prefix)
+                           (cons uframe caller-mc)
+                           (append prefix (cons uframe caller-mc))))
+          (%st-marks-set! cst
+                          (if (null? cap-marks)
+                              caller-marks
+                              (append cap-marks caller-marks)))
+          (%st-barriers-set! cst caller-barriers)
+          (%st-handlers-set! cst
+                             (if (null? cap-handlers)
+                                 caller-handlers
+                                 (append cap-handlers caller-handlers)))
+          (if (eq? v1 %ABSENT)
+              (##continuation-return sub-k)
+              (##continuation-return sub-k v1)))
+        (##continuation-graft
+         sub-k
+         (lambda ()
+           (let ((st (%tc-current)))
+             (%st-mc-set! st
+                          (if (null? prefix)
+                              (cons uframe caller-mc)
+                              (append prefix (cons uframe caller-mc))))
+             (%st-marks-set! st
+                             (if (null? cap-marks)
+                                 caller-marks
+                                 (append cap-marks caller-marks)))
+             (%st-barriers-set! st caller-barriers)
+             (%st-handlers-set! st
+                                (if (null? cap-handlers)
+                                    caller-handlers
+                                    (append cap-handlers caller-handlers))))
+           (if (eq? v1 %ABSENT) (values) v1))))))
 
 ;; Zero-closure <=4-arg fast receiver for exclusively consumed one-shot
-;; composable continuation with empty prefix/marks/handlers: reclaims `sub-k`
-;; in O(1) via SATB-safe `%return-oneshot-same-dynwind!` while keeping `uframe`
-;; frozen (`handler = #t`) so `caller-k` is never reclaimed under fallback.
+;; composable continuation with empty prefix/marks/handlers.
+;; Uses non-destructive `##continuation-return` because `caller-k` (saved in
+;; `uframe`) may sit directly above `sub-k` when invoked without aborting first,
+;; so its break chain can reference `sub-k`'s stack span. Defers control-state
+;; commit to a post-unwind landing thunk when crossing `dynamic-wind`.
 (define (%composable-oneshot-replay-1! caller-k sub-k v1)
   (let* ((cst (%tc-current))
          (cur-eh (macro-current-exception-handler))
@@ -72,8 +98,19 @@
                                    caller-handlers
                                    eh-scope
                                    #f)))
-    (%st-mc-set! cst (cons uframe caller-mc))
-    (let () (declare (inlining-limit 0)) (%return-oneshot-same-dynwind! sub-k v1))))
+    (if (%mc-same-dynwind? sub-k)
+        (begin
+          (%st-mc-set! cst (cons uframe caller-mc))
+          (##continuation-return sub-k v1))
+        (##continuation-graft
+         sub-k
+         (lambda ()
+           (let ((st (%tc-current)))
+             (%st-mc-set! st (cons uframe caller-mc))
+             (%st-marks-set! st caller-marks)
+             (%st-barriers-set! st caller-barriers)
+             (%st-handlers-set! st caller-handlers))
+           v1)))))
 
 (define (%invoke-composable-parts sub-k prefix cap-marks cap-handlers v1 v2 v3 more)
   (if (and (null? prefix) (null? cap-marks) (null? cap-handlers)
@@ -97,25 +134,50 @@
                                           caller-handlers
                                           eh-scope
                                           #f)))
-           (%st-mc-set! cst
-                        (if (null? prefix)
-                            (cons uframe caller-mc)
-                            (append prefix (cons uframe caller-mc))))
-           (%st-marks-set! cst
-                           (if (null? cap-marks)
-                               caller-marks
-                               (append cap-marks caller-marks)))
-           (%st-barriers-set! cst caller-barriers)
-           (%st-handlers-set! cst
-                              (if (null? cap-handlers)
-                                  caller-handlers
-                                  (append cap-handlers caller-handlers)))
-           (cond
-             ((eq? v1 %ABSENT) (##continuation-return sub-k))
-             ((eq? v2 %ABSENT) (##continuation-return sub-k v1))
-             ((eq? v3 %ABSENT) (##continuation-return sub-k v1 v2))
-             ((null? more) (##continuation-return sub-k v1 v2 v3))
-             (else (##apply ##continuation-return sub-k v1 v2 v3 more))))))))
+           (if (%mc-same-dynwind? sub-k)
+               (begin
+                 (%st-mc-set! cst
+                              (if (null? prefix)
+                                  (cons uframe caller-mc)
+                                  (append prefix (cons uframe caller-mc))))
+                 (%st-marks-set! cst
+                                 (if (null? cap-marks)
+                                     caller-marks
+                                     (append cap-marks caller-marks)))
+                 (%st-barriers-set! cst caller-barriers)
+                 (%st-handlers-set! cst
+                                    (if (null? cap-handlers)
+                                        caller-handlers
+                                        (append cap-handlers caller-handlers)))
+                 (cond
+                   ((eq? v1 %ABSENT) (##continuation-return sub-k))
+                   ((eq? v2 %ABSENT) (##continuation-return sub-k v1))
+                   ((eq? v3 %ABSENT) (##continuation-return sub-k v1 v2))
+                   ((null? more) (##continuation-return sub-k v1 v2 v3))
+                   (else (##apply ##continuation-return sub-k v1 v2 v3 more))))
+               (##continuation-graft
+                sub-k
+                (lambda ()
+                  (let ((st (%tc-current)))
+                    (%st-mc-set! st
+                                 (if (null? prefix)
+                                     (cons uframe caller-mc)
+                                     (append prefix (cons uframe caller-mc))))
+                    (%st-marks-set! st
+                                    (if (null? cap-marks)
+                                        caller-marks
+                                        (append cap-marks caller-marks)))
+                    (%st-barriers-set! st caller-barriers)
+                    (%st-handlers-set! st
+                                       (if (null? cap-handlers)
+                                           caller-handlers
+                                           (append cap-handlers caller-handlers))))
+                  (cond
+                    ((eq? v1 %ABSENT) (values))
+                    ((eq? v2 %ABSENT) v1)
+                    ((eq? v3 %ABSENT) (values v1 v2))
+                    ((null? more) (values v1 v2 v3))
+                    (else (apply values v1 v2 v3 more)))))))))))
 
 (define (%invoke-composable-cell cell v1 v2 v3 more)
   (if (eq? v2 %ABSENT)
@@ -142,23 +204,46 @@
                                           caller-handlers
                                           eh-scope
                                           #f)))
-           (%st-mc-set! cst
-                        (if (null? prefix)
-                            (cons uframe caller-mc)
-                            (append prefix (cons uframe caller-mc))))
-           (%st-marks-set! cst
-                           (if (null? cap-marks)
-                               caller-marks
-                               (append cap-marks caller-marks)))
-           (%st-barriers-set! cst caller-barriers)
-           (%st-handlers-set! cst
-                              (if (null? cap-handlers)
-                                  caller-handlers
-                                  (append cap-handlers caller-handlers)))
-           (cond
-             ((eq? v3 %ABSENT) (##continuation-return sub-k v1 v2))
-             ((null? more) (##continuation-return sub-k v1 v2 v3))
-             (else (##apply ##continuation-return sub-k v1 v2 v3 more))))))))
+           (if (%mc-same-dynwind? sub-k)
+               (begin
+                 (%st-mc-set! cst
+                              (if (null? prefix)
+                                  (cons uframe caller-mc)
+                                  (append prefix (cons uframe caller-mc))))
+                 (%st-marks-set! cst
+                                 (if (null? cap-marks)
+                                     caller-marks
+                                     (append cap-marks caller-marks)))
+                 (%st-barriers-set! cst caller-barriers)
+                 (%st-handlers-set! cst
+                                    (if (null? cap-handlers)
+                                        caller-handlers
+                                        (append cap-handlers caller-handlers)))
+                 (cond
+                   ((eq? v3 %ABSENT) (##continuation-return sub-k v1 v2))
+                   ((null? more) (##continuation-return sub-k v1 v2 v3))
+                   (else (##apply ##continuation-return sub-k v1 v2 v3 more))))
+               (##continuation-graft
+                sub-k
+                (lambda ()
+                  (let ((st (%tc-current)))
+                    (%st-mc-set! st
+                                 (if (null? prefix)
+                                     (cons uframe caller-mc)
+                                     (append prefix (cons uframe caller-mc))))
+                    (%st-marks-set! st
+                                    (if (null? cap-marks)
+                                        caller-marks
+                                        (append cap-marks caller-marks)))
+                    (%st-barriers-set! st caller-barriers)
+                    (%st-handlers-set! st
+                                       (if (null? cap-handlers)
+                                           caller-handlers
+                                           (append cap-handlers caller-handlers))))
+                  (cond
+                    ((eq? v3 %ABSENT) (values v1 v2))
+                    ((null? more) (values v1 v2 v3))
+                    (else (apply values v1 v2 v3 more)))))))))))
 
 (define (%commit-noncomp-and-return! cst cur-pframe cur-rest sub-k prefix
                                      cap-marks cap-barriers cap-handlers
@@ -259,10 +344,7 @@
           (%st-handlers-set! cst cap-handlers)
           (cond
             ((eq? v1 %ABSENT) (##continuation-return sub-k))
-            ((eq? v2 %ABSENT)
-             (if oneshot?
-                 (let () (declare (inlining-limit 0)) (%return-oneshot-same-dynwind! sub-k v1))
-                 (##continuation-return sub-k v1)))
+            ((eq? v2 %ABSENT) (##continuation-return sub-k v1))
             ((eq? v3 %ABSENT) (##continuation-return sub-k v1 v2))
             ((null? more) (##continuation-return sub-k v1 v2 v3))
             (else (##apply ##continuation-return sub-k v1 v2 v3 more))))

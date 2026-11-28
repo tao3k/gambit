@@ -1059,3 +1059,153 @@
     (test-equal #!eof (g))))
 
 ;;;============================================================================
+;;; Transactional Effect Resume & Generator Resumption Across dynamic-wind & Barriers
+
+;; Resuming an effect continuation across caller dynamic-wind must not pollute
+;; the caller's after-thunk with the suspended body's marks or effect handlers.
+(let ((inner-eff (make-effect 'dw-inner-eff))
+      (outer-eff (make-effect 'dw-outer-eff))
+      (log '()))
+  (let ((res
+         (with-handler ((outer-eff (k v)
+                          (dynamic-wind
+                            (lambda () #!void)
+                            (lambda () (resume k v))
+                            (lambda ()
+                              (set! log
+                                    (cons (list
+                                           (continuation-mark-set->list
+                                            (current-continuation-marks) 'ek)
+                                           (with-exception-catcher
+                                            (lambda (e) 'no-inner-handler)
+                                            (lambda () (perform inner-eff 77))))
+                                          log))))))
+           (with-handler ((inner-eff (k v) (list 'zombie-inner-handler v)))
+             (with-continuation-mark 'ek 'from-suspended-body
+               (perform outer-eff 42))))))
+    (test-equal 42 res)
+    (test-equal '((() no-inner-handler) (() no-inner-handler)) (reverse log))))
+
+;; Resuming an effect continuation across caller dynamic-wind whose after-thunk
+;; throws rolls back cleanly without leaking suspended marks or handlers.
+(let ((e1 (make-effect 'dw-throw-e1))
+      (e2 (make-effect 'dw-throw-e2)))
+  (let ((res
+         (with-handler ((e1 (k v)
+                          (with-exception-catcher
+                           (lambda (e)
+                             (list 'caught-after
+                                   (continuation-mark-set->list
+                                    (current-continuation-marks) 'ek)
+                                   (with-exception-catcher
+                                    (lambda (e) 'no-e2)
+                                    (lambda () (perform e2 1)))))
+                           (lambda ()
+                             (dynamic-wind
+                               (lambda () #!void)
+                               (lambda () (resume k v))
+                               (lambda () (error "resume-after-boom")))))))
+           (with-handler ((e2 (k v) (list 'zombie-e2 v)))
+             (with-continuation-mark 'ek 'suspended-mark
+               (perform e1 10))))))
+    (test-equal '(caught-after () no-e2) res)))
+
+;; Continuation barrier remains strictly enforced across one-shot resume,
+;; multi-shot resume, and generator resumption.
+(let ((e-outer (make-effect 'bar-e-outer))
+      (e-inner (make-effect 'bar-e-inner)))
+  ;; One-shot resume inside barrier cannot suspend past barrier
+  (test-equal 'barrier-enforced
+    (with-handler ((e-outer (k v) 'barrier-bypassed))
+      (with-handler ((e-inner (k v)
+                       (call-with-continuation-barrier
+                        (lambda ()
+                          (with-exception-catcher
+                           (lambda (e) 'barrier-enforced)
+                           (lambda () (resume k v)))))))
+        (perform e-inner 1)
+        (perform e-outer 2))))
+
+  ;; Multi-shot resume inside barrier cannot suspend past barrier on any replay
+  (test-equal '(barrier-enforced barrier-enforced)
+    (with-handler ((e-outer (k v) 'barrier-bypassed))
+      (with-handler ((e-inner (k v)
+                       (list
+                        (call-with-continuation-barrier
+                         (lambda ()
+                           (with-exception-catcher
+                            (lambda (e) 'barrier-enforced)
+                            (lambda () (resume-multishot k v)))))
+                        (call-with-continuation-barrier
+                         (lambda ()
+                           (with-exception-catcher
+                            (lambda (e) 'barrier-enforced)
+                            (lambda () (resume-multishot k v))))))))
+        (perform e-inner 1)
+        (perform e-outer 2))))
+
+  ;; Generator resumed inside a barrier cannot suspend to an outer handler past the barrier
+  (let ((g (make-generator
+            (lambda ()
+              (perform yield 'first)
+              (perform e-outer 'try-escape)))))
+    (test-equal 'first (g))
+    (test-equal 'gen-barrier-enforced
+      (with-handler ((e-outer (k v) 'gen-barrier-bypassed))
+        (call-with-continuation-barrier
+         (lambda ()
+           (with-exception-catcher
+            (lambda (e) 'gen-barrier-enforced)
+            (lambda () (g)))))))))
+
+;; Adaptive-P SMP torture: concurrent effect resume & generator resumption
+;; across continuation barriers and dynamic-wind interleaved with GC.
+(let* ((num-threads (max 2 (min 12 (##current-vm-processor-count))))
+       (rounds 30)
+       (ok-count (make-atomic-fxbox 0)))
+  (let ((threads
+         (let loop ((t 0) (acc '()))
+           (if (fx= t num-threads)
+               acc
+               (loop (fx+ t 1)
+                     (cons
+                      (thread-start!
+                       (make-thread
+                        (lambda ()
+                          (let ((eo (make-effect 'smp-eo))
+                                (ei (make-effect 'smp-ei)))
+                            (let rloop ((r 0) (good #t))
+                              (if (fx< r rounds)
+                                  (let ((after-clean #t))
+                                    (let ((v1
+                                           (with-handler ((eo (k v)
+                                                            (dynamic-wind
+                                                              (lambda () #!void)
+                                                              (lambda () (resume k v))
+                                                              (lambda ()
+                                                                (with-exception-catcher
+                                                                 (lambda (e) #!void)
+                                                                 (lambda ()
+                                                                   (perform ei 0)
+                                                                   (set! after-clean #f)))))))
+                                             (with-handler ((ei (k v) 'hijacked))
+                                               (perform eo r))))
+                                          (v2
+                                           (with-handler ((eo (k v) 'bypassed))
+                                             (with-handler ((ei (k v)
+                                                              (call-with-continuation-barrier
+                                                               (lambda ()
+                                                                 (with-exception-catcher
+                                                                  (lambda (e) 'blocked)
+                                                                  (lambda () (resume k v)))))))
+                                               (perform ei 1)
+                                               (perform eo 2)))))
+                                      (if (and (fx= t 0) (fx= (fxand r 7) 7)) (##gc))
+                                      (rloop (fx+ r 1)
+                                             (and good after-clean (fx= v1 r) (eq? v2 'blocked)))))
+                                  (if good (atomic-fxbox+/fetch! ok-count 1))))))))
+                      acc))))))
+    (for-each thread-join! threads)
+    (test-equal num-threads (atomic-fxbox-ref ok-count))))
+
+;;;============================================================================

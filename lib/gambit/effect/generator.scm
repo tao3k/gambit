@@ -79,10 +79,8 @@
     (%gen-state-store-rel! gen %GEN-SUSPENDED)
     val))
 
-(define (%gen-install-pframe! st gen caller-k)
+(define (%gen-install-pframe! st gen caller-k eh-scope)
   (let* ((pf (%gen-pframe gen))
-         (cur-eh (macro-current-exception-handler))
-         (eh-scope (if (%mc-eh-trampoline? cur-eh) #f cur-eh))
          (cur-mc (%st-mc st))
          (cur-marks (%st-marks st))
          (cur-barriers (%st-barriers st))
@@ -203,8 +201,28 @@
     (%gen-finish! gen)))
 
 (define (%gen-resume-swap-cont! caller-k gen sub-k)
-  (%gen-install-pframe! (%tc-fast) gen caller-k)
-  (let () (declare (inlining-limit 0)) (%return-oneshot-same-denv! sub-k #f)))
+  (let* ((st (%tc-fast))
+         (cur-eh (macro-current-exception-handler))
+         (eh-scope (if (%mc-eh-trampoline? cur-eh) #f cur-eh)))
+    (if (eq? (macro-denv-dynwind (macro-thread-denv (macro-current-thread)))
+             (macro-denv-dynwind (##continuation-denv sub-k)))
+        (begin
+          (%gen-install-pframe! st gen caller-k eh-scope)
+          (let () (declare (inlining-limit 0)) (%return-oneshot-same-denv! sub-k #f)))
+        (let ((cur-mc (%st-mc st))
+              (cur-marks (%st-marks st))
+              (cur-barriers (%st-barriers st))
+              (cur-handlers (%st-handlers st)))
+          (##continuation-graft
+           sub-k
+           (lambda ()
+             (let ((st2 (%tc-fast)))
+               (%st-mc-set! st2 cur-mc)
+               (%st-marks-set! st2 cur-marks)
+               (%st-barriers-set! st2 cur-barriers)
+               (%st-handlers-set! st2 cur-handlers)
+               (%gen-install-pframe! st2 gen caller-k eh-scope))
+             #f))))))
 
 (define (make-generator thunk)
   (if (not (procedure? thunk))

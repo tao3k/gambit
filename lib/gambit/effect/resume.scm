@@ -29,7 +29,9 @@
 ;; Creates a frozen prompt frame (`handler = #t`) so caller-k is never reclaimed
 ;; in-place if `%return-oneshot-same-denv!` falls back to `##continuation-return`
 ;; and splices `sub-k` onto caller-k's break chain; still reclaims `sub-k` in O(1)
-;; when `denv` matches. Records caller's exception scope for unwind coherency.
+;; when `denv` matches. When crossing `dynamic-wind` frames (including
+;; `call-with-continuation-barrier`), defers control-state commit to a
+;; post-unwind landing thunk via `##continuation-graft`.
 (define (%resume-nontail-oneshot-cont! caller-k sub-k frame val)
   (let* ((st (%tc-fast))
          (cur-eh (macro-current-exception-handler))
@@ -47,9 +49,21 @@
                                    cur-handlers
                                    eh-scope
                                    'replay)))
-    (%st-mc-set! st (cons pframe cur-mc))
-    (%st-handlers-set! st (cons frame cur-handlers))
-    (let () (declare (inlining-limit 0)) (%return-oneshot-same-denv! sub-k val))))
+    (if (eq? (macro-denv-dynwind (macro-thread-denv (macro-current-thread)))
+             (macro-denv-dynwind (##continuation-denv sub-k)))
+        (begin
+          (%st-mc-set! st (cons pframe cur-mc))
+          (%st-handlers-set! st (cons frame cur-handlers))
+          (let () (declare (inlining-limit 0)) (%return-oneshot-same-denv! sub-k val)))
+        (##continuation-graft
+         sub-k
+         (lambda ()
+           (let ((st2 (%tc-fast)))
+             (%st-mc-set! st2 (cons pframe cur-mc))
+             (%st-marks-set! st2 cur-marks)
+             (%st-barriers-set! st2 cur-barriers)
+             (%st-handlers-set! st2 (cons frame cur-handlers)))
+           val)))))
 
 (define (%resume-nontail-oneshot! sub-k val)
   (let* ((st (%tc-fast))
@@ -99,7 +113,9 @@
        (%resume-nontail-oneshot! sub-k val))
    (%resume-nontail-oneshot! sub-k val)))
 
-;; Zero-closure multi-arg capture receivers for general / multi-shot resume (<= 4 args)
+;; Zero-closure multi-arg capture receivers for general / multi-shot resume (<= 4 args).
+;; Transactionally defers control-state commit to a post-unwind landing thunk
+;; via `##continuation-graft` when crossing `dynamic-wind` frames.
 (define (%resume-checked-1! caller-k ek v1 clear?)
   (let* ((st (%tc-fast))
          (cur-eh (macro-current-exception-handler))
@@ -123,23 +139,45 @@
                                    eh-scope
                                    'replay)))
     (if clear? (%clear-consumed-ec! ek))
-    (%st-mc-set! st
-                 (if (null? prefix)
-                     (cons pframe saved-mc)
-                     (append prefix (cons pframe saved-mc))))
-    (%st-marks-set! st
-                    (if (null? cap-marks)
-                        saved-marks
-                        (append cap-marks saved-marks)))
-    (%st-barriers-set! st saved-barriers)
-    (%st-handlers-set! st
-                       (let ((base (cons frame saved-handlers)))
-                         (if (null? cap-handlers)
-                             base
-                             (append cap-handlers base))))
-    (if (eq? v1 %ABSENT)
-        (##continuation-return sub-k)
-        (##continuation-return sub-k v1))))
+    (if (eq? (macro-denv-dynwind (macro-thread-denv (macro-current-thread)))
+             (macro-denv-dynwind (##continuation-denv sub-k)))
+        (begin
+          (%st-mc-set! st
+                       (if (null? prefix)
+                           (cons pframe saved-mc)
+                           (append prefix (cons pframe saved-mc))))
+          (%st-marks-set! st
+                          (if (null? cap-marks)
+                              saved-marks
+                              (append cap-marks saved-marks)))
+          (%st-barriers-set! st saved-barriers)
+          (%st-handlers-set! st
+                             (let ((base (cons frame saved-handlers)))
+                               (if (null? cap-handlers)
+                                   base
+                                   (append cap-handlers base))))
+          (if (eq? v1 %ABSENT)
+              (##continuation-return sub-k)
+              (##continuation-return sub-k v1)))
+        (##continuation-graft
+         sub-k
+         (lambda ()
+           (let ((st2 (%tc-fast)))
+             (%st-mc-set! st2
+                          (if (null? prefix)
+                              (cons pframe saved-mc)
+                              (append prefix (cons pframe saved-mc))))
+             (%st-marks-set! st2
+                             (if (null? cap-marks)
+                                 saved-marks
+                                 (append cap-marks saved-marks)))
+             (%st-barriers-set! st2 saved-barriers)
+             (%st-handlers-set! st2
+                                (let ((base (cons frame saved-handlers)))
+                                  (if (null? cap-handlers)
+                                      base
+                                      (append cap-handlers base)))))
+           (if (eq? v1 %ABSENT) (values) v1))))))
 
 (define (%resume-checked ek v1 v2 more clear?)
   (if (eq? v2 %ABSENT)
@@ -168,23 +206,47 @@
                                           eh-scope
                                           'replay)))
            (if clear? (%clear-consumed-ec! ek))
-           (%st-mc-set! st
-                        (if (null? prefix)
-                            (cons pframe saved-mc)
-                            (append prefix (cons pframe saved-mc))))
-           (%st-marks-set! st
-                           (if (null? cap-marks)
-                               saved-marks
-                               (append cap-marks saved-marks)))
-           (%st-barriers-set! st saved-barriers)
-           (%st-handlers-set! st
-                              (let ((base (cons frame saved-handlers)))
-                                (if (null? cap-handlers)
-                                    base
-                                    (append cap-handlers base))))
-           (if (null? more)
-               (##continuation-return sub-k v1 v2)
-               (##apply ##continuation-return sub-k v1 v2 more)))))))
+           (if (eq? (macro-denv-dynwind (macro-thread-denv (macro-current-thread)))
+                    (macro-denv-dynwind (##continuation-denv sub-k)))
+               (begin
+                 (%st-mc-set! st
+                              (if (null? prefix)
+                                  (cons pframe saved-mc)
+                                  (append prefix (cons pframe saved-mc))))
+                 (%st-marks-set! st
+                                 (if (null? cap-marks)
+                                     saved-marks
+                                     (append cap-marks saved-marks)))
+                 (%st-barriers-set! st saved-barriers)
+                 (%st-handlers-set! st
+                                    (let ((base (cons frame saved-handlers)))
+                                      (if (null? cap-handlers)
+                                          base
+                                          (append cap-handlers base))))
+                 (if (null? more)
+                     (##continuation-return sub-k v1 v2)
+                     (##apply ##continuation-return sub-k v1 v2 more)))
+               (##continuation-graft
+                sub-k
+                (lambda ()
+                  (let ((st2 (%tc-fast)))
+                    (%st-mc-set! st2
+                                 (if (null? prefix)
+                                     (cons pframe saved-mc)
+                                     (append prefix (cons pframe saved-mc))))
+                    (%st-marks-set! st2
+                                    (if (null? cap-marks)
+                                        saved-marks
+                                        (append cap-marks saved-marks)))
+                    (%st-barriers-set! st2 saved-barriers)
+                    (%st-handlers-set! st2
+                                       (let ((base (cons frame saved-handlers)))
+                                         (if (null? cap-handlers)
+                                             base
+                                             (append cap-handlers base)))))
+                  (if (null? more)
+                      (values v1 v2)
+                      (apply values v1 v2 more))))))))))
 
 (define (resume ek
                 #!optional

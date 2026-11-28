@@ -1192,3 +1192,207 @@
     (test-equal num-threads (atomic-fxbox-ref ok-count))))
 
 ;;;============================================================================
+;;; Transactional Composable Continuation Replay Across dynamic-wind & Barriers
+
+;; Caller dynamic-wind after-thunk must observe pure caller prompts and marks
+;; (never the target composable continuation's not-yet-entered prompts or marks).
+(let ((t-out (make-continuation-prompt-tag 'comp-dw-out))
+      (t-in (make-continuation-prompt-tag 'comp-dw-in))
+      (saved #f)
+      (log '()))
+  (call-with-continuation-prompt
+   (lambda ()
+     (call-with-continuation-prompt
+      (lambda ()
+        (with-continuation-mark 'mk 'target-mark
+          (+ 1 (call-with-composable-continuation (lambda (k) (set! saved k) 0) t-out))))
+      t-in))
+   t-out)
+  (let ((res
+         (call-with-continuation-prompt
+          (lambda ()
+            (with-continuation-mark 'mk 'caller-mark
+              (dynamic-wind
+                (lambda ()
+                  (set! log (cons (list 'before
+                                        (continuation-prompt-available? t-in)
+                                        (continuation-mark-set->list
+                                         (current-continuation-marks) 'mk))
+                                  log)))
+                (lambda () (saved 10))
+                (lambda ()
+                  (set! log (cons (list 'after
+                                        (continuation-prompt-available? t-in)
+                                        (continuation-mark-set->list
+                                         (current-continuation-marks) 'mk))
+                                  log))))))
+          t-out)))
+    (test-equal 11 res)
+    (test-equal '((before #f (caller-mark))
+                  (after #f (caller-mark))
+                  (before #f (caller-mark))
+                  (after #f (caller-mark)))
+                (reverse log))))
+
+;; Continuation barrier remains strictly enforced when invoking a multi-shot or
+;; one-shot composable continuation captured outside the barrier.
+(let ((t-outer (make-continuation-prompt-tag 'bar-outer))
+      (t-cap (make-continuation-prompt-tag 'bar-cap))
+      (saved-multi #f)
+      (saved-1shot #f))
+  (call-with-continuation-prompt
+   (lambda ()
+     (let ((v (call-with-composable-continuation (lambda (k) (set! saved-multi k) 'init) t-cap)))
+       (if (eq? v 'go)
+           (call-with-composable-continuation (lambda (k) 'barrier-bypassed) t-outer)
+           v)))
+   t-cap)
+  (call-with-continuation-prompt
+   (lambda ()
+     (let ((v (call-with-one-shot-composable-continuation (lambda (k) (set! saved-1shot k) 'init) t-cap)))
+       (if (eq? v 'go)
+           (call-with-composable-continuation (lambda (k) 'barrier-bypassed) t-outer)
+           v)))
+   t-cap)
+  (test-equal 'barrier-enforced
+    (call-with-continuation-prompt
+     (lambda ()
+       (call-with-continuation-barrier
+        (lambda ()
+          (with-exception-catcher
+           (lambda (e) 'barrier-enforced)
+           (lambda () (saved-multi 'go))))))
+     t-outer))
+  (test-equal 'barrier-enforced
+    (call-with-continuation-prompt
+     (lambda ()
+       (call-with-continuation-barrier
+        (lambda ()
+          (with-exception-catcher
+           (lambda (e) 'barrier-enforced)
+           (lambda () (saved-1shot 'go))))))
+     t-outer)))
+
+;; Multi-value composable continuation across caller dynamic-wind and barrier.
+(let ((t-mv (make-continuation-prompt-tag 'comp-mv))
+      (saved-mv #f)
+      (after-saw #f))
+  (call-with-continuation-prompt
+   (lambda ()
+     (with-continuation-mark 'mvk 'target-mv
+       (call-with-values
+         (lambda ()
+           (call-with-composable-continuation (lambda (k) (set! saved-mv k) (values 0 0)) t-mv))
+         (lambda (a b) (+ a b)))))
+   t-mv)
+  (test-equal 30
+    (call-with-continuation-prompt
+     (lambda ()
+       (with-continuation-mark 'mvk 'caller-mv
+         (dynamic-wind
+           (lambda () #!void)
+           (lambda () (saved-mv 10 20))
+           (lambda ()
+             (if (not after-saw)
+                 (set! after-saw (continuation-mark-set->list (current-continuation-marks) 'mvk)))))))
+     t-mv))
+  (test-equal '(caller-mv) after-saw))
+
+;; Adaptive-P SMP torture: concurrent composable replay across dynamic-wind and
+;; continuation barriers interleaved with GC.
+(let* ((num-threads (max 2 (min 12 (##current-vm-processor-count))))
+       (rounds 30)
+       (ok-count (make-atomic-fxbox 0)))
+  (let ((threads
+         (let loop ((t 0) (acc '()))
+           (if (fx= t num-threads)
+               acc
+               (loop (fx+ t 1)
+                     (cons
+                      (thread-start!
+                       (make-thread
+                        (lambda ()
+                          (let ((tg-out (make-continuation-prompt-tag 'smp-cb-out))
+                                (tg-cap (make-continuation-prompt-tag 'smp-cb-cap)))
+                            (let rloop ((r 0) (good #t))
+                              (if (fx< r rounds)
+                                  (let ((sk #f) (after-clean #t))
+                                    (call-with-continuation-prompt
+                                     (lambda ()
+                                       (with-continuation-mark 'smk 'target
+                                         (let ((v (call-with-composable-continuation
+                                                   (lambda (k) (set! sk k) 'init)
+                                                   tg-cap)))
+                                           (if (eq? v 'probe-barrier)
+                                               (call-with-composable-continuation
+                                                (lambda (k) 'bypassed)
+                                                tg-out)
+                                               v))))
+                                     tg-cap)
+                                    (let ((r1
+                                           (call-with-continuation-prompt
+                                            (lambda ()
+                                              (with-continuation-mark 'smk 'caller
+                                                (dynamic-wind
+                                                  (lambda () #!void)
+                                                  (lambda () (sk r))
+                                                  (lambda ()
+                                                    (if (not (equal? (continuation-mark-set->list
+                                                                      (current-continuation-marks) 'smk)
+                                                                     '(caller)))
+                                                        (set! after-clean #f))))))
+                                            tg-out))
+                                          (r2
+                                           (call-with-continuation-prompt
+                                            (lambda ()
+                                              (call-with-continuation-barrier
+                                               (lambda ()
+                                                 (with-exception-catcher
+                                                  (lambda (e) 'blocked)
+                                                  (lambda () (sk 'probe-barrier))))))
+                                            tg-out)))
+                                      (if (and (fx= t 0) (fx= (fxand r 7) 7)) (##gc))
+                                      (rloop (fx+ r 1)
+                                             (and good after-clean (fx= r1 r) (eq? r2 'blocked)))))
+                                  (if good (atomic-fxbox+/fetch! ok-count 1))))))))
+                      acc))))))
+    (for-each thread-join! threads)
+    (test-equal num-threads (atomic-fxbox-ref ok-count))))
+
+;; Aliased one-shot stack-span safety:
+;; 1) Direct invocation of a one-shot composable continuation without aborting
+;;    first places caller-k above sub-k on the same break chain; repeated
+;;    invocations must not corrupt stack grants.
+;; 2) Nested raw call/1cc capturing k2 inside k1's receiver, escaping via k1,
+;;    and later resuming k2 must preserve k1's underlying stack span for k2.
+(let ((t-direct (make-continuation-prompt-tag 'direct-1shot)))
+  (let loop ((i 0) (acc 0))
+    (if (fx< i 5000)
+        (loop (fx+ i 1)
+              (fx+ acc
+                   (call-with-continuation-prompt
+                    (lambda ()
+                      (fx+ 1 (call-with-one-shot-composable-continuation
+                              (lambda (k) (k 1))
+                              t-direct)))
+                    t-direct)))
+        (test-equal 15000 acc))))
+
+(let loop ((i 0) (ok #t))
+  (if (and ok (fx< i 5000))
+      (let ((saved-k2 #f))
+        (let ((res
+               (let ((x (call/1cc
+                         (lambda (k1)
+                           (let ((y (call/1cc
+                                     (lambda (k2)
+                                       (set! saved-k2 k2)
+                                       (k1 'first-escape)))))
+                             (list 'from-k2 y))))))
+                 (if (eq? x 'first-escape)
+                     (saved-k2 i)
+                     x))))
+          (loop (fx+ i 1) (equal? res (list 'from-k2 i)))))
+      (test-equal #t ok)))
+
+;;;============================================================================
