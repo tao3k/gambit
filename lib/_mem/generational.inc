@@ -101,6 +101,136 @@ static inline ___msection *mature_radix_lookup_ro
   return 0;
 }
 
+typedef struct ___gc_still_scan_task_struct
+  {
+    ___WORD *base;
+    unsigned int card_lo;
+    unsigned int card_hi; /* 0 = whole-object scan; >0 = card strip [card_lo, card_hi) */
+  } ___gc_still_scan_task;
+
+typedef struct ___gc_card_run_task_struct
+  {
+    ___msection *sec;
+    int start;
+    int count;
+  } ___gc_card_run_task;
+
+___HIDDEN void remset_buffers_cleanup(___virtual_machine_state vm)
+{
+  if (vm == 0)
+    return;
+  if (vm->mem.dirty_stills_buf_ != 0)
+    {
+      ___FREE_MEM(vm->mem.dirty_stills_buf_);
+      vm->mem.dirty_stills_buf_ = 0;
+      vm->mem.dirty_stills_cap_ = 0;
+    }
+  if (vm->mem.remset_still_tasks_ != 0)
+    {
+      ___FREE_MEM(vm->mem.remset_still_tasks_);
+      vm->mem.remset_still_tasks_ = 0;
+      vm->mem.remset_still_tasks_cap_ = 0;
+    }
+  if (vm->mem.remset_card_runs_ != 0)
+    {
+      ___FREE_MEM(vm->mem.remset_card_runs_);
+      vm->mem.remset_card_runs_ = 0;
+      vm->mem.remset_card_runs_cap_ = 0;
+    }
+}
+
+static inline int remset_push_dirty_still
+   (___virtual_machine_state vm,
+    ___gc_round *g,
+    ___WORD *base)
+{
+  if (g->dirty_still_count >= vm->mem.dirty_stills_cap_)
+    {
+      int ncap = vm->mem.dirty_stills_cap_ ? vm->mem.dirty_stills_cap_ * 2 : 64;
+      ___WORD **nbuf;
+      if (ncap <= vm->mem.dirty_stills_cap_)
+        return 0;
+      nbuf = ___CAST(___WORD**, ___ALLOC_MEM(___CAST(___SIZE_T, ncap) * sizeof(___WORD*)));
+      if (nbuf == 0)
+        return 0;
+      if (g->dirty_still_count > 0 && vm->mem.dirty_stills_buf_ != 0)
+        memcpy(nbuf, vm->mem.dirty_stills_buf_,
+               ___CAST(___SIZE_T, g->dirty_still_count) * sizeof(___WORD*));
+      if (vm->mem.dirty_stills_buf_ != 0)
+        ___FREE_MEM(vm->mem.dirty_stills_buf_);
+      vm->mem.dirty_stills_buf_ = nbuf;
+      vm->mem.dirty_stills_cap_ = ncap;
+    }
+  vm->mem.dirty_stills_buf_[g->dirty_still_count++] = base;
+  return 1;
+}
+
+static inline int remset_push_still_task
+   (___virtual_machine_state vm,
+    ___gc_round *g,
+    ___WORD *base,
+    unsigned int card_lo,
+    unsigned int card_hi)
+{
+  ___gc_still_scan_task *tasks = ___CAST(___gc_still_scan_task*, vm->mem.remset_still_tasks_);
+  if (g->still_task_count >= vm->mem.remset_still_tasks_cap_)
+    {
+      int ncap = vm->mem.remset_still_tasks_cap_ ? vm->mem.remset_still_tasks_cap_ * 2 : 128;
+      ___gc_still_scan_task *nbuf;
+      if (ncap <= vm->mem.remset_still_tasks_cap_)
+        return 0;
+      nbuf = ___CAST(___gc_still_scan_task*,
+                     ___ALLOC_MEM(___CAST(___SIZE_T, ncap) * sizeof(___gc_still_scan_task)));
+      if (nbuf == 0)
+        return 0;
+      if (g->still_task_count > 0 && tasks != 0)
+        memcpy(nbuf, tasks, ___CAST(___SIZE_T, g->still_task_count) * sizeof(___gc_still_scan_task));
+      if (tasks != 0)
+        ___FREE_MEM(tasks);
+      vm->mem.remset_still_tasks_ = nbuf;
+      vm->mem.remset_still_tasks_cap_ = ncap;
+      tasks = nbuf;
+    }
+  tasks[g->still_task_count].base = base;
+  tasks[g->still_task_count].card_lo = card_lo;
+  tasks[g->still_task_count].card_hi = card_hi;
+  g->still_task_count++;
+  return 1;
+}
+
+static inline int remset_push_card_run
+   (___virtual_machine_state vm,
+    ___gc_round *g,
+    ___msection *sec,
+    int start,
+    int count)
+{
+  ___gc_card_run_task *runs = ___CAST(___gc_card_run_task*, vm->mem.remset_card_runs_);
+  if (g->card_run_count >= vm->mem.remset_card_runs_cap_)
+    {
+      int ncap = vm->mem.remset_card_runs_cap_ ? vm->mem.remset_card_runs_cap_ * 2 : 64;
+      ___gc_card_run_task *nbuf;
+      if (ncap <= vm->mem.remset_card_runs_cap_)
+        return 0;
+      nbuf = ___CAST(___gc_card_run_task*,
+                     ___ALLOC_MEM(___CAST(___SIZE_T, ncap) * sizeof(___gc_card_run_task)));
+      if (nbuf == 0)
+        return 0;
+      if (g->card_run_count > 0 && runs != 0)
+        memcpy(nbuf, runs, ___CAST(___SIZE_T, g->card_run_count) * sizeof(___gc_card_run_task));
+      if (runs != 0)
+        ___FREE_MEM(runs);
+      vm->mem.remset_card_runs_ = nbuf;
+      vm->mem.remset_card_runs_cap_ = ncap;
+      runs = nbuf;
+    }
+  runs[g->card_run_count].sec = sec;
+  runs[g->card_run_count].start = start;
+  runs[g->card_run_count].count = count;
+  g->card_run_count++;
+  return 1;
+}
+
 ___HIDDEN void mature_radix_cleanup(___virtual_machine_state vm)
 {
   ___mature_radix_l2 *p = ___CAST(___mature_radix_l2*, vm->mem.mature_radix_pool_);
@@ -246,6 +376,131 @@ static inline ___msection *wb_find_mature_section
   return sec;
 }
 
+#ifndef ___USE_HANDLES
+static inline void still_record_dirty_hint
+   (___processor_state ___ps,
+    ___virtual_machine_state vm,
+    ___WORD *base)
+{
+  if (___ps != 0)
+    {
+      ___gc_still_hint_log *slog = &___ps->mem.still_hints_;
+      if (slog->count < ___GC_STILL_HINT_CAPACITY)
+        slog->entries[slog->count++] = base;
+      else
+        slog->overflow = 1;
+    }
+  else
+    {
+      ___WORD_STORE_RELEASE(&vm->mem.still_hints_overflow_any_, 1);
+    }
+}
+
+static inline void still_mark_card_range
+   (___WORD *base,
+    ___SIZE_TS first_off,
+    ___SIZE_TS last_off)
+{
+  ___SIZE_TS payload_cap = still_card_payload_cap(base);
+  ___VOLATILE ___WORD *scards = still_card_bits(base);
+  ___SIZE_TS bwords = still_card_bitmap_words(base);
+  if (first_off < 0 || last_off < first_off || first_off >= payload_cap)
+    {
+      ___SIZE_TS wi;
+      for (wi = 0; wi < bwords; wi++)
+        ___WORD_STORE_RELEASE(&scards[wi], ~___CAST(___WORD, 0));
+      return;
+    }
+  if (last_off >= payload_cap)
+    last_off = payload_cap - 1;
+  {
+    unsigned int c0 = ___CAST(unsigned int, first_off >> ___GC_CARD_SHIFT_WORDS);
+    unsigned int c1 = ___CAST(unsigned int, last_off >> ___GC_CARD_SHIFT_WORDS);
+    unsigned int c;
+    for (c = c0; c <= c1; c++)
+      {
+        unsigned int wi = c / ___WORD_WIDTH;
+        ___UWORD bit = ___CAST(___UWORD, 1) << (c & (___WORD_WIDTH - 1));
+        if ((___CAST(___UWORD, ___WORD_LOAD_RELAXED(&scards[wi])) & bit) == 0)
+          ___WORD_FETCH_OR_RELEASE(&scards[wi], ___CAST(___WORD, bit));
+      }
+  }
+}
+
+static inline void still_mark_dirty_slot
+   (___processor_state ___ps,
+    ___virtual_machine_state vm,
+    ___SCMOBJ obj,
+    ___WORD head,
+    ___WORD *slot_ptr,
+    int cache_last_card)
+{
+  ___WORD *body = ___BODY0(obj);
+  ___WORD *base = body - ___STILL_BODY;
+  ___WORD flags = ___WORD_LOAD_RELAXED(&base[___STILL_DIRTY]);
+  unsigned int ci = 0;
+  int has_cmap = ((flags & ___STILL_FLAG_CARD_MAP) != 0);
+
+  if ((flags & ___STILL_FLAG_YOUNG) == 0)
+    {
+      if (has_cmap)
+        {
+          ___SIZE_TS payload_cap = still_card_payload_cap(base);
+          ___SIZE_TS off = ___CAST(___SIZE_TS, slot_ptr - body);
+          if (off >= 0 && off < payload_cap)
+            {
+              ___VOLATILE ___WORD *scards = still_card_bits(base);
+              unsigned int wi;
+              ___UWORD bit;
+              ci = ___CAST(unsigned int, off >> ___GC_CARD_SHIFT_WORDS);
+              wi = ci / ___WORD_WIDTH;
+              bit = ___CAST(___UWORD, 1) << (ci & (___WORD_WIDTH - 1));
+              if ((___CAST(___UWORD, ___WORD_LOAD_RELAXED(&scards[wi])) & bit) == 0)
+                ___WORD_FETCH_OR_RELEASE(&scards[wi], ___CAST(___WORD, bit));
+            }
+          else
+            {
+              still_mark_card_range(base, -1, -1);
+            }
+        }
+      if ((flags & ___STILL_FLAG_DIRTY) == 0)
+        {
+          ___WORD prev = ___WORD_FETCH_OR_RELEASE(&base[___STILL_DIRTY], ___STILL_FLAG_DIRTY);
+          if ((prev & ___STILL_FLAG_DIRTY) == 0)
+            {
+              ___WORD_STORE_RELEASE(&vm->mem.still_dirty_any_, 1);
+              still_record_dirty_hint(___ps, vm, base);
+            }
+        }
+    }
+
+  if (cache_last_card && ___ps != 0)
+    {
+      ___UWORD card_bytes = ___CAST(___UWORD, ___GC_CARD_WORDS) * ___WS;
+      ___UWORD body_lo = ___CAST(___UWORD, body);
+      ___UWORD body_hi = body_lo + ___CAST(___UWORD, ___HD_WORDS(head)) * ___WS;
+      ___UWORD card_lo;
+      if (has_cmap)
+        {
+          ___SIZE_TS off = ___CAST(___SIZE_TS, slot_ptr - body);
+          if (off >= 0)
+            {
+              unsigned int c_idx = ___CAST(unsigned int, off >> ___GC_CARD_SHIFT_WORDS);
+              card_lo = body_lo + (___CAST(___UWORD, c_idx) << ___GC_CARD_SHIFT_WORDS) * ___WS;
+              if (card_lo >= body_lo && card_lo < body_hi && body_hi - card_lo >= card_bytes)
+                ___ps->mem.wb_last_card_lo_ = card_lo;
+            }
+        }
+      else
+        {
+          card_lo = ___CAST(___UWORD, slot_ptr) & ~(card_bytes - 1);
+          if (card_lo >= body_lo && card_lo < body_hi && body_hi - card_lo >= card_bytes)
+            ___ps->mem.wb_last_card_lo_ = card_lo;
+        }
+    }
+}
+#endif
+
 ___EXP_FUNC(void,___gc_write_barrier_slow)
    ___P((___processor_state ___ps,
          ___SCMOBJ obj,
@@ -268,30 +523,13 @@ ___WORD *slot_ptr;)
   if (vm == 0)
     return;
   ___ps->mem.local_young_escaped_ = 1;
-  head = ___HEADER(obj);
+  head = ___WORD_LOAD_RELAXED(&___BODY0(obj)[-1]);
   htyp = ___HD_TYP(head);
 
   if (htyp == ___STILL)
     {
 #ifndef ___USE_HANDLES
-      ___WORD *base = ___BODY0(obj) - ___STILL_BODY;
-      ___WORD flags = ___WORD_LOAD_RELAXED(&base[___STILL_DIRTY]);
-      if ((flags & (___STILL_FLAG_YOUNG | ___STILL_FLAG_DIRTY)) == 0)
-        {
-          ___WORD_FETCH_OR_RELEASE(&base[___STILL_DIRTY], ___STILL_FLAG_DIRTY);
-          ___WORD_STORE_RELEASE(&vm->mem.still_dirty_any_, 1);
-        }
-      /* Cache strictly interior 512B card of this already-dirty/young still
-       * object so sequential mutations to large still vectors/tables elide
-       * redundant slow-barrier calls (SATB check still runs before this cache). */
-      {
-        ___UWORD card_bytes = ___CAST(___UWORD, ___GC_CARD_WORDS) * ___WS;
-        ___UWORD card_lo = ___CAST(___UWORD, slot_ptr) & ~(card_bytes - 1);
-        ___UWORD body_lo = ___CAST(___UWORD, ___BODY0(obj));
-        ___UWORD body_hi = body_lo + ___CAST(___UWORD, ___HD_WORDS(head)) * ___WS;
-        if (card_lo >= body_lo && card_lo < body_hi && body_hi - card_lo >= card_bytes)
-          ___ps->mem.wb_last_card_lo_ = card_lo;
-      }
+      still_mark_dirty_slot(___ps, vm, obj, head, slot_ptr, 1);
 #endif
       return;
     }
@@ -315,6 +553,60 @@ ___WORD *slot_ptr;)
   }
 }
 
+/* Value-aware generational write barrier slow path.
+ * Elides card/still marking and local_young_escaped_ transitions whenever the
+ * stored value is already permanent or mature (cannot create an old-to-young
+ * edge or escape a local nursery object). SATB old-value logging has already
+ * executed in the inline macro prior to reaching this function. */
+___EXP_FUNC(void,___gc_write_barrier_slow_val)
+   ___P((___processor_state ___ps,
+         ___SCMOBJ obj,
+         ___WORD *slot_ptr,
+         ___SCMOBJ val),
+        (___ps,
+         obj,
+         slot_ptr,
+         val)
+___processor_state ___ps;
+___SCMOBJ obj;
+___WORD *slot_ptr;
+___SCMOBJ val;)
+{
+  ___virtual_machine_state vm;
+
+  if (___ps == 0 || !___MEM_ALLOCATED(obj) || slot_ptr == 0)
+    return;
+
+  vm = ___VMSTATE_FROM_PSTATE(___ps);
+  if (vm == 0)
+    return;
+
+  if (___MEM_ALLOCATED(val))
+    {
+      ___WORD vhead = ___WORD_LOAD_RELAXED(&___BODY0(val)[-1]);
+      int vtyp = ___HD_TYP(vhead);
+      if (vtyp == ___PERM)
+        return;
+      if (vtyp == ___STILL)
+        {
+#ifndef ___USE_HANDLES
+          ___WORD *vbase = ___BODY0(val) - ___STILL_BODY;
+          if ((___WORD_LOAD_RELAXED(&vbase[___STILL_DIRTY]) & ___STILL_FLAG_YOUNG) == 0)
+            return;
+#else
+          return;
+#endif
+        }
+      else if (vtyp == ___MOVABLE0)
+        {
+          if (wb_find_mature_section(___ps, vm, ___CAST(___UWORD, ___BODY0(val))) != 0)
+            return;
+        }
+    }
+
+  ___gc_write_barrier_slow(___ps, obj, slot_ptr);
+}
+
 /* Cross-processor-safe card barrier for C runtime writes where the caller's
  * processor_state is not passed (e.g. ___raise_high_level_interrupt_pstate).
  * Marks the mature card/still dirty flag atomically without touching any
@@ -336,19 +628,13 @@ ___WORD *slot_ptr;)
   if (vm == 0 || !___MEM_ALLOCATED(obj) || slot_ptr == 0)
     return;
 
-  head = ___HEADER(obj);
+  head = ___WORD_LOAD_RELAXED(&___BODY0(obj)[-1]);
   htyp = ___HD_TYP(head);
 
   if (htyp == ___STILL)
     {
 #ifndef ___USE_HANDLES
-      ___WORD *base = ___BODY0(obj) - ___STILL_BODY;
-      ___WORD flags = ___WORD_LOAD_RELAXED(&base[___STILL_DIRTY]);
-      if ((flags & (___STILL_FLAG_YOUNG | ___STILL_FLAG_DIRTY)) == 0)
-        {
-          ___WORD_FETCH_OR_RELEASE(&base[___STILL_DIRTY], ___STILL_FLAG_DIRTY);
-          ___WORD_STORE_RELEASE(&vm->mem.still_dirty_any_, 1);
-        }
+      still_mark_dirty_slot(0, vm, obj, head, slot_ptr, 0);
 #endif
       return;
     }
@@ -395,18 +681,31 @@ ___SIZE_TS words;)
   if (vm == 0)
     return;
   ___ps->mem.local_young_escaped_ = 1;
-  head = ___HEADER(obj);
+  head = ___WORD_LOAD_RELAXED(&___BODY0(obj)[-1]);
   htyp = ___HD_TYP(head);
 
   if (htyp == ___STILL)
     {
 #ifndef ___USE_HANDLES
-      ___WORD *base = ___BODY0(obj) - ___STILL_BODY;
+      ___WORD *body = ___BODY0(obj);
+      ___WORD *base = body - ___STILL_BODY;
       ___WORD flags = ___WORD_LOAD_RELAXED(&base[___STILL_DIRTY]);
-      if ((flags & (___STILL_FLAG_YOUNG | ___STILL_FLAG_DIRTY)) == 0)
+      if ((flags & ___STILL_FLAG_YOUNG) == 0)
         {
-          ___WORD_FETCH_OR_RELEASE(&base[___STILL_DIRTY], ___STILL_FLAG_DIRTY);
-          ___WORD_STORE_RELEASE(&vm->mem.still_dirty_any_, 1);
+          if ((flags & ___STILL_FLAG_CARD_MAP) != 0)
+            {
+              ___SIZE_TS first_off = ___CAST(___SIZE_TS, start_ptr - body);
+              still_mark_card_range(base, first_off, first_off + words - 1);
+            }
+          if ((flags & ___STILL_FLAG_DIRTY) == 0)
+            {
+              ___WORD prev = ___WORD_FETCH_OR_RELEASE(&base[___STILL_DIRTY], ___STILL_FLAG_DIRTY);
+              if ((prev & ___STILL_FLAG_DIRTY) == 0)
+                {
+                  ___WORD_STORE_RELEASE(&vm->mem.still_dirty_any_, 1);
+                  still_record_dirty_hint(___ps, vm, base);
+                }
+            }
         }
 #endif
       return;
@@ -587,9 +886,15 @@ static inline int gc_obj_unmarked(___collector_worker *work, ___SCMOBJ obj)
           return 0;
         if (sec->region_age == ___GC_REGION_MATURE && !sec->gc_evacuating)
           return 0;
+#if defined(__ATOMIC_ACQUIRE)
+        if (__atomic_load_n(&sec->gc_is_dest, __ATOMIC_ACQUIRE) &&
+            ___CAST(___UWORD, header) - ___CAST(___UWORD, sec->base + sec->gc_dest_offset)
+              < (___MSECTION_SIZE >> 1) * ___WS)
+#else
         if (sec->gc_is_dest &&
             ___CAST(___UWORD, header) - ___CAST(___UWORD, sec->base + sec->gc_dest_offset)
               < (___MSECTION_SIZE >> 1) * ___WS)
+#endif
           return 0;
         return 1;
       }
@@ -681,6 +986,140 @@ ___HIDDEN void collect_minor_card_hints(___virtual_machine_state vm)
       count = out;
     }
   g->hint_count = overflow ? 0 : count;
+  g->card_run_count = 0;
+  g->card_run_cursor = 0;
+  g->overflow_sec_cursor = 0;
+
+  /* Partition sorted movable dirty-card hints into per-section work-stealing runs. */
+  if (!g->card_overflow && g->hint_count > 0)
+    {
+      int pos = 0;
+      while (pos < g->hint_count)
+        {
+          ___msection *sec = g->hints[pos].section;
+          int start = pos;
+          while (pos < g->hint_count && g->hints[pos].section == sec)
+            pos++;
+          if (!remset_push_card_run(vm, g, sec, start, pos - start))
+            {
+              g->card_overflow = 1;
+              g->hint_count = 0;
+              g->card_run_count = 0;
+              break;
+            }
+        }
+    }
+
+  /* Gather dirty mature still objects and decompose card-mapped still arrays
+   * into disjoint fine-grained parallel work-stealing strips. */
+  g->still_hints_overflow = 0;
+  g->still_tasks_oom = 0;
+  g->dirty_still_count = 0;
+  g->still_task_count = 0;
+  g->still_task_cursor = 0;
+
+#ifndef ___USE_HANDLES
+  if (___WORD_LOAD_ACQUIRE(&vm->mem.still_dirty_any_) != 0)
+    {
+      int s_ovf = (___WORD_LOAD_ACQUIRE(&vm->mem.still_hints_overflow_any_) != 0);
+      int i;
+      for (p = 0; p < np && !s_ovf; p++)
+        {
+          ___processor_state ps = ___PSTATE_FROM_PROCESSOR_ID(p, vm);
+          if (ps->mem.still_hints_.overflow != 0)
+            s_ovf = 1;
+        }
+      g->still_hints_overflow = s_ovf;
+
+      if (!s_ovf)
+        {
+          for (p = 0; p < np && !g->still_tasks_oom; p++)
+            {
+              ___processor_state ps = ___PSTATE_FROM_PROCESSOR_ID(p, vm);
+              ___gc_still_hint_log *slog = &ps->mem.still_hints_;
+              unsigned int hi;
+              for (hi = 0; hi < slog->count; hi++)
+                {
+                  ___WORD *base = slog->entries[hi];
+                  if (base != 0 && (base[___STILL_DIRTY] & ___STILL_FLAG_DIRTY) != 0)
+                    {
+                      if (!remset_push_dirty_still(vm, g, base))
+                        {
+                          g->still_tasks_oom = 1;
+                          break;
+                        }
+                    }
+                }
+            }
+        }
+      else
+        {
+          for (p = 0; p < np && !g->still_tasks_oom; p++)
+            {
+              ___processor_state ps = ___PSTATE_FROM_PROCESSOR_ID(p, vm);
+              ___WORD *base = ___CAST(___WORD*, ps->mem.still_objs_);
+              while (base != 0)
+                {
+                  if ((base[___STILL_DIRTY] & ___STILL_FLAG_DIRTY) != 0)
+                    {
+                      if (!remset_push_dirty_still(vm, g, base))
+                        {
+                          g->still_tasks_oom = 1;
+                          break;
+                        }
+                    }
+                  base = ___CAST(___WORD*, base[___STILL_LINK]);
+                }
+            }
+        }
+
+      for (i = 0; i < g->dirty_still_count && !g->still_tasks_oom; i++)
+        {
+          ___WORD *base = vm->mem.dirty_stills_buf_[i];
+          if ((base[___STILL_DIRTY] & ___STILL_FLAG_CARD_MAP) == 0)
+            {
+              if (!remset_push_still_task(vm, g, base, 0u, 0u))
+                g->still_tasks_oom = 1;
+            }
+          else
+            {
+              ___SIZE_TS bwords = still_card_bitmap_words(base);
+              ___VOLATILE ___WORD *scards = still_card_bits(base);
+              ___SIZE_TS wi;
+              int use_byte_strips = (bwords <= 64);
+              for (wi = 0; wi < bwords && !g->still_tasks_oom; wi++)
+                {
+                  ___UWORD w = ___CAST(___UWORD, ___WORD_LOAD_ACQUIRE(&scards[wi]));
+                  if (w == 0)
+                    continue;
+                  if (use_byte_strips)
+                    {
+                      unsigned int bi;
+                      unsigned int nbytes = ___WORD_WIDTH / 8;
+                      for (bi = 0; bi < nbytes; bi++)
+                        {
+                          if (((w >> (bi * 8u)) & 0xFFu) != 0)
+                            {
+                              unsigned int c_lo = ___CAST(unsigned int, wi) * ___WORD_WIDTH + bi * 8u;
+                              if (!remset_push_still_task(vm, g, base, c_lo, c_lo + 8u))
+                                {
+                                  g->still_tasks_oom = 1;
+                                  break;
+                                }
+                            }
+                        }
+                    }
+                  else
+                    {
+                      unsigned int c_lo = ___CAST(unsigned int, wi) * ___WORD_WIDTH;
+                      if (!remset_push_still_task(vm, g, base, c_lo, c_lo + ___WORD_WIDTH))
+                        g->still_tasks_oom = 1;
+                    }
+                }
+            }
+        }
+    }
+#endif
 }
 
 ___HIDDEN int section_has_promo_room(___msection *sec, ___SIZE_TS *start_w_out)
@@ -967,6 +1406,15 @@ ___HIDDEN void prepare_generational_round
   g->has_young_still = 0;
   g->card_overflow = 0;
   g->hint_count = 0;
+  g->fast_minor_pre_nb = 0;
+  g->still_hints_overflow = 0;
+  g->still_tasks_oom = 0;
+  g->dirty_still_count = 0;
+  g->still_task_count = 0;
+  g->still_task_cursor = 0;
+  g->card_run_count = 0;
+  g->card_run_cursor = 0;
+  g->overflow_sec_cursor = 0;
   g->promo_tail_count = 0;
   g->old_mature_tail = vm->mem.mature_tail_;
   g->young_head = g->old_mature_tail ? g->old_mature_tail->next : vm->mem.the_msections_->head;
@@ -1203,6 +1651,15 @@ ___HIDDEN void downgrade_minor_to_major(___processor_state ps)
   g->major_action = (___WORD_LOAD_ACQUIRE(&vm->mem.major_phase_) != ___GC_MAJOR_IDLE) ? 4 : 0;
   g->card_overflow = 0;
   g->hint_count = 0;
+  g->fast_minor_pre_nb = 0;
+  g->still_hints_overflow = 0;
+  g->still_tasks_oom = 0;
+  g->dirty_still_count = 0;
+  g->still_task_count = 0;
+  g->still_task_cursor = 0;
+  g->card_run_count = 0;
+  g->card_run_cursor = 0;
+  g->overflow_sec_cursor = 0;
   g->promo_tail_count = 0;
   for (sec = vm->mem.the_msections_->head; sec != 0; sec = sec->next)
     {
@@ -1332,6 +1789,95 @@ ___HIDDEN void scan_mature_card_list
   scan_mature_card_list_with_state(work, sec, cards, ncards, &last_scanned_end);
 }
 
+#ifndef ___USE_HANDLES
+static inline void scan_mature_still_card_strip
+   (___collector_worker *work,
+    ___WORD *base,
+    unsigned int card_lo,
+    unsigned int card_hi)
+{
+  ___WORD head = base[___STILL_HEADER];
+  ___SIZE_TS cur_words = ___HD_WORDS(head);
+  ___WORD *body = base + ___STILL_BODY;
+  ___VOLATILE ___WORD *scards = still_card_bits(base);
+  unsigned int bwords = ___CAST(unsigned int, still_card_bitmap_words(base));
+  unsigned int wi = card_lo / ___WORD_WIDTH;
+  unsigned int bit_lo = card_lo & (___WORD_WIDTH - 1);
+  unsigned int span = card_hi - card_lo;
+  ___UWORD mask;
+  ___UWORD word;
+
+  if (wi >= bwords || cur_words <= 0)
+    return;
+  mask = (span >= ___WORD_WIDTH)
+         ? ~___CAST(___UWORD, 0)
+         : (((___CAST(___UWORD, 1) << span) - 1) << bit_lo);
+  word = ___CAST(___UWORD, ___WORD_LOAD_ACQUIRE(&scards[wi])) & mask;
+  while (word != 0)
+    {
+      unsigned int bit;
+      ___SIZE_TS slo, shi;
+#if defined(__GNUC__) || defined(__clang__)
+      bit = (___WORD_WIDTH == 64)
+            ? ___CAST(unsigned int, __builtin_ctzll(word))
+            : ___CAST(unsigned int, __builtin_ctz(word));
+#else
+      bit = 0;
+      while (((word >> bit) & 1u) == 0) bit++;
+#endif
+      word &= word - 1;
+      slo = ___CAST(___SIZE_TS, wi * ___WORD_WIDTH + bit) << ___GC_CARD_SHIFT_WORDS;
+      if (slo >= cur_words)
+        break;
+      shi = slo + ___GC_CARD_WORDS;
+      if (shi > cur_words)
+        shi = cur_words;
+      mark_array(work, body + slo, shi - slo);
+    }
+}
+#endif
+
+static inline void scan_mature_section_overflow_cards
+   (___collector_worker *work,
+    ___msection *sec)
+{
+  ___VOLATILE ___WORD *cbits = section_card_bits(sec);
+  unsigned int half_card_lo =
+    ___CAST(unsigned int, sec->active_offset >> ___GC_CARD_SHIFT_WORDS);
+  unsigned int half_card_hi =
+    half_card_lo + ((___MSECTION_SIZE >> 1) >> ___GC_CARD_SHIFT_WORDS);
+  unsigned int w_lo = half_card_lo / ___WORD_WIDTH;
+  unsigned int w_hi = (half_card_hi + ___WORD_WIDTH - 1) / ___WORD_WIDTH;
+  unsigned int cards[64];
+  int ncards = 0;
+  unsigned int wi;
+  for (wi = w_lo; wi < w_hi; wi++)
+    {
+      ___UWORD word = ___CAST(___UWORD, ___WORD_LOAD_ACQUIRE(&cbits[wi]));
+      while (word != 0)
+        {
+          unsigned int bit;
+#if defined(__GNUC__) || defined(__clang__)
+          bit = (___WORD_WIDTH == 64)
+                ? ___CAST(unsigned int, __builtin_ctzll(word))
+                : ___CAST(unsigned int, __builtin_ctz(word));
+#else
+          bit = 0;
+          while (((word >> bit) & 1u) == 0) bit++;
+#endif
+          word &= word - 1;
+          cards[ncards++] = wi * ___WORD_WIDTH + bit;
+          if (ncards == 64)
+            {
+              scan_mature_card_list(work, sec, cards, ncards);
+              ncards = 0;
+            }
+        }
+    }
+  if (ncards > 0)
+    scan_mature_card_list(work, sec, cards, ncards);
+}
+
 ___HIDDEN void scan_remembered_set(___collector_worker *work)
 {
   ___virtual_machine_state vm = work->vm;
@@ -1406,115 +1952,142 @@ ___HIDDEN void scan_remembered_set(___collector_worker *work)
       return;
     }
 
-  /* 1. Scan dirty mature movable cards. */
+  /* 1. Scan dirty mature movable cards via dynamic atomic work-stealing. */
   if (!g->card_overflow)
     {
-      int run_idx = 0;
-      int pos = 0;
-      while (pos < g->hint_count)
+      ___gc_card_run_task *runs = ___CAST(___gc_card_run_task*, vm->mem.remset_card_runs_);
+      int r_cnt = g->card_run_count;
+      int r = 0;
+      for (;;)
         {
-          ___msection *sec = g->hints[pos].section;
-          int start = pos;
-          while (pos < g->hint_count && g->hints[pos].section == sec)
-            pos++;
-          if ((run_idx % w_cnt) == w_id)
+          if (is_census)
             {
-              /* Bounded 64-card chunked scan (O(1) stack footprint at any core count). */
-              unsigned int cards[64];
-              ___WORD *last_scanned_end = 0;
-              int n = pos - start;
-              int done = 0;
-              while (done < n)
-                {
-                  int chunk = n - done;
-                  int j;
-                  if (chunk > 64) chunk = 64;
-                  for (j = 0; j < chunk; j++)
-                    cards[j] = g->hints[start + done + j].card_index;
-                  scan_mature_card_list_with_state(work, sec, cards, chunk, &last_scanned_end);
-                  done += chunk;
-                }
-              if (!is_census && w_id == 0)
-                vm->mem.minor_dirty_cards_scanned_ += n;
+              if (r >= r_cnt)
+                break;
             }
-          run_idx++;
+          else
+            {
+              r = ___CAST(int, ___FETCH_AND_ADD_WORD(&g->card_run_cursor, 1));
+              if (r >= r_cnt)
+                break;
+            }
+          {
+            ___msection *sec = runs[r].sec;
+            int start = runs[r].start;
+            int n = runs[r].count;
+            unsigned int cards[64];
+            ___WORD *last_scanned_end = 0;
+            int done = 0;
+            while (done < n)
+              {
+                int chunk = n - done;
+                int j;
+                if (chunk > 64) chunk = 64;
+                for (j = 0; j < chunk; j++)
+                  cards[j] = g->hints[start + done + j].card_index;
+                scan_mature_card_list_with_state(work, sec, cards, chunk, &last_scanned_end);
+                done += chunk;
+              }
+          }
+          if (is_census)
+            r++;
         }
     }
   else
     {
-      ___msection *sec;
-      int sec_idx = 0;
+      int nm = vm->mem.nb_msections_mature_;
       if (!is_census && w_id == 0)
         vm->mem.minor_overflow_fallbacks_++;
-      for (sec = vm->mem.the_msections_->head; sec != 0; sec = sec->next)
+      if (vm->mem.mature_sections_ != 0 && nm > 0)
         {
-          if (sec->region_age != ___GC_REGION_MATURE)
-            break;
-          if ((sec_idx % w_cnt) == w_id &&
-              ___WORD_LOAD_ACQUIRE(&sec->card_dirty_any) != 0)
+          int si = 0;
+          for (;;)
             {
-              ___VOLATILE ___WORD *cbits = section_card_bits(sec);
-              unsigned int half_card_lo =
-                ___CAST(unsigned int, sec->active_offset >> ___GC_CARD_SHIFT_WORDS);
-              unsigned int half_card_hi =
-                half_card_lo + ((___MSECTION_SIZE >> 1) >> ___GC_CARD_SHIFT_WORDS);
-              unsigned int w_lo = half_card_lo / ___WORD_WIDTH;
-              unsigned int w_hi = (half_card_hi + ___WORD_WIDTH - 1) / ___WORD_WIDTH;
-              unsigned int cards[64];
-              int ncards = 0;
-              unsigned int wi;
-              for (wi = w_lo; wi < w_hi; wi++)
+              if (is_census)
                 {
-                  ___UWORD word = ___CAST(___UWORD, ___WORD_LOAD_ACQUIRE(&cbits[wi]));
-                  while (word != 0)
-                    {
-                      unsigned int bit;
-#if defined(__GNUC__)
-                      bit = (___WORD_WIDTH == 64)
-                            ? ___CAST(unsigned int, __builtin_ctzll(word))
-                            : ___CAST(unsigned int, __builtin_ctz(word));
-#else
-                      bit = 0;
-                      while (((word >> bit) & 1u) == 0) bit++;
-#endif
-                      word &= word - 1;
-                      cards[ncards++] = wi * ___WORD_WIDTH + bit;
-                      if (ncards == 64)
-                        {
-                          scan_mature_card_list(work, sec, cards, ncards);
-                          if (!is_census && w_id == 0)
-                            vm->mem.minor_dirty_cards_scanned_ += ncards;
-                          ncards = 0;
-                        }
-                    }
+                  if (si >= nm)
+                    break;
                 }
-              if (ncards > 0)
+              else
                 {
-                  scan_mature_card_list(work, sec, cards, ncards);
-                  if (!is_census && w_id == 0)
-                    vm->mem.minor_dirty_cards_scanned_ += ncards;
+                  si = ___CAST(int, ___FETCH_AND_ADD_WORD(&g->overflow_sec_cursor, 1));
+                  if (si >= nm)
+                    break;
                 }
+              {
+                ___msection *sec = vm->mem.mature_sections_[si];
+                if (sec != 0 &&
+                    sec->region_age == ___GC_REGION_MATURE &&
+                    ___WORD_LOAD_ACQUIRE(&sec->card_dirty_any) != 0)
+                  scan_mature_section_overflow_cards(work, sec);
+              }
+              if (is_census)
+                si++;
             }
-          sec_idx++;
-          if (sec == g->old_mature_tail)
-            break;
+        }
+      else
+        {
+          ___msection *sec;
+          int sec_idx = 0;
+          for (sec = vm->mem.the_msections_->head; sec != 0; sec = sec->next)
+            {
+              if (sec->region_age != ___GC_REGION_MATURE)
+                break;
+              if ((sec_idx % w_cnt) == w_id &&
+                  ___WORD_LOAD_ACQUIRE(&sec->card_dirty_any) != 0)
+                scan_mature_section_overflow_cards(work, sec);
+              sec_idx++;
+              if (sec == g->old_mature_tail)
+                break;
+            }
         }
     }
 
-  /* 2. Scan mutated mature still objects. */
+  /* 2. Scan mutated mature still objects via fine-grained dynamic work-stealing. */
   if (___WORD_LOAD_ACQUIRE(&vm->mem.still_dirty_any_) != 0)
     {
-      for (i = w_id; i < g->participant_count; i += w_cnt)
-        {
-          ___processor_state source = ___PSTATE_FROM_PROCESSOR_ID(i, vm);
-          ___WORD *base = ___CAST(___WORD*, source->mem.still_objs_);
-          while (base != 0)
-            {
 #ifndef ___USE_HANDLES
-              if ((base[___STILL_DIRTY] & ___STILL_FLAG_DIRTY) != 0)
+      if (!g->still_tasks_oom)
+        {
+          ___gc_still_scan_task *tasks = ___CAST(___gc_still_scan_task*, vm->mem.remset_still_tasks_);
+          int t_cnt = g->still_task_count;
+          int t = 0;
+          for (;;)
+            {
+              if (is_census)
+                {
+                  if (t >= t_cnt)
+                    break;
+                }
+              else
+                {
+                  t = ___CAST(int, ___FETCH_AND_ADD_WORD(&g->still_task_cursor, 1));
+                  if (t >= t_cnt)
+                    break;
+                }
+              if (tasks[t].card_hi == 0u)
+                scan_mature_object(work, tasks[t].base + ___STILL_BODY, tasks[t].base[___STILL_HEADER]);
+              else
+                scan_mature_still_card_strip(work, tasks[t].base, tasks[t].card_lo, tasks[t].card_hi);
+              if (is_census)
+                t++;
+            }
+        }
+      else
 #endif
-                scan_mature_object(work, base + ___STILL_BODY, base[___STILL_HEADER]);
-              base = ___CAST(___WORD*, base[___STILL_LINK]);
+        {
+          for (i = w_id; i < g->participant_count; i += w_cnt)
+            {
+              ___processor_state source = ___PSTATE_FROM_PROCESSOR_ID(i, vm);
+              ___WORD *base = ___CAST(___WORD*, source->mem.still_objs_);
+              while (base != 0)
+                {
+#ifndef ___USE_HANDLES
+                  if ((base[___STILL_DIRTY] & ___STILL_FLAG_DIRTY) != 0)
+#endif
+                    scan_mature_object(work, base + ___STILL_BODY, base[___STILL_HEADER]);
+                  base = ___CAST(___WORD*, base[___STILL_LINK]);
+                }
             }
         }
     }
@@ -1707,6 +2280,7 @@ ___HIDDEN void finalize_gc_sections(___virtual_machine_state vm)
       if (!g->card_overflow)
         {
           int i;
+          vm->mem.minor_dirty_cards_scanned_ += g->hint_count;
           for (i = 0; i < g->hint_count; i++)
             {
               ___msection *s = g->hints[i].section;
@@ -1736,31 +2310,58 @@ ___HIDDEN void finalize_gc_sections(___virtual_machine_state vm)
       if (___WORD_LOAD_ACQUIRE(&vm->mem.still_dirty_any_) != 0)
         {
 #ifndef ___USE_HANDLES
-          for (p = 0; p < np; p++)
+          if (!g->still_tasks_oom)
             {
-              ___WORD *base = ___CAST(___WORD*, ___PSTATE_FROM_PROCESSOR_ID(p, vm)->mem.still_objs_);
-              while (base != 0)
+              int i;
+              for (i = 0; i < g->dirty_still_count; i++)
                 {
-                  if ((base[___STILL_DIRTY] & ___STILL_FLAG_DIRTY) != 0)
-                    ___WORD_FETCH_AND_RELEASE(
-                      &base[___STILL_DIRTY],
-                      ~___CAST(___WORD, ___STILL_FLAG_DIRTY));
-                  base = ___CAST(___WORD*, base[___STILL_LINK]);
+                  ___WORD *base = vm->mem.dirty_stills_buf_[i];
+                  if (base != 0)
+                    {
+                      if ((base[___STILL_DIRTY] & ___STILL_FLAG_CARD_MAP) != 0)
+                        still_card_clear_all(base);
+                      ___WORD_FETCH_AND_RELEASE(
+                        &base[___STILL_DIRTY],
+                        ~___CAST(___WORD, ___STILL_FLAG_DIRTY));
+                    }
+                }
+            }
+          else
+            {
+              for (p = 0; p < np; p++)
+                {
+                  ___WORD *base = ___CAST(___WORD*, ___PSTATE_FROM_PROCESSOR_ID(p, vm)->mem.still_objs_);
+                  while (base != 0)
+                    {
+                      if ((base[___STILL_DIRTY] & ___STILL_FLAG_DIRTY) != 0)
+                        {
+                          if ((base[___STILL_DIRTY] & ___STILL_FLAG_CARD_MAP) != 0)
+                            still_card_clear_all(base);
+                          ___WORD_FETCH_AND_RELEASE(
+                            &base[___STILL_DIRTY],
+                            ~___CAST(___WORD, ___STILL_FLAG_DIRTY));
+                        }
+                      base = ___CAST(___WORD*, base[___STILL_LINK]);
+                    }
                 }
             }
 #endif
           ___WORD_STORE_RELEASE(&vm->mem.still_dirty_any_, 0);
         }
+      ___WORD_STORE_RELEASE(&vm->mem.still_hints_overflow_any_, 0);
     }
   else
     {
       ___WORD_STORE_RELEASE(&vm->mem.still_dirty_any_, 0);
+      ___WORD_STORE_RELEASE(&vm->mem.still_hints_overflow_any_, 0);
     }
 
   for (p = 0; p < np; p++)
     {
       ___processor_state ps = ___PSTATE_FROM_PROCESSOR_ID(p, vm);
       ps->mem.wb_last_card_lo_ = 0;
+      ps->mem.still_hints_.count = 0;
+      ps->mem.still_hints_.overflow = 0;
       ___gc_card_reset_epoch(&ps->mem.card_hints_, g->epoch + 1, 0, 0, 0);
     }
 

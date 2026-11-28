@@ -1030,12 +1030,12 @@ ___PSDKR)
               int spins = 0;
               while (__atomic_load_n(&life->fast_bar_gen, __ATOMIC_ACQUIRE) == my_gen)
                 {
-                  if (spins < 256)
+                  if (spins < 512)
                     {
                       ___CPU_RELAX();
                       spins++;
                     }
-                  else if (spins < 320)
+                  else if (spins < 544)
                     {
                       ___THREAD_YIELD();
                       spins++;
@@ -1045,7 +1045,7 @@ ___PSDKR)
 #if defined(___USE_POSIX_THREAD_SYSTEM) && !defined(_WIN32)
                       struct timespec ts;
                       ts.tv_sec = 0;
-                      ts.tv_nsec = 50000;
+                      ts.tv_nsec = 20000;
                       nanosleep(&ts, 0);
 #else
                       ___THREAD_YIELD();
@@ -7152,6 +7152,9 @@ ___HIDDEN void setup_dynamic_linking ___PVOID
 
   ___GSTATE->___gc_write_barrier_slow
     = ___gc_write_barrier_slow;
+
+  ___GSTATE->___gc_write_barrier_slow_val
+    = ___gc_write_barrier_slow_val;
 
   ___GSTATE->___gc_write_barrier_range
     = ___gc_write_barrier_range;

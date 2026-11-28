@@ -61,7 +61,11 @@ static inline ___WORD *locate_object_scan_cell
     {
       ___SIZE_TS sdest;
       section = ___gc_find_msection_cached(work, the_msections, header);
+#if defined(__ATOMIC_ACQUIRE)
+      if (!section || !__atomic_load_n(&section->gc_is_dest, __ATOMIC_ACQUIRE)) goto outside;
+#else
       if (!section || !section->gc_is_dest) goto outside;
+#endif
       sdest = section->gc_dest_offset;
       pos=header-section->base-sdest;
       if (pos < 0 || pos >= (___MSECTION_SIZE>>1)) goto outside;
@@ -487,8 +491,13 @@ ___WORD n;)
                               work->census_epoch_ = epoch;
                               source_section = sec;
                             }
+#if defined(__ATOMIC_ACQUIRE)
+                          else if (__atomic_load_n(&sec->gc_is_dest, __ATOMIC_ACQUIRE) &&
+                                   addr - ___CAST(___UWORD, sec->base + sec->gc_dest_offset) < half_bytes)
+#else
                           else if (sec->gc_is_dest &&
                                    addr - ___CAST(___UWORD, sec->base + sec->gc_dest_offset) < half_bytes)
+#endif
                             {
                               work->destination_revisits++;
                               finish_tail(work);

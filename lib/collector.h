@@ -305,6 +305,15 @@ typedef struct ___gc_round_struct
     int has_young_still;
     int card_overflow;
     int hint_count;
+    int fast_minor_pre_nb;
+    int still_hints_overflow;
+    int still_tasks_oom;
+    int dirty_still_count;
+    int still_task_count;
+    ___VOLATILE ___WORD still_task_cursor;
+    int card_run_count;
+    ___VOLATILE ___WORD card_run_cursor;
+    ___VOLATILE ___WORD overflow_sec_cursor;
     ___msection *young_head;
     ___msection *old_mature_tail;
     int promo_tail_count;

@@ -521,7 +521,9 @@
 #define ___STILL_FLAG_MAJOR_MARK0 4
 #define ___STILL_FLAG_MAJOR_MARK1 8
 #define ___STILL_FLAG_GLOBAL 16
-#define ___STILL_MAJOR_COLOR_MASK 0xEC
+#define ___STILL_FLAG_CARD_MAP 32
+#define ___STILL_CARD_MIN_WORDS 512
+#define ___STILL_MAJOR_COLOR_MASK 0xCC
 #define ___STILL_MAJOR_MARK_BIT(epoch) \
   (((epoch) & 1) ? ___STILL_FLAG_MAJOR_MARK1 : ___STILL_FLAG_MAJOR_MARK0)
 
@@ -597,6 +599,57 @@ static inline void amp_drain_reclaimed_still_locked
 #define ___STILL_BODY (5+1)/************/
 #endif
 #define ___STILL_HEADER (___STILL_BODY-1)
+
+#ifndef ___USE_HANDLES
+/* Per-large-still trailing 64-word card bitmap helpers.
+ * For pointer-array still objects (vectors, boxes/values, structures) with
+ * payload_words >= ___STILL_CARD_MIN_WORDS, base[___STILL_LENGTH] stores
+ * ___STILL_BODY + orig_payload_words + b, where b = ceil(orig_payload_words / K)
+ * and K = ___GC_CARD_WORDS * ___WORD_WIDTH (4096 on 64-bit, 2048 on 32-bit).
+ * Because L = orig_payload_words + b maps bijectively to b = (L + K - 1) / (K + 1)
+ * for all orig_payload_words >= 1, the trailing card bitmap base address remains
+ * invariant even if the object header is later shrunk in place. */
+static inline int still_subtype_supports_card_map(int subtype)
+{
+  return (subtype == ___sVECTOR ||
+          subtype == ___sBOXVALUES ||
+          subtype == ___sSTRUCTURE);
+}
+
+static inline ___SIZE_TS still_card_bitmap_words_for_payload(___SIZE_TS payload_words)
+{
+  ___SIZE_TS cards = (payload_words + ___GC_CARD_WORDS - 1) >> ___GC_CARD_SHIFT_WORDS;
+  return (cards + ___WORD_WIDTH - 1) / ___WORD_WIDTH;
+}
+
+static inline ___SIZE_TS still_card_bitmap_words(const ___WORD *base)
+{
+  const ___SIZE_TS k = ___CAST(___SIZE_TS, ___GC_CARD_WORDS) * ___WORD_WIDTH;
+  ___SIZE_TS total = base[___STILL_LENGTH] - ___STILL_BODY;
+  return (total + k - 1) / (k + 1);
+}
+
+static inline ___SIZE_TS still_card_payload_cap(const ___WORD *base)
+{
+  return (base[___STILL_LENGTH] - ___STILL_BODY) - still_card_bitmap_words(base);
+}
+
+static inline ___VOLATILE ___WORD *still_card_bits(___WORD *base)
+{
+  return ___CAST(___VOLATILE ___WORD*,
+                 base + base[___STILL_LENGTH] - still_card_bitmap_words(base));
+}
+
+static inline void still_card_clear_all(___WORD *base)
+{
+  ___SIZE_TS bwords = still_card_bitmap_words(base);
+  ___VOLATILE ___WORD *bits = ___CAST(___VOLATILE ___WORD*,
+                                      base + base[___STILL_LENGTH] - bwords);
+  ___SIZE_TS i;
+  for (i = 0; i < bwords; i++)
+    ___WORD_STORE_RELEASE(&bits[i], 0);
+}
+#endif
 
 static inline int still_subtype_has_pointers(int subtype)
 {

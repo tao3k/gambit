@@ -87,6 +87,18 @@ typedef struct ___gc_card_hint_log_struct
     ___gc_card_hint entries[___GC_CARD_HINT_CAPACITY];
   } ___gc_card_hint_log;
 
+/* Bounded per-processor dirty mature still-object hint buffer.
+ * Records clean-to-dirty transitions once per epoch for O(dirty) Minor GC
+ * root discovery and cleanup, falling back to full list walk on overflow. */
+#define ___GC_STILL_HINT_CAPACITY 32
+
+typedef struct ___gc_still_hint_log_struct
+  {
+    unsigned int count;
+    unsigned int overflow;
+    ___WORD *entries[___GC_STILL_HINT_CAPACITY];
+  } ___gc_still_hint_log;
+
 /* Non-allocating, non-collecting atomic card premark seam.
  * Returns 1 if this call transitioned the card from clean to dirty, 0 if elided
  * (young region) or already dirty. Safe under concurrent SMP mutators. */
@@ -222,7 +234,7 @@ ___ORDERED_WORD_INLINE void ___gc_card_reset_epoch
         ___UWORD ___gwb_hi = ___CAST(___UWORD, ___gwb_p->mem.alloc_heap_limit_); \
         if (___EXPECT_FALSE(___gwb_a - ___gwb_lo >= ___gwb_hi - ___gwb_lo && \
                             ___gwb_a - ___gwb_p->mem.wb_last_card_lo_ >= (___CAST(___UWORD, ___GC_CARD_WORDS) * ___WS))) \
-          ___EXT(___gc_write_barrier_slow)(___gwb_p, (obj), ___gwb_s); \
+          ___EXT(___gc_write_barrier_slow_val)(___gwb_p, (obj), ___gwb_s, ___gwb_v); \
       } \
   } while (0)
 #define ___GC_WRITE_BARRIER_ALWAYS(ps,obj,slot_ptr) \
@@ -466,8 +478,9 @@ ___UWORD src_stack_cache_epoch_;
 ___SIZE_TS src_stack_cache_offset_;
 int src_stack_cache_next_;
 
-/* bounded dirty-card hint buffer and 1-entry fast caches for generational write barrier */
+/* bounded dirty-card and dirty-still hint buffers and 1-entry fast caches */
 ___gc_card_hint_log card_hints_;
+___gc_still_hint_log still_hints_;
 ___msection *wb_last_sec_;
 ___UWORD wb_last_epoch_;
 ___UWORD wb_last_card_lo_;
@@ -656,6 +669,13 @@ int promo_cand_count_;
 int promo_cand_cap_;
 ___msection **promo_cands_;
 ___VOLATILE ___WORD still_dirty_any_;
+___VOLATILE ___WORD still_hints_overflow_any_;
+___WORD **dirty_stills_buf_;
+int dirty_stills_cap_;
+void *remset_still_tasks_;
+int remset_still_tasks_cap_;
+void *remset_card_runs_;
+int remset_card_runs_cap_;
 ___VOLATILE ___WORD card_overflow_any_;
 ___VOLATILE ___WORD force_major_gc_;
 int gen_gc_enabled_;

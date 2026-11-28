@@ -89,7 +89,15 @@ ___SIZE_TS bytes;)
   void *ptr;
   ___WORD *base;
   ___WORD *body;
-  ___SIZE_TS words = ___STILL_BODY + ___WORDS(bytes);
+  ___SIZE_TS payload_words = ___WORDS(bytes);
+  ___SIZE_TS card_words = 0;
+  ___SIZE_TS words;
+#ifndef ___USE_HANDLES
+  if (payload_words >= ___STILL_CARD_MIN_WORDS &&
+      still_subtype_supports_card_map(subtype))
+    card_words = still_card_bitmap_words_for_payload(payload_words);
+#endif
+  words = ___STILL_BODY + payload_words + card_words;
 
 #ifdef CALL_GC_FREQUENTLY
   if (--___gc_calls_to_punt < 0) goto invoke_gc;
@@ -332,7 +340,9 @@ init_still_obj_now:
   base[___STILL_REFCOUNT] = 1;
   base[___STILL_LENGTH] = words;
   base[___STILL_MARK] = 0;
-  base[___STILL_DIRTY] = ___STILL_FLAG_YOUNG;
+  base[___STILL_DIRTY] = ___STILL_FLAG_YOUNG | (card_words > 0 ? ___STILL_FLAG_CARD_MAP : 0);
+  if (card_words > 0)
+    memset(base + words - card_words, 0, ___CAST(___SIZE_T, card_words) * ___WS);
 #endif
   words_still_objs_young += words;
 

@@ -56,10 +56,13 @@ ___PSDKR)
 #ifndef ___USE_HANDLES
           {
             ___virtual_machine_state vm = ___VMSTATE_FROM_PSTATE(___ps);
+            ___WORD keep = base[___STILL_DIRTY] & (___STILL_FLAG_CARD_MAP | ___STILL_FLAG_GLOBAL);
+            if ((keep & ___STILL_FLAG_CARD_MAP) != 0)
+              still_card_clear_all(base);
             if (___WORD_LOAD_RELAXED(&vm->mem.major_phase_) == ___GC_MAJOR_MARKING)
-              base[___STILL_DIRTY] = ___STILL_MAJOR_MARK_BIT(vm->mem.major_epoch_);
+              base[___STILL_DIRTY] = keep | ___STILL_MAJOR_MARK_BIT(vm->mem.major_epoch_);
             else
-              base[___STILL_DIRTY] = 0;
+              base[___STILL_DIRTY] = keep;
           }
 #endif
           promoted_words += base[___STILL_LENGTH];
@@ -113,7 +116,12 @@ ___PSDKR)
       else
         {
 #ifndef ___USE_HANDLES
-          base[___STILL_DIRTY] = 0;
+          {
+            ___WORD keep = base[___STILL_DIRTY] & (___STILL_FLAG_CARD_MAP | ___STILL_FLAG_GLOBAL);
+            if ((keep & ___STILL_FLAG_CARD_MAP) != 0)
+              still_card_clear_all(base);
+            base[___STILL_DIRTY] = keep;
+          }
 #endif
           live_words_still += base[___STILL_LENGTH];
           *last = ___CAST(___WORD,base);
@@ -140,7 +148,12 @@ ___PSDKR)
       else
         {
 #ifndef ___USE_HANDLES
-          young[___STILL_DIRTY] = 0;
+          {
+            ___WORD keep = young[___STILL_DIRTY] & (___STILL_FLAG_CARD_MAP | ___STILL_FLAG_GLOBAL);
+            if ((keep & ___STILL_FLAG_CARD_MAP) != 0)
+              still_card_clear_all(young);
+            young[___STILL_DIRTY] = keep;
+          }
 #endif
           live_words_still += young[___STILL_LENGTH];
           *last = ___CAST(___WORD,young);

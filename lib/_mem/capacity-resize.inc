@@ -363,8 +363,14 @@ ___SIZE_TS requested_words_still;)
       if (___COLLECTION(___vms).is_minor &&
           !major_reclaimed &&
           ___GSTATE->setup_params.max_heap == 0 &&
-          the_msections != 0 && target_nb_sections < the_msections->nb_sections)
-        target_nb_sections = the_msections->nb_sections;
+          the_msections != 0)
+        {
+          int keep_nb = (___COLLECTION(___vms).fast_minor_pre_nb > 0)
+                        ? ___COLLECTION(___vms).fast_minor_pre_nb
+                        : the_msections->nb_sections;
+          if (target_nb_sections < keep_nb)
+            target_nb_sections = keep_nb;
+        }
       if (___GSTATE->setup_params.max_heap == 0 && ___vms->processor_count > 1)
         {
           /* Keep sub-linear shared SMP nursery headroom above normal_overflow_reserve

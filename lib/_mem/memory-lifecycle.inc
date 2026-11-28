@@ -378,6 +378,7 @@ ___processor_state ___ps;)
   ___ps->mem.stack_watermark_shaded_frames_ = 0;
   ___ps->mem.oneshot_rewinds_local_ = 0;
   memset(&___ps->mem.card_hints_, 0, sizeof(___ps->mem.card_hints_));
+  memset(&___ps->mem.still_hints_, 0, sizeof(___ps->mem.still_hints_));
   ___ps->mem.satb_active_ = 0;
   ___ps->mem.satb_count_ = 0;
   ___ps->mem.satb_overflow_ = 0;
@@ -673,6 +674,13 @@ ___virtual_machine_state ___vms;)
       }
   }
   ___vms->mem.still_dirty_any_ = 0;
+  ___vms->mem.still_hints_overflow_any_ = 0;
+  ___vms->mem.dirty_stills_buf_ = 0;
+  ___vms->mem.dirty_stills_cap_ = 0;
+  ___vms->mem.remset_still_tasks_ = 0;
+  ___vms->mem.remset_still_tasks_cap_ = 0;
+  ___vms->mem.remset_card_runs_ = 0;
+  ___vms->mem.remset_card_runs_cap_ = 0;
   ___vms->mem.card_overflow_any_ = 0;
   ___vms->mem.force_major_gc_ = 0;
   {
@@ -970,6 +978,7 @@ ___virtual_machine_state ___vms;)
 
   free_msections (&the_msections);
   mature_radix_cleanup(___vms);
+  remset_buffers_cleanup(___vms);
   if (___vms->mem.mature_sections_ != 0)
     {
       ___FREE_MEM(___vms->mem.mature_sections_);

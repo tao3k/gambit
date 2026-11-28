@@ -1251,6 +1251,12 @@ typedef struct ___global_state_struct
              ___SCMOBJ obj,
              ___WORD *slot_ptr),
             ());
+    void (*___gc_write_barrier_slow_val)
+       ___P((___processor_state ___ps,
+             ___SCMOBJ obj,
+             ___WORD *slot_ptr,
+             ___SCMOBJ val),
+            ());
     void (*___gc_write_barrier_range)
        ___P((___processor_state ___ps,
              ___SCMOBJ obj,

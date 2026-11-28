@@ -350,13 +350,13 @@ ___HIDDEN int plan_copy_round(___processor_state ps, ___SIZE_TS requested_words_
 
   /* Fast O(Y + n) Minor GC admission: when all copied objects come strictly
    * from the Y active young sections and n active processor stacks (no
-   * selective evacuation, no tight max_heap), the physical half-space capacity
-   * of every young section plus active stacks is a sound upper bound on
-   * destination demand (covering both heap objects and captured/suspended
-   * continuation frames in any young section, plus 32-bit align8 padding).
-   * When existing sections already cover that bound (within w sections), skip
-   * the redundant single-threaded full-graph census trace so all w workers
-   * trace and copy in parallel immediately. */
+   * selective evacuation, no tight max_heap, no detached/parked stacks),
+   * sum exact allocated words across heap-bearing young sections (skipping
+   * stack-only sections and reading exact alloc_heap_ptr - alloc_heap_start
+   * on active heap sections) plus 2x active stack words as a strict upper
+   * bound on destination demand. Skip single-threaded full-graph census so
+   * all w workers trace and copy in parallel immediately. */
+  g->fast_minor_pre_nb = 0;
   if (g->is_minor && !g->evac_selective &&
       ___GSTATE->setup_params.max_heap == 0 &&
       the_msections != 0)
@@ -376,12 +376,47 @@ ___HIDDEN int plan_copy_round(___processor_state ps, ___SIZE_TS requested_words_
 
       for (section = g->young_head; section != 0; section = section->next)
         {
+          section_claim *cl = section_claim_at(section, c->source_offset);
           y_secs++;
-          actual_young_words += sec_bound;
+          if (cl->raw_marks != 0 || cl->stack_state == STACK_PARKED)
+            {
+              fast_ok = 0;
+              break;
+            }
+          if (cl->heap_used != 0)
+            {
+              ___SIZE_TS used = sec_bound;
+              if (cl->stack_state == 0)
+                {
+                  int p;
+                  for (p = 0; p < n; p++)
+                    {
+                      ___processor_state pps = round->members[p].owner;
+                      if (pps != 0 &&
+                          pps->mem.heap_msection_ == section &&
+                          pps->mem.stack_msection_ != section &&
+                          pps->mem.alloc_heap_start_ != 0 &&
+                          pps->mem.alloc_heap_ptr_ >= pps->mem.alloc_heap_start_ &&
+                          pps->mem.alloc_heap_ptr_ <= section->base + c->source_offset + half_words)
+                        {
+                          ___SIZE_TS u = pps->mem.alloc_heap_ptr_ - pps->mem.alloc_heap_start_;
+                          if (u > half_words)
+                            u = half_words;
+#if ___WS == 4
+                          used = u + (u >> 1);
+#else
+                          used = u;
+#endif
+                          break;
+                        }
+                    }
+                }
+              actual_young_words += used;
+            }
           if (section == alloc_msection)
             break;
         }
-      for (i = 0; i < n; i++)
+      for (i = 0; i < n && fast_ok; i++)
         {
           int gate = capture_continuation_source(&round->members[i], c->source_offset, &round->resume[i]);
           if (gate != 0)
@@ -390,25 +425,25 @@ ___HIDDEN int plan_copy_round(___processor_state ps, ___SIZE_TS requested_words_
               break;
             }
           total_stack_words += round->resume[i].source_words;
-          if (round->resume[i].source_words > max_stack_words)
-            max_stack_words = round->resume[i].source_words;
+          if (round->resume[i].source_words + ___FRAME_EXTRA_SLOTS + 2 > max_stack_words)
+            max_stack_words = round->resume[i].source_words + ___FRAME_EXTRA_SLOTS + 2;
         }
       if (fast_ok && max_stack_words < capacity)
         {
           ___SIZE_TS upper_small = actual_young_words + 2 * total_stack_words;
-          if (y_secs <= 64 &&
+          if (y_secs <= 1024 &&
               ___gc_copy_section_bound(w, upper_small, max_stack_words, 0,
                                        capacity, ___MSECTION_CHUNK, &k_upper))
             {
               int nm = vm->mem.nb_msections_mature_;
               int need_upper = nm + 2 * n + k_upper;
-              /* Avoid over-expanding the heap on low-survival workloads: take
-               * the O(Y + n) fast path whenever existing sections already cover
-               * the bound, or when young allocation is modest relative to the
-               * mature heap (high-survival old-gen churn). */
+              /* Admit immediately whenever existing sections already cover the
+               * bound or young allocation is substantial (>= 2 half-sections),
+               * leaving tiny idle-VM collections to adaptive worker down-sizing. */
               if (need_upper <= the_msections->nb_sections + w ||
-                  (nm >= 16 && need_upper <= the_msections->nb_sections + nm))
+                  actual_young_words >= (half_words * 2))
                 {
+                  g->fast_minor_pre_nb = the_msections->nb_sections;
                   c->source_words = upper_small;
                   c->destination_words = upper_small;
                   c->small_words = upper_small;
@@ -512,8 +547,14 @@ ___HIDDEN int plan_copy_round(___processor_state ps, ___SIZE_TS requested_words_
         {
           if (g->evac_selective || g->major_action != 0 || g->card_overflow)
             parallel_demand = ___CAST(___SIZE_TS, vm->mem.nb_msections_mature_);
-          else if (g->hint_count >= 16)
-            parallel_demand = ___CAST(___SIZE_TS, g->hint_count / 16);
+          else
+            {
+              if (g->hint_count >= 16)
+                parallel_demand = ___CAST(___SIZE_TS, g->hint_count / 16);
+              if (g->still_task_count > 1 &&
+                  ___CAST(___SIZE_TS, g->still_task_count) > parallel_demand)
+                parallel_demand = ___CAST(___SIZE_TS, g->still_task_count);
+            }
         }
       else if (occupied_words_still > 0 && half_cap > 0)
         {

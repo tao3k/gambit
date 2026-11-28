@@ -503,7 +503,7 @@ ___collector_worker *work;)
       ___SHARED_MEMORY_BARRIER();
 
       unlock_chunk_fifo(work);
-#ifndef ___SINGLE_THREADED_VMS
+#if !defined(___SINGLE_THREADED_VMS) && !(defined(__ATOMIC_ACQ_REL) && defined(__ATOMIC_ACQUIRE))
       if (___WORD_LOAD_ACQUIRE(&scan_workers_count[traverse_weak_refs]) <
           ___COLLECTION(___VMSTATE_FROM_PSTATE(___ps)).worker_count)
         ___CONDVAR_SIGNAL(scan_termination_condvar);
@@ -1242,15 +1242,31 @@ ___HIDDEN void prepare_worker_msection
   unsigned int card_hi =
     ___CAST(unsigned int, (dest_off + end_off) >> ___GC_CARD_SHIFT_WORDS);
 
-  section->gc_dest_offset = dest_off;
-  section->gc_is_dest = (promo_mode == 2) ? 3 : (promo_mode ? 2 : 1);
-  if (promo_mode == 2)
-    section->region_generation++;
   if (promo_mode == 0)
     memset(section->base + ___MSECTION_SIZE, 0,
            ___msection_scan_words(___MSECTION_SIZE) * ___WS);
   if (card_lo < card_hi)
     memset(starts + card_lo, ___GC_CARD_NO_OBJ_START, card_hi - card_lo);
+  {
+    unsigned char new_dest = (promo_mode == 2) ? 3 : (promo_mode ? 2 : 1);
+#if defined(__ATOMIC_RELAXED) && defined(__ATOMIC_RELEASE)
+    if (__atomic_load_n(&section->gc_is_dest, __ATOMIC_RELAXED) == 0)
+      {
+        section->gc_dest_offset = dest_off;
+        if (promo_mode == 2)
+          section->region_generation++;
+        __atomic_store_n(&section->gc_is_dest, new_dest, __ATOMIC_RELEASE);
+      }
+#else
+    if (section->gc_is_dest == 0)
+      {
+        section->gc_dest_offset = dest_off;
+        if (promo_mode == 2)
+          section->region_generation++;
+        section->gc_is_dest = new_dest;
+      }
+#endif
+  }
 
   if (promo_mode == 1)
     {

@@ -1063,6 +1063,12 @@ ___IMP_FUNC(void,___gc_write_barrier_slow)
          ___SCMOBJ obj,
          ___WORD *slot_ptr),
         ());
+___IMP_FUNC(void,___gc_write_barrier_slow_val)
+   ___P((___processor_state ___ps,
+         ___SCMOBJ obj,
+         ___WORD *slot_ptr,
+         ___SCMOBJ val),
+        ());
 ___IMP_FUNC(void,___gc_write_barrier_range)
    ___P((___processor_state ___ps,
          ___SCMOBJ obj,
@@ -1162,6 +1168,12 @@ extern void ___gc_write_barrier_slow
    ___P((___processor_state ___ps,
          ___SCMOBJ obj,
          ___WORD *slot_ptr),
+        ());
+extern void ___gc_write_barrier_slow_val
+   ___P((___processor_state ___ps,
+         ___SCMOBJ obj,
+         ___WORD *slot_ptr,
+         ___SCMOBJ val),
         ());
 extern void ___gc_write_barrier_range
    ___P((___processor_state ___ps,

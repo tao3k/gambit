@@ -26,7 +26,7 @@ ___collector_worker *work;)
 
 #ifndef ___SINGLE_THREADED_VMS
 
-#define ___GC_SCAN_STEAL_WORK_CYCLES 64
+#define ___GC_SCAN_STEAL_WORK_CYCLES 128
 
   if (np <= 1)
     return;
@@ -63,12 +63,12 @@ ___collector_worker *work;)
           int wspins = 0;
           while (__atomic_load_n(workers_count, __ATOMIC_ACQUIRE) != 0)
             {
-              if (wspins < 128)
+              if (wspins < 512)
                 {
                   ___CPU_RELAX();
                   wspins++;
                 }
-              else if (wspins < 192)
+              else if (wspins < 544)
                 {
                   ___THREAD_YIELD();
                   wspins++;
@@ -78,7 +78,7 @@ ___collector_worker *work;)
 #if defined(___USE_POSIX_THREAD_SYSTEM) && !defined(_WIN32)
                   struct timespec ts;
                   ts.tv_sec = 0;
-                  ts.tv_nsec = 50000;
+                  ts.tv_nsec = 20000;
                   nanosleep(&ts, 0);
 #else
                   ___THREAD_YIELD();
